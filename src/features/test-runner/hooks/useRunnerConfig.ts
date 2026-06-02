@@ -3,7 +3,7 @@
  * Extracted from TestRunner.tsx to reduce component size and isolate config concerns.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
@@ -57,6 +57,8 @@ export interface UseRunnerConfigResult {
   setAutoReport: React.Dispatch<React.SetStateAction<boolean>>;
   autoReportFormat: ReportOptions['format'];
   setAutoReportFormat: React.Dispatch<React.SetStateAction<ReportOptions['format']>>;
+  kafkaResultsPublish: KafkaResultsPublishConfig | undefined;
+  setKafkaResultsPublish: React.Dispatch<React.SetStateAction<KafkaResultsPublishConfig | undefined>>;
   configLoaded: boolean;
 }
 
@@ -87,6 +89,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
   const [maxErrorRate, setMaxErrorRate] = useState(50);
   const [autoReport, setAutoReport] = useState(false);
   const [autoReportFormat, setAutoReportFormat] = useState<ReportOptions['format']>('html');
+  const [kafkaResultsPublish, setKafkaResultsPublish] = useState<KafkaResultsPublishConfig | undefined>(undefined);
   const [configLoaded, setConfigLoaded] = useState(false);
 
   // Load config from storage when context key changes
@@ -126,6 +129,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       setMaxErrorRate(cfg.maxErrorRate);
       setAutoReport(cfg.autoReport);
       setAutoReportFormat(cfg.autoReportFormat);
+      setKafkaResultsPublish(cfg.kafkaResultsPublish);
       setConfigLoaded(true);
     });
   }, [configContextKey]);
@@ -156,11 +160,12 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       maxErrorRate,
       autoReport,
       autoReportFormat,
+      kafkaResultsPublish,
     }, configContextKey);
   }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
     skipValidation, skipAssertions, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
     loadProfile, arrivalRate, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
-    maxErrorRate, autoReport, autoReportFormat]);
+    maxErrorRate, autoReport, autoReportFormat, kafkaResultsPublish]);
 
   return {
     concurrency, setConcurrency,
@@ -185,6 +190,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     maxErrorRate, setMaxErrorRate,
     autoReport, setAutoReport,
     autoReportFormat, setAutoReportFormat,
+    kafkaResultsPublish, setKafkaResultsPublish,
     configLoaded,
   };
 }

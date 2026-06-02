@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace, Microservice, GlobalAuthProfile, SlaTarget } from '../../shared/types';
-import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
+import type { Workflow, WorkflowFolder, WebhookTriggerNodeData, KafkaConsumeNodeData } from '../workflow/types/workflow';
+import { resolveKafkaConsumeLoadPolicy } from '../workflow/engine/kafkaLoadPolicy';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
 import WorkflowPicker from './components/WorkflowPicker';
@@ -463,6 +464,28 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     await fireWebhook(correlationId, resolvedPayload, webhookPath);
   }, [selectedWorkflow]);
 
+  // ── Phase 7C: Kafka load policy banners ──────────────────────────────────
+  // WorkflowRunner always runs as 'workflow' executionMode — compute banners
+  // against that fixed mode so warnings reflect what will actually happen.
+  const kafkaLoadBanners = useMemo(() => {
+    const blockNodes: string[] = [];
+    const infoNodes: string[] = [];
+    if (selectedWorkflow) {
+      for (const node of selectedWorkflow.nodes) {
+        if (node.type !== 'kafkaConsume') continue;
+        const consumeMode = (node.data as KafkaConsumeNodeData).loadTestBehavior?.mode;
+        const label = (node.data as { label?: string }).label ?? node.id;
+        const outcome = resolveKafkaConsumeLoadPolicy('workflow', consumeMode);
+        if (outcome.decision === 'block') {
+          blockNodes.push(label);
+        } else if (outcome.fallbackMode !== undefined) {
+          infoNodes.push(label);
+        }
+      }
+    }
+    return { blockNodes, infoNodes };
+  }, [selectedWorkflow]);
+
   const hasLiveProgress = isRunning || liveSummary;
   const showProgress = hasLiveProgress || (!isRunning && savedProgress);
 
@@ -679,6 +702,28 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
               namePrefix="workflow-runner"
             />
           </div>
+          )}
+
+          {/* Kafka load policy banners (Phase 7C) — shown before run button when relevant.
+              Only displayed in non-webhook or webhook-single mode (same guard as RunnerExecutionConfig).
+              Priority: block > info (only one level shown at a time per plan spec). */}
+          {(!isWebhookTriggered || webhookRunMode === 'single') && kafkaLoadBanners.blockNodes.length > 0 && (
+            <div className="kafka-load-warning--block">
+              <strong>⛔ Cannot run load test:</strong>{' '}
+              {kafkaLoadBanners.blockNodes.length === 1
+                ? <><strong>{kafkaLoadBanners.blockNodes[0]}</strong> is configured with <strong>wait-for-real</strong> mode, which blocks workflow load tests. Edit the node and change Load Test Behavior to <strong>auto-resume</strong> or <strong>synthetic-inject</strong>.</>
+                : <>{kafkaLoadBanners.blockNodes.length} kafkaConsume nodes use <strong>wait-for-real</strong> mode — change them to <strong>auto-resume</strong> or <strong>synthetic-inject</strong>.</>
+              }
+            </div>
+          )}
+          {(!isWebhookTriggered || webhookRunMode === 'single') && kafkaLoadBanners.blockNodes.length === 0 && kafkaLoadBanners.infoNodes.length > 0 && (
+            <div className="kafka-load-info">
+              <strong>ℹ Auto-resume:</strong>{' '}
+              {kafkaLoadBanners.infoNodes.length === 1
+                ? <><strong>{kafkaLoadBanners.infoNodes[0]}</strong> has no load test behavior set — it will skip the consume and continue (<strong>auto-resume</strong> default) during load tests.</>
+                : <>{kafkaLoadBanners.infoNodes.length} kafkaConsume nodes have no load test behavior set — they will auto-resume (skip consume) during load tests.</>
+              }
+            </div>
           )}
 
           {/* Run/Stop buttons */}

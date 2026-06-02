@@ -4,10 +4,11 @@
  * with iterationIndex and workflowNodeId for per-iteration and per-step metrics.
  */
 
-import type { Workflow, HttpNodeData } from '../types/workflow';
+import type { Workflow, HttpNodeData, KafkaConsumeNodeData } from '../types/workflow';
 import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import type { KafkaNodeOperations } from './graphRunnerNodeHandlerContext';
+import { resolveKafkaConsumeLoadPolicy } from './kafkaLoadPolicy';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 
@@ -91,7 +92,19 @@ export async function runGraphLoad(
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
   const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth, kafkaOperations } = opts;
-  
+
+  // ── Phase 7B: Pre-run Kafka load policy guard ──────────────────────────
+  // Fail fast before any iteration machinery starts if a kafkaConsume node
+  // is configured with a mode that is incompatible with workflow load tests.
+  for (const node of workflow.nodes) {
+    if (node.type !== 'kafkaConsume') continue;
+    const consumeMode = (node.data as KafkaConsumeNodeData).loadTestBehavior?.mode;
+    const outcome = resolveKafkaConsumeLoadPolicy('workflow', consumeMode);
+    if (outcome.decision === 'block') {
+      throw new Error(outcome.message ?? `Kafka consume node "${(node.data as { label?: string }).label ?? node.id}" cannot run in workflow load test mode`);
+    }
+  }
+
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
   let completedIterations = 0;

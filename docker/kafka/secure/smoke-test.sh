@@ -129,6 +129,19 @@ run_scenario_s1() {
 
   if [[ "$ok" == "true" ]]; then
     pass "Connected with SCRAM-SHA-256 (admin superuser)"
+    local state cluster_id
+    state="$(echo "$connect_response" | jq -r '.data.status.state // ""' 2>/dev/null || echo '')"
+    cluster_id="$(echo "$connect_response" | jq -r '.data.status.clusterId // ""' 2>/dev/null || echo '')"
+    if [[ "$state" == "connected" ]]; then
+      pass "Status state is 'connected'"
+    else
+      fail "Expected state=connected but got state=$state"
+    fi
+    if [[ "$cluster_id" == "secure-admin-$SMOKE_RUN_ID" ]]; then
+      pass "Status clusterId matches request"
+    else
+      fail "Expected clusterId=secure-admin-$SMOKE_RUN_ID but got clusterId=$cluster_id"
+    fi
   else
     local error_code
     error_code="$(echo "$connect_response" | jq -r '.error.code // ""' 2>/dev/null || echo '')"
@@ -155,6 +168,19 @@ run_scenario_s2() {
 
   if [[ "$ok" == "true" ]]; then
     pass "Connected with SCRAM-SHA-256 (username=$SECURE_USERNAME)"
+    local state cluster_id
+    state="$(echo "$connect_response" | jq -r '.data.status.state // ""' 2>/dev/null || echo '')"
+    cluster_id="$(echo "$connect_response" | jq -r '.data.status.clusterId // ""' 2>/dev/null || echo '')"
+    if [[ "$state" == "connected" ]]; then
+      pass "Status state is 'connected'"
+    else
+      fail "Expected state=connected but got state=$state"
+    fi
+    if [[ "$cluster_id" == "secure-scram-$SMOKE_RUN_ID" ]]; then
+      pass "Status clusterId matches request"
+    else
+      fail "Expected clusterId=secure-scram-$SMOKE_RUN_ID but got clusterId=$cluster_id"
+    fi
   else
     local error_code
     error_code="$(echo "$connect_response" | jq -r '.error.code // ""' 2>/dev/null || echo '')"
@@ -235,6 +261,10 @@ run_scenario_s5() {
   local cluster_id="secure-lifecycle-$SMOKE_RUN_ID"
   local smoke_key="smoke-key-$SMOKE_RUN_ID"
   local smoke_trace="trace-$SMOKE_RUN_ID"
+  # Use the well-known pre-created topic (no auto-creation overhead).
+  # The unique key+traceId filter ensures we always match the current run's
+  # message regardless of how many messages have accumulated from previous runs.
+  local smoke_topic="redfireforge.debug.consume"
 
   # Connect
   local connect_response
@@ -261,6 +291,18 @@ run_scenario_s5() {
     local topic_count
     topic_count="$(echo "$topics_response" | jq -r '.data.topics | length' 2>/dev/null || echo '0')"
     pass "Listed topics (count=$topic_count)"
+    if [[ "$topic_count" -ge 1 ]]; then
+      pass "At least one topic returned"
+    else
+      fail "Expected at least one topic but got 0"
+    fi
+    local has_debug_topic
+    has_debug_topic="$(echo "$topics_response" | jq -r '[.data.topics[].name] | contains(["redfireforge.debug.consume"])' 2>/dev/null || echo 'false')"
+    if [[ "$has_debug_topic" == "true" ]]; then
+      pass "Topic 'redfireforge.debug.consume' exists on broker"
+    else
+      fail "Expected topic 'redfireforge.debug.consume' but it was not found in topic list"
+    fi
   else
     fail "Topics list failed: $topics_response"
   fi
@@ -268,7 +310,7 @@ run_scenario_s5() {
   # Produce
   local produce_response
   produce_response="$(request POST /api/kafka/produce \
-    "{\"topic\":\"redfireforge.debug.consume\",\"messages\":[{\"key\":\"$smoke_key\",\"value\":\"{\\\"kind\\\":\\\"secure-smoke\\\",\\\"status\\\":\\\"ok\\\",\\\"runId\\\":\\\"$SMOKE_RUN_ID\\\"}\",\"headers\":{\"traceId\":\"$smoke_trace\",\"source\":\"secure-smoke\",\"env\":\"local\"}}]}" \
+    "{\"topic\":\"$smoke_topic\",\"messages\":[{\"key\":\"$smoke_key\",\"value\":\"{\\\"kind\\\":\\\"secure-smoke\\\",\\\"status\\\":\\\"ok\\\",\\\"runId\\\":\\\"$SMOKE_RUN_ID\\\"}\",\"headers\":{\"traceId\":\"$smoke_trace\",\"source\":\"secure-smoke\",\"env\":\"local\"}}]}" \
     2>/dev/null || echo '{}')"
 
   local produce_ok
@@ -276,23 +318,48 @@ run_scenario_s5() {
 
   if [[ "$produce_ok" == "true" ]]; then
     pass "Produced message to redfireforge.debug.consume"
+    local sent_count
+    sent_count="$(echo "$produce_response" | jq -r '.data.sentCount // 0' 2>/dev/null || echo '0')"
+    if [[ "$sent_count" -eq 1 ]]; then
+      pass "Produce sentCount=1"
+    else
+      fail "Expected sentCount=1 but got sentCount=$sent_count"
+    fi
   else
     fail "Produce failed: $produce_response"
     disconnect_broker
     return
   fi
 
-  # Consume
+  # Consume — 20 s timeout accommodates the SASL consumer-group join latency
+  # (JoinGroup + SyncGroup + OffsetFetch on a 3-partition topic) plus scanning
+  # through any messages from previous smoke runs before the filter hits ours.
   local consume_response
   consume_response="$(request POST /api/kafka/consume-once \
-    "{\"topic\":\"redfireforge.debug.consume\",\"groupId\":\"$SMOKE_RUN_ID\",\"fromBeginning\":true,\"timeoutMs\":8000,\"maxMessages\":1,\"filter\":{\"keyEquals\":\"$smoke_key\",\"headersMatch\":{\"source\":\"secure-smoke\",\"traceId\":\"$smoke_trace\"}}}" \
+    "{\"topic\":\"$smoke_topic\",\"groupId\":\"$SMOKE_RUN_ID\",\"fromBeginning\":true,\"timeoutMs\":20000,\"maxMessages\":1,\"filter\":{\"keyEquals\":\"$smoke_key\",\"headersMatch\":{\"source\":\"secure-smoke\",\"traceId\":\"$smoke_trace\"}}}" \
     2>/dev/null || echo '{}')"
 
-  local consumed_count
+  local consumed_count timed_out
   consumed_count="$(echo "$consume_response" | jq -r '.data.messages | length' 2>/dev/null || echo '0')"
+  # NOTE: jq's // alternative operator treats boolean false as "absent", so
+  # '.data.timedOut // true' would incorrectly return true when timedOut=false.
+  # Use an explicit conditional to safely extract the boolean as a string.
+  timed_out="$(echo "$consume_response" | jq -r 'if .data.timedOut == false then "false" else "true" end' 2>/dev/null || echo 'true')"
 
   if [[ "$consumed_count" -ge 1 ]]; then
     pass "Consumed message back (secure broker round-trip confirmed)"
+    if [[ "$timed_out" == "false" ]]; then
+      pass "Consume completed before timeout (timedOut=false)"
+    else
+      fail "Consume timed out before receiving message (timedOut=true)"
+    fi
+    local msg_run_id
+    msg_run_id="$(echo "$consume_response" | jq -r '.data.messages[0].value' 2>/dev/null | jq -r '.runId // ""' 2>/dev/null || echo '')"
+    if [[ "$msg_run_id" == "$SMOKE_RUN_ID" ]]; then
+      pass "Consumed message body contains correct runId"
+    else
+      fail "Expected message runId=$SMOKE_RUN_ID but got runId=$msg_run_id"
+    fi
   else
     fail "No message received from secure broker"
   fi
@@ -322,10 +389,15 @@ run_scenario_s6() {
   error_code="$(echo "$connect_response" | jq -r '.error.code // ""' 2>/dev/null || echo '')"
 
   if [[ "$ok" == "false" ]]; then
-    pass "Very short timeout correctly rejected connection (code=$error_code)"
+    pass "Very short timeout correctly rejected connection (ok=false)"
+    if [[ "$error_code" == "KAFKA_CONNECT_TIMEOUT" ]]; then
+      pass "Error code is KAFKA_CONNECT_TIMEOUT — timeout correctly classified"
+    else
+      fail "Expected KAFKA_CONNECT_TIMEOUT but got code=$error_code"
+    fi
   else
-    # Some brokers may still succeed with 1ms timeout if they are local and very fast
-    pass "Connection succeeded despite 1ms timeout (broker is extremely fast locally — acceptable)"
+    # With a loopback broker, 1ms may still succeed — treat as acceptable but warn
+    pass "Connection succeeded despite 1ms timeout (loopback broker — acceptable)"
   fi
 
   disconnect_broker

@@ -4,7 +4,7 @@
 > Created: 2026-05-21
 > Re-evaluated: 2026-05-31
 > Discussion sync updated: 2026-05-31
-> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete)
+> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation unit tests complete — broker-level scenarios pending)
 
 ---
 
@@ -1026,6 +1026,57 @@ Mockup alignment references for implemented and upcoming Kafka UI:
 - future publish/consume and workflow surfaces:
   - `docs/mockups/kafka-message-studio.html`
   - `docs/mockups/kafka-workflow-integration.html`
+
+### AppHeader Kafka Connection Indicator Implementation Notes (2026-06-01)
+
+- Created `src/app/components/KafkaConnectionIndicator.tsx`:
+  - pure `deriveIndicatorStatus()` helper maps connection snapshot + hasClusters to one of: connected, connecting, error, disconnected, hidden
+  - renders a compact button with colored status dot and "Kafka" label
+  - hidden when no clusters are configured; visible as soon as at least one cluster exists
+  - click navigates to the `kafka-settings` tab
+  - accessibility: `aria-label` with full status description, `title` tooltip, `type="button"`, `aria-hidden` on decorative dot
+- Added CSS in `src/styles/base.css`:
+  - `.kafka-connection-indicator` base button with border/background/transition states
+  - status-specific border tinting: green (connected), amber (connecting), red (error)
+  - `.kafka-dot` colored circle with `box-shadow` glow and `@keyframes kafka-pulse` animation for connecting state
+  - focus-visible outline for keyboard accessibility
+- Integrated into `src/app/components/AppHeader.tsx`:
+  - new props: `kafkaConnection`, `kafkaClusterName`, `kafkaHasClusters`, `onNavigateToKafkaSettings`
+  - indicator placed between service selector and theme picker
+- Lifted `useKafkaState()` to `src/app/App.tsx` (single instance) for shared state:
+  - App passes `kafkaState.connection`, `kafkaState.selectedCluster?.name`, `kafkaState.clusters.length > 0`, and `() => setActiveTab('kafka-settings')` to AppHeader
+  - `KafkaSettingsPage` refactored to receive `kafkaState: UseKafkaStateReturn` as a prop
+  - eliminates dual-instance desync between header indicator and settings page
+- Refactored `src/features/kafka/KafkaSettingsPage.test.tsx`:
+  - removed `vi.mock('../../app/hooks/useKafkaState')` in favor of direct prop passing via `renderPage(state)` / `rerenderPage(rerender, state)` helpers
+  - all 25 existing tests continue passing without behavioral changes
+- Added `src/app/components/KafkaConnectionIndicator.test.tsx`:
+  - 5 unit tests for `deriveIndicatorStatus` covering each state mapping
+  - 8 component tests covering render/hidden logic, click navigation, cluster name fallback, accessibility attributes, and dot CSS classes
+- Validation:
+  - `npx tsc -b --noEmit` — zero errors
+  - `npx vitest run src/app/components/KafkaConnectionIndicator.test.tsx src/features/kafka/KafkaSettingsPage.test.tsx src/features/kafka/kafkaClusterForm.test.ts src/app/hooks/useKafkaState.test.ts` — 87 tests passed
+
+### Secure-Profile Presets and Docker Smoke Implementation Notes (2026-06-01)
+
+- Created secure Redpanda Docker profile at `docker/kafka/secure/docker-compose.yml`:
+  - SASL enabled with `admin` superuser for cluster management
+  - Init container creates `redfireforge-app` user (SCRAM-SHA-256), test topics, and topic/consumer-group ACLs
+  - Non-conflicting port mapping (19093/18083/19645) allows running alongside plaintext profile
+- Created `docker/kafka/env/secure.env.example` documenting all required environment variables
+- Created connection presets module at `src/shared/kafka/kafkaConnectionPresets.ts`:
+  - 6 curated presets: local-plaintext, local-sasl-plain, local-sasl-scram256, local-sasl-scram512, local-sasl-tls, local-tls-strict
+  - each preset provides a complete template config with empty credentials for SASL presets
+  - utility functions: `getPresetById`, `getPresetsByCategory`, `applyPreset` (generates clusterId + timestamps), `presetRequiresCredentials`, `presetRequiresTlsCert`
+  - designed for future integration into the KafkaSettingsPage "from preset" create flow
+- Created secure profile smoke test at `docker/kafka/secure/smoke-test.sh`:
+  - 6 scenarios covering SASL/PLAIN, SCRAM-SHA-256, invalid credentials (auth error), invalid broker (network error), full produce/consume lifecycle, and timeout edge case
+  - same structured pass/fail/skip reporting pattern as the P8C broker scenarios script
+- Extended `src-server/kafka/kafka-docker-assets.test.ts` with 4 additional assertions for secure profile asset existence and content
+- Added 18 unit tests in `src/shared/kafka/kafkaConnectionPresets.test.ts` covering preset structure, lookup, application, and requirement detection
+- Validation:
+  - `npx tsc -b --noEmit` — zero errors
+  - `npx vitest run src/shared/kafka/kafkaConnectionPresets.test.ts src-server/kafka/kafka-docker-assets.test.ts src/shared/kafka/kafkaClient.test.ts src/features/kafka/kafkaClusterForm.test.ts src/features/kafka/KafkaSettingsPage.test.tsx` — 82 tests passed
 
 ### Phase 3A Implementation Notes (2026-05-30)
 
@@ -2238,6 +2289,8 @@ Critical constraints discovered during re-review:
 
 #### Phase 8A - Publish contract and settings
 
+**Status: ✅ Complete — implemented 2026-06-01, branch `feature/kafka-integration`**
+
 Goal: define what gets published and how users enable it.
 
 Implementation steps:
@@ -2248,7 +2301,7 @@ Implementation steps:
 
 Detailed implementation checklist:
 
-- add publish-specific types to **`src/shared/types/index.ts`** (NOT `src-server/kafka/contracts.ts` — client code cannot import from `src-server/`):
+- add publish-specific types to **`src/shared/types/kafka.ts`** (NOT `src/shared/types/index.ts` directly and NOT `src-server/kafka/contracts.ts` — `kafka.ts` already contains all client-side Kafka types and is re-exported via `export * from './kafka'` at line 453 of `index.ts`, so new types become importable from `'..../shared/types'` without any change to `index.ts`; client code cannot import from `src-server/`):
   - `KafkaResultsPublishConfig`: `{ enabled: boolean; clusterId: string; topic: string }` — `clusterId` is required because `KafkaProduceRequest.clusterId` is optional but publish must always target a specific cluster
   - `KafkaRunSummaryEnvelope`: `{ schemaVersion: string; runId: string; timestamp: number; executionMode: ExecutionMode; summary: Pick<TestSummary, 'totalRequests' | 'successfulRequests' | 'failedRequests' | 'errorRate' | 'avgResponseTime' | 'p95ResponseTime' | 'p99ResponseTime' | 'totalDurationMs' | 'tps'>; projectName?: string; envName?: string; svcName?: string; workflowName?: string }` with `schemaVersion` starting at `'1.0'` — notes: (a) use `executionMode: ExecutionMode` (not `string`) to match the union type used everywhere in the codebase; (b) **do NOT include `featureGroupName?`** — `TestRun` has no `featureGroupName` field, and `TestConfig` has no `featureGroupName`/`groupName` fields either (those fields live on `RequestResult`); a single run can span multiple feature groups so no run-level group label exists; (c) `svcName?` from `testRun.svcName` and `workflowName?` from `testRun.workflowName` are the correct optional labels; (d) the `Pick` fields above cover the core metrics required by downstream consumers — do not reduce them
   - `KafkaPublishOutcome`: `{ status: 'published' | 'failed' | 'skipped'; retryCount: number; errorCode?: string; durationMs: number }` — used for diagnostics only, never surfaced as run status
@@ -2259,7 +2312,23 @@ Detailed implementation checklist:
 - update **`src/features/test-runner/hooks/runnerConfigDefaults.test.ts`** to cover the new field: (a) `resolveLoadedConfig` preserves a valid `kafkaResultsPublish` object from saved config; (b) `resolveLoadedConfig` passes through `undefined` when the field is absent from saved config (no default value — the field is opt-in)
 - update **`src/features/test-runner/hooks/useRunnerConfig.test.ts`** to cover: (a) `kafkaResultsPublish` is restored from saved config; (b) `kafkaResultsPublish` is saved when it changes; (c) `kafkaResultsPublish` defaults to `undefined` when no saved config exists; (d) the hook exposes `kafkaResultsPublish` and `setKafkaResultsPublish` in its return value
 
+##### Implementation Notes — Phase 8A (completed 2026-06-01, commit `616dc96`)
+
+- **Types location**: Added to `src/shared/types/kafka.ts` (not `src/shared/types/index.ts`). The file already follows the convention of re-exporting via `export * from './kafka'` at line 453 of `index.ts`, so no change to `index.ts` was needed.
+- **`executionMode` import**: Used `import('./runner-config').ExecutionMode` as an inline type import inside `kafka.ts` to avoid a circular-import path — `ExecutionMode` lives in `runner-config.ts`, which is in `src/features/`, not `src/shared/`.
+- **`featureGroupName` absent by design**: `TestRun` has no `featureGroupName` field; `TestConfig` has no group label either (those live on `RequestResult`). A single run spans multiple feature groups, so no run-level group label exists. The envelope intentionally omits this field.
+- **`kafkaResultsPublish` pass-through in `resolveLoadedConfig`**: No default value — the field is opt-in and `undefined` by default. `resolveLoadedConfig` passes it through unchanged from saved config (no coercion applied).
+- **`ResolvedConfig` updated**: Both `RunnerConfig` and `ResolvedConfig` in `runnerConfigDefaults.ts` were extended. Failing to extend `ResolvedConfig` would silently drop the field on config reload.
+- **Success Criteria** (all met):
+  - [x] `KafkaResultsPublishConfig`, `KafkaRunSummaryEnvelope`, `KafkaPublishOutcome` types defined in `src/shared/types/kafka.ts`
+  - [x] `kafkaResultsPublish` in `RunnerConfig`, `ResolvedConfig`, and `resolveLoadedConfig` pass-through
+  - [x] `useRunnerConfig` exposes `kafkaResultsPublish` state and `setKafkaResultsPublish` setter, persists to storage
+  - [x] 49 tests pass (15 new in `kafkaPublishTypes.test.ts`, 4 new in `runnerConfigDefaults.test.ts`, 5 new in `useRunnerConfig.test.ts` + 1 updated setter test)
+  - [x] `npx tsc --noEmit` — 0 errors
+
 #### Phase 8B - Publish-on-completion runtime
+
+**Status: ✅ Complete — implemented 2026-06-01, branch `feature/kafka-integration`**
 
 Goal: send summary events without destabilizing primary execution flows.
 
@@ -2274,13 +2343,35 @@ Detailed implementation checklist:
 - create **`src/shared/kafka/kafkaResultsPublisher.ts`** (CLIENT-SIDE, in `src/shared/kafka/` alongside existing `kafkaClient.ts` — NOT `src-server/`): a dedicated publisher function that assembles `KafkaRunSummaryEnvelope` from a completed `TestRun`, serializes it to JSON, and calls **`dispatchKafkaOperation('produce', request)`** from `kafkaClient.ts` (reuses the existing client-side dispatch path — no new server endpoint needed, no server-to-self HTTP call); constructs a produce request literal matching `KafkaProduceRequest`'s shape inline (cannot import `KafkaProduceRequest` from `src-server/kafka/contracts.ts` — use the inline-type pattern established in `src/shared/kafka/buildKafkaNodeOperations.ts`); **error handling pattern**: `dispatchKafkaOperation`'s default transport (`parseEnvelope` in `kafkaClient.ts`) throws `KafkaClientError` when the server returns `!ok` — it never returns a failed envelope to the caller. Do NOT check `.ok` after awaiting; instead wrap the call in `try/catch (e)` and handle `KafkaClientError` (retryable flag on the error) and unknown errors separately. When the call succeeds, access `envelope.data` directly.
 - implement bounded retry in **`kafkaResultsPublisher.ts`**: **max 3 retries**, **2 000 ms base delay** (fixed, not exponential), **10 000 ms total timeout cap**; idempotency rule: **only retry when the previous attempt threw `KafkaClientError` with `retryable: true`**; if a prior attempt completed without throwing, treat it as published and return immediately — do not re-produce based on downstream ambiguity alone
 - ensure **`kafkaResultsPublisher.ts`** returns `KafkaPublishOutcome` and never throws; all caught errors (both `KafkaClientError` and generic `Error`) are returned as `{ status: 'failed', ... }`
-- hook publish into `useTestExecution.ts` at **all three** save call sites: (1) `saveTestRun` at line 393 in `execute()`, (2) `saveTestRun` at line 560 in `startExternalExecution()`, and (3) `forceSaveTestRun` at line 442 in `confirmSavePendingRun()` — the quota-override save completes a valid run and should publish too; skipping it creates a silent coverage gap; publish immediately after each save succeeds; `quotaError` from save does not block publish
-- **`kafkaResultsPublish` access pattern — use a hook-level parameter, NOT `meta` threading**: add `publishConfig?: KafkaResultsPublishConfig` as an optional parameter to `useTestExecution(publishConfig?)` (currently `useTestExecution()` takes no arguments; there are exactly 2 call sites); all three save callbacks (`execute`, `startExternalExecution`, `confirmSavePendingRun`) naturally close over `publishConfig` from the hook scope — no per-call threading needed; call site changes: (a) in `useRunnerOrchestration.ts` change `useTestExecution()` → `useTestExecution(config.kafkaResultsPublish)` where `config` is from `useRunnerConfig()` state already held in that hook; (b) `WorkflowRunner.tsx` calls `useTestExecution()` with no argument — leave it unchanged, webhook/external-execution runs do not publish to Kafka in Phase 8B (the `startExternalExecution` path is exclusively used by `WorkflowRunner.tsx` which uses `useWorkflowRunnerConfig()`, not `useRunnerConfig()`, so `kafkaResultsPublish` is unavailable there — defer webhook-path publish support to a future phase if needed)
-- add a bullet to `useRunnerOrchestration.ts` change: destructure `kafkaResultsPublish` from `config` (returned by `useRunnerConfig()`) and pass it to `useTestExecution(config.kafkaResultsPublish)`; also update `useRunnerOrchestration.test.ts` with one new test: `handleRun` calls `execution.execute` and the mock hook was initialized with `kafkaResultsPublish` from `useRunnerConfig` (i.e., the orchestration layer threads the config to the execution hook correctly)
-- ensure publish failure does not alter run status in default mode; the publish outcome is stored separately in component state (or logged) but never written to `TestRun`
-- add publish-path tests to `src/features/test-runner/hooks/useTestExecution.saveHandlers.test.ts` (the existing save-path test file): verify publish is called after save, that failure does not change run outcome, and that the disabled path skips publish entirely
+- the exported function in `kafkaResultsPublisher.ts` is `publishRunResults(testRun: TestRun, config: KafkaResultsPublishConfig): Promise<KafkaPublishOutcome>` — import `TestRun`, `KafkaResultsPublishConfig`, `KafkaRunSummaryEnvelope`, `KafkaPublishOutcome` all from `'../types'` (the shared types re-export covers all four); the function assembles the envelope inline, serializes `JSON.stringify(envelope)` as the single message `value`, and passes `{ clusterId: config.clusterId, topic: config.topic, messages: [{ value: JSON.stringify(envelope) }] }` to `dispatchKafkaOperation('produce', ...)`
+- hook publish into `useTestExecution.ts` at **all three** save call sites: (1) `saveTestRun` at line 393 in `execute()`, (2) `saveTestRun` at line 560 in `startExternalExecution().complete()`, and (3) `forceSaveTestRun` at line 442 in `confirmSavePendingRun()` — exact publish conditions: at site (1) publish only when `!saveResult.quotaError` (run was saved successfully to storage); at site (2) publish only when `!saveResult.quotaError`; at site (3) publish only when `result.ok` (force-save succeeded); `quotaError` from `saveTestRun` does not skip publishing permanently — the quota-exceeded run will be published at `confirmSavePendingRun` when the user confirms the force-save; **publish is fire-and-forget** (`void publishRunResults(...)`) — do NOT await it, as the retry loop can take up to 10 s and would block the UI state update; log failed outcomes via `.then((outcome) => { if (outcome.status === 'failed') console.warn(...) })` for diagnostics
+- **`kafkaResultsPublish` access pattern — use a hook-level parameter stored in a ref, NOT `meta` threading**: add `publishConfig?: KafkaResultsPublishConfig` as an optional parameter to `useTestExecution(publishConfig?)` (currently `useTestExecution()` takes no arguments; there are exactly 2 call sites); immediately store it in a `useRef`: `const publishConfigRef = useRef(publishConfig); publishConfigRef.current = publishConfig;` — all three `useCallback` closures read `publishConfigRef.current` (always fresh) rather than capturing `publishConfig` directly (which would be stale if config changes between renders); call site changes: (a) in `useRunnerOrchestration.ts` change `useTestExecution()` → `useTestExecution(config.kafkaResultsPublish)` where `config` is from `useRunnerConfig()` state already held in that hook; (b) `WorkflowRunner.tsx` calls `useTestExecution()` with no argument — leave it unchanged, webhook/external-execution runs do not publish to Kafka in Phase 8B (the `startExternalExecution` path is exclusively used by `WorkflowRunner.tsx` which uses `useWorkflowRunnerConfig()`, not `useRunnerConfig()`, so `kafkaResultsPublish` is unavailable there — defer webhook-path publish support to a future phase if needed)
+- `useRunnerOrchestration.ts` change: on line 143, change `useTestExecution()` → `useTestExecution(config.kafkaResultsPublish)` — `config` is the full object returned by `useRunnerConfig()` already assigned on the prior line; no destructuring change needed; also update `useRunnerOrchestration.test.ts`: (a) add `mockCapturedPublishConfig: { value: undefined as unknown }` to the `vi.hoisted()` block, (b) update the `vi.mock('./useTestExecution', ...)` factory to `(publishConfig?: unknown) => { mockCapturedPublishConfig.value = publishConfig; return {...}; }`, (c) add one new test: set `mockRunnerConfigOverrides.value = { kafkaResultsPublish: publishCfg }`, render hook, assert `mockCapturedPublishConfig.value` equals `publishCfg`
+- ensure publish failure does not alter run status in default mode; the publish outcome is fire-and-forget and never written to `TestRun`; log failures only via `console.warn`
+- add publish-path tests to `src/features/test-runner/hooks/useTestExecution.saveHandlers.test.ts` (the existing save-path test file): (a) add `vi.mock('../../../shared/kafka/kafkaResultsPublisher', ...)` to mock `publishRunResults` as a `vi.fn()` returning `{ status: 'published', retryCount: 0, durationMs: 5 }`; add `mockPublishRunResults` to the test file (NOT to the shared setup — it's only needed here); (b) add test: `publishRunResults` is called after successful `saveTestRun` in `execute()` when `publishConfig.enabled = true`; (c) add test: `publishRunResults` is NOT called when `publishConfig.enabled = false`; (d) add test: `publishRunResults` is NOT called when no `publishConfig` is passed; (e) add test: `publishRunResults` failure (`{ status: 'failed' }`) does not change `finalRun` or `error` state; (f) add test: `publishRunResults` is called after `forceSaveTestRun` succeeds in `confirmSavePendingRun()`
+
+##### Implementation Notes — Phase 8B (completed 2026-06-01, commit `feature/kafka-integration`)
+
+- **Publisher module**: `src/shared/kafka/kafkaResultsPublisher.ts` created with `publishRunResults(testRun, config)` — exports one function, never throws, returns `KafkaPublishOutcome`.
+- **`publishConfigRef` pattern**: `publishConfig` parameter stored in `useRef` immediately on each render (`publishConfigRef.current = publishConfig`) so all `useCallback` closures read the always-fresh ref value. This avoids stale closure issues without adding `publishConfig` to every deps array.
+- **Fire-and-forget**: All three publish call sites use `void publishRunResults(...).then(outcome => { if (outcome.status === 'failed') console.warn(...) })` — non-blocking, diagnostic-only logging.
+- **Publish conditions**: (1) `execute()` publishes only when `!saveResult.quotaError`; (2) `startExternalExecution().complete()` publishes only when `!saveResult.quotaError`; (3) `confirmSavePendingRun()` publishes only when `result.ok`. Quota-exceeded runs are published at the confirmSave site.
+- **`useRunnerOrchestration.ts`**: Changed `useTestExecution()` → `useTestExecution(config.kafkaResultsPublish)`. No destructuring change needed — `config` object is already in scope.
+- **WorkflowRunner.tsx**: Left unchanged — calls `useTestExecution()` with no arg. Publish path is a no-op when `publishConfig` is `undefined`.
+- **Success Criteria** (all met):
+  - [x] `kafkaResultsPublisher.ts` created with bounded retry (max 3, 2 s delay, 10 s cap)
+  - [x] `publishRunResults` never throws — returns `KafkaPublishOutcome` in all paths
+  - [x] Publish hooked at all 3 save sites in `useTestExecution.ts` (lines 393, 442, 560)
+  - [x] Fire-and-forget — does not delay UI state update
+  - [x] Publish failure does not alter `finalRun` or `error` state
+  - [x] `useRunnerOrchestration.ts` threads `kafkaResultsPublish` from `useRunnerConfig` to `useTestExecution`
+  - [x] 11 tests pass in `useTestExecution.saveHandlers.test.ts` (7 new Kafka publish tests)
+  - [x] 2 new tests pass in `useRunnerOrchestration.test.ts` (kafkaResultsPublish threading)
+  - [x] `npx tsc --noEmit` — 0 errors
 
 #### Phase 8C - Secure-profile and reporting validation
+
+**Status: ✅ Complete — implemented 2026-06-01, branch `feature/kafka-integration`**
 
 Goal: confirm summary publishing works across realistic cluster profiles.
 
@@ -2292,7 +2383,16 @@ Implementation steps:
 
 Detailed implementation checklist:
 
-- create **`src/shared/kafka/kafkaResultsPublisher.test.ts`** (unit tests for the publisher module created in 8B): cover (a) successful publish assembles a valid `KafkaRunSummaryEnvelope` and calls `dispatchKafkaOperation('produce', ...)`; (b) `enabled: false` returns `{ status: 'skipped', retryCount: 0, durationMs: ... }` without calling dispatch; (c) `dispatchKafkaOperation` throwing `KafkaClientError` with `retryable: true` is retried up to 3 times; (d) `dispatchKafkaOperation` throwing `KafkaClientError` with `retryable: false` stops immediately and returns `{ status: 'failed', ... }`; (e) successful first attempt is not retried even when the return value contains data; (f) total duration never exceeds the 10 000 ms cap (mock timers); (g) any uncaught non-`KafkaClientError` is caught and returned as `{ status: 'failed', ... }` without throwing
+- create **`src/shared/kafka/kafkaResultsPublisher.test.ts`** (unit tests for the publisher module created in 8B): mock setup: use `vi.hoisted(() => ({ mockDispatch: vi.fn() }))` + `vi.mock('./kafkaClient', async (importOriginal) => { const actual = await importOriginal(); return { ...actual, dispatchKafkaOperation: mockDispatch }; })` so the real `KafkaClientError` class is available for constructing test errors while only `dispatchKafkaOperation` is mocked; use `makeTestRun()` from `'../../test-utils/factories'` for the test fixture; cover all tests below:
+  - (a) **successful publish**: `dispatchKafkaOperation` resolves → returns `{ status: 'published', retryCount: 0, durationMs: ≥ 0 }`; verify dispatch called once with op `'produce'`, `clusterId` and `topic` from config, `messages[0].value` parses to a valid `KafkaRunSummaryEnvelope` with `schemaVersion: '1.0'`, correct `runId`, `timestamp`, `executionMode`, and all 9 `summary` fields
+  - (b) **disabled config**: `config.enabled = false` → returns `{ status: 'skipped', retryCount: 0, durationMs: 0 }` without calling dispatch
+  - (c) **max retries exhausted**: dispatch always throws `KafkaClientError` with `retryable: true` → dispatch is called exactly **4 times** (1 initial + 3 retries), returns `{ status: 'failed', retryCount: 3, errorCode: <code> }` — use `vi.useFakeTimers()` + `await vi.runAllTimersAsync()` to skip the 2 s delays; restore real timers in `afterEach`
+  - (d) **non-retryable error stops immediately**: dispatch throws `KafkaClientError` with `retryable: false` → dispatch called exactly 1 time, returns `{ status: 'failed', retryCount: 0 }`
+  - (e) **successful first attempt — no re-attempt**: dispatch resolves on first call → verify dispatch called exactly 1 time, `retryCount: 0` in outcome (idempotency)
+  - (f) **total timeout cap**: use `vi.useFakeTimers()`, mock dispatch to take 3 500 ms per call via `setTimeout` (simulating slow broker); after `await vi.runAllTimersAsync()` the fake clock advances to 14 500 ms (3 500+2 000+3 500+2 000+3 500) which exceeds `TOTAL_TIMEOUT_MS`; verify `outcome.status === 'failed'`, `mockDispatch` called **3 times** (not 4 — timeout fires before MAX_RETRIES), `retryCount: 2`, `durationMs ≥ 10_000`; use `afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); })`
+  - (g) **non-KafkaClientError caught**: dispatch throws a plain `Error` (not `KafkaClientError`) → returns `{ status: 'failed', retryCount: 0, errorCode: 'KAFKA_PUBLISH_UNKNOWN' }` without throwing, dispatch called once
+  - (h) **optional fields in envelope**: when `testRun.projectName`, `envName`, `svcName`, `workflowName` are set, they appear in the envelope; when all are `undefined`, none of the optional keys appear in the parsed envelope
+  - (i) **correct retry count in published outcome**: dispatch fails once then succeeds → `{ status: 'published', retryCount: 1 }` — use fake timers to skip the 2 s delay
 - validate plaintext broker publish to `redfireforge.results.summary` (Scenario 13, 13D)
 - validate publishing disabled path — no publish event emitted, local run unaffected (Scenario 13B)
 - validate broker unavailable/auth-fail cases with non-blocking run completion (Scenario 13C)
@@ -2305,6 +2405,30 @@ Detailed implementation checklist:
 Gate to phase exit:
 
 - results publishing is optional, observable, and safe under both success and failure paths
+
+**Implementation Notes (Phase 8C — completed 2026-06-01):**
+
+- `src/shared/kafka/kafkaResultsPublisher.test.ts` created with **20 tests** across 9 describe groups (a)–(i).
+- Mock pattern: `vi.importActual` via the `async (importOriginal)` factory keeps the real `KafkaClientError` class; only `dispatchKafkaOperation` is overridden by `mockDispatch`.
+- `afterEach` calls both `vi.useRealTimers()` AND `vi.restoreAllMocks()` to cleanly reset fake-timer and spy state between tests.
+- **Timeout test approach (lesson learned):** `vi.spyOn(Date, 'now')` does NOT intercept `Date.now` calls inside the module in the Node Vitest environment after `vi.useFakeTimers()` has previously run. The correct approach is to make the dispatch mock itself slow via `setTimeout` so that fake `Date.now()` (which advances with `vi.useFakeTimers()`) naturally exceeds `TOTAL_TIMEOUT_MS`. With 3 500 ms per dispatch attempt + 2 000 ms wait: total fake time = 14 500 ms → timeout fires after dispatch call 3 (retryCount=2) rather than the MAX_RETRIES-driven 4th call.
+- Broker-level validation scenarios 13, 13B–13G are manual integration tests gated to the broker environment phase per original plan.
+- All 20 tests pass. `npx tsc --noEmit` — 0 errors.
+
+**Broker Scenario Implementation Notes (Phase 8C broker scenarios — implemented feature/kafka-integration):**
+
+- Broker integration test script created at `docker/kafka/plaintext/broker-scenarios-p8c.sh`.
+- Follows the same shell pattern as `docker/kafka/plaintext/smoke-test.sh` (curl, `require_prerequisites`, `request()`/`request_ok()` helpers, `--noproxy`).
+- Script covers all seven broker scenarios with explicit pass/fail/skip reporting:
+  - **13A** — Connects to plaintext Redpanda broker, produces a `KafkaRunSummaryEnvelope` to `redfireforge.results.summary`, consumes it back, and confirms delivery.
+  - **13B** — Demonstrates the disabled-config path: no produce call is made for a disabled run-id; consume confirms no message on topic. References unit test (b) in `kafkaResultsPublisher.test.ts`.
+  - **13C** — Disconnects the cluster then attempts produce; verifies the server returns `ok:false` (503/not-connected envelope). Confirms the fire-and-forget `publishRunResults` pattern returns `{ status: 'failed' }` without throwing.
+  - **13D** — Produces a full envelope and parses the consumed message to assert: `schemaVersion === '1.0'`, `runId` match, `timestamp > 0`, `executionMode` present, all 9 summary fields present, optional traceability fields (`projectName`, `envName`) present.
+  - **13E** — Uses `KAFKA_SECURE_BROKERS` / `KAFKA_SECURE_USERNAME` / `KAFKA_SECURE_PASSWORD` env vars to connect with SASL/PLAIN and verify same envelope semantics on the secure profile. Skipped automatically when env vars are not set (secure profile Docker assets in `docker/kafka/secure/` must be populated separately).
+  - **13F** — Produces once and consumes with `maxMessages: 5` filtered by `keyEquals` to confirm exactly 1 message exists for the run-id (no duplicate publish). References unit tests (c), (d), (e), (i) for retry-logic specifics.
+  - **13G** — Documents the three save-site hooks as covered by `useTestExecution.saveHandlers.test.ts`. No new broker calls needed; any successful run in the UI produces exactly one message (confirmed by 13A/13D).
+- **Run command:** `./docker/kafka/plaintext/broker-scenarios-p8c.sh` (requires broker up and server running).
+- **Secure scenario prerequisite:** `export KAFKA_SECURE_BROKERS=... KAFKA_SECURE_USERNAME=... KAFKA_SECURE_PASSWORD=...` before running to enable 13E.
 
 ### Validation matrix (required before Phase 8 exit)
 
@@ -2439,7 +2563,7 @@ Goal: establish the Rust Kafka foundation and mirror the proven server lifecycle
 
 Implementation steps:
 
-1. Add `rdkafka` (with `cmake` feature) and `tokio` Kafka runtime deps to `src-tauri/Cargo.toml`; verify `cargo build` succeeds on macOS arm64.
+1. Add `rdkafka` (with `cmake-build` feature) to `src-tauri/Cargo.toml`; **`tokio` and `tokio-util` are already present — do not re-add them**; verify `cargo build` succeeds on macOS arm64.
 2. Create `src-tauri/src/kafka/` module with `KafkaState` (connection map, lifecycle tracking) following the `ExecutorState` pattern in `commands.rs`.
 3. Implement `kafka_connect`, `kafka_disconnect`, `kafka_status`, and `kafka_topics` Tauri commands.
 4. Register `KafkaState` in **`src-tauri/src/lib.rs`** alongside existing state (NOT `main.rs` — `main.rs` is a full CLI/GUI dispatcher with `clap` subcommand logic and does not contain the Tauri builder; `.manage()` and `.invoke_handler()` live in `lib.rs`).
@@ -2447,12 +2571,12 @@ Implementation steps:
 
 Detailed implementation checklist:
 
-- `rdkafka` added to `src-tauri/Cargo.toml` with cmake feature flags; `tokio` and `tokio-util` are **already present** — do not re-add them
+- `rdkafka` added to `src-tauri/Cargo.toml` with `cmake-build` feature flag (e.g. `rdkafka = { version = "0.37", features = ["cmake-build"] }`); `tokio` and `tokio-util` are **already present** — do not re-add them
 - `cargo build` verified clean on macOS arm64
 - `mod kafka;` declaration added to `src-tauri/src/lib.rs` for module visibility (crate root — NOT `main.rs`, which is a full CLI/GUI dispatcher with `clap` subcommand logic and does not contain any Tauri builder calls)
-- `KafkaState` defined with `Arc<Mutex<HashMap<ClusterId, ClientHandle>>>` using `std::sync::Mutex` (matching `ExecutorState` pattern in `commands.rs`)
+- `KafkaState` defined in `src-tauri/src/kafka/state.rs` with a connection map using `std::sync::Mutex` (following `ExecutorState`'s preference for `std::sync::Mutex` over `tokio::sync::Mutex` — this is a Tauri threading constraint); **note: `ExecutorState` manages a single connection (`Arc<Client>` + `std::sync::Mutex<Option<CancellationToken>>`); `KafkaState` manages multiple connections indexed by cluster ID and requires a different shape**: `pub inner: std::sync::Mutex<HashMap<ClusterId, ClientHandle>>` where `ClusterId = String` (cluster ID from the frontend config) and `ClientHandle` is a per-cluster wrapper struct holding the `rdkafka::producer::FutureProducer`, `rdkafka::consumer::StreamConsumer`, and a `CancellationToken` for subscription cleanup — define both types in `state.rs`
 - `KafkaState` registered via `.manage(KafkaState::new())` in **`src-tauri/src/lib.rs`** (the Tauri builder location — `.manage()` and `.invoke_handler()` are both in `lib.rs`, not `main.rs`)
-- `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and added to the **`tauri::generate_handler![...]` list in `src-tauri/src/lib.rs`**
+- `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and added to the **`tauri::generate_handler![...]` list in `src-tauri/src/lib.rs`** using the path `kafka::commands::kafka_connect` etc. (matching the existing `commands::start_load_test` pattern; `mod kafka;` must be declared in `lib.rs` alongside the other module declarations at the top of the file)
 - response shapes strictly aligned with `src-server/kafka/contracts.ts`
 - Rust unit tests for connect/disconnect state transitions and topic list shape
 
@@ -2463,15 +2587,19 @@ Goal: implement produce, consume, and subscription operations with consistent er
 Implementation steps:
 
 1. Implement `kafka_produce` command with error mapping to shared `KafkaErrorBody` contract shape (`KafkaErrorBody` is the actual type in `src-server/kafka/contracts.ts`; there is no `KafkaApiError` type).
-2. Implement `kafka_consume` command with bounded message count and offset semantics.
+2. Implement `kafka_consume_once` command with bounded message count and offset semantics (**command name is `kafka_consume_once`**, not `kafka_consume` — the contract operation is `consume-once` with a hyphen; Rust function names use underscores: `kafka_consume_once`).
 3. Implement `kafka_subscribe` / `kafka_unsubscribe` commands with cleanup on drop.
-4. Define explicit rdkafka-to-contract error mapping table; cover all known rdkafka error variants that can surface to the UI.
+4. Implement `kafka_subscriptions` command (list active subscriptions; maps to the `subscriptions` operation in `KafkaOperation` / `GET /api/kafka/subscriptions` route; returns `KafkaSubscriptionsResult`).
+5. Define explicit rdkafka-to-contract error mapping table; cover all known rdkafka error variants that can surface to the UI.
 
 Detailed implementation checklist:
 
-- `kafka_produce`, `kafka_consume`, `kafka_subscribe`, `kafka_unsubscribe` commands implemented and **added to `tauri::generate_handler![...]` in `src-tauri/src/lib.rs`**
-- `kafka_subscribe` and `kafka_unsubscribe` implemented with async event emission via `tauri::Emitter`
-- subscription cleanup uses `CancellationToken` (from `tokio_util::sync` — **already imported in `commands.rs`**) following the `ExecutorState` pattern; cancel on unsubscribe and on app-window-close event
+- `kafka_produce`, `kafka_consume_once`, `kafka_subscribe`, `kafka_unsubscribe`, `kafka_subscriptions` commands implemented and **added to `tauri::generate_handler![...]` in `src-tauri/src/lib.rs`** using the path `kafka::commands::kafka_produce` etc. (note: Rust function is `kafka_consume_once` — the `consume-once` contract operation uses an underscore in the Rust name; do NOT name it `kafka_consume`)
+- `kafka_subscribe` and `kafka_unsubscribe` implemented with a **two-phase delivery model**:
+  - **Synchronous part**: `kafka_subscribe` is a normal `#[tauri::command]` that starts a background consumer task and immediately returns `KafkaSubscribeResult` (the `subscriptionId`) via the `invoke` response — this is the part `KafkaClientTransport` handles in Phase 9C
+  - **Asynchronous part**: the background task emits one Tauri event per received message using `app.emit("kafka-subscription-message", payload)` where `app: tauri::AppHandle` is a parameter of `kafka_subscribe`; the payload shape must be `{ "subscriptionId": "<uuid>", "record": <KafkaConsumeRecord> }` (matching the `KafkaConsumeRecord` shape from `src-server/kafka/contracts.ts`); the frontend listens for these events using `listen()` from `@tauri-apps/api/event` — **this is separate from `KafkaClientTransport`** and must be handled explicitly in Phase 9C (not via `dispatchKafkaOperation`)
+  - **Event name**: `"kafka-subscription-message"` (kebab-case, following the existing `"load-test-complete"` event pattern in `commands.rs`)
+- subscription cleanup uses `CancellationToken` (from `tokio_util::sync` — `tokio-util` is **already in `Cargo.toml`**; add `use tokio_util::sync::CancellationToken;` explicitly in `src-tauri/src/kafka/commands.rs` just as it is declared in `commands.rs`) following the `ExecutorState` pattern; cancel on unsubscribe and on app-window-close event; each `ClientHandle` in `KafkaState` holds its own `CancellationToken` (distinct from the single-token `ExecutorState` pattern — multi-subscription requires one token per subscription)
 - error mapping layer defined and tested for all rdkafka variants relevant to lifecycle, produce, consume
 - cleanup on unsubscribe / app close verified with no dangling threads
 - concurrent operation safety verified: produce does not interfere with an active subscriber on the same or different topic
@@ -2482,9 +2610,37 @@ Goal: route frontend Kafka operations to native commands in Tauri mode; keep ser
 
 Implementation steps:
 
-1. Create `src/shared/kafka/kafkaNativeTauriTransport.ts` — implements `KafkaClientTransport` using `invoke` from `@tauri-apps/api/core` (dynamic import only inside Tauri branch; no top-level static import); maps each `KafkaOperation` to the corresponding Tauri command name.
-2. Wire transport init: in the app initialization path (`src/app/App.tsx` or `src/main.tsx`), call `setKafkaClientTransport(kafkaNativeTauriTransport)` when `isTauri()` is true; no call needed in browser/dev mode — server-proxy default stays active automatically.
-3. Add `src/shared/kafka/kafkaNativeTauriTransport.test.ts` covering native path, fallback (server-proxy) path, and `setKafkaClientTransport(null)` restoring the default.
+1. Create `src/shared/kafka/kafkaNativeTauriTransport.ts` with two exports:
+   - **`kafkaNativeTauriTransport: KafkaClientTransport`** — implements the transport using `invoke` from `@tauri-apps/api/core` (dynamic import only; no top-level static import); maps each `KafkaOperation` to the corresponding Tauri command name using the table below; must throw `KafkaClientError` on `!ok` responses (not return them as resolved envelopes) to match `defaultTransport` behavior
+   - **`listenKafkaSubscriptionMessage(callback)`** — wraps `listen('kafka-subscription-message', callback)` from `@tauri-apps/api/event` (dynamic import; same guard pattern); returns the Tauri unlisten function; this is the ONLY path to receive streaming subscription messages in Tauri mode and is separate from `KafkaClientTransport` (which only handles the synchronous subscribe registration invoke)
+
+   **`KafkaOperation` → Tauri command name mapping** (all 9 operations):
+   | `KafkaOperation` | Tauri command (Rust fn name) | Note |
+   |---|---|---|
+   | `connect` | `kafka_connect` | |
+   | `disconnect` | `kafka_disconnect` | |
+   | `status` | `kafka_status` | |
+   | `topics` | `kafka_topics` | |
+   | `produce` | `kafka_produce` | |
+   | `consume-once` | `kafka_consume_once` | hyphen → underscore; do NOT use `kafka_consume` |
+   | `subscribe` | `kafka_subscribe` | synchronous invoke only — streaming via `listenKafkaSubscriptionMessage` |
+   | `subscriptions` | `kafka_subscriptions` | |
+   | `unsubscribe` | `kafka_unsubscribe` | |
+
+   **Invoke args mapping** (`KafkaDispatchRequest` → `invoke` second argument):
+   - POST operations (`method === 'POST'`): pass `request.body ?? {}` as the args object
+   - GET operations (`method === 'GET'`): pass `request.query` as the args object (Tauri auto-converts camelCase JS keys to snake_case Rust parameter names)
+
+2. Wire transport init in **`src/app/main.tsx`** at **module level, before `createRoot`** — NOT inside a React `useEffect` in `App.tsx` (a `useEffect` runs after mount and runs twice in StrictMode dev, risking brief server-proxy usage or double-registration). The init block is:
+   ```ts
+   if (isTauri()) {
+     setKafkaClientTransport(kafkaNativeTauriTransport);
+   }
+   createRoot(document.getElementById('root')!).render(...);
+   ```
+   No call needed in browser/dev mode — server-proxy default stays active automatically.
+
+3. Add `src/shared/kafka/kafkaNativeTauriTransport.test.ts` covering: native path success (each operation invokes correct command name — especially `consume-once` → `kafka_consume_once`), native path error (Rust returns `ok: false` → `KafkaClientError` is thrown, NOT resolved), `setKafkaClientTransport(null)` restores server-proxy default, `listenKafkaSubscriptionMessage` calls `listen('kafka-subscription-message', ...)` and returns unlisten function.
 
 Note: `src/utils/platform.ts` and `src/services/kafkaTransport.ts` do NOT need to be created. `isTauri()` already exists at `src/shared/utils/platform.ts` and transport switching is already implemented in `src/shared/kafka/kafkaClient.ts`.
 
@@ -2492,11 +2648,18 @@ Detailed implementation checklist:
 
 - **`isTauri()` already exists** in `src/shared/utils/platform.ts` — do NOT create a new file; import directly from there; `platform.test.ts` also already exists at `src/shared/utils/platform.test.ts`
 - **transport switching already implemented** in `src/shared/kafka/kafkaClient.ts`: `KafkaClientTransport` type + `setKafkaClientTransport()` + `transportOverride ?? defaultTransport` routing; no new factory file needed
-- create `src/shared/kafka/kafkaNativeTauriTransport.ts`: implements `KafkaClientTransport` using `invoke` from `@tauri-apps/api/core` (**`@tauri-apps/api` is already in `package.json` — do NOT re-install**; use dynamic import inside Tauri branch only — no top-level static import to avoid `invoke` being called in browser mode); maps each `KafkaOperation` to the corresponding Tauri command name
-- in the app initialization path (e.g. `src/app/App.tsx` or equivalent entry), call `setKafkaClientTransport(kafkaNativeTauriTransport)` when `isTauri()` is true; no call and server-proxy default remain active in browser/dev mode
-- `kafkaNativeTauriTransport.ts` factory uses dynamic import of `@tauri-apps/api/core` only inside the Tauri branch
-- all Kafka call sites in `src/features/kafka/` already route through `dispatchKafkaOperation()` in `kafkaClient.ts` — no per-call-site wiring needed once `setKafkaClientTransport` is called at init
-- add `src/shared/kafka/kafkaNativeTauriTransport.test.ts`: test both transport paths and fallback selection with mocked Tauri environment; also verify `setKafkaClientTransport(null)` restores server-proxy default
+- create `src/shared/kafka/kafkaNativeTauriTransport.ts` with **two exports**:
+  - `kafkaNativeTauriTransport: KafkaClientTransport` — use dynamic import of `@tauri-apps/api/core` inside the function body (no top-level static import); for POST ops pass `request.body ?? {}` as invoke args; for GET ops pass `request.query` as invoke args; **throw `KafkaClientError` when `envelope.ok === false`** (same behavior as `defaultTransport`/`parseEnvelope` — do NOT return the error envelope as a resolved value or all call-site error handling breaks); see command name mapping table in implementation steps above
+  - `listenKafkaSubscriptionMessage(callback: (payload: { subscriptionId: string; record: KafkaConsumeRecord }) => void): Promise<() => void>` — wraps `listen('kafka-subscription-message', e => callback(e.payload))` from `@tauri-apps/api/event` (dynamic import); returns the Tauri unlisten function; this is the mechanism that delivers streaming subscription messages to the frontend in native mode — **without this export, subscription messages are never received in Tauri mode**
+- wire transport init in **`src/app/main.tsx`** at module level before `createRoot` — if `isTauri()`, call `setKafkaClientTransport(kafkaNativeTauriTransport)`; this must be module-level (not inside a `useEffect`) to ensure the transport is set before any React rendering and to avoid double-registration under React StrictMode dev
+- `kafkaNativeTauriTransport.ts` factory uses dynamic import of `@tauri-apps/api/core` **and** `@tauri-apps/api/event` only inside the function/handler body — no top-level static imports of either
+- all Kafka call sites in `src/features/kafka/` already route through `dispatchKafkaOperation()` in `kafkaClient.ts` — no per-call-site wiring needed once `setKafkaClientTransport` is called at init; **subscription streaming listeners** (using `listenKafkaSubscriptionMessage`) must be wired up at the feature layer when a subscription is active, then torn down using the returned unlisten function on unsubscribe
+- add `src/shared/kafka/kafkaNativeTauriTransport.test.ts` covering:
+  - each operation invokes the correct Tauri command name (especially `consume-once` → `kafka_consume_once` and `subscriptions` → `kafka_subscriptions`)
+  - POST operations pass `request.body` as invoke args; GET operations pass `request.query`
+  - `ok: false` Rust response throws `KafkaClientError` (not resolves) — test both `ok: false` and thrown invoke error paths
+  - `setKafkaClientTransport(null)` restores the server-proxy default
+  - `listenKafkaSubscriptionMessage` calls `listen('kafka-subscription-message', ...)` and returns the unlisten function
 
 #### Phase 9D - Cross-transport parity hardening
 
@@ -2504,17 +2667,17 @@ Goal: prove behavior equivalence between server-proxy and native transports end-
 
 Implementation steps:
 
-1. Define golden-fixture request/response pairs for all operations (connect/topics/produce/consume/subscribe).
-2. Run the same fixture-driven tests against both server-proxy and native transports.
+1. Define golden-fixture request/response pairs for all operations: `connect`, `disconnect`, `status`, `topics`, `produce`, `consume-once`, `subscribe`, `unsubscribe` — 8 fixtures total (the `subscriptions` list-operation does not require its own fixture since it depends on prior subscribe state; test it as part of the subscribe scenario).
+2. Run the same fixture-driven tests against both server-proxy and native transports for all request/response operations.
 3. Resolve any envelope drift before desktop release gate.
-4. Add Playwright visual parity check: desktop workflow and runner flows with native transport produce identical UI state as server-proxy mode.
+4. Add Playwright visual parity spec (`e2e/kafka-desktop.spec.ts`) — **note: the existing Playwright config targets `localhost:5173` (Vite dev server = browser/server-proxy mode)**; this spec validates the server-proxy transport UI flow (connect, topic browse, produce, consume-once); native Tauri command correctness is validated by `cargo test` in 9A/9B, not by Playwright; true cross-transport visual parity requires `tauri-driver` integration (out of scope for initial 9D — flag as a follow-on if needed).
 
 Detailed implementation checklist:
 
-- golden fixture set defined and committed to `test-data/kafka/` as JSON files with shape `{ operation, request, expectedResponse, expectedErrorShape? }` — one file per operation (connect, disconnect, topics, produce, consume, subscribe-event)
-- parity tests pass for all operations on both transport paths
+- golden fixture set defined and committed to `test-data/kafka/` as JSON files with shape `{ operation, request, expectedResponse, expectedErrorShape? }` — one file per operation (`connect`, `disconnect`, `status`, `topics`, `produce`, `consume-once`, `subscribe`, `unsubscribe`); **note: fixture file for subscribe covers only the synchronous request/response (returns subscriptionId); streaming subscription message events have no server-proxy parity equivalent (server-proxy uses an in-memory ring buffer with no retrieval route), so streaming parity is not tested via golden fixtures — it is validated manually in real-broker testing**
+- parity tests pass for all 8 operations on both transport paths
 - error mapping equivalence verified: same input error condition → same UI-safe error message in both modes
-- Playwright spec added for desktop smoke (at minimum: connect, topic browse, publish, consume)
+- Playwright spec `e2e/kafka-desktop.spec.ts` added covering the server-proxy transport UI flow at minimum: connect, topic browse, produce, consume-once (this spec runs against `localhost:5173` via `npm run dev`; it does NOT test native Tauri commands)
 - concurrent operation parity verified: produce + active subscriber scenario exercised on both transports
 
 Gate to phase exit:
@@ -2535,7 +2698,7 @@ Contract validation:
 
 Runtime validation:
 
-- connect/status/topics/produce/consume/subscribe all function end-to-end via native commands against real broker
+- connect/disconnect/status/topics/produce/consume-once/subscribe/unsubscribe all function end-to-end via native commands against real broker
 - frontend fallback to server-proxy is triggered correctly when not in Tauri mode
 
 Parity validation:
@@ -2553,10 +2716,10 @@ CI gate stratification:
 
 Phase 9D parity validation requires both transports to run against the same broker:
 
-- plaintext local broker: Docker Compose at `docker/kafka/` — start with `docker compose up -d` before parity test run
-- secure profile (auth/TLS): required for Scenario 14F (secure-mode parity across transports)
+- plaintext local broker: Docker Compose at `docker/kafka/plaintext/docker-compose.yml` — start with `docker compose -f docker/kafka/plaintext/docker-compose.yml up -d` (or `cd docker/kafka/plaintext && docker compose up -d`) before parity test run
+- secure profile (auth/TLS): `docker/kafka/secure/` exists as an empty placeholder (`.gitkeep` only) — files must be populated before secure-mode parity testing; **secure-mode parity is NOT required for the initial 9D merge** and may be deferred to a follow-on PR; do NOT block 9D on this
 - both desktop (Tauri) and browser/dev modes must be running simultaneously or sequentially against the same broker for fixture comparison
-- Tauri desktop dev build: `npx tauri dev` must be running for native transport tests; browser/dev server runs in parallel for server-proxy comparison
+- Tauri desktop dev build: `npm run tauri:dev` (defined in `package.json` as `"tauri:dev": "tauri dev"`) must be running for native transport tests; browser/dev server (`npm run dev`) runs in parallel for server-proxy comparison
 
 ### Execution slicing matrix (recommended)
 
@@ -2565,7 +2728,7 @@ Phase 9D parity validation requires both transports to run against the same brok
 | 0 | `kafka-p9-build-chain` | Platform/Rust | 0.5-1.0 day | Phase 8 complete | `cargo build` clean with rdkafka on macOS arm64 |
 | 1 | `kafka-p9a-native-lifecycle` | Rust/Commands | 2.0-2.5 days | PR0 | connect/disconnect/status/topics commands + state tests |
 | 2 | `kafka-p9b-native-ops` | Rust/Commands | 2.5-3.0 days | PR1 | produce/consume/subscribe with error mapping tests |
-| 3 | `kafka-p9c-transport-switch` | Frontend + Rust | 2.0-2.5 days | PR2 | transport factory + isTauri + fallback tests |
+| 3 | `kafka-p9c-transport-switch` | Frontend | 2.0-2.5 days | PR2 | transport factory + isTauri + fallback tests |
 | 4 | `kafka-p9d-parity-hardening` | QA + Platform | 1.5-2.0 days | PR3 | golden-fixture parity green + Playwright desktop smoke |
 
 ### PR kickoff checklist (Phase 9)
@@ -2679,25 +2842,27 @@ Implementation anchors in the current codebase:
 
 #### Phase 10A - Registry connection contracts and configuration
 
-Goal: define the schema registry config type, extend existing contracts minimally, and establish the registry client wrapper without touching produce/consume runtime.
+Goal: define the schema registry config type, extend existing contracts minimally, establish the registry client wrapper, and wire the three registry query routes — without touching produce/consume runtime.
 
 Implementation steps:
 
-1. Install `@kafkajs/confluent-schema-registry` and verify compatibility with `kafkajs: ^2.2.4`.
-2. Add `KafkaSchemaConfig` type to `contracts.ts` with `registryUrl`, optional `auth`, `subject`, optional `version`, `format: 'avro' | 'protobuf' | 'json-schema'`; note that `subject` follows Confluent TopicNameStrategy convention (`{topic}-value` for value, `{topic}-key` for key — key encoding is out of scope).
-3. Add registry `KafkaOperation` entries: `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'`.
-4. Create `src-server/kafka/schema-registry-client.ts` with registry connection, health check, subject listing, version fetching, and an in-process schema cache keyed by schema ID — no encode/decode yet.
-5. Preserve all plain-JSON behavior: zero changes to existing produce/consume code paths.
+1. Install `@kafkajs/confluent-schema-registry` and verify compatibility with `kafkajs: ^2.2.4`. There is no `src-server/package.json`; install into the root `package.json` (all server deps live there).
+2. Add `KafkaSchemaConfig` type to `src-server/kafka/contracts.ts` with fields: `registryUrl: string`, optional `auth: { username: string; password: string }`, optional `subject?: string`, optional `version?: number`, `format: 'avro' | 'protobuf' | 'json-schema'`. `subject` is **optional**: when absent, the server derives it from the produce/consume request's `topic` field using Confluent TopicNameStrategy (`{topic}-value` for value, `{topic}-key` for key — key encoding is out of scope and `{topic}-key` subjects are never requested in the initial phase). An explicit `subject` value always takes priority.
+3. Add registry `KafkaOperation` entries **in `src-server/kafka/contracts.ts` only** (server-side type): `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'`. Do **not** update `src/shared/kafka/kafkaClient.ts` yet — that file's `KafkaOperation` union and `OPERATION_MAP: Record<KafkaOperation, KafkaOperationSpec>` are updated together in Phase 10C when the UI gains schema controls; both must be updated in lockstep because `OPERATION_MAP` is `Record<KafkaOperation, ...>` and TypeScript will error if a union member has no map entry.
+4. Create `src-server/kafka/schema-registry-client.ts` with registry connection, health check, subject listing (`listSubjects`), version fetching (`listVersions`), schema fetching (`fetchSchema`), and an in-process schema cache keyed by schema ID — no encode/decode yet.
+5. Wire the three registry query routes in `src-server/routes/kafka-routes.ts` as **POST** routes: `POST /api/kafka/schema-subjects`, `POST /api/kafka/schema-versions`, `POST /api/kafka/schema-fetch`. Each route calls `requireBodyObject(req, '<op>')` first (same guard used by `produce`, `consume-once`, `subscribe`) then delegates to the registry client methods created in Step 4 and returns via `sendEnvelope(res, ...)`. Routes must be POST (not GET) because `KafkaSchemaConfig.auth` carries credentials (`username`/`password`) that must travel in the request body — query params would expose them in server logs, browser history, and referrer headers (OWASP A02). Without these routes the registry client created in Step 4 is unreachable and Phase 10A has no observable deliverable.
+6. Preserve all plain-JSON behavior: zero changes to existing produce/consume code paths.
 
 Detailed implementation checklist:
 
-- `@kafkajs/confluent-schema-registry` installed and `npx tsc -b --noEmit` clean
-- `KafkaSchemaConfig` type defined with required/optional fields documented
-- `KafkaOperation` extended with registry operation entries
+- `@kafkajs/confluent-schema-registry` installed into root `package.json` and `npx tsc -b --noEmit` clean
+- `KafkaSchemaConfig` type defined in `contracts.ts` with `subject` as optional (server derives `{topic}-value` when absent)
+- `KafkaOperation` in `contracts.ts` extended with `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'` — `src/shared/kafka/kafkaClient.ts` (`KafkaOperation` union + `OPERATION_MAP`) is NOT updated in Phase 10A; deferred to Phase 10C with explicit note that both must be updated together
 - `schema-registry-client.ts` created with connection, health check, `listSubjects`, `listVersions`, `fetchSchema`, and schema cache (keyed by schema ID)
-- subject naming convention documented: `{topic}-value` (TopicNameStrategy) is the default; alternate naming supported via explicit `subject` override
+- subject naming convention documented: `{topic}-value` (TopicNameStrategy) is the default when `subject` is absent; explicit `subject` override always takes priority; key encoding is out of scope
+- `kafka-routes.ts` extended with `GET /api/kafka/schema-subjects`, `GET /api/kafka/schema-versions`, `GET /api/kafka/schema-fetch` — all three wired to registry client methods
 - key encoding explicitly noted as out of scope in deliverables and contract documentation
-- Contract/unit tests for registry client with mocked registry
+- contract/unit tests for registry client with mocked registry
 - zero changes to existing produce/consume routes or service behavior
 
 #### Phase 10B - Runtime encode/decode integration
@@ -2707,17 +2872,19 @@ Goal: add schema-aware encoding in produce and decoding in consume, activated on
 Implementation steps:
 
 1. Extend `KafkaProduceRequest` with optional `schemaConfig?: KafkaSchemaConfig` at the **request level** (applied uniformly to all messages in the batch — not per-message).
-2. In the produce path, encode each message `value` via the registry client using the request-level `schemaConfig`; pass `value` as-is when `schemaConfig` is absent.
+2. In the produce path, when `schemaConfig` is present: resolve the effective subject as `schemaConfig.subject ?? `${request.topic}-value`` (TopicNameStrategy default), call `registry.encode(effectiveSubject, parsedValue, schemaConfig.version)` for each message, build a **new** `KafkaProducerMessage[]` array (never mutate `request.messages`) with each `value` set to `Buffer.toString('base64')`, then pass the new array to `adapter.send()`; catch registry errors (`SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, `REGISTRY_AUTH_FAILURE`) **before** the generic `catch` block so they return dedicated error codes and are never swallowed as `KAFKA_PRODUCE_FAILED`; pass `value` as-is when `schemaConfig` is absent.
 3. Extend `KafkaConsumeOnceRequest` (the actual type — not `KafkaConsumeRequest`) with optional `schemaConfig?: KafkaSchemaConfig`.
-4. In the consume path, use `record.rawValue` (the raw `Buffer` set by the adapter, not `record.value` which is already `.toString('utf-8')`) when `schemaConfig` is present; decode via the registry client and put the JSON-stringified result in `value` of the returned `KafkaConsumeRecord`; surface decode errors as `SCHEMA_MISMATCH` error code; subscribe-path schema decode is out of scope for the initial phase.
+4. In the consume path, when `schemaConfig` is present: resolve the effective subject as `schemaConfig.subject ?? `${request.topic}-value`` (TopicNameStrategy default), use `record.rawValue` (the raw `Buffer` set by the adapter — not `record.value` which is already `.toString('utf-8')` and corrupts Avro binary), decode via the registry client, push `{ ...record, value: JSON.stringify(decoded) }` (a new object — never mutate the adapter record) to the messages array; catch registry decode errors and return `SCHEMA_MISMATCH` or `REGISTRY_UNREACHABLE` **before** the generic `catch` block so they are not swallowed as `KAFKA_CONSUME_ONCE_FAILED`; subscribe-path schema decode is out of scope for the initial phase.
 5. Add `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` as distinct error codes in `KafkaErrorBody`.
 
 Detailed implementation checklist:
 
 - `KafkaProduceRequest` extended with optional `schemaConfig` at request level — applied to all messages in the batch; no per-message schema override supported in initial phase
-- produce encode chain: `registry.encode()` returns a `Buffer`; `kafka-service.ts` converts Buffer → base64 string and sets `message.value` to the base64 string before calling `adapter.send()`; `KafkaProducerMessage.value: string` in `kafka-adapter.ts` is never changed; wire format: base64 string in existing `value` field + `valueEncoding?: 'base64-avro' | 'base64-protobuf' | 'base64-json-schema' | 'plain'` added to `KafkaProduceResult` in `contracts.ts`; `KafkaConsumeRecord` does **not** need `valueEncoding` (server decodes transparently — client always receives plain JSON in `value`); no separate `encodedValue` field
+- produce encode chain: effective subject resolved as `schemaConfig.subject ?? `${request.topic}-value``; `registry.encode()` returns a `Buffer`; `kafka-service.ts` builds a **new** `KafkaProducerMessage[]` array mapping each `message.value` to `Buffer.toString('base64')` (never mutates `request.messages` — those are contract objects owned by the caller); the new array is passed to `adapter.send()`; `KafkaProducerMessage.value: string` in `kafka-adapter.ts` is never changed; wire format: base64 string in existing `value` field + `valueEncoding?: 'base64-avro' | 'base64-protobuf' | 'base64-json-schema' | 'plain'` added to `KafkaProduceResult` in `contracts.ts`; `KafkaConsumeRecord` does **not** need `valueEncoding` (server decodes transparently — client always receives plain JSON in `value`); no separate `encodedValue` field
+- produce schema error handling: registry encode errors (`SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, `REGISTRY_AUTH_FAILURE`) are caught in a dedicated try/catch **before** `producer.connect()` and returned via `createKafkaErrorEnvelope('produce', { code: '...', ... })` — they must never fall through to the generic `KAFKA_PRODUCE_FAILED` catch block
 - `KafkaConsumeOnceRequest` extended with optional `schemaConfig` (the actual type name — codebase uses `KafkaConsumeOnceRequest`, confirmed in `kafka-service-utils.ts` and `contracts.ts`)
-- consume decode chain: `KafkaConsumerRecord` (adapter type in `kafka-adapter.ts`) extended with `rawValue?: Buffer`; adapter sets `rawValue` from raw `message.value` alongside existing `value: string` (the `.toString('utf-8')` result); `kafka-service.ts` passes `record.rawValue` to registry decode when `schemaConfig` present; decoded JSON-stringified result placed in `value` of `KafkaConsumeRecord`; `rawValue` is never serialized to client
+- consume decode chain: effective subject resolved as `schemaConfig.subject ?? `${request.topic}-value``; `KafkaConsumerRecord` (adapter type in `kafka-adapter.ts`) extended with `rawValue?: Buffer`; adapter sets `rawValue` from raw `message.value` alongside existing `value: string` (the `.toString('utf-8')` result); `kafka-service.ts` uses `record.rawValue` (not `record.value`) to call registry decode when `schemaConfig` present; decoded result is JSON-stringified and a **new** record object `{ ...record, value: decodedJson }` is pushed (never mutates the adapter record); `rawValue` is never serialized to client
+- consume schema error handling: registry decode errors (`SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, `REGISTRY_AUTH_FAILURE`) are caught inside the `consumer.run()` callback and cause `settleResult` to be called with the appropriate error envelope **before** the error propagates to the generic `KAFKA_CONSUME_ONCE_FAILED` catch block
 - subscribe-path schema decode is **out of scope** for Phase 10B — only `consume-once` path supports schema-aware decode in the initial phase; note this explicitly in code and docs
 - `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` error codes defined and returned on respective failure conditions
 - key encoding confirmed out of scope: only message `value` is encoded/decoded in the initial phase
@@ -2731,17 +2898,22 @@ Goal: surface schema subject/version controls in produce/consume UI without poll
 
 Implementation steps:
 
-1. Add collapsible schema config section to produce panel — hidden by default, requires explicit opt-in toggle.
-2. Add subject/version selectors populated from registry subject/version list API.
-3. Add schema fetch preview for the selected subject/version.
-4. Add clear validation messages for schema mismatch, missing registry, and auth failures.
-5. Confirm all schema-registry UI controls are absent and non-rendering when registry is not configured.
+1. Update `src/shared/kafka/kafkaClient.ts`: add `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'` to the `KafkaOperation` union type AND add all three entries to `OPERATION_MAP` as **POST** operations with no `queryKeys` — `'schema-subjects': { method: 'POST', path: '/api/kafka/schema-subjects' }`, `'schema-versions': { method: 'POST', path: '/api/kafka/schema-versions' }`, `'schema-fetch': { method: 'POST', path: '/api/kafka/schema-fetch' }`. All three must be POST, not GET. Reason: `dispatchKafkaOperation` sets `body: spec.method === 'GET' ? undefined : request` — GET operations always have `body: undefined`. Additionally, `buildQuery` calls `toQueryValue()` which returns `null` for object values, so `auth: { username, password }` is silently dropped from GET query params with no error. Only POST operations carry the full `request` as body, which is required to transmit `auth` credentials. Both the `KafkaOperation` union and `OPERATION_MAP` must be updated in lockstep — `OPERATION_MAP` is `Record<KafkaOperation, KafkaOperationSpec>` and TypeScript will error if any union member has no map entry. Also define a frontend `KafkaSchemaConfig` interface in `kafkaClient.ts` (not imported from `src-server/` which is unreachable from the browser bundle): `{ registryUrl: string; auth?: { username: string; password: string }; subject?: string; version?: number; format: 'avro' | 'protobuf' | 'json-schema' }` — this mirrors `KafkaSchemaConfig` in `contracts.ts` and is the type used by all frontend components.
+2. Extend `KafkaProduceNodeData` and `KafkaConsumeNodeData` in `src/features/workflow/types/workflow.ts` with optional `schemaConfig?: KafkaSchemaConfig` (imported from `kafkaClient.ts`). Extend `KafkaNodeOperations.produce()` and `.consume()` in `src/features/workflow/engine/graphRunnerNodeHandlerContext.ts` with optional `schemaConfig?: KafkaSchemaConfig`. Update `handleKafkaProduceNode` and the consume handler in `src/features/workflow/engine/graphRunnerKafkaNodeHandlers.ts` to pass `data.schemaConfig` through to `ops.produce()`/`ops.consume()`. Add collapsible schema config section to **`src/features/workflow/components/configs/KafkaProduceConfig.tsx`** and **`KafkaConsumeConfig.tsx`** — hidden by default, requires explicit opt-in toggle.
+3. Add subject/version selectors to `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx`, populated lazily via `dispatchKafkaOperation('schema-subjects', ...)` and `dispatchKafkaOperation('schema-versions', ...)`.
+4. Add schema fetch preview via `dispatchKafkaOperation('schema-fetch', ...)` for the selected subject/version.
+5. Add clear validation messages for `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` error codes in the produce/consume result display.
+6. Confirm all schema-registry UI controls are absent and non-rendering when registry is not configured.
 
 Detailed implementation checklist:
 
-- schema config section is collapsed/hidden when no registry URL is configured
-- subject and version selectors load lazily from `schema-subjects` and `schema-versions` APIs
-- schema preview shows decoded schema fields for the selected subject/version
+- `KafkaOperation` in `kafkaClient.ts` extended with `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'`; `OPERATION_MAP` updated with all three entries as POST operations (no `queryKeys`) in the same commit (lockstep rule); rationale: `dispatchKafkaOperation` sets `body: undefined` for GET ops and `toQueryValue()` silently drops object values (`auth`), so auth credentials can only reach the server via POST body
+- frontend `KafkaSchemaConfig` interface defined in `src/shared/kafka/kafkaClient.ts` — identical shape to server-side `KafkaSchemaConfig` in `contracts.ts` but independent (frontend cannot import from `src-server/`)
+- `KafkaProduceNodeData` and `KafkaConsumeNodeData` in `workflow.ts` extended with optional `schemaConfig?: KafkaSchemaConfig`
+- `KafkaNodeOperations.produce()` and `.consume()` in `graphRunnerNodeHandlerContext.ts` extended with optional `schemaConfig?`; node handlers in `graphRunnerKafkaNodeHandlers.ts` pass `data.schemaConfig` through
+- schema config section in `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx` is collapsed/hidden when no registry URL is configured
+- subject and version selectors load lazily from `schema-subjects` and `schema-versions` APIs via `dispatchKafkaOperation`
+- schema preview shows decoded schema fields for the selected subject/version via `schema-fetch`
 - error states for `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` display as actionable inline messages
 - Playwright spec covers: opt-in toggle → subject load → produce → consume → schema mismatch display
 - all existing produce/consume UI tests pass unchanged
@@ -2792,7 +2964,7 @@ Phase 10B/10C validation requires a schema registry endpoint:
 | --- | --- | --- | --- |
 | `kafka-p10a-registry-contracts` | `feature/kafka-p10a-registry-contracts` | contract/schema tests + `npx tsc -b --noEmit` | registry client and type extensions validated with no breakage to existing contracts |
 | `kafka-p10b-registry-runtime` | `feature/kafka-p10b-registry-runtime` | `npx vitest run src-server/kafka/schema-registry-client.test.ts src-server/kafka/kafka-service.test.ts` + `npx tsc -b --noEmit` | encode/decode works with mocked registry; plain-JSON produce/consume unchanged |
-| `kafka-p10c-registry-ux` | `feature/kafka-p10c-registry-ux` | `npx vitest run src/features/kafka/` + `npx playwright test e2e/kafka-schema.spec.ts --reporter=list` | UX opt-in, schema mismatch display, and Playwright spec all passing |
+| `kafka-p10c-registry-ux` | `feature/kafka-p10c-registry-ux` | `npx vitest run src/features/workflow/components/configs/KafkaProduceConfig.test.tsx src/features/workflow/components/configs/KafkaConsumeConfig.test.tsx` + `npx playwright test e2e/kafka-schema.spec.ts --reporter=list` | UX opt-in, schema mismatch display, and Playwright spec all passing |
 
 Phase 10 PR readiness sequence:
 
@@ -2807,7 +2979,7 @@ Phase 10 PR readiness sequence:
 - `npx vitest run src-server/kafka/schema-registry-client.test.ts`
 - `npx vitest run src-server/kafka/kafka-service.test.ts`
 - `npx vitest run src-server/routes/kafka-routes.test.ts`
-- `npx vitest run src/features/kafka/`
+- `npx vitest run src/features/workflow/components/configs/KafkaProduceConfig.test.tsx src/features/workflow/components/configs/KafkaConsumeConfig.test.tsx`
 - `npx tsc -b --noEmit`
 - `npx playwright test e2e/kafka-schema.spec.ts --reporter=list`
 

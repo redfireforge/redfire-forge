@@ -57,6 +57,7 @@ import {
   writeTabToUrl,
 } from './utils/appTabUtils';
 import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
+import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
@@ -96,6 +97,7 @@ export default function App() {
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
+  const kafkaState = useKafkaState();
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
@@ -117,6 +119,10 @@ export default function App() {
     setResultsRunTypeFilter(runType);
     setActiveTab('results');
   };
+
+  const handleNavigateToKafkaSettings = useCallback(() => {
+    setActiveTab('kafka-settings');
+  }, []);
 
   const handleRunInHarness = (workflowId: string) => {
     setWorkflowRunnerInitialId(workflowId);
@@ -326,6 +332,10 @@ export default function App() {
         THEMES={THEMES}
         THEME_ICONS={THEME_ICONS}
         setShowCustomizer={setShowCustomizer}
+        kafkaConnection={kafkaState.connection}
+        kafkaClusterName={kafkaState.selectedCluster?.name ?? null}
+        kafkaHasClusters={kafkaState.clusters.length > 0}
+        onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
       />
       {showCustomizer && (
         <ThemeCustomizer
@@ -586,7 +596,7 @@ export default function App() {
           )}
 
           {activeTab === 'kafka-settings' && (
-            <KafkaSettingsPage />
+            <KafkaSettingsPage kafkaState={kafkaState} />
           )}
 
           {activeTab === 'scenarios' && (

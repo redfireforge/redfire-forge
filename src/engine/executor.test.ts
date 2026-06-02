@@ -445,6 +445,28 @@ describe('runTest', () => {
     );
   });
 
+  it('forwards kafkaOperations to runGraphLoad in workflow mode', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
+    const kafkaOps = { produce: vi.fn(), consume: vi.fn() };
+    await runTest(
+      config,
+      [s],
+      vi.fn(),
+      undefined,    // abortSignal
+      minimalWorkflow('w1'),
+      undefined,    // resolveSubWorkflow
+      undefined,    // workerIndex
+      undefined,    // workflowResolverData
+      kafkaOps,     // kafkaOperations
+    );
+    expect(vi.mocked(runGraphLoad)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ kafkaOperations: kafkaOps }),
+    );
+  });
+
   it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
     const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
