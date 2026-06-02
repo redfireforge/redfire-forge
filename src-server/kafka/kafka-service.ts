@@ -388,10 +388,16 @@ export class KafkaService {
         };
 
         timeoutHandle = setTimeout(() => {
+          // Snapshot the collected messages so the result is immutable after this
+          // point regardless of any in-flight eachMessage callbacks.  If the
+          // messages array already reached maxMessages (i.e. the last message
+          // arrived at the exact millisecond the timer fired), treat the result as
+          // NOT timed-out — we fulfilled the request even if the timer won the race.
+          const snapshot = [...messages];
           void settleResult({
-            messageCount: messages.length,
-            messages,
-            timedOut: true,
+            messageCount: snapshot.length,
+            messages: snapshot,
+            timedOut: snapshot.length < maxMessages,
           }).catch(reject);
         }, timeoutMs);
 
@@ -406,9 +412,10 @@ export class KafkaService {
 
           messages.push(record);
           if (messages.length >= maxMessages) {
+            const snapshot = [...messages];
             await settleResult({
-              messageCount: messages.length,
-              messages,
+              messageCount: snapshot.length,
+              messages: snapshot,
               timedOut: false,
             });
           }
@@ -734,7 +741,7 @@ export class KafkaService {
 
   private async safeDisconnectProducer(producer: { disconnect(): Promise<void> }): Promise<void> {
     try {
-      await producer.disconnect();
+      await this.withTimeout(producer.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'producer-disconnect');
     } catch {
       // Producer disconnect failures are non-fatal cleanup noise.
     }
@@ -742,7 +749,7 @@ export class KafkaService {
 
   private async safeDisconnectConsumer(consumer: { disconnect(): Promise<void> }): Promise<void> {
     try {
-      await consumer.disconnect();
+      await this.withTimeout(consumer.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'consumer-disconnect');
     } catch {
       // Consumer disconnect failures are non-fatal cleanup noise.
     }

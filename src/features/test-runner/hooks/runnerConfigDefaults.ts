@@ -1,4 +1,4 @@
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 
 export type HostMode = 'hardcoded' | 'settings' | 'custom';
@@ -27,6 +27,8 @@ export interface RunnerConfig {
   maxErrorRate?: number;
   autoReport?: boolean;
   autoReportFormat?: ReportOptions['format'];
+  /** Optional Kafka results publishing configuration. When present and enabled, run summaries are published after completion. */
+  kafkaResultsPublish?: KafkaResultsPublishConfig;
 }
 
 export const defaultLoadProfile: LoadProfileConfig = {
@@ -70,6 +72,8 @@ export interface ResolvedConfig {
   maxErrorRate: number;
   autoReport: boolean;
   autoReportFormat: ReportOptions['format'];
+  /** Optional Kafka results publishing configuration. Passed through as-is from saved config (no default applied — field is opt-in). */
+  kafkaResultsPublish?: KafkaResultsPublishConfig;
 }
 
 /**
@@ -104,5 +108,6 @@ export function resolveLoadedConfig(raw: unknown): ResolvedConfig | null {
     maxErrorRate: saved.maxErrorRate ?? 50,
     autoReport: saved.autoReport ?? false,
     autoReportFormat: saved.autoReportFormat ?? 'html',
+    kafkaResultsPublish: saved.kafkaResultsPublish,
   };
 }

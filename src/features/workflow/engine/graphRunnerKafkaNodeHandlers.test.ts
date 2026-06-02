@@ -334,6 +334,27 @@ describe('handleKafkaConsumeNode', () => {
     expect(hCtx.visitOutgoing).toHaveBeenCalled();
   });
 
+  it('defaults to auto-resume when loadTestBehavior is absent in load test mode (Phase 7B)', async () => {
+    // Phase 7B: changed default from 'wait-for-real' to 'auto-resume' so that
+    // nodes without explicit behavior skip the consume and continue the graph.
+    const ops = mockKafkaOps();
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      kafkaOperations: ops,
+      loadTestMode: true,
+    });
+    const passed = makePassedFlag();
+    const node = consumeNode('c1'); // no loadTestBehavior — relies on new default
+
+    await handleKafkaConsumeNode('c1', node, hCtx, passed);
+
+    expect(ops.consume).not.toHaveBeenCalled();
+    expect(passed.value).toBe(true);
+    expect(hCtx.ctx.get('__kafkaConsumeBody')).toBe('');
+    expect(hCtx.ctx.get('__kafkaConsumeCount')).toBe('0');
+    expect(hCtx.visitOutgoing).toHaveBeenCalled();
+  });
+
   it('synthetic-inject injects mock payload in load test mode', async () => {
     const ops = mockKafkaOps();
     const hCtx = makeHandlerContext({

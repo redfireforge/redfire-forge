@@ -810,6 +810,58 @@ describe('graphLoadRunner', () => {
         kafkaOperations,    // kafkaOperations ← must be threaded through
       );
     });
+
+    describe('Kafka load policy guard (Phase 7B)', () => {
+      function createWorkflowWithKafkaConsume(mode?: 'wait-for-real' | 'auto-resume' | 'synthetic-inject'): Workflow {
+        return {
+          id: 'wf-kafka',
+          name: 'Kafka Workflow',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'consume1',
+              type: 'kafkaConsume',
+              position: { x: 0, y: 100 },
+              data: {
+                label: 'Consume Orders',
+                clusterId: 'c1',
+                topic: 'orders',
+                ...(mode !== undefined ? { loadTestBehavior: { mode } } : {}),
+              },
+            },
+            { id: 'end', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'start', target: 'consume1' },
+            { id: 'e2', source: 'consume1', target: 'end' },
+          ],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+      }
+
+      it('rejects before any iteration when a kafkaConsume node has wait-for-real mode', async () => {
+        const workflow = createWorkflowWithKafkaConsume('wait-for-real');
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .rejects.toThrow(/wait-for-real/);
+        expect(mockRunGraph).not.toHaveBeenCalled();
+      });
+
+      it('does not reject when a kafkaConsume node has auto-resume mode', async () => {
+        mockRunGraph.mockResolvedValue([createMockResult()]);
+        const workflow = createWorkflowWithKafkaConsume('auto-resume');
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .resolves.toBeDefined();
+      });
+
+      it('does not reject when kafkaConsume node has no loadTestBehavior (auto-resume fallback)', async () => {
+        mockRunGraph.mockResolvedValue([createMockResult()]);
+        const workflow = createWorkflowWithKafkaConsume(undefined);
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .resolves.toBeDefined();
+      });
+    });
   });
 
 });

@@ -11,6 +11,8 @@ import { supportsWorkers } from '../../../shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
+import type { KafkaResultsPublishConfig } from '../../../shared/types';
+import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -51,7 +53,10 @@ function capResults(results: RequestResult[]): RequestResult[] {
   return [...failed, ...sampled];
 }
 
-export function useTestExecution() {
+export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
+  const publishConfigRef = useRef(publishConfig);
+  publishConfigRef.current = publishConfig;
+
   const [state, setState] = useState<TestExecutionState>({
     isRunning: false,
     completed: 0,
@@ -392,6 +397,14 @@ export function useTestExecution() {
 
       const saveResult = await saveTestRun(testRun);
 
+      if (!saveResult.quotaError && publishConfigRef.current?.enabled) {
+        void publishRunResults(testRun, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed', outcome);
+          }
+        });
+      }
+
       const wasAborted = abortRef.current?.signal.aborted ?? false;
       const activeResults = testResult.results.filter(r => !r.cancelled);
       const finalCompleted = wasAborted
@@ -441,6 +454,13 @@ export function useTestExecution() {
     if (!pending) return;
     const result = await forceSaveTestRun(pending);
     if (result.ok) {
+      if (publishConfigRef.current?.enabled) {
+        void publishRunResults(pending, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed (confirmSave)', outcome);
+          }
+        });
+      }
       setState((prev) => ({ ...prev, finalRun: prev.pendingRun, pendingRun: null }));
     } else {
       setState((prev) => ({ ...prev, error: 'Storage is full. Please clear data manually in Settings → Storage.', pendingRun: null }));
@@ -558,6 +578,14 @@ export function useTestExecution() {
       };
 
       const saveResult = await saveTestRun(testRun);
+
+      if (!saveResult.quotaError && publishConfigRef.current?.enabled) {
+        void publishRunResults(testRun, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed (externalExec)', outcome);
+          }
+        });
+      }
 
       if (saveResult.quotaError) {
         setState((prev) => ({

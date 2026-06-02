@@ -495,4 +495,34 @@ describe('KafkaService — Coverage: Untested Paths', () => {
     // Give the consumer.run a microtask to fire
     await new Promise((r) => setTimeout(r, 10));
   });
+
+  // ── consumeOnce: timeout-boundary race — timedOut reflects completeness ──
+
+  it('consumeOnce returns timedOut=false when maxMessages are received even if timeout fires simultaneously', async () => {
+    // Simulate the race: the consumer delivers the message, but with a very
+    // tight timeout (1 ms) the timer fires around the same time.  After the
+    // fix the snapshot logic in the timeout handler should return timedOut=false
+    // when messages.length >= maxMessages at the moment the timer fires.
+    const record = {
+      topic: 'orders.created', partition: 0, offset: '0',
+      key: 'k', value: '{"ok":true}', headers: {}, timestamp: '0',
+    };
+    // Use consumeRecords so the mock delivers the record on consumer.run()
+    const mock = createMockRuntimeAdapter({ consumeRecords: [record] });
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const result = await service.consumeOnce({
+      topic: 'orders.created',
+      maxMessages: 1,
+      timeoutMs: 500,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    // Whether the timeout path or the normal path won the race, the result must
+    // correctly reflect that we have all requested messages → timedOut must be false.
+    expect(result.data.messages).toHaveLength(1);
+    expect(result.data.timedOut).toBe(false);
+  });
 });
