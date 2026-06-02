@@ -59,6 +59,20 @@ describe('KafkaService — Coverage: Untested Paths', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('returns KAFKA_AUTH_FAILED when SASL authentication fails (line 660)', async () => {
+    const mock = createMockRuntimeAdapter({ failAuthConnect: true });
+    const service = new KafkaService(mock.runtimeAdapter);
+
+    const result = await service.connect({ connection: makeConnection() });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('expected auth failure');
+    }
+    expect(result.error.code).toBe('KAFKA_AUTH_FAILED');
+    expect(result.error.message).toContain('Invalid credentials');
+  });
+
   it('withTimeout rejects when the operation takes longer than the timeout (line 801)', async () => {
     const mock = createMockRuntimeAdapter();
     const service = new KafkaService(mock.runtimeAdapter);

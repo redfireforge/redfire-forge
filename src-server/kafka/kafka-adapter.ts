@@ -1,6 +1,10 @@
 import { Kafka } from 'kafkajs';
 import type { KafkaConfig, SASLOptions } from 'kafkajs';
 import type { ConnectionOptions } from 'node:tls';
+
+// Suppress the KafkaJS v2 default-partitioner switch warning — we intentionally
+// use the new default partitioner and don't need the migration reminder.
+process.env['KAFKAJS_NO_PARTITIONER_WARNING'] = '1';
 import type { KafkaConnectionConfig } from './contracts.js';
 
 export interface KafkaTopicMetadata {
