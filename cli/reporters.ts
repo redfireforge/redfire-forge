@@ -1,6 +1,7 @@
 import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 import { formatFailureDetails } from '../src/shared/utils/helpers';
+import { percentile } from '../src/shared/utils/percentiles';
 import type { RunComparison } from '../src/features/results/utils/runBaselines';
 
 // ── JSON report ─────────────────────────────────────────────
@@ -289,7 +290,6 @@ function computePerStepStats(results: RequestResult[]): PerStepStats[] {
     const passed = nodeResults.filter(r => r.passed).length;
     const first = nodeResults[0];
     const label = (first && first.scenarioName) ? first.scenarioName : nodeId;
-    const p95Idx = Math.floor(times.length * 0.95);
     stats.push({
       nodeId,
       label,
@@ -299,7 +299,7 @@ function computePerStepStats(results: RequestResult[]): PerStepStats[] {
       avgMs: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
       minMs: times[0],
       maxMs: times[times.length - 1],
-      p95Ms: times[p95Idx],
+      p95Ms: percentile(times, 0.95),
     });
   }
 

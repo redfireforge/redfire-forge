@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { percentile } from '../../../shared/utils/percentiles';
 
 type StatusFilter = 'all' | 'pass' | 'fail' | 'skipped';
 
@@ -77,7 +78,7 @@ export default function NodeExecutionDetailPanel({
       avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : undefined,
       minDuration: durations.length > 0 ? Math.min(...durations) : undefined,
       maxDuration: durations.length > 0 ? Math.max(...durations) : undefined,
-      p95Duration: durations.length > 0 ? durations.sort((a, b) => a - b)[Math.floor(durations.length * 0.95)] : undefined,
+      p95Duration: durations.length > 0 ? percentile(durations.sort((a, b) => a - b), 0.95) : undefined,
     };
   }, [nodeEvents]);
 

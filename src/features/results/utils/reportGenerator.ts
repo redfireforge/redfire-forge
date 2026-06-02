@@ -1,5 +1,6 @@
 import type { TestRun, RequestResult } from '../../../shared/types';
 import { getResultErrorMessage } from '../../../shared/utils/helpers';
+import { percentile } from '../../../shared/utils/percentiles';
 // import { escapeCsv } from '../../../shared/utils/export';
 
 export interface ReportOptions {
@@ -38,9 +39,9 @@ function computeRowStats(results: RequestResult[]): RowStats {
     failed: total - passed,
     passRate: total > 0 ? Math.round((passed / total) * 100) : 0,
     avg: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
-    p50: times.length ? times[Math.floor(times.length * 0.5)] : 0,
-    p95: times.length ? times[Math.floor(times.length * 0.95)] : 0,
-    p99: times.length ? times[Math.floor(times.length * 0.99)] : 0,
+    p50: percentile(times, 0.5),
+    p95: percentile(times, 0.95),
+    p99: percentile(times, 0.99),
   };
 }
 
