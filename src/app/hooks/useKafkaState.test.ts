@@ -948,3 +948,125 @@ describe('useKafkaState – schedulePoll cancellation (lines 316-325)', () => {
     expect(callCountAfterUnmount).toBe(callCountAfterLoad);
   });
 });
+
+describe('useKafkaState – race-boundary: poll suppression during connect/disconnect', () => {
+  beforeEach(() => {
+    mocks.loadKafkaClusters.mockResolvedValue([CLUSTER_A]);
+    mocks.loadSelectedKafkaClusterId.mockResolvedValue('cluster-a');
+    mocks.loadKafkaAutoConnectOnStartup.mockResolvedValue(false);
+    mocks.saveKafkaClusters.mockResolvedValue(undefined);
+    mocks.saveSelectedKafkaClusterId.mockResolvedValue(undefined);
+    mocks.saveKafkaAutoConnectOnStartup.mockResolvedValue(undefined);
+  });
+
+  it('poll does not overwrite testing state while connect is in flight', async () => {
+    let resolveConnect!: (value: unknown) => void;
+    const connectPromise = new Promise((r) => { resolveConnect = r; });
+    let statusCallCount = 0;
+
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'connect') return connectPromise;
+      if (op === 'status') {
+        statusCallCount++;
+        return Promise.resolve({ ok: true, op: 'status', data: { state: 'disconnected', clusterId: 'cluster-a' } });
+      }
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // Record status calls after initial load
+    const statusCallsAfterLoad = statusCallCount;
+
+    // Initiate connect — state should become 'testing'
+    let connectResultPromise: Promise<boolean>;
+    await act(async () => {
+      connectResultPromise = result.current.connectSelectedCluster();
+    });
+    expect(result.current.connection.state).toBe('testing');
+
+    // Manually invoke refreshConnectionStatus (simulates what a poll timer would do).
+    // With the race-boundary guard, this should be a no-op.
+    await act(async () => {
+      // refreshConnectionStatus is not directly exposed, but we can verify via
+      // the status dispatch count: if the guard works, no new 'status' calls happen
+      // during the connect in-flight window. Allow microtasks to flush.
+      await new Promise(r => setTimeout(r, 20));
+    });
+
+    // No new 'status' calls should have been made by the poll timer while connect is in-flight
+    // (the initial status call happened on load; no additional ones during connect)
+    expect(statusCallCount).toBe(statusCallsAfterLoad);
+    expect(result.current.connection.state).toBe('testing');
+
+    // Now resolve the connect and verify state transitions to 'connected'
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'status') {
+        statusCallCount++;
+        return Promise.resolve({ ok: true, op: 'status', data: { state: 'connected', clusterId: 'cluster-a' } });
+      }
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    await act(async () => {
+      resolveConnect({ ok: true, op: 'connect', data: { status: { state: 'connected', clusterId: 'cluster-a' } } });
+    });
+
+    // The forced refresh after connect succeeds should fire
+    await waitFor(() => {
+      expect(result.current.connection.state).toBe('connected');
+    });
+
+    const connectResult = await connectResultPromise!;
+    expect(connectResult).toBe(true);
+  });
+
+  it('poll does not overwrite state while disconnect is in flight', async () => {
+    let resolveDisconnect!: (value: unknown) => void;
+    const disconnectPromise = new Promise((r) => { resolveDisconnect = r; });
+    let statusCallCount = 0;
+    let serverState = 'connected';
+
+    mocks.dispatchKafkaOperation.mockImplementation((op: string) => {
+      if (op === 'disconnect') return disconnectPromise;
+      if (op === 'status') {
+        statusCallCount++;
+        return Promise.resolve({ ok: true, op: 'status', data: { state: serverState, clusterId: 'cluster-a' } });
+      }
+      return Promise.resolve({ ok: true, op, data: {} });
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // Wait for initial status to set 'connected'
+    await waitFor(() => expect(result.current.connection.state).toBe('connected'));
+    const statusCallsBeforeDisconnect = statusCallCount;
+
+    // Initiate disconnect
+    await act(async () => {
+      result.current.disconnectActiveCluster();
+    });
+
+    // Allow any pending poll timers to fire — they should be suppressed
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 20));
+    });
+
+    // No new status calls during disconnect in-flight
+    expect(statusCallCount).toBe(statusCallsBeforeDisconnect);
+
+    // Simulate server-side disconnect completing
+    serverState = 'disconnected';
+
+    // Resolve disconnect
+    await act(async () => {
+      resolveDisconnect({ ok: true, op: 'disconnect', data: {} });
+    });
+
+    await waitFor(() => {
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+  });
+});

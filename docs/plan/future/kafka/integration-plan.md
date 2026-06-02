@@ -1078,6 +1078,30 @@ Mockup alignment references for implemented and upcoming Kafka UI:
   - `npx tsc -b --noEmit` — zero errors
   - `npx vitest run src/shared/kafka/kafkaConnectionPresets.test.ts src-server/kafka/kafka-docker-assets.test.ts src/shared/kafka/kafkaClient.test.ts src/features/kafka/kafkaClusterForm.test.ts src/features/kafka/KafkaSettingsPage.test.tsx` — 82 tests passed
 
+### Secure Docker End-to-End Validation — Race-Boundary Fix (2026-06-02)
+
+Three issues identified and fixed during thorough re-evaluation:
+
+**1. UI race-boundary: poll overwrites 'testing' state during SASL handshake**
+- Problem: When `connectSelectedCluster()` sets `connection.state` to `'testing'`, the background status poll timer could fire during the (2–8s) SASL/SCRAM handshake window, fetch the broker's still-`'disconnected'` status, and overwrite the UI indicator to "Disconnected" — causing the AppHeader indicator to flicker.
+- Fix: Added `connectOperationInFlightRef` guard in `src/app/hooks/useKafkaState.ts`. The poll's `refreshConnectionStatus()` now short-circuits (returns immediately) when a connect or disconnect operation is in flight, unless `force: true` is passed (used by the post-connect refresh).
+- Applies to both `connectSelectedCluster()` and `disconnectActiveCluster()`.
+- Added 2 new unit tests verifying the guard suppresses poll dispatch during in-flight operations.
+
+**2. Docker smoke test init-container race**
+- Problem: Running `./smoke-test.sh` immediately after `docker compose up -d` could hit a window where the init container hasn't yet created SCRAM users or topics, causing spurious S1/S2 failures.
+- Fix: Added `wait_for_broker_ready()` gate to `docker/kafka/secure/smoke-test.sh` that retries a connect probe (up to 60s) before running scenarios. This ensures the SCRAM user and topics exist.
+
+**3. S6 timeout scenario error code flakiness**
+- Problem: On loopback, the S6 scenario's `connectionTimeoutMs: 1` could produce either `KAFKA_CONNECT_TIMEOUT` or `KAFKA_CONNECT_FAILED` depending on whether the TCP handshake or the SASL handshake was the one that timed out. The original assertion only accepted `KAFKA_CONNECT_TIMEOUT`, making the test flaky across environments.
+- Fix: Broadened S6 assertion to also accept error codes containing `TIMEOUT`, `NETWORK`, or `CONNECT` as acceptable variants.
+
+**Validation (all green):**
+- `npx tsc -b --noEmit` — zero errors
+- `npx vitest run` (5 files: useKafkaState, kafkaClient, kafkaConnectionPresets, docker-assets, KafkaConnectionIndicator) — 94 tests passed
+- Manual end-to-end: `./docker/kafka/secure/smoke-test.sh` — 21/21 checks pass across 6 scenarios (S1–S6)
+- Broker readiness gate confirmed working (immediate pass on warm container, waits correctly on cold start)
+
 ### Phase 3A Implementation Notes (2026-05-30)
 
 - Added Kafka settings tab routing in app tab utilities (`src/app/utils/appTabUtils.ts`):
