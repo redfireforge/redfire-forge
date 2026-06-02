@@ -497,18 +497,29 @@ run_scenario_13d() {
 }
 
 # =============================================================================
-# Scenario 13E — Secure profile (SASL) publish
+# Scenario 13E — Secure profile (SCRAM-SHA-256) publish parity
 # =============================================================================
-# Validates that publishRunResults works correctly against a SASL-authenticated
-# broker. Skipped unless KAFKA_SECURE_BROKERS, KAFKA_SECURE_USERNAME, and
-# KAFKA_SECURE_PASSWORD are all set (pointing to a running secure broker).
+# Validates that publishRunResults works correctly against a SASL/SCRAM-SHA-256
+# broker and produces an envelope that is semantically identical to the
+# plaintext profile (same contract, same fields, same structure).
 #
+# Checks:
+#  - connect with SCRAM-SHA-256 succeeds (state=connected, clusterId matches)
+#  - produce a full KafkaRunSummaryEnvelope (including optional traceability
+#    fields: projectName, envName, svcName) — same shape as plaintext profile
+#  - sentCount=1 in produce response
+#  - consume-once returns the message before timeout (timedOut=false)
+#  - envelope passes all field validation: schemaVersion, runId, timestamp,
+#    executionMode, all 9 summary fields, projectName, envName (parity gate)
+#
+# Skipped unless KAFKA_SECURE_BROKERS, KAFKA_SECURE_USERNAME, and
+# KAFKA_SECURE_PASSWORD are all set (pointing to a running secure broker).
 # The secure Docker profile lives in docker/kafka/secure/ and must be started
-# separately before running this scenario. See docs/guides/kafka-local-dev.md.
+# separately. See docs/guides/kafka-local-dev.md.
 # =============================================================================
 
 run_scenario_13e() {
-  header "Scenario 13E — Secure profile (SASL) publish"
+  header "Scenario 13E — Secure profile (SCRAM-SHA-256) publish parity"
 
   local secure_brokers="${KAFKA_SECURE_BROKERS:-}"
   local secure_user="${KAFKA_SECURE_USERNAME:-}"
@@ -523,7 +534,7 @@ run_scenario_13e() {
   local secure_cluster_id="local-secure"
   local run_id="13e-$SCENARIO_RUN_ID"
 
-  # Connect using SASL/SCRAM-SHA-256 credentials
+  # ── Connect using SASL/SCRAM-SHA-256 credentials ─────────────────────────
   # NOTE: Redpanda requires TLS for SASL/PLAIN; always use scram-sha-256 here.
   local connect_response
   connect_response="$(request POST /api/kafka/connect \
@@ -539,26 +550,53 @@ run_scenario_13e() {
   fi
   pass "Connected to secure broker with SASL/SCRAM-SHA-256 auth"
 
-  # Produce a summary envelope to the results topic
+  # Verify connection state and clusterId (parity with smoke-test S1/S2)
+  local conn_state
+  conn_state="$(echo "$connect_response" | jq -r '.data.status.state // ""' 2>/dev/null || echo '')"
+  if [[ "$conn_state" == "connected" ]]; then
+    pass "Connection state is 'connected' after SCRAM-SHA-256 handshake"
+  else
+    fail "Expected state='connected' after connect, got '$conn_state'"
+  fi
+
+  local conn_cluster_id
+  conn_cluster_id="$(echo "$connect_response" | jq -r '.data.status.clusterId // ""' 2>/dev/null || echo '')"
+  if [[ "$conn_cluster_id" == "$secure_cluster_id" ]]; then
+    pass "Connection clusterId matches ($secure_cluster_id)"
+  else
+    fail "Connection clusterId mismatch: expected '$secure_cluster_id', got '$conn_cluster_id'"
+  fi
+
+  # ── Produce a full KafkaRunSummaryEnvelope to the results topic ───────────
+  # Uses the same envelope shape as the plaintext produce_summary_envelope
+  # helper (including optional traceability fields) to prove parity.
   local ts
   ts="$(date +%s)000"
   local produce_response
   produce_response="$(request POST /api/kafka/produce \
-    "{\"clusterId\":\"$secure_cluster_id\",\"topic\":\"$RESULTS_TOPIC\",\"messages\":[{\"key\":\"$run_id\",\"value\":\"{\\\"schemaVersion\\\":\\\"1.0\\\",\\\"runId\\\":\\\"$run_id\\\",\\\"timestamp\\\":$ts,\\\"executionMode\\\":\\\"sequential\\\",\\\"summary\\\":{\\\"tps\\\":5.0,\\\"avgResponseTime\\\":100.0,\\\"p95ResponseTime\\\":180.0,\\\"p99ResponseTime\\\":250.0,\\\"errorRate\\\":0,\\\"totalRequests\\\":50,\\\"successfulRequests\\\":50,\\\"failedRequests\\\":0,\\\"totalDurationMs\\\":10000}}\"}]}" \
+    "{\"clusterId\":\"$secure_cluster_id\",\"topic\":\"$RESULTS_TOPIC\",\"messages\":[{\"key\":\"$run_id\",\"value\":\"{\\\"schemaVersion\\\":\\\"1.0\\\",\\\"runId\\\":\\\"$run_id\\\",\\\"timestamp\\\":$ts,\\\"executionMode\\\":\\\"sequential\\\",\\\"summary\\\":{\\\"tps\\\":12.5,\\\"avgResponseTime\\\":88.3,\\\"p95ResponseTime\\\":142.0,\\\"p99ResponseTime\\\":198.0,\\\"errorRate\\\":0,\\\"totalRequests\\\":100,\\\"successfulRequests\\\":100,\\\"failedRequests\\\":0,\\\"totalDurationMs\\\":8000},\\\"projectName\\\":\\\"p8c-suite\\\",\\\"envName\\\":\\\"local\\\",\\\"svcName\\\":\\\"test-api\\\"}\"}]}" \
     2>/dev/null || echo '{}')"
 
   local produce_ok
   produce_ok="$(echo "$produce_response" | jq -r '.ok // false' 2>/dev/null || echo 'false')"
 
-  if [[ "$produce_ok" == "true" ]]; then
-    pass "Produced KafkaRunSummaryEnvelope to secure broker → $RESULTS_TOPIC"
-  else
+  if [[ "$produce_ok" != "true" ]]; then
     fail "Produce to secure broker failed: $produce_response"
     request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
     return
   fi
 
-  # Consume and verify envelope parity
+  local sent_count_e
+  sent_count_e="$(echo "$produce_response" | jq -r '.data.sentCount // 0' 2>/dev/null || echo '0')"
+  if [[ "$sent_count_e" -ge 1 ]]; then
+    pass "Produced KafkaRunSummaryEnvelope to secure broker → $RESULTS_TOPIC (sentCount=$sent_count_e)"
+  else
+    fail "Produce response ok=true but sentCount=$sent_count_e (expected ≥1)"
+    request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
+    return
+  fi
+
+  # ── Consume and verify envelope field parity ──────────────────────────────
   local consume_response
   consume_response="$(request POST /api/kafka/consume-once \
     "{\"clusterId\":\"$secure_cluster_id\",\"topic\":\"$RESULTS_TOPIC\",\"groupId\":\"p8c-secure-$run_id\",\"fromBeginning\":true,\"timeoutMs\":8000,\"maxMessages\":1,\"filter\":{\"keyEquals\":\"$run_id\"}}" \
@@ -570,15 +608,102 @@ run_scenario_13e() {
   local timed_out_e
   timed_out_e="$(echo "$consume_response" | jq -r 'if .data.timedOut == false then "false" else "true" end' 2>/dev/null || echo 'true')"
 
-  if [[ "$consumed_count" -ge 1 ]]; then
-    pass "Consumed message from secure broker — envelope semantics match plaintext profile"
-    if [[ "$timed_out_e" == "false" ]]; then
-      pass "Secure consume completed before timeout (timedOut=false)"
-    else
-      fail "Secure consume timed out before receiving message (timedOut=true)"
-    fi
-  else
+  if [[ "$consumed_count" -lt 1 ]]; then
     fail "No message received from secure broker topic (may need fromBeginning offset or topic creation)"
+    request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
+    return
+  fi
+  pass "Consumed message from secure broker (count=$consumed_count)"
+
+  if [[ "$timed_out_e" == "false" ]]; then
+    pass "Secure consume completed before timeout (timedOut=false)"
+  else
+    fail "Secure consume timed out before receiving message (timedOut=true)"
+  fi
+
+  # Parse and validate envelope field-by-field (parity gate vs plaintext 13D)
+  local raw_value
+  raw_value="$(echo "$consume_response" | jq -r '.data.messages[0].value' 2>/dev/null || echo '')"
+
+  if [[ -z "$raw_value" || "$raw_value" == "null" ]]; then
+    fail "Message value is empty or null"
+    request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
+    return
+  fi
+
+  local envelope
+  envelope="$(echo "$raw_value" | jq '.' 2>/dev/null || echo '')"
+
+  if [[ -z "$envelope" ]]; then
+    fail "Message value is not valid JSON: $raw_value"
+    request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
+    return
+  fi
+
+  # Required top-level fields
+  local schema_version
+  schema_version="$(echo "$envelope" | jq -r '.schemaVersion // ""')"
+  if [[ "$schema_version" == "1.0" ]]; then
+    pass "schemaVersion === '1.0' (secure envelope matches plaintext contract)"
+  else
+    fail "schemaVersion expected '1.0' but got '$schema_version'"
+  fi
+
+  local envelope_run_id
+  envelope_run_id="$(echo "$envelope" | jq -r '.runId // ""')"
+  if [[ "$envelope_run_id" == "$run_id" ]]; then
+    pass "runId matches ($run_id)"
+  else
+    fail "runId mismatch: expected '$run_id', got '$envelope_run_id'"
+  fi
+
+  local envelope_ts
+  envelope_ts="$(echo "$envelope" | jq -r '.timestamp // 0')"
+  if [[ "$envelope_ts" -gt 0 ]]; then
+    pass "timestamp is positive integer ($envelope_ts)"
+  else
+    fail "timestamp missing or zero (got: $envelope_ts)"
+  fi
+
+  local exec_mode
+  exec_mode="$(echo "$envelope" | jq -r '.executionMode // ""')"
+  if [[ -n "$exec_mode" ]]; then
+    pass "executionMode present ($exec_mode)"
+  else
+    fail "executionMode missing from secure envelope"
+  fi
+
+  # All 9 summary fields (same parity check as 13D plaintext)
+  local summary_fields=("tps" "avgResponseTime" "p95ResponseTime" "p99ResponseTime" "errorRate" "totalRequests" "successfulRequests" "failedRequests" "totalDurationMs")
+  local summary_ok=true
+  for field in "${summary_fields[@]}"; do
+    local val
+    val="$(echo "$envelope" | jq -r ".summary.$field // \"__missing__\"")"
+    if [[ "$val" == "__missing__" ]]; then
+      fail "summary.$field missing from secure envelope"
+      summary_ok=false
+    fi
+  done
+  if [[ "$summary_ok" == "true" ]]; then
+    pass "All 9 summary fields present in secure envelope (parity with plaintext)"
+  fi
+
+  # Optional traceability fields — parity gate: plaintext envelope includes
+  # projectName/envName/svcName, so the secure envelope must too.
+  local project_name
+  project_name="$(echo "$envelope" | jq -r '.projectName // ""')"
+  if [[ -n "$project_name" ]]; then
+    pass "projectName present ($project_name) — optional field parity confirmed"
+  else
+    fail "projectName missing from secure envelope (was included in test payload)"
+  fi
+
+  local env_name
+  env_name="$(echo "$envelope" | jq -r '.envName // ""')"
+  if [[ -n "$env_name" ]]; then
+    pass "envName present ($env_name) — optional field parity confirmed"
+  else
+    fail "envName missing from secure envelope (was included in test payload)"
   fi
 
   request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true

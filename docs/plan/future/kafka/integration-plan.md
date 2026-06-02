@@ -2448,11 +2448,21 @@ Gate to phase exit:
   - **13B** — Demonstrates the disabled-config path: no produce call is made for a disabled run-id; consume confirms no message on topic. References unit test (b) in `kafkaResultsPublisher.test.ts`.
   - **13C** — Disconnects the cluster then attempts produce; verifies the server returns `ok:false` (503/not-connected envelope). Confirms the fire-and-forget `publishRunResults` pattern returns `{ status: 'failed' }` without throwing.
   - **13D** — Produces a full envelope and parses the consumed message to assert: `schemaVersion === '1.0'`, `runId` match, `timestamp > 0`, `executionMode` present, all 9 summary fields present, optional traceability fields (`projectName`, `envName`) present.
-  - **13E** — Uses `KAFKA_SECURE_BROKERS` / `KAFKA_SECURE_USERNAME` / `KAFKA_SECURE_PASSWORD` env vars to connect with SASL/PLAIN and verify same envelope semantics on the secure profile. Skipped automatically when env vars are not set (secure profile Docker assets in `docker/kafka/secure/` must be populated separately).
+  - **13E** — Uses `KAFKA_SECURE_BROKERS` / `KAFKA_SECURE_USERNAME` / `KAFKA_SECURE_PASSWORD` env vars to connect with SASL/SCRAM-SHA-256 and verify full envelope parity on the secure profile. Validates: `state=connected` + `clusterId` match after connect; `sentCount=1` after produce; all 13D parity assertions on the consumed message (schemaVersion, runId, timestamp, executionMode, all 9 summary fields, optional traceability fields projectName + envName). Produces the same full envelope shape as `produce_summary_envelope` (including `projectName`, `envName`, `svcName`). Skipped automatically when env vars are not set. NOTE: Redpanda requires TLS for SASL/PLAIN — always use SCRAM-SHA-256 for Redpanda secure profile (TLS not required for SCRAM).
   - **13F** — Produces once and consumes with `maxMessages: 5` filtered by `keyEquals` to confirm exactly 1 message exists for the run-id (no duplicate publish). References unit tests (c), (d), (e), (i) for retry-logic specifics.
   - **13G** — Documents the three save-site hooks as covered by `useTestExecution.saveHandlers.test.ts`. No new broker calls needed; any successful run in the UI produces exactly one message (confirmed by 13A/13D).
 - **Run command:** `./docker/kafka/plaintext/broker-scenarios-p8c.sh` (requires broker up and server running).
 - **Secure scenario prerequisite:** `export KAFKA_SECURE_BROKERS=... KAFKA_SECURE_USERNAME=... KAFKA_SECURE_PASSWORD=...` before running to enable 13E.
+
+**Phase 8C re-evaluation notes (2026-06-02 — secure-profile publish parity):**
+
+Thorough re-evaluation of the 13E scenario identified four gaps vs the plaintext 13D parity gate:
+1. **No connection state validation** — 13E only checked `ok:true` after connect; did not verify `state=connected` or `clusterId` match (now uses `.data.status.state` / `.data.status.clusterId`, same as smoke-test S1/S2).
+2. **Envelope missing optional fields** — 13E produced a minimal envelope (no `projectName`/`envName`/`svcName`); the plaintext `produce_summary_envelope` helper includes all three. Fixed: 13E now produces the same full envelope shape as plaintext.
+3. **No `sentCount` check** — 13E did not verify `sentCount=1` from the produce response (13A–13D all check this). Fixed.
+4. **No envelope field validation** — 13E only checked `consumed_count ≥ 1`; did not parse and validate individual fields. Fixed: 13E now runs the same full parity assertion set as 13D (schemaVersion, runId, timestamp, executionMode, all 9 summary fields, projectName, envName).
+
+Result: 13E now has 13 PASS assertions (vs 4 before). Full suite with secure broker: **39/39 PASS**.
 
 ### Validation matrix (required before Phase 8 exit)
 
