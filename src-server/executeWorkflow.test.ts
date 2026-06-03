@@ -344,4 +344,26 @@ describe('saveErrorResult', () => {
     );
     consoleSpy.mockRestore();
   });
+
+  it('saves error result with triggerType "kafka-trigger"', async () => {
+    await saveErrorResult({
+      executionId: 'err-4',
+      workflowId: 'wf-kafka',
+      triggerId: 'trig-kafka-1',
+      triggerType: 'kafka-trigger',
+      startTime: Date.now() - 50,
+      error: 'Kafka dispatch failed',
+    });
+
+    expect(mockSaveExecResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'err-4',
+        workflowId: 'wf-kafka',
+        triggerId: 'trig-kafka-1',
+        triggerType: 'kafka-trigger',
+        status: 'error',
+        error: 'Kafka dispatch failed',
+      })
+    );
+  });
 });

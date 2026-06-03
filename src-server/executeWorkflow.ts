@@ -14,7 +14,7 @@ export interface WorkflowExecutionInput {
   executionId: string;
   workflow: Workflow;
   initialVariables: Record<string, string>;
-  triggerType: 'webhook' | 'schedule';
+  triggerType: 'webhook' | 'schedule' | 'kafka-trigger';
   triggerId: string;
   startTime: number;
   onLog?: (line: LogLine) => void;
@@ -134,7 +134,7 @@ export async function saveErrorResult(input: {
   executionId: string;
   workflowId: string;
   triggerId: string;
-  triggerType: 'webhook' | 'schedule';
+  triggerType: 'webhook' | 'schedule' | 'kafka-trigger';
   startTime: number;
   error: string;
 }): Promise<void> {

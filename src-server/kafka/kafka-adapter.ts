@@ -48,7 +48,7 @@ export interface KafkaConsumerRecord {
   topic: string;
   partition: number;
   offset: string;
-  timestamp?: string;
+  timestamp: string;
   key?: string;
   value: string;
   headers?: Record<string, string>;
@@ -60,6 +60,8 @@ export interface KafkaConsumerAdapter {
   subscribe(topic: string, fromBeginning?: boolean): Promise<void>;
   run(eachMessage: (record: KafkaConsumerRecord) => Promise<void> | void): Promise<void>;
   stop(): Promise<void>;
+  pause(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
+  resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
 }
 
 export interface KafkaRuntimeAdapter {
@@ -247,6 +249,14 @@ class KafkaJsConsumerAdapter implements KafkaConsumerAdapter {
 
   async stop(): Promise<void> {
     await this.consumer.stop();
+  }
+
+  pause(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void {
+    this.consumer.pause(topicPartitions);
+  }
+
+  resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void {
+    this.consumer.resume(topicPartitions);
   }
 }
 
