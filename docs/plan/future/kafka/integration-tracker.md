@@ -1602,11 +1602,45 @@ Dependency: Phases 1-8
 	- [x] `KafkaState` registered via `.manage(KafkaState::new())` in **`src-tauri/src/lib.rs`** (where the Tauri builder, `.manage()`, and `.invoke_handler()` all live)
 	- [x] `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and **added to `tauri::generate_handler![...]` list in `lib.rs`**
 	- [x] Rust unit tests for state transitions and topic list shape
-- [ ] Phase 9B - Native operation surface (Suggested PR label: `kafka-p9b-native-ops`)
-	- [ ] `kafka_produce`, `kafka_consume_once`, `kafka_subscribe`, `kafka_unsubscribe` implemented and **added to `tauri::generate_handler![...]` in `lib.rs`**
-	- [ ] `kafka_subscribe`/`kafka_unsubscribe` use `CancellationToken` from `tokio_util::sync` (already imported in `commands.rs`); cancel on explicit unsubscribe and app-window-close
-	- [ ] Error mapping table covering all rdkafka variants tested
-	- [ ] Concurrent operation safety verified: produce does not interfere with active subscriber
+
+#### Phase 9A Re-evaluation Notes (2026-06-04)
+
+**Bugs found and fixed:**
+
+1. **Wrong error code in `kafka_connect`** — `CONNECTION_FAILED` → now uses `KAFKA_CONNECT_FAILED` (or `KAFKA_CONNECT_TIMEOUT` for timeout errors, mirroring server-side `isTimeoutError` heuristic in `kafka-service.ts`). The `KAFKA_` prefix is required for the frontend `classifyKafkaUiError` classifier to return `'server'` instead of `'unknown'`.
+
+2. **Wrong error code in `kafka_topics` (not-connected path)** — `NOT_CONNECTED` → `KAFKA_NOT_CONNECTED`. The classifier uses `normalizedCode.includes('NOT_CONNECTED')` so both would have been classified as `'cluster'`, but the missing `KAFKA_` prefix violated contract parity.
+
+3. **Wrong error code in `kafka_topics` (fetch failure)** — `TOPICS_FETCH_FAILED` → `KAFKA_TOPICS_FAILED` (aligned with server-side `KAFKA_TOPICS_FAILED` error code in `kafka-service.ts`). Without the `KAFKA_` prefix this was classified as `'unknown'` instead of `'server'`.
+
+**Refactoring:**
+
+- Extracted `connect_error_code(err_msg: &str) -> &'static str` helper function for the timeout vs. non-timeout connect error decision, matching server-side logic.
+- Added 2 unit tests for the new helper: `connect_error_code_timeout_variants` and `connect_error_code_non_timeout_variants`.
+- Updated `error_envelope_shape` test to use `KAFKA_CONNECT_FAILED` as example code (documentation improvement).
+
+**Test count:** 631/631 passing (was 629; +2 for timeout detection helper tests).
+- [x] Phase 9B - Native operation surface (Suggested PR label: `kafka-p9b-native-ops`)
+	- [x] `kafka_produce`, `kafka_consume_once`, `kafka_subscribe`, `kafka_unsubscribe`, `kafka_subscriptions` implemented and **added to `tauri::generate_handler![...]` in `lib.rs`**
+	- [x] `kafka_subscribe`/`kafka_unsubscribe` use `CancellationToken` from `tokio_util::sync` (already imported in `commands.rs`); cancel on explicit unsubscribe and app-window-close
+	- [x] Error mapping table covering all rdkafka variants tested
+	- [x] Concurrent operation safety verified: produce does not interfere with active subscriber
+
+#### Phase 9B Re-evaluation Notes (2026-06-04)
+
+**Bugs found and fixed:**
+
+1. **Missing `KAFKA_` prefix on Phase 9A error codes** — `CONNECTION_FAILED` → `KAFKA_CONNECT_FAILED`/`KAFKA_CONNECT_TIMEOUT`, `NOT_CONNECTED` → `KAFKA_NOT_CONNECTED`, `TOPICS_FETCH_FAILED` → `KAFKA_TOPICS_FAILED`. The `KAFKA_` prefix is required for the frontend `classifyKafkaUiError` classifier to route correctly.
+
+2. **`connect_error_code()` helper restored** — Phase 9A re-evaluation extracted this helper but the full rewrite during Phase 9B had dropped it. Re-added with timeout-vs-general classification mirroring server-side `isTimeoutError` heuristic.
+
+**New additions:**
+- `kafka_subscriptions` command added (list active subscriptions per cluster) — was in contracts.ts but omitted from initial Phase 9B spec review.
+- `uuid` crate (`v1`, `v4` feature) added to `Cargo.toml` for subscription ID generation.
+- `futures = "0.3"` confirmed in `Cargo.toml` for `StreamExt` on `StreamConsumer.stream()`.
+- `KafkaSubscriptionEventPayload` type defined for `"kafka-subscription-message"` Tauri events.
+
+**Test count:** 656/656 passing (was 631 after Phase 9A re-eval; +25 for Phase 9B operations, types, filter logic, and json-path tests).
 - [ ] Phase 9C - Frontend transport switching and fallback (Suggested PR label: `kafka-p9c-transport-switch`)
 	- [ ] **`isTauri()` already exists** at `src/shared/utils/platform.ts` — do NOT create a new file; import from there
 	- [ ] **Transport switching already implemented** in `src/shared/kafka/kafkaClient.ts` via `setKafkaClientTransport()`; no new factory file needed
@@ -1623,7 +1657,7 @@ Dependency: Phases 1-8
 ### Validation
 
 - [x] `cargo build` clean with rdkafka on macOS arm64
-- [x] Rust unit tests for all Kafka commands (`cargo test`) — 17/17 passing
+- [x] Rust unit tests for all Kafka commands (`cargo test`) — 656/656 passing (was 631 after Phase 9A; 44 Kafka-specific tests covering lifecycle, operations, filter logic, json-path traversal, envelope shapes)
 - [ ] Frontend transport factory vitest suite
 - [ ] Golden-fixture parity tests for all operations (server-proxy vs native)
 - [ ] Error mapping equivalence tests
