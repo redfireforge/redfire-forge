@@ -460,7 +460,7 @@ test.describe('Kafka workflow nodes — server-proxy transport parity', () => {
           body: JSON.stringify(wrapProxyResponse(PRODUCE_PROXY_RESPONSE)),
         });
       } else {
-        await route.abort();
+        await route.continue();
       }
     });
 
@@ -492,6 +492,10 @@ test.describe('Kafka workflow nodes — server-proxy transport parity', () => {
   test('browser transport routes consume-once to /api/kafka/consume-once via /__proxy', async ({ page }) => {
     await seedAppData(page);
 
+    // Navigate first so the app initialises normally (init requests to /__proxy
+    // are not disrupted by the interceptor below).
+    await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
+
     let consumeCalled = false;
     await page.route('**/__proxy', async (route, request) => {
       let parsedBody: { url?: string } = {};
@@ -505,11 +509,9 @@ test.describe('Kafka workflow nodes — server-proxy transport parity', () => {
           body: JSON.stringify(wrapProxyResponse(CONSUME_PROXY_RESPONSE)),
         });
       } else {
-        await route.abort();
+        await route.continue();
       }
     });
-
-    await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
 
     // Call POST /__proxy from the page context with a consume-once payload,
     // exercising the same httpFetchViaViteProxy path as a real node call.
