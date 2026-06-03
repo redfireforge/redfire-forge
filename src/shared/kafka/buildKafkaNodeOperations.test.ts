@@ -214,3 +214,53 @@ describe('buildKafkaNodeOperations - consume', () => {
     await expect(ops.consume({ clusterId: 'c', topic: 't', maxMessages: 1, timeoutMs: 1000 })).rejects.toThrow('TLS handshake failed');
   });
 });
+
+describe('buildKafkaNodeOperations - Phase 10C schemaConfig passthrough', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('produce includes schemaConfig in dispatch body when provided', async () => {
+    mockDispatch.mockResolvedValue({
+      ok: true, op: 'produce',
+      data: { topic: 't', sentCount: 1, records: [{ partition: 0, offset: '1' }] },
+    });
+    const ops = buildKafkaNodeOperations();
+    const schemaConfig = { registryUrl: 'http://r:8081', format: 'avro' as const };
+    await ops.produce({ clusterId: 'c', topic: 't', value: '{"id":1}', schemaConfig });
+    expect(mockDispatch).toHaveBeenCalledWith('produce', expect.objectContaining({ schemaConfig }));
+  });
+
+  it('produce omits schemaConfig from dispatch body when absent', async () => {
+    mockDispatch.mockResolvedValue({
+      ok: true, op: 'produce',
+      data: { topic: 't', sentCount: 1, records: [{ partition: 0, offset: '1' }] },
+    });
+    const ops = buildKafkaNodeOperations();
+    await ops.produce({ clusterId: 'c', topic: 't', value: 'v' });
+    const body = mockDispatch.mock.calls[0][1] as Record<string, unknown>;
+    expect('schemaConfig' in body).toBe(false);
+  });
+
+  it('consume includes schemaConfig in dispatch body when provided', async () => {
+    mockDispatch.mockResolvedValue({
+      ok: true, op: 'consume-once',
+      data: { messageCount: 0, messages: [] },
+    });
+    const ops = buildKafkaNodeOperations();
+    const schemaConfig = { registryUrl: 'http://r:8081', format: 'protobuf' as const };
+    await ops.consume({ clusterId: 'c', topic: 't', maxMessages: 1, timeoutMs: 1000, schemaConfig });
+    expect(mockDispatch).toHaveBeenCalledWith('consume-once', expect.objectContaining({ schemaConfig }));
+  });
+
+  it('consume omits schemaConfig from dispatch body when absent', async () => {
+    mockDispatch.mockResolvedValue({
+      ok: true, op: 'consume-once',
+      data: { messageCount: 0, messages: [] },
+    });
+    const ops = buildKafkaNodeOperations();
+    await ops.consume({ clusterId: 'c', topic: 't', maxMessages: 1, timeoutMs: 1000 });
+    const body = mockDispatch.mock.calls[0][1] as Record<string, unknown>;
+    expect('schemaConfig' in body).toBe(false);
+  });
+});
