@@ -64,6 +64,17 @@ export async function reloadAppTab(page: Page, tab?: string): Promise<void> {
  * Also dismisses onboarding hints to prevent tooltip interference with tests.
  */
 export async function seedAppData(page: Page) {
+  // Silence the SSE log-stream endpoint — the backend is not running in E2E tests.
+  // Without this mock, all 4 parallel workers fire concurrent ECONNREFUSED errors
+  // through the vite proxy, which under high load can crash a worker's browser context.
+  await page.route('**/api/logs/stream*', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: '',
+    }),
+  );
+
   await page.addInitScript(() => {
     localStorage.setItem('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
     localStorage.setItem('perf-test-v3-microservices', JSON.stringify([{
