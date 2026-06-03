@@ -73,6 +73,11 @@ pub fn run() {
       kafka::commands::kafka_disconnect,
       kafka::commands::kafka_status,
       kafka::commands::kafka_topics,
+      kafka::commands::kafka_produce,
+      kafka::commands::kafka_consume_once,
+      kafka::commands::kafka_subscribe,
+      kafka::commands::kafka_unsubscribe,
+      kafka::commands::kafka_subscriptions,
     ]);
 
   #[cfg(feature = "mcp-bridge")]

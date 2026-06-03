@@ -2865,6 +2865,41 @@ Detailed implementation checklist:
 - cleanup on unsubscribe / app close verified with no dangling threads
 - concurrent operation safety verified: produce does not interfere with an active subscriber on the same or different topic
 
+##### Phase 9B Implementation Notes (completed 2026-06-04, branch `feature/kafka-integration`)
+
+**What was implemented:**
+
+1. **`kafka_produce`** — short-lived `FutureProducer` per invocation via `spawn_blocking` + `Handle::current().block_on()`. Accepts `KafkaProduceRequest` (topic + messages array with key/value/headers/partition). Returns `KafkaProduceResult` with per-record delivery offsets.
+
+2. **`kafka_consume_once`** — fully async `StreamConsumer` with deadline loop. Stops when `max_messages` reached or `timeout_ms` elapsed. Returns `KafkaConsumeResult` with `timedOut` flag. Supports `filter: KafkaMessageFilter` (key, headers, jsonPath/jsonEquals).
+
+3. **`kafka_subscribe`** — starts a long-lived `StreamConsumer` in a `tokio::spawn` background task. Returns `KafkaSubscribeResult` with `subscriptionId` immediately. Each matching message is emitted as `"kafka-subscription-message"` Tauri event with payload `{ subscriptionId, record: KafkaConsumeRecord }`. Uses `CancellationToken` for graceful shutdown.
+
+4. **`kafka_unsubscribe`** — cancels the subscription's `CancellationToken`, removes handle from state. Returns `KafkaUnsubscribeResult`.
+
+5. **`kafka_subscriptions`** — lists all active subscriptions for a cluster. Returns `KafkaSubscriptionsResult`.
+
+**Key design decisions:**
+
+- All commands return `Result<serde_json::Value, String>`. App-level errors use `Ok(error_envelope)` so the transport layer always receives a resolved value and inspects `envelope.ok`. Only Mutex poison uses `Err(String)`.
+- `SubscriptionHandle` (with `cancel_token: CancellationToken`, `subscription_id`, `topic`, `group_id`, `created_at`) stored in `ClientHandle.subscriptions: HashMap<String, SubscriptionHandle>`. `subscription_count()` is now a computed method on `ClientHandle`, not a stored field.
+- `kafka_subscribe` spawns the background task BEFORE inserting the handle into state. Acceptable TTRT edge case: if `kafka_disconnect` is called in the window between spawn and registration, the background task runs until the next message error or app close (not a safety issue, just an edge case).
+- `kafka_produce` uses `spawn_blocking` because rdkafka's `FutureProducer.send()` is async but must be awaited from a blocking context. `tokio::runtime::Handle::current().block_on()` is the correct bridge.
+- Message filter (`matches_filter`) mirrors `matchesKafkaConsumeFilter` from `src-server/kafka/kafka-service-utils.ts` exactly: keyEquals → exact key match, headersMatch → all k/v must match, jsonPath+jsonEquals → simple `$.key.subkey[0]` notation with `read_json_path()` helper.
+
+**Error codes (all now use `KAFKA_` prefix for UI classifier parity):**
+- `KAFKA_CONNECT_FAILED` / `KAFKA_CONNECT_TIMEOUT` (Phase 9A, re-applied)
+- `KAFKA_NOT_CONNECTED` (Phase 9A topics + all Phase 9B ops)
+- `KAFKA_TOPICS_FAILED` (Phase 9A, re-applied)
+- `KAFKA_INVALID_PRODUCE`, `KAFKA_PRODUCE_FAILED`
+- `KAFKA_INVALID_CONSUME_ONCE`, `KAFKA_CONSUME_ONCE_FAILED`
+- `KAFKA_INVALID_SUBSCRIBE`, `KAFKA_SUBSCRIBE_FAILED`
+- `KAFKA_SUBSCRIPTION_NOT_FOUND`
+
+**Dependencies added:** `uuid = { version = "1", features = ["v4"] }` for subscription ID generation.
+
+**Test count:** 656/656 passing (44 Kafka-specific tests covering all new types, filter logic, json-path traversal, envelope shapes, and the `connect_error_code` timeout/non-timeout variants from Phase 9A re-eval).
+
 #### Phase 9C - Frontend transport switching and fallback
 
 Goal: route frontend Kafka operations to native commands in Tauri mode; keep server-proxy for browser/dev mode.
