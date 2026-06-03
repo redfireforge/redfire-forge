@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { kafkaService, type KafkaService } from '../kafka/kafka-service.js';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 import {
   kafkaTriggerSubscriptionManager,
   type KafkaTriggerSubscriptionManager,
@@ -65,7 +66,7 @@ export function createKafkaTriggerRouter(options: CreateKafkaTriggerRouterOption
         message: `Trigger activated: workflow=${workflowId}, node=${nodeId}`,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       console.error('[KafkaTriggerRoutes] activate error:', message);
       res.status(500).json({ error: message });
     }
@@ -86,7 +87,7 @@ export function createKafkaTriggerRouter(options: CreateKafkaTriggerRouterOption
       await manager.deactivateTrigger(workflowId, nodeId);
       res.json({ ok: true, message: `Trigger deactivated: workflow=${workflowId}, node=${nodeId}` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       console.error('[KafkaTriggerRoutes] deactivate error:', message);
       res.status(500).json({ error: message });
     }

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { kafkaService, type KafkaService } from '../kafka/kafka-service.js';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 import {
   createKafkaErrorEnvelope,
   createKafkaSuccessEnvelope,
@@ -40,6 +41,11 @@ function toBoolean(value: unknown): boolean | undefined {
     return false;
   }
   return undefined;
+}
+
+/** Safely extract a query parameter as a string, returning `undefined` for non-string values. */
+function toStringQuery(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 function mapErrorStatus(error: KafkaErrorEnvelope['error']): number {
@@ -123,7 +129,7 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
 
   router.get('/api/kafka/status', (req: Request, res: Response) => {
     const request: KafkaStatusRequest = {
-      clusterId: typeof req.query.clusterId === 'string' ? req.query.clusterId : undefined,
+      clusterId: toStringQuery(req.query.clusterId),
     };
 
     const envelope = service.getStatus(request);
@@ -140,7 +146,7 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     }
 
     const request: KafkaTopicsRequest = {
-      clusterId: typeof req.query.clusterId === 'string' ? req.query.clusterId : undefined,
+      clusterId: toStringQuery(req.query.clusterId),
       includeInternal,
     };
 
@@ -183,7 +189,7 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
 
   router.get('/api/kafka/subscriptions', (req: Request, res: Response) => {
     const request: KafkaSubscriptionsRequest = {
-      clusterId: typeof req.query.clusterId === 'string' ? req.query.clusterId : undefined,
+      clusterId: toStringQuery(req.query.clusterId),
     };
 
     const envelope = service.getSubscriptions(request);
@@ -215,13 +221,36 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
         retryable: error.code === 'REGISTRY_UNREACHABLE',
       });
     }
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     return createKafkaErrorEnvelope(op, {
       code: 'REGISTRY_UNREACHABLE',
       message: `Schema registry error: ${message}`,
       retryable: true,
     });
   }
+
+  /** Returns an error envelope when schemaConfig.registryUrl is missing; null otherwise. */
+  function requireSchemaConfig(op: KafkaOperation, schemaConfig: unknown): KafkaRouteEnvelope<never> | null {
+    if (!schemaConfig || typeof schemaConfig !== 'object' || !(schemaConfig as Record<string, unknown>).registryUrl) {
+      return createKafkaErrorEnvelope(op, {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'schemaConfig.registryUrl is required',
+      });
+    }
+    return null;
+  }
+
+  /** Returns an error envelope when subject is missing or blank; null otherwise. */
+  function requireSubject(op: KafkaOperation, subject: unknown): KafkaRouteEnvelope<never> | null {
+    if (!subject || typeof subject !== 'string' || !subject.trim()) {
+      return createKafkaErrorEnvelope(op, {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'subject is required',
+      });
+    }
+    return null;
+  }
+
 
   router.post('/api/kafka/schema-subjects', async (req: Request, res: Response) => {
     const bodyError = requireBodyObject(req, 'schema-subjects');
@@ -230,12 +259,8 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     }
 
     const body = req.body as KafkaSchemaSubjectsRequest;
-    if (!body.schemaConfig || typeof body.schemaConfig !== 'object' || !body.schemaConfig.registryUrl) {
-      return sendEnvelope(res, createKafkaErrorEnvelope('schema-subjects', {
-        code: 'KAFKA_INVALID_REQUEST',
-        message: 'schemaConfig.registryUrl is required',
-      }));
-    }
+    const schemaSubjectsConfigError = requireSchemaConfig('schema-subjects', body.schemaConfig);
+    if (schemaSubjectsConfigError) return sendEnvelope(res, schemaSubjectsConfigError);
 
     try {
       const subjects = await listSubjects(body.schemaConfig);
@@ -252,18 +277,10 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     }
 
     const body = req.body as KafkaSchemaVersionsRequest;
-    if (!body.schemaConfig || !body.schemaConfig.registryUrl) {
-      return sendEnvelope(res, createKafkaErrorEnvelope('schema-versions', {
-        code: 'KAFKA_INVALID_REQUEST',
-        message: 'schemaConfig.registryUrl is required',
-      }));
-    }
-    if (!body.subject || typeof body.subject !== 'string' || !body.subject.trim()) {
-      return sendEnvelope(res, createKafkaErrorEnvelope('schema-versions', {
-        code: 'KAFKA_INVALID_REQUEST',
-        message: 'subject is required',
-      }));
-    }
+    const schemaVersionsConfigError = requireSchemaConfig('schema-versions', body.schemaConfig);
+    if (schemaVersionsConfigError) return sendEnvelope(res, schemaVersionsConfigError);
+    const schemaVersionsSubjectError = requireSubject('schema-versions', body.subject);
+    if (schemaVersionsSubjectError) return sendEnvelope(res, schemaVersionsSubjectError);
 
     try {
       const versions = await listVersions(body.schemaConfig, body.subject);
@@ -283,18 +300,10 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     }
 
     const body = req.body as KafkaSchemaFetchRequest;
-    if (!body.schemaConfig || !body.schemaConfig.registryUrl) {
-      return sendEnvelope(res, createKafkaErrorEnvelope('schema-fetch', {
-        code: 'KAFKA_INVALID_REQUEST',
-        message: 'schemaConfig.registryUrl is required',
-      }));
-    }
-    if (!body.subject || typeof body.subject !== 'string' || !body.subject.trim()) {
-      return sendEnvelope(res, createKafkaErrorEnvelope('schema-fetch', {
-        code: 'KAFKA_INVALID_REQUEST',
-        message: 'subject is required',
-      }));
-    }
+    const schemaFetchConfigError = requireSchemaConfig('schema-fetch', body.schemaConfig);
+    if (schemaFetchConfigError) return sendEnvelope(res, schemaFetchConfigError);
+    const schemaFetchSubjectError = requireSubject('schema-fetch', body.subject);
+    if (schemaFetchSubjectError) return sendEnvelope(res, schemaFetchSubjectError);
 
     try {
       const result = await fetchSchema(body.schemaConfig, body.subject, body.version);
