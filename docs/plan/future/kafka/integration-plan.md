@@ -1630,12 +1630,177 @@ Outputs:
 
 Detailed implementation checklist:
 
-- extend `src/features/workflow/engine/graphRunnerTriggerHandlers.ts` with a `KafkaTrigger` case handler; mirror the existing `WebhookTrigger` pattern for variable seeding, using the `kafka.trigger.*` context keys defined in 5A
-- implement trigger subscription startup/shutdown with explicit backpressure guardrails; pause consumer on limit-hit, resume on active-count drop (consumer pause/resume via Phase 4 `KafkaService`)
-- apply key/header/jsonpath filters before workflow-start dispatch
-- persist trigger-start execution metadata (topic, partition, offset, seeded-variable summary) via existing workflow execution storage paths
-- add runtime tests for matching/non-matching/duplicate message delivery
-- add bounded trigger-consumer startup/shutdown tests to confirm no orphan consumers on reconnect/redeploy paths
+- ✅ extend `src/features/workflow/engine/graphRunnerTriggerHandlers.ts` with a `KafkaTrigger` case handler; mirror the existing `WebhookTrigger` pattern for variable seeding, using the `kafka.trigger.*` context keys defined in 5A
+- ✅ apply key/header/jsonpath filters before workflow-start dispatch (`matchesKafkaMessageFilters` — pure pre-dispatch filter; not called inside the handler itself)
+- ✅ persist trigger-start execution metadata (topic, partition, offset, seeded-variable summary) via existing workflow execution storage paths
+- ✅ add runtime tests for matching/non-matching/duplicate message delivery
+- 🔲 implement trigger subscription startup/shutdown with explicit backpressure guardrails — **deferred**; see sub-task breakdown below
+- 🔲 add bounded trigger-consumer startup/shutdown tests to confirm no orphan consumers on reconnect/redeploy paths — **deferred**; follows subscription manager implementation
+
+**Phase 5B Deferred: Bounded Subscription Lifecycle — Sub-task Breakdown**
+
+*Researched 2026-06-02. The following is a concrete, dependency-ordered work plan.*
+
+**What already exists that Phase 5B can build on:**
+- `KafkaTriggerNodeData.maxConcurrentRuns?: number` typed and defaulting to 10 in the node factory
+- `matchesKafkaMessageFilters` — pure filter function, ready for use as pre-dispatch gate
+- `deriveKafkaTriggerGroupId` — deterministic consumer group ID derivation
+- `KafkaService.subscribe()` + `unsubscribe()` — long-lived consumer with ring buffer and cleanup hook
+- `executeWorkflow()` in `src-server/executeWorkflow.ts` — shared execution entry point that resolves after `runGraph` completes; the promise resolution is the natural completion signal for `activeRunCount` decrement
+- `Semaphore` class available at `src/shared/utils/semaphore.ts` (used by `WaitForCondition` nodes; not needed for this feature but referenced for pattern parity)
+
+**What does NOT exist and must be built:**
+
+Sub-task 1 — `src-server/kafka/kafka-adapter.ts`
+
+Add `pause` and `resume` to the `KafkaConsumerAdapter` interface and implement in `KafkaJsConsumerAdapter`. KafkaJS natively supports `consumer.pause([{ topic, partitions? }])` and `consumer.resume(...)` as synchronous calls — they are not currently exposed through the adapter:
+
+```ts
+// Add to KafkaConsumerAdapter interface:
+pause(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
+resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
+
+// KafkaJsConsumerAdapter implementation:
+pause(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void {
+  this.consumer.pause(topicPartitions);
+}
+resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void {
+  this.consumer.resume(topicPartitions);
+}
+```
+
+Any mock `KafkaConsumerAdapter` used in tests must also gain these two no-op methods.
+
+Sub-task 2 — Shared types + `executeWorkflow.ts` ✅
+
+**Re-review (2026-06-03) found three gaps beyond the original plan; all fixed:**
+
+1. **`src/shared/types/server-api.ts`** — `TriggerType` was still `'webhook' | 'schedule'`; extended to `'webhook' | 'schedule' | 'kafka-trigger'`. This is the shared type used by both the browser UI and the server — `ExecutionResult.triggerType: TriggerType` would have silently stored an invalid type for Kafka-triggered executions if left as-is. The UI execution history reads this field to display trigger type labels.
+
+2. **`src-server/executeWorkflow.ts`** — `WorkflowExecutionInput.triggerType` already included `'kafka-trigger'`, but `saveErrorResult`'s input type still had the old `'webhook' | 'schedule'` union. Extended to `'webhook' | 'schedule' | 'kafka-trigger'`. Note: `saveErrorResult` is called from `webhook-server.ts` and `cron-scheduler.ts` but NOT from `kafkaTriggerSubscriptionManager.ts` (which handles dispatch errors inline).
+
+3. **`src-server/kafka/kafka-adapter.ts`** — `KafkaConsumerRecord.timestamp` was `timestamp?: string` (optional), but `KafkaConsumedMessage.timestamp` is `timestamp: string` (required). The subscription manager passes `record: KafkaConsumerRecord` to `matchesKafkaMessageFilters(record, ...)` which expects `KafkaConsumedMessage`. KafkaJS always provides `message.timestamp` as a string in `eachMessage`, so making it required is correct.
+
+**Tests added:** 1 new `saveErrorResult` test for `triggerType: 'kafka-trigger'` in `executeWorkflow.test.ts`.
+
+**tsc note:** The default `npx tsc --noEmit` only checks `tsconfig.app.json` (covers `src/`). Server code requires `npx tsc -p tsconfig.server.json --noEmit` to catch server-side type errors. Both Phase 5B type errors were confirmed fixed by the server-side check.
+
+Sub-task 3 — `src-server/kafka/kafkaTriggerSubscriptionManager.ts` (new file) ✅
+
+Per-`(workflowId, nodeId)` trigger registry owning consumer lifetime and enforcing backpressure.
+
+**Actual implementation** (differs slightly from original plan — better design):
+- `activateTrigger` accepts `{ workflow, nodeId, connection, onLog? }` and derives `triggerData` internally from `workflow.nodes`. This removes the `triggerData` and `runtimeAdapter` params from the public API; `runtimeAdapter` is constructor-injected.
+- `dispatchWorkflowRun` is a private module-level function (not an `onDispatch` callback) that calls `executeWorkflow` directly, building `__kafkaTriggerMessage` from the record.
+- `getEntries()` returns a stripped snapshot (no consumer/cleanup refs) — better for the status endpoint.
+
+```ts
+interface TriggerEntry {
+  workflowId: string;
+  nodeId: string;
+  topic: string;
+  maxConcurrentRuns: number;
+  activeRunCount: number;
+  paused: boolean;
+  /**
+   * Set by cleanup() before consumer.stop() so in-flight finally() callbacks
+   * never call consumer.resume() on a stopped consumer.
+   */
+  cancelled: boolean;
+  consumer: KafkaConsumerAdapter;
+  groupId: string;
+  cleanup: () => Promise<void>;
+}
+
+class KafkaTriggerSubscriptionManager {
+  // key: `${workflowId}::${nodeId}`
+  private readonly entries = new Map<string, TriggerEntry>();
+
+  async activateTrigger(params: {
+    workflow: Workflow;
+    nodeId: string;
+    connection: KafkaConnectionConfig;
+    onLog?: (line: LogLine) => void;
+  }): Promise<void>;
+
+  async deactivateTrigger(workflowId: string, nodeId: string): Promise<void>;
+  async deactivateAll(): Promise<void>;
+  getEntries(): Array<{ workflowId; nodeId; topic; groupId; maxConcurrentRuns; activeRunCount; paused }>;
+}
+```
+
+`activateTrigger` message-dispatch logic inside `consumer.run()`:
+
+```
+if (!matchesKafkaMessageFilters(record, data.keyRegex, data.headerFilters, data.jsonPathFilters)) return;
+
+if (entry.activeRunCount >= entry.maxConcurrentRuns) {
+  // Race-window message after pause() — drop with warning log
+  return;
+}
+
+entry.activeRunCount++;
+
+if (!entry.paused && entry.activeRunCount >= entry.maxConcurrentRuns) {
+  entry.paused = true;
+  consumer.pause([{ topic }]);
+}
+
+void dispatchWorkflowRun(workflow, entry, record, onLog).finally(() => {
+  entry.activeRunCount--;
+  // Guard: don't resume a stopped consumer after deactivateTrigger
+  if (entry.paused && !entry.cancelled && entry.activeRunCount < entry.maxConcurrentRuns) {
+    entry.paused = false;
+    consumer.resume([{ topic }]);
+  }
+});
+```
+
+**Key correctness invariants (verified by tests):**
+1. Entry is NOT added to the map until after `consumer.connect()` + `consumer.subscribe()` succeed — no stale broken entries on connect failure.
+2. `entry.cancelled = true` is set by `cleanup()` before `consumer.stop()` — in-flight `finally()` callbacks skip `consumer.resume()` after deactivation.
+3. `consumer.run(...)` has a `.catch(...)` handler — startup errors are logged, not silently swallowed.
+
+Sub-task 4 — `src-server/routes/kafka-trigger-routes.ts` (new file) + mount in `webhook-server.ts` ✅
+
+REST endpoints for manual trigger activation/deactivation:
+
+```
+POST /api/kafka/trigger/activate   { workflowId, nodeId }
+POST /api/kafka/trigger/deactivate { workflowId, nodeId }
+GET  /api/kafka/trigger/active
+```
+
+Note: the original plan spec included `clusterId` in the `activate` body — the implementation intentionally ignores it and uses `kafkaService.getSnapshot().connection` instead, since the server manages one Kafka connection at a time.
+
+`webhook-server.ts`: mounts the new router; calls `kafkaTriggerSubscriptionManager.deactivateAll()` in the SIGTERM/SIGINT shutdown handler.
+
+**Re-review (2026-06-03) — bug fix and tests added:**
+
+- **Bug fixed**: `POST /api/kafka/trigger/activate` previously returned HTTP 500 for client-side validation errors (node not found in workflow, node is not a kafkaTrigger type). Fixed by adding pre-validation in the route before calling `manager.activateTrigger()`: returns 404 when `nodeId` does not exist in `workflow.nodes`; returns 400 when the node exists but has a different type. Consumer infrastructure errors (connect/subscribe failures) still correctly return 500.
+- **New file**: `src-server/routes/kafka-trigger-routes.test.ts` — 18 tests using supertest + mock service + mock manager pattern (matching `kafka-routes.test.ts` conventions). Coverage: input validation (400 for blank/missing fields), workflow not found (404), node not found (404), wrong node type (400), Kafka not connected (503), defensive connected-but-no-connection-object (503), happy-path 200 with `activateTrigger` call verified, `activateTrigger` throws (500), `deactivateTrigger` idempotent (200 even when trigger not active), active entries list (empty + populated).
+
+Sub-task 5 — `src-server/kafka/kafkaTriggerSubscriptionManager.test.ts` (new file)
+
+≥10 unit tests using a mock `KafkaConsumerAdapter` (7-method interface including `pause`/`resume`) and mocked `onDispatch`:
+
+| Test | Validates |
+|---|---|
+| activateTrigger starts consumer on correct topic and group ID | happy path wiring |
+| messages matching filters are dispatched via onDispatch | filter pass-through |
+| messages NOT matching filters are ignored | filter rejection |
+| activeRunCount increments on dispatch, decrements via finally() | counter lifecycle |
+| consumer.pause called when activeRunCount reaches maxConcurrentRuns | backpressure trigger |
+| consumer.resume called when activeRunCount drops below limit | backpressure release |
+| messages in race window after pause are dropped (no dispatch) | drop-on-limit guard |
+| deactivateTrigger stops and disconnects consumer | cleanup |
+| deactivateAll cleans up all entries | server shutdown |
+| re-activating an existing trigger deactivates the old consumer first | idempotent re-activation |
+
+**Design decisions:**
+- Race-window messages (arriving after `pause()` because kafkajs buffers internally) are **dropped with a warning log** (no queue). A queue adds complexity and unpredictable re-ordering; dropped messages are preferable for controlled load behavior.
+- `pause/resume` granularity is per-topic (all partitions). If a workflow has multiple `kafkaTrigger` nodes on different topics, each has its own consumer instance.
+- Activated triggers are **runtime-only** — not persisted. They are lost on server restart. Persistence of "which workflows have active Kafka triggers" (i.e., auto-restarting trigger subscriptions on server boot from a stored activation list) is unplanned future scope — it would require a new dedicated phase covering a workflow-activation store, boot-time subscription replay, and conflict-resolution on partial-restart scenarios.
 
 #### Phase 5C - KafkaWait runtime
 
@@ -2651,6 +2816,30 @@ Detailed implementation checklist:
 - `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and added to the **`tauri::generate_handler![...]` list in `src-tauri/src/lib.rs`** using the path `kafka::commands::kafka_connect` etc. (matching the existing `commands::start_load_test` pattern; `mod kafka;` must be declared in `lib.rs` alongside the other module declarations at the top of the file)
 - response shapes strictly aligned with `src-server/kafka/contracts.ts`
 - Rust unit tests for connect/disconnect state transitions and topic list shape
+
+##### Phase 9A Implementation Notes (completed)
+
+**Status:** ✅ Implemented — `cargo build` clean, 17/17 Rust unit tests passing.
+
+**Files created/modified:**
+- `src-tauri/Cargo.toml` — added `rdkafka = { version = "0.37", features = ["cmake-build"] }`
+- `src-tauri/src/kafka/mod.rs` — module root (`pub mod commands; pub mod state;`)
+- `src-tauri/src/kafka/state.rs` — `KafkaState { inner: Mutex<HashMap<ClusterId, ClientHandle>> }`; `ClientHandle` stores `rdkafka_config: ClientConfig` for on-demand client creation (Phase 9A does NOT keep a persistent admin client open)
+- `src-tauri/src/kafka/commands.rs` — all four commands + inline `#[cfg(test)] mod tests` with 17 broker-free unit tests
+- `src-tauri/src/lib.rs` — added `mod kafka;`, `use kafka::state::KafkaState;`, `.manage(KafkaState::new())`, and four `kafka::commands::*` entries to `generate_handler!`
+- `src-tauri/.cargo/config.toml` — `[http] proxy = ""` to bypass corporate proxy env vars during `cargo build`
+
+**Key design decisions vs. plan:**
+1. `ClientHandle` stores `rdkafka_config: ClientConfig` (not `FutureProducer`/`StreamConsumer` as suggested in Phase 9A notes) — Phase 9A only needs lifecycle commands; Phase 9B will add producer/consumer fields when it needs them. This avoids creating persistent connections that are never used.
+2. Connectivity verification uses a short-lived `BaseConsumer.fetch_metadata(None, timeout)` created inside `tokio::task::spawn_blocking`. A temp `group.id = "rf-admin-connect-check"` is set on a cloned config to satisfy `BaseConsumer` requirements without polluting the stored config.
+3. `isInternal` heuristic: rdkafka 0.37 `MetadataTopic` does NOT expose an `is_internal` flag. Used `name.starts_with("__")` as the heuristic (covers `__consumer_offsets`, `__transaction_state`, etc.).
+4. TLS `serverName` (custom SNI override): accepted in the input struct but not forwarded to rdkafka — rdkafka 0.37 does not support custom SNI and derives it from the broker hostname. Field retained for API parity.
+5. All commands return `Result<serde_json::Value, String>`. Application-level Kafka errors use `Ok(error_envelope)` (not `Err`) so Phase 9C transport layer always sees a resolved promise.
+6. cmake required for `cmake-build` feature. Had to install via `brew install cmake`. See CI notes.
+
+**CI requirements (document before Phase 9B merge):**
+- macOS runners need `cmake` installed (e.g. `brew install cmake` or `actions/setup-cmake`)
+- Linux runners need `cmake` + `libssl-dev` + `build-essential`
 
 #### Phase 9B - Native operation surface
 

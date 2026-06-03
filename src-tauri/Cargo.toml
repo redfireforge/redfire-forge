@@ -34,6 +34,7 @@ regex = "1"
 jsonschema = "0.27"
 chrono = "0.4"
 hdrhistogram = "7"
+rdkafka = { version = "0.37", features = ["cmake-build"] }
 tauri-plugin-connector = { version = "0.12", optional = true }
 
 [features]
