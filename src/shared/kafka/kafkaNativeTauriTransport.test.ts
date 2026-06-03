@@ -367,6 +367,108 @@ describe('kafkaNativeTauriTransport — dispatchKafkaOperation integration', () 
   });
 });
 
+describe('kafkaNativeTauriTransport — Phase 10C schema registry routing', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    httpFetchMock.mockReset();
+    setKafkaClientTransport(null);
+  });
+
+  // Minimal valid HttpResponse for server-proxy path assertions
+  function proxyOkResponse(op: KafkaOperation, data: unknown = {}) {
+    return {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: JSON.stringify({ ok: true, op, data, meta: { timestamp: '' } }),
+    };
+  }
+
+  it('schema-subjects routes to server proxy (httpFetch), not invoke', async () => {
+    httpFetchMock.mockResolvedValueOnce(proxyOkResponse('schema-subjects', { subjects: [] }));
+    const req = makeRequest('schema-subjects', 'POST', {
+      body: { schemaConfig: { registryUrl: 'http://r:8081', format: 'avro' } },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(httpFetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('schema-versions routes to server proxy (httpFetch), not invoke', async () => {
+    httpFetchMock.mockResolvedValueOnce(proxyOkResponse('schema-versions', { versions: [] }));
+    const req = makeRequest('schema-versions', 'POST', {
+      body: { schemaConfig: { registryUrl: 'http://r:8081', format: 'avro' }, subject: 'orders-value' },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(httpFetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('schema-fetch routes to server proxy (httpFetch), not invoke', async () => {
+    httpFetchMock.mockResolvedValueOnce(proxyOkResponse('schema-fetch', { schema: '{}' }));
+    const req = makeRequest('schema-fetch', 'POST', {
+      body: { schemaConfig: { registryUrl: 'http://r:8081', format: 'avro' }, subject: 'orders-value' },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(httpFetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('produce WITH schemaConfig routes to server proxy, not invoke', async () => {
+    httpFetchMock.mockResolvedValueOnce(
+      proxyOkResponse('produce', { topic: 'orders', sentCount: 1, records: [] }),
+    );
+    const req = makeRequest('produce', 'POST', {
+      body: {
+        clusterId: 'c1',
+        topic: 'orders',
+        messages: [{ value: '{"id":1}' }],
+        schemaConfig: { registryUrl: 'http://r:8081', format: 'avro' },
+      },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(httpFetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('produce WITHOUT schemaConfig still routes to invoke, not server proxy', async () => {
+    invokeMock.mockResolvedValue(okEnvelope('produce'));
+    const req = makeRequest('produce', 'POST', {
+      body: { clusterId: 'c1', topic: 'orders', messages: [{ value: '{"id":1}' }] },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).toHaveBeenCalledWith('kafka_produce', expect.anything());
+    expect(httpFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('consume-once WITH schemaConfig routes to server proxy, not invoke', async () => {
+    httpFetchMock.mockResolvedValueOnce(
+      proxyOkResponse('consume-once', { messageCount: 0, messages: [] }),
+    );
+    const req = makeRequest('consume-once', 'POST', {
+      body: {
+        clusterId: 'c1',
+        topic: 'orders',
+        maxMessages: 1,
+        schemaConfig: { registryUrl: 'http://r:8081', format: 'avro' },
+      },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(httpFetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('consume-once WITHOUT schemaConfig still routes to invoke, not server proxy', async () => {
+    invokeMock.mockResolvedValue(okEnvelope('consume-once'));
+    const req = makeRequest('consume-once', 'POST', {
+      body: { clusterId: 'c1', topic: 'orders', maxMessages: 1 },
+    });
+    await kafkaNativeTauriTransport(req);
+    expect(invokeMock).toHaveBeenCalledWith('kafka_consume_once', expect.anything());
+    expect(httpFetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('listenKafkaSubscriptionMessage', () => {
   beforeEach(() => {
     listenMock.mockReset();

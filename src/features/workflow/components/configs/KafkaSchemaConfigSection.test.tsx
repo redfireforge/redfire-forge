@@ -155,4 +155,37 @@ describe('KafkaSchemaConfigSection', () => {
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.auth).toBeUndefined();
   });
+
+  it('loads versions from registry when ↓ button is clicked for version', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'orders-value' };
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      op: 'schema-versions',
+      data: { subject: 'orders-value', versions: [1, 2, 3] },
+    } as Awaited<ReturnType<typeof kafkaClientModule.dispatchKafkaOperation>>);
+
+    render(<Host initial={initial} />);
+    const buttons = screen.getAllByRole('button');
+    const versionBtn = buttons.find((b) => b.textContent === '↓' && b.title?.includes('ersion'));
+    fireEvent.click(versionBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeTruthy();
+    });
+    expect(mockDispatch).toHaveBeenCalledWith('schema-versions', expect.anything());
+  });
+
+  it('shows versions error on dispatch failure', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'orders-value' };
+    mockDispatch.mockRejectedValueOnce(new Error('registry unreachable'));
+
+    render(<Host initial={initial} />);
+    const buttons = screen.getAllByRole('button');
+    const versionBtn = buttons.find((b) => b.title?.includes('ersion'));
+    fireEvent.click(versionBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/registry unreachable/i)).toBeTruthy();
+    });
+  });
 });
