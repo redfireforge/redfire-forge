@@ -292,4 +292,22 @@ describe('KafkaConsumeConfig', () => {
     fireEvent.click(applyBtns[0]);
     expect(screen.getByDisplayValue('prefix-{{snippet}}')).toBeTruthy();
   });
+
+  it('renders the Enable Schema Registry section', () => {
+    render(<Host />);
+    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+  });
+
+  it('passes schemaConfig to onChange when schema registry is enabled', () => {
+    const onChange = vi.fn();
+    render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+
+    // The schema registry checkbox is the last checkbox in the form (no filter/binding rows by default)
+    const schemaCheckbox = screen.getAllByRole('checkbox').at(-1) as HTMLInputElement;
+    fireEvent.click(schemaCheckbox);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ schemaConfig: { registryUrl: '', format: 'avro' } }),
+    );
+  });
 });
