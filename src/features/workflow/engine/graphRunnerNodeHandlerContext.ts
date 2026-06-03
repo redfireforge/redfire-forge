@@ -12,6 +12,7 @@ import type { DebugController } from './debugController';
 import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
 import type { Semaphore } from '../../../shared/utils/semaphore';
+import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
 
 // ────────────────────────────────────────────────────────
 // Kafka node operations (dependency-injected for testability)
@@ -49,6 +50,7 @@ export interface KafkaNodeOperations {
     headers?: Record<string, string>;
     ackMode?: string;
     timeoutMs?: number;
+    schemaConfig?: KafkaSchemaConfig;
   }): Promise<KafkaProduceResult>;
 
   /** Consume messages from a Kafka topic with bounded defaults. */
@@ -61,6 +63,7 @@ export interface KafkaNodeOperations {
     keyRegex?: string;
     headerFilters?: Array<{ key: string; value: string }>;
     jsonPathFilters?: Array<{ jsonPath: string; expectedValue?: string }>;
+    schemaConfig?: KafkaSchemaConfig;
   }): Promise<KafkaConsumedMessage[]>;
 }
 

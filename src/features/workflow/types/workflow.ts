@@ -1,4 +1,5 @@
 import type { AuthConfig, Scenario, RequestResult, DataSource, SlaTarget } from '../../../shared/types';
+import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
 
 export interface WorkflowHostProfile {
   id: string;
@@ -474,6 +475,8 @@ export interface KafkaProduceNodeData {
   ackMode?: KafkaAckMode;
   timeoutMs?: number;
   outputBindings?: KafkaNodeMetadataBinding[];
+  /** Optional Avro/Protobuf/JSON-Schema registry config for message encoding. */
+  schemaConfig?: KafkaSchemaConfig;
 }
 
 export interface KafkaConsumeNodeData {
@@ -489,6 +492,8 @@ export interface KafkaConsumeNodeData {
   startPosition?: KafkaConsumeStartPosition;
   loadTestBehavior?: KafkaConsumeLoadTestBehavior;
   outputBindings?: KafkaNodeMetadataBinding[];
+  /** Optional Avro/Protobuf/JSON-Schema registry config for message decoding. */
+  schemaConfig?: KafkaSchemaConfig;
 }
 
 // ── Kafka Trigger node ──────────────────────────────

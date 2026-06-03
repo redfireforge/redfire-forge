@@ -6,6 +6,7 @@ import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
+import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 
 const ACK_OPTIONS: { value: KafkaAckMode; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -181,6 +182,12 @@ export default function KafkaProduceConfig({
         </div>
         <button type="button" className="btn btn-sm" onClick={() => update({ outputBindings: [...outputBindings, createBinding()] })}>+ Add Binding</button>
       </div>
+
+      <KafkaSchemaConfigSection
+        value={data.schemaConfig}
+        onChange={(schemaConfig) => update({ schemaConfig })}
+        topic={data.topic ?? ''}
+      />
 
       <AvailableVariables hints={variableHints} />
     </div>

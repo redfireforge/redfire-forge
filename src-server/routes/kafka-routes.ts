@@ -2,13 +2,23 @@ import { Router, type Request, type Response } from 'express';
 import { kafkaService, type KafkaService } from '../kafka/kafka-service.js';
 import {
   createKafkaErrorEnvelope,
+  createKafkaSuccessEnvelope,
   type KafkaErrorEnvelope,
   type KafkaOperation,
   type KafkaRouteEnvelope,
+  type KafkaSchemaFetchRequest,
+  type KafkaSchemaSubjectsRequest,
+  type KafkaSchemaVersionsRequest,
   type KafkaStatusRequest,
   type KafkaSubscriptionsRequest,
   type KafkaTopicsRequest,
 } from '../kafka/contracts.js';
+import {
+  fetchSchema,
+  listSubjects,
+  listVersions,
+  SchemaRegistryError,
+} from '../kafka/schema-registry-client.js';
 import type { LogLine } from '../../src/shared/types/server-api';
 
 interface CreateKafkaRouterOptions {
@@ -36,13 +46,20 @@ function mapErrorStatus(error: KafkaErrorEnvelope['error']): number {
   if (error.code.startsWith('KAFKA_INVALID_')) {
     return 400;
   }
+  if (error.code === 'REGISTRY_AUTH_FAILURE') {
+    return 401;
+  }
   if (error.code.includes('NOT_FOUND')) {
     return 404;
   }
   if (error.code.includes('MISMATCH')) {
     return 409;
   }
-  if (error.code.includes('NOT_CONNECTED') || error.code.includes('CONNECT_IN_PROGRESS')) {
+  if (
+    error.code.includes('NOT_CONNECTED') ||
+    error.code.includes('CONNECT_IN_PROGRESS') ||
+    error.code === 'REGISTRY_UNREACHABLE'
+  ) {
     return 503;
   }
   return 500;
@@ -182,6 +199,109 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     log('unsubscribe request');
     const envelope = await service.unsubscribe(req.body);
     return sendEnvelope(res, envelope);
+  });
+
+  // ── Phase 10 — Schema Registry routes ───────────────────────────────────────
+  // All three routes are POST (not GET) because KafkaSchemaConfig.auth carries
+  // credentials that must travel in the request body.  GET query params would
+  // expose credentials in server logs, browser history, and referrer headers
+  // (OWASP A02 — Cryptographic Failures).
+
+  function toSchemaErrorEnvelope(op: KafkaOperation, error: unknown): KafkaRouteEnvelope<never> {
+    if (error instanceof SchemaRegistryError) {
+      return createKafkaErrorEnvelope(op, {
+        code: error.code,
+        message: error.message,
+        retryable: error.code === 'REGISTRY_UNREACHABLE',
+      });
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return createKafkaErrorEnvelope(op, {
+      code: 'REGISTRY_UNREACHABLE',
+      message: `Schema registry error: ${message}`,
+      retryable: true,
+    });
+  }
+
+  router.post('/api/kafka/schema-subjects', async (req: Request, res: Response) => {
+    const bodyError = requireBodyObject(req, 'schema-subjects');
+    if (bodyError) {
+      return sendEnvelope(res, bodyError);
+    }
+
+    const body = req.body as KafkaSchemaSubjectsRequest;
+    if (!body.schemaConfig || typeof body.schemaConfig !== 'object' || !body.schemaConfig.registryUrl) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('schema-subjects', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'schemaConfig.registryUrl is required',
+      }));
+    }
+
+    try {
+      const subjects = await listSubjects(body.schemaConfig);
+      return sendEnvelope(res, createKafkaSuccessEnvelope('schema-subjects', { subjects }));
+    } catch (error) {
+      return sendEnvelope(res, toSchemaErrorEnvelope('schema-subjects', error));
+    }
+  });
+
+  router.post('/api/kafka/schema-versions', async (req: Request, res: Response) => {
+    const bodyError = requireBodyObject(req, 'schema-versions');
+    if (bodyError) {
+      return sendEnvelope(res, bodyError);
+    }
+
+    const body = req.body as KafkaSchemaVersionsRequest;
+    if (!body.schemaConfig || !body.schemaConfig.registryUrl) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('schema-versions', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'schemaConfig.registryUrl is required',
+      }));
+    }
+    if (!body.subject || typeof body.subject !== 'string' || !body.subject.trim()) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('schema-versions', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'subject is required',
+      }));
+    }
+
+    try {
+      const versions = await listVersions(body.schemaConfig, body.subject);
+      return sendEnvelope(res, createKafkaSuccessEnvelope('schema-versions', {
+        subject: body.subject,
+        versions,
+      }));
+    } catch (error) {
+      return sendEnvelope(res, toSchemaErrorEnvelope('schema-versions', error));
+    }
+  });
+
+  router.post('/api/kafka/schema-fetch', async (req: Request, res: Response) => {
+    const bodyError = requireBodyObject(req, 'schema-fetch');
+    if (bodyError) {
+      return sendEnvelope(res, bodyError);
+    }
+
+    const body = req.body as KafkaSchemaFetchRequest;
+    if (!body.schemaConfig || !body.schemaConfig.registryUrl) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('schema-fetch', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'schemaConfig.registryUrl is required',
+      }));
+    }
+    if (!body.subject || typeof body.subject !== 'string' || !body.subject.trim()) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('schema-fetch', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'subject is required',
+      }));
+    }
+
+    try {
+      const result = await fetchSchema(body.schemaConfig, body.subject, body.version);
+      return sendEnvelope(res, createKafkaSuccessEnvelope('schema-fetch', result));
+    } catch (error) {
+      return sendEnvelope(res, toSchemaErrorEnvelope('schema-fetch', error));
+    }
   });
 
   return router;
