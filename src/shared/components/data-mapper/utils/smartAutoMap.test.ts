@@ -96,6 +96,14 @@ describe('inferSemanticType', () => {
     expect(inferSemanticType(undefined)).toBe('unknown');
   });
 
+  it('returns unknown for array values', () => {
+    expect(inferSemanticType([1])).toBe('unknown');
+    expect(inferSemanticType([42])).toBe('unknown');
+    expect(inferSemanticType([90210])).toBe('unknown');
+    expect(inferSemanticType(['a@b.com'])).toBe('unknown');
+    expect(inferSemanticType([])).toBe('unknown');
+  });
+
   it('returns unknown for empty string', () => {
     expect(inferSemanticType('')).toBe('unknown');
   });
@@ -183,5 +191,13 @@ describe('inferFieldSemanticTypes', () => {
     const types = inferFieldSemanticTypes(data);
     expect(types.has('tags')).toBe(false);
     expect(types.get('count')).toBe('integer');
+  });
+
+  it('skips single-element numeric arrays (not misclassified as integer)', () => {
+    const data = { nums: [1], codes: [90210], emails: ['a@b.com'] };
+    const types = inferFieldSemanticTypes(data);
+    expect(types.has('nums')).toBe(false);
+    expect(types.has('codes')).toBe(false);
+    expect(types.has('emails')).toBe(false);
   });
 });
