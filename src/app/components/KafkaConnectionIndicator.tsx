@@ -8,6 +8,7 @@ function statusLabel(status: KafkaIndicatorStatus, clusterName: string | null): 
     case 'connecting': return `${name} — Connecting…`;
     case 'error': return `${name} — Error`;
     case 'disconnected': return `${name} — Disconnected`;
+    // c8 ignore next
     default: return '';
   }
 }
@@ -18,6 +19,7 @@ function statusDot(status: KafkaIndicatorStatus): string {
     case 'connecting': return 'kafka-dot--connecting';
     case 'error': return 'kafka-dot--error';
     case 'disconnected': return 'kafka-dot--disconnected';
+    // c8 ignore next
     default: return '';
   }
 }
