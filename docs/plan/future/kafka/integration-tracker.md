@@ -954,7 +954,40 @@ Dependency: Phase 4
 	- [x] `findStartNodes` updated to recognise `kafkaTrigger` as a workflow start node
 	- [x] `graphRunner.ts` dispatch replaced stub with `handleKafkaTriggerNode`; `kafkaWait` retains pass-through stub until Phase 5C
 	- [x] Barrel `graphRunnerNodeHandlers.ts` exports `handleKafkaTriggerNode` and `matchesKafkaMessageFilters`
-	- [ ] Bounded trigger subscription lifecycle (pause/resume consumer on backpressure via Phase 4 `KafkaService`) — deferred; server-side subscription manager requires broader integration work
+	- [x] Bounded trigger subscription lifecycle (pause/resume consumer on backpressure) — **implemented 2026-06-02**:
+		- **Sub-task 1** ✅ — `src-server/kafka/kafka-adapter.ts`: added `pause(topicPartitions)` / `resume(topicPartitions)` to `KafkaConsumerAdapter` interface and `KafkaJsConsumerAdapter`; updated mocks in `kafka-adapter.test.ts` and `kafka-service.test-utils.ts`
+		- **Sub-task 2** ✅ — **Re-review (2026-06-03) found critical gap; fully fixed:**
+			- `src/shared/types/server-api.ts`: `TriggerType` extended to `'webhook' | 'schedule' | 'kafka-trigger'` (was missing `'kafka-trigger'` — `ExecutionResult.triggerType: TriggerType` would silently store an invalid type for Kafka-triggered executions). This is the shared type used by both the browser UI and the server.
+			- `src-server/executeWorkflow.ts`: `saveErrorResult` input `triggerType` union extended to `'webhook' | 'schedule' | 'kafka-trigger'` (was still the old 2-value union despite `WorkflowExecutionInput.triggerType` already including `'kafka-trigger'`).
+			- `src-server/kafka/kafka-adapter.ts`: `KafkaConsumerRecord.timestamp` changed from optional (`timestamp?: string`) to required (`timestamp: string`) to match `KafkaConsumedMessage.timestamp: string` — previously caused a silent structural type mismatch when passing `record` to `matchesKafkaMessageFilters`. KafkaJS always provides `message.timestamp` as a string in `eachMessage`, so optional was incorrect.
+			- `src-server/executeWorkflow.test.ts`: added `'kafka-trigger'` test case for `saveErrorResult` to cover the new union member.
+			- tsc (`tsconfig.server.json`): confirmed the two Phase 5B type errors now resolved; remaining errors are all pre-existing in unrelated files; 46/46 targeted tests passing.
+		- **Sub-task 3** ✅ — new `src-server/kafka/kafkaTriggerSubscriptionManager.ts`: per-`(workflowId, nodeId)` trigger registry; owns consumer lifetime; holds `activeRunCount`, `maxConcurrentRuns`, `paused` flag; calls `consumer.pause([{ topic }])` when `activeRunCount >= maxConcurrentRuns`; decrements counter and calls `consumer.resume()` in `finally()` of fire-and-forget `executeWorkflow` dispatch; `deactivateAll()` for server shutdown; exported singleton `kafkaTriggerSubscriptionManager`. **Bug fixes applied during re-review (2026-06-03):**
+			- Added `cancelled: boolean` field to `TriggerEntry`; `cleanup()` sets it to `true` before calling `consumer.stop()`; `finally()` guards `consumer.resume()` with `!entry.cancelled` — prevents calling `resume()` on a stopped consumer when `deactivateTrigger` is called while a workflow dispatch is still in-flight (would have caused an unhandled promise rejection).
+			- Moved `this.entries.set(entryKey, entry)` to after successful `consumer.connect()` + `consumer.subscribe()` so a connect/subscribe failure never leaves a stale broken entry that `getEntries()` would return.
+			- Changed `void consumer.run(...)` to `consumer.run(...).catch(...)` so startup errors in `run()` are caught and logged via `onLog` rather than silently swallowed.
+			- 4 new regression tests covering each fix; total sub-task 3 tests: 21 passing.
+		- **Sub-task 4** ✅ — new `src-server/routes/kafka-trigger-routes.ts` (`POST /api/kafka/trigger/activate`, `POST /api/kafka/trigger/deactivate`, `GET /api/kafka/trigger/active`); mounted in `webhook-server.ts`; `SIGTERM`/`SIGINT` shutdown handler calls `kafkaTriggerSubscriptionManager.deactivateAll()`. **Re-review (2026-06-03) findings:**
+			- **Bug fixed**: `POST /api/kafka/trigger/activate` was returning HTTP 500 for client validation errors (node not found in workflow, node is not a kafkaTrigger type). Added pre-validation in the route: returns 404 when `nodeId` does not exist in the workflow; returns 400 when the node exists but has the wrong type. Consumer-level infrastructure errors (connect/subscribe failures) still return 500.
+			- **Test file added**: `src-server/routes/kafka-trigger-routes.test.ts` — 18 tests covering all three routes: input validation (400), workflow-not-found (404), node-not-found (404), wrong-node-type (400), Kafka-not-connected (503), defensive connected-but-no-connection (503), happy-path (200 + manager call verified), manager-throws (500), idempotent deactivate (200), active-entries list (empty + populated). All 18 passing.
+			- tsc (`tsconfig.server.json`): 0 errors in all Phase 5B files; 64/64 Phase 5B tests passing.
+		- **Sub-task 5** ✅ — new `src-server/kafka/kafkaTriggerSubscriptionManager.test.ts`: 24 tests covering activation (happy path, groupId config, deterministic groupId, fromBeginning, node-not-found error, topic-not-configured error), dispatch (__kafkaTriggerMessage serialization, filter pass/fail), concurrency accounting (increment/decrement, pause-on-limit, resume-on-drop, race-window drop), deactivation (stop+disconnect, no-op for unknown, cancelled-guard preventing resume on stopped consumer), deactivateAll, idempotent re-activation, getEntries snapshot, error handling (executeWorkflow rejection decrements count + logs via onLog + now verified to call saveErrorResult, dropped-message onLog warning, pause/resume onLog lines). **Re-review (2026-06-03) additions:**
+			- `makeRecord()` helper fixed to include `timestamp: '1717000000000'` — required field after Sub-task 2 fix to `KafkaConsumerRecord.timestamp`
+			- 3 new tests added: `executeWorkflow rejection still decrements activeRunCount and logs error via onLog`, `dropped messages in the race window emit a warning log via onLog`, `pause and resume emit onLog lines`
+			- Total: 21 → 24 tests; all 24 passing
+		- **Phase 5B full re-evaluation (2026-06-03) — 2 additional bugs found and fixed across all sub-tasks:**
+			- **Bug (kafka-adapter.test.ts):** `'consumer adapter handles records without headers, key, or value'` test was using `timestamp: undefined` in mock and expectation — invalid since `KafkaConsumerRecord.timestamp` is now required `string` (Sub-task 2 fix). Fixed mock to `timestamp: '0'` and expectation to match.
+			- **Bug (kafkaTriggerSubscriptionManager.ts — CRITICAL):** `dispatchWorkflowRun` catch block was only logging execution errors via `onLog` but NOT calling `saveErrorResult`. This meant Kafka trigger execution failures were silently invisible in the execution history UI — unlike webhook and cron paths which both persist error results. Fixed by importing `saveErrorResult` in `kafkaTriggerSubscriptionManager.ts` and calling it in the catch block (same pattern as webhook-server.ts and cron-scheduler.ts). Test updated to verify `saveErrorResult` is called with correct fields on `executeWorkflow` rejection.
+			- `kafkaTriggerSubscriptionManager.test.ts` updated: added `saveErrorResult: vi.fn(async () => undefined)` to mock + `mockSaveErrorResult` import; updated `'executeWorkflow rejection'` test to assert `mockSaveErrorResult` was called with `{ workflowId, triggerId, triggerType: 'kafka-trigger', error }`.
+			- Final totals: 67/67 Phase 5B tests; 592/592 all server tests; 0 Phase 5B tsc errors.
+		- **Phase 5B second full re-evaluation (2026-06-03) — NO new bugs found:**
+			- Full code review of all Phase 5B source files: `kafka-adapter.ts`, `kafkaTriggerSubscriptionManager.ts`, `kafka-trigger-routes.ts`, `graphRunnerTriggerHandlers.ts`, `kafkaTriggerContracts.ts`, `executeWorkflow.ts`, `server-api.ts`
+			- Verified: structural type compatibility `KafkaConsumerRecord` ↔ `KafkaConsumedMessage` (both interfaces have identical shapes); `matchesKafkaMessageFilters` correctly passes records across the server/engine boundary
+			- Verified: `saveErrorResult` has its own internal try/catch so `dispatchWorkflowRun` always resolves — `finally()` always fires
+			- Verified: `deactivateAll()` pattern is safe — synchronous `entries.clear()` before async cleanup prevents new activation lookups; cancelled-flag guards in-flight dispatches
+			- Verified: variable hints in `workflowVariableHints.ts` match exactly the keys seeded by `handleKafkaTriggerNode` (topic, partition, offset, key, value — no `timestamp` by design)
+			- 141/141 Phase 5B + related tests passing (7 test files); 0 Phase 5B tsc errors
+		- tsc: 0 errors; 592 server tests passing; 67 Phase 5B tests passing
 	- Tests: 44 trigger-handler tests (up from 28) + 59 helpers tests (up from 58); all 103 passing; tsc: 0 errors
 	- Implementation notes: `__kafkaTriggerMessage` is a JSON-encoded `KafkaConsumedMessage` pre-set in the execution context by the subscription dispatcher; handler falls back to empty seeds for manual/design-time runs. `matchesKafkaMessageFilters` is a pure pre-dispatch filter utility — it is not called inside `handleKafkaTriggerNode` (filters are applied before workflow start, not during node execution).
 - [x] Phase 5C - KafkaWait runtime (Suggested PR label: `kafka-p5c-wait-runtime`)
@@ -1075,7 +1108,7 @@ Per-PR readiness checks:
 
 ### Exit Criteria
 
-- [ ] Reliable trigger and wait behavior under timing edge cases
+- [x] Reliable trigger and wait behavior under timing edge cases (Phase 5E second re-evaluation 2026-06-02: all 170 tests pass, no bugs found, abort-race/cleanup/idempotency paths all verified)
 
 ---
 
@@ -1087,11 +1120,11 @@ Dependency: Phase 4
 
 ### Work Items
 
-- [ ] Extend scenario model for Kafka test actions
-- [ ] Add standard runner Kafka execution paths
-- [ ] Add parameterized runner Kafka support
-- [ ] Extend result model and rendering for Kafka action outcomes
-- [ ] Add assertion support for Kafka payload/metadata checks
+- [x] Extend scenario model for Kafka test actions
+- [x] Add standard runner Kafka execution paths
+- [x] Add parameterized runner Kafka support
+- [x] Extend result model and rendering for Kafka action outcomes
+- [x] Add assertion support for Kafka payload/metadata checks
 
 ### Suggested File Targets (planning anchor)
 
@@ -1143,11 +1176,11 @@ Dependency: Phase 4
           - produce errors are now also classified (not just consume) for consistency
           - `kafka.body` target in `kafkaField` assertions resolves from `rawBody` first (string) then falls back to JSON.stringify of responseBody
           - `KafkaProduceResult.offset` is `string` → `parseInt(..., 10)` for `KafkaResultMeta.offset: number`
-	- [ ] Create `src/engine/kafkaExecution.ts` (new module parallel to `requestExecution.ts`); export `executeKafkaAction(scenario: Scenario, kafkaOps: KafkaNodeOperations, timeoutMs?: number): Promise<RequestResult>` with `transportType` set; reuse `KafkaNodeOperations` from `src/features/workflow/engine/graphRunnerNodeHandlerContext.ts` — do not define a new Kafka ops type
-	- [ ] Wire `kafkaExecution.ts` into `src/engine/executor.ts` at the sequential/pool/batch dispatch branches (~lines 218-223): add per-scenario `actionType` routing so Kafka scenarios call `executeKafkaAction(scenario, kafkaOperations!, timeoutMs)` while HTTP scenarios continue through existing runners; `kafkaOperations` is already a `runTest()` parameter (line 116) but currently only flows to the `workflow` mode branch (line 204) — forward it into the non-workflow path too; do NOT modify `requestExecution.ts`
-	- [ ] Implement produce and bounded consume runtime paths in `kafkaExecution.ts`; set `kafkaResultMeta` on result; map Kafka fields into `ValidationInput` (value → `responseBody`/`responseObj`, headers → `responseHeaders`, 200/0 → `httpStatus`) so existing `$.body.*`/`$.headers.*` assertions work on message content
-	- [ ] Extend `resolveVariable` in `src/engine/validator.ts` (custom assertion branch) to resolve `kafka.key`, `kafka.offset`, `kafka.partition`, `kafka.topic` from an optional `kafkaContext` passed through `evaluateAssertions`; reuse all existing assertion operators without adding new operator types
-	- [ ] Add `kafkaExecution.test.ts`: produce success + kafkaResultMeta; consume match; consume timeout; assertion pass (`$.body.*` against message value); assertion fail with actionable `failureDetails`; auth/TLS/network failure classification
+	- [x] Create `src/engine/kafkaExecution.ts` (new module parallel to `requestExecution.ts`); export `executeKafkaAction(scenario: Scenario, kafkaOps: KafkaNodeOperations, timeoutMs?: number): Promise<RequestResult>` with `transportType` set; reuse `KafkaNodeOperations` from `src/features/workflow/engine/graphRunnerNodeHandlerContext.ts` — do not define a new Kafka ops type
+	- [x] Wire `kafkaExecution.ts` into `src/engine/executor.ts` at the sequential/pool/batch dispatch branches (~lines 218-223): add per-scenario `actionType` routing so Kafka scenarios call `executeKafkaAction(scenario, kafkaOperations!, timeoutMs)` while HTTP scenarios continue through existing runners; `kafkaOperations` is already a `runTest()` parameter (line 116) but currently only flows to the `workflow` mode branch (line 204) — forward it into the non-workflow path too; do NOT modify `requestExecution.ts`
+	- [x] Implement produce and bounded consume runtime paths in `kafkaExecution.ts`; set `kafkaResultMeta` on result; map Kafka fields into `ValidationInput` (value → `responseBody`/`responseObj`, headers → `responseHeaders`, 200/0 → `httpStatus`) so existing `$.body.*`/`$.headers.*` assertions work on message content
+	- [x] Extend `resolveVariable` in `src/engine/validator.ts` (custom assertion branch) to resolve `kafka.key`, `kafka.offset`, `kafka.partition`, `kafka.topic` from an optional `kafkaContext` passed through `evaluateAssertions`; reuse all existing assertion operators without adding new operator types
+	- [x] Add `kafkaExecution.test.ts`: produce success + kafkaResultMeta; consume match; consume timeout; assertion pass (`$.body.*` against message value); assertion fail with actionable `failureDetails`; auth/TLS/network failure classification
 - [x] Phase 6C - Parameterized runner support (Suggested PR label: `kafka-p6c-runner-parameterized`) — ✅ Complete (2025-07-25, commit 5a97924)
 	- [x] Extend `resolveScenarioFromDataRow` in `src/engine/dataSourceExpander.ts` to apply `substituteVariables` to Kafka config string fields: `kafkaProduceAction.topic/.key/.value` and all `.headers` values; `kafkaConsumeAction.topic/.filter.keyEquals/.filter.jsonEquals` — reuse existing body-column var map, no new `DataSourceColumn.type` variants needed; `base.body` is NOT the Kafka message payload — `kafkaProduceAction.value` is
 	- [x] Extend `resolveScenarioFromDataRow` to apply `substituteVariables` to `validation.assertions[*].value` for `kafkaField` assertion entries (currently never substituted; expander only builds `expectedFields` from `validate` columns)
@@ -1167,19 +1200,19 @@ Dependency: Phase 4
 
 ### Validation
 
-- [ ] runner execution tests for Kafka scenarios
-- [ ] parameterized tests with Kafka templating
-- [ ] results UI tests for Kafka action rendering
-- [ ] mixed-suite (HTTP + Kafka) rendering and export parity tests
-- [ ] action-contract migration/backward-compatibility tests
+- [x] runner execution tests for Kafka scenarios (32 tests — `kafkaExecution.test.ts`)
+- [x] parameterized tests with Kafka templating (Phase 6C — `dataSourceExpander.test.ts` extended)
+- [x] results UI tests for Kafka action rendering (Phase 6D — `DataRowSummaryTable.test.tsx`, `ResultsRequestDetailsTab.test.tsx`, `WorkflowResultsSummary.test.tsx`)
+- [x] mixed-suite (HTTP + Kafka) rendering and export parity tests (Phase 6D)
+- [x] action-contract migration/backward-compatibility tests (37 tests — `kafkaScenarioContracts.test.ts`)
 
 ### Validation Gate Checklist (must pass before exit)
 
-- [ ] Kafka action contracts load with deterministic defaults and migration-safe behavior
-- [ ] standard runner Kafka produce/consume paths pass deterministically
-- [ ] parameterized Kafka runs preserve row-level attribution and failure diagnostics
-- [ ] results UI uses transport-aware labels and does not misclassify Kafka outcomes as HTTP failures
-- [ ] mixed suites keep grouping/filtering/export behavior stable without type regressions
+- [x] Kafka action contracts load with deterministic defaults and migration-safe behavior
+- [x] standard runner Kafka produce/consume paths pass deterministically
+- [x] parameterized Kafka runs preserve row-level attribution and failure diagnostics
+- [x] results UI uses transport-aware labels and does not misclassify Kafka outcomes as HTTP failures
+- [x] mixed suites keep grouping/filtering/export behavior stable without type regressions
 
 ### Phase 6 Execution Matrix (owner/effort/dependency order)
 
@@ -1227,7 +1260,7 @@ Per-PR readiness checks:
 
 ### Exit Criteria
 
-- [ ] Kafka actions run and report cleanly in both runner modes
+- [x] Kafka actions run and report cleanly in both runner modes
 
 ---
 
@@ -1335,6 +1368,13 @@ Dependency: Phase 6
 - **Manual broker re-validation**: Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (both plaintext + secure profiles live).
 - **Final counts**: Phase 7 test files now total **208 tests** (WorkflowRunner.part4: 7→8). All 279 tests across 11 Phase 7+5 test files pass. tsc: 0 errors.
 
+**Phase 7 Thorough Re-evaluation (third pass):**
+- Re-ran 9 Phase 7 + Phase 5 test files → **234/234 PASS**. tsc: 0 errors. (Count increase from 208 reflects graphRunnerKafkaWaitHandler.test.ts being included in the run alongside executor.test.ts at its correct path `src/engine/executor.test.ts`.)
+- Deep code audit: reviewed `kafkaLoadPolicy.ts`, `graphLoadRunner.ts` (pre-run guard, abort handling), `graphRunnerKafkaNodeHandlers.ts` (auto-resume, synthetic-inject, abort paths), `graphRunnerKafkaWaitHandler.ts` (inline abort path — fix confirmed in place).
+- **Investigated `kafkaConsume` synthetic-inject abort path**: does NOT set `passed.value = false` — confirmed intentional. Abort paths across all Kafka handlers use the same convention: abort = cancelled (outer load runner marks `cancelled: true`), not failed; only genuine errors (timeout, no correlation store, etc.) set `passed.value = false`. This is consistent with `kafkaWait` catch-block patterns.
+- **Investigated missing `onVariablesChange` in `kafkaConsume` synthetic-inject abort**: NOT a bug — unlike `kafkaWait` inline abort (which sets `__kwOutcome = 'cancelled'` on ctx), the `kafkaConsume` abort returns before any ctx variable is set, so there is nothing to propagate.
+- No new bugs found. Phase 7 declared fully validated and closed.
+
 ### Phase 7 Execution Matrix (owner/effort/dependency order)
 
 | Order | PR Slice | Suggested Owner | Est. Effort | Depends On | Primary Scope | Validation Gate |
@@ -1420,12 +1460,12 @@ Dependency: Phase 6
 - [x] Phase 8B - Publish-on-completion runtime (Suggested PR label: `kafka-p8b-publish-runtime`) — ✅ Complete (2026-06-01)
 	- [x] Create **`src/shared/kafka/kafkaResultsPublisher.ts`** (CLIENT-SIDE, alongside `kafkaClient.ts` — NOT `src-server/`): assemble `KafkaRunSummaryEnvelope` from `TestRun`, serialize to JSON, call `dispatchKafkaOperation('produce', request)` from `kafkaClient.ts` (no new server endpoint); define produce request shape inline (cannot import `KafkaProduceRequest` from `src-server/` — use inline-type pattern from `buildKafkaNodeOperations.ts`); unwrap `KafkaEnvelope<T>` return (check `.ok`, access `.data`) — `dispatchKafkaOperation` returns the envelope, not the raw produce result; return `KafkaPublishOutcome`; never throw
 	- [x] Retry policy: **max 3 retries**, **2 000 ms base delay**, **10 000 ms total cap**; successful retry must not duplicate an acknowledged event
-	- [x] Hook publish into `useTestExecution.ts` after **both** `saveTestRun` call sites; `confirmSavePendingRun` path does NOT trigger publish (quota-override is a local-only save, not a normal run completion event); publish is fire-and-forget using a `void` pattern with `publishConfigRef` to avoid stale closure issues
+	- [x] Hook publish into `useTestExecution.ts` after **both** `saveTestRun` call sites; `confirmSavePendingRun` path **also** triggers publish (changed from original design — confirmed in code: `useTestExecution.ts` line 458 calls `publishRunResults` inside `confirmSavePendingRun` when `publishConfigRef.current?.enabled`); publish is fire-and-forget using a `void` pattern with `publishConfigRef` to avoid stale closure issues
 	- [x] Add publish-path tests to `src/features/test-runner/hooks/useTestExecution.saveHandlers.test.ts` (11 new tests) and `useRunnerOrchestration.test.ts` (2 new tests)
 	- Implementation Notes (2026-06-01):
 	  - Fire-and-forget pattern: `void publishRunResults(testRun, config).then(outcome => { if (outcome.status === 'failed') console.warn(...) })` — publish never blocks save or alters run status
 	  - `publishConfigRef` pattern: `const publishConfigRef = useRef(publishConfig); publishConfigRef.current = publishConfig;` avoids stale closure for the publish config
-	  - `confirmSavePendingRun` does not trigger publish — local quota-override save is not a run completion event
+	  - `confirmSavePendingRun` **does** trigger publish (3 call sites total: lines 401, 458, 583) — quota-override save was originally excluded but implementation included it for consistency; publish only fires when `publishConfigRef.current?.enabled` is true
 - [x] Phase 8C - Secure-profile and reporting validation (Suggested PR label: `kafka-p8c-publish-validation`) — ✅ Complete (2026-06-01 unit tests; 2026-06-02 broker-level scenarios 41/41 PASS)
 	- [x] Validate plaintext broker publish behavior and payload shape (unit-tested in `kafkaResultsPublisher.test.ts` — 20 tests)
 	- [x] Validate failure-path safety (run completion unaffected in default mode) (covered by `saveHandlers.test.ts`)
@@ -1552,18 +1592,18 @@ Dependency: Phases 1-8
 
 ### Sub-phase Checklist (Execution Order)
 
-- [ ] Phase 9-PR0 - Build-chain setup (Suggested PR label: `kafka-p9-build-chain`)
-	- [ ] Add `rdkafka` with cmake feature flag to `Cargo.toml`
-	- [ ] Confirm `cargo build` clean on macOS arm64 (and x86_64-apple-darwin if CI requires cross-compilation)
-	- [ ] Document CI runner requirements (librdkafka native dep, cmake availability)
-- [ ] Phase 9A - Native contract and lifecycle baseline (Suggested PR label: `kafka-p9a-native-lifecycle`)
-	- [ ] `mod kafka;` added to `src-tauri/src/lib.rs` for module visibility (crate root — NOT `main.rs` which only calls `app_lib::run()`)
-	- [ ] `KafkaState` with `Arc<Mutex<HashMap<ClusterId, ClientHandle>>>` using `std::sync::Mutex` (matching `ExecutorState` pattern) implemented
-	- [ ] `KafkaState` registered via `.manage(KafkaState::new())` in **`src-tauri/src/lib.rs`** (where the Tauri builder, `.manage()`, and `.invoke_handler()` all live)
-	- [ ] `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and **added to `tauri::generate_handler![...]` list in `lib.rs`**
-	- [ ] Rust unit tests for state transitions and topic list shape
+- [x] Phase 9-PR0 - Build-chain setup (Suggested PR label: `kafka-p9-build-chain`)
+	- [x] Add `rdkafka` with cmake feature flag to `Cargo.toml`
+	- [x] Confirm `cargo build` clean on macOS arm64 (and x86_64-apple-darwin if CI requires cross-compilation)
+	- [x] Document CI runner requirements (librdkafka native dep, cmake availability)
+- [x] Phase 9A - Native contract and lifecycle baseline (Suggested PR label: `kafka-p9a-native-lifecycle`)
+	- [x] `mod kafka;` added to `src-tauri/src/lib.rs` for module visibility (crate root — NOT `main.rs` which only calls `app_lib::run()`)
+	- [x] `KafkaState` with `Arc<Mutex<HashMap<ClusterId, ClientHandle>>>` using `std::sync::Mutex` (matching `ExecutorState` pattern) implemented
+	- [x] `KafkaState` registered via `.manage(KafkaState::new())` in **`src-tauri/src/lib.rs`** (where the Tauri builder, `.manage()`, and `.invoke_handler()` all live)
+	- [x] `kafka_connect`, `kafka_disconnect`, `kafka_status`, `kafka_topics` commands implemented and **added to `tauri::generate_handler![...]` list in `lib.rs`**
+	- [x] Rust unit tests for state transitions and topic list shape
 - [ ] Phase 9B - Native operation surface (Suggested PR label: `kafka-p9b-native-ops`)
-	- [ ] `kafka_produce`, `kafka_consume`, `kafka_subscribe`, `kafka_unsubscribe` implemented and **added to `tauri::generate_handler![...]` in `lib.rs`**
+	- [ ] `kafka_produce`, `kafka_consume_once`, `kafka_subscribe`, `kafka_unsubscribe` implemented and **added to `tauri::generate_handler![...]` in `lib.rs`**
 	- [ ] `kafka_subscribe`/`kafka_unsubscribe` use `CancellationToken` from `tokio_util::sync` (already imported in `commands.rs`); cancel on explicit unsubscribe and app-window-close
 	- [ ] Error mapping table covering all rdkafka variants tested
 	- [ ] Concurrent operation safety verified: produce does not interfere with active subscriber
@@ -1582,8 +1622,8 @@ Dependency: Phases 1-8
 
 ### Validation
 
-- [ ] `cargo build` clean with rdkafka on macOS arm64
-- [ ] Rust unit tests for all Kafka commands (`cargo test`)
+- [x] `cargo build` clean with rdkafka on macOS arm64
+- [x] Rust unit tests for all Kafka commands (`cargo test`) — 17/17 passing
 - [ ] Frontend transport factory vitest suite
 - [ ] Golden-fixture parity tests for all operations (server-proxy vs native)
 - [ ] Error mapping equivalence tests
