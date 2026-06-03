@@ -260,7 +260,10 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
           {/* ── LEFT: Cluster panel ── */}
           <section className="kafka-shell-card kafka-cluster-panel" aria-live="polite">
             <div className="kafka-shell-card-header">
-              <h3>Clusters</h3>
+              <div>
+                <h3>Clusters</h3>
+                <small className="kafka-section-subtitle">Multiple saved profiles · fast switch · live health</small>
+              </div>
               <div className="kafka-cluster-header-actions">
                 <span className={`kafka-status-badge state-${connection.state}`}>{connection.state}</span>
                 {loaded && clusters.length > 0 && (
@@ -293,8 +296,9 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
 
             {/* Empty state */}
             {loaded && clusters.length === 0 && !hasStartupError && (
-              <div className="kafka-panel-state" data-testid="kafka-settings-empty">
-                <p className="settings-section-desc">No clusters configured yet</p>
+              <div className="kafka-panel-state kafka-empty-state" data-testid="kafka-settings-empty">
+                <p className="kafka-empty-title">No clusters configured yet</p>
+                <p className="settings-section-desc">Add your first Kafka cluster to enable topic browsing and workflow integration.</p>
                 <div className="kafka-shell-actions">
                   <button
                     type="button"
@@ -376,7 +380,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
             <div className="kafka-shell-actions">
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-sm kafka-btn-soft-blue"
                 onClick={() => void testSelectedClusterConnection()}
                 disabled={!canRunConnectionAction || connection.state === 'testing'}
               >
@@ -439,7 +443,16 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
             ) : (
               <>
                 <div className="kafka-shell-card-header">
-                  <h3>{editorMode === 'edit' ? 'Edit Cluster' : 'Create Cluster'}</h3>
+                  <div>
+                    <h3>{editorMode === 'edit' ? 'Edit Cluster' : 'Create Cluster'}</h3>
+                    {editorMode && (
+                      <small className="kafka-section-subtitle">
+                        {editorMode === 'edit'
+                          ? 'Update connection settings, auth, and TLS'
+                          : 'Configure a new Kafka connection profile'}
+                      </small>
+                    )}
+                  </div>
                   {editorMode && (
                     <button type="button" className="btn btn-sm" onClick={cancelEditor}>
                       Cancel
@@ -836,23 +849,29 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     : 'No topics match the current filter.'}
                 </p>
               ) : (
-                <div className="kafka-topic-browser-list">
-                  <div className="kafka-topic-browser-list-head" aria-hidden="true">
-                    <span>Topic</span>
-                    <span>Type</span>
-                    <span>Partitions</span>
-                  </div>
-                  {filteredTopics.map((topic) => (
-                    <div className="kafka-topic-row" key={topic.name} data-testid={`kafka-topic-${topic.name}`}>
-                      <div className="kafka-topic-row-main">
-                        <strong>{topic.name}</strong>
-                        <span className="kafka-topic-row-meta">{topic.isInternal ? 'Broker-managed' : 'Application'}</span>
-                      </div>
-                      <span className="kafka-topic-kind-badge">{topic.isInternal ? 'Internal' : 'App'}</span>
-                      <span className="count-badge">{topic.partitions} partition{topic.partitions === 1 ? '' : 's'}</span>
-                    </div>
-                  ))}
-                </div>
+                <table className="kafka-topic-table">
+                  <thead>
+                    <tr>
+                      <th>Topic</th>
+                      <th>Partitions</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTopics.map((topic) => (
+                      <tr key={topic.name} data-testid={`kafka-topic-${topic.name}`}>
+                        <td>
+                          <div className="kafka-topic-row-main">
+                            <strong>{topic.name}</strong>
+                            <span className="kafka-topic-row-meta">{topic.isInternal ? 'Broker-managed' : 'Application topic'}</span>
+                          </div>
+                        </td>
+                        <td><span className="count-badge">{topic.partitions}</span></td>
+                        <td><span className="kafka-topic-kind-badge">{topic.isInternal ? 'Internal' : 'App'}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </>
           )}
