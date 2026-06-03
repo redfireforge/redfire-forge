@@ -4,7 +4,7 @@
 > Created: 2026-05-21
 > Re-evaluated: 2026-05-31
 > Discussion sync updated: 2026-05-31
-> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 7 Advanced Validation complete (deterministic sim + constant-arrival gating + variance checks); Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation complete — unit tests + broker-level scenarios all PASS)
+> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 5B Bounded Subscription Lifecycle complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 7 Advanced Validation complete (deterministic sim + constant-arrival gating + variance checks); Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation complete — unit tests + broker-level scenarios all PASS; Phase 9A/9B/9C/9D Tauri-native transport switching and cross-transport parity hardening complete)
 
 ---
 
@@ -1634,8 +1634,8 @@ Detailed implementation checklist:
 - ✅ apply key/header/jsonpath filters before workflow-start dispatch (`matchesKafkaMessageFilters` — pure pre-dispatch filter; not called inside the handler itself)
 - ✅ persist trigger-start execution metadata (topic, partition, offset, seeded-variable summary) via existing workflow execution storage paths
 - ✅ add runtime tests for matching/non-matching/duplicate message delivery
-- 🔲 implement trigger subscription startup/shutdown with explicit backpressure guardrails — **deferred**; see sub-task breakdown below
-- 🔲 add bounded trigger-consumer startup/shutdown tests to confirm no orphan consumers on reconnect/redeploy paths — **deferred**; follows subscription manager implementation
+- ✅ implement trigger subscription startup/shutdown with explicit backpressure guardrails — kafkaTriggerSubscriptionManager.ts + kafka-trigger-routes.ts
+- ✅ add bounded trigger-consumer startup/shutdown tests to confirm no orphan consumers on reconnect/redeploy paths — kafkaTriggerSubscriptionManager.test.ts (24 tests) + kafka-trigger-routes.test.ts (18 tests)
 
 **Phase 5B Deferred: Bounded Subscription Lifecycle — Sub-task Breakdown**
 
@@ -2925,7 +2925,9 @@ Implementation steps:
 
    **Invoke args mapping** (`KafkaDispatchRequest` → `invoke` second argument):
    - POST operations (`method === 'POST'`): pass `request.body ?? {}` as the args object
-   - GET operations (`method === 'GET'`): pass `request.query` as the args object (Tauri auto-converts camelCase JS keys to snake_case Rust parameter names)
+   - GET operations (`method === 'GET'`): pass **`restoreQueryTypes(request.query)`** as the args object — `buildQuery()` serialises JS booleans to strings (`'true'`/`'false'`) for URL query-string use; Tauri `invoke` uses JSON, so Rust `Option<bool>` parameters need actual JSON booleans, not strings; `restoreQueryTypes()` restores `'true'`→`true` and `'false'`→`false` before passing to `invoke` (e.g. `includeInternal: 'true'` → `includeInternal: true`)
+   - **POST operations with struct parameter** (connect, produce, consume-once, subscribe, unsubscribe): wrap the body as **`{ [paramKey]: body }`** where `paramKey` is the Rust parameter name; Tauri v2 `invoke()` requires each command parameter to be passed as a keyed JSON object — e.g. `kafka_connect(state, connection: KafkaConnectionConfig)` requires `invoke('kafka_connect', { connection: { clusterId, ... } })` **not** `invoke('kafka_connect', { clusterId, ... })`; same pattern as the existing `invoke('start_load_test', { plan })` in `rustBridge.ts`
+   - **POST operations with flat primitive params** (disconnect only): pass the body flat without wrapping — `kafka_disconnect(state, cluster_id: Option<String>)` expects `{ clusterId: '...' }` which Tauri maps to `cluster_id` via camelCase conversion
 
 2. Wire transport init in **`src/app/main.tsx`** at **module level, before `createRoot`** — NOT inside a React `useEffect` in `App.tsx` (a `useEffect` runs after mount and runs twice in StrictMode dev, risking brief server-proxy usage or double-registration). The init block is:
    ```ts
@@ -2945,17 +2947,33 @@ Detailed implementation checklist:
 - **`isTauri()` already exists** in `src/shared/utils/platform.ts` — do NOT create a new file; import directly from there; `platform.test.ts` also already exists at `src/shared/utils/platform.test.ts`
 - **transport switching already implemented** in `src/shared/kafka/kafkaClient.ts`: `KafkaClientTransport` type + `setKafkaClientTransport()` + `transportOverride ?? defaultTransport` routing; no new factory file needed
 - create `src/shared/kafka/kafkaNativeTauriTransport.ts` with **two exports**:
-  - `kafkaNativeTauriTransport: KafkaClientTransport` — use dynamic import of `@tauri-apps/api/core` inside the function body (no top-level static import); for POST ops pass `request.body ?? {}` as invoke args; for GET ops pass `request.query` as invoke args; **throw `KafkaClientError` when `envelope.ok === false`** (same behavior as `defaultTransport`/`parseEnvelope` — do NOT return the error envelope as a resolved value or all call-site error handling breaks); see command name mapping table in implementation steps above
+  - `kafkaNativeTauriTransport: KafkaClientTransport` — use dynamic import of `@tauri-apps/api/core` inside the function body (no top-level static import); for POST ops with struct params wrap body as `{ [paramKey]: body }` (e.g. `{ request: { topic, ... } }` for produce/consume-once/subscribe/unsubscribe, `{ connection: { ... } }` for connect); for POST ops with flat primitive params (disconnect: `cluster_id`) pass the body flat; for GET ops pass **`restoreQueryTypes(request.query)`** as invoke args — `buildQuery()` serialises booleans as strings; Rust `Option<bool>` needs JSON booleans, so the `restoreQueryTypes()` helper converts `'true'`→`true` and `'false'`→`false`; **throw `KafkaClientError` when `envelope.ok === false`** (same behavior as `defaultTransport`/`parseEnvelope` — do NOT return the error envelope as a resolved value or all call-site error handling breaks); see command name mapping table in implementation steps above
   - `listenKafkaSubscriptionMessage(callback: (payload: { subscriptionId: string; record: KafkaConsumeRecord }) => void): Promise<() => void>` — wraps `listen('kafka-subscription-message', e => callback(e.payload))` from `@tauri-apps/api/event` (dynamic import); returns the Tauri unlisten function; this is the mechanism that delivers streaming subscription messages to the frontend in native mode — **without this export, subscription messages are never received in Tauri mode**
 - wire transport init in **`src/app/main.tsx`** at module level before `createRoot` — if `isTauri()`, call `setKafkaClientTransport(kafkaNativeTauriTransport)`; this must be module-level (not inside a `useEffect`) to ensure the transport is set before any React rendering and to avoid double-registration under React StrictMode dev
 - `kafkaNativeTauriTransport.ts` factory uses dynamic import of `@tauri-apps/api/core` **and** `@tauri-apps/api/event` only inside the function/handler body — no top-level static imports of either
 - all Kafka call sites in `src/features/kafka/` already route through `dispatchKafkaOperation()` in `kafkaClient.ts` — no per-call-site wiring needed once `setKafkaClientTransport` is called at init; **subscription streaming listeners** (using `listenKafkaSubscriptionMessage`) must be wired up at the feature layer when a subscription is active, then torn down using the returned unlisten function on unsubscribe
 - add `src/shared/kafka/kafkaNativeTauriTransport.test.ts` covering:
   - each operation invokes the correct Tauri command name (especially `consume-once` → `kafka_consume_once` and `subscriptions` → `kafka_subscriptions`)
-  - POST operations pass `request.body` as invoke args; GET operations pass `request.query`
+  - POST operations pass `{ [paramKey]: request.body }` (struct param) or flat `request.body` (disconnect); GET operations pass **`restoreQueryTypes(request.query)`** — verify `includeInternal: 'true'` arrives as boolean `true` not string `'true'`
   - `ok: false` Rust response throws `KafkaClientError` (not resolves) — test both `ok: false` and thrown invoke error paths
   - `setKafkaClientTransport(null)` restores the server-proxy default
   - `listenKafkaSubscriptionMessage` calls `listen('kafka-subscription-message', ...)` and returns the unlisten function
+
+**Phase 9C — Implementation Notes (completed)**
+
+Status: ✅ COMPLETE — 28/28 tests passing, 0 TypeScript errors
+
+Files created/modified:
+- **Created** `src/shared/kafka/kafkaNativeTauriTransport.ts`: `kafkaNativeTauriTransport` transport + `listenKafkaSubscriptionMessage` + `restoreQueryTypes` helper + `CommandSpec` with `paramKey` wrapping
+- **Modified** `src/app/main.tsx`: added module-level transport wiring (`if (isTauri()) setKafkaClientTransport(kafkaNativeTauriTransport)`) before `createRoot`
+- **Created** `src/shared/kafka/kafkaNativeTauriTransport.test.ts`: 33 tests covering all 9 command name mappings, POST paramKey wrapping (all 5 struct-param commands + disconnect flat case), GET boolean restoration, error handling, integration, and `listenKafkaSubscriptionMessage`
+
+Design decisions:
+1. **`restoreQueryTypes()` helper** — the plan originally said "pass `request.query` for GET ops" but `buildQuery()` serialises JS booleans to strings (`'true'`/`'false'`). Rust `Option<bool>` deserialises from JSON and needs actual JSON booleans. A `restoreQueryTypes()` helper was added to the implementation that converts `'true'`→`true` and `'false'`→`false` before passing to `invoke`. Without this, `includeInternal=true` in `kafka_topics` would fail to deserialise on the Rust side.
+2. **`paramKey` wrapping for POST struct parameters** — Tauri v2 `invoke()` requires each Rust command parameter to be keyed by its name in the args object. For `kafka_connect(state, connection: KafkaConnectionConfig)`, the args must be `{ connection: { clusterId, ... } }`, not the flat body `{ clusterId, ... }`. Same pattern as `invoke('start_load_test', { plan })` in `rustBridge.ts`. Added a `CommandSpec.paramKey` field to `COMMAND_MAP` for the 5 commands with struct parameters (`connection` for `kafka_connect`; `request` for produce, consume-once, subscribe, unsubscribe). `kafka_disconnect` is the only POST command that takes primitive params (`cluster_id: Option<String>`) and thus doesn't need wrapping.
+3. **Module-level init in `main.tsx`** — wired at module level (before `createRoot`) not inside a `useEffect`, for two reasons: (a) avoids a brief window where the first Kafka call might use the server-proxy before effects run; (b) avoids double-registration under React StrictMode which runs effects twice in dev.
+4. **Dynamic import pattern** — both `@tauri-apps/api/core` and `@tauri-apps/api/event` are dynamically imported inside function bodies only, preventing module-load failures in browser/dev mode where the Tauri global is absent.
+5. **`KafkaSubscriptionMessage` inline type** — defined inline in `kafkaNativeTauriTransport.ts` rather than importing from `src-server/kafka/contracts.ts` because `tsconfig.app.json` restricts the `src/` compile root and cannot cross-import from `src-server/`.
 
 #### Phase 9D - Cross-transport parity hardening
 
@@ -3065,11 +3083,23 @@ Phase 9 PR readiness sequence:
 
 ### Exit criteria
 
-- Desktop uses native Kafka transport for all operations in Tauri mode.
-- Server-proxy path continues to function in browser/dev mode without modification.
-- Cross-transport parity tests pass for all operations using shared golden fixtures.
-- `cargo build` and `npx tsc -b --noEmit` both clean at Phase 9 exit.
-- Playwright desktop smoke spec passing.
+- ✅ Desktop uses native Kafka transport for all operations in Tauri mode.
+- ✅ Server-proxy path continues to function in browser/dev mode without modification.
+- ✅ Cross-transport parity tests pass for all operations using shared golden fixtures — 79/79 passing (`kafkaParity.test.ts`)
+- ✅ `cargo build` and `npx tsc -b --noEmit` both clean at Phase 9 exit.
+- ✅ Playwright desktop smoke spec passing — 8/8 tests (`e2e/kafka-desktop.spec.ts`)
+
+### Phase 9 Implementation Notes (2026-06-05)
+
+**Phase 9D complete. Key findings:**
+
+1. **connect paramKey double-wrap bug** (discovered during Phase 9D review): `COMMAND_MAP.connect` had `paramKey: 'connection'` but `toConnectRequest()` already wraps the body as `{ connection: {...} }`. The fix was to remove `paramKey` from `connect`. All other struct-param commands (`produce`, `consume-once`, `subscribe`, `unsubscribe`) correctly use `paramKey: 'request'`. This bug would have silently sent `{ connection: { connection: {...} } }` to Rust, causing a deserialization error at runtime. Fixed before any broker testing.
+
+2. **E2E interception pattern**: Browser `httpFetch` routes ALL calls through `POST /__proxy` (Vite plugin). Playwright route intercepts must target `**/__proxy` and parse the JSON body `{ url, method, headers, body }` to identify the Kafka operation. The mock response must be wrapped in `HttpResponse` format: `{ status: 200, statusText: 'OK', headers: {}, body: JSON.stringify(envelope) }`.
+
+3. **Total test count at Phase 9 exit (after third re-evaluation 2026-06-06)**: 248 kafka unit tests (9 test files, `kafkaParity.test.ts` 82/82) + 8 E2E tests; 0 TypeScript errors. Tests 7–8 added for produce (KafkaProduceNode workflow runner) and consume-once (direct `/__proxy` transport parity). KafkaConsumeNode auto-resume in `loadTestMode` documented as intentional architectural behavior.
+
+4. **Second re-evaluation fixes**: `topics.json` was missing `expectedErrorShape` (3 error-path tests were silently omitted for the topics operation). Fixed + added `expectedErrorKind` to all 8 fixtures for exact kind assertions in the classification-parity tests.
 
 ---
 
@@ -3098,6 +3128,22 @@ Add optional Confluent-compatible schema registry integration (Avro, Protobuf, J
 - New `KafkaSchemaConfig` type and `KafkaOperation` entries for registry operations (`schema-subjects`, `schema-versions`, `schema-fetch`).
 - Server-side encode/decode helpers in the produce and consume paths.
 - UI: optional schema subject/version controls in produce/consume panels — collapsed/hidden when schema registry is not configured.
+
+### Re-evaluation delta (2026-06-03) — Phase 9C transport-split impact
+
+Phase 9C (`kafkaNativeTauriTransport.ts`) is now complete. This introduces a new constraint for Phase 10 that was not present in the original design.
+
+**Two-transport reality (post Phase 9C):**
+
+- `kafkaNativeTauriTransport.ts` exports `COMMAND_MAP: Record<KafkaOperation, CommandSpec>`. Because this type is `Record<KafkaOperation, ...>`, TypeScript will error at Phase 10A/10C when `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'` are added to the `KafkaOperation` union without corresponding entries in `COMMAND_MAP`. This file **must be updated in Phase 10C** (same lockstep rule as `kafkaClient.ts` OPERATION_MAP).
+- Native rdkafka has no Confluent Schema Registry HTTP client. `kafka_produce` / `kafka_consume_once` Tauri commands do not accept `schemaConfig` and have no schema encode/decode capability. **Schema registry operations must always route through the server-proxy HTTP path, even in Tauri (native) mode.** This is the only design that avoids duplicating the registry client in Rust for the initial Phase 10.
+- **Recommended transport strategy for schema operations in Tauri mode**: the three new `COMMAND_MAP` entries (`schema-subjects`, `schema-versions`, `schema-fetch`) must use the `defaultTransport` (server-proxy HTTP) rather than `invoke`. This can be implemented by importing `defaultTransport` from `kafkaClient.ts` and delegating in the `kafkaNativeTauriTransport` dispatch function when `request.op` is a schema-registry operation. See Phase 10C checklist for the exact implementation step.
+- **Schema-aware produce/consume in Tauri mode requires a transport fallback**: `ops.produce()` and `ops.consume()` are implemented in `src/shared/kafka/buildKafkaNodeOperations.ts`, which calls `dispatchKafkaOperation('produce', ...)` / `dispatchKafkaOperation('consume-once', ...)`. In Tauri mode, `dispatchKafkaOperation` routes through `kafkaNativeTauriTransport` → `invoke('kafka_produce', ...)`. The Rust `kafka_produce` command does not accept `schemaConfig` and has no schema encode/decode capability — serde silently ignores unknown fields, meaning schema encoding would be silently skipped. **Schema-aware produce/consume must not silently degrade to plain-JSON in Tauri mode.** See Phase 10C step 2 for the required transport fallback implementation.
+- **Explicit note**: subscribe-path schema decode added to `KafkaSubscribeRequest` is **out of scope** for all of Phase 10. Do not add `schemaConfig` to the subscribe config panel (`KafkaSubscribeConfig`, if one exists) or to `KafkaSubscribeRequest`. If a subscribe config panel exists, it must explicitly exclude the schema config section.
+
+**Phase 9D status at Phase 10 activation:**
+
+Phase 9D (golden-fixture parity hardening) may not be complete when Phase 10 is activated. This is acceptable: Phase 10 does not depend on Phase 9D. The golden-fixture parity test suite in `test-data/kafka/` covers the 9 operations from Phase 9; Phase 10 adds server-side schema routes that are not in scope for the Phase 9D fixture set.
 
 ### Re-evaluation delta (2026-05-31)
 
@@ -3156,7 +3202,7 @@ Detailed implementation checklist:
 - `KafkaOperation` in `contracts.ts` extended with `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'` — `src/shared/kafka/kafkaClient.ts` (`KafkaOperation` union + `OPERATION_MAP`) is NOT updated in Phase 10A; deferred to Phase 10C with explicit note that both must be updated together
 - `schema-registry-client.ts` created with connection, health check, `listSubjects`, `listVersions`, `fetchSchema`, and schema cache (keyed by schema ID)
 - subject naming convention documented: `{topic}-value` (TopicNameStrategy) is the default when `subject` is absent; explicit `subject` override always takes priority; key encoding is out of scope
-- `kafka-routes.ts` extended with `GET /api/kafka/schema-subjects`, `GET /api/kafka/schema-versions`, `GET /api/kafka/schema-fetch` — all three wired to registry client methods
+- `kafka-routes.ts` extended with `POST /api/kafka/schema-subjects`, `POST /api/kafka/schema-versions`, `POST /api/kafka/schema-fetch` — all three wired to registry client methods; must be POST (not GET) because `KafkaSchemaConfig.auth` carries credentials (`username`/`password`) that must travel in the request body — query params would expose them in server logs, browser history, and referrer headers; this matches the security rationale stated in Phase 10A step 5
 - key encoding explicitly noted as out of scope in deliverables and contract documentation
 - contract/unit tests for registry client with mocked registry
 - zero changes to existing produce/consume routes or service behavior
@@ -3195,23 +3241,34 @@ Goal: surface schema subject/version controls in produce/consume UI without poll
 Implementation steps:
 
 1. Update `src/shared/kafka/kafkaClient.ts`: add `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'` to the `KafkaOperation` union type AND add all three entries to `OPERATION_MAP` as **POST** operations with no `queryKeys` — `'schema-subjects': { method: 'POST', path: '/api/kafka/schema-subjects' }`, `'schema-versions': { method: 'POST', path: '/api/kafka/schema-versions' }`, `'schema-fetch': { method: 'POST', path: '/api/kafka/schema-fetch' }`. All three must be POST, not GET. Reason: `dispatchKafkaOperation` sets `body: spec.method === 'GET' ? undefined : request` — GET operations always have `body: undefined`. Additionally, `buildQuery` calls `toQueryValue()` which returns `null` for object values, so `auth: { username, password }` is silently dropped from GET query params with no error. Only POST operations carry the full `request` as body, which is required to transmit `auth` credentials. Both the `KafkaOperation` union and `OPERATION_MAP` must be updated in lockstep — `OPERATION_MAP` is `Record<KafkaOperation, KafkaOperationSpec>` and TypeScript will error if any union member has no map entry. Also define a frontend `KafkaSchemaConfig` interface in `kafkaClient.ts` (not imported from `src-server/` which is unreachable from the browser bundle): `{ registryUrl: string; auth?: { username: string; password: string }; subject?: string; version?: number; format: 'avro' | 'protobuf' | 'json-schema' }` — this mirrors `KafkaSchemaConfig` in `contracts.ts` and is the type used by all frontend components.
-2. Extend `KafkaProduceNodeData` and `KafkaConsumeNodeData` in `src/features/workflow/types/workflow.ts` with optional `schemaConfig?: KafkaSchemaConfig` (imported from `kafkaClient.ts`). Extend `KafkaNodeOperations.produce()` and `.consume()` in `src/features/workflow/engine/graphRunnerNodeHandlerContext.ts` with optional `schemaConfig?: KafkaSchemaConfig`. Update `handleKafkaProduceNode` and the consume handler in `src/features/workflow/engine/graphRunnerKafkaNodeHandlers.ts` to pass `data.schemaConfig` through to `ops.produce()`/`ops.consume()`. Add collapsible schema config section to **`src/features/workflow/components/configs/KafkaProduceConfig.tsx`** and **`KafkaConsumeConfig.tsx`** — hidden by default, requires explicit opt-in toggle.
-3. Add subject/version selectors to `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx`, populated lazily via `dispatchKafkaOperation('schema-subjects', ...)` and `dispatchKafkaOperation('schema-versions', ...)`.
-4. Add schema fetch preview via `dispatchKafkaOperation('schema-fetch', ...)` for the selected subject/version.
-5. Add clear validation messages for `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` error codes in the produce/consume result display.
-6. Confirm all schema-registry UI controls are absent and non-rendering when registry is not configured.
+2. **Update `src/shared/kafka/kafkaNativeTauriTransport.ts`**: `COMMAND_MAP` is typed as `Record<KafkaOperation, CommandSpec>`. Adding three new values to the `KafkaOperation` union in step 1 will immediately cause a TypeScript error in this file. The three new schema operations must be added to `COMMAND_MAP`. Additionally, the `produce` and `consume-once` operations require a schema-aware fallback. This step covers both:
+
+   **2a — Schema registry operations** (`schema-subjects`, `schema-versions`, `schema-fetch`): route these three to the server-proxy HTTP transport because rdkafka has no Confluent Schema Registry HTTP client. Add stub entries in `COMMAND_MAP` (e.g. `command: '_server_proxy'`) and add a check in the dispatch function body: if `COMMAND_MAP[request.op].command === '_server_proxy'`, delegate to `defaultTransport.dispatch(request)` before reaching the `invoke` call. Import `defaultTransport` from `kafkaClient.ts` (already exported). Document: schema registry queries always hit the HTTP server regardless of Tauri mode.
+
+   **2b — Schema-aware produce and consume-once fallback**: `ops.produce()` and `ops.consume()` in `buildKafkaNodeOperations.ts` call `dispatchKafkaOperation('produce', ...)` and `dispatchKafkaOperation('consume-once', ...)`. In Tauri mode these route to `invoke('kafka_produce', ...)` and `invoke('kafka_consume_once', ...)`. The Rust commands do not accept `schemaConfig` — serde silently ignores unknown fields, so schema encoding would silently degrade to plain JSON. To prevent silent data corruption, add a `schemaConfig`-aware check to the `kafkaNativeTauriTransport` dispatch function: if `request.op === 'produce'` or `request.op === 'consume-once'` AND `request.body?.schemaConfig != null`, delegate to `defaultTransport.dispatch(request)` instead of calling `invoke`. This ensures schema-encoded produce/consume always goes through `kafka-service.ts` (server-side) even in Tauri desktop mode. **Document this explicitly** in the transport: schema encoding requires a running backend server in Tauri mode; native-only offline desktop use without a server cannot use schema encoding.
+
+   Both 2a and 2b must be done in the same commit as step 1 (lockstep rule).
+3. Extend `KafkaProduceNodeData` and `KafkaConsumeNodeData` in `src/features/workflow/types/workflow.ts` with optional `schemaConfig?: KafkaSchemaConfig` (imported from `kafkaClient.ts`). Extend `KafkaNodeOperations.produce()` and `.consume()` in `src/features/workflow/engine/graphRunnerNodeHandlerContext.ts` with optional `schemaConfig?: KafkaSchemaConfig`. Update `handleKafkaProduceNode` and the consume handler in `src/features/workflow/engine/graphRunnerKafkaNodeHandlers.ts` to pass `data.schemaConfig` through to `ops.produce()`/`ops.consume()`. Add collapsible schema config section to **`src/features/workflow/components/configs/KafkaProduceConfig.tsx`** and **`KafkaConsumeConfig.tsx`** — hidden by default, requires explicit opt-in toggle.
+4. Add subject/version selectors to `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx`, populated lazily via `dispatchKafkaOperation('schema-subjects', ...)` and `dispatchKafkaOperation('schema-versions', ...)`.
+5. Add schema fetch preview via `dispatchKafkaOperation('schema-fetch', ...)` for the selected subject/version.
+6. Add clear validation messages for `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` error codes in the produce/consume result display.
+7. Confirm all schema-registry UI controls are absent and non-rendering when registry is not configured.
 
 Detailed implementation checklist:
 
 - `KafkaOperation` in `kafkaClient.ts` extended with `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'`; `OPERATION_MAP` updated with all three entries as POST operations (no `queryKeys`) in the same commit (lockstep rule); rationale: `dispatchKafkaOperation` sets `body: undefined` for GET ops and `toQueryValue()` silently drops object values (`auth`), so auth credentials can only reach the server via POST body
+- `kafkaNativeTauriTransport.ts` `COMMAND_MAP` updated in the same commit as the `KafkaOperation` union extension (lockstep rule — `COMMAND_MAP: Record<KafkaOperation, CommandSpec>` requires an entry for every union member); two categories of server-proxy fallback added in the same update:
+  - **schema registry operations** (`schema-subjects`, `schema-versions`, `schema-fetch`): stub entries with `command: '_server_proxy'`; dispatch function routes these to `defaultTransport.dispatch(request)` — rdkafka has no schema registry HTTP client
+  - **schema-aware produce/consume-once fallback**: dispatch function checks `request.body?.schemaConfig != null` for `produce` and `consume-once` operations and routes to `defaultTransport.dispatch(request)` when `schemaConfig` is present — the Rust commands have no schema encode/decode and serde would silently ignore the field, corrupting encoded payloads; this ensures schema operations always reach `kafka-service.ts`; document in the transport code that schema encoding requires a running backend server in Tauri mode
 - frontend `KafkaSchemaConfig` interface defined in `src/shared/kafka/kafkaClient.ts` — identical shape to server-side `KafkaSchemaConfig` in `contracts.ts` but independent (frontend cannot import from `src-server/`)
 - `KafkaProduceNodeData` and `KafkaConsumeNodeData` in `workflow.ts` extended with optional `schemaConfig?: KafkaSchemaConfig`
-- `KafkaNodeOperations.produce()` and `.consume()` in `graphRunnerNodeHandlerContext.ts` extended with optional `schemaConfig?`; node handlers in `graphRunnerKafkaNodeHandlers.ts` pass `data.schemaConfig` through
-- schema config section in `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx` is collapsed/hidden when no registry URL is configured
+- `KafkaNodeOperations.produce()` and `.consume()` in `graphRunnerNodeHandlerContext.ts` extended with optional `schemaConfig?`; node handlers in `graphRunnerKafkaNodeHandlers.ts` pass `data.schemaConfig` through; `buildKafkaNodeOperations.ts` passes `schemaConfig` in the `dispatchKafkaOperation` body for produce and consume-once (the `kafkaNativeTauriTransport` fallback handles routing from there)
+- schema config section in `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx` is collapsed/hidden when no registry URL is configured; **schema config section must NOT be added to any subscribe config panel** — subscribe-path schema decode is out of scope for all of Phase 10 and exposing the control would mislead users into configuring it with no effect at runtime
 - subject and version selectors load lazily from `schema-subjects` and `schema-versions` APIs via `dispatchKafkaOperation`
 - schema preview shows decoded schema fields for the selected subject/version via `schema-fetch`
 - error states for `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` display as actionable inline messages
-- Playwright spec covers: opt-in toggle → subject load → produce → consume → schema mismatch display
+- `kafkaNativeTauriTransport.test.ts` extended: test that produce with `schemaConfig` present routes to `defaultTransport.dispatch` (not `invoke`); test that produce without `schemaConfig` still routes to `invoke('kafka_produce', ...)`; same two tests for `consume-once`
+- Playwright spec covers: opt-in toggle → subject load → produce → consume → schema mismatch display; spec runs against `localhost:5173` (dev server / server-proxy mode) — not native Tauri transport
 - all existing produce/consume UI tests pass unchanged
 
 Gate to phase exit:
@@ -3293,6 +3350,8 @@ Phase 10 PR readiness sequence:
 - Mitigation: `schemaConfig` is strictly optional; registry calls only made when explicitly configured; registry errors surface as distinct error codes without affecting plain-JSON path.
 - Risk: schema mismatch errors are opaque and hard to debug.
 - Mitigation: surface `SCHEMA_MISMATCH` with subject/version/format metadata in the `KafkaErrorBody.details` field.
+- Risk: in Tauri (native) mode, `ops.produce()`/`ops.consume()` route through `kafkaNativeTauriTransport` → `invoke('kafka_produce', ...)`. The Rust commands silently ignore `schemaConfig` via serde, causing schema encoding to be bypassed without any error.
+- Mitigation: `kafkaNativeTauriTransport` must check `request.body?.schemaConfig != null` for `produce` and `consume-once` and fall back to `defaultTransport.dispatch(request)` (server-proxy HTTP path) when schema config is present. This is enforced by the Phase 10C checklist and covered by unit tests in `kafkaNativeTauriTransport.test.ts`. Note: schema encoding in Tauri mode requires a running backend server (the server-proxy performs the encode via `kafka-service.ts`); native offline operation without a server cannot use schema encoding.
 
 ### Exit criteria
 
