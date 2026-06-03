@@ -287,6 +287,25 @@ describe('schema-registry-client', () => {
       expect(mockGetLatestSchemaId).toHaveBeenCalledWith('my-custom-subject');
     });
 
+    it('uses specific version schema ID when config.version is set', async () => {
+      // When version is specified, encodeValue must look up that version's schema ID
+      // via fetchSchema (HTTP), NOT call getLatestSchemaId.
+      const cfg = { ...baseConfig, version: 2 };
+      const encodedBuf = makeWireBuffer(7);
+      mockFetch.mockResolvedValueOnce(
+        okJson({ id: 7, version: 2, schema: '{"type":"record","name":"Order"}', schemaType: 'AVRO' }),
+      );
+      mockEncode.mockResolvedValueOnce(encodedBuf);
+
+      const result = await encodeValue(cfg, 'orders', { id: 1 });
+
+      // getLatestSchemaId must NOT be called — specific version was requested
+      expect(mockGetLatestSchemaId).not.toHaveBeenCalled();
+      // encode must be called with the schema ID returned for version 2 (id=7)
+      expect(mockEncode).toHaveBeenCalledWith(7, { id: 1 });
+      expect(result).toBe(encodedBuf);
+    });
+
     it('throws SCHEMA_MISMATCH on schema encode error', async () => {
       mockGetLatestSchemaId.mockResolvedValueOnce(10);
       mockEncode.mockRejectedValueOnce(new Error('schema mismatch: field missing'));
@@ -383,6 +402,89 @@ describe('schema-registry-client', () => {
       expect(() => clearSchemaCache()).not.toThrow();
     });
 
+    it('clears schema fetch cache so next fetchSchema makes a new HTTP call', async () => {
+      const raw = { id: 1, version: 1, schema: '{"type":"string"}', schemaType: 'AVRO' };
+      mockFetch.mockResolvedValue(okJson(raw));
+
+      await fetchSchema(baseConfig, 'orders-value', 1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      clearSchemaCache();
+
+      await fetchSchema(baseConfig, 'orders-value', 1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── Coverage gap: non-JSON response body (line 111) ──────────────────────────
+
+  describe('non-JSON response body', () => {
+    it('throws REGISTRY_UNREACHABLE when registry returns non-JSON body', async () => {
+      // Simulate a response where response.ok=true but body is not valid JSON
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => { throw new SyntaxError('Unexpected token < in JSON'); },
+      } as unknown as Response);
+
+      await expect(listSubjects(baseConfig)).rejects.toMatchObject({
+        code: SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+        message: expect.stringContaining('non-JSON response'),
+      });
+    });
+  });
+
+  // ── Coverage gap: buildRegistryClient with auth (line 128) ───────────────────
+
+  describe('buildRegistryClient with auth config', () => {
+    it('passes auth credentials to SchemaRegistry constructor', async () => {
+      const encodedBuf = makeWireBuffer(10);
+      mockGetLatestSchemaId.mockResolvedValueOnce(10);
+      mockEncode.mockResolvedValueOnce(encodedBuf);
+
+      clearSchemaCache();
+      await encodeValue(configWithAuth, 'orders', { id: 1 });
+
+      // The SchemaRegistry constructor must have been called with clientOptions containing auth
+      const ctorCalls = vi.mocked(SchemaRegistryMock).mock.calls;
+      const lastCall = ctorCalls[ctorCalls.length - 1];
+      // lastCall[0] is { host: ... }, lastCall[1] is clientOptions
+      expect(lastCall[1]).toMatchObject({
+        auth: { username: 'alice', password: 'secret' },
+      });
+    });
+  });
+
+  // ── Coverage gap: classifyRegistryError passthrough (line 139) and default (line 186) ──
+
+  describe('classifyRegistryError coverage', () => {
+    it('returns existing SchemaRegistryError unchanged when encode throws one (line 139)', async () => {
+      const originalError = new SchemaRegistryError(SCHEMA_ERROR_CODES.SCHEMA_MISMATCH, 'already classified');
+      mockGetLatestSchemaId.mockResolvedValueOnce(10);
+      mockEncode.mockRejectedValueOnce(originalError);
+
+      // The error should pass through classifyRegistryError unchanged
+      const caught = await encodeValue(baseConfig, 'orders', {}).catch((e: unknown) => e);
+      expect(caught).toBeInstanceOf(SchemaRegistryError);
+      expect((caught as SchemaRegistryError).code).toBe(SCHEMA_ERROR_CODES.SCHEMA_MISMATCH);
+      expect((caught as SchemaRegistryError).message).toBe('already classified');
+    });
+
+    it('defaults to REGISTRY_UNREACHABLE for unknown error messages (line 186)', async () => {
+      mockGetLatestSchemaId.mockResolvedValueOnce(10);
+      // Message does not match any keyword branch — falls through to default
+      mockEncode.mockRejectedValueOnce(new Error('some completely unknown internal error xyz'));
+
+      await expect(encodeValue(baseConfig, 'orders', {})).rejects.toMatchObject({
+        code: SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+        message: expect.stringContaining('some completely unknown internal error xyz'),
+      });
+    });
+  });
+
+  // ── clearSchemaCache (original tests continue) ────────────────────────────
+
+  describe('clearSchemaCache (instance cache)', () => {
     it('clears registry instance cache so next encode creates a fresh instance', async () => {
       const encodedBuf = makeWireBuffer(5);
       mockGetLatestSchemaId.mockResolvedValue(5);
