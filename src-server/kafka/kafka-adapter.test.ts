@@ -46,6 +46,8 @@ const mocks = vi.hoisted(() => {
       });
     }),
     stop: vi.fn(async () => undefined),
+    pause: vi.fn(() => undefined),
+    resume: vi.fn(() => undefined),
   };
 
   function KafkaMock(this: unknown) {
@@ -113,6 +115,8 @@ describe('kafka-adapter', () => {
     mocks.consumer.subscribe.mockClear();
     mocks.consumer.run.mockClear();
     mocks.consumer.stop.mockClear();
+    mocks.consumer.pause.mockClear();
+    mocks.consumer.resume.mockClear();
   });
 
   it('creates Kafka clients with mapped plaintext, sasl, and tls config', () => {
@@ -299,6 +303,23 @@ describe('kafka-adapter', () => {
     expect(mocks.consumer.disconnect).toHaveBeenCalledTimes(1);
   });
 
+  it('consumer adapter delegates pause to the underlying kafkajs consumer', () => {
+    const runtime = createKafkaRuntimeAdapter();
+    const consumer = runtime.createConsumer(makeConnection(), 'group-pause');
+    consumer.pause([{ topic: 'orders.created' }, { topic: 'payments.authorized', partitions: [0, 1] }]);
+    expect(mocks.consumer.pause).toHaveBeenCalledWith([
+      { topic: 'orders.created' },
+      { topic: 'payments.authorized', partitions: [0, 1] },
+    ]);
+  });
+
+  it('consumer adapter delegates resume to the underlying kafkajs consumer', () => {
+    const runtime = createKafkaRuntimeAdapter();
+    const consumer = runtime.createConsumer(makeConnection(), 'group-resume');
+    consumer.resume([{ topic: 'orders.created' }]);
+    expect(mocks.consumer.resume).toHaveBeenCalledWith([{ topic: 'orders.created' }]);
+  });
+
   it('consumer adapter handles records without headers, key, or value', async () => {
     const runtime = createKafkaRuntimeAdapter();
     const consumer = runtime.createConsumer(makeConnection(), 'group-42');
@@ -306,7 +327,7 @@ describe('kafka-adapter', () => {
 
     mocks.setConsumerMessage({
       offset: '11',
-      timestamp: undefined,
+      timestamp: '0',
       key: null,
       value: null,
       headers: undefined,
@@ -318,7 +339,7 @@ describe('kafka-adapter', () => {
       topic: 'orders.created',
       partition: 1,
       offset: '11',
-      timestamp: undefined,
+      timestamp: '0',
       key: undefined,
       value: '',
       headers: {},

@@ -90,6 +90,8 @@ export function createMockRuntimeAdapter(options?: {
       }
     }),
     stop: vi.fn(async () => undefined),
+    pause: vi.fn(() => undefined),
+    resume: vi.fn(() => undefined),
   };
 
   const runtimeAdapter: KafkaRuntimeAdapter = {
