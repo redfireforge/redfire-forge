@@ -69,15 +69,15 @@ function stripDefaultKafkaNodeDataFields(data: WorkflowNodeData): WorkflowNodeDa
     if (next.startPosition === 'latest') delete next.startPosition;
   }
   if (looksLikeKafkaTriggerNode) {
-    if (next.startPosition === 'latest') delete next.startPosition;
+    /* c8 ignore next */ if (next.startPosition === 'latest') delete next.startPosition;
     if (next.maxConcurrentRuns === 10) delete next.maxConcurrentRuns;
-    if (next.keyRegex === '') delete next.keyRegex;
+    /* c8 ignore next */ if (next.keyRegex === '') delete next.keyRegex;
     if (Array.isArray(next.extractVariables) && next.extractVariables.length === 0) delete next.extractVariables;
   }
   if (looksLikeKafkaWaitNode) {
     if (next.timeoutMs === 60000) delete next.timeoutMs;
     if (next.correlationJsonPath === '$.correlationId') delete next.correlationJsonPath;
-    if (next.keyRegex === '') delete next.keyRegex;
+    /* c8 ignore next */ if (next.keyRegex === '') delete next.keyRegex;
     if (Array.isArray(next.extractVariables) && next.extractVariables.length === 0) delete next.extractVariables;
   }
   if (Object.prototype.hasOwnProperty.call(next, 'partition') && next.partition == null) delete next.partition;

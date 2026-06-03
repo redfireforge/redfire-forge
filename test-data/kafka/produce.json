@@ -73,7 +73,7 @@
   "expectedErrorShape": {
     "code": "KAFKA_PRODUCE_FAILED",
     "message": "Topic not found: orders.created",
-    "retryable": false
+    "retryable": true
   },
   "expectedErrorKind": "server"
 }

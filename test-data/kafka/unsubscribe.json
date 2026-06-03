@@ -40,8 +40,8 @@
     }
   },
   "expectedErrorShape": {
-    "code": "KAFKA_SUBSCRIBE_NOT_FOUND",
-    "message": "Subscription sub-parity-001 not found",
+    "code": "KAFKA_SUBSCRIPTION_NOT_FOUND",
+    "message": "Subscription 'sub-parity-001' does not exist",
     "retryable": false
   },
   "expectedErrorKind": "server"

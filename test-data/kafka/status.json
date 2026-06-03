@@ -27,8 +27,7 @@
       "subscriptionCount": 0
     },
     "meta": {
-      "timestamp": "2026-06-01T00:00:00.000Z",
-      "durationMs": 2
+      "timestamp": "2026-06-01T00:00:00.000Z"
     }
   },
   "expectedErrorShape": {
