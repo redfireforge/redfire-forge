@@ -39,10 +39,18 @@ import {
   SCHEMA_ERROR_CODES,
 } from './schema-registry-client.js';
 import { randomUUID } from 'node:crypto';
-
-const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
-const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
-const DEFAULT_CLEANUP_TIMEOUT_MS = 2_000;
+import {
+  DEFAULT_CLEANUP_TIMEOUT_MS,
+  isAuthError,
+  isTimeoutError,
+  resolveConnectTimeout,
+  resolveRequestTimeout,
+  safeDisconnectConsumer,
+  safeDisconnectProducer,
+  safeStopAndDisconnectConsumer,
+  toKafkaMessage,
+  withTimeout,
+} from './kafka-service-helpers.js';
 
 const SUBSCRIPTION_GROUP_PREFIX = 'redfireforge-sub';
 
@@ -196,7 +204,7 @@ export class KafkaService {
 
     try {
       if (admin) {
-        await this.withTimeout(admin.disconnect(), this.resolveRequestTimeout(this.snapshot.connection), 'disconnect');
+        await withTimeout(admin.disconnect(), resolveRequestTimeout(this.snapshot.connection), 'disconnect');
       }
 
       this.snapshot = {
@@ -215,7 +223,7 @@ export class KafkaService {
         cleanedSubscriptions,
       });
     } catch (error) {
-      const message = this.toMessage(error);
+      const message = toKafkaMessage(error);
       this.snapshot = {
         ...this.snapshot,
         status: {
@@ -241,8 +249,8 @@ export class KafkaService {
     const includeInternal = request?.includeInternal ?? false;
     try {
       const [topicNames, metadata] = await Promise.all([
-        this.withTimeout(this.admin!.listTopics(), this.resolveRequestTimeout(this.snapshot.connection), 'topics'),
-        this.withTimeout(this.admin!.fetchTopicMetadata(), this.resolveRequestTimeout(this.snapshot.connection), 'topics'),
+        withTimeout(this.admin!.listTopics(), resolveRequestTimeout(this.snapshot.connection), 'topics'),
+        withTimeout(this.admin!.fetchTopicMetadata(), resolveRequestTimeout(this.snapshot.connection), 'topics'),
       ]);
 
       const partitionsByTopic = new Map(metadata.map((topic) => [topic.name, topic.partitions]));
@@ -262,7 +270,7 @@ export class KafkaService {
     } catch (error) {
       return createKafkaErrorEnvelope('topics', {
         code: 'KAFKA_TOPICS_FAILED',
-        message: this.toMessage(error),
+        message: toKafkaMessage(error),
         retryable: true,
       });
     }
@@ -296,7 +304,7 @@ export class KafkaService {
 
     const producer = this.runtimeAdapter.createProducer(connection);
     try {
-      await this.withTimeout(producer.connect(), this.resolveRequestTimeout(connection), 'produce-connect');
+      await withTimeout(producer.connect(), resolveRequestTimeout(connection), 'produce-connect');
 
       // Phase 10B — Schema encode when schemaConfig is present.
       // When absent, messages are passed through unchanged (no behavioral change).
@@ -318,25 +326,27 @@ export class KafkaService {
               parsedValue = msg.value;
             }
             const encodedBuffer = await encodeValue(schemaConfig, request.topic, parsedValue);
-            return { ...msg, value: encodedBuffer.toString('base64') };
+            // Send raw Confluent wire-format bytes; KafkaJS accepts Buffer values.
+            // The consumer's rawValue path reads these bytes directly for decode.
+            return { ...msg, value: encodedBuffer };
           }),
         );
         messagesToSend = encodedMessages;
         switch (schemaConfig.format) {
-          case 'protobuf':    valueEncoding = 'base64-protobuf';    break;
-          case 'json-schema': valueEncoding = 'base64-json-schema'; break;
-          default:            valueEncoding = 'base64-avro';        break;
+          case 'protobuf':    valueEncoding = 'protobuf';    break;
+          case 'json-schema': valueEncoding = 'json-schema'; break;
+          default:            valueEncoding = 'avro';        break;
         }
       }
 
-      const records = await this.withTimeout(
+      const records = await withTimeout(
         producer.send({
           topic: request.topic,
           acks: request.acks,
           timeout: request.timeoutMs,
           messages: messagesToSend,
         }),
-        this.resolveRequestTimeout(connection),
+        resolveRequestTimeout(connection),
         'produce-send',
       );
 
@@ -356,14 +366,14 @@ export class KafkaService {
           retryable: error.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
         });
       }
-      const authFail = this.isAuthError(error);
+      const authFail = isAuthError(error);
       return createKafkaErrorEnvelope('produce', {
         code: authFail ? 'KAFKA_AUTH_FAILED' : 'KAFKA_PRODUCE_FAILED',
-        message: this.toMessage(error),
+        message: toKafkaMessage(error),
         retryable: !authFail,
       });
     } finally {
-      await this.safeDisconnectProducer(producer);
+      await safeDisconnectProducer(producer);
     }
   }
 
@@ -394,7 +404,7 @@ export class KafkaService {
     }
 
     const maxMessages = Math.max(request.maxMessages ?? 1, 1);
-    const timeoutMs = Math.max(request.timeoutMs ?? this.resolveRequestTimeout(connection), 1);
+    const timeoutMs = Math.max(request.timeoutMs ?? resolveRequestTimeout(connection), 1);
     const groupId = request.groupId ?? `redfireforge-consume-once-${randomUUID().slice(0, 8)}`;
     const consumer = this.runtimeAdapter.createConsumer(connection, groupId);
     const messages: KafkaConsumeRecord[] = [];
@@ -423,10 +433,10 @@ export class KafkaService {
     };
 
     try {
-      await this.withTimeout(consumer.connect(), this.resolveRequestTimeout(connection), 'consume-connect');
-      await this.withTimeout(
+      await withTimeout(consumer.connect(), resolveRequestTimeout(connection), 'consume-connect');
+      await withTimeout(
         consumer.subscribe(request.topic, request.fromBeginning ?? false),
-        this.resolveRequestTimeout(connection),
+        resolveRequestTimeout(connection),
         'consume-subscribe',
       );
 
@@ -459,13 +469,15 @@ export class KafkaService {
           }
 
           // Phase 10B — Schema decode when schemaConfig is present.
-          // Uses record.rawValue (raw Buffer) — not record.value (toString'd string)
+          // Uses rawValue (raw Buffer) — not record.value (toString'd string)
           // which corrupts Avro binary bytes.
+          // rawValue is always stripped from the client-facing record (server-side only).
           // Subscribe-path schema decode is out of scope for Phase 10B.
-          let consumeRecord = record as KafkaConsumeRecord;
-          if (request.schemaConfig && record.rawValue) {
+          const { rawValue: _rawValue, ...strippedRecord } = record;
+          let consumeRecord: KafkaConsumeRecord = strippedRecord;
+          if (request.schemaConfig && _rawValue) {
             try {
-              const decoded = await decodeValue(request.schemaConfig, record.rawValue);
+              const decoded = await decodeValue(request.schemaConfig, _rawValue);
               consumeRecord = {
                 topic: record.topic,
                 partition: record.partition,
@@ -537,7 +549,7 @@ export class KafkaService {
       }
       return createKafkaErrorEnvelope('consume-once', {
         code: 'KAFKA_CONSUME_ONCE_FAILED',
-        message: this.toMessage(error),
+        message: toKafkaMessage(error),
         retryable: true,
       });
     } finally {
@@ -546,12 +558,12 @@ export class KafkaService {
       }
       if (stopPromise) {
         try {
-          await this.withTimeout(stopPromise, DEFAULT_CLEANUP_TIMEOUT_MS, 'consume-stop');
+          await withTimeout(stopPromise, DEFAULT_CLEANUP_TIMEOUT_MS, 'consume-stop');
         } catch {
           // Slow or stuck stop should not block the consume-once response forever.
         }
       }
-      await this.safeDisconnectConsumer(consumer);
+      await safeDisconnectConsumer(consumer);
     }
   }
 
@@ -590,10 +602,10 @@ export class KafkaService {
     const ringBuffer: KafkaConsumeRecord[] = [];
 
     try {
-      await this.withTimeout(consumer.connect(), this.resolveRequestTimeout(connection), 'subscribe-connect');
-      await this.withTimeout(
+      await withTimeout(consumer.connect(), resolveRequestTimeout(connection), 'subscribe-connect');
+      await withTimeout(
         consumer.subscribe(request.topic, request.fromBeginning ?? false),
-        this.resolveRequestTimeout(connection),
+        resolveRequestTimeout(connection),
         'subscribe-subscribe',
       );
 
@@ -608,7 +620,7 @@ export class KafkaService {
       }).catch(async () => {
         this.subscriptions.delete(subscriptionId);
         this.updateSubscriptionCount();
-        await this.safeStopAndDisconnectConsumer(consumer);
+        await safeStopAndDisconnectConsumer(consumer);
       });
 
       const info = this.registerSubscription({
@@ -616,7 +628,7 @@ export class KafkaService {
         topic: request.topic,
         groupId,
       }, async () => {
-        await this.safeStopAndDisconnectConsumer(consumer);
+        await safeStopAndDisconnectConsumer(consumer);
       });
 
       return createKafkaSuccessEnvelope('subscribe', {
@@ -624,10 +636,10 @@ export class KafkaService {
         subscription: info,
       });
     } catch (error) {
-      await this.safeStopAndDisconnectConsumer(consumer);
+      await safeStopAndDisconnectConsumer(consumer);
       return createKafkaErrorEnvelope('subscribe', {
         code: 'KAFKA_SUBSCRIBE_FAILED',
-        message: this.toMessage(error),
+        message: toKafkaMessage(error),
         retryable: true,
       });
     }
@@ -695,7 +707,7 @@ export class KafkaService {
 
     try {
       if (existing.cleanup) {
-        await this.withTimeout(Promise.resolve(existing.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'unsubscribe');
+        await withTimeout(Promise.resolve(existing.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'unsubscribe');
       }
 
       this.subscriptions.delete(request.subscriptionId);
@@ -708,7 +720,7 @@ export class KafkaService {
     } catch (error) {
       return createKafkaErrorEnvelope('unsubscribe', {
         code: 'KAFKA_UNSUBSCRIBE_FAILED',
-        message: this.toMessage(error),
+        message: toKafkaMessage(error),
         retryable: true,
       });
     }
@@ -727,7 +739,7 @@ export class KafkaService {
   ): Promise<KafkaRouteEnvelope<KafkaConnectResult>> {
     const admin = this.runtimeAdapter.createAdmin(connection);
     try {
-      await this.withTimeout(admin.connect(), this.resolveConnectTimeout(connection), 'connect');
+      await withTimeout(admin.connect(), resolveConnectTimeout(connection), 'connect');
       this.admin = admin;
 
       this.snapshot = {
@@ -748,10 +760,10 @@ export class KafkaService {
         durationMs: Date.now() - startTs,
       });
     } catch (error) {
-      const message = this.toMessage(error);
+      const message = toKafkaMessage(error);
 
       try {
-        await this.withTimeout(admin.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'connect-cleanup');
+        await withTimeout(admin.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'connect-cleanup');
       } catch {
         // Ignore disconnect failures while handling connect errors.
       }
@@ -768,8 +780,8 @@ export class KafkaService {
       };
 
       return createKafkaErrorEnvelope('connect', {
-        code: this.isTimeoutError(error) ? 'KAFKA_CONNECT_TIMEOUT'
-          : this.isAuthError(error) ? 'KAFKA_AUTH_FAILED'
+        code: isTimeoutError(error) ? 'KAFKA_CONNECT_TIMEOUT'
+          : isAuthError(error) ? 'KAFKA_AUTH_FAILED'
           : 'KAFKA_CONNECT_FAILED',
         message,
         retryable: true,
@@ -833,38 +845,13 @@ export class KafkaService {
         continue;
       }
       try {
-        await this.withTimeout(Promise.resolve(entry.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'disconnect');
+        await withTimeout(Promise.resolve(entry.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'disconnect');
       } catch {
         // Keep disconnect resilient: one bad cleanup should not block teardown.
       }
     }
 
     return cleaned;
-  }
-
-  private async safeDisconnectProducer(producer: { disconnect(): Promise<void> }): Promise<void> {
-    try {
-      await this.withTimeout(producer.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'producer-disconnect');
-    } catch {
-      // Producer disconnect failures are non-fatal cleanup noise.
-    }
-  }
-
-  private async safeDisconnectConsumer(consumer: { disconnect(): Promise<void> }): Promise<void> {
-    try {
-      await this.withTimeout(consumer.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'consumer-disconnect');
-    } catch {
-      // Consumer disconnect failures are non-fatal cleanup noise.
-    }
-  }
-
-  private async safeStopAndDisconnectConsumer(consumer: { stop(): Promise<void>; disconnect(): Promise<void> }): Promise<void> {
-    try {
-      await consumer.stop();
-    } catch {
-      // Stop failures are non-fatal during cleanup.
-    }
-    await this.safeDisconnectConsumer(consumer);
   }
 
   private updateSubscriptionCount(): void {
@@ -875,51 +862,6 @@ export class KafkaService {
         subscriptionCount: this.subscriptions.size,
       },
     };
-  }
-
-  private resolveConnectTimeout(connection?: KafkaConnectionConfig): number {
-    return Math.max(connection?.connectionTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS, 1);
-  }
-
-  private resolveRequestTimeout(connection?: KafkaConnectionConfig): number {
-    return Math.max(connection?.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS, 1);
-  }
-
-  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, op: string): Promise<T> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const timeoutPromise = new Promise<T>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`Kafka ${op} timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      });
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    }
-  }
-
-  private isTimeoutError(error: unknown): boolean {
-    const message = this.toMessage(error).toLowerCase();
-    return message.includes('timed out') || message.includes('timeout');
-  }
-
-  private isAuthError(error: unknown): boolean {
-    const message = this.toMessage(error).toLowerCase();
-    return (
-      message.includes('sasl authentication failed') ||
-      message.includes('authentication failed') ||
-      message.includes('invalid credentials')
-    );
-  }
-
-  private toMessage(error: unknown): string {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    return String(error);
   }
 }
 
