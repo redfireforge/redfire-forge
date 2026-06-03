@@ -428,4 +428,14 @@ describe('mergeWorkflowNodeData', () => {
     const cloned = cloneWorkflowNodeDataForStorage(data) as Record<string, unknown>;
     expect(cloned.code).toBe('return 1;');
   });
+
+  it('cloneWorkflowNodeDataForStorage handles null data gracefully', () => {
+    const cloned = cloneWorkflowNodeDataForStorage(null as unknown as HttpNodeData);
+    expect(cloned).toBeNull();
+  });
+
+  it('cloneWorkflowNodeDataForStorage handles non-object primitive gracefully', () => {
+    const cloned = cloneWorkflowNodeDataForStorage('string-data' as unknown as HttpNodeData);
+    expect(cloned).toBe('string-data');
+  });
 });

@@ -91,9 +91,7 @@ const CONSUME_PROXY_RESPONSE = {
   ok: true,
   op: 'consume-once',
   data: {
-    clusterId: CLUSTER_ID,
-    topic: 'orders.created',
-    receivedCount: 1,
+    messageCount: 1,
     messages: [
       {
         topic: 'orders.created',
@@ -105,6 +103,7 @@ const CONSUME_PROXY_RESPONSE = {
         headers: {},
       },
     ],
+    timedOut: false,
   },
   meta: { timestamp: '2026-06-01T00:00:00.000Z', durationMs: 120 },
 };
@@ -168,9 +167,9 @@ const TOPICS_RESPONSE = {
   data: {
     clusterId: CLUSTER_ID,
     topics: [
-      { name: 'orders.created', partitions: 3, replicas: 1, isInternal: false },
-      { name: 'payments.authorized', partitions: 2, replicas: 1, isInternal: false },
-      { name: '__consumer_offsets', partitions: 50, replicas: 1, isInternal: true },
+      { name: 'orders.created', partitions: 3, isInternal: false },
+      { name: 'payments.authorized', partitions: 2, isInternal: false },
+      { name: '__consumer_offsets', partitions: 50, isInternal: true },
     ],
   },
   meta: { timestamp: '2026-06-01T00:00:00.000Z', durationMs: 45 },
