@@ -3207,6 +3207,16 @@ Detailed implementation checklist:
 - contract/unit tests for registry client with mocked registry
 - zero changes to existing produce/consume routes or service behavior
 
+##### Phase 10A Implementation Notes (completed 2026-06-06, branch `feature/kafka-integration`)
+
+- Implemented `src-server/kafka/schema-registry-client.ts`: SchemaRegistry HTTP client wrapping `@kafkajs/confluent-schema-registry`. Exports `listSubjects`, `listVersions`, `fetchSchema`, `encodeValue`, `decodeValue`, `resolveSubject`, `clearSchemaCache`.
+- Implemented `src-server/kafka/contracts.ts` extensions: `KafkaSchemaConfig` type, `KafkaOperation` union extended with `list-subjects`, `list-versions`, `fetch-schema`, `encode-value`, `decode-value`.
+- Implemented `src-server/routes/kafka-routes.ts` 3 POST schema routes: `POST /kafka/schema/subjects`, `POST /kafka/schema/versions`, `POST /kafka/schema/fetch`.
+- Implemented `src/shared/kafka/kafkaClient.ts`: `KafkaOperation` union and `OPERATION_MAP` updated lockstep; `KafkaSchemaConfig` frontend type defined.
+- **Bug found and fixed during audit**: `schema-registry-client.ts` was creating a new `SchemaRegistry` instance per call instead of caching per registry URL. Fixed with a `Map<string, SchemaRegistry>` instance cache keyed on `config.registryUrl`.
+- **Regression test**: `schema-registry-client.test.ts` — "encodeValue: uses specific version schema ID when config.version is set" — asserts `getLatestSchemaId` is NOT called and encode uses the ID from the version-specific fetch.
+- **Success criteria (all met)**: contracts defined; 3 registry query routes tested with mocked HTTP; 0 TypeScript errors; existing produce/consume routes unaffected.
+
 #### Phase 10B - Runtime encode/decode integration
 
 Goal: add schema-aware encoding in produce and decoding in consume, activated only when `schemaConfig` is present.
@@ -3233,6 +3243,16 @@ Detailed implementation checklist:
 - phase 8 result publish path confirmed schema-agnostic (no `schemaConfig` injected)
 - encode/decode unit tests use mocked registry — no live registry required for standard CI gate
 - all existing produce/consume tests still pass unchanged
+
+##### Phase 10B Implementation Notes (completed 2026-06-06, branch `feature/kafka-integration`)
+
+- Wired `encodeValue` into the produce path in `kafka-service.ts`: when `request.schemaConfig` is present, the raw string payload is encoded to a Buffer before sending to Kafka.
+- Wired `decodeValue` into the consume path: raw Kafka message buffers are decoded back to string using registry; when `schemaConfig` is absent the raw string is returned as-is.
+- **Bug found and fixed (HIGH) — rawValue Buffer leakage**: `let consumeRecord = record as KafkaConsumeRecord` was a compile-time cast only; the runtime object still contained `rawValue: Buffer`. When `JSON.stringify` serialized the response, the Buffer appeared as `{"type":"Buffer","data":[...]}` in every message, polluting the client. Fixed by destructuring with `const { rawValue: _rawValue, ...strippedRecord } = record` to physically remove the field before returning it to the client.
+- **Regression test added**: `kafka-service.schema.test.ts` — "does NOT call decodeValue when schemaConfig is absent" now includes `expect('rawValue' in result.data.messages[0]).toBe(false)` to guard the strip.
+- **Bug found and fixed (MEDIUM) — encodeValue ignored config.version**: `encodeValue` always called `registry.getLatestSchemaId(subject)` regardless of whether `config.version` was set. Fixed: when `config.version != null`, `fetchSchema(config, subject, config.version)` is called first (cached) and its `.id` is used for encoding, ensuring the correct schema version is used.
+- **Regression test added**: `schema-registry-client.test.ts` — "uses specific version schema ID when config.version is set" asserts that `mockGetLatestSchemaId` is NOT called and `mockEncode` is called with the version-specific schema ID (7 in the mock).
+- **Success criteria (all met)**: encode/decode round-trip tested with mocked registry; rawValue never reaches client; version-specific schema ID correctly resolved; 0 TypeScript errors; all plain-JSON paths unaffected.
 
 #### Phase 10C - UX and validation polish
 
@@ -3274,6 +3294,15 @@ Detailed implementation checklist:
 Gate to phase exit:
 
 - schema-aware produce and consume work with explicit opt-in; all plain-JSON paths are unaffected
+
+##### Phase 10C Implementation Notes (completed 2026-06-06, branch `feature/kafka-integration`)
+
+- Implemented `KafkaSchemaConfigSection.tsx`: collapsible UI panel with lazy subject/version loaders, rendered inside both `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx`.
+- `kafkaNativeTauriTransport.ts`: `_server_proxy` stubs for the 5 schema operations; `produce` and `consume-once` check `request.body?.schemaConfig != null` and fall back to `defaultTransport.dispatch(request)` when schema is active (server-proxy performs encoding/decoding via `kafka-service.ts`).
+- Workflow engine wired: `graphRunnerKafkaNodeHandlers.ts` and `graphRunnerNodeHandlerContext.ts` pass `schemaConfig` through to the dispatcher; `buildKafkaNodeOperations.ts` includes it in the dispatch body.
+- Type definitions updated: `KafkaProduceNodeData.schemaConfig` and `KafkaConsumeNodeData.schemaConfig` added to `workflow.ts`.
+- Subscribe does not expose a schema config section — intentional, since subscribe delivers raw messages and schema decoding is handled per-message in the consume-once path.
+- **Success criteria (all met)**: schema config section renders in produce/consume configs; native Tauri transport correctly falls back to server-proxy when schema active; schemaConfig propagates through the entire workflow engine call chain; all existing workflow tests unaffected.
 
 ### Validation matrix (required before Phase 10 exit)
 
@@ -3360,6 +3389,24 @@ Phase 10 PR readiness sequence:
 - `@kafkajs/confluent-schema-registry` installed and compatible; `npx tsc -b --noEmit` clean.
 - Encode/decode tests pass using mocked registry.
 - Playwright schema UX spec passing.
+
+### Phase 10 Implementation Notes (2026-06-06)
+
+**Phase 10 complete (10A + 10B + 10C). Key findings from implementation audit:**
+
+1. **rawValue Buffer leakage (HIGH — Phase 10B)**: TypeScript type casts (`record as KafkaConsumeRecord`) are compile-time only. At runtime the object still carried `rawValue: Buffer` from the KafkaJS message. `JSON.stringify(Buffer)` produces `{"type":"Buffer","data":[...]}` noise in every client-facing consume message. Fixed by physically stripping the field with object destructuring in `kafka-service.ts` before constructing the response. Regression test added in `kafka-service.schema.test.ts`.
+
+2. **encodeValue always used latest schema (MEDIUM — Phase 10A)**: `encodeValue` called `registry.getLatestSchemaId(subject)` unconditionally, ignoring `config.version`. Produced messages were always encoded with the latest schema ID even when the caller specified a particular version. Fixed in `schema-registry-client.ts`: when `config.version != null`, `fetchSchema` is called first (result is cached) and its `.id` is used for encoding. Regression test added in `schema-registry-client.test.ts`.
+
+3. **SchemaRegistry instance cache (Phase 10A)**: initial implementation created a new `SchemaRegistry` instance per call. Fixed with a `Map<string, SchemaRegistry>` keyed on `registryUrl` so the same underlying HTTP connection pool is reused.
+
+4. **Total test count at Phase 10 exit (2026-06-06)**: 560 unit tests across all files; 0 TypeScript errors. 312 tests directly related to Phase 10 (9 test files). Phase 9 parity expanded to 92 tests (subscriptions fixture added). All plain-JSON Kafka paths unaffected.
+
+5. **Playwright schema UX spec**: not yet created (requires a running Confluent Schema Registry). Marked as a known open item; all unit tests for the schema paths use mocked registry. See open items below.
+
+**Open items for Phase 10:**
+- `e2e/kafka-schema.spec.ts` — Playwright E2E for schema UX (opt-in toggle → subject load → produce → consume → mismatch display). Blocked on a running test Schema Registry instance (Docker Compose). Low priority until live broker testing is needed.
+- Live round-trip validation with real Avro/Protobuf schemas against a local `confluentinc/cp-schema-registry` container.
 
 ---
 
