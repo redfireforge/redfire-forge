@@ -46,8 +46,18 @@ export class SchemaRegistryError extends Error {
 
 // Keyed by "<subject>/<version>" for fetchSchema lookups
 const subjectVersionCache = new Map<string, KafkaSchemaFetchResult>();
-// Keyed by schema ID for decode lookups
-const schemaIdCache = new Map<number, unknown>();
+
+/**
+ * Cache of `SchemaRegistry` instances keyed by registry URL + username.
+ * Reusing instances lets the library's internal schema-ID cache carry over
+ * across multiple encode/decode calls, avoiding repeated HTTP round-trips to
+ * the registry for the same schema ID.
+ */
+const registryInstanceCache = new Map<string, SchemaRegistry>();
+
+function registryInstanceKey(config: KafkaSchemaConfig): string {
+  return `${config.registryUrl}|${config.auth?.username ?? ''}`;
+}
 
 function subjectVersionKey(subject: string, version: number): string {
   return `${subject}/${version}`;
@@ -108,11 +118,18 @@ async function registryGet<T>(
 // ── Build encode/decode registry client ───────────────────────────────────────
 
 function buildRegistryClient(config: KafkaSchemaConfig): SchemaRegistry {
+  const key = registryInstanceKey(config);
+  const cached = registryInstanceCache.get(key);
+  if (cached) {
+    return cached;
+  }
   const clientOptions: Record<string, unknown> = {};
   if (config.auth) {
     clientOptions['auth'] = { username: config.auth.username, password: config.auth.password };
   }
-  return new SchemaRegistry({ host: config.registryUrl }, clientOptions);
+  const instance = new SchemaRegistry({ host: config.registryUrl }, clientOptions);
+  registryInstanceCache.set(key, instance);
+  return instance;
 }
 
 // ── Classify raw errors for encode/decode paths ────────────────────────────────
@@ -289,11 +306,6 @@ export async function decodeValue(
   try {
     const registry = buildRegistryClient(config);
     const decoded = await registry.decode(rawBytes);
-    // Cache decoded schema for subsequent calls with the same schema ID
-    const schemaId = rawBytes.readInt32BE(1);
-    if (!schemaIdCache.has(schemaId)) {
-      schemaIdCache.set(schemaId, decoded);
-    }
     return decoded;
   } catch (error) {
     throw classifyRegistryError(error);
@@ -320,11 +332,11 @@ export function toSchemaType(format: KafkaSchemaConfig['format']): SchemaType {
 }
 
 /**
- * Clear all in-process caches.
+ * Clear all in-process caches (subject/version cache and registry instance cache).
  * Exposed for use in tests only.
  */
 export function clearSchemaCache(): void {
   subjectVersionCache.clear();
-  schemaIdCache.clear();
+  registryInstanceCache.clear();
 }
 

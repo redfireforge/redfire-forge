@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SchemaRegistry as SchemaRegistryMock } from '@kafkajs/confluent-schema-registry';
 import {
   listSubjects,
   listVersions,
@@ -380,6 +381,26 @@ describe('schema-registry-client', () => {
   describe('clearSchemaCache', () => {
     it('clears without throwing', () => {
       expect(() => clearSchemaCache()).not.toThrow();
+    });
+
+    it('clears registry instance cache so next encode creates a fresh instance', async () => {
+      const encodedBuf = makeWireBuffer(5);
+      mockGetLatestSchemaId.mockResolvedValue(5);
+      mockEncode.mockResolvedValue(encodedBuf);
+
+      // First call — creates and caches an instance
+      await encodeValue(baseConfig, 'orders', { id: 1 });
+      const callsAfterFirst = (vi.mocked(SchemaRegistryMock)).mock.calls.length;
+
+      // Second call — should reuse the cached instance (constructor not called again)
+      await encodeValue(baseConfig, 'orders', { id: 2 });
+      expect((vi.mocked(SchemaRegistryMock)).mock.calls.length).toBe(callsAfterFirst);
+
+      clearSchemaCache();
+
+      // After cache clear — fresh instance should be created
+      await encodeValue(baseConfig, 'orders', { id: 3 });
+      expect((vi.mocked(SchemaRegistryMock)).mock.calls.length).toBe(callsAfterFirst + 1);
     });
   });
 });
