@@ -313,9 +313,10 @@ export class KafkaService {
 
       if (request.schemaConfig) {
         // Encode each message value using the registry client.
-        // registry.encode() returns a Buffer; we base64-encode it so it fits
-        // in the existing string-typed value field (KafkaProducerMessage.value: string).
-        // The adapter boundary (KafkaProducerMessage.value: string) is never changed.
+        // encodeValue() returns a raw Confluent wire-format Buffer.  We assign it
+        // directly into KafkaProducerMessage.value (string | Buffer) and KafkaJS
+        // sends the bytes verbatim — no base64 encoding.  The consumer reads the
+        // same raw bytes via rawValue and passes them to decodeValue().
         const schemaConfig = request.schemaConfig;
         const encodedMessages = await Promise.all(
           request.messages.map(async (msg) => {
