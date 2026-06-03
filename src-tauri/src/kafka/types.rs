@@ -99,6 +99,8 @@ pub struct KafkaSubscribeRequest {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct KafkaUnsubscribeRequest {
+    /// Retained for future multi-cluster routing; not yet consumed server-side.
+    #[allow(dead_code)]
     pub cluster_id: Option<String>,
     pub subscription_id: String,
 }

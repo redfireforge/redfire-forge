@@ -32,8 +32,10 @@ pub struct ClientHandle {
     /// Cluster ID from the frontend config.
     pub cluster_id: ClusterId,
     /// KafkaJS `clientId` passed in the connection config.
+    #[allow(dead_code)]
     pub client_id: String,
     /// Bootstrap broker addresses (retained for connection display in future phases).
+    #[allow(dead_code)]
     pub brokers: Vec<String>,
     /// ISO 8601 timestamp (millis precision) when the connection was established.
     pub connected_at: String,
