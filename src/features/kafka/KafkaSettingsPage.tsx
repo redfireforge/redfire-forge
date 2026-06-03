@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { normalizeKafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
+import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import {
   clusterIdFromName,
@@ -59,7 +61,56 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
   const [pendingDeleteClusterId, setPendingDeleteClusterId] = useState<string | null>(null);
   const [topicFilter, setTopicFilter] = useState('');
   const [topicDomainFilter, setTopicDomainFilter] = useState('all');
+  const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const resetTopicFilter = () => setTopicFilter('');
+
+  const handleExport = async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    await saveJsonFile(
+      { version: 1, exportedAt: Date.now(), clusters },
+      `kafka-clusters-${date}.json`,
+    );
+  };
+
+  const handleImportChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed: unknown = JSON.parse(reader.result as string);
+        const rawClusters: unknown[] = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray((parsed as Record<string, unknown>)?.clusters)
+            ? ((parsed as Record<string, unknown>).clusters as unknown[])
+            : [];
+        let imported = 0;
+        let skipped = 0;
+        for (const raw of rawClusters) {
+          const cluster = normalizeKafkaClusterConfig(raw);
+          if (cluster) {
+            upsertCluster(cluster);
+            imported++;
+          } else {
+            skipped++;
+          }
+        }
+        const msg =
+          `Imported ${imported} cluster${imported !== 1 ? 's' : ''}` +
+          (skipped > 0 ? `, ${skipped} skipped (invalid)` : '') + '.';
+        setImportFeedback({ type: 'success', message: msg });
+      } catch {
+        setImportFeedback({ type: 'error', message: 'Import failed: invalid JSON file.' });
+      }
+      if (importInputRef.current) importInputRef.current.value = '';
+    };
+    reader.onerror = () => {
+      setImportFeedback({ type: 'error', message: 'Import failed: could not read file.' });
+      if (importInputRef.current) importInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     setTopicFilter('');
@@ -266,6 +317,37 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
               </div>
               <div className="kafka-cluster-header-actions">
                 <span className={`kafka-status-badge state-${connection.state}`}>{connection.state}</span>
+                {loaded && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => void handleExport()}
+                      disabled={clusters.length === 0}
+                      title="Export all cluster configs to a JSON file"
+                      data-testid="kafka-export-btn"
+                    >
+                      ↓ Export
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => importInputRef.current?.click()}
+                      title="Import cluster configs from a JSON file"
+                      data-testid="kafka-import-btn"
+                    >
+                      ↑ Import
+                    </button>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept=".json"
+                      style={{ display: 'none' }}
+                      onChange={handleImportChange}
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
                 {loaded && clusters.length > 0 && (
                   <button
                     type="button"
@@ -278,6 +360,24 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                 )}
               </div>
             </div>
+
+            {/* Import feedback */}
+            {importFeedback && (
+              <div
+                className={`kafka-import-feedback kafka-import-feedback--${importFeedback.type}`}
+                data-testid="kafka-import-feedback"
+              >
+                <span>{importFeedback.message}</span>
+                <button
+                  type="button"
+                  className="kafka-import-feedback-dismiss"
+                  onClick={() => setImportFeedback(null)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
 
             {/* Loading */}
             {!loaded && (
