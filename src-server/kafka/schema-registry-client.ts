@@ -275,7 +275,16 @@ export async function encodeValue(
   const subject = resolveSubject(config, topic);
   try {
     const registry = buildRegistryClient(config);
-    const schemaId = await registry.getLatestSchemaId(subject);
+    // When a specific version is requested, look up that version's schema ID
+    // via the registry HTTP API (result is cached by fetchSchema's in-process cache).
+    // When absent, use the latest schema ID (most common case).
+    let schemaId: number;
+    if (config.version != null) {
+      const fetched = await fetchSchema(config, subject, config.version);
+      schemaId = fetched.id;
+    } else {
+      schemaId = await registry.getLatestSchemaId(subject);
+    }
     const encoded = await registry.encode(schemaId, value);
     return encoded;
   } catch (error) {

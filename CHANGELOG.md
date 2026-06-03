@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Fixed
+- **Phase 10B — rawValue Buffer leakage in consume records**: `record as KafkaConsumeRecord` was a compile-time cast only; the runtime object still carried `rawValue: Buffer`. `JSON.stringify(Buffer)` produced `{"type":"Buffer","data":[...]}` in every client-facing consume message. Fixed by physically stripping the field via destructuring in `kafka-service.ts` before constructing the response envelope. Regression test added in `kafka-service.schema.test.ts`.
+- **Phase 10A — encodeValue always used latest schema ID**: `schema-registry-client.ts::encodeValue` called `getLatestSchemaId(subject)` unconditionally, ignoring `config.version`. Messages were always encoded with the latest schema ID even when a specific version was requested. Fixed: when `config.version != null`, `fetchSchema` is called first (result cached) and its `.id` is used for encoding. Regression test added in `schema-registry-client.test.ts`.
 - **Floating console z-index** — Raised `.wf-console-floating` and `.re-console-floating` z-index from 100 to 200 so the console always appears above the sidebar toggle bar (`usb-toggle-btn` at z-index 101).
 - **Floating console spawn/drag boundary** — Console no longer spawns behind or drags into the sidebar. `useFloatingPanel` now reads `--sidebar-w` CSS variable to compute a `minLeft` boundary (sidebar width + 20 px gutter).
 - **Duplicate Stop button** — Removed redundant Stop button from the workflow sample preview banner; the main toolbar's Stop button is the single stop control.
