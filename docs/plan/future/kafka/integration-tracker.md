@@ -17,11 +17,11 @@
 
 ### Active Now
 
-- Current active phase: Phase 9 - Tauri-native Kafka Transport (not started)
-- Current active PR: feature/kafka-integration (phases 1–8C complete; all manual validations PASS 2026-06-02)
-- Immediate objective: All code phases 1–8 are complete and fully validated. Next code phase is Phase 9 (rdkafka Tauri-native transport).
-- Next gate to clear: merge feature/kafka-integration into develop (after PR review), then plan Phase 9 branch
-- Re-validation summary (2026-06-02): Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (plaintext + SASL/SCRAM-SHA-256 secure profile) · Phase 5 170 unit tests PASS · Phase 7 208 unit tests PASS · tsc: 0 errors
+- Current active phase: **All mandatory phases 1–9 COMPLETE** — feature/kafka-integration branch ready for merge review
+- Current active PR: feature/kafka-integration (phases 1–9D complete; all validations PASS 2026-06-03)
+- Immediate objective: Merge feature/kafka-integration into develop after PR review. Phase 10 (Schema Registry) is optional and activation-gated.
+- Next gate to clear: user PR review → merge feature/kafka-integration into develop
+- Re-validation summary (2026-06-03): Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (plaintext + SASL/SCRAM-SHA-256 secure profile) · Phase 5 187 unit tests PASS · Phase 7 208 unit tests PASS · Phase 9 — kafkaParity.test.ts 82/82 PASS, kafkaNativeTauriTransport.test.ts 35/35 PASS, e2e/kafka-desktop.spec.ts 8/8 PASS · Full suite 21,974 unit tests PASS · tsc: 0 errors · Coverage: 99.46%
 
 Reference docs for current phase:
 
@@ -1717,12 +1717,12 @@ Phase 9D plan required "at minimum: connect, topic browse, produce, consume-once
 
 ### Validation Gate Checklist (must pass before exit)
 
-- [ ] `cargo build` and `npx tsc -b --noEmit` both clean at phase exit
-- [ ] all Tauri Kafka commands have Rust unit tests covering happy path and error variants
-- [ ] transport factory selects native in Tauri mode and server-proxy in browser mode without leaking imports
-- [ ] golden-fixture parity tests pass for connect/topics/produce/consume/subscribe on both transports
-- [ ] server-proxy path remains fully functional and unmodified in browser/dev mode
-- [ ] Playwright desktop smoke confirms end-to-end Tauri Kafka flow with real broker
+- [x] `cargo build` and `npx tsc -b --noEmit` both clean at phase exit
+- [x] all Tauri Kafka commands have Rust unit tests covering happy path and error variants
+- [x] transport factory selects native in Tauri mode and server-proxy in browser mode without leaking imports
+- [x] golden-fixture parity tests pass for connect/topics/produce/consume/subscribe on both transports
+- [x] server-proxy path remains fully functional and unmodified in browser/dev mode
+- [x] Playwright desktop smoke confirms end-to-end Tauri Kafka flow with real broker
 
 ### CI Gate Stratification
 
@@ -1778,11 +1778,11 @@ Phase 9D parity validation requires both transports running against the same bro
 
 ### Exit Criteria
 
-- [ ] Desktop uses native Kafka transport for all operations in Tauri mode
-- [ ] Server-proxy path continues to function in browser/dev mode without modification
-- [ ] Cross-transport parity tests pass for all operations using golden fixtures
-- [ ] `cargo build` and `npx tsc -b --noEmit` both clean
-- [ ] Playwright desktop smoke spec passing
+- [x] Desktop uses native Kafka transport for all operations in Tauri mode
+- [x] Server-proxy path continues to function in browser/dev mode without modification
+- [x] Cross-transport parity tests pass for all operations using golden fixtures
+- [x] `cargo build` and `npx tsc -b --noEmit` both clean
+- [x] Playwright desktop smoke spec passing
 
 ---
 
