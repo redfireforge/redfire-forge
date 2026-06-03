@@ -412,4 +412,63 @@ describe('KafkaService — Coverage Gap: Uncovered Branches', () => {
     expect(connectResult.ok).toBe(true);
     expect(disconnectResult.ok).toBe(true);
   });
+
+  // ── Branch: registerSubscription re-registers existing subscription ID ────
+
+  it('registerSubscription calls cleanup of replaced subscription (line 660)', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const cleanupSpy = vi.fn().mockResolvedValue(undefined);
+    const subId = 'sub-already-exists';
+
+    // Register first time
+    service.registerSubscription({ subscriptionId: subId, topic: 'orders' }, cleanupSpy);
+
+    // Register same subscriptionId again — should invoke the existing cleanup
+    service.registerSubscription({ subscriptionId: subId, topic: 'orders' }, vi.fn());
+
+    // Allow the void promise.resolve(cleanup()).catch() to settle
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(cleanupSpy).toHaveBeenCalledOnce();
+  });
+
+  // ── Branch: unsubscribe when cleanup() throws ─────────────────────────────
+
+  it('unsubscribe returns KAFKA_UNSUBSCRIBE_FAILED when cleanup throws', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const subId = 'sub-cleanup-throws';
+    service.registerSubscription(
+      { subscriptionId: subId, topic: 'orders' },
+      async () => { throw new Error('cleanup kaboom'); },
+    );
+
+    const result = await service.unsubscribe({ subscriptionId: subId });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('KAFKA_UNSUBSCRIBE_FAILED');
+    expect(result.error.message).toContain('cleanup kaboom');
+  });
+
+  // ── Branch: cleanupAllSubscriptions skips entries without cleanup ─────────
+
+  it('disconnect cleans up subscriptions that have no cleanup function', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    // Register a subscription WITHOUT a cleanup function
+    service.registerSubscription({ subscriptionId: 'no-cleanup-sub', topic: 'orders' });
+
+    const result = await service.disconnect();
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    // cleanedSubscriptions counts all entries regardless of cleanup presence
+    expect(result.data.cleanedSubscriptions).toBe(1);
+  });
 });
