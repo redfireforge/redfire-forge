@@ -303,14 +303,14 @@
 }
 
 .kafka-shell-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 20px;
   background:
-    radial-gradient(circle at top right, rgba(255, 138, 61, 0.07), transparent 36%),
-    radial-gradient(circle at top left, rgba(95, 177, 255, 0.06), transparent 32%),
-    linear-gradient(160deg, var(--panel-2, var(--card)), var(--card));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+    radial-gradient(circle at top right, rgba(255, 138, 61, 0.09), transparent 36%),
+    radial-gradient(circle at top left, rgba(95, 177, 255, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(22, 32, 56, 0.98), rgba(12, 18, 33, 0.98));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
 .kafka-shell-card-header {
@@ -318,14 +318,14 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .kafka-shell-card h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -349,9 +349,9 @@
 
 /* Subcard sections inside editor (Auth, TLS, Brokers) */
 .kafka-subcard {
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   display: flex;
   flex-direction: column;
@@ -394,26 +394,27 @@
 }
 
 .kafka-status-badge.state-connected {
-  color: #16a34a;
-  border-color: #16a34a55;
-  background: #16a34a15;
+  color: #9df2d5;
+  border-color: rgba(49, 208, 161, 0.35);
+  background: rgba(49, 208, 161, 0.14);
 }
 
 .kafka-status-badge.state-testing {
-  color: #0ea5e9;
-  border-color: #0ea5e955;
-  background: #0ea5e915;
+  color: #cbe5ff;
+  border-color: rgba(95, 177, 255, 0.35);
+  background: rgba(95, 177, 255, 0.14);
 }
 
 .kafka-status-badge.state-error {
-  color: #ef4444;
-  border-color: #ef444455;
-  background: #ef444415;
+  color: #ffb1bc;
+  border-color: rgba(255, 107, 122, 0.35);
+  background: rgba(255, 107, 122, 0.14);
 }
 
 .kafka-status-badge.state-disconnected {
-  color: var(--text-muted);
-  background: var(--surface);
+  color: #c8d2ef;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .kafka-shell-summary {
@@ -457,28 +458,29 @@
 }
 
 .kafka-cluster-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.02);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .kafka-cluster-card:hover {
-  border-color: rgba(95, 177, 255, 0.3);
+  border-color: rgba(95, 177, 255, 0.28);
 }
 
 .kafka-cluster-card.selected {
-  border-color: rgba(95, 177, 255, 0.5);
-  background: linear-gradient(160deg, rgba(95, 177, 255, 0.09), rgba(95, 177, 255, 0.03));
+  border-color: rgba(95, 177, 255, 0.45);
+  background: linear-gradient(180deg, rgba(95, 177, 255, 0.12), rgba(95, 177, 255, 0.04));
 }
 
 .kafka-cluster-card-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 6px;
   padding: 6px 10px;
-  border-top: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .kafka-cluster-shell-row {
@@ -558,8 +560,8 @@
   gap: 4px;
   margin-top: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
   font-size: 0.8rem;
   color: var(--text-muted);
   background: rgba(255, 255, 255, 0.02);
@@ -571,10 +573,10 @@
 
 .kafka-diagnostic-banner {
   margin: 12px 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
   padding: 10px 12px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .kafka-diagnostic-banner.kind-auth,
@@ -647,7 +649,7 @@
 }
 
 .kafka-topic-browser-filter-row input {
-  width: min(420px, 100%);
+  width: 100%;
 }
 
 .kafka-topic-browser-state {
@@ -686,43 +688,49 @@
   color: #cbe5ff;
 }
 
+.kafka-topic-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kafka-topic-table thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.kafka-topic-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.12s;
+}
+
+.kafka-topic-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.kafka-topic-table tbody tr:hover {
+  background: rgba(95, 177, 255, 0.07);
+}
+
+.kafka-topic-table tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+/* Legacy wrapper kept for layout */
 .kafka-topic-browser-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .kafka-topic-browser-list-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 10px;
-  align-items: center;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  padding: 0 2px;
-}
-
-.kafka-topic-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 9px 12px;
-  background: transparent;
-  transition: background 0.12s, border-color 0.12s;
-}
-
-.kafka-topic-row:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.kafka-topic-row:hover {
-  border-color: rgba(95, 177, 255, 0.3);
-  background: rgba(95, 177, 255, 0.07);
+  display: none;
 }
 
 .kafka-topic-row-main {
@@ -765,10 +773,16 @@
 }
 
 .kafka-editor-field label {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.08em;
+}
+
+.kafka-editor-field input,
+.kafka-editor-field select,
+.kafka-editor-field textarea {
+  background-color: rgba(9, 17, 29, 0.75);
 }
 
 .kafka-editor-field textarea,
@@ -897,6 +911,45 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Kafka studio utility classes ── */
+.kafka-section-subtitle {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 3px;
+  letter-spacing: 0;
+}
+
+.kafka-empty-state {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.kafka-empty-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+/* Soft-blue action button — matches mockup cluster card actions */
+.kafka-btn-soft-blue {
+  background: rgba(95, 177, 255, 0.14);
+  color: #cbe5ff;
+  border-color: rgba(95, 177, 255, 0.3);
+}
+
+.kafka-btn-soft-blue:hover:not(:disabled) {
+  background: rgba(95, 177, 255, 0.22);
+  border-color: rgba(95, 177, 255, 0.45);
+}
+
+.kafka-btn-soft-blue:disabled {
+  opacity: 0.45;
+}
+
 .storage-stat {
   display: flex;
   align-items: center;
