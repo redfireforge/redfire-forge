@@ -52,6 +52,7 @@ const PATTERN_RULES: PatternRule[] = [
  */
 export function inferSemanticType(value: unknown): SemanticType {
   if (value == null) return 'unknown';
+  if (Array.isArray(value)) return 'unknown';
 
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') {
