@@ -128,7 +128,7 @@ export interface KafkaProduceResult {
    * `KafkaConsumeRecord` does NOT include this field — the server always decodes
    * before returning so clients always receive plain JSON in `value`.
    */
-  valueEncoding?: 'base64-avro' | 'base64-protobuf' | 'base64-json-schema' | 'plain';
+  valueEncoding?: 'avro' | 'protobuf' | 'json-schema' | 'plain';
 }
 
 export interface KafkaMessageFilter {

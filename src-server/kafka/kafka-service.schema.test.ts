@@ -5,7 +5,7 @@
  * `encodeValue` and `decodeValue` are mocked so no live registry is needed.
  *
  * Covered paths:
- *   - Produce with schemaConfig → encodeValue called, base64 value sent, valueEncoding in result
+ *   - Produce with schemaConfig → encodeValue called, binary Buffer sent to Kafka, valueEncoding in result
  *   - Produce without schemaConfig → no encoding, no valueEncoding in result
  *   - Produce encode error → SchemaRegistryError code surfaced (not KAFKA_PRODUCE_FAILED)
  *   - Consume with schemaConfig + rawValue → decodeValue called, decoded JSON in record.value
@@ -68,7 +68,7 @@ describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
     vi.clearAllMocks();
   });
 
-  it('calls encodeValue and sends base64-encoded value with valueEncoding avro', async () => {
+  it('calls encodeValue and sends binary wire-format Buffer with valueEncoding avro', async () => {
     const { service, mock } = await connectService();
     const wireBytes = makeWireBuffer(10);
     mockEncodeValue.mockResolvedValueOnce(wireBytes);
@@ -81,18 +81,18 @@ describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected success');
-    expect(result.data.valueEncoding).toBe('base64-avro');
+    expect(result.data.valueEncoding).toBe('avro');
 
     // encodeValue called with parsed JSON value, not raw string
     expect(mockEncodeValue).toHaveBeenCalledWith(schemaConfig, 'orders', { id: 1 });
 
-    // producer.send called with base64 of wireBytes
+    // producer.send called with raw wire-format Buffer (not base64 string)
     expect(mock.producer.send).toHaveBeenCalledWith(expect.objectContaining({
-      messages: [expect.objectContaining({ value: wireBytes.toString('base64') })],
+      messages: [expect.objectContaining({ value: wireBytes })],
     }));
   });
 
-  it('sets valueEncoding base64-protobuf for protobuf format', async () => {
+  it('sets valueEncoding protobuf for protobuf format', async () => {
     const { service } = await connectService();
     mockEncodeValue.mockResolvedValueOnce(makeWireBuffer(5));
 
@@ -104,10 +104,10 @@ describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected success');
-    expect(result.data.valueEncoding).toBe('base64-protobuf');
+    expect(result.data.valueEncoding).toBe('protobuf');
   });
 
-  it('sets valueEncoding base64-json-schema for json-schema format', async () => {
+  it('sets valueEncoding json-schema for json-schema format', async () => {
     const { service } = await connectService();
     mockEncodeValue.mockResolvedValueOnce(makeWireBuffer(5));
 
@@ -119,7 +119,7 @@ describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected success');
-    expect(result.data.valueEncoding).toBe('base64-json-schema');
+    expect(result.data.valueEncoding).toBe('json-schema');
   });
 
   it('passes non-JSON message value as-is to encodeValue', async () => {
@@ -281,6 +281,9 @@ describe('KafkaService — Phase 10B Schema Registry: ConsumeOnce Decode', () =>
     if (!result.ok) throw new Error('expected success');
     expect(result.data.messages[0].value).toBe('{"plain":"json"}');
     expect(mockDecodeValue).not.toHaveBeenCalled();
+    // rawValue must NEVER leak into the client-facing record — it is a Buffer and
+    // JSON.stringify would serialize it as {"type":"Buffer","data":[...]}.
+    expect('rawValue' in result.data.messages[0]).toBe(false);
   });
 
   it('skips decodeValue and returns plain value when rawValue is absent', async () => {

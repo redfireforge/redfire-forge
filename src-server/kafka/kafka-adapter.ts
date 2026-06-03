@@ -21,7 +21,11 @@ export interface KafkaAdminAdapter {
 
 export interface KafkaProducerMessage {
   key?: string;
-  value: string;
+  /**
+   * Plain string for non-schema messages; raw Confluent wire-format `Buffer`
+   * for schema-encoded messages (Avro/Protobuf). KafkaJS accepts both.
+   */
+  value: string | Buffer;
   headers?: Record<string, string>;
   partition?: number;
   timestamp?: string;
