@@ -363,3 +363,90 @@ describe('GET /api/kafka/trigger/active', () => {
     expect(res.body.triggers).toEqual(entries);
   });
 });
+
+// ── Coverage gap: non-Error throws (String(err) branch) ───────────────────────
+
+describe('non-Error thrown values', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('activate: returns 500 with String(err) when a non-Error is thrown (line 68)', async () => {
+    mockGetWorkflow.mockResolvedValueOnce(createMockWorkflow() as never);
+    const manager = createMockManager();
+    // Throw a plain string — exercises the `String(err)` branch
+    manager.activateTrigger.mockRejectedValueOnce('string rejection value' as never);
+    const app = createApp(createMockService(), manager);
+
+    const res = await request(app)
+      .post('/api/kafka/trigger/activate')
+      .send({ workflowId: 'wf-1', nodeId: 'trig-1' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('string rejection value');
+  });
+
+  it('deactivate: returns 500 with String(err) when a non-Error is thrown (line 89)', async () => {
+    const manager = createMockManager();
+    manager.deactivateTrigger.mockRejectedValueOnce(42 as never);
+    const app = createApp(createMockService(), manager);
+
+    const res = await request(app)
+      .post('/api/kafka/trigger/deactivate')
+      .send({ workflowId: 'wf-1', nodeId: 'trig-1' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('42');
+  });
+});
+
+// ── Coverage gap: default service/manager singletons (lines 18-19) ────────────
+
+// Mock the module-level singletons so the router can fall back to them
+vi.mock('../kafka/kafka-service.js', () => ({
+  kafkaService: {
+    getSnapshot: vi.fn(() => ({
+      status: { state: 'disconnected' as const, subscriptionCount: 0 },
+      connection: undefined,
+    })),
+  },
+}));
+vi.mock('../kafka/kafkaTriggerSubscriptionManager.js', () => ({
+  kafkaTriggerSubscriptionManager: {
+    activateTrigger: vi.fn(async () => undefined),
+    deactivateTrigger: vi.fn(async () => undefined),
+    getEntries: vi.fn(() => []),
+  },
+}));
+
+describe('default singleton fallback (options.service ?? kafkaService)', () => {
+  it('uses kafkaService singleton when no service option is provided (lines 18-19)', async () => {
+    // Provide a workflow so the code reaches service.getSnapshot()
+    mockGetWorkflow.mockResolvedValueOnce(createMockWorkflow() as never);
+
+    // Router created with no options — falls back to the mocked module singletons
+    const app = express();
+    app.use(express.json());
+    app.use(createKafkaTriggerRouter());
+
+    // The mocked kafkaService returns disconnected → 503
+    const res = await request(app)
+      .post('/api/kafka/trigger/activate')
+      .send({ workflowId: 'wf-1', nodeId: 'trig-1' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/not connected/i);
+  });
+
+  it('uses kafkaTriggerSubscriptionManager singleton for deactivate (line 19)', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(createKafkaTriggerRouter());
+
+    // deactivate does not need getWorkflow — goes straight to manager.deactivateTrigger
+    const res = await request(app)
+      .post('/api/kafka/trigger/deactivate')
+      .send({ workflowId: 'wf-1', nodeId: 'trig-1' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+});

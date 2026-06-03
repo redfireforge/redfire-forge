@@ -14,6 +14,7 @@ import { deriveKafkaTriggerGroupId } from '../../src/features/workflow/engine/ka
 import { createKafkaRuntimeAdapter, type KafkaConsumerAdapter, type KafkaConsumerRecord, type KafkaRuntimeAdapter } from './kafka-adapter.js';
 import type { KafkaConnectionConfig } from './contracts.js';
 import { executeWorkflow, saveErrorResult } from '../executeWorkflow.js';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 
 const DEFAULT_MAX_CONCURRENT_RUNS = 10;
 
@@ -260,7 +261,7 @@ async function dispatchWorkflowRun(
       onLog,
     });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorMessage = toErrorMessage(err);
     onLog?.({
       prefix: '!',
       text: `[KafkaTrigger] Execution error for ${entry.workflowId}::${entry.nodeId}: ${errorMessage}`,
