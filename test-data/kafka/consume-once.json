@@ -61,9 +61,9 @@
     }
   },
   "expectedErrorShape": {
-    "code": "KAFKA_CONSUME_TIMEOUT",
-    "message": "Consumer timed out waiting for messages on orders.created",
+    "code": "KAFKA_CONSUME_ONCE_FAILED",
+    "message": "Consumer failed while reading from orders.created",
     "retryable": true
   },
-  "expectedErrorKind": "timeout"
+  "expectedErrorKind": "server"
 }

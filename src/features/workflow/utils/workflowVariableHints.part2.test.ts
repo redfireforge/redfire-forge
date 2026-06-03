@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints } from './workflowVariableHints';
-import { HttpNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
+import { HttpNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding, KafkaProduceNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
   const setVar = (id: string, vars: Record<string, string>): WorkflowNode => ({
@@ -554,6 +554,35 @@ describe('collectWaitForConditionVariableHints', () => {
     expect(refs).toContain('wait.attempts');
   });
 
+  it('deduplicates variables that appear in both ancestor and poll body', () => {
+    const ancestor = http('h1', [{ name: 'result' }]);
+    const pollBody = http('poll1', [{ name: 'result' }]);
+    const nodes = [ancestor, wait('w1'), pollBody];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'h1', target: 'w1' },
+      { id: 'e2', source: 'w1', target: 'poll1', sourceHandle: 'body' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    const resultHints = hints.filter(h => h.ref === 'result');
+    expect(resultHints).toHaveLength(1);
+  });
+
+  it('skips HTTP poll body nodes without a scenario', () => {
+    const noScenarioHttp: WorkflowNode = {
+      id: 'poll1',
+      type: 'http',
+      position: { x: 0, y: 0 },
+      data: { label: 'No Scenario' } as HttpNodeData,
+    };
+    const nodes = [wait('w1'), noScenarioHttp];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'w1', target: 'poll1', sourceHandle: 'body' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    expect(hints.map(h => h.ref)).toContain('wait.attempts');
+    expect(hints.filter(h => h.ref.startsWith('result') || h.label?.includes('poll body'))).toHaveLength(0);
+  });
+
   it('does not include extractions from nodes NOT in the poll body', () => {
     const pollStep = http('poll1', [{ name: 'pollResult' }]);
     const otherStep = http('other', [{ name: 'otherResult' }]);
@@ -719,29 +748,119 @@ describe('collectConditionVariableHints — kafkaWait ancestor', () => {
   });
 });
 
-// ── empty-key guard in selfNode initialVariables ──────────────────────────
+// ── empty-key guard in ancestor HTTP initialVariables ───────────────────
 describe('collectConditionVariableHints — empty-key initialVariables guard', () => {
-  const http = (id: string): WorkflowNode => ({
+  const cond = (id: string): WorkflowNode => ({
     id,
-    type: 'http',
+    type: 'condition',
     position: { x: 0, y: 0 },
-    data: {
-      label: 'Step',
-      scenario: {
-        id: '1', name: 'n', url: '/', method: 'GET',
-        headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
-      },
-      initialVariables: { '': 'empty-key-value', realKey: 'real' },
-    } as HttpNodeData,
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
   });
 
-  it('skips empty string keys in selfNode initialVariables', () => {
-    const nodes = [http('h1')];
-    const edges: WorkflowEdge[] = [];
-    const hints = collectConditionVariableHints(nodes, edges, 'h1', {});
+  it('skips empty string keys in ancestor HTTP initialVariables', () => {
+    const ancestorHttp: WorkflowNode = {
+      id: 'h1', type: 'http', position: { x: 0, y: 0 },
+      data: {
+        label: 'Step',
+        scenario: {
+          id: '1', name: 'n', url: '/', method: 'GET',
+          headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+        },
+        initialVariables: { '': 'empty-key-value', realKey: 'real' },
+      } as HttpNodeData,
+    };
+    const nodes = [ancestorHttp, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
     const refs = hints.map(h => h.ref);
-    // empty key should be skipped; realKey should be present
     expect(refs).not.toContain('');
     expect(refs).toContain('realKey');
+  });
+});
+
+// ── kafkaProduce ancestor ────────────────────────────────────────────────
+describe('collectConditionVariableHints — kafkaProduce ancestor', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+  });
+
+  const kafkaProduce = (id: string, outputBindings: KafkaNodeMetadataBinding[]): WorkflowNode => ({
+    id,
+    type: 'kafkaProduce',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Produce Message',
+      clusterId: 'c1',
+      topic: 'orders.events',
+      outputBindings,
+    } as KafkaProduceNodeData,
+  });
+
+  it('includes enabled outputBindings from kafkaProduce ancestor', () => {
+    const nodes = [
+      kafkaProduce('kp1', [
+        { id: '1', source: 'offset', targetVariable: 'messageOffset', enabled: true },
+        { id: '2', source: 'partition', targetVariable: 'msgPartition', enabled: true },
+        { id: '3', source: 'topic', targetVariable: 'msgTopic', enabled: false },
+      ]),
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kp1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('messageOffset');
+    expect(refs).toContain('msgPartition');
+    expect(refs).not.toContain('msgTopic');
+    const offsetHint = hints.find(h => h.ref === 'messageOffset');
+    expect(offsetHint?.source?.category).toBe('Integrations');
+  });
+
+  it('kafkaProduce with no outputBindings adds no hints', () => {
+    const nodes = [kafkaProduce('kp1', []), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kp1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints).toHaveLength(0);
+  });
+});
+
+// ── kafkaConsume ancestor ────────────────────────────────────────────────
+describe('collectConditionVariableHints — kafkaConsume ancestor', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+  });
+
+  const kafkaConsume = (id: string, outputBindings: KafkaNodeMetadataBinding[]): WorkflowNode => ({
+    id,
+    type: 'kafkaConsume',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Consume Message',
+      clusterId: 'c1',
+      topic: 'orders.events',
+      outputBindings,
+    } as KafkaConsumeNodeData,
+  });
+
+  it('includes enabled outputBindings from kafkaConsume ancestor', () => {
+    const nodes = [
+      kafkaConsume('kc1', [
+        { id: '1', source: 'key', targetVariable: 'messageKey', enabled: true },
+        { id: '2', source: 'value', targetVariable: 'messageVal', enabled: false },
+      ]),
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('messageKey');
+    expect(refs).not.toContain('messageVal');
+    const keyHint = hints.find(h => h.ref === 'messageKey');
+    expect(keyHint?.source?.category).toBe('Integrations');
   });
 });
