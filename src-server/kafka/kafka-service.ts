@@ -32,6 +32,12 @@ import {
   validateKafkaConsumeRequest,
   validateKafkaProduceRequest,
 } from './kafka-service-utils.js';
+import {
+  encodeValue,
+  decodeValue,
+  SchemaRegistryError,
+  SCHEMA_ERROR_CODES,
+} from './schema-registry-client.js';
 import { randomUUID } from 'node:crypto';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
@@ -291,12 +297,44 @@ export class KafkaService {
     const producer = this.runtimeAdapter.createProducer(connection);
     try {
       await this.withTimeout(producer.connect(), this.resolveRequestTimeout(connection), 'produce-connect');
+
+      // Phase 10B — Schema encode when schemaConfig is present.
+      // When absent, messages are passed through unchanged (no behavioral change).
+      let messagesToSend = request.messages;
+      let valueEncoding: KafkaProduceResult['valueEncoding'];
+
+      if (request.schemaConfig) {
+        // Encode each message value using the registry client.
+        // registry.encode() returns a Buffer; we base64-encode it so it fits
+        // in the existing string-typed value field (KafkaProducerMessage.value: string).
+        // The adapter boundary (KafkaProducerMessage.value: string) is never changed.
+        const schemaConfig = request.schemaConfig;
+        const encodedMessages = await Promise.all(
+          request.messages.map(async (msg) => {
+            let parsedValue: unknown;
+            try {
+              parsedValue = JSON.parse(msg.value);
+            } catch {
+              parsedValue = msg.value;
+            }
+            const encodedBuffer = await encodeValue(schemaConfig, request.topic, parsedValue);
+            return { ...msg, value: encodedBuffer.toString('base64') };
+          }),
+        );
+        messagesToSend = encodedMessages;
+        switch (schemaConfig.format) {
+          case 'protobuf':    valueEncoding = 'base64-protobuf';    break;
+          case 'json-schema': valueEncoding = 'base64-json-schema'; break;
+          default:            valueEncoding = 'base64-avro';        break;
+        }
+      }
+
       const records = await this.withTimeout(
         producer.send({
           topic: request.topic,
           acks: request.acks,
           timeout: request.timeoutMs,
-          messages: request.messages,
+          messages: messagesToSend,
         }),
         this.resolveRequestTimeout(connection),
         'produce-send',
@@ -307,8 +345,17 @@ export class KafkaService {
         topic: request.topic,
         sentCount: request.messages.length,
         records,
+        ...(valueEncoding ? { valueEncoding } : {}),
       });
     } catch (error) {
+      // Phase 10B — schema errors surface as dedicated codes, not KAFKA_PRODUCE_FAILED.
+      if (error instanceof SchemaRegistryError) {
+        return createKafkaErrorEnvelope('produce', {
+          code: error.code,
+          message: error.message,
+          retryable: error.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+        });
+      }
       const authFail = this.isAuthError(error);
       return createKafkaErrorEnvelope('produce', {
         code: authFail ? 'KAFKA_AUTH_FAILED' : 'KAFKA_PRODUCE_FAILED',
@@ -411,7 +458,44 @@ export class KafkaService {
             return;
           }
 
-          messages.push(record);
+          // Phase 10B — Schema decode when schemaConfig is present.
+          // Uses record.rawValue (raw Buffer) — not record.value (toString'd string)
+          // which corrupts Avro binary bytes.
+          // Subscribe-path schema decode is out of scope for Phase 10B.
+          let consumeRecord = record as KafkaConsumeRecord;
+          if (request.schemaConfig && record.rawValue) {
+            try {
+              const decoded = await decodeValue(request.schemaConfig, record.rawValue);
+              consumeRecord = {
+                topic: record.topic,
+                partition: record.partition,
+                offset: record.offset,
+                timestamp: record.timestamp,
+                key: record.key,
+                value: JSON.stringify(decoded),
+                headers: record.headers,
+                // rawValue is server-side only — omit from client-facing record
+              };
+            } catch (decodeError) {
+              // Schema decode errors settle with a dedicated error code rather
+              // than silently falling through to KAFKA_CONSUME_ONCE_FAILED.
+              if (decodeError instanceof SchemaRegistryError) {
+                await settleResult({
+                  messageCount: 0,
+                  messages: [],
+                  timedOut: false,
+                  schemaError: {
+                    code: decodeError.code,
+                    message: decodeError.message,
+                  },
+                } as KafkaConsumeResult & { schemaError?: { code: string; message: string } });
+                return;
+              }
+              throw decodeError;
+            }
+          }
+
+          messages.push(consumeRecord);
           if (messages.length >= maxMessages) {
             const snapshot = [...messages];
             await settleResult({
@@ -432,8 +516,25 @@ export class KafkaService {
       });
 
       const result = await resultPromise;
+      // Phase 10B — surface schema decode errors via dedicated error codes
+      const schemaErr = (result as KafkaConsumeResult & { schemaError?: { code: string; message: string } }).schemaError;
+      if (schemaErr) {
+        return createKafkaErrorEnvelope('consume-once', {
+          code: schemaErr.code,
+          message: schemaErr.message,
+          retryable: schemaErr.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+        });
+      }
       return createKafkaSuccessEnvelope('consume-once', result);
     } catch (error) {
+      // Phase 10B — schema errors surface as dedicated codes, not KAFKA_CONSUME_ONCE_FAILED.
+      if (error instanceof SchemaRegistryError) {
+        return createKafkaErrorEnvelope('consume-once', {
+          code: error.code,
+          message: error.message,
+          retryable: error.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
+        });
+      }
       return createKafkaErrorEnvelope('consume-once', {
         code: 'KAFKA_CONSUME_ONCE_FAILED',
         message: this.toMessage(error),
@@ -705,6 +806,7 @@ export class KafkaService {
       return createKafkaErrorEnvelope(op, {
         code: 'KAFKA_NOT_CONNECTED',
         message: 'Kafka service is not connected',
+        retryable: false,
       });
     }
 

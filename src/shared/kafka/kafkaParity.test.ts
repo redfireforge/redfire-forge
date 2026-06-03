@@ -95,6 +95,7 @@ import produceFixture from '../../../test-data/kafka/produce.json';
 import consumeOnceFixture from '../../../test-data/kafka/consume-once.json';
 import subscribeFixture from '../../../test-data/kafka/subscribe.json';
 import unsubscribeFixture from '../../../test-data/kafka/unsubscribe.json';
+import subscriptionsFixture from '../../../test-data/kafka/subscriptions.json';
 
 const ALL_FIXTURES: KafkaFixture[] = [
   connectFixture as unknown as KafkaFixture,
@@ -105,6 +106,7 @@ const ALL_FIXTURES: KafkaFixture[] = [
   consumeOnceFixture as unknown as KafkaFixture,
   subscribeFixture as unknown as KafkaFixture,
   unsubscribeFixture as unknown as KafkaFixture,
+  subscriptionsFixture as unknown as KafkaFixture,
 ];
 
 // ── Helper: build httpFetch mock response from a KafkaEnvelope ────────────────

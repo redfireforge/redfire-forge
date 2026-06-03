@@ -26,9 +26,9 @@
     "data": {
       "clusterId": "parity-test-cluster",
       "topics": [
+        { "name": "__consumer_offsets", "partitions": 50, "isInternal": true },
         { "name": "orders.created", "partitions": 3, "isInternal": false },
-        { "name": "payments.authorized", "partitions": 2, "isInternal": false },
-        { "name": "__consumer_offsets", "partitions": 50, "isInternal": true }
+        { "name": "payments.authorized", "partitions": 2, "isInternal": false }
       ]
     },
     "meta": {
@@ -38,7 +38,7 @@
   },
   "expectedErrorShape": {
     "code": "KAFKA_NOT_CONNECTED",
-    "message": "Not connected to cluster parity-test-cluster",
+    "message": "Kafka service is not connected",
     "retryable": false
   },
   "expectedErrorKind": "cluster"

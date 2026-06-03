@@ -84,6 +84,7 @@ export function buildKafkaNodeOperations(): KafkaNodeOperations {
         ],
         acks: ackModeToAcks(params.ackMode),
         timeoutMs: params.timeoutMs,
+        ...(params.schemaConfig ? { schemaConfig: params.schemaConfig } : {}),
       });
 
       // dispatchKafkaOperation throws KafkaClientError on !ok; if we reach here the
@@ -124,6 +125,7 @@ export function buildKafkaNodeOperations(): KafkaNodeOperations {
         timeoutMs: params.timeoutMs,
         fromBeginning: params.startPosition === 'earliest',
         ...(filter ? { filter } : {}),
+        ...(params.schemaConfig ? { schemaConfig: params.schemaConfig } : {}),
       });
 
       const data = envelope.data!;

@@ -52,6 +52,15 @@ export interface KafkaConsumerRecord {
   key?: string;
   value: string;
   headers?: Record<string, string>;
+  /**
+   * Phase 10 — Raw message bytes before UTF-8 conversion.
+   * Populated alongside `value` (the toString('utf-8') version) so that
+   * `kafka-service.ts` can use the raw Buffer for Avro/Protobuf schema decode.
+   * Avro binary bytes are NOT valid UTF-8 and are corrupted by the toString
+   * conversion used for `value`.
+   * This field is server-side only — it is never serialized to clients.
+   */
+  rawValue?: Buffer;
 }
 
 export interface KafkaConsumerAdapter {
@@ -234,6 +243,13 @@ class KafkaJsConsumerAdapter implements KafkaConsumerAdapter {
 
         const key = message.key ? message.key.toString('utf8') : undefined;
         const value = message.value ? message.value.toString('utf8') : '';
+        // Phase 10: preserve raw bytes so kafka-service.ts can schema-decode
+        const rawValue: Buffer | undefined =
+          message.value != null
+            ? Buffer.isBuffer(message.value)
+              ? message.value
+              : Buffer.from(message.value)
+            : undefined;
         await eachMessage({
           topic,
           partition,
@@ -242,6 +258,7 @@ class KafkaJsConsumerAdapter implements KafkaConsumerAdapter {
           key,
           value,
           headers,
+          rawValue,
         });
       },
     });

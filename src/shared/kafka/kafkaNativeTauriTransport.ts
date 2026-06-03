@@ -34,6 +34,7 @@
 
 import {
   KafkaClientError,
+  defaultTransport,
   type KafkaClientTransport,
   type KafkaDispatchRequest,
   type KafkaEnvelope,
@@ -81,6 +82,10 @@ const COMMAND_MAP: Record<KafkaOperation, CommandSpec> = {
   subscribe: { command: 'kafka_subscribe', paramKey: 'request' },
   subscriptions: { command: 'kafka_subscriptions' },   // GET
   unsubscribe: { command: 'kafka_unsubscribe', paramKey: 'request' },
+  // Schema registry ops: no Rust command — always route through the Express server proxy
+  'schema-subjects': { command: '_server_proxy' },
+  'schema-versions': { command: '_server_proxy' },
+  'schema-fetch': { command: '_server_proxy' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,9 +121,20 @@ function restoreQueryTypes(
 export const kafkaNativeTauriTransport: KafkaClientTransport = async (
   request: KafkaDispatchRequest,
 ): Promise<KafkaEnvelope> => {
+  const { command, paramKey } = COMMAND_MAP[request.op];
+
+  // Schema registry ops and schema-aware produce/consume always go through the
+  // server proxy (Express route) — never native Tauri invoke.
+  if (
+    command === '_server_proxy' ||
+    (request.op === 'produce' && request.body?.['schemaConfig'] != null) ||
+    (request.op === 'consume-once' && request.body?.['schemaConfig'] != null)
+  ) {
+    return defaultTransport(request);
+  }
+
   const { invoke } = await import('@tauri-apps/api/core');
 
-  const { command, paramKey } = COMMAND_MAP[request.op];
   const body = request.body ?? {};
   const args =
     request.method === 'GET'
