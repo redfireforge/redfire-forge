@@ -298,6 +298,7 @@ describe('kafka-adapter', () => {
         traceId: 'trace-1',
         source: 'seed',
       },
+      rawValue: Buffer.from('{"status":"created"}'),
     });
     expect(mocks.consumer.stop).toHaveBeenCalledTimes(1);
     expect(mocks.consumer.disconnect).toHaveBeenCalledTimes(1);
@@ -343,6 +344,53 @@ describe('kafka-adapter', () => {
       key: undefined,
       value: '',
       headers: {},
+      // rawValue is undefined when message.value is null (no binary bytes to preserve)
     });
+  });
+
+  it('consumer adapter preserves raw buffer bytes as rawValue alongside UTF-8 value', async () => {
+    // Avro/Protobuf bytes would be corrupted by toString('utf8').
+    // rawValue preserves the original Buffer so kafka-service.ts can schema-decode it.
+    const avroBytes = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x2a, 0x06, 0x62, 0x6f, 0x62]);
+    mocks.setConsumerMessage({
+      offset: '20',
+      timestamp: '9999',
+      key: null,
+      value: avroBytes,
+      headers: undefined,
+    });
+
+    const runtime = createKafkaRuntimeAdapter();
+    const consumer = runtime.createConsumer(makeConnection(), 'group-schema');
+    const eachMessage = vi.fn(async () => undefined);
+
+    await consumer.run(eachMessage);
+
+    const record = eachMessage.mock.calls[0][0] as Record<string, unknown>;
+    // rawValue must be the same bytes (deep-equal)
+    expect(Buffer.isBuffer(record['rawValue'])).toBe(true);
+    expect(record['rawValue']).toEqual(avroBytes);
+    // value is the UTF-8 toString'd version (may be garbage for Avro, but preserved for plain JSON)
+    expect(typeof record['value']).toBe('string');
+  });
+
+  it('consumer adapter sets rawValue to undefined when message.value is null', async () => {
+    mocks.setConsumerMessage({
+      offset: '21',
+      timestamp: '0',
+      key: null,
+      value: null,
+      headers: undefined,
+    });
+
+    const runtime = createKafkaRuntimeAdapter();
+    const consumer = runtime.createConsumer(makeConnection(), 'group-null-val');
+    const eachMessage = vi.fn(async () => undefined);
+
+    await consumer.run(eachMessage);
+
+    const record = eachMessage.mock.calls[0][0] as Record<string, unknown>;
+    expect(record['rawValue']).toBeUndefined();
+    expect(record['value']).toBe('');
   });
 });
