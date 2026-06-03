@@ -1,0 +1,79 @@
+{
+  "operation": "produce",
+  "description": "Produce a single message to orders.created topic",
+  "request": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "messages": [
+      {
+        "key": "order-123",
+        "value": "{\"id\":\"order-123\",\"status\":\"created\"}"
+      }
+    ]
+  },
+  "expectedDispatch": {
+    "op": "produce",
+    "method": "POST",
+    "path": "/api/kafka/produce",
+    "query": {},
+    "body": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "messages": [
+        {
+          "key": "order-123",
+          "value": "{\"id\":\"order-123\",\"status\":\"created\"}"
+        }
+      ]
+    }
+  },
+  "expectedInvokeCommand": "kafka_produce",
+  "expectedInvokeArgs": {
+    "request": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "messages": [
+        {
+          "key": "order-123",
+          "value": "{\"id\":\"order-123\",\"status\":\"created\"}"
+        }
+      ]
+    }
+  },
+  "expectedHttpBody": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "messages": [
+      {
+        "key": "order-123",
+        "value": "{\"id\":\"order-123\",\"status\":\"created\"}"
+      }
+    ]
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "produce",
+    "data": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "sentCount": 1,
+      "records": [
+        {
+          "partition": 0,
+          "offset": "42",
+          "timestamp": "2026-06-01T00:00:00.000Z"
+        }
+      ]
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 80
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_PRODUCE_FAILED",
+    "message": "Topic not found: orders.created",
+    "retryable": false
+  },
+  "expectedErrorKind": "server"
+}

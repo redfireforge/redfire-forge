@@ -1,0 +1,56 @@
+{
+  "operation": "subscribe",
+  "description": "Subscribe to orders.created for streaming messages",
+  "request": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "groupId": "redfireforge-parity-consumer"
+  },
+  "expectedDispatch": {
+    "op": "subscribe",
+    "method": "POST",
+    "path": "/api/kafka/subscribe",
+    "query": {},
+    "body": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "groupId": "redfireforge-parity-consumer"
+    }
+  },
+  "expectedInvokeCommand": "kafka_subscribe",
+  "expectedInvokeArgs": {
+    "request": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "groupId": "redfireforge-parity-consumer"
+    }
+  },
+  "expectedHttpBody": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "groupId": "redfireforge-parity-consumer"
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "subscribe",
+    "data": {
+      "clusterId": "parity-test-cluster",
+      "subscription": {
+        "subscriptionId": "sub-parity-001",
+        "topic": "orders.created",
+        "groupId": "redfireforge-parity-consumer",
+        "createdAt": "2026-06-01T00:00:00.000Z"
+      }
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 45
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_SUBSCRIBE_FAILED",
+    "message": "Failed to create consumer group for orders.created",
+    "retryable": true
+  },
+  "expectedErrorKind": "server"
+}
