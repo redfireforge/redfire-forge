@@ -167,36 +167,6 @@ async function openNodeConfig(
   await expect(page.locator('.wf-config-modal')).toBeVisible({ timeout: 8000 });
 }
 
-/**
- * Intercept /__proxy calls, routing schema API calls to mock responses
- * and continuing all other calls normally.
- */
-async function interceptSchemaProxy(
-  page: import('@playwright/test').Page,
-  handlers: Record<string, unknown>,
-) {
-  await page.route('**/__proxy', async (route, request) => {
-    let parsedBody: { url?: string } = {};
-    try {
-      parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string };
-    } catch {
-      // ignore
-    }
-    const targetUrl = parsedBody.url ?? '';
-    for (const [pattern, envelope] of Object.entries(handlers)) {
-      if (targetUrl.includes(pattern)) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(envelope),
-        });
-        return;
-      }
-    }
-    await route.continue();
-  });
-}
-
 // ── Test suite ─────────────────────────────────────────────────────────────────
 
 test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
@@ -250,12 +220,6 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     const subjects = ['orders.created-value', 'payments-value', 'users-key'];
     let subjectsCalled = false;
 
-    await interceptSchemaProxy(page, {
-      '/api/kafka/schema-subjects': (() => { subjectsCalled = true; return subjectsEnvelope(subjects); })(),
-    });
-    // Re-register so the spy fires on click, not at intercept-setup time
-    subjectsCalled = false;
-    await page.unroute('**/__proxy');
     await page.route('**/__proxy', async (route, request) => {
       let parsedBody: { url?: string } = {};
       try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
