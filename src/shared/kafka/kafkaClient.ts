@@ -9,7 +9,10 @@ export type KafkaOperation =
   | 'consume-once'
   | 'subscribe'
   | 'subscriptions'
-  | 'unsubscribe';
+  | 'unsubscribe'
+  | 'schema-subjects'
+  | 'schema-versions'
+  | 'schema-fetch';
 
 type KafkaMethod = 'GET' | 'POST';
 
@@ -52,6 +55,21 @@ export type KafkaUiErrorKind =
   | 'cluster'
   | 'server'
   | 'unknown';
+
+/**
+ * Schema registry configuration for Avro/Protobuf/JSON-Schema encode/decode.
+ * Mirrors the server-side KafkaSchemaConfig — declared independently here so
+ * this shared module has no dependency on src-server types.
+ */
+export interface KafkaSchemaConfig {
+  registryUrl: string;
+  auth?: { username: string; password: string };
+  /** Explicit subject name. Defaults to `{topic}-value` (TopicNameStrategy) when absent. */
+  subject?: string;
+  /** Schema version to use. Defaults to latest when absent. */
+  version?: number;
+  format: 'avro' | 'protobuf' | 'json-schema';
+}
 
 export interface KafkaUiSafeError {
   kind: KafkaUiErrorKind;
@@ -147,6 +165,9 @@ const OPERATION_MAP: Record<KafkaOperation, KafkaOperationSpec> = {
   subscribe: { method: 'POST', path: '/api/kafka/subscribe' },
   subscriptions: { method: 'GET', path: '/api/kafka/subscriptions', queryKeys: ['clusterId'] },
   unsubscribe: { method: 'POST', path: '/api/kafka/unsubscribe' },
+  'schema-subjects': { method: 'POST', path: '/api/kafka/schema-subjects' },
+  'schema-versions': { method: 'POST', path: '/api/kafka/schema-versions' },
+  'schema-fetch': { method: 'POST', path: '/api/kafka/schema-fetch' },
 };
 
 let transportOverride: KafkaClientTransport | null = null;
@@ -251,7 +272,7 @@ function parseEnvelope(op: KafkaOperation, response: HttpResponse): KafkaEnvelop
   return envelope;
 }
 
-async function defaultTransport(request: KafkaDispatchRequest): Promise<KafkaEnvelope> {
+export async function defaultTransport(request: KafkaDispatchRequest): Promise<KafkaEnvelope> {
   const url = withQuery(request.path, request.query);
   const headers: Record<string, string> = { Accept: 'application/json' };
   let bodyText: string | undefined;

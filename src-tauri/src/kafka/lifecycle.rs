@@ -215,7 +215,7 @@ pub async fn kafka_topics(
 
     match metadata_result {
         Ok(metadata) => {
-            let topics: Vec<KafkaTopicSummary> = metadata
+            let mut topics: Vec<KafkaTopicSummary> = metadata
                 .topics()
                 .iter()
                 .filter_map(|t| {
@@ -231,6 +231,7 @@ pub async fn kafka_topics(
                     })
                 })
                 .collect();
+            topics.sort_by(|a, b| a.name.cmp(&b.name));
             Ok(success_envelope(
                 "topics",
                 KafkaTopicsResult {

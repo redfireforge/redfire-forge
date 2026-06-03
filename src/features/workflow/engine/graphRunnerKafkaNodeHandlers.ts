@@ -187,6 +187,7 @@ export async function handleKafkaProduceNode(
       headers: Object.keys(resolvedHeaders).length > 0 ? resolvedHeaders : undefined,
       ackMode: data.ackMode,
       timeoutMs: data.timeoutMs ?? DEFAULT_PRODUCE_TIMEOUT_MS,
+      schemaConfig: data.schemaConfig,
     });
     const durationMs = Math.round(performance.now() - t0);
 
@@ -327,6 +328,7 @@ export async function handleKafkaConsumeNode(
       keyRegex: data.keyRegex ? hCtx.ctx.resolve(data.keyRegex) : undefined,
       headerFilters: headerFilters.length > 0 ? headerFilters : undefined,
       jsonPathFilters: jsonPathFilters.length > 0 ? jsonPathFilters : undefined,
+      schemaConfig: data.schemaConfig,
     });
     const durationMs = Math.round(performance.now() - t0);
 

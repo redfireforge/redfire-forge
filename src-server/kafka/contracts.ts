@@ -7,7 +7,12 @@ export type KafkaOperation =
   | 'consume-once'
   | 'subscribe'
   | 'subscriptions'
-  | 'unsubscribe';
+  | 'unsubscribe'
+  // Phase 10 — Schema Registry operations (server-side only in Phase 10A/10B;
+  // frontend KafkaOperation in kafkaClient.ts is updated in Phase 10C lockstep)
+  | 'schema-subjects'
+  | 'schema-versions'
+  | 'schema-fetch';
 
 export type KafkaServiceState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -56,6 +61,32 @@ export interface KafkaTopicsRequest {
   includeInternal?: boolean;
 }
 
+/**
+ * Phase 10 — Schema Registry configuration.
+ * Attached at the request level (not per-message) so all messages in a batch
+ * are encoded/decoded with the same schema.
+ *
+ * Security note: `auth` carries credentials and MUST travel in the request body,
+ * never as query params (OWASP A02 — Cryptographic Failures / Credential Exposure).
+ */
+export interface KafkaSchemaConfig {
+  /** URL of the Confluent-compatible Schema Registry. */
+  registryUrl: string;
+  /** Optional Basic-auth credentials for the registry endpoint. */
+  auth?: { username: string; password: string };
+  /**
+   * Subject name override.  When absent, the server derives it from the topic
+   * using TopicNameStrategy: `{topic}-value`.
+   * Key encoding is out of scope for Phase 10; `{topic}-key` subjects are
+   * never requested in the initial implementation.
+   */
+  subject?: string;
+  /** Schema version to use.  When absent, the latest version is resolved. */
+  version?: number;
+  /** Wire format — Avro, Protobuf, or JSON Schema. */
+  format: 'avro' | 'protobuf' | 'json-schema';
+}
+
 export interface KafkaProduceMessage {
   key?: string;
   value: string;
@@ -70,6 +101,14 @@ export interface KafkaProduceRequest {
   messages: KafkaProduceMessage[];
   acks?: number;
   timeoutMs?: number;
+  /**
+   * Phase 10 — Optional schema encoding config.
+   * When present, each message value is Avro/Protobuf/JSON Schema encoded before
+   * being sent to the broker.  Applied uniformly to all messages in the batch.
+   * Per-message schema config is not supported in the initial phase.
+   * When absent, messages are sent as plain JSON (no behavioral change).
+   */
+  schemaConfig?: KafkaSchemaConfig;
 }
 
 export interface KafkaProduceRecordResult {
@@ -83,6 +122,13 @@ export interface KafkaProduceResult {
   topic: string;
   sentCount: number;
   records: KafkaProduceRecordResult[];
+  /**
+   * Phase 10 — Wire encoding used for message values.
+   * Present only when `schemaConfig` was supplied in the request.
+   * `KafkaConsumeRecord` does NOT include this field — the server always decodes
+   * before returning so clients always receive plain JSON in `value`.
+   */
+  valueEncoding?: 'base64-avro' | 'base64-protobuf' | 'base64-json-schema' | 'plain';
 }
 
 export interface KafkaMessageFilter {
@@ -100,6 +146,14 @@ export interface KafkaConsumeOnceRequest {
   timeoutMs?: number;
   maxMessages?: number;
   filter?: KafkaMessageFilter;
+  /**
+   * Phase 10 — Optional schema decode config.
+   * When present, raw Avro/Protobuf/JSON Schema bytes are decoded back to plain JSON
+   * before being returned in `KafkaConsumeRecord.value`.
+   * Subscribe-path schema decode is out of scope for Phase 10B.
+   * When absent, message values are returned as plain UTF-8 strings (no change).
+   */
+  schemaConfig?: KafkaSchemaConfig;
 }
 
 export interface KafkaSubscribeRequest {
@@ -248,4 +302,51 @@ export function createKafkaErrorEnvelope(
       ...meta,
     },
   };
+}
+
+// ── Phase 10 — Schema Registry request / response types ──────────────────────
+
+/**
+ * Request body for `POST /api/kafka/schema-subjects`.
+ * Returns the list of all subjects registered in the schema registry.
+ */
+export interface KafkaSchemaSubjectsRequest {
+  schemaConfig: KafkaSchemaConfig;
+}
+
+export interface KafkaSchemaSubjectsResult {
+  subjects: string[];
+}
+
+/**
+ * Request body for `POST /api/kafka/schema-versions`.
+ * Returns the list of versions available for a given subject.
+ */
+export interface KafkaSchemaVersionsRequest {
+  schemaConfig: KafkaSchemaConfig;
+  subject: string;
+}
+
+export interface KafkaSchemaVersionsResult {
+  subject: string;
+  versions: number[];
+}
+
+/**
+ * Request body for `POST /api/kafka/schema-fetch`.
+ * Returns the schema definition for a given subject and version.
+ * When `version` is absent, the latest version is returned.
+ */
+export interface KafkaSchemaFetchRequest {
+  schemaConfig: KafkaSchemaConfig;
+  subject: string;
+  version?: number;
+}
+
+export interface KafkaSchemaFetchResult {
+  subject: string;
+  version: number;
+  id: number;
+  schema: string;
+  schemaType: string;
 }
