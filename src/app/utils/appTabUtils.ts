@@ -1,6 +1,6 @@
-export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio';
 
-export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
+export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'param-runner', 'workflow-runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
@@ -17,16 +17,20 @@ export const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio']);
+export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
+
 /** Derive the active domain from the current tab. */
 export function domainOf(tab: Tab): Domain {
   if (isApiTab(tab)) return 'api';
   if (isWorkflowTab(tab)) return 'workflow';
   if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';
+  if (isProtocolsTab(tab)) return 'protocols';
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 

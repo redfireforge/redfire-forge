@@ -33,6 +33,7 @@ import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
+import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -353,7 +354,7 @@ export default function App() {
       <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -475,14 +476,14 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
@@ -597,6 +598,15 @@ export default function App() {
 
           {activeTab === 'kafka-settings' && (
             <KafkaSettingsPage kafkaState={kafkaState} />
+          )}
+
+          {activeTab === 'kafka-message-studio' && (
+            <div className="app-tab-pane">
+              <KafkaMessageStudioPage
+                kafkaState={kafkaState}
+                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
+              />
+            </div>
           )}
 
           {activeTab === 'scenarios' && (

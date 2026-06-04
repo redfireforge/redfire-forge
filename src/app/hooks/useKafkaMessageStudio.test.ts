@@ -1,0 +1,311 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useKafkaMessageStudio } from './useKafkaMessageStudio';
+import type { UseKafkaStateReturn } from './useKafkaState';
+import type { KafkaEnvelope } from '../../shared/kafka/kafkaClient';
+
+// ── Mock kafkaState ────────────────────────────────────────────────────────
+
+function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {
+  return {
+    loaded: true,
+    clusters: [],
+    connection: { state: 'connected', clusterId: 'cluster-a' },
+    selectedClusterId: 'cluster-a',
+    selectedCluster: null,
+    topics: [],
+    includeInternalTopics: false,
+    setIncludeInternalTopics: vi.fn(),
+    setSelectedClusterId: vi.fn(),
+    refreshTopics: vi.fn(),
+    saveCluster: vi.fn(),
+    removeCluster: vi.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    lastError: null,
+    ...overrides,
+  } as unknown as UseKafkaStateReturn;
+}
+
+// ── Mock dispatch helper ───────────────────────────────────────────────────
+
+function makeDispatch<T>(result: KafkaEnvelope<T>) {
+  return vi.fn().mockResolvedValue(result);
+}
+
+function okEnvelope<T>(data: T): KafkaEnvelope<T> {
+  return { ok: true, data } as KafkaEnvelope<T>;
+}
+
+function errEnvelope(message: string, code = 'ERR'): KafkaEnvelope<never> {
+  return { ok: false, error: { message, code, retryable: true } } as unknown as KafkaEnvelope<never>;
+}
+
+// ── Initial state ──────────────────────────────────────────────────────────
+
+describe('useKafkaMessageStudio — initial state', () => {
+  it('initialises with empty publish draft', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    expect(result.current.publishDraft.topic).toBe('');
+    expect(result.current.publishDraft.acks).toBe(-1);
+    expect(result.current.publishDraft.headers).toEqual([]);
+  });
+
+  it('initialises groupId with redfireforge-debug prefix', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    expect(result.current.consumeDraft.groupId).toMatch(/^redfireforge-debug-[0-9a-f]{8}$/);
+  });
+
+  it('has no results on mount', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    expect(result.current.publishResult).toBeNull();
+    expect(result.current.consumeResult).toBeNull();
+    expect(result.current.selectedMessage).toBeNull();
+  });
+});
+
+// ── setPublishDraft ────────────────────────────────────────────────────────
+
+describe('setPublishDraft', () => {
+  it('patches individual fields', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 'orders.events' }); });
+    expect(result.current.publishDraft.topic).toBe('orders.events');
+    expect(result.current.publishDraft.acks).toBe(-1); // unchanged
+  });
+});
+
+// ── setConsumeDraft ────────────────────────────────────────────────────────
+
+describe('setConsumeDraft', () => {
+  it('patches individual fields', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setConsumeDraft({ topic: 'events.created' }); });
+    expect(result.current.consumeDraft.topic).toBe('events.created');
+    expect(result.current.consumeDraft.startPosition).toBe('latest'); // unchanged
+  });
+});
+
+// ── validateJsonBody ───────────────────────────────────────────────────────
+
+describe('validateJsonBody', () => {
+  it('returns true and formats body for valid JSON', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setPublishDraft({ body: '{"a":1}' }); });
+    let valid: boolean = false;
+    act(() => { valid = result.current.validateJsonBody(); });
+    expect(valid).toBe(true);
+    expect(result.current.publishDraft.body).toBe(JSON.stringify({ a: 1 }, null, 2));
+    expect(result.current.publishError).toBeNull();
+  });
+
+  it('returns false and sets publishError for invalid JSON', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setPublishDraft({ body: '{bad json}' }); });
+    let valid: boolean = true;
+    act(() => { valid = result.current.validateJsonBody(); });
+    expect(valid).toBe(false);
+    expect(result.current.publishError?.code).toBe('INVALID_JSON');
+    expect(result.current.publishError?.retryable).toBe(false);
+  });
+
+  it('returns true for blank body', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    let valid: boolean = false;
+    act(() => { valid = result.current.validateJsonBody(); });
+    expect(valid).toBe(true);
+  });
+});
+
+// ── sendOnce ──────────────────────────────────────────────────────────────
+
+describe('sendOnce', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('sets publishResult on success', async () => {
+    const mockResult = { topic: 'orders.events', sentCount: 1, records: [{ partition: 0, offset: '42' }] };
+    const dispatch = makeDispatch(okEnvelope(mockResult));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 'orders.events', body: '{"hello":"world"}' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishResult).toEqual(mockResult);
+    expect(result.current.publishError).toBeNull();
+    expect(result.current.publishLoading).toBe(false);
+    expect(dispatch).toHaveBeenCalledWith('produce', expect.objectContaining({ topic: 'orders.events', clusterId: 'cluster-a' }));
+  });
+
+  it('sets publishError on server error', async () => {
+    const dispatch = makeDispatch(errEnvelope('Produce failed', 'TOPIC_MISSING'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishResult).toBeNull();
+    expect(result.current.publishError?.code).toBe('TOPIC_MISSING');
+  });
+
+  it('sets publishError on thrown exception', async () => {
+    const dispatch = vi.fn().mockRejectedValue(new Error('network failure'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishError).not.toBeNull();
+    expect(result.current.publishLoading).toBe(false);
+  });
+
+  it('clears previous result/error before new request', async () => {
+    const dispatch = makeDispatch(okEnvelope({ topic: 't', sentCount: 1, records: [] }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    // Set a prior error
+    act(() => { result.current.setPublishDraft({ body: '{bad}' }); });
+    act(() => { result.current.validateJsonBody(); });
+    expect(result.current.publishError).not.toBeNull();
+    // Send should clear it then set result
+    act(() => { result.current.setPublishDraft({ body: '{}', topic: 't' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishError).toBeNull();
+  });
+});
+
+// ── consumeOnce ───────────────────────────────────────────────────────────
+
+describe('consumeOnce', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('sets consumeResult on success', async () => {
+    const messages = [
+      { topic: 'orders', partition: 0, offset: '10', value: '{"id":1}', key: 'k1' },
+    ];
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 1, messages, timedOut: false }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setConsumeDraft({ topic: 'orders' }); });
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.consumeResult).toEqual(messages);
+    expect(result.current.consumeTimedOut).toBe(false);
+    expect(result.current.consumeError).toBeNull();
+    expect(result.current.consumeMessageCount).toBe(1);
+  });
+
+  it('sets consumeTimedOut=true when server reports timedOut', async () => {
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 0, messages: [], timedOut: true }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.consumeTimedOut).toBe(true);
+    expect(result.current.consumeResult).toEqual([]);
+  });
+
+  it('sets consumeError on server error', async () => {
+    const dispatch = makeDispatch(errEnvelope('Consumer failed', 'GROUP_ERROR'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.consumeResult).toBeNull();
+    expect(result.current.consumeError?.code).toBe('GROUP_ERROR');
+  });
+
+  it('resets selectedMessageIndex on re-run', async () => {
+    const messages = [
+      { topic: 'o', partition: 0, offset: '1', value: '{}' },
+      { topic: 'o', partition: 0, offset: '2', value: '{}' },
+    ];
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 2, messages, timedOut: false }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    act(() => { result.current.selectMessage(1); });
+    expect(result.current.selectedMessageIndex).toBe(1);
+    // Re-run
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.selectedMessageIndex).toBeNull();
+  });
+});
+
+// ── selectMessage ─────────────────────────────────────────────────────────
+
+describe('selectMessage', () => {
+  it('returns the selected row', async () => {
+    const messages = [
+      { topic: 'o', partition: 0, offset: '1', value: '{"a":1}' },
+    ];
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 1, messages, timedOut: false }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    act(() => { result.current.selectMessage(0); });
+    expect(result.current.selectedMessage).toEqual(messages[0]);
+  });
+
+  it('returns null when index is null', async () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.selectMessage(null); });
+    expect(result.current.selectedMessage).toBeNull();
+  });
+});
+
+// ── clearPublishResult / clearConsumeResult ────────────────────────────────
+
+describe('clearPublishResult', () => {
+  it('clears result and error', async () => {
+    const dispatch = makeDispatch(okEnvelope({ topic: 't', sentCount: 1, records: [] }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishResult).not.toBeNull();
+    act(() => { result.current.clearPublishResult(); });
+    expect(result.current.publishResult).toBeNull();
+    expect(result.current.publishError).toBeNull();
+  });
+});
+
+describe('clearConsumeResult', () => {
+  it('clears result, error, timedOut and selection', async () => {
+    const messages = [{ topic: 'o', partition: 0, offset: '1', value: '{}' }];
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 1, messages, timedOut: true }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    act(() => { result.current.selectMessage(0); });
+    act(() => { result.current.clearConsumeResult(); });
+    expect(result.current.consumeResult).toBeNull();
+    expect(result.current.consumeTimedOut).toBe(false);
+    expect(result.current.consumeError).toBeNull();
+    expect(result.current.selectedMessageIndex).toBeNull();
+  });
+});
