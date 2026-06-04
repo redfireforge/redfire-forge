@@ -1807,11 +1807,15 @@ For each phase, manually verify the following. Record pass (✅) / fail (❌) in
 | 4 | Settings → Kafka → Add Cluster, brokers = `localhost:19092` (plaintext Docker), connect; return to Protocols → Kafka Studio | Two-panel layout renders (Publish + Consume side by side) | ✅ (confirmed screenshot: two columns side-by-side) |
 | 5 | Publish: leave Topic blank, click Send Once | Button disabled / inline error shown, no request fired | ✅ |
 | 6 | Publish: fill Topic `test-topic`, body `{"hello":"world","n":3}`, click Send Once | Success result shows partition + offset + timestamp | ✅ partition 0, offset 2, ts -1 (ts -1 = no broker timestamp = expected with Redpanda) |
+| 6a | Publish: add 2 headers (`x-source: redfire-forge`, `x-event-type: order.created`), key `order-abc-123`, body `{"orderId":"abc-123","amount":99.50,"status":"CREATED"}`, click Send Once | Banner shows "✓ Sent 1 message to test-topic — partition 0, offset 3, ts -1" | ✅ |
 | 7 | Publish: enter invalid JSON in body, click Validate & Format JSON | Error shown inline; body not modified | ✅ |
 | 8 | Publish: enter valid JSON, click Validate & Format JSON | Body pretty-printed in place | ✅ |
 | 9 | Consume: leave Topic blank, click Consume Once | Button disabled, no request fired | ✅ |
-| 10 | Consume: fill Topic `test-topic`, click Consume Once | Results table or empty state shown; no console errors | ✅ (3 rows returned from Earliest) |
-| 11 | Consume: click a result row | Detail pane opens below with full JSON + headers | ✅ |
+| 10 | Consume: fill Topic `test-topic`, Start Position = Earliest, click Consume Once | Results table shows 4 messages (offsets 0–3); badge shows "4 messages / timed out" | ✅ (4 rows; "timed out" = consumer reached end of partition = expected) |
+| 11 | Consume: click row 4 (key `order-abc-123`) | Detail pane opens with pretty-printed JSON body + HEADER KEY / HEADER VALUE table showing `x-source / redfire-forge` and `x-event-type / order.created` | ✅ headers round-tripped correctly |
+| 11a | Consume filter — Key Equals: enter `order-abc-123`, new consumer group, Consume Once from Earliest | Only 1 message returned (offset 3, key `order-abc-123`); 3 unkeyed messages filtered out | ✅ |
+| 11b | Consume filter — Header Match: enter `x-source=redfire-forge`, new consumer group, Consume Once from Earliest | Only 1 message returned (the one with that header) | ✅ |
+| 11c | Consume filter — JSONPath + JSONPath Equals: `$.status` / `CREATED`, new consumer group, Consume Once | Only 1 message returned (`status: CREATED`); the 3 messages without `status` field filtered out | ✅ |
 | 12 | Click `[Copy Payload]` | Clipboard contains selected message value | ✅ |
 | 13 | Click `[Export Result Set]` | JSON file downloads | ✅ |
 
@@ -1900,6 +1904,28 @@ Smoke test run against Redpanda `v24.1.18` (docker/kafka/plaintext/docker-compos
 - ✅ Row click: detail pane opens with pretty-printed payload
 - ✅ Copy Payload, Export Result Set, Clear all functional
 - ✅ `Format JSON` button pretty-prints valid JSON
+
+#### Phase 1 extended re-validation — headers and consume filters (2026-06-06)
+
+Re-validated against Redpanda `v24.1.18` (docker/kafka/plaintext). Full header round-trip and all 3 consume filter types verified live in the browser.
+
+**Publish with headers** (commit `c174989`):
+- Published message: topic `test-topic`, key `order-abc-123`, body `{"orderId":"abc-123","amount":99.50,"status":"CREATED"}`, headers `x-source: redfire-forge` + `x-event-type: order.created`
+- Result banner: "✓ Sent 1 message to test-topic — partition 0, offset 3, ts -1" ✅
+
+**Consume row detail — headers table**:
+- Consumed from Earliest → 4 rows returned; clicked row 4
+- Detail pane shows pretty-printed JSON body + HEADER KEY / HEADER VALUE table
+- `x-source → redfire-forge` and `x-event-type → order.created` both visible ✅ (headers round-tripped correctly through KafkaJS → Express → React)
+
+**Consume filters — all 3 types verified**:
+- Filter 1 (Key Equals `order-abc-123`, fresh group, Earliest): 1 message returned — offset 3 only. 3 unkeyed messages excluded. ✅
+- Filter 2 (Header Match `x-source=redfire-forge`, fresh group, Earliest): 1 message returned — the one with that header. ✅
+- Filter 3 (JSONPath `$.status` = `CREATED`, fresh group, Earliest): 1 message returned — `status: CREATED` message only. ✅
+
+**Notes**:
+- "timed out" badge on consume result is expected — consumer reaches partition end then waits for the configured timeout before returning. Not an error.
+- Consumer group offsets are committed after each consume; repeat consumes from the same group will not re-read old messages. Use a fresh consumer group name to re-test from Earliest.
 
 #### Test coverage
 
