@@ -5,13 +5,21 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   KAFKA_AUTO_CONNECT_ON_STARTUP_KEY,
   KAFKA_CLUSTERS_KEY,
+  KAFKA_CONSUME_TEMPLATES_KEY,
+  KAFKA_PUBLISH_TEMPLATES_KEY,
   KAFKA_SELECTED_CLUSTER_KEY,
   loadKafkaAutoConnectOnStartup,
   loadKafkaClusters,
+  loadKafkaConsumeTemplates,
+  loadKafkaPublishTemplates,
   loadSelectedKafkaClusterId,
   saveKafkaAutoConnectOnStartup,
   saveKafkaClusters,
+  saveKafkaConsumeTemplates,
+  saveKafkaPublishTemplates,
   saveSelectedKafkaClusterId,
+  type KafkaConsumeTemplate,
+  type KafkaPublishTemplate,
 } from './kafkaStorage';
 import type { KafkaClusterConfig } from './kafkaConfig';
 
@@ -197,5 +205,114 @@ describe('kafkaStorage – legacy selected-cluster migration (lines 120-121, 136
     const selected = await loadSelectedKafkaClusterId();
     expect(selected).toBeNull();
     expect(localStorage.getItem(LEGACY_SEL)).toBeNull();
+  });
+});
+
+// ── Template storage ───────────────────────────────────────────────────────
+
+const samplePublishTemplate: KafkaPublishTemplate = {
+  id: 'tpl-pub-1',
+  name: 'Place Order Event',
+  createdAt: '2026-06-05T10:00:00.000Z',
+  draft: {
+    topic: 'orders.created',
+    key: 'customer-123',
+    partition: '',
+    acks: -1,
+    timeoutMs: '5000',
+    headers: [{ id: 'h1', key: 'x-source', value: 'studio', enabled: true }],
+    body: '{"orderId":"abc"}',
+  },
+};
+
+const sampleConsumeTemplate: KafkaConsumeTemplate = {
+  id: 'tpl-con-1',
+  name: 'Watch Orders',
+  createdAt: '2026-06-05T10:00:00.000Z',
+  draft: {
+    topic: 'orders.created',
+    groupId: 'redfireforge-debug-stored',
+    startPosition: 'earliest',
+    timeoutMs: '5000',
+    maxMessages: '20',
+    keyEquals: '',
+    headerMatch: '',
+    jsonPath: '',
+    jsonPathEquals: '',
+  },
+};
+
+describe('kafkaStorage – publish templates', () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  it('returns empty array when no templates stored', async () => {
+    expect(await loadKafkaPublishTemplates()).toEqual([]);
+  });
+
+  it('saves and loads publish templates', async () => {
+    await saveKafkaPublishTemplates([samplePublishTemplate]);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe('tpl-pub-1');
+    expect(loaded[0].draft.topic).toBe('orders.created');
+  });
+
+  it('overwrites templates on re-save', async () => {
+    await saveKafkaPublishTemplates([samplePublishTemplate]);
+    const second: KafkaPublishTemplate = { ...samplePublishTemplate, id: 'tpl-pub-2', name: 'Second' };
+    await saveKafkaPublishTemplates([samplePublishTemplate, second]);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(2);
+  });
+
+  it('returns empty array for malformed stored JSON', async () => {
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, '{bad json}');
+    expect(await loadKafkaPublishTemplates()).toEqual([]);
+  });
+
+  it('returns empty array when stored JSON is an object (not array)', async () => {
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify({ id: 'x' }));
+    expect(await loadKafkaPublishTemplates()).toEqual([]);
+  });
+
+  it('saves empty array (clears all templates)', async () => {
+    await saveKafkaPublishTemplates([samplePublishTemplate]);
+    await saveKafkaPublishTemplates([]);
+    expect(await loadKafkaPublishTemplates()).toEqual([]);
+  });
+});
+
+describe('kafkaStorage – consume templates', () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  it('returns empty array when no templates stored', async () => {
+    expect(await loadKafkaConsumeTemplates()).toEqual([]);
+  });
+
+  it('saves and loads consume templates', async () => {
+    await saveKafkaConsumeTemplates([sampleConsumeTemplate]);
+    const loaded = await loadKafkaConsumeTemplates();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe('tpl-con-1');
+    expect(loaded[0].draft.topic).toBe('orders.created');
+  });
+
+  it('overwrites templates on re-save', async () => {
+    await saveKafkaConsumeTemplates([sampleConsumeTemplate]);
+    const second: KafkaConsumeTemplate = { ...sampleConsumeTemplate, id: 'tpl-con-2', name: 'Second' };
+    await saveKafkaConsumeTemplates([sampleConsumeTemplate, second]);
+    const loaded = await loadKafkaConsumeTemplates();
+    expect(loaded).toHaveLength(2);
+  });
+
+  it('returns empty array for malformed stored JSON', async () => {
+    localStorage.setItem(KAFKA_CONSUME_TEMPLATES_KEY, 'not-json');
+    expect(await loadKafkaConsumeTemplates()).toEqual([]);
+  });
+
+  it('saves empty array (clears all templates)', async () => {
+    await saveKafkaConsumeTemplates([sampleConsumeTemplate]);
+    await saveKafkaConsumeTemplates([]);
+    expect(await loadKafkaConsumeTemplates()).toEqual([]);
   });
 });
