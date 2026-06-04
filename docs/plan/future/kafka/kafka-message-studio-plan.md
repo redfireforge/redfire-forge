@@ -1827,6 +1827,8 @@ For each phase, manually verify the following. Record pass (✅) / fail (❌) in
 | 6 | Delete the template | It disappears from the dropdown | ✅ |
 | 7 | Consume: fill topic, save template | Template saved | ✅ |
 | 8 | Load consume template | Topic restored; Consumer Group ID NOT restored (stays as-is) | ✅ |
+| 9 | Consume: save same name again | Count stays 1 (upsert); updated topic value reflected | ✅ |
+| 10 | Consume: delete template | Removed from dropdown | ✅ |
 
 #### Phase 3 manual smoke tests
 
