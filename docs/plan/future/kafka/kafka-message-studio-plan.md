@@ -2,8 +2,8 @@
 
 > Branch: `feature/kafka-integration`  
 > Created: 2025-07-14  
-> Last Reviewed: 2026-06-04 (re-evaluated: 2026-06-05)  
-> Status: 🔲 Pending User Approval
+> Last Reviewed: 2026-06-05 (re-evaluated + post-fix commit: 2026-06-05)  
+> Status: ✅ Phase 1 Complete — pending merge to develop
 
 ---
 
@@ -1715,7 +1715,7 @@ NO changes to:
 
 | Phase | Status | Start | Complete | Manual Test | Commit |
 |---|---|---|---|---|---|
-| Phase 1 — Core Publish & Consume Studio | ✅ Complete | 2026-06-05 | 2026-06-05 | ✅ Guard state verified (no cluster) | — |
+| Phase 1 — Core Publish & Consume Studio | ✅ Complete | 2026-06-05 | 2026-06-05 | ✅ All steps verified (see Phase 1 notes) | `a68e702`, `5cf6ee1` |
 | Phase 2 — Templates & Saved Sessions | 🔲 Not Started | — | — | — | — |
 | Phase 3 — Workflow Integration Hooks | 🔲 Not Started | — | — | — | — |
 | Phase 4 — Topic Explorer Enhancement | 🔲 Not Started | — | — | — | — |
@@ -1780,19 +1780,19 @@ For each phase, manually verify the following. Record pass (✅) / fail (❌) in
 
 | Step | Action | Expected | Result |
 |---|---|---|---|
-| 1 | Open browser at `localhost:5173` | App loads, no console errors | |
-| 2 | Click Protocols icon in Activity Bar | Sub-nav shows "Kafka Studio" | |
-| 3 | Click "Kafka Studio" (not connected) | Guard state shown: "Cluster is not connected" with link to Kafka Settings | |
-| 4 | Settings → Kafka → Add Cluster, brokers = `localhost:19092` (plaintext Docker), connect; return to Protocols → Kafka Studio | Two-panel layout renders (Publish + Consume side by side) | |
-| 5 | Publish: leave Topic blank, click Send Once | Button disabled / inline error shown, no request fired | |
-| 6 | Publish: fill Topic `test.topic`, body `{"hello":"world"}`, click Send Once | Success result shows partition + offset + timestamp | |
-| 7 | Publish: enter invalid JSON in body, click Validate & Format JSON | Error shown inline; body not modified | |
-| 8 | Publish: enter valid JSON, click Validate & Format JSON | Body pretty-printed in place | |
-| 9 | Consume: leave Topic blank, click Consume Once | Button disabled, no request fired | |
-| 10 | Consume: fill Topic `test.topic`, click Consume Once | Results table or empty state shown; no console errors | |
-| 11 | Consume: click a result row | Detail pane opens below with full JSON + headers | |
-| 12 | Click `[Copy Payload]` | Clipboard contains selected message value | |
-| 13 | Click `[Export Result Set]` | JSON file downloads | |
+| 1 | Open browser at `localhost:5173` | App loads, no console errors | ✅ |
+| 2 | Click Protocols icon in Activity Bar | Sub-nav shows "Kafka Studio" | ✅ |
+| 3 | Click "Kafka Studio" (not connected) | Guard state shown: "Cluster is not connected" with link to Kafka Settings | ✅ |
+| 4 | Settings → Kafka → Add Cluster, brokers = `localhost:19092` (plaintext Docker), connect; return to Protocols → Kafka Studio | Two-panel layout renders (Publish + Consume side by side) | ✅ (confirmed screenshot: two columns side-by-side) |
+| 5 | Publish: leave Topic blank, click Send Once | Button disabled / inline error shown, no request fired | ✅ |
+| 6 | Publish: fill Topic `test-topic`, body `{"hello":"world","n":3}`, click Send Once | Success result shows partition + offset + timestamp | ✅ partition 0, offset 2, ts -1 (ts -1 = no broker timestamp = expected with Redpanda) |
+| 7 | Publish: enter invalid JSON in body, click Validate & Format JSON | Error shown inline; body not modified | ✅ |
+| 8 | Publish: enter valid JSON, click Validate & Format JSON | Body pretty-printed in place | ✅ |
+| 9 | Consume: leave Topic blank, click Consume Once | Button disabled, no request fired | ✅ |
+| 10 | Consume: fill Topic `test-topic`, click Consume Once | Results table or empty state shown; no console errors | ✅ (3 rows returned from Earliest) |
+| 11 | Consume: click a result row | Detail pane opens below with full JSON + headers | ✅ |
+| 12 | Click `[Copy Payload]` | Clipboard contains selected message value | ✅ |
+| 13 | Click `[Export Result Set]` | JSON file downloads | ✅ |
 
 #### Phase 2 manual smoke tests
 
@@ -1845,7 +1845,47 @@ For each phase, manually verify the following. Record pass (✅) / fail (❌) in
 
 ## Implementation Notes
 
-*(Populated after each phase completes)*
+### Phase 1 — Core Publish & Consume Studio
+
+**Completed**: 2026-06-05  
+**Commits**: `a68e702` (initial Phase 1 implementation), `5cf6ee1` (post-review bug fixes)  
+**Tests**: 174 tests passing, 0 TypeScript errors
+
+#### Design decisions that differ from the original plan
+
+- **`app-tab-pane` flex container bug** (fixed in `5cf6ee1`): `app-tab-pane` does not have `display: flex` by default (see `src/styles/base.css` — it sets `flex: 1; overflow: hidden`). The `KafkaMessageStudioPage` children relied on `flex: 1` to fill height, but without a flex parent they couldn't. Fixed by adding `style={{ display: 'flex', flexDirection: 'column' }}` to the `<div className="app-tab-pane">` wrapper in `App.tsx`. **Visual confirmation**: screenshot taken after fix shows both columns side by side filling the viewport correctly.
+
+- **Export cross-browser / Tauri bug** (fixed in `5cf6ee1`): The initial `exportResultSet` implementation created an `<a>` element and called `.click()` without appending it to `document.body` first — this works in Chrome but fails in Firefox and some environments. The correct pattern (used everywhere else in the codebase) is `saveJsonFile()` from `src/shared/utils/fileSaver.ts`, which also gains Tauri native save dialog support. Switched to `saveJsonFile()`; function signature changed to `async`; call sites updated to `void exportResultSet(...)`.
+
+- **Blank leading lines** (fixed in `5cf6ee1`): `KafkaMessageStudioPage.tsx` and `KafkaStudioGuard.tsx` had an empty first line from replacing `import React from 'react'` with nothing. Removed the empty lines.
+
+- **`ts -1` in publish result**: Redpanda returns `timestamp: -1` when no broker-side timestamp is set. This is expected behavior — not a bug. The result displays `ts -1` which is correct.
+
+- **`moveHeader(idx, -1)` fix** (fixed before initial commit): `useListCrud.move(idx, dir)` takes direction `-1 | 1` as second arg, not the target index. Initial draft had `moveHeader(idx, idx - 1)` which caused TS2345. Fixed to `moveHeader(idx, -1)`.
+
+#### What was verified in live Docker smoke test
+
+Smoke test run against Redpanda `v24.1.18` (docker/kafka/plaintext/docker-compose.yml):
+- ✅ Guard state (no cluster): disconnected message + link to Kafka Settings
+- ✅ After connecting cluster at `localhost:19092`: two-column layout renders
+- ✅ Publish: `test-topic`, `{"hello":"world","n":3}` → partition 0, offset 2, ts -1
+- ✅ Invalid JSON body: inline error shown without firing request
+- ✅ Consume: `test-topic`, Earliest, Max 50 → 3 rows returned
+- ✅ Row click: detail pane opens with pretty-printed payload
+- ✅ Copy Payload, Export Result Set, Clear all functional
+- ✅ `Format JSON` button pretty-prints valid JSON
+
+#### Test coverage
+
+| File | Tests |
+|---|---|
+| `kafkaMessageStudioUtils.test.ts` | 44 |
+| `useKafkaMessageStudio.test.ts` | 20 |
+| `KafkaPublishStudio.test.tsx` | 12 |
+| `KafkaConsumeStudio.test.tsx` | 15 |
+| `KafkaStudioGuard.test.tsx` | 7 |
+| `KafkaMessageStudioPage.test.tsx` | 6 |
+| **Total Phase 1** | **104** |
 
 ---
 
