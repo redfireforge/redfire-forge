@@ -311,44 +311,43 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
           {/* ── LEFT: Cluster panel ── */}
           <section className="kafka-shell-card kafka-cluster-panel" aria-live="polite">
             <div className="kafka-shell-card-header">
-              <div>
+              <div className="kafka-shell-card-title-row">
                 <h3>Clusters</h3>
-                <small className="kafka-section-subtitle">Multiple saved profiles · fast switch · live health</small>
-              </div>
-              <div className="kafka-cluster-header-actions">
                 <span className={`kafka-status-badge state-${connection.state}`}>{connection.state}</span>
-                {loaded && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => void handleExport()}
-                      disabled={clusters.length === 0}
-                      title="Export all cluster configs to a JSON file"
-                      data-testid="kafka-export-btn"
-                    >
-                      ↓ Export
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => importInputRef.current?.click()}
-                      title="Import cluster configs from a JSON file"
-                      data-testid="kafka-import-btn"
-                    >
-                      ↑ Import
-                    </button>
-                    <input
-                      ref={importInputRef}
-                      type="file"
-                      accept=".json"
-                      style={{ display: 'none' }}
-                      onChange={handleImportChange}
-                      aria-hidden="true"
-                    />
-                  </>
-                )}
-                {loaded && clusters.length > 0 && (
+              </div>
+              <small className="kafka-section-subtitle">Saved profiles · fast switch · live health</small>
+            </div>
+
+            {loaded && (
+              <div className="kafka-cluster-toolbar" data-testid="kafka-cluster-toolbar">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => void handleExport()}
+                  disabled={clusters.length === 0}
+                  title="Export all cluster configs to a JSON file"
+                  data-testid="kafka-export-btn"
+                >
+                  ↓ Export
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => importInputRef.current?.click()}
+                  title="Import cluster configs from a JSON file"
+                  data-testid="kafka-import-btn"
+                >
+                  ↑ Import
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json"
+                  style={{ display: 'none' }}
+                  onChange={handleImportChange}
+                  aria-hidden="true"
+                />
+                {clusters.length > 0 && (
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
@@ -359,7 +358,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                   </button>
                 )}
               </div>
-            </div>
+            )}
 
             {/* Import feedback */}
             {importFeedback && (
@@ -473,67 +472,69 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
               />
             )}
 
-            {/* Connection summary */}
-            <p className="kafka-shell-summary">{connectionSummary}</p>
+            {/* Connection controls — only shown when clusters exist */}
+            {loaded && clusters.length > 0 && (
+              <>
+                <p className="kafka-shell-summary">{connectionSummary}</p>
 
-            {/* Connection actions */}
-            <div className="kafka-shell-actions">
-              <button
-                type="button"
-                className="btn btn-sm kafka-btn-soft-blue"
-                onClick={() => void testSelectedClusterConnection()}
-                disabled={!canRunConnectionAction || connection.state === 'testing'}
-              >
-                Test Connection
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => void connectSelectedCluster()}
-                disabled={!canRunConnectionAction || connection.state === 'testing' || (connection.state === 'connected' && connection.clusterId === selectedClusterId)}
-              >
-                Connect
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => void disconnectActiveCluster()}
-                disabled={!canDisconnect}
-              >
-                Disconnect
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => void refreshConnectionStatus({ force: true })}
-                disabled={!loaded || !selectedClusterId}
-              >
-                Refresh Status
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={clearError}
-                disabled={!lastError}
-              >
-                Clear Error
-              </button>
-            </div>
+                <div className="kafka-shell-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm kafka-btn-soft-blue"
+                    onClick={() => void testSelectedClusterConnection()}
+                    disabled={!canRunConnectionAction || connection.state === 'testing'}
+                  >
+                    Test Connection
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => void connectSelectedCluster()}
+                    disabled={!canRunConnectionAction || connection.state === 'testing' || (connection.state === 'connected' && connection.clusterId === selectedClusterId)}
+                  >
+                    Connect
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => void disconnectActiveCluster()}
+                    disabled={!canDisconnect}
+                  >
+                    Disconnect
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => void refreshConnectionStatus({ force: true })}
+                    disabled={!loaded || !selectedClusterId}
+                  >
+                    Refresh Status
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={clearError}
+                    disabled={!lastError}
+                  >
+                    Clear Error
+                  </button>
+                </div>
 
-            {/* Auto-connect preference */}
-            <div className="kafka-shell-preferences">
-              <label className="kafka-editor-checkbox" data-testid="kafka-auto-connect-toggle">
-                <input
-                  type="checkbox"
-                  checked={autoConnectOnStartup}
-                  onChange={(event) => setAutoConnectOnStartup(event.target.checked)}
-                />
-                Auto-connect the selected cluster on startup
-              </label>
-              <span className="kafka-shell-preferences-note">
-                Restores the saved cluster selection and attempts a connection once when Kafka settings load.
-              </span>
-            </div>
+                <div className="kafka-shell-preferences">
+                  <label className="kafka-editor-checkbox" data-testid="kafka-auto-connect-toggle">
+                    <input
+                      type="checkbox"
+                      checked={autoConnectOnStartup}
+                      onChange={(event) => setAutoConnectOnStartup(event.target.checked)}
+                    />
+                    Auto-connect the selected cluster on startup
+                  </label>
+                  <span className="kafka-shell-preferences-note">
+                    Restores the saved cluster selection and attempts a connection once when Kafka settings load.
+                  </span>
+                </div>
+              </>
+            )}
           </section>
 
           {/* ── RIGHT: Editor panel ── */}
@@ -542,7 +543,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
               <p className="settings-section-desc">Loading cluster configuration...</p>
             ) : (
               <>
-                <div className="kafka-shell-card-header">
+                <div className="kafka-shell-card-header kafka-editor-header">
                   <div>
                     <h3>{editorMode === 'edit' ? 'Edit Cluster' : 'Create Cluster'}</h3>
                     {editorMode && (

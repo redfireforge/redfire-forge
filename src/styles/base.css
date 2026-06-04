@@ -500,35 +500,35 @@
 
 /* ─── Activity Bar ─────────────────────────────── */
 .activity-bar {
-  width: 48px; flex-shrink: 0;
+  width: 64px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center;
-  padding-top: 8px; gap: 4px;
+  padding-top: 8px; gap: 2px;
   background: var(--bg); border-right: 1px solid var(--border);
 }
 .ab-btn {
-  width: 40px; height: 40px;
-  display: flex; align-items: center; justify-content: center;
+  width: 56px; min-height: 52px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
   border: none; background: transparent;
   color: var(--text-muted); font-size: 18px;
   cursor: pointer; border-radius: 8px;
   border-left: 2px solid transparent;
-  transition: all 0.15s; position: relative;
+  transition: all 0.15s;
+  padding: 6px 4px;
 }
 .ab-btn:hover { background: var(--surface-hover); color: var(--text); }
 .ab-btn.active {
-  color: var(--text); background: var(--surface-hover);
+  color: var(--primary); background: var(--surface-hover);
   border-left-color: var(--primary);
 }
 .ab-icon { font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; }
-.ab-icon-svg { width: 20px; height: 20px; }
+.ab-icon-svg { width: 18px; height: 18px; }
 .ab-label {
-  display: none; position: absolute; left: 50px; top: 50%; transform: translateY(-50%);
-  background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600;
-  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
-  white-space: nowrap; z-index: 100; pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  font-size: 9px; font-weight: 600; letter-spacing: 0.3px;
+  color: inherit; text-align: center;
+  white-space: nowrap; line-height: 1;
+  user-select: none;
 }
-.ab-btn:hover .ab-label { display: block; }
 .ab-spacer { flex: 1; }
 
 /* ─── Sidebar toggle row (Requests / Catalog) ── */

@@ -315,12 +315,24 @@
 
 .kafka-shell-card-header {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.kafka-shell-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kafka-editor-header {
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .kafka-shell-card h3 {
@@ -330,11 +342,16 @@
   letter-spacing: 0.01em;
 }
 
-.kafka-cluster-header-actions {
+.kafka-cluster-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.kafka-cluster-toolbar .btn {
+  white-space: nowrap;
 }
 
 .kafka-import-feedback {
@@ -956,6 +973,9 @@
   font-weight: 400;
   margin-top: 3px;
   letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kafka-empty-state {
