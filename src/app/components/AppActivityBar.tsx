@@ -66,9 +66,9 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
       >
         <span className="ab-icon">
           <ActivityBarIcon>
-            <path d="M6 9l6 6 6-6" />
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-            <path d="M9 14h6" />
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+            <rect x="9" y="3" width="6" height="4" rx="1" />
+            <path d="M9 12l2 2 4-4" />
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Harness</span>
@@ -95,7 +95,11 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
       >
         <span className="ab-icon">
           <ActivityBarIcon>
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.22 2 2 0 012.1 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+            <path d="M5 12h14" />
+            <path d="M5 8h14" />
+            <path d="M5 16h14" />
+            <path d="M17 6l4 2-4 2" />
+            <path d="M17 14l4 2-4 2" />
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Protocols</span>
