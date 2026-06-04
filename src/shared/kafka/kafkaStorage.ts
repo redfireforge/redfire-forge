@@ -173,13 +173,24 @@ export interface KafkaConsumeTemplate {
   draft: KafkaConsumeDraft;
 }
 
+function isValidTemplateEntry(entry: unknown): boolean {
+  return (
+    typeof entry === 'object'
+    && entry !== null
+    && typeof (entry as Record<string, unknown>).id === 'string'
+    && typeof (entry as Record<string, unknown>).name === 'string'
+    && typeof (entry as Record<string, unknown>).draft === 'object'
+    && (entry as Record<string, unknown>).draft !== null
+  );
+}
+
 function parseTemplates<T>(raw: string): T[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed as T[];
+    return parsed.filter(isValidTemplateEntry) as T[];
   } catch {
     return [];
   }

@@ -70,13 +70,24 @@ export function useKafkaTemplates(): UseKafkaTemplatesReturn {
     async (name: string, draft: KafkaPublishDraft) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      const entry: KafkaPublishTemplate = {
-        id: uuid(),
-        name: trimmed,
-        createdAt: new Date().toISOString(),
-        draft,
-      };
-      const next = [...publishTemplates, entry];
+      const existingIdx = publishTemplates.findIndex(
+        (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
+      );
+      let next: KafkaPublishTemplate[];
+      if (existingIdx !== -1) {
+        // Update existing entry with same name (preserve id and createdAt)
+        next = publishTemplates.map((t, i) =>
+          i === existingIdx ? { ...t, draft } : t,
+        );
+      } else {
+        const entry: KafkaPublishTemplate = {
+          id: uuid(),
+          name: trimmed,
+          createdAt: new Date().toISOString(),
+          draft,
+        };
+        next = [...publishTemplates, entry];
+      }
       try {
         setTemplateError(null);
         await saveKafkaPublishTemplates(next);
@@ -118,13 +129,24 @@ export function useKafkaTemplates(): UseKafkaTemplatesReturn {
     async (name: string, draft: KafkaConsumeDraft) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      const entry: KafkaConsumeTemplate = {
-        id: uuid(),
-        name: trimmed,
-        createdAt: new Date().toISOString(),
-        draft,
-      };
-      const next = [...consumeTemplates, entry];
+      const existingIdx = consumeTemplates.findIndex(
+        (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
+      );
+      let next: KafkaConsumeTemplate[];
+      if (existingIdx !== -1) {
+        // Update existing entry with same name (preserve id and createdAt)
+        next = consumeTemplates.map((t, i) =>
+          i === existingIdx ? { ...t, draft } : t,
+        );
+      } else {
+        const entry: KafkaConsumeTemplate = {
+          id: uuid(),
+          name: trimmed,
+          createdAt: new Date().toISOString(),
+          draft,
+        };
+        next = [...consumeTemplates, entry];
+      }
       try {
         setTemplateError(null);
         await saveKafkaConsumeTemplates(next);

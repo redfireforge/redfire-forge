@@ -703,6 +703,12 @@ Template controls are added to the card header of each panel — no new pages or
 
 **Test count**: 19 new tests in `useKafkaTemplates.test.ts` + 11 new tests in `kafkaStorage.test.ts` = 453 total unit tests passing.
 
+**Duplicate name guard (review-added)**: `savePublishTemplate` and `saveConsumeTemplate` now do a case-insensitive name lookup before inserting. If a template with the same name already exists, its `draft` is updated in-place (id and createdAt preserved). This prevents accumulating duplicate entries on repeated save-with-same-name.
+
+**`parseTemplates` validation (review-added)**: Added `isValidTemplateEntry(entry)` guard in `kafkaStorage.ts` that checks `id`/`name`/`draft` are present and correctly typed before returning from storage. Corrupt/partial entries are silently filtered out.
+
+**Backend hang root cause (Docker validation)**: During E2E testing, the backend server appeared to hang on all `/api/kafka/*` routes. Root cause: a previous server process (PID 57838) was stuck with an open KafkaJS TCP socket that never resolved. The issue was operational (stale process), not a code bug. Fixed by `lsof -ti:3001 | xargs kill -9` + restart. No polling or route changes were needed — the exponential backoff in `useKafkaState.ts` (4s base, 30s max) worked correctly once the server was clean.
+
 ---
 
 ## Phase 3 — Workflow Integration Hooks
@@ -1731,7 +1737,7 @@ NO changes to:
 | Phase | Status | Start | Complete | Manual Test | Commit |
 |---|---|---|---|---|---|
 | Phase 1 — Core Publish & Consume Studio | ✅ Complete | 2026-06-05 | 2026-06-05 | ✅ All steps verified (see Phase 1 notes) | `a68e702`, `5cf6ee1` |
-| Phase 2 — Templates & Saved Sessions | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Unit + TypeScript verified; live UI blocked by pre-existing backend/Kafka connection hang (not Phase 2 scope) | — |
+| Phase 2 — Templates & Saved Sessions | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Unit + TypeScript + Docker E2E verified (Redpanda plaintext); save/load/delete/duplicate-upsert/groupId-exclusion all confirmed | — |
 | Phase 3 — Workflow Integration Hooks | 🔲 Not Started | — | — | — | — |
 | Phase 4 — Topic Explorer Enhancement | 🔲 Not Started | — | — | — | — |
 | Phase 5 — Schema Registry Browser | 🔲 Not Started | — | — | — | — |
@@ -1811,13 +1817,16 @@ For each phase, manually verify the following. Record pass (✅) / fail (❌) in
 
 #### Phase 2 manual smoke tests
 
-| Step | Action | Expected |
-|---|---|---|
-| 1 | Publish: fill form, click Save Template, enter name | Template saved; dropdown shows name |
-| 2 | Reload page, open Load Template dropdown | Saved template still present |
-| 3 | Load the template | Form pre-fills with saved values |
-| 4 | Delete the template | It disappears from the dropdown |
-| 5 | Repeat steps 1–4 for Consume panel | Same behavior |
+| Step | Action | Expected | Result |
+|---|---|---|---|
+| 1 | Publish: fill form, click Save Template, enter name | Template saved; dropdown shows name | ✅ |
+| 2 | Reload page, open Load Template dropdown | Saved template still present | ✅ |
+| 3 | Load the template | Form pre-fills with saved values (topic + key + body) | ✅ |
+| 4 | Save again with same name | Only 1 entry in dropdown (upsert, not duplicate) | ✅ |
+| 5 | Load again after upsert | Updated body is restored | ✅ |
+| 6 | Delete the template | It disappears from the dropdown | ✅ |
+| 7 | Consume: fill topic, save template | Template saved | ✅ |
+| 8 | Load consume template | Topic restored; Consumer Group ID NOT restored (stays as-is) | ✅ |
 
 #### Phase 3 manual smoke tests
 

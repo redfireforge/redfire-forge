@@ -93,7 +93,7 @@ describe('KafkaSettingsPage', () => {
     renderPage(makeState({ loaded: false }));
 
     expect(screen.getByTestId('kafka-settings-loading')).toBeTruthy();
-    expect(screen.getByText('Loading Kafka workspace state...')).toBeTruthy();
+    expect(screen.getByText('Reading saved Kafka clusters and connection status.')).toBeTruthy();
   });
 
   it('renders error shell when loading completed with error and no clusters', () => {
