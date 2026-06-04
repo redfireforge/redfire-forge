@@ -3,6 +3,7 @@
  * No React imports — all functions are unit-testable in isolation.
  */
 
+import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow, KafkaHeaderRow, KafkaPublishDraft } from './types';
 
 // ── JSON helpers ───────────────────────────────────────────────────────────
@@ -143,17 +144,11 @@ export function buildConsumeRequest(
 
 // ── Export helper ──────────────────────────────────────────────────────────
 
-/** Trigger a browser JSON file download for the result set. */
-export function exportResultSet(rows: KafkaConsumeResultRow[], topic: string): void {
-  const payload = JSON.stringify(rows, null, 2);
-  const blob = new Blob([payload], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+/** Trigger a file download for the result set (uses shared saveJsonFile — supports browser + Tauri). */
+export async function exportResultSet(rows: KafkaConsumeResultRow[], topic: string): Promise<void> {
   const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-  a.href = url;
-  a.download = `kafka-consume-${topic || 'result'}-${date}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const filename = `kafka-consume-${topic || 'result'}-${date}.json`;
+  await saveJsonFile(rows, filename);
 }
 
 // ── Preview helper ─────────────────────────────────────────────────────────

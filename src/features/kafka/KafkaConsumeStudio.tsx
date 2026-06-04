@@ -25,7 +25,7 @@ export function KafkaConsumeStudio({ studio }: KafkaConsumeStudioProps) {
 
   const handleExport = useCallback(() => {
     if (consumeResult) {
-      exportResultSet(consumeResult, consumeDraft.topic);
+      void exportResultSet(consumeResult, consumeDraft.topic);
     }
   }, [consumeResult, consumeDraft.topic]);
 

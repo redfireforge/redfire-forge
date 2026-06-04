@@ -1,4 +1,3 @@
-
 import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
 
 interface KafkaStudioGuardProps {

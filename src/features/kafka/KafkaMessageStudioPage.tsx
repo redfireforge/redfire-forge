@@ -1,4 +1,3 @@
-
 import { useKafkaMessageStudio } from '../../app/hooks/useKafkaMessageStudio';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
