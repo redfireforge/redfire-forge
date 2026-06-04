@@ -379,4 +379,85 @@ describe('KafkaSchemaRegistryPage', () => {
     // Empty schemaType + non-JSON content → content-sniffing fallback detects protobuf
     expect(screen.getByTestId('detail-format-badge').textContent).toBe('Protobuf');
   });
+
+  it('shows loading state when kafkaState.loaded is false', () => {
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState({ loaded: false })}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+    expect(screen.getByText('Loading Kafka settings…')).toBeTruthy();
+  });
+
+  it('shows subjects error banner when subjects fetch fails', async () => {
+    mockDispatch.mockRejectedValueOnce(new Error('Connection refused'));
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('registry-url-input'), {
+      target: { value: 'http://localhost:8085' },
+    });
+    fireEvent.click(screen.getByTestId('registry-connect-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('subjects-error').textContent).toContain('Connection refused');
+    });
+  });
+
+  it('updates auth username when typed', async () => {
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+    const userInput = screen.getByTestId('registry-auth-user');
+    fireEvent.change(userInput, { target: { value: 'admin' } });
+    expect((userInput as HTMLInputElement).value).toBe('admin');
+  });
+
+  it('updates auth password when typed', async () => {
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+    const passInput = screen.getByTestId('registry-auth-pass');
+    fireEvent.change(passInput, { target: { value: 'secret' } });
+    expect((passInput as HTMLInputElement).value).toBe('secret');
+  });
+
+  it('prettyPrintSchema returns raw string when JSON parse throws', async () => {
+    // Trigger prettyPrintSchema with a bad JSON Avro-like schema
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['bad-json'] } })
+      .mockResolvedValueOnce({ data: { subject: 'bad-json', versions: [1] } })
+      .mockResolvedValueOnce({
+        data: { subject: 'bad-json', version: 1, id: 1, schema: 'not-valid-json}', schemaType: 'AVRO' },
+      });
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    await connectAndLoad(mockDispatch);
+    await waitFor(() => { expect(screen.getByText('bad-json')).toBeTruthy(); });
+    await selectSubjectAndWaitForSchema('bad-json');
+    // Raw schema returned as-is when JSON.parse fails
+    expect(screen.getByTestId('schema-content').textContent).toContain('not-valid-json}');
+  });
 });

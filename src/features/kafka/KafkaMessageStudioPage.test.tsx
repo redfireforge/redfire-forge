@@ -2,10 +2,19 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KafkaMessageStudioPage } from './KafkaMessageStudioPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+
+vi.mock('./KafkaTopicExplorerPage', () => ({
+  KafkaTopicExplorerContent: () => <div data-testid="topic-explorer-page">Topic Explorer Content</div>,
+  KafkaTopicExplorerPage: () => <div>Topic Explorer Page</div>,
+}));
+vi.mock('./KafkaSchemaRegistryPage', () => ({
+  KafkaSchemaRegistryContent: () => <div data-testid="schema-registry-page">Schema Registry Content</div>,
+  KafkaSchemaRegistryPage: () => <div>Schema Registry Page</div>,
+}));
 
 function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {
   return {
@@ -93,30 +102,30 @@ describe('KafkaMessageStudioPage', () => {
     expect(screen.getByText('Connecting to cluster…')).toBeTruthy();
   });
 
-  it('shows tab bar with Publish Studio and Consume Studio tabs when connected', () => {
+  it('shows tab bar with all four tabs when connected', () => {
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState()}
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Publish Studio' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Consume Studio' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Consume' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Topics' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Schema Registry' })).toBeTruthy();
   });
 
-  it('defaults to Publish Studio tab and shows publish panel', () => {
+  it('defaults to Publish tab and shows publish panel', () => {
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState()}
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
-    // Publish Studio tab is active by default → KafkaPublishStudio is rendered
-    expect(screen.getByRole('button', { name: 'Publish Studio' }).className).toContain('active');
-    expect(screen.getByText('Publish')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Publish' }).className).toContain('active');
   });
 
-  it('switches to Consume Studio when tab is clicked', async () => {
+  it('switches to Consume when tab is clicked', async () => {
     const user = userEvent.setup();
     render(
       <KafkaMessageStudioPage
@@ -124,9 +133,34 @@ describe('KafkaMessageStudioPage', () => {
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Consume Studio' }));
-    expect(screen.getByRole('button', { name: 'Consume Studio' }).className).toContain('active');
-    expect(screen.getByText('Consume')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Consume' }));
+    expect(screen.getByRole('button', { name: 'Consume' }).className).toContain('active');
+  });
+
+  it('switches to Topics tab and renders topic explorer content', async () => {
+    const user = userEvent.setup();
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Topics' }));
+    expect(screen.getByRole('button', { name: 'Topics' }).className).toContain('active');
+    expect(screen.getByTestId('topic-explorer-page')).toBeTruthy();
+  });
+
+  it('switches to Schema Registry tab and renders schema content', async () => {
+    const user = userEvent.setup();
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Schema Registry' }));
+    expect(screen.getByRole('button', { name: 'Schema Registry' }).className).toContain('active');
+    expect(screen.getByTestId('schema-registry-page')).toBeTruthy();
   });
 
   it('passes onNavigateToKafkaSettings to guard', () => {
@@ -164,6 +198,115 @@ describe('KafkaMessageStudioPage', () => {
       />,
     );
     expect(screen.getByTestId('template-error').textContent).toContain('QuotaExceededError');
+    spy.mockRestore();
+  });
+
+  it('handleSavePublishTemplate calls savePublishTemplate on templates', async () => {
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const savePublish = vi.fn().mockResolvedValue(undefined);
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [],
+      consumeTemplates: [],
+      templatesLoading: false,
+      templateError: null,
+      savePublishTemplate: savePublish,
+      loadPublishTemplate: vi.fn().mockReturnValue(null),
+      deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      loadConsumeTemplate: vi.fn().mockReturnValue(null),
+      deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    // Open publish template save input and type a name
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'Integration Preset' } });
+    fireEvent.click(screen.getByText('✓'));
+    await waitFor(() => expect(savePublish).toHaveBeenCalledWith('Integration Preset', expect.any(Object)));
+    spy.mockRestore();
+  });
+
+  it('handleLoadPublishTemplate applies loaded draft to studio', async () => {
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const loadPublish = vi.fn().mockReturnValue({
+      topic: 'loaded-topic', key: '', partition: '', acks: -1, timeoutMs: '', headers: [], body: '{}',
+    });
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [{ id: 'p1', name: 'Preset A', createdAt: '2026-01-01', draft: {
+        topic: 'loaded-topic', key: '', partition: '', acks: -1 as const, timeoutMs: '', headers: [], body: '{}',
+      } }],
+      consumeTemplates: [],
+      templatesLoading: false,
+      templateError: null,
+      savePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      loadPublishTemplate: loadPublish,
+      deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      loadConsumeTemplate: vi.fn().mockReturnValue(null),
+      deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    fireEvent.click(screen.getByText('Preset A'));
+    await waitFor(() => expect(loadPublish).toHaveBeenCalledWith('p1'));
+    spy.mockRestore();
+  });
+
+  it('handleSaveConsumeTemplate calls saveConsumeTemplate on templates', async () => {
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const saveConsume = vi.fn().mockResolvedValue(undefined);
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [],
+      consumeTemplates: [],
+      templatesLoading: false,
+      templateError: null,
+      savePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      loadPublishTemplate: vi.fn().mockReturnValue(null),
+      deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      saveConsumeTemplate: saveConsume,
+      loadConsumeTemplate: vi.fn().mockReturnValue(null),
+      deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const user = userEvent.setup();
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Consume' }));
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'Consume Preset' } });
+    fireEvent.click(screen.getByText('✓'));
+    await waitFor(() => expect(saveConsume).toHaveBeenCalledWith('Consume Preset', expect.any(Object)));
+    spy.mockRestore();
+  });
+
+  it('handleLoadConsumeTemplate applies loaded draft to studio', async () => {
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const loadConsume = vi.fn().mockReturnValue({
+      topic: 'events.v2', groupId: 'my-group', startPosition: 'earliest' as const,
+      timeoutMs: '5000', maxMessages: '10', keyEquals: '', headerMatch: '', jsonPath: '', jsonPathEquals: '',
+    });
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [],
+      consumeTemplates: [{ id: 'c1', name: 'Consume A', createdAt: '2026-01-01', draft: {
+        topic: 'events.v2', groupId: 'my-group', startPosition: 'earliest' as const,
+        timeoutMs: '5000', maxMessages: '10', keyEquals: '', headerMatch: '', jsonPath: '', jsonPathEquals: '',
+      } }],
+      templatesLoading: false,
+      templateError: null,
+      savePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      loadPublishTemplate: vi.fn().mockReturnValue(null),
+      deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      loadConsumeTemplate: loadConsume,
+      deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const user = userEvent.setup();
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Consume' }));
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    fireEvent.click(screen.getByText('Consume A'));
+    await waitFor(() => expect(loadConsume).toHaveBeenCalledWith('c1'));
     spy.mockRestore();
   });
 });

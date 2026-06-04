@@ -1,12 +1,18 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+vi.mock('./kafkaMessageStudioUtils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./kafkaMessageStudioUtils')>();
+  return { ...actual, exportResultSet: vi.fn().mockResolvedValue(undefined) };
+});
 import { KafkaConsumeStudio } from './KafkaConsumeStudio';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from './types';
+import { exportResultSet } from './kafkaMessageStudioUtils';
 
 function baseConsumeDraft(): KafkaConsumeDraft {
   return {
@@ -420,5 +426,245 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
     fireEvent.click(screen.getByTestId('con-mode-stream'));
     fireEvent.click(screen.getByTestId('con-workflow-input-btn'));
     expect(handler).toHaveBeenCalledWith('{"seq":1}', { topic: 'orders.events', partition: 0, offset: '100' });
+  });
+});
+
+// ─────────────────────── Template Save / Delete ───────────────────────
+
+describe('KafkaConsumeStudio — Template Save', () => {
+  it('opens save input when Save button clicked', () => {
+    renderConsume();
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+  });
+
+  it('confirm button disabled when save name is empty', () => {
+    renderConsume();
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    expect((screen.getByText('✓') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('updates save name when typing in save input', () => {
+    renderConsume();
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    const input = screen.getByPlaceholderText('Template name');
+    fireEvent.change(input, { target: { value: 'My Preset' } });
+    expect((input as HTMLInputElement).value).toBe('My Preset');
+  });
+
+  it('calls onSaveConsumeTemplate when confirm button clicked', async () => {
+    const tplProps = defaultTemplateProps();
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Preset' } });
+    fireEvent.click(screen.getByText('✓'));
+    await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
+  });
+
+  it('calls onSaveConsumeTemplate when Enter pressed in save input', async () => {
+    const tplProps = defaultTemplateProps();
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    const input = screen.getByPlaceholderText('Template name');
+    fireEvent.change(input, { target: { value: 'My Preset' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
+  });
+
+  it('closes save input on Escape key', () => {
+    renderConsume();
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    const input = screen.getByPlaceholderText('Template name');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+  });
+
+  it('cancel button closes save input', () => {
+    renderConsume();
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.click(screen.getByText('✕'));
+    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+  });
+
+  it('calls onDeleteConsumeTemplate when delete button clicked on template item', async () => {
+    const tplProps = defaultTemplateProps();
+    tplProps.consumeTemplates = [
+      { id: 'tpl-1', name: 'My Preset', createdAt: '2026-01-01', draft: baseConsumeDraft() },
+    ];
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    fireEvent.click(screen.getByTitle('Delete template'));
+    await waitFor(() => expect(tplProps.onDeleteConsumeTemplate).toHaveBeenCalledWith('tpl-1'));
+  });
+});
+
+// ─────────────────────── Export ───────────────────────
+
+describe('KafkaConsumeStudio — Export', () => {
+  beforeEach(() => {
+    vi.mocked(exportResultSet).mockClear();
+  });
+
+  it('calls exportResultSet when Export Result Set clicked', async () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    fireEvent.click(screen.getByTestId('con-export-btn'));
+    await waitFor(() => expect(exportResultSet).toHaveBeenCalledWith(SAMPLE_MESSAGES, 'orders.events'));
+  });
+
+  it('export button disabled when consumeResult is empty array', () => {
+    renderConsume({ studio: { consumeResult: [], consumeMessageCount: 0 } });
+    expect((screen.getByTestId('con-export-btn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('calls exportResultSet when Export Stream clicked', async () => {
+    const sm = makeStreamMode({ streamMessages: STREAM_MESSAGES });
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={sm} {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    fireEvent.click(screen.getByTestId('stream-export-btn'));
+    await waitFor(() => expect(exportResultSet).toHaveBeenCalledWith(STREAM_MESSAGES, 'orders.events'));
+  });
+});
+
+// ─────────────────────── Form Fields ───────────────────────
+
+describe('KafkaConsumeStudio — Form Fields', () => {
+  it('calls setConsumeDraft when consumer group changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Consumer Group'), { target: { value: 'my-group' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ groupId: 'my-group' });
+  });
+
+  it('calls setConsumeDraft when start position changes to earliest', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Start Position'), { target: { value: 'earliest' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ startPosition: 'earliest' });
+  });
+
+  it('calls setConsumeDraft when timeout changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Timeout (ms)'), { target: { value: '5000' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ timeoutMs: '5000' });
+  });
+
+  it('calls setConsumeDraft when max messages changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Max Messages'), { target: { value: '100' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ maxMessages: '100' });
+  });
+
+  it('calls setConsumeDraft when Key Equals filter changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Key Equals'), { target: { value: 'order-1' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ keyEquals: 'order-1' });
+  });
+
+  it('calls setConsumeDraft when Header Match filter changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Header Match'), { target: { value: 'env=prod' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ headerMatch: 'env=prod' });
+  });
+
+  it('calls setConsumeDraft when JSONPath filter changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('JSONPath'), { target: { value: '$.status' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPath: '$.status' });
+  });
+
+  it('calls setConsumeDraft when JSONPath Equals filter changes', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('JSONPath Equals'), { target: { value: 'ACTIVE' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPathEquals: 'ACTIVE' });
+  });
+});
+
+// ─────────────────────── Detail Pane Extras ───────────────────────
+
+describe('KafkaConsumeStudio — Detail Pane Extras', () => {
+  it('shows headers table when selected message has headers', () => {
+    const msgWithHeaders: KafkaConsumeResultRow = {
+      topic: 'orders.events', partition: 0, offset: '5', value: '{"x":1}', key: 'k1',
+      headers: { 'x-trace-id': 'abc123', 'content-type': 'application/json' },
+    };
+    renderConsume({
+      studio: {
+        consumeResult: [msgWithHeaders], consumeMessageCount: 1,
+        selectedMessageIndex: 0, selectedMessage: msgWithHeaders,
+      },
+    });
+    expect(screen.getByText('x-trace-id')).toBeTruthy();
+    expect(screen.getByText('abc123')).toBeTruthy();
+  });
+
+  it('copies payload to clipboard when Copy Payload clicked', async () => {
+    const clipboardMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: clipboardMock }, configurable: true,
+    });
+    renderConsume({
+      studio: {
+        consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
+        selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
+      },
+    });
+    fireEvent.click(screen.getByTestId('con-copy-payload-btn'));
+    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('{"id":1}'));
+  });
+
+  it('copies key to clipboard when Copy Key clicked with key present', async () => {
+    const clipboardMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: clipboardMock }, configurable: true,
+    });
+    renderConsume({
+      studio: {
+        consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
+        selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
+      },
+    });
+    fireEvent.click(screen.getByTestId('con-copy-key-btn'));
+    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('order-1'));
+  });
+
+  it('close detail pane button deselects message', () => {
+    const studio = makeStudio({
+      consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
+      selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
+    });
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByLabelText('Close detail'));
+    expect(studio.selectMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('close stream detail pane button deselects stream message', () => {
+    const sm = makeStreamMode({
+      streamMessages: STREAM_MESSAGES,
+      selectedStreamIndex: 0,
+      selectedStreamMessage: STREAM_MESSAGES[0],
+    });
+    render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={sm} {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('con-mode-stream'));
+    fireEvent.click(screen.getByLabelText('Close detail'));
+    expect(sm.selectStreamMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('handles invalid JSON gracefully in detail body', () => {
+    const rawMsg: KafkaConsumeResultRow = {
+      topic: 'test', partition: 0, offset: '1', value: 'not-json', key: 'k',
+    };
+    renderConsume({
+      studio: {
+        consumeResult: [rawMsg], consumeMessageCount: 1,
+        selectedMessageIndex: 0, selectedMessage: rawMsg,
+      },
+    });
+    expect(screen.getByTestId('con-detail-body').textContent).toBe('not-json');
   });
 });

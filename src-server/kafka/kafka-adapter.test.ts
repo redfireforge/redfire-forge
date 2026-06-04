@@ -24,6 +24,21 @@ const mocks = vi.hoisted(() => {
         { name: 'payments.authorized', partitions: [{}] },
       ],
     })),
+    fetchTopicOffsets: vi.fn(async () => [
+      { partition: 0, low: '0', high: '100' },
+      { partition: 1, low: '50', high: '200' },
+    ]),
+    describeConfigs: vi.fn(async () => ({
+      resources: [{
+        configEntries: [
+          { configName: 'retention.ms', configValue: '604800000' },
+          { configName: 'cleanup.policy', configValue: 'delete' },
+        ],
+      }],
+    })),
+    listGroups: vi.fn(async () => ({ groups: [] })),
+    fetchOffsets: vi.fn(async () => []),
+    describeGroups: vi.fn(async () => ({ groups: [] })),
   };
 
   const producer = {
@@ -107,6 +122,11 @@ describe('kafka-adapter', () => {
     mocks.admin.disconnect.mockClear();
     mocks.admin.listTopics.mockClear();
     mocks.admin.fetchTopicMetadata.mockClear();
+    mocks.admin.fetchTopicOffsets.mockClear();
+    mocks.admin.describeConfigs.mockClear();
+    mocks.admin.listGroups.mockClear();
+    mocks.admin.fetchOffsets.mockClear();
+    mocks.admin.describeGroups.mockClear();
     mocks.producer.connect.mockClear();
     mocks.producer.disconnect.mockClear();
     mocks.producer.send.mockClear();
@@ -392,5 +412,158 @@ describe('kafka-adapter', () => {
     const record = eachMessage.mock.calls[0][0] as Record<string, unknown>;
     expect(record['rawValue']).toBeUndefined();
     expect(record['value']).toBe('');
+  });
+
+  describe('admin fetchTopicDetail', () => {
+    it('returns healthy topic detail with partitions, config, and no consumer groups', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [
+            { partitionId: 0, leader: 1, replicas: [1, 2], isr: [1, 2] },
+            { partitionId: 1, leader: 2, replicas: [1, 2], isr: [1, 2] },
+          ],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([
+        { partition: 0, low: '0', high: '100' },
+        { partition: 1, low: '50', high: '200' },
+      ]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({
+        resources: [{ configEntries: [{ configName: 'retention.ms', configValue: '604800000' }] }],
+      });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.name).toBe('orders.created');
+      expect(detail.isInternal).toBe(false);
+      expect(detail.partitionCount).toBe(2);
+      expect(detail.replicationFactor).toBe(2);
+      expect(detail.healthStatus).toBe('healthy');
+      expect(detail.partitions).toHaveLength(2);
+      expect(detail.partitions[0]).toEqual({
+        partitionId: 0,
+        leader: 1,
+        replicas: [1, 2],
+        isr: [1, 2],
+        earliestOffset: '0',
+        latestOffset: '100',
+        messageCount: 100,
+      });
+      expect(detail.partitions[1].messageCount).toBe(150);
+      expect(detail.config['retention.ms']).toBe('604800000');
+      expect(detail.consumerGroups).toEqual([]);
+    });
+
+    it('returns degraded health when isr length < replicas length', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'payments.authorized',
+          isInternal: false,
+          partitions: [
+            { partitionId: 0, leader: 1, replicas: [1, 2, 3], isr: [1] },
+          ],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '10' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('payments.authorized');
+
+      expect(detail.healthStatus).toBe('degraded');
+    });
+
+    it('includes consumer groups with lag when hasCommitted is true', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'my-consumer-group' }] });
+      mocks.admin.fetchOffsets.mockResolvedValueOnce([{
+        topic: 'orders.created',
+        partitions: [{ partition: 0, offset: '80' }],
+      }]);
+      mocks.admin.describeGroups.mockResolvedValueOnce({ groups: [{ state: 'Stable' }] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.consumerGroups).toHaveLength(1);
+      expect(detail.consumerGroups[0]).toEqual({ groupId: 'my-consumer-group', state: 'Stable', totalLag: 20 });
+    });
+
+    it('skips consumer groups with no committed offsets (hasCommitted = false)', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'uncommitted-group' }] });
+      mocks.admin.fetchOffsets.mockResolvedValueOnce([{
+        topic: 'orders.created',
+        partitions: [{ partition: 0, offset: '-1' }],
+      }]);
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.consumerGroups).toHaveLength(0);
+      expect(mocks.admin.describeGroups).not.toHaveBeenCalled();
+    });
+
+    it('swallows individual consumer group fetch errors and continues', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'broken-group' }] });
+      mocks.admin.fetchOffsets.mockRejectedValueOnce(new Error('broker unavailable'));
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.consumerGroups).toHaveLength(0);
+    });
+
+    it('returns unknown health and 0 replication when topic has no partitions', async () => {
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{ name: 'empty-topic', isInternal: false, partitions: [] }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('empty-topic');
+
+      expect(detail.healthStatus).toBe('unknown');
+      expect(detail.replicationFactor).toBe(0);
+      expect(detail.partitionCount).toBe(0);
+    });
   });
 });

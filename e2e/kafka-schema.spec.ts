@@ -123,19 +123,6 @@ function errorEnvelope(op: string, message: string) {
   };
 }
 
-/**
- * Wrap a Kafka API envelope in the ProxyHttpResponse shape that
- * httpFetchViaViteProxy expects to receive from the /__proxy route.
- */
-function wrapProxyResponse(envelope: unknown): string {
-  const inner = {
-    status: 200,
-    statusText: 'OK',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(envelope),
-  };
-  return JSON.stringify(inner);
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -220,20 +207,14 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     const subjects = ['orders.created-value', 'payments-value', 'users-key'];
     let subjectsCalled = false;
 
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/schema-subjects')) {
-        subjectsCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(subjectsEnvelope(subjects)),
-        });
-      } else {
-        await route.continue();
-      }
+    // schema-subjects is a POST with relative URL → native fetch → intercept directly
+    await page.route('**/api/kafka/schema-subjects*', async (route) => {
+      subjectsCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(subjectsEnvelope(subjects)),
+      });
     });
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -258,26 +239,21 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
   test('Version load button calls /api/kafka/schema-versions and populates the dropdown', async ({ page }) => {
     let versionsCalled = false;
 
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/schema-subjects')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(subjectsEnvelope(['orders.created-value'])),
-        });
-      } else if (targetUrl.includes('/api/kafka/schema-versions')) {
-        versionsCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(versionsEnvelope([1, 2, 3])),
-        });
-      } else {
-        await route.continue();
-      }
+    // Both relative-URL calls use native fetch → intercept directly
+    await page.route('**/api/kafka/schema-subjects*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(subjectsEnvelope(['orders.created-value'])),
+      });
+    });
+    await page.route('**/api/kafka/schema-versions*', async (route) => {
+      versionsCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(versionsEnvelope([1, 2, 3])),
+      });
     });
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -299,19 +275,13 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
   // ── 6. Subject load error ──────────────────────────────────────────────────
   test('Subject load error from /api/kafka/schema-subjects is displayed', async ({ page }) => {
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/schema-subjects')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(errorEnvelope('schema-subjects', 'Connection refused to schema registry')),
-        });
-      } else {
-        await route.continue();
-      }
+    // schema-subjects uses native fetch (relative URL) → intercept directly
+    await page.route('**/api/kafka/schema-subjects*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(errorEnvelope('schema-subjects', 'Connection refused to schema registry')),
+      });
     });
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -328,19 +298,13 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
   // ── 7. Version load error ──────────────────────────────────────────────────
   test('Version load error from /api/kafka/schema-versions is displayed', async ({ page }) => {
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/schema-versions')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(errorEnvelope('schema-versions', 'Subject not found')),
-        });
-      } else {
-        await route.continue();
-      }
+    // schema-versions uses native fetch (relative URL) → intercept directly
+    await page.route('**/api/kafka/schema-versions*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(errorEnvelope('schema-versions', 'Subject not found')),
+      });
     });
 
     await seedAndOpenDesigner(page, PRODUCE_WORKFLOW);
@@ -413,20 +377,14 @@ test.describe('Kafka Schema Registry UX — KafkaConsumeConfig', () => {
   test('Subject load in KafkaConsumeConfig calls /api/kafka/schema-subjects', async ({ page }) => {
     let subjectsCalled = false;
 
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/schema-subjects')) {
-        subjectsCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: wrapProxyResponse(subjectsEnvelope(['orders.created-value'])),
-        });
-      } else {
-        await route.continue();
-      }
+    // schema-subjects uses native fetch (relative URL) → intercept directly
+    await page.route('**/api/kafka/schema-subjects*', async (route) => {
+      subjectsCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(subjectsEnvelope(['orders.created-value'])),
+      });
     });
 
     await seedAndOpenDesigner(page, CONSUME_WORKFLOW);
