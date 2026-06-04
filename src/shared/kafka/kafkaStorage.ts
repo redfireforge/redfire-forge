@@ -1,5 +1,6 @@
 import { readKey, removeKey, writeKey } from '../utils/storage';
 import { normalizeKafkaClusterConfig, type KafkaClusterConfig } from './kafkaConfig';
+import type { KafkaConsumeDraft, KafkaPublishDraft } from '../../features/kafka/types';
 
 export const KAFKA_CLUSTERS_KEY = 'perf-test-kafka-clusters-v1';
 export const KAFKA_SELECTED_CLUSTER_KEY = 'perf-test-kafka-selected-cluster-id';
@@ -146,4 +147,64 @@ export async function loadKafkaAutoConnectOnStartup(): Promise<boolean> {
 
   await removeKey(KAFKA_AUTO_CONNECT_ON_STARTUP_KEY);
   return false;
+}
+
+// ── Publish / Consume templates ────────────────────────────────────────────
+
+export const KAFKA_PUBLISH_TEMPLATES_KEY = 'perf-test-kafka-publish-templates-v1';
+export const KAFKA_CONSUME_TEMPLATES_KEY = 'perf-test-kafka-consume-templates-v1';
+
+export interface KafkaPublishTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  draft: KafkaPublishDraft;
+}
+
+export interface KafkaConsumeTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  /**
+   * Note: `groupId` is intentionally excluded when loading a template back
+   * into the form — each consume session should start with a fresh group ID to
+   * avoid inheriting committed offsets from previous sessions.
+   */
+  draft: KafkaConsumeDraft;
+}
+
+function parseTemplates<T>(raw: string): T[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed as T[];
+  } catch {
+    return [];
+  }
+}
+
+export async function loadKafkaPublishTemplates(): Promise<KafkaPublishTemplate[]> {
+  const raw = await readKey(KAFKA_PUBLISH_TEMPLATES_KEY);
+  if (!raw) return [];
+  return parseTemplates<KafkaPublishTemplate>(raw);
+}
+
+export async function saveKafkaPublishTemplates(
+  templates: KafkaPublishTemplate[],
+): Promise<void> {
+  await writeKey(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+export async function loadKafkaConsumeTemplates(): Promise<KafkaConsumeTemplate[]> {
+  const raw = await readKey(KAFKA_CONSUME_TEMPLATES_KEY);
+  if (!raw) return [];
+  return parseTemplates<KafkaConsumeTemplate>(raw);
+}
+
+export async function saveKafkaConsumeTemplates(
+  templates: KafkaConsumeTemplate[],
+): Promise<void> {
+  await writeKey(KAFKA_CONSUME_TEMPLATES_KEY, JSON.stringify(templates));
 }

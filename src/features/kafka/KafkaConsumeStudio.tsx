@@ -1,15 +1,29 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
+import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
 
 interface KafkaConsumeStudioProps {
   studio: UseKafkaMessageStudioReturn;
   /** The currently active cluster ID, forwarded into consume request. */
   clusterId: string;
+  // ── Template props (Phase 2) ──────────────────────────────────────────
+  consumeTemplates: KafkaConsumeTemplate[];
+  templatesLoading: boolean;
+  onSaveConsumeTemplate: (name: string) => Promise<void>;
+  onLoadConsumeTemplate: (id: string) => void;
+  onDeleteConsumeTemplate: (id: string) => Promise<void>;
 }
 
-export function KafkaConsumeStudio({ studio }: KafkaConsumeStudioProps) {
+export function KafkaConsumeStudio({
+  studio,
+  consumeTemplates,
+  templatesLoading,
+  onSaveConsumeTemplate,
+  onLoadConsumeTemplate,
+  onDeleteConsumeTemplate,
+}: KafkaConsumeStudioProps) {
   const {
     consumeDraft, setConsumeDraft,
     consumeLoading, consumeResult, consumeTimedOut, consumeError,
@@ -18,6 +32,48 @@ export function KafkaConsumeStudio({ studio }: KafkaConsumeStudioProps) {
   } = studio;
 
   const canConsume = consumeDraft.topic.trim() !== '' && !consumeLoading;
+
+  // ── Template dropdown state ──────────────────────────────────────────────
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => { document.removeEventListener('mousedown', handler); };
+  }, [dropdownOpen]);
+
+  const handleSaveSubmit = useCallback(async () => {
+    const name = saveName.trim();
+    if (!name) return;
+    await onSaveConsumeTemplate(name);
+    setSaveName('');
+    setShowSaveInput(false);
+  }, [saveName, onSaveConsumeTemplate]);
+
+  const handleSaveKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') void handleSaveSubmit();
+      if (e.key === 'Escape') { setSaveName(''); setShowSaveInput(false); }
+    },
+    [handleSaveSubmit],
+  );
+
+  const handleDeleteTemplate = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      void onDeleteConsumeTemplate(id);
+    },
+    [onDeleteConsumeTemplate],
+  );
 
   const handleConsume = useCallback(() => {
     void consumeOnce();
@@ -40,8 +96,76 @@ export function KafkaConsumeStudio({ studio }: KafkaConsumeStudioProps) {
   return (
     <div className="kafka-ms-card">
       <div className="kafka-ms-card-header">
-        <span className="kafka-ms-card-title">Consume</span>
-        <span className="kafka-ms-card-subtitle">Fetch messages from a topic</span>
+        <div className="kafka-ms-card-header-left">
+          <span className="kafka-ms-card-title">Consume</span>
+          <span className="kafka-ms-card-subtitle">Fetch messages from a topic</span>
+        </div>
+        <div className="kafka-ms-template-controls">
+          {/* Load dropdown */}
+          <div className="kafka-ms-template-dropdown-anchor" ref={dropdownRef}>
+            <button
+              className="kafka-ms-template-btn"
+              onClick={() => setDropdownOpen((o) => !o)}
+              disabled={templatesLoading}
+              title="Load a saved template"
+            >
+              Load ▾
+            </button>
+            {dropdownOpen && (
+              <div className="kafka-ms-template-dropdown">
+                {consumeTemplates.length === 0 ? (
+                  <div className="kafka-ms-template-empty">No saved templates</div>
+                ) : (
+                  consumeTemplates.map((t) => (
+                    <div
+                      key={t.id}
+                      className="kafka-ms-template-item"
+                      onClick={() => { onLoadConsumeTemplate(t.id); setDropdownOpen(false); }}
+                    >
+                      <span className="kafka-ms-template-item-name">{t.name}</span>
+                      <button
+                        className="kafka-ms-template-item-delete"
+                        onClick={(e) => handleDeleteTemplate(e, t.id)}
+                        title="Delete template"
+                      >×</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+          {/* Save / inline input */}
+          {showSaveInput ? (
+            <div className="kafka-ms-template-save-row">
+              <input
+                className="kafka-ms-template-save-input"
+                type="text"
+                placeholder="Template name"
+                value={saveName}
+                autoFocus
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={handleSaveKeyDown}
+              />
+              <button
+                className="kafka-ms-template-btn"
+                onClick={() => void handleSaveSubmit()}
+                disabled={!saveName.trim()}
+              >✓</button>
+              <button
+                className="kafka-ms-template-btn kafka-ms-template-btn-cancel"
+                onClick={() => { setSaveName(''); setShowSaveInput(false); }}
+              >✕</button>
+            </div>
+          ) : (
+            <button
+              className="kafka-ms-template-btn"
+              onClick={() => setShowSaveInput(true)}
+              title="Save current settings as a template"
+            >
+              Save
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="kafka-ms-body">

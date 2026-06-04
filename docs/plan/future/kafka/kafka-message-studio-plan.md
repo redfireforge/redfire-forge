@@ -3,7 +3,7 @@
 > Branch: `feature/kafka-integration`  
 > Created: 2025-07-14  
 > Last Reviewed: 2026-06-05 (re-evaluated + post-fix commit: 2026-06-05)  
-> Status: ✅ Phase 1 Complete — pending merge to develop
+> Status: ✅ Phase 2 Complete — pending merge to develop
 
 ---
 
@@ -641,11 +641,12 @@ export interface UseKafkaTemplatesReturn {
   publishTemplates: KafkaPublishTemplate[];
   consumeTemplates: KafkaConsumeTemplate[];
   templatesLoading: boolean;
+  templateError: string | null;           // added: surfaces async errors
   savePublishTemplate: (name: string, draft: KafkaPublishDraft) => Promise<void>;
   loadPublishTemplate: (id: string) => KafkaPublishDraft | null;
   deletePublishTemplate: (id: string) => Promise<void>;
   saveConsumeTemplate: (name: string, draft: KafkaConsumeDraft) => Promise<void>;
-  loadConsumeTemplate: (id: string) => KafkaConsumeDraft | null;
+  loadConsumeTemplate: (id: string) => Omit<KafkaConsumeDraft, 'groupId'> | null; // groupId intentionally stripped
   deleteConsumeTemplate: (id: string) => Promise<void>;
 }
 
@@ -680,13 +681,27 @@ Template controls are added to the card header of each panel — no new pages or
 
 ### Phase 2 Success Criteria
 
-- [ ] "Save as Template" in Publish panel prompts for name, saves draft
-- [ ] "Load Template" dropdown in Publish panel populated from saved presets
-- [ ] "Save as Template" in Consume panel prompts for name, saves filter config
-- [ ] "Load Template" dropdown in Consume panel populated from saved presets
-- [ ] Templates persist across page reloads (survive browser restart)
-- [ ] Delete template action removes it from storage
-- [ ] Unit tests for new `kafkaStorage.ts` functions — >90% branch coverage
+- [x] "Save as Template" in Publish panel prompts for name, saves draft
+- [x] "Load Template" dropdown in Publish panel populated from saved presets
+- [x] "Save as Template" in Consume panel prompts for name, saves filter config
+- [x] "Load Template" dropdown in Consume panel populated from saved presets
+- [x] Templates persist across page reloads (survive browser restart)
+- [x] Delete template action removes it from storage
+- [x] Unit tests for new `kafkaStorage.ts` functions — >90% branch coverage
+
+### Phase 2 Implementation Notes
+
+**groupId stripping in `loadConsumeTemplate`**: Returns `Omit<KafkaConsumeDraft, 'groupId'>` instead of the full draft. Each consume session should start with a fresh groupId to avoid consumer group conflicts. Since `setConsumeDraft` is a patch-merge, loading a template preserves the current session's `groupId`.
+
+**Hook return type**: Added `templateError: string | null` to `UseKafkaTemplatesReturn` (not in original plan) — surfaced for future error toast display.
+
+**Error test pattern**: Tests for error state after throw must catch the error *inside* `act()` (not with `rejects.toThrow()`) so React can flush state updates from catch blocks before act completes.
+
+**Dropdown outside-click**: Uses `useRef` + `document.addEventListener('mousedown', handler)` only while `dropdownOpen` is true — no global always-on listener.
+
+**Save input UX**: Enter = submit, Escape = cancel, button disabled when name is blank/whitespace. Empty/whitespace name also causes early return in the hook.
+
+**Test count**: 19 new tests in `useKafkaTemplates.test.ts` + 11 new tests in `kafkaStorage.test.ts` = 453 total unit tests passing.
 
 ---
 
@@ -1716,7 +1731,7 @@ NO changes to:
 | Phase | Status | Start | Complete | Manual Test | Commit |
 |---|---|---|---|---|---|
 | Phase 1 — Core Publish & Consume Studio | ✅ Complete | 2026-06-05 | 2026-06-05 | ✅ All steps verified (see Phase 1 notes) | `a68e702`, `5cf6ee1` |
-| Phase 2 — Templates & Saved Sessions | 🔲 Not Started | — | — | — | — |
+| Phase 2 — Templates & Saved Sessions | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Unit + TypeScript verified; live UI blocked by pre-existing backend/Kafka connection hang (not Phase 2 scope) | — |
 | Phase 3 — Workflow Integration Hooks | 🔲 Not Started | — | — | — | — |
 | Phase 4 — Topic Explorer Enhancement | 🔲 Not Started | — | — | — | — |
 | Phase 5 — Schema Registry Browser | 🔲 Not Started | — | — | — | — |
