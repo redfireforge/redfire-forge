@@ -3,11 +3,13 @@ export type KafkaOperation =
   | 'disconnect'
   | 'status'
   | 'topics'
+  | 'topic-detail'
   | 'produce'
   | 'consume-once'
   | 'subscribe'
   | 'subscriptions'
   | 'unsubscribe'
+  | 'subscription-messages'
   // Phase 10 — Schema Registry operations (server-side only in Phase 10A/10B;
   // frontend KafkaOperation in kafkaClient.ts is updated in Phase 10C lockstep)
   | 'schema-subjects'
@@ -243,6 +245,21 @@ export interface KafkaUnsubscribeResult {
   unsubscribed: boolean;
 }
 
+export interface KafkaSubscriptionMessagesRequest {
+  clusterId?: string;
+  subscriptionId: string;
+  sinceCursor?: number;
+}
+
+export interface KafkaSubscriptionMessagesResult {
+  subscriptionId: string;
+  messages: KafkaConsumeRecord[];
+  cursor: number;
+  bufferSize: number;
+  maxInMemoryMessages: number;
+  cursorGap?: boolean;
+}
+
 export interface KafkaEnvelopeMeta {
   requestId?: string;
   durationMs?: number;
@@ -350,3 +367,36 @@ export interface KafkaSchemaFetchResult {
   schema: string;
   schemaType: string;
 }
+
+export interface KafkaTopicDetailRequest {
+  clusterId?: string;
+}
+
+export interface KafkaTopicPartitionDetail {
+  partitionId: number;
+  leader: number;
+  replicas: number[];
+  isr: number[];
+  earliestOffset: string;
+  latestOffset: string;
+  messageCount: number;
+}
+
+export interface KafkaTopicConsumerGroupSummary {
+  groupId: string;
+  state: string;
+  totalLag: number;
+}
+
+export interface KafkaTopicDetail {
+  name: string;
+  partitionCount: number;
+  replicationFactor: number;
+  isInternal: boolean;
+  partitions: KafkaTopicPartitionDetail[];
+  consumerGroups: KafkaTopicConsumerGroupSummary[];
+  config: Record<string, string>;
+  healthStatus: 'healthy' | 'degraded' | 'unknown';
+}
+
+export type KafkaTopicDetailResponse = KafkaTopicDetail;

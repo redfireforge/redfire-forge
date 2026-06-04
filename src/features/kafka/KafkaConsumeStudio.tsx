@@ -1,28 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
+import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
+import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
+
+type ConsumeMode = 'once' | 'stream';
 
 interface KafkaConsumeStudioProps {
   studio: UseKafkaMessageStudioReturn;
-  /** The currently active cluster ID, forwarded into consume request. */
   clusterId: string;
-  // ── Template props (Phase 2) ──────────────────────────────────────────
   consumeTemplates: KafkaConsumeTemplate[];
   templatesLoading: boolean;
   onSaveConsumeTemplate: (name: string) => Promise<void>;
   onLoadConsumeTemplate: (id: string) => void;
   onDeleteConsumeTemplate: (id: string) => Promise<void>;
+  streamMode: UseKafkaStreamModeReturn;
+  onUseAsWorkflowInput?: (payload: string, meta: { topic: string; partition: number; offset: string }) => void;
 }
 
 export function KafkaConsumeStudio({
   studio,
+  clusterId,
   consumeTemplates,
   templatesLoading,
   onSaveConsumeTemplate,
   onLoadConsumeTemplate,
   onDeleteConsumeTemplate,
+  streamMode,
+  onUseAsWorkflowInput,
 }: KafkaConsumeStudioProps) {
   const {
     consumeDraft, setConsumeDraft,
@@ -31,15 +38,19 @@ export function KafkaConsumeStudio({
     selectMessage, consumeOnce, clearConsumeResult, consumeMessageCount,
   } = studio;
 
-  const canConsume = consumeDraft.topic.trim() !== '' && !consumeLoading;
+  const [mode, setMode] = useState<ConsumeMode>('once');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const topicEmpty = consumeDraft.topic.trim() === '';
+  const canConsume = !topicEmpty && !consumeLoading;
 
   // ── Template dropdown state ──────────────────────────────────────────────
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const streamListRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!dropdownOpen) return;
     const handler = (e: MouseEvent) => {
@@ -50,6 +61,27 @@ export function KafkaConsumeStudio({
     document.addEventListener('mousedown', handler);
     return () => { document.removeEventListener('mousedown', handler); };
   }, [dropdownOpen]);
+
+  // Auto-scroll stream list to bottom when new messages arrive
+  useEffect(() => {
+    const el = streamListRef.current;
+    if (!el || userScrolledRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [streamMode.streamMessages.length]);
+
+  const handleStreamScroll = useCallback(() => {
+    const el = streamListRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    userScrolledRef.current = !atBottom;
+  }, []);
+
+  // Reset auto-scroll when stream starts
+  useEffect(() => {
+    if (streamMode.isStreaming) {
+      userScrolledRef.current = false;
+    }
+  }, [streamMode.isStreaming]);
 
   const handleSaveSubmit = useCallback(async () => {
     const name = saveName.trim();
@@ -85,13 +117,101 @@ export function KafkaConsumeStudio({
     }
   }, [consumeResult, consumeDraft.topic]);
 
+  const streamMessagesRef = useRef(streamMode.streamMessages);
+  streamMessagesRef.current = streamMode.streamMessages;
+
+  const { startStream, stopStream, selectedStreamMessage } = streamMode;
+
+  const handleExportStream = useCallback(() => {
+    if (streamMessagesRef.current.length > 0) {
+      void exportResultSet(streamMessagesRef.current, consumeDraft.topic);
+    }
+  }, [consumeDraft.topic]);
+
   const handleCopyKey = useCallback(() => {
-    if (selectedMessage?.key) void navigator.clipboard.writeText(selectedMessage.key);
-  }, [selectedMessage]);
+    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
+    if (msg?.key) void navigator.clipboard.writeText(msg.key);
+  }, [mode, selectedMessage, selectedStreamMessage]);
 
   const handleCopyPayload = useCallback(() => {
-    if (selectedMessage) void navigator.clipboard.writeText(selectedMessage.value);
-  }, [selectedMessage]);
+    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
+    if (msg) void navigator.clipboard.writeText(msg.value);
+  }, [mode, selectedMessage, selectedStreamMessage]);
+
+  const handleStartStream = useCallback(() => {
+    void startStream(consumeDraft, clusterId);
+  }, [startStream, consumeDraft, clusterId]);
+
+  const handleStopStream = useCallback(() => {
+    void stopStream();
+  }, [stopStream]);
+
+  const handleUseAsWorkflowInput = useCallback(() => {
+    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
+    if (!msg || !onUseAsWorkflowInput) return;
+    onUseAsWorkflowInput(msg.value, {
+      topic: msg.topic,
+      partition: msg.partition,
+      offset: msg.offset,
+    });
+  }, [mode, selectedMessage, selectedStreamMessage, onUseAsWorkflowInput]);
+
+  const renderDetailPane = (msg: KafkaConsumeResultRow) => (
+    <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
+      <div className="kafka-ms-detail-actions">
+        <button
+          className="kafka-ms-ghost-btn"
+          onClick={handleCopyKey}
+          disabled={!msg.key}
+          data-testid="con-copy-key-btn"
+        >
+          Copy Key
+        </button>
+        <button
+          className="kafka-ms-ghost-btn"
+          onClick={handleCopyPayload}
+          data-testid="con-copy-payload-btn"
+        >
+          Copy Payload
+        </button>
+        {onUseAsWorkflowInput && (
+          <button
+            className="kafka-ms-secondary-btn kafka-ms-workflow-btn"
+            onClick={handleUseAsWorkflowInput}
+            data-testid="con-workflow-input-btn"
+          >
+            Use as Workflow Input
+          </button>
+        )}
+        <button
+          className="kafka-ms-ghost-btn"
+          onClick={() => mode === 'stream' ? streamMode.selectStreamMessage(null) : selectMessage(null)}
+          aria-label="Close detail"
+        >
+          ✕
+        </button>
+      </div>
+      <pre className="kafka-ms-detail-body" data-testid="con-detail-body">
+        {(() => {
+          try { return JSON.stringify(JSON.parse(msg.value), null, 2); }
+          catch { return msg.value; }
+        })()}
+      </pre>
+      {msg.headers &&
+        Object.keys(msg.headers).length > 0 && (
+          <table className="kafka-ms-detail-headers">
+            <thead>
+              <tr><th>Header Key</th><th>Header Value</th></tr>
+            </thead>
+            <tbody>
+              {Object.entries(msg.headers).map(([k, v]) => (
+                <tr key={k}><td>{k}</td><td>{v}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+    </div>
+  );
 
   return (
     <div className="kafka-ms-card">
@@ -101,7 +221,6 @@ export function KafkaConsumeStudio({
           <span className="kafka-ms-card-subtitle">Fetch messages from a topic</span>
         </div>
         <div className="kafka-ms-template-controls">
-          {/* Load dropdown */}
           <div className="kafka-ms-template-dropdown-anchor" ref={dropdownRef}>
             <button
               className="kafka-ms-template-btn"
@@ -134,7 +253,6 @@ export function KafkaConsumeStudio({
               </div>
             )}
           </div>
-          {/* Save / inline input */}
           {showSaveInput ? (
             <div className="kafka-ms-template-save-row">
               <input
@@ -179,7 +297,11 @@ export function KafkaConsumeStudio({
               placeholder="e.g. orders.events"
               value={consumeDraft.topic}
               onChange={(e) => setConsumeDraft({ topic: e.target.value })}
+              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
             />
+            {touched.topic && topicEmpty && (
+              <span className="kafka-ms-field-hint" data-testid="con-topic-hint">Topic is required</span>
+            )}
           </div>
           <div className="kafka-ms-field">
             <label htmlFor="kms-con-group">Consumer Group</label>
@@ -289,141 +411,236 @@ export function KafkaConsumeStudio({
           topic={consumeDraft.topic}
         />
 
-        {/* Action row */}
-        <div className="kafka-ms-action-row">
+        {/* ── Mode tab strip ── */}
+        <div className="kafka-ms-mode-tabs" data-testid="con-mode-tabs">
           <button
-            className="kafka-ms-primary-btn"
-            disabled={!canConsume}
-            onClick={handleConsume}
-            data-testid="con-consume-btn"
+            type="button"
+            className={`kafka-ms-mode-tab ${mode === 'once' ? 'active' : ''}`}
+            onClick={() => setMode('once')}
+            data-testid="con-mode-once"
           >
-            {consumeLoading ? 'Consuming…' : 'Consume Once'}
+            Consume Once
           </button>
-          {consumeResult !== null && (
-            <>
-              <button
-                className="kafka-ms-secondary-btn"
-                onClick={handleExport}
-                disabled={consumeResult.length === 0}
-                data-testid="con-export-btn"
-              >
-                Export Result Set
-              </button>
-              <button
-                className="kafka-ms-ghost-btn"
-                onClick={clearConsumeResult}
-                data-testid="con-clear-btn"
-              >
-                Clear
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className={`kafka-ms-mode-tab ${mode === 'stream' ? 'active' : ''}`}
+            onClick={() => setMode('stream')}
+            data-testid="con-mode-stream"
+          >
+            Stream
+          </button>
         </div>
 
-        {/* Error */}
-        {consumeError && (
-          <div className="kafka-ms-inline-error" data-testid="con-error">
-            {consumeError.message}
-          </div>
-        )}
-
-        {/* Zone A — Results table */}
-        {consumeResult !== null && !consumeError && (
-          <div className="kafka-ms-results-zone" data-testid="con-results-zone">
-            <div className="kafka-ms-results-header">
-              <span className="kafka-ms-results-count">
-                {consumeMessageCount} message{consumeMessageCount !== 1 ? 's' : ''}
-              </span>
-              {consumeTimedOut && (
-                <span className="kafka-ms-timed-out-badge" data-testid="con-timed-out">
-                  timed out
-                </span>
+        {/* ═════════ CONSUME ONCE mode ═════════ */}
+        {mode === 'once' && (
+          <>
+            <div className="kafka-ms-action-row">
+              <button
+                className="kafka-ms-primary-btn"
+                disabled={!canConsume}
+                onClick={handleConsume}
+                data-testid="con-consume-btn"
+              >
+                {consumeLoading ? 'Consuming…' : 'Consume Once'}
+              </button>
+              {consumeResult !== null && (
+                <>
+                  <button
+                    className="kafka-ms-secondary-btn"
+                    onClick={handleExport}
+                    disabled={consumeResult.length === 0}
+                    data-testid="con-export-btn"
+                  >
+                    Export Result Set
+                  </button>
+                  <button
+                    className="kafka-ms-ghost-btn"
+                    onClick={clearConsumeResult}
+                    data-testid="con-clear-btn"
+                  >
+                    Clear
+                  </button>
+                </>
               )}
             </div>
-            {consumeMessageCount === 0 ? (
-              <p className="kafka-ms-empty-state">No messages received</p>
-            ) : (
-              <div className="kafka-ms-results-table-wrap">
-                <table className="kafka-ms-results-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Offset</th>
-                      <th>Partition</th>
-                      <th>Key</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {consumeResult.map((row, idx) => (
-                      <tr
-                        key={`${row.partition}-${row.offset}`}
-                        className={selectedMessageIndex === idx ? 'selected' : ''}
-                        onClick={() => selectMessage(selectedMessageIndex === idx ? null : idx)}
-                        style={{ cursor: 'pointer' }}
-                        data-testid={`con-row-${idx}`}
-                      >
-                        <td>{idx + 1}</td>
-                        <td>{row.offset}</td>
-                        <td>{row.partition}</td>
-                        <td>{row.key ?? '—'}</td>
-                        <td>{valuePreview(row.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+            {consumeError && (
+              <div className="kafka-ms-inline-error" data-testid="con-error">
+                {consumeError.message}
+                {!consumeError.retryable && (
+                  <span className="kafka-ms-error-tag"> (non-retryable)</span>
+                )}
               </div>
             )}
-          </div>
+
+            {consumeResult !== null && !consumeError && (
+              <div className="kafka-ms-results-zone" data-testid="con-results-zone">
+                <div className="kafka-ms-results-header">
+                  <span className="kafka-ms-results-count">
+                    {consumeMessageCount} message{consumeMessageCount !== 1 ? 's' : ''}
+                    {consumeMessageCount > 0 &&
+                      consumeMessageCount === parseInt(consumeDraft.maxMessages, 10) && (
+                      <span className="kafka-ms-max-reached" data-testid="con-max-reached"> (max reached)</span>
+                    )}
+                  </span>
+                  {consumeTimedOut && (
+                    <span className="kafka-ms-timed-out-badge" data-testid="con-timed-out">
+                      timed out
+                    </span>
+                  )}
+                </div>
+                {consumeMessageCount === 0 ? (
+                  <p className="kafka-ms-empty-state">No messages received</p>
+                ) : (
+                  <div className="kafka-ms-results-table-wrap">
+                    <table className="kafka-ms-results-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Offset</th>
+                          <th>Partition</th>
+                          <th>Key</th>
+                          <th>Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {consumeResult.map((row, idx) => (
+                          <tr
+                            key={`${row.partition}-${row.offset}`}
+                            className={selectedMessageIndex === idx ? 'selected' : ''}
+                            onClick={() => selectMessage(selectedMessageIndex === idx ? null : idx)}
+                            style={{ cursor: 'pointer' }}
+                            data-testid={`con-row-${idx}`}
+                          >
+                            <td>{idx + 1}</td>
+                            <td>{row.offset}</td>
+                            <td>{row.partition}</td>
+                            <td>{row.key ?? '—'}</td>
+                            <td>{valuePreview(row.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedMessage && renderDetailPane(selectedMessage)}
+          </>
         )}
 
-        {/* Zone B — Detail pane */}
-        {selectedMessage && (
-          <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
-            <div className="kafka-ms-detail-actions">
-              <button
-                className="kafka-ms-ghost-btn"
-                onClick={handleCopyKey}
-                disabled={!selectedMessage.key}
-                data-testid="con-copy-key-btn"
-              >
-                Copy Key
-              </button>
-              <button
-                className="kafka-ms-ghost-btn"
-                onClick={handleCopyPayload}
-                data-testid="con-copy-payload-btn"
-              >
-                Copy Payload
-              </button>
-              <button
-                className="kafka-ms-ghost-btn"
-                onClick={() => selectMessage(null)}
-                aria-label="Close detail"
-              >
-                ✕
-              </button>
-            </div>
-            <pre className="kafka-ms-detail-body" data-testid="con-detail-body">
-              {(() => {
-                try { return JSON.stringify(JSON.parse(selectedMessage.value), null, 2); }
-                catch { return selectedMessage.value; }
-              })()}
-            </pre>
-            {selectedMessage.headers &&
-              Object.keys(selectedMessage.headers).length > 0 && (
-                <table className="kafka-ms-detail-headers">
-                  <thead>
-                    <tr><th>Header Key</th><th>Header Value</th></tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(selectedMessage.headers).map(([k, v]) => (
-                      <tr key={k}><td>{k}</td><td>{v}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+        {/* ═════════ STREAM mode ═════════ */}
+        {mode === 'stream' && (
+          <>
+            <div className="kafka-ms-action-row" data-testid="stream-action-row">
+              {!streamMode.isStreaming ? (
+                <button
+                  className="kafka-ms-primary-btn"
+                  disabled={topicEmpty}
+                  onClick={handleStartStream}
+                  data-testid="stream-start-btn"
+                >
+                  Start Stream
+                </button>
+              ) : (
+                <button
+                  className="kafka-ms-danger-btn"
+                  onClick={handleStopStream}
+                  data-testid="stream-stop-btn"
+                >
+                  Stop Stream
+                </button>
               )}
-          </div>
+              {streamMode.streamMessages.length > 0 && (
+                <>
+                  <button
+                    className="kafka-ms-secondary-btn"
+                    onClick={handleExportStream}
+                    data-testid="stream-export-btn"
+                  >
+                    Export Stream
+                  </button>
+                  <button
+                    className="kafka-ms-ghost-btn"
+                    onClick={streamMode.clearStreamMessages}
+                    data-testid="stream-clear-btn"
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
+            </div>
+
+            {streamMode.streamError && (
+              <div className="kafka-ms-inline-error" data-testid="stream-error">
+                {streamMode.streamError.message}
+                {!streamMode.streamError.retryable && (
+                  <span className="kafka-ms-error-tag"> (non-retryable)</span>
+                )}
+              </div>
+            )}
+
+            <div className="kafka-ms-results-zone" data-testid="stream-results-zone">
+              <div className="kafka-ms-results-header">
+                <span className="kafka-ms-results-count" data-testid="stream-count">
+                  {streamMode.streamMessages.length} message{streamMode.streamMessages.length !== 1 ? 's' : ''}
+                </span>
+                {streamMode.isStreaming && (
+                  <span className="kafka-ms-streaming-badge" data-testid="stream-live-badge">
+                    LIVE
+                  </span>
+                )}
+                {streamMode.cursorGap && (
+                  <span className="kafka-ms-cursor-gap-badge" data-testid="stream-cursor-gap">
+                    Buffer wrapped — some messages were not captured
+                  </span>
+                )}
+              </div>
+              {streamMode.streamMessages.length === 0 ? (
+                <p className="kafka-ms-empty-state">
+                  {streamMode.isStreaming ? 'Waiting for messages…' : 'No stream messages'}
+                </p>
+              ) : (
+                <div
+                  className="kafka-ms-results-table-wrap kafka-ms-stream-table-wrap"
+                  ref={streamListRef}
+                  onScroll={handleStreamScroll}
+                >
+                  <table className="kafka-ms-results-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Offset</th>
+                        <th>Partition</th>
+                        <th>Key</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {streamMode.streamMessages.map((row, idx) => (
+                        <tr
+                          key={`s-${row.partition}-${row.offset}-${idx}`}
+                          className={`${streamMode.selectedStreamIndex === idx ? 'selected' : ''} kafka-ms-stream-row`}
+                          onClick={() => streamMode.selectStreamMessage(streamMode.selectedStreamIndex === idx ? null : idx)}
+                          style={{ cursor: 'pointer' }}
+                          data-testid={`stream-row-${idx}`}
+                        >
+                          <td>{idx + 1}</td>
+                          <td>{row.offset}</td>
+                          <td>{row.partition}</td>
+                          <td>{row.key ?? '—'}</td>
+                          <td>{valuePreview(row.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {streamMode.selectedStreamMessage && renderDetailPane(streamMode.selectedStreamMessage)}
+          </>
         )}
       </div>
     </div>

@@ -527,4 +527,85 @@ describe('WorkflowRunner', () => {
     expect(runnerProgressMocks.clearProgress).toHaveBeenCalled();
   });
 
+  // ── Phase 3C: initialWorkflowVariables ─────────────────────────────────
+
+  it('applies initialWorkflowVariables to local state and clears', async () => {
+    const onClear = vi.fn();
+    render(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        initialWorkflowVariables={{ kafka_message: '{"id":1}', kafka_topic: 'orders' }}
+        onClearInitialWorkflowVariables={onClear}
+      />,
+    );
+
+    selectWorkflowById('wf1');
+
+    await waitFor(() => {
+      expect(onClear).toHaveBeenCalled();
+    });
+  });
+
+  it('ignores null initialWorkflowVariables', async () => {
+    const onClear = vi.fn();
+    render(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        initialWorkflowVariables={null}
+        onClearInitialWorkflowVariables={onClear}
+      />,
+    );
+
+    selectWorkflowById('wf1');
+
+    await waitFor(() => {
+      expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument();
+    });
+
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  // ── Phase 3D: onWorkflowOutputAvailable ────────────────────────────────
+
+  it('calls onWorkflowOutputAvailable when finalRun has trace variables', async () => {
+    const onOutput = vi.fn();
+    const { rerender } = render(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        onWorkflowOutputAvailable={onOutput}
+      />,
+    );
+
+    selectWorkflowById('wf1');
+
+    await waitFor(() => {
+      expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument();
+    });
+
+    testExec.finalRun = {
+      results: [{}],
+      summary: { totalDurationMs: 1000 },
+      executionTrace: {
+        iterations: [
+          { finalVariables: { result: '42', total: '100' } },
+        ],
+      },
+    } as unknown as typeof testExec.finalRun;
+
+    rerender(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        onWorkflowOutputAvailable={onOutput}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onOutput).toHaveBeenCalledWith({ result: '42', total: '100' });
+    });
+  });
+
 });

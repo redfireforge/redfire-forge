@@ -140,4 +140,30 @@ describe('KafkaMessageStudioPage', () => {
     // Action button should be present in guard
     expect(screen.getByTestId('guard-action-btn')).toBeTruthy();
   });
+
+  it('shows template error banner when useKafkaTemplates has an error', async () => {
+    // Mock useKafkaTemplates to return an error
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [],
+      consumeTemplates: [],
+      templatesLoading: false,
+      templateError: 'QuotaExceededError',
+      savePublishTemplate: vi.fn(),
+      loadPublishTemplate: vi.fn().mockReturnValue(null),
+      deletePublishTemplate: vi.fn(),
+      saveConsumeTemplate: vi.fn(),
+      loadConsumeTemplate: vi.fn().mockReturnValue(null),
+      deleteConsumeTemplate: vi.fn(),
+    });
+
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('template-error').textContent).toContain('QuotaExceededError');
+    spy.mockRestore();
+  });
 });

@@ -2,7 +2,6 @@ import {
   createKafkaErrorEnvelope,
   createKafkaSuccessEnvelope,
   type KafkaConsumeOnceRequest,
-  type KafkaConsumeResult,
   type KafkaConsumeRecord,
   type KafkaConnectionConfig,
   type KafkaConnectResult,
@@ -18,8 +17,12 @@ import {
   type KafkaSubscribeInfo,
   type KafkaSubscribeRequest,
   type KafkaSubscribeResult,
+  type KafkaSubscriptionMessagesRequest,
+  type KafkaSubscriptionMessagesResult,
   type KafkaSubscriptionsRequest,
   type KafkaSubscriptionsResult,
+  type KafkaTopicDetail,
+  type KafkaTopicDetailRequest,
   type KafkaTopicsRequest,
   type KafkaTopicsResult,
   type KafkaUnsubscribeRequest,
@@ -29,12 +32,10 @@ import { createKafkaRuntimeAdapter, type KafkaAdminAdapter, type KafkaRuntimeAda
 import {
   matchesKafkaConsumeFilter,
   validateConnectionConfig,
-  validateKafkaConsumeRequest,
   validateKafkaProduceRequest,
 } from './kafka-service-utils.js';
 import {
   encodeValue,
-  decodeValue,
   SchemaRegistryError,
   SCHEMA_ERROR_CODES,
 } from './schema-registry-client.js';
@@ -45,19 +46,14 @@ import {
   isTimeoutError,
   resolveConnectTimeout,
   resolveRequestTimeout,
-  safeDisconnectConsumer,
   safeDisconnectProducer,
   safeStopAndDisconnectConsumer,
   toKafkaMessage,
   withTimeout,
 } from './kafka-service-helpers.js';
-
-const SUBSCRIPTION_GROUP_PREFIX = 'redfireforge-sub';
-
-interface SubscriptionEntry {
-  info: KafkaSubscribeInfo;
-  cleanup?: () => Promise<void> | void;
-}
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
+import { executeConsumeOnce } from './kafka-consume-once.js';
+import { KafkaSubscriptionStore } from './kafka-subscription-store.js';
 
 export interface KafkaServiceSnapshot {
   status: KafkaServiceStatus;
@@ -76,7 +72,7 @@ export class KafkaService {
 
   private admin: KafkaAdminAdapter | null = null;
   private connectPromise: Promise<KafkaRouteEnvelope<KafkaConnectResult>> | null = null;
-  private readonly subscriptions = new Map<string, SubscriptionEntry>();
+  private readonly subscriptionStore = new KafkaSubscriptionStore();
 
   constructor(runtimeAdapter: KafkaRuntimeAdapter = createKafkaRuntimeAdapter()) {
     this.runtimeAdapter = runtimeAdapter;
@@ -93,7 +89,7 @@ export class KafkaService {
   reset(): void {
     this.admin = null;
     this.connectPromise = null;
-    this.subscriptions.clear();
+    this.subscriptionStore.clear();
     this.snapshot = {
       status: {
         state: 'disconnected',
@@ -168,7 +164,8 @@ export class KafkaService {
 
   async disconnect(request?: KafkaDisconnectRequest): Promise<KafkaRouteEnvelope<KafkaDisconnectResult>> {
     if (!this.admin && !this.connectPromise && this.snapshot.status.state === 'disconnected') {
-      const cleanedSubscriptions = await this.cleanupAllSubscriptions();
+      const cleanedSubscriptions = await this.subscriptionStore.cleanupAll();
+      this.updateSubscriptionCount();
       this.snapshot = {
         status: {
           state: 'disconnected',
@@ -198,7 +195,8 @@ export class KafkaService {
       await pendingConnect.catch(() => undefined);
     }
 
-    const cleanedSubscriptions = await this.cleanupAllSubscriptions();
+    const cleanedSubscriptions = await this.subscriptionStore.cleanupAll();
+    this.updateSubscriptionCount();
     const admin = this.admin;
     this.admin = null;
 
@@ -272,6 +270,40 @@ export class KafkaService {
         code: 'KAFKA_TOPICS_FAILED',
         message: toKafkaMessage(error),
         retryable: true,
+      });
+    }
+  }
+
+  async getTopicDetail(
+    topicName: string,
+    request: KafkaTopicDetailRequest,
+  ): Promise<KafkaRouteEnvelope<KafkaTopicDetail>> {
+    const clusterId = this.snapshot.connection?.clusterId;
+    if (request.clusterId && clusterId && request.clusterId !== clusterId) {
+      return createKafkaErrorEnvelope('topic-detail', {
+        code: 'KAFKA_CLUSTER_MISMATCH',
+        message: `Request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
+      });
+    }
+
+    if (!this.admin) {
+      return createKafkaErrorEnvelope('topic-detail', {
+        code: 'KAFKA_NOT_CONNECTED',
+        message: 'Not connected to any Kafka cluster',
+      });
+    }
+
+    try {
+      const detail = await withTimeout(
+        this.admin.fetchTopicDetail(topicName),
+        30_000,
+        'topic-detail',
+      );
+      return createKafkaSuccessEnvelope('topic-detail', detail);
+    } catch (error) {
+      return createKafkaErrorEnvelope('topic-detail', {
+        code: 'KAFKA_TOPIC_DETAIL_FAILED',
+        message: toErrorMessage(error) || `Failed to fetch topic detail for '${topicName}'`,
       });
     }
   }
@@ -391,11 +423,6 @@ export class KafkaService {
       return readiness;
     }
 
-    const validationError = validateKafkaConsumeRequest(request);
-    if (validationError) {
-      return createKafkaErrorEnvelope('consume-once', validationError);
-    }
-
     const connection = this.snapshot.connection;
     if (!connection) {
       return createKafkaErrorEnvelope('consume-once', {
@@ -404,168 +431,7 @@ export class KafkaService {
       });
     }
 
-    const maxMessages = Math.max(request.maxMessages ?? 1, 1);
-    const timeoutMs = Math.max(request.timeoutMs ?? resolveRequestTimeout(connection), 1);
-    const groupId = request.groupId ?? `redfireforge-consume-once-${randomUUID().slice(0, 8)}`;
-    const consumer = this.runtimeAdapter.createConsumer(connection, groupId);
-    const messages: KafkaConsumeRecord[] = [];
-
-    let settle: ((result: KafkaConsumeResult) => Promise<void>) | null = null;
-    let settled = false;
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-    let stopPromise: Promise<void> | null = null;
-
-    const settleResult = async (result: KafkaConsumeResult): Promise<void> => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-      if (!stopPromise) {
-        stopPromise = consumer.stop().catch(() => {
-          // Consume-once should remain resilient even when stop fails.
-        });
-      }
-      if (settle) {
-        await settle(result);
-      }
-    };
-
-    try {
-      await withTimeout(consumer.connect(), resolveRequestTimeout(connection), 'consume-connect');
-      await withTimeout(
-        consumer.subscribe(request.topic, request.fromBeginning ?? false),
-        resolveRequestTimeout(connection),
-        'consume-subscribe',
-      );
-
-      const resultPromise = new Promise<KafkaConsumeResult>((resolve, reject) => {
-        settle = async (result) => {
-          resolve(result);
-        };
-
-        timeoutHandle = setTimeout(() => {
-          // Snapshot the collected messages so the result is immutable after this
-          // point regardless of any in-flight eachMessage callbacks.  If the
-          // messages array already reached maxMessages (i.e. the last message
-          // arrived at the exact millisecond the timer fired), treat the result as
-          // NOT timed-out — we fulfilled the request even if the timer won the race.
-          const snapshot = [...messages];
-          void settleResult({
-            messageCount: snapshot.length,
-            messages: snapshot,
-            timedOut: snapshot.length < maxMessages,
-          }).catch(reject);
-        }, timeoutMs);
-
-        void consumer.run(async (record) => {
-          if (settled) {
-            return;
-          }
-
-          if (!matchesKafkaConsumeFilter(record, request.filter)) {
-            return;
-          }
-
-          // Phase 10B — Schema decode when schemaConfig is present.
-          // Uses rawValue (raw Buffer) — not record.value (toString'd string)
-          // which corrupts Avro binary bytes.
-          // rawValue is always stripped from the client-facing record (server-side only).
-          // Subscribe-path schema decode is out of scope for Phase 10B.
-          const { rawValue: _rawValue, ...strippedRecord } = record;
-          let consumeRecord: KafkaConsumeRecord = strippedRecord;
-          if (request.schemaConfig && _rawValue) {
-            try {
-              const decoded = await decodeValue(request.schemaConfig, _rawValue);
-              consumeRecord = {
-                topic: record.topic,
-                partition: record.partition,
-                offset: record.offset,
-                timestamp: record.timestamp,
-                key: record.key,
-                value: JSON.stringify(decoded),
-                headers: record.headers,
-                // rawValue is server-side only — omit from client-facing record
-              };
-            } catch (decodeError) {
-              // Schema decode errors settle with a dedicated error code rather
-              // than silently falling through to KAFKA_CONSUME_ONCE_FAILED.
-              if (decodeError instanceof SchemaRegistryError) {
-                await settleResult({
-                  messageCount: 0,
-                  messages: [],
-                  timedOut: false,
-                  schemaError: {
-                    code: decodeError.code,
-                    message: decodeError.message,
-                  },
-                } as KafkaConsumeResult & { schemaError?: { code: string; message: string } });
-                return;
-              }
-              throw decodeError;
-            }
-          }
-
-          messages.push(consumeRecord);
-          if (messages.length >= maxMessages) {
-            const snapshot = [...messages];
-            await settleResult({
-              messageCount: snapshot.length,
-              messages: snapshot,
-              timedOut: false,
-            });
-          }
-        }).catch((error) => {
-          if (!settled) {
-            settled = true;
-            if (timeoutHandle) {
-              clearTimeout(timeoutHandle);
-            }
-            reject(error);
-          }
-        });
-      });
-
-      const result = await resultPromise;
-      // Phase 10B — surface schema decode errors via dedicated error codes
-      const schemaErr = (result as KafkaConsumeResult & { schemaError?: { code: string; message: string } }).schemaError;
-      if (schemaErr) {
-        return createKafkaErrorEnvelope('consume-once', {
-          code: schemaErr.code,
-          message: schemaErr.message,
-          retryable: schemaErr.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
-        });
-      }
-      return createKafkaSuccessEnvelope('consume-once', result);
-    } catch (error) {
-      // Phase 10B — schema errors surface as dedicated codes, not KAFKA_CONSUME_ONCE_FAILED.
-      if (error instanceof SchemaRegistryError) {
-        return createKafkaErrorEnvelope('consume-once', {
-          code: error.code,
-          message: error.message,
-          retryable: error.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
-        });
-      }
-      return createKafkaErrorEnvelope('consume-once', {
-        code: 'KAFKA_CONSUME_ONCE_FAILED',
-        message: toKafkaMessage(error),
-        retryable: true,
-      });
-    } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-      if (stopPromise) {
-        try {
-          await withTimeout(stopPromise, DEFAULT_CLEANUP_TIMEOUT_MS, 'consume-stop');
-        } catch {
-          // Slow or stuck stop should not block the consume-once response forever.
-        }
-      }
-      await safeDisconnectConsumer(consumer);
-    }
+    return executeConsumeOnce(this.runtimeAdapter, connection, request);
   }
 
   async subscribe(request: KafkaSubscribeRequest): Promise<KafkaRouteEnvelope<KafkaSubscribeResult>> {
@@ -597,7 +463,7 @@ export class KafkaService {
     }
 
     const subscriptionId = randomUUID();
-    const groupId = request.groupId ?? `${SUBSCRIPTION_GROUP_PREFIX}-${connection.clusterId}-${subscriptionId.slice(0, 8)}`;
+    const groupId = request.groupId ?? `redfireforge-sub-${connection.clusterId}-${subscriptionId.slice(0, 8)}`;
     const consumer = this.runtimeAdapter.createConsumer(connection, groupId);
     const maxInMemoryMessages = Math.max(request.maxInMemoryMessages ?? 100, 1);
     const ringBuffer: KafkaConsumeRecord[] = [];
@@ -618,19 +484,31 @@ export class KafkaService {
         if (ringBuffer.length > maxInMemoryMessages) {
           ringBuffer.shift();
         }
+        const entry = this.subscriptionStore.get(subscriptionId);
+        if (entry) {
+          entry.cursor++;
+        }
       }).catch(async () => {
-        this.subscriptions.delete(subscriptionId);
+        this.subscriptionStore.delete(subscriptionId);
         this.updateSubscriptionCount();
         await safeStopAndDisconnectConsumer(consumer);
       });
 
-      const info = this.registerSubscription({
+      const info: KafkaSubscribeInfo = {
         subscriptionId,
         topic: request.topic,
         groupId,
-      }, async () => {
-        await safeStopAndDisconnectConsumer(consumer);
+        createdAt: new Date().toISOString(),
+      };
+
+      this.subscriptionStore.set(subscriptionId, {
+        info,
+        cleanup: async () => { await safeStopAndDisconnectConsumer(consumer); },
+        ringBuffer,
+        maxInMemoryMessages,
+        cursor: 0,
       });
+      this.updateSubscriptionCount();
 
       return createKafkaSuccessEnvelope('subscribe', {
         clusterId: connection.clusterId,
@@ -655,76 +533,25 @@ export class KafkaService {
     },
     cleanup?: () => Promise<void> | void,
   ): KafkaSubscribeInfo {
-    const clusterId = this.snapshot.connection?.clusterId ?? 'cluster';
-    const subscriptionId = params.subscriptionId ?? randomUUID();
-    const info: KafkaSubscribeInfo = {
-      subscriptionId,
-      topic: params.topic,
-      groupId: params.groupId ?? `${SUBSCRIPTION_GROUP_PREFIX}-${clusterId}-${subscriptionId.slice(0, 8)}`,
-      createdAt: params.createdAt ?? new Date().toISOString(),
-    };
-
-    const existing = this.subscriptions.get(subscriptionId);
-    if (existing?.cleanup) {
-      void Promise.resolve(existing.cleanup()).catch(() => undefined);
-    }
-
-    this.subscriptions.set(subscriptionId, { info, cleanup });
+    const info = this.subscriptionStore.register(params, this.snapshot.connection?.clusterId, cleanup);
     this.updateSubscriptionCount();
     return info;
   }
 
   getSubscriptions(request?: KafkaSubscriptionsRequest): KafkaRouteEnvelope<KafkaSubscriptionsResult> {
-    const clusterId = this.snapshot.connection?.clusterId;
-    if (request?.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('subscriptions', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Subscriptions request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    return this.subscriptionStore.getSubscriptions(request, this.snapshot.connection);
+  }
 
-    return createKafkaSuccessEnvelope('subscriptions', {
-      clusterId,
-      subscriptions: [...this.subscriptions.values()].map((entry) => entry.info),
-    });
+  getSubscriptionMessages(
+    request: KafkaSubscriptionMessagesRequest,
+  ): KafkaRouteEnvelope<KafkaSubscriptionMessagesResult> {
+    return this.subscriptionStore.getSubscriptionMessages(request, this.snapshot.connection);
   }
 
   async unsubscribe(request: KafkaUnsubscribeRequest): Promise<KafkaRouteEnvelope<KafkaUnsubscribeResult>> {
-    const clusterId = this.snapshot.connection?.clusterId;
-    if (request.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('unsubscribe', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Unsubscribe request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
-
-    const existing = this.subscriptions.get(request.subscriptionId);
-    if (!existing) {
-      return createKafkaErrorEnvelope('unsubscribe', {
-        code: 'KAFKA_SUBSCRIPTION_NOT_FOUND',
-        message: `Subscription '${request.subscriptionId}' does not exist`,
-      });
-    }
-
-    try {
-      if (existing.cleanup) {
-        await withTimeout(Promise.resolve(existing.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'unsubscribe');
-      }
-
-      this.subscriptions.delete(request.subscriptionId);
-      this.updateSubscriptionCount();
-      return createKafkaSuccessEnvelope('unsubscribe', {
-        clusterId,
-        subscriptionId: request.subscriptionId,
-        unsubscribed: true,
-      });
-    } catch (error) {
-      return createKafkaErrorEnvelope('unsubscribe', {
-        code: 'KAFKA_UNSUBSCRIBE_FAILED',
-        message: toKafkaMessage(error),
-        retryable: true,
-      });
-    }
+    const result = await this.subscriptionStore.unsubscribe(request, this.snapshot.connection);
+    this.updateSubscriptionCount();
+    return result;
   }
 
   createNotImplementedEnvelope(op: KafkaOperation): KafkaRouteEnvelope<never> {
@@ -750,7 +577,7 @@ export class KafkaService {
           clusterId: connection.clusterId,
           connectedAt: new Date().toISOString(),
           lastError: undefined,
-          subscriptionCount: this.subscriptions.size,
+          subscriptionCount: this.subscriptionStore.size,
         },
       };
 
@@ -776,7 +603,7 @@ export class KafkaService {
           clusterId: connection.clusterId,
           connectedAt: undefined,
           lastError: message,
-          subscriptionCount: this.subscriptions.size,
+          subscriptionCount: this.subscriptionStore.size,
         },
       };
 
@@ -795,7 +622,7 @@ export class KafkaService {
   private currentStatus(): KafkaServiceStatus {
     return {
       ...this.snapshot.status,
-      subscriptionCount: this.subscriptions.size,
+      subscriptionCount: this.subscriptionStore.size,
     };
   }
 
@@ -806,7 +633,7 @@ export class KafkaService {
       status: {
         ...this.snapshot.status,
         ...update.status,
-        subscriptionCount: this.subscriptions.size,
+        subscriptionCount: this.subscriptionStore.size,
       },
     };
   }
@@ -834,33 +661,12 @@ export class KafkaService {
     return { ok: true };
   }
 
-  private async cleanupAllSubscriptions(): Promise<number> {
-    const entries = [...this.subscriptions.values()];
-    this.subscriptions.clear();
-    this.updateSubscriptionCount();
-
-    let cleaned = 0;
-    for (const entry of entries) {
-      cleaned += 1;
-      if (!entry.cleanup) {
-        continue;
-      }
-      try {
-        await withTimeout(Promise.resolve(entry.cleanup()), DEFAULT_CLEANUP_TIMEOUT_MS, 'disconnect');
-      } catch {
-        // Keep disconnect resilient: one bad cleanup should not block teardown.
-      }
-    }
-
-    return cleaned;
-  }
-
   private updateSubscriptionCount(): void {
     this.snapshot = {
       ...this.snapshot,
       status: {
         ...this.snapshot.status,
-        subscriptionCount: this.subscriptions.size,
+        subscriptionCount: this.subscriptionStore.size,
       },
     };
   }

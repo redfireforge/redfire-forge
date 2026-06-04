@@ -280,6 +280,49 @@ describe('kafkaStorage – publish templates', () => {
     await saveKafkaPublishTemplates([]);
     expect(await loadKafkaPublishTemplates()).toEqual([]);
   });
+
+  it('filters out entries with missing id field', async () => {
+    const corrupt = JSON.stringify([
+      { name: 'No ID', draft: { topic: 'x' } },
+      samplePublishTemplate,
+    ]);
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, corrupt);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe('tpl-pub-1');
+  });
+
+  it('filters out entries with missing name field', async () => {
+    const corrupt = JSON.stringify([
+      { id: 'x', draft: { topic: 'x' } },
+      samplePublishTemplate,
+    ]);
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, corrupt);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(1);
+  });
+
+  it('filters out entries with null draft', async () => {
+    const corrupt = JSON.stringify([
+      { id: 'x', name: 'Bad', draft: null },
+      samplePublishTemplate,
+    ]);
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, corrupt);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(1);
+  });
+
+  it('filters out non-object entries from array', async () => {
+    const corrupt = JSON.stringify([
+      'just a string',
+      42,
+      null,
+      samplePublishTemplate,
+    ]);
+    localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, corrupt);
+    const loaded = await loadKafkaPublishTemplates();
+    expect(loaded).toHaveLength(1);
+  });
 });
 
 describe('kafkaStorage – consume templates', () => {

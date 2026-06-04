@@ -407,6 +407,16 @@ describe('KafkaService — Core Scenarios', () => {
       disconnect: vi.fn(async () => undefined),
       listTopics: vi.fn(async () => []),
       fetchTopicMetadata: vi.fn(async () => []),
+      fetchTopicDetail: vi.fn(async (topicName) => ({
+        name: topicName,
+        partitionCount: 0,
+        replicationFactor: 0,
+        isInternal: false,
+        partitions: [],
+        consumerGroups: [],
+        config: {},
+        healthStatus: 'unknown',
+      })),
     };
 
     const producer: KafkaProducerAdapter = {
