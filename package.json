@@ -49,6 +49,7 @@
     "json-diff-kit": "^1.0.35",
     "jsondiffpatch": "^0.7.3",
     "kafkajs": "^2.2.4",
+    "kafkajs-snappy": "^1.1.0",
     "lz-string": "^1.5.0",
     "node-cron": "^3.0.3",
     "papaparse": "^5.5.3",

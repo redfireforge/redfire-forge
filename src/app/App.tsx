@@ -34,6 +34,8 @@ import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
+import { KafkaTopicExplorerPage } from '../features/kafka/KafkaTopicExplorerPage';
+import { KafkaSchemaRegistryPage } from '../features/kafka/KafkaSchemaRegistryPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -113,6 +115,8 @@ export default function App() {
   });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
+  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
+  const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
 
@@ -123,6 +127,19 @@ export default function App() {
 
   const handleNavigateToKafkaSettings = useCallback(() => {
     setActiveTab('kafka-settings');
+  }, []);
+
+  const handleUseAsWorkflowInput = useCallback((
+    payload: string,
+    meta: { topic: string; partition: number; offset: string },
+  ) => {
+    setWorkflowRunnerInitialVariables({
+      kafka_message: payload,
+      kafka_topic: meta.topic,
+      kafka_partition: String(meta.partition),
+      kafka_offset: meta.offset,
+    });
+    setActiveTab('workflow-runner');
   }, []);
 
   const handleRunInHarness = (workflowId: string) => {
@@ -541,6 +558,9 @@ export default function App() {
                 onComplete={handleCompleteToResults}
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+                initialWorkflowVariables={workflowRunnerInitialVariables}
+                onClearInitialWorkflowVariables={() => setWorkflowRunnerInitialVariables(null)}
+                onWorkflowOutputAvailable={setLastWorkflowOutput}
                 resolvedBaseUrl={resolvedBaseUrl}
                 microservices={microservices}
                 globalAuthProfiles={appGlobalAuthProfiles}
@@ -603,6 +623,26 @@ export default function App() {
           {activeTab === 'kafka-message-studio' && (
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
               <KafkaMessageStudioPage
+                kafkaState={kafkaState}
+                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
+                onUseAsWorkflowInput={handleUseAsWorkflowInput}
+                lastWorkflowOutput={lastWorkflowOutput}
+              />
+            </div>
+          )}
+
+          {activeTab === 'kafka-topic-explorer' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <KafkaTopicExplorerPage
+                kafkaState={kafkaState}
+                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
+              />
+            </div>
+          )}
+
+          {activeTab === 'kafka-schema-registry' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <KafkaSchemaRegistryPage
                 kafkaState={kafkaState}
                 onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
               />

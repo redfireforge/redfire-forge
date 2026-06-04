@@ -10,6 +10,8 @@ export type KafkaOperation =
   | 'subscribe'
   | 'subscriptions'
   | 'unsubscribe'
+  | 'subscription-messages'
+  | 'topic-detail'
   | 'schema-subjects'
   | 'schema-versions'
   | 'schema-fetch';
@@ -165,6 +167,8 @@ const OPERATION_MAP: Record<KafkaOperation, KafkaOperationSpec> = {
   subscribe: { method: 'POST', path: '/api/kafka/subscribe' },
   subscriptions: { method: 'GET', path: '/api/kafka/subscriptions', queryKeys: ['clusterId'] },
   unsubscribe: { method: 'POST', path: '/api/kafka/unsubscribe' },
+  'subscription-messages': { method: 'GET', path: '/api/kafka/subscription-messages', queryKeys: ['subscriptionId', 'sinceCursor', 'clusterId'] },
+  'topic-detail': { method: 'GET', path: '/api/kafka/topics/:topicName/detail', queryKeys: ['clusterId'] },
   'schema-subjects': { method: 'POST', path: '/api/kafka/schema-subjects' },
   'schema-versions': { method: 'POST', path: '/api/kafka/schema-versions' },
   'schema-fetch': { method: 'POST', path: '/api/kafka/schema-fetch' },
@@ -292,10 +296,17 @@ export async function dispatchKafkaOperation<T = unknown>(
 ): Promise<KafkaEnvelope<T>> {
   const spec = OPERATION_MAP[op];
   const query = buildQuery(request, spec.queryKeys);
+  let path = spec.path;
+  if (request) {
+    path = path.replace(/:([a-zA-Z]+)/g, (_match, key) => {
+      const val = request[key];
+      return val != null ? encodeURIComponent(String(val)) : '';
+    });
+  }
   const dispatchRequest: KafkaDispatchRequest = {
     op,
     method: spec.method,
-    path: spec.path,
+    path,
     query,
     body: spec.method === 'GET' ? undefined : request,
   };

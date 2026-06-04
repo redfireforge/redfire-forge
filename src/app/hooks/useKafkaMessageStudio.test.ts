@@ -190,6 +190,28 @@ describe('sendOnce', () => {
     await act(async () => { await result.current.sendOnce(); });
     expect(result.current.publishError).toBeNull();
   });
+
+  it('rejects invalid JSON body before sending', async () => {
+    const dispatch = vi.fn().mockResolvedValue(okEnvelope({}));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't', body: '{bad json}' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(result.current.publishError?.code).toBe('INVALID_JSON');
+    expect(result.current.publishError?.retryable).toBe(false);
+  });
+
+  it('allows empty body through to dispatch (server decides)', async () => {
+    const dispatch = makeDispatch(okEnvelope({ topic: 't', sentCount: 1, records: [] }));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't', body: '' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(dispatch).toHaveBeenCalled();
+  });
 });
 
 // ── consumeOnce ───────────────────────────────────────────────────────────

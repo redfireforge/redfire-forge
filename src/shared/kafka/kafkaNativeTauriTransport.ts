@@ -82,6 +82,9 @@ const COMMAND_MAP: Record<KafkaOperation, CommandSpec> = {
   subscribe: { command: 'kafka_subscribe', paramKey: 'request' },
   subscriptions: { command: 'kafka_subscriptions' },   // GET
   unsubscribe: { command: 'kafka_unsubscribe', paramKey: 'request' },
+  // Phase 3A — ring buffer polling via Express; no native Rust command yet
+  'subscription-messages': { command: '_server_proxy' },
+  'topic-detail': { command: '_server_proxy' },
   // Schema registry ops: no Rust command — always route through the Express server proxy
   'schema-subjects': { command: '_server_proxy' },
   'schema-versions': { command: '_server_proxy' },

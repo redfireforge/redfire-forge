@@ -130,9 +130,24 @@ export function useKafkaMessageStudio(
   // ── sendOnce ─────────────────────────────────────────────────────────────
   const sendOnce = useCallback(async () => {
     const clusterId = kafkaState.selectedClusterId ?? '';
-    setPublishLoading(true);
     setPublishResult(null);
     setPublishError(null);
+
+    // Validate JSON body before sending — reject invalid JSON early
+    if (publishDraftState.body.trim()) {
+      const jsonResult = validateAndFormatJson(publishDraftState.body);
+      if (!jsonResult.ok) {
+        setPublishError({
+          kind: 'validation',
+          code: 'INVALID_JSON',
+          message: jsonResult.error ?? 'Invalid JSON',
+          retryable: false,
+        });
+        return;
+      }
+    }
+
+    setPublishLoading(true);
     try {
       const body = buildPublishRequest(publishDraftState, clusterId);
       const envelope = await dispatch<KafkaPublishResult>('produce', body);

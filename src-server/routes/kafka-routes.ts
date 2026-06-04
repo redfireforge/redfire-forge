@@ -12,6 +12,7 @@ import {
   type KafkaSchemaVersionsRequest,
   type KafkaStatusRequest,
   type KafkaSubscriptionsRequest,
+  type KafkaTopicDetailRequest,
   type KafkaTopicsRequest,
 } from '../kafka/contracts.js';
 import {
@@ -154,6 +155,22 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     return sendEnvelope(res, envelope);
   });
 
+  router.get('/api/kafka/topics/:topicName/detail', async (req: Request, res: Response) => {
+    const topicName = req.params.topicName;
+    const clusterId = toStringQuery(req.query.clusterId);
+
+    try {
+      const request: KafkaTopicDetailRequest = { clusterId };
+      const envelope = await service.getTopicDetail(topicName, request);
+      return sendEnvelope(res, envelope);
+    } catch (error) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('topic-detail', {
+        code: 'KAFKA_TOPIC_DETAIL_FAILED',
+        message: toErrorMessage(error) || `Failed to fetch topic detail for '${topicName}'`,
+      }));
+    }
+  });
+
   router.post('/api/kafka/produce', async (req: Request, res: Response) => {
     const bodyError = requireBodyObject(req, 'produce');
     if (bodyError) {
@@ -193,6 +210,26 @@ export function createKafkaRouter(options: CreateKafkaRouterOptions = {}): Route
     };
 
     const envelope = service.getSubscriptions(request);
+    return sendEnvelope(res, envelope);
+  });
+
+  router.get('/api/kafka/subscription-messages', (req: Request, res: Response) => {
+    const subscriptionId = toStringQuery(req.query.subscriptionId);
+    const sinceCursorRaw = req.query.sinceCursor;
+    const sinceCursor = typeof sinceCursorRaw === 'string' ? parseInt(sinceCursorRaw, 10) : undefined;
+
+    if (!subscriptionId) {
+      return sendEnvelope(res, createKafkaErrorEnvelope('subscription-messages', {
+        code: 'KAFKA_INVALID_REQUEST',
+        message: 'subscriptionId query parameter is required',
+      }));
+    }
+
+    const envelope = service.getSubscriptionMessages({
+      clusterId: toStringQuery(req.query.clusterId),
+      subscriptionId,
+      sinceCursor: sinceCursor !== undefined && !isNaN(sinceCursor) ? sinceCursor : undefined,
+    });
     return sendEnvelope(res, envelope);
   });
 

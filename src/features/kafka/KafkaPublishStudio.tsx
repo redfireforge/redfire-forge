@@ -14,6 +14,8 @@ interface KafkaPublishStudioProps {
   onSaveTemplate: (name: string) => Promise<void>;
   onLoadTemplate: (id: string) => void;
   onDeleteTemplate: (id: string) => Promise<void>;
+  // ── Workflow integration (Phase 3D) ────────────────────────────────────
+  lastWorkflowOutput?: Record<string, string> | null;
 }
 
 export function KafkaPublishStudio({
@@ -23,6 +25,7 @@ export function KafkaPublishStudio({
   onSaveTemplate,
   onLoadTemplate,
   onDeleteTemplate,
+  lastWorkflowOutput,
 }: KafkaPublishStudioProps) {
   const { publishDraft, setPublishDraft, publishLoading, publishResult, publishError } = studio;
 
@@ -80,7 +83,10 @@ export function KafkaPublishStudio({
     });
   }, [publishDraft.headers, setPublishDraft]);
 
-  const canSend = publishDraft.topic.trim() !== '' && !publishLoading;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const topicEmpty = publishDraft.topic.trim() === '';
+  const bodyEmpty = publishDraft.body.trim() === '';
+  const canSend = !topicEmpty && !publishLoading;
 
   const handleSend = useCallback(() => {
     void studio.sendOnce();
@@ -89,6 +95,40 @@ export function KafkaPublishStudio({
   const handleFormatJson = useCallback(() => {
     studio.validateJsonBody();
   }, [studio]);
+
+  // ── Workflow variable dropdown (Phase 3D) ──────────────────────────────
+  const [wfDropdownOpen, setWfDropdownOpen] = useState(false);
+  const [wfSearch, setWfSearch] = useState('');
+  const wfDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!wfDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (wfDropdownRef.current && !wfDropdownRef.current.contains(e.target as Node)) {
+        setWfDropdownOpen(false);
+        setWfSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => { document.removeEventListener('mousedown', handler); };
+  }, [wfDropdownOpen]);
+
+  const workflowEntries = lastWorkflowOutput ? Object.entries(lastWorkflowOutput) : [];
+  const filteredWfEntries = wfSearch
+    ? workflowEntries.filter(([k]) => k.toLowerCase().includes(wfSearch.toLowerCase()))
+    : workflowEntries;
+
+  const handleSelectWfVariable = useCallback((value: string) => {
+    let body: string;
+    try {
+      body = JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      body = value;
+    }
+    setPublishDraft({ body });
+    setWfDropdownOpen(false);
+    setWfSearch('');
+  }, [setPublishDraft]);
 
   return (
     <div className="kafka-ms-card">
@@ -176,7 +216,11 @@ export function KafkaPublishStudio({
               placeholder="e.g. orders.events"
               value={publishDraft.topic}
               onChange={(e) => setPublishDraft({ topic: e.target.value })}
+              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
             />
+            {touched.topic && topicEmpty && (
+              <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
+            )}
           </div>
           <div className="kafka-ms-field">
             <label htmlFor="kms-pub-acks">Acks</label>
@@ -297,7 +341,11 @@ export function KafkaPublishStudio({
             placeholder='{"key": "value"}'
             value={publishDraft.body}
             onChange={(e) => setPublishDraft({ body: e.target.value })}
+            onBlur={() => setTouched((p) => ({ ...p, body: true }))}
           />
+          {touched.body && bodyEmpty && (
+            <span className="kafka-ms-field-hint" data-testid="pub-body-hint">Message body is required</span>
+          )}
         </div>
 
         {/* Schema Registry */}
@@ -322,8 +370,49 @@ export function KafkaPublishStudio({
             onClick={handleFormatJson}
             title="Validate and format JSON body"
           >
-            Format JSON
+            Validate &amp; Format JSON
           </button>
+          <div className="kafka-ms-wf-dropdown-anchor" ref={wfDropdownRef}>
+            <button
+              className="kafka-ms-secondary-btn"
+              onClick={() => setWfDropdownOpen((o) => !o)}
+              disabled={!lastWorkflowOutput || workflowEntries.length === 0}
+              title={workflowEntries.length === 0 ? 'Run a workflow first' : 'Map a workflow output variable into the message body'}
+              data-testid="pub-map-workflow-btn"
+            >
+              Map from Workflow ▾
+            </button>
+            {wfDropdownOpen && workflowEntries.length > 0 && (
+              <div className="kafka-ms-wf-dropdown" data-testid="pub-wf-dropdown">
+                <input
+                  className="kafka-ms-wf-search"
+                  type="text"
+                  placeholder="Search variables…"
+                  value={wfSearch}
+                  onChange={(e) => setWfSearch(e.target.value)}
+                  autoFocus
+                  data-testid="pub-wf-search"
+                />
+                <div className="kafka-ms-wf-list">
+                  {filteredWfEntries.length === 0 ? (
+                    <div className="kafka-ms-wf-empty">No matching variables</div>
+                  ) : (
+                    filteredWfEntries.map(([key, val]) => (
+                      <div
+                        key={key}
+                        className="kafka-ms-wf-item"
+                        onClick={() => handleSelectWfVariable(val)}
+                        data-testid={`pub-wf-var-${key}`}
+                      >
+                        <span className="kafka-ms-wf-item-name">{key}</span>
+                        <span className="kafka-ms-wf-item-preview">{val.length > 60 ? val.slice(0, 60) + '…' : val}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           {(publishResult || publishError) && (
             <button
               className="kafka-ms-ghost-btn"

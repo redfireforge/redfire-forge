@@ -158,6 +158,22 @@ describe('savePublishTemplate', () => {
 
     expect(result.current.templateError).toBe('QuotaExceededError');
   });
+
+  it('updates existing entry when saving with duplicate name (case-insensitive)', async () => {
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    const draftV1: KafkaPublishDraft = { ...pubDraft, body: '{"v":1}' };
+    const draftV2: KafkaPublishDraft = { ...pubDraft, body: '{"v":2}' };
+    await act(async () => { await result.current.savePublishTemplate('Orders Template', draftV1); });
+    const originalId = result.current.publishTemplates[0].id;
+
+    await act(async () => { await result.current.savePublishTemplate('orders template', draftV2); });
+
+    expect(result.current.publishTemplates).toHaveLength(1);
+    expect(result.current.publishTemplates[0].id).toBe(originalId);
+    expect(result.current.publishTemplates[0].draft.body).toBe('{"v":2}');
+  });
 });
 
 // ── loadPublishTemplate ────────────────────────────────────────────────────
@@ -260,6 +276,22 @@ describe('saveConsumeTemplate', () => {
     });
 
     expect(result.current.templateError).toBe('disk full');
+  });
+
+  it('updates existing entry when saving with duplicate name (case-insensitive)', async () => {
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    const draftV1: KafkaConsumeDraft = { ...conDraft, maxMessages: '10' };
+    const draftV2: KafkaConsumeDraft = { ...conDraft, maxMessages: '100' };
+    await act(async () => { await result.current.saveConsumeTemplate('Watch Orders', draftV1); });
+    const originalId = result.current.consumeTemplates[0].id;
+
+    await act(async () => { await result.current.saveConsumeTemplate('WATCH ORDERS', draftV2); });
+
+    expect(result.current.consumeTemplates).toHaveLength(1);
+    expect(result.current.consumeTemplates[0].id).toBe(originalId);
+    expect(result.current.consumeTemplates[0].draft.maxMessages).toBe('100');
   });
 });
 
