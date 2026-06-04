@@ -6,6 +6,7 @@ import {
   buildConsumeFilter,
   buildPublishRequest,
   buildConsumeRequest,
+  buildSubscribeRequest,
   valuePreview,
 } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeDraft, KafkaPublishDraft } from './types';
@@ -307,5 +308,45 @@ describe('valuePreview', () => {
 
   it('does not truncate short strings', () => {
     expect(valuePreview('short', 60)).toBe('short');
+  });
+});
+
+// ── buildSubscribeRequest ──────────────────────────────────────────────────
+
+describe('buildSubscribeRequest', () => {
+  it('includes topic, fromBeginning, maxInMemoryMessages, clusterId', () => {
+    const req = buildSubscribeRequest(baseDraft(), 'cluster-1');
+    expect(req.clusterId).toBe('cluster-1');
+    expect(req.topic).toBe('test');
+    expect(req.fromBeginning).toBe(false);
+    expect(req.maxInMemoryMessages).toBe(200);
+  });
+
+  it('includes groupId when non-blank', () => {
+    const draft = baseDraft();
+    draft.groupId = 'my-group';
+    const req = buildSubscribeRequest(draft, 'c');
+    expect(req.groupId).toBe('my-group');
+  });
+
+  it('omits groupId when blank', () => {
+    const draft = baseDraft();
+    draft.groupId = '  ';
+    const req = buildSubscribeRequest(draft, 'c');
+    expect(req.groupId).toBeUndefined();
+  });
+
+  it('includes filter when filter fields set', () => {
+    const draft = baseDraft();
+    draft.keyEquals = 'order-1';
+    const req = buildSubscribeRequest(draft, 'c');
+    expect(req.filter).toEqual({ keyEquals: 'order-1' });
+  });
+
+  it('sets fromBeginning=true when startPosition=earliest', () => {
+    const draft = baseDraft();
+    draft.startPosition = 'earliest';
+    const req = buildSubscribeRequest(draft, 'c');
+    expect(req.fromBeginning).toBe(true);
   });
 });

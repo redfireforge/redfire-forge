@@ -2,10 +2,30 @@ import { Kafka } from 'kafkajs';
 import type { KafkaConfig, SASLOptions } from 'kafkajs';
 import type { ConnectionOptions } from 'node:tls';
 
+// Register Snappy compression codec for kafkajs (Redpanda default compression)
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const kafkajs = require('kafkajs');
+const SnappyCodec = require('kafkajs-snappy');
+kafkajs.CompressionCodecs[kafkajs.CompressionTypes.Snappy] = SnappyCodec;
+
 // Suppress the KafkaJS v2 default-partitioner switch warning — we intentionally
 // use the new default partitioner and don't need the migration reminder.
 process.env['KAFKAJS_NO_PARTITIONER_WARNING'] = '1';
-import type { KafkaConnectionConfig } from './contracts.js';
+import type {
+  KafkaConnectionConfig,
+  KafkaTopicPartitionDetail,
+  KafkaTopicConsumerGroupSummary,
+  KafkaTopicDetail,
+} from './contracts.js';
+
+export type { KafkaTopicPartitionDetail, KafkaTopicConsumerGroupSummary, KafkaTopicDetail };
+
+const TOPIC_INTERESTING_CONFIGS = [
+  'retention.ms', 'retention.bytes', 'cleanup.policy',
+  'max.message.bytes', 'min.insync.replicas',
+  'compression.type', 'delete.retention.ms',
+];
 
 export interface KafkaTopicMetadata {
   name: string;
@@ -17,6 +37,7 @@ export interface KafkaAdminAdapter {
   disconnect(): Promise<void>;
   listTopics(): Promise<string[]>;
   fetchTopicMetadata(): Promise<KafkaTopicMetadata[]>;
+  fetchTopicDetail(topicName: string): Promise<KafkaTopicDetail>;
 }
 
 export interface KafkaProducerMessage {
@@ -176,6 +197,122 @@ class KafkaJsAdminAdapter implements KafkaAdminAdapter {
       name: topic.name,
       partitions: topic.partitions.length,
     }));
+  }
+
+  async fetchTopicDetail(topicName: string): Promise<KafkaTopicDetail> {
+    const [metaResult, offsetsResult, configResult] = await Promise.all([
+      this.admin.fetchTopicMetadata({ topics: [topicName] }),
+      this.admin.fetchTopicOffsets(topicName),
+      this.admin.describeConfigs({
+        resources: [{ type: 2, name: topicName, configNames: TOPIC_INTERESTING_CONFIGS }],
+      }),
+    ]);
+
+    const topicMeta = metaResult.topics[0];
+    const isInternal = topicMeta ? (topicMeta as { isInternal?: boolean }).isInternal ?? false : false;
+
+    const offsetMap = new Map<number, { low: string; high: string }>();
+    for (const o of offsetsResult) {
+      offsetMap.set(o.partition, { low: o.low, high: o.high });
+    }
+
+    const partitions: KafkaTopicPartitionDetail[] = (topicMeta?.partitions ?? []).map((p) => {
+      const offsets = offsetMap.get(p.partitionId) ?? { low: '0', high: '0' };
+      const earliest = offsets.low;
+      const latest = offsets.high;
+      const msgCount = Math.max(0, parseInt(latest, 10) - parseInt(earliest, 10));
+      return {
+        partitionId: p.partitionId,
+        leader: p.leader,
+        replicas: [...(p.replicas ?? [])],
+        isr: [...(p.isr ?? [])],
+        earliestOffset: earliest,
+        latestOffset: latest,
+        messageCount: isNaN(msgCount) ? 0 : msgCount,
+      };
+    });
+
+    const replicationFactor = partitions.length > 0 ? partitions[0].replicas.length : 0;
+
+    let healthStatus: 'healthy' | 'degraded' | 'unknown' = 'unknown';
+    if (partitions.length > 0) {
+      const degraded = partitions.some((p) => p.isr.length < p.replicas.length);
+      healthStatus = degraded ? 'degraded' : 'healthy';
+    }
+
+    const config: Record<string, string> = {};
+    const configEntries = configResult.resources?.[0]?.configEntries ?? [];
+    for (const entry of configEntries) {
+      if (entry.configName && entry.configValue != null) {
+        config[entry.configName] = entry.configValue;
+      }
+    }
+
+    let consumerGroups: KafkaTopicConsumerGroupSummary[] = [];
+    try {
+      const groupsResult = await Promise.race([
+        this.fetchConsumerGroupsForTopic(topicName, offsetsResult),
+        new Promise<KafkaTopicConsumerGroupSummary[]>((resolve) => setTimeout(() => resolve([]), 5000)),
+      ]);
+      consumerGroups = groupsResult;
+    } catch {
+      // best-effort
+    }
+
+    return {
+      name: topicName,
+      partitionCount: partitions.length,
+      replicationFactor,
+      isInternal,
+      partitions,
+      consumerGroups,
+      config,
+      healthStatus,
+    };
+  }
+
+  private async fetchConsumerGroupsForTopic(
+    topicName: string,
+    topicOffsets: Array<{ partition: number; high: string }>,
+  ): Promise<KafkaTopicConsumerGroupSummary[]> {
+    const { groups } = await this.admin.listGroups();
+    const results: KafkaTopicConsumerGroupSummary[] = [];
+
+    const latestMap = new Map<number, number>();
+    for (const o of topicOffsets) {
+      latestMap.set(o.partition, parseInt(o.high, 10));
+    }
+
+    for (const group of groups) {
+      try {
+        const offsets = await this.admin.fetchOffsets({ groupId: group.groupId, topics: [topicName] });
+        const topicOffsetEntries = offsets.find((t: { topic?: string }) => t.topic === topicName);
+        if (!topicOffsetEntries) continue;
+
+        const partitionOffsets = (topicOffsetEntries as { partitions?: Array<{ partition: number; offset: string }> }).partitions ?? [];
+        let hasCommitted = false;
+        let totalLag = 0;
+
+        for (const po of partitionOffsets) {
+          const committed = parseInt(po.offset, 10);
+          if (committed >= 0) {
+            hasCommitted = true;
+            const latest = latestMap.get(po.partition) ?? 0;
+            totalLag += Math.max(0, latest - committed);
+          }
+        }
+
+        if (hasCommitted) {
+          const desc = await this.admin.describeGroups([group.groupId]);
+          const state = desc.groups?.[0]?.state ?? 'Unknown';
+          results.push({ groupId: group.groupId, state, totalLag });
+        }
+      } catch {
+        // skip individual group errors
+      }
+    }
+
+    return results;
   }
 }
 

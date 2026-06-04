@@ -105,23 +105,20 @@ describe('KafkaService — Coverage Gap: Uncovered Branches', () => {
     expect(subs.data.subscriptions).toHaveLength(1);
   });
 
-  it('unsubscribe returns KAFKA_UNSUBSCRIBE_FAILED when cleanup throws (line 600)', async () => {
+  it('unsubscribe succeeds even when cleanup throws (best-effort cleanup)', async () => {
     const mock = createMockRuntimeAdapter();
     const service = new KafkaService(mock.runtimeAdapter);
     await service.connect({ connection: makeConnection() });
 
-    // Register a subscription with a throwing cleanup function directly.
-    // The standard subscribe() path swallows cleanup errors (safeStopAndDisconnectConsumer),
-    // so we use registerSubscription() with a custom cleanup that throws to exercise line 600.
     const info = service.registerSubscription(
       { topic: 'events' },
       async () => { throw new Error('forced cleanup failure'); },
     );
 
     const result = await service.unsubscribe({ subscriptionId: info.subscriptionId });
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected error');
-    expect(result.error.code).toBe('KAFKA_UNSUBSCRIBE_FAILED');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.data.unsubscribed).toBe(true);
   });
 
   it('cleanupAllSubscriptions swallows errors thrown by individual cleanup callbacks (line 721)', async () => {
@@ -437,7 +434,7 @@ describe('KafkaService — Coverage Gap: Uncovered Branches', () => {
 
   // ── Branch: unsubscribe when cleanup() throws ─────────────────────────────
 
-  it('unsubscribe returns KAFKA_UNSUBSCRIBE_FAILED when cleanup throws', async () => {
+  it('unsubscribe succeeds and removes entry even when cleanup throws', async () => {
     const mock = createMockRuntimeAdapter();
     const service = new KafkaService(mock.runtimeAdapter);
     await service.connect({ connection: makeConnection() });
@@ -449,10 +446,12 @@ describe('KafkaService — Coverage Gap: Uncovered Branches', () => {
     );
 
     const result = await service.unsubscribe({ subscriptionId: subId });
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected error');
-    expect(result.error.code).toBe('KAFKA_UNSUBSCRIBE_FAILED');
-    expect(result.error.message).toContain('cleanup kaboom');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.data.unsubscribed).toBe(true);
+
+    const poll = service.getSubscriptionMessages({ subscriptionId: subId });
+    expect(poll.ok).toBe(false);
   });
 
   // ── Branch: cleanupAllSubscriptions skips entries without cleanup ─────────
@@ -470,5 +469,109 @@ describe('KafkaService — Coverage Gap: Uncovered Branches', () => {
     if (!result.ok) throw new Error('expected success');
     // cleanedSubscriptions counts all entries regardless of cleanup presence
     expect(result.data.cleanedSubscriptions).toBe(1);
+  });
+});
+
+// ── Phase 3A: getSubscriptionMessages ──────────────────────────────────────
+
+describe('KafkaService — getSubscriptionMessages', () => {
+  it('returns messages for a valid subscriptionId', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const info = service.registerSubscription({ topic: 'orders' });
+    const entry = (service as unknown as { subscriptionStore: { get(id: string): { ringBuffer: unknown[]; cursor: number } | undefined } }).subscriptionStore.get(info.subscriptionId)!;
+    entry.ringBuffer.push({ topic: 'orders', partition: 0, offset: '0', value: '{"a":1}' });
+    entry.ringBuffer.push({ topic: 'orders', partition: 0, offset: '1', value: '{"a":2}' });
+    entry.cursor = 2;
+
+    const result = service.getSubscriptionMessages({ subscriptionId: info.subscriptionId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.data.messages).toHaveLength(2);
+    expect(result.data.cursor).toBe(2);
+    expect(result.data.bufferSize).toBe(2);
+  });
+
+  it('returns 404 for unknown subscriptionId', () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+
+    const result = service.getSubscriptionMessages({ subscriptionId: 'nonexistent' });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('KAFKA_SUBSCRIPTION_NOT_FOUND');
+  });
+
+  it('returns error when subscriptionId is empty', () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+
+    const result = service.getSubscriptionMessages({ subscriptionId: '' });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('KAFKA_INVALID_REQUEST');
+  });
+
+  it('sinceCursor filters to only newer messages', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const info = service.registerSubscription({ topic: 'orders' });
+    const entry = (service as unknown as { subscriptionStore: { get(id: string): { ringBuffer: unknown[]; cursor: number } | undefined } }).subscriptionStore.get(info.subscriptionId)!;
+    entry.ringBuffer.push(
+      { topic: 'orders', partition: 0, offset: '0', value: 'msg-1' },
+      { topic: 'orders', partition: 0, offset: '1', value: 'msg-2' },
+      { topic: 'orders', partition: 0, offset: '2', value: 'msg-3' },
+    );
+    entry.cursor = 3;
+
+    // sinceCursor=1 should return messages added after cursor 1 (i.e. last 2 messages)
+    const result = service.getSubscriptionMessages({ subscriptionId: info.subscriptionId, sinceCursor: 1 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.data.messages).toHaveLength(2);
+    expect(result.data.cursor).toBe(3);
+  });
+
+  it('ring buffer wrap sets cursorGap=true', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const info = service.registerSubscription({ topic: 'orders' });
+    const entry = (service as unknown as { subscriptionStore: { get(id: string): { ringBuffer: unknown[]; cursor: number; maxInMemoryMessages: number } | undefined } }).subscriptionStore.get(info.subscriptionId)!;
+    entry.maxInMemoryMessages = 3;
+    entry.ringBuffer.push(
+      { topic: 'orders', partition: 0, offset: '8', value: 'msg-8' },
+      { topic: 'orders', partition: 0, offset: '9', value: 'msg-9' },
+      { topic: 'orders', partition: 0, offset: '10', value: 'msg-10' },
+    );
+    entry.cursor = 10;
+
+    // sinceCursor=2 is behind bufferStartCursor (10-3=7) → cursorGap
+    const result = service.getSubscriptionMessages({ subscriptionId: info.subscriptionId, sinceCursor: 2 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.data.cursorGap).toBe(true);
+    expect(result.data.messages).toHaveLength(3);
+  });
+
+  it('cluster mismatch returns 409', async () => {
+    const mock = createMockRuntimeAdapter();
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection({ clusterId: 'cluster-a' }) });
+
+    const info = service.registerSubscription({ topic: 'orders' });
+
+    const result = service.getSubscriptionMessages({
+      subscriptionId: info.subscriptionId,
+      clusterId: 'cluster-b',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('KAFKA_CLUSTER_MISMATCH');
   });
 });

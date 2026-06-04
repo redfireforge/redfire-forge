@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useKafkaMessageStudio } from '../../app/hooks/useKafkaMessageStudio';
 import { useKafkaTemplates } from '../../app/hooks/useKafkaTemplates';
+import { useKafkaStreamMode } from '../../app/hooks/useKafkaStreamMode';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
 import { KafkaPublishStudio } from './KafkaPublishStudio';
@@ -9,15 +10,20 @@ import { KafkaConsumeStudio } from './KafkaConsumeStudio';
 interface KafkaMessageStudioPageProps {
   kafkaState: UseKafkaStateReturn;
   onNavigateToKafkaSettings: () => void;
+  onUseAsWorkflowInput?: (payload: string, meta: { topic: string; partition: number; offset: string }) => void;
+  lastWorkflowOutput?: Record<string, string> | null;
 }
 
 export function KafkaMessageStudioPage({
   kafkaState,
   onNavigateToKafkaSettings,
+  onUseAsWorkflowInput,
+  lastWorkflowOutput,
 }: KafkaMessageStudioPageProps) {
   const [activeTab, setActiveTab] = useState<'publish' | 'consume'>('publish');
   const studio = useKafkaMessageStudio(kafkaState);
   const templates = useKafkaTemplates();
+  const streamMode = useKafkaStreamMode(kafkaState);
 
   // ── Publish template handlers ────────────────────────────────────────────
   const handleSavePublishTemplate = useCallback(
@@ -88,6 +94,11 @@ export function KafkaMessageStudioPage({
           Consume Studio
         </button>
       </div>
+      {templates.templateError && (
+        <div className="kafka-ms-template-error" data-testid="template-error">
+          Template error: {templates.templateError}
+        </div>
+      )}
       <div className="kafka-ms-tab-content">
         {activeTab === 'publish' && (
           <KafkaPublishStudio
@@ -98,6 +109,7 @@ export function KafkaMessageStudioPage({
             onSaveTemplate={handleSavePublishTemplate}
             onLoadTemplate={handleLoadPublishTemplate}
             onDeleteTemplate={templates.deletePublishTemplate}
+            lastWorkflowOutput={lastWorkflowOutput}
           />
         )}
         {activeTab === 'consume' && (
@@ -109,6 +121,8 @@ export function KafkaMessageStudioPage({
             onSaveConsumeTemplate={handleSaveConsumeTemplate}
             onLoadConsumeTemplate={handleLoadConsumeTemplate}
             onDeleteConsumeTemplate={templates.deleteConsumeTemplate}
+            streamMode={streamMode}
+            onUseAsWorkflowInput={onUseAsWorkflowInput}
           />
         )}
       </div>

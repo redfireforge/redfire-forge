@@ -40,11 +40,17 @@ interface Props {
   selectedEnvId?: string;
   /** Persist SLA target changes back to the workflow definition. */
   onUpdateWorkflow?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void;
+  /** Phase 3C: Pre-populate workflow variables from Kafka consume. */
+  initialWorkflowVariables?: Record<string, string> | null;
+  /** Phase 3C: Clear initial variables after they have been applied. */
+  onClearInitialWorkflowVariables?: () => void;
+  /** Phase 3D: Notify parent when workflow output variables are available. */
+  onWorkflowOutputAvailable?: (output: Record<string, string>) => void;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, onUpdateWorkflow: _onUpdateWorkflow }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, onUpdateWorkflow: _onUpdateWorkflow, initialWorkflowVariables, onClearInitialWorkflowVariables, onWorkflowOutputAvailable }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -109,6 +115,25 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       setVariablesInitialized(true);
     }
   }, [selectedWorkflow, variablesInitialized]);
+
+  // Phase 3C: Merge Kafka-sourced variables into workflow variables
+  useEffect(() => {
+    if (configLoaded && initialWorkflowVariables) {
+      setWorkflowVariables((prev) => ({ ...prev, ...initialWorkflowVariables }));
+      onClearInitialWorkflowVariables?.();
+    }
+  }, [configLoaded, initialWorkflowVariables, onClearInitialWorkflowVariables]);
+
+  // Phase 3D: Emit workflow output variables when a run completes
+  useEffect(() => {
+    if (!finalRun || !onWorkflowOutputAvailable) return;
+    const trace = finalRun.executionTrace as WorkflowExecutionTrace | undefined;
+    if (!trace?.iterations?.length) return;
+    const lastIter = trace.iterations[trace.iterations.length - 1];
+    if (lastIter?.finalVariables && Object.keys(lastIter.finalVariables).length > 0) {
+      onWorkflowOutputAvailable(lastIter.finalVariables as Record<string, string>);
+    }
+  }, [finalRun, onWorkflowOutputAvailable]);
 
   // Detect if workflow has CorrelationWait nodes and auto-initialize config
   const hasCorrelationWait = useMemo(() => {

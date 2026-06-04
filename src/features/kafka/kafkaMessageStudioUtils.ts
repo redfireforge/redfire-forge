@@ -142,6 +142,25 @@ export function buildConsumeRequest(
   return req;
 }
 
+// ── Subscribe request builder ──────────────────────────────────────────────
+
+/** Build the body for dispatchKafkaOperation('subscribe', body). */
+export function buildSubscribeRequest(
+  draft: KafkaConsumeDraft,
+  clusterId: string,
+): Record<string, unknown> {
+  const req: Record<string, unknown> = {
+    clusterId,
+    topic: draft.topic,
+    fromBeginning: draft.startPosition === 'earliest',
+    maxInMemoryMessages: 200,
+  };
+  if (draft.groupId.trim()) req.groupId = draft.groupId.trim();
+  const filter = buildConsumeFilter(draft);
+  if (filter) req.filter = filter;
+  return req;
+}
+
 // ── Export helper ──────────────────────────────────────────────────────────
 
 /** Trigger a file download for the result set (uses shared saveJsonFile — supports browser + Tauri). */

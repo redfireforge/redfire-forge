@@ -40,6 +40,8 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
   ],
   protocols: [
     { tab: 'kafka-message-studio', label: 'Kafka Studio' },
+    { tab: 'kafka-topic-explorer', label: 'Topic Explorer' },
+    { tab: 'kafka-schema-registry', label: 'Schema Registry' },
   ],
 };
 

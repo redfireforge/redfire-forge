@@ -571,4 +571,80 @@ describe('kafka-routes', () => {
       expect(res.body.error.retryable).toBe(true);
     });
   });
+
+  // ── Phase 3A: GET /api/kafka/subscription-messages ──────────────────────
+
+  describe('GET /api/kafka/subscription-messages', () => {
+    it('returns 200 with messages for valid subscriptionId', async () => {
+      const service = createMockService();
+      (service as Record<string, unknown>).getSubscriptionMessages = vi.fn(() =>
+        createKafkaSuccessEnvelope('subscription-messages', {
+          subscriptionId: 'sub-1',
+          messages: [{ topic: 't', partition: 0, offset: '0', value: '{}' }],
+          cursor: 1,
+          bufferSize: 1,
+          maxInMemoryMessages: 100,
+        }),
+      );
+      const app = createApp(service);
+
+      const res = await request(app)
+        .get('/api/kafka/subscription-messages?subscriptionId=sub-1&sinceCursor=0');
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.messages).toHaveLength(1);
+      expect(res.body.data.cursor).toBe(1);
+    });
+
+    it('returns 400 when subscriptionId is missing', async () => {
+      const service = createMockService();
+      const app = createApp(service);
+
+      const res = await request(app).get('/api/kafka/subscription-messages');
+
+      expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.error.code).toBe('KAFKA_INVALID_REQUEST');
+    });
+
+    it('returns 404 when subscription not found', async () => {
+      const service = createMockService();
+      (service as Record<string, unknown>).getSubscriptionMessages = vi.fn(() =>
+        createKafkaErrorEnvelope('subscription-messages', {
+          code: 'KAFKA_SUBSCRIPTION_NOT_FOUND',
+          message: 'not found',
+        }),
+      );
+      const app = createApp(service);
+
+      const res = await request(app)
+        .get('/api/kafka/subscription-messages?subscriptionId=nonexistent');
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('KAFKA_SUBSCRIPTION_NOT_FOUND');
+    });
+
+    it('parses sinceCursor as number from query string', async () => {
+      const service = createMockService();
+      const getSubMsgMock = vi.fn(() =>
+        createKafkaSuccessEnvelope('subscription-messages', {
+          subscriptionId: 'sub-1',
+          messages: [],
+          cursor: 5,
+          bufferSize: 0,
+          maxInMemoryMessages: 100,
+        }),
+      );
+      (service as Record<string, unknown>).getSubscriptionMessages = getSubMsgMock;
+      const app = createApp(service);
+
+      await request(app)
+        .get('/api/kafka/subscription-messages?subscriptionId=sub-1&sinceCursor=5');
+
+      expect(getSubMsgMock).toHaveBeenCalledWith(
+        expect.objectContaining({ subscriptionId: 'sub-1', sinceCursor: 5 }),
+      );
+    });
+  });
 });

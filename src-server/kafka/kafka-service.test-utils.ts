@@ -56,6 +56,16 @@ export function createMockRuntimeAdapter(options?: {
     }),
     listTopics: vi.fn(async () => state.topics),
     fetchTopicMetadata: vi.fn(async () => state.metadata),
+    fetchTopicDetail: vi.fn(async (topicName: string) => ({
+      name: topicName,
+      partitionCount: 0,
+      replicationFactor: 0,
+      isInternal: topicName.startsWith('__'),
+      partitions: [],
+      consumerGroups: [],
+      config: {},
+      healthStatus: 'unknown' as const,
+    })),
   };
 
   const producer: KafkaProducerAdapter = {
