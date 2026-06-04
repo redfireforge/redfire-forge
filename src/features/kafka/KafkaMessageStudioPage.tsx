@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useKafkaMessageStudio } from '../../app/hooks/useKafkaMessageStudio';
 import { useKafkaTemplates } from '../../app/hooks/useKafkaTemplates';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
@@ -15,6 +15,7 @@ export function KafkaMessageStudioPage({
   kafkaState,
   onNavigateToKafkaSettings,
 }: KafkaMessageStudioPageProps) {
+  const [activeTab, setActiveTab] = useState<'publish' | 'consume'>('publish');
   const studio = useKafkaMessageStudio(kafkaState);
   const templates = useKafkaTemplates();
 
@@ -71,25 +72,45 @@ export function KafkaMessageStudioPage({
 
   return (
     <div className="kafka-message-studio-page">
-      <div className="kafka-ms-panels">
-        <KafkaPublishStudio
-          studio={studio}
-          clusterId={clusterId}
-          publishTemplates={templates.publishTemplates}
-          templatesLoading={templates.templatesLoading}
-          onSaveTemplate={handleSavePublishTemplate}
-          onLoadTemplate={handleLoadPublishTemplate}
-          onDeleteTemplate={templates.deletePublishTemplate}
-        />
-        <KafkaConsumeStudio
-          studio={studio}
-          clusterId={clusterId}
-          consumeTemplates={templates.consumeTemplates}
-          templatesLoading={templates.templatesLoading}
-          onSaveConsumeTemplate={handleSaveConsumeTemplate}
-          onLoadConsumeTemplate={handleLoadConsumeTemplate}
-          onDeleteConsumeTemplate={templates.deleteConsumeTemplate}
-        />
+      <div className="builder-tabs kafka-ms-studio-tabs">
+        <button
+          type="button"
+          className={`builder-tab ${activeTab === 'publish' ? 'active' : ''}`}
+          onClick={() => setActiveTab('publish')}
+        >
+          Publish Studio
+        </button>
+        <button
+          type="button"
+          className={`builder-tab ${activeTab === 'consume' ? 'active' : ''}`}
+          onClick={() => setActiveTab('consume')}
+        >
+          Consume Studio
+        </button>
+      </div>
+      <div className="kafka-ms-tab-content">
+        {activeTab === 'publish' && (
+          <KafkaPublishStudio
+            studio={studio}
+            clusterId={clusterId}
+            publishTemplates={templates.publishTemplates}
+            templatesLoading={templates.templatesLoading}
+            onSaveTemplate={handleSavePublishTemplate}
+            onLoadTemplate={handleLoadPublishTemplate}
+            onDeleteTemplate={templates.deletePublishTemplate}
+          />
+        )}
+        {activeTab === 'consume' && (
+          <KafkaConsumeStudio
+            studio={studio}
+            clusterId={clusterId}
+            consumeTemplates={templates.consumeTemplates}
+            templatesLoading={templates.templatesLoading}
+            onSaveConsumeTemplate={handleSaveConsumeTemplate}
+            onLoadConsumeTemplate={handleLoadConsumeTemplate}
+            onDeleteConsumeTemplate={templates.deleteConsumeTemplate}
+          />
+        )}
       </div>
     </div>
   );
