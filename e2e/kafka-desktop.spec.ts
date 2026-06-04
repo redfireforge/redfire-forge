@@ -173,10 +173,11 @@ const TOPICS_RESPONSE = {
   meta: { timestamp: '2026-06-01T00:00:00.000Z', durationMs: 45 },
 };
 
-// ── HttpResponse wrapper (matches httpFetch / /__proxy contract) ──────────────
-// The browser sends all API requests through POST /__proxy.  The proxy returns
-// a JSON-serialised HttpResponse whose `body` field is a JSON string.
-// When we intercept /__proxy in Playwright we must fulfil with that exact shape.
+// ── HttpResponse wrapper (used only for /__proxy-based worker calls) ────────────
+// Main-thread Kafka calls use native fetch() for relative paths, so they go
+// directly to the Vite dev proxy → backend, NOT through /__proxy.
+// Only execution-worker calls (kafkaProduce, consume-once) use httpFetchViaViteProxy
+// which sends POST /__proxy with { url, method, headers, body } in the body.
 
 interface ProxyHttpResponse {
   status: number;
@@ -217,41 +218,29 @@ async function seedKafkaCluster(page: import('@playwright/test').Page) {
 }
 
 /**
- * The browser routes all HTTP calls through POST /__proxy with the real request
- * details in the JSON body { url, method, headers, body }.  We intercept the
- * proxy endpoint, inspect the forwarded URL, and fulfil with a fake
- * HttpResponse-shaped JSON (status / statusText / headers / body) so
- * httpFetchViaViteProxy can parse it correctly.
+ * Intercept direct Kafka API calls made by the main thread.
+ * The app's proxyFetch() uses native fetch() for relative URLs (e.g.
+ * /api/kafka/status), bypassing /__proxy entirely.  Playwright must
+ * therefore intercept the actual API paths through Vite's dev proxy.
  *
- * Any /__proxy call whose URL does NOT match a registered handler is aborted to
- * prevent flaky network errors from unhandled Kafka operations.
+ * Each handler maps a URL substring (e.g. '/api/kafka/status') to the
+ * JSON response envelope to return.
  */
-async function interceptKafkaProxy(
+async function interceptKafkaApi(
   page: import('@playwright/test').Page,
   handlers: Record<string, unknown>,
 ) {
-  await page.route('**/__proxy', async (route, request) => {
-    let parsedBody: { url?: string } = {};
-    try {
-      parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string };
-    } catch {
-      // ignore parse errors — let fall through to abort
-    }
-    const targetUrl = parsedBody.url ?? '';
-
-    for (const [pattern, envelope] of Object.entries(handlers)) {
-      if (targetUrl.includes(pattern)) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(envelope)),
-        });
-        return;
-      }
-    }
-    // Unhandled /__proxy call — abort rather than letting it hit the backend
-    await route.abort();
-  });
+  for (const [pattern, envelope] of Object.entries(handlers)) {
+    // Build a glob that matches the path on any host (handles query strings too)
+    const glob = `**${pattern}*`;
+    await page.route(glob, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(envelope),
+      });
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -264,9 +253,7 @@ test.describe('Kafka settings page — server-proxy transport parity', () => {
   test('page renders the kafka-settings root element for a seeded cluster', async ({ page }) => {
     await seedAppData(page);
     await seedKafkaCluster(page);
-    await interceptKafkaProxy(page, {
-      '/api/kafka/status': statusEnvelope('disconnected'),
-    });
+    await interceptKafkaApi(page, { '/api/kafka/status': statusEnvelope('disconnected') });
 
     await page.goto('/?tab=kafka-settings', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-testid="kafka-settings-page"]')).toBeVisible({ timeout: 10000 });
@@ -285,9 +272,7 @@ test.describe('Kafka settings page — server-proxy transport parity', () => {
   test('status badge shows disconnected on load when cluster is not connected', async ({ page }) => {
     await seedAppData(page);
     await seedKafkaCluster(page);
-    await interceptKafkaProxy(page, {
-      '/api/kafka/status': statusEnvelope('disconnected'),
-    });
+    await interceptKafkaApi(page, { '/api/kafka/status': statusEnvelope('disconnected') });
 
     await page.goto('/?tab=kafka-settings', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-testid="kafka-settings-page"]')).toBeVisible({ timeout: 10000 });
@@ -300,30 +285,19 @@ test.describe('Kafka settings page — server-proxy transport parity', () => {
     await seedKafkaCluster(page);
 
     let connectCalled = false;
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-
-      if (targetUrl.includes('/api/kafka/connect')) {
-        connectCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(CONNECT_RESPONSE)),
-        });
-      } else if (targetUrl.includes('/api/kafka/status')) {
-        // Return connected after connect was called
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(
-            connectCalled ? statusEnvelope('connected') : statusEnvelope('disconnected'),
-          )),
-        });
-      } else {
-        await route.abort();
-      }
+    // status returns disconnected until connect is called, then connected
+    await interceptKafkaApi(page, { '/api/kafka/status': statusEnvelope('disconnected') });
+    await page.route('**/api/kafka/connect*', async (route) => {
+      connectCalled = true;
+      // After connect, override status to return connected
+      await page.route('**/api/kafka/status*', async (r) => {
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(statusEnvelope('connected')) });
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(CONNECT_RESPONSE),
+      });
     });
 
     await page.goto('/?tab=kafka-settings', { waitUntil: 'domcontentloaded' });
@@ -341,24 +315,27 @@ test.describe('Kafka settings page — server-proxy transport parity', () => {
   });
 
   // ── 5. Topics listing ────────────────────────────────────────────────────
-  test('clicking Refresh Topics fetches /api/kafka/topics and shows topic rows', async ({ page }) => {
+  // Topics are shown in the Message Studio → Topics tab (not settings page).
+  // Auto-loaded when the cluster is connected; data-testid is topic-row-${name}.
+  test('topic rows appear in Message Studio Topics tab when cluster is connected', async ({ page }) => {
     await seedAppData(page);
     await seedKafkaCluster(page);
-    await interceptKafkaProxy(page, {
+    await interceptKafkaApi(page, {
       '/api/kafka/status': statusEnvelope('connected'),
       '/api/kafka/topics': TOPICS_RESPONSE,
     });
 
-    await page.goto('/?tab=kafka-settings', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('[data-testid="kafka-settings-page"]')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.kafka-status-badge.state-connected')).toBeVisible({ timeout: 8000 });
+    await page.goto('/?tab=kafka-message-studio', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="topic-explorer-page"]')).not.toBeVisible();
 
-    const refreshTopicsBtn = page.locator('button', { hasText: 'Refresh Topics' }).first();
-    await expect(refreshTopicsBtn).toBeVisible({ timeout: 5000 });
-    await refreshTopicsBtn.click();
+    // Click the Topics tab
+    const topicsTab = page.locator('[data-testid="tab-topics"]');
+    await expect(topicsTab).toBeVisible({ timeout: 10000 });
+    await topicsTab.click();
 
-    await expect(page.locator('[data-testid="kafka-topic-orders.created"]')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('[data-testid="kafka-topic-payments.authorized"]')).toBeVisible({ timeout: 5000 });
+    // Topics auto-load — rows should appear
+    await expect(page.locator('[data-testid="topic-row-orders.created"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="topic-row-payments.authorized"]')).toBeVisible({ timeout: 5000 });
   });
 
   // ── 6. Disconnect flow ──────────────────────────────────────────────────
@@ -367,29 +344,19 @@ test.describe('Kafka settings page — server-proxy transport parity', () => {
     await seedKafkaCluster(page);
 
     let disconnectCalled = false;
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-
-      if (targetUrl.includes('/api/kafka/disconnect')) {
-        disconnectCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(DISCONNECT_RESPONSE)),
-        });
-      } else if (targetUrl.includes('/api/kafka/status')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(
-            disconnectCalled ? statusEnvelope('disconnected') : statusEnvelope('connected'),
-          )),
-        });
-      } else {
-        await route.abort();
-      }
+    // Start connected, switch to disconnected after disconnect is called
+    await interceptKafkaApi(page, { '/api/kafka/status': statusEnvelope('connected') });
+    await page.route('**/api/kafka/disconnect*', async (route) => {
+      disconnectCalled = true;
+      // After disconnect, override status to return disconnected
+      await page.route('**/api/kafka/status*', async (r) => {
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(statusEnvelope('disconnected')) });
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(DISCONNECT_RESPONSE),
+      });
     });
 
     await page.goto('/?tab=kafka-settings', { waitUntil: 'domcontentloaded' });
@@ -438,27 +405,28 @@ async function navigateToWorkflowRunner(page: import('@playwright/test').Page) {
 test.describe('Kafka workflow nodes — server-proxy transport parity', () => {
 
   // ── 7. KafkaProduceNode ──────────────────────────────────────────────────
+  // The harness workflow runner executes on the MAIN THREAD (not the execution
+  // worker), so httpFetch uses proxyFetch which calls native fetch() for relative
+  // URLs. This means /api/kafka/produce bypasses /__proxy and goes directly to
+  // the backend via Vite's dev proxy. Intercept it as a direct API call.
   test('KafkaProduceNode workflow calls /api/kafka/produce via /__proxy', async ({ page }) => {
     await seedAppData(page);
+    // Seed the kafka cluster so the produce node can find the connection config
+    await seedKafkaCluster(page);
     await page.addInitScript((wf: unknown) => {
       localStorage.setItem('workflows', JSON.stringify([wf]));
     }, PRODUCE_WORKFLOW);
 
     let produceCalled = false;
-    await page.route('**/__proxy', async (route, request) => {
-      let parsedBody: { url?: string } = {};
-      try { parsedBody = JSON.parse(request.postData() ?? '{}') as { url?: string }; } catch { /* ignore */ }
-      const targetUrl = parsedBody.url ?? '';
-      if (targetUrl.includes('/api/kafka/produce')) {
-        produceCalled = true;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(wrapProxyResponse(PRODUCE_PROXY_RESPONSE)),
-        });
-      } else {
-        await route.continue();
-      }
+    // Harness runner uses main-thread native fetch → intercept the API path directly
+    await interceptKafkaApi(page, { '/api/kafka/status': statusEnvelope('connected') });
+    await page.route('**/api/kafka/produce*', async (route) => {
+      produceCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(PRODUCE_PROXY_RESPONSE),
+      });
     });
 
     await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });

@@ -24,6 +24,11 @@ interface KafkaSchemaRegistryPageProps {
   deps?: UseSchemaRegistryDeps;
 }
 
+export interface KafkaSchemaRegistryContentProps {
+  kafkaState: UseKafkaStateReturn;
+  deps?: UseSchemaRegistryDeps;
+}
+
 function formatBadgeLabel(fmt?: string): string {
   switch (fmt) {
     case 'avro': return 'Avro';
@@ -55,13 +60,13 @@ function downloadFile(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function KafkaSchemaRegistryPage({
+export function KafkaSchemaRegistryContent({
   kafkaState,
-  onNavigateToKafkaSettings,
   deps,
-}: KafkaSchemaRegistryPageProps) {
+}: KafkaSchemaRegistryContentProps) {
   const reg = useSchemaRegistry(kafkaState, deps);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  void urlInputRef;
 
   const handleConnect = useCallback(() => {
     void reg.loadSubjects();
@@ -83,22 +88,6 @@ export function KafkaSchemaRegistryPage({
     const filename = `${reg.schemaDetail.subject}-v${reg.schemaDetail.version}${ext}`;
     downloadFile(reg.schemaDetail.schema, filename);
   }, [reg.schemaDetail]);
-
-  if (!kafkaState.loaded) {
-    return <div className="kafka-message-studio-page"><p className="kafka-ms-loading">Loading Kafka settings…</p></div>;
-  }
-
-  if (kafkaState.connection.state !== 'connected') {
-    return (
-      <div className="kafka-message-studio-page">
-        <KafkaStudioGuard
-          connection={kafkaState.connection}
-          hasClusters={kafkaState.clusters.length > 0}
-          onNavigateToSettings={onNavigateToKafkaSettings}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="kafka-schema-layout" data-testid="schema-registry-page">
@@ -331,4 +320,28 @@ export function KafkaSchemaRegistryPage({
       )}
     </div>
   );
+}
+
+export function KafkaSchemaRegistryPage({
+  kafkaState,
+  onNavigateToKafkaSettings,
+  deps,
+}: KafkaSchemaRegistryPageProps) {
+  if (!kafkaState.loaded) {
+    return <div className="kafka-message-studio-page"><p className="kafka-ms-loading">Loading Kafka settings…</p></div>;
+  }
+
+  if (kafkaState.connection.state !== 'connected') {
+    return (
+      <div className="kafka-message-studio-page">
+        <KafkaStudioGuard
+          connection={kafkaState.connection}
+          hasClusters={kafkaState.clusters.length > 0}
+          onNavigateToSettings={onNavigateToKafkaSettings}
+        />
+      </div>
+    );
+  }
+
+  return <KafkaSchemaRegistryContent kafkaState={kafkaState} deps={deps} />;
 }

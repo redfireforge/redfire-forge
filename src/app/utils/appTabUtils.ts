@@ -1,4 +1,4 @@
-export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'kafka-topic-explorer' | 'kafka-schema-registry';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio';
 
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols';
 
@@ -17,7 +17,7 @@ export const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
-const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'kafka-topic-explorer', 'kafka-schema-registry']);
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
 
 /** Derive the active domain from the current tab. */
@@ -30,7 +30,7 @@ export function domainOf(tab: Tab): Domain {
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'kafka-topic-explorer', 'kafka-schema-registry']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 

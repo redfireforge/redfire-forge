@@ -11,13 +11,17 @@ interface KafkaTopicExplorerPageProps {
   onNavigateToKafkaSettings: () => void;
 }
 
+export interface KafkaTopicExplorerContentProps {
+  kafkaState: UseKafkaStateReturn;
+}
+
 function formatTraffic(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
 }
 
-export function KafkaTopicExplorerPage({ kafkaState, onNavigateToKafkaSettings }: KafkaTopicExplorerPageProps) {
+export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerContentProps) {
   const explorer = useTopicExplorer(kafkaState);
   const topicName = explorer.selectedTopicName ?? '';
   const browser = useTopicMessageBrowser(topicName, kafkaState);
@@ -25,22 +29,6 @@ export function KafkaTopicExplorerPage({ kafkaState, onNavigateToKafkaSettings }
   const handleRowClick = useCallback((name: string) => {
     void explorer.selectTopic(explorer.selectedTopicName === name ? null : name);
   }, [explorer]);
-
-  if (!kafkaState.loaded) {
-    return <div className="kafka-message-studio-page"><p className="kafka-ms-loading">Loading Kafka settings…</p></div>;
-  }
-
-  if (kafkaState.connection.state !== 'connected') {
-    return (
-      <div className="kafka-message-studio-page">
-        <KafkaStudioGuard
-          connection={kafkaState.connection}
-          hasClusters={kafkaState.clusters.length > 0}
-          onNavigateToSettings={onNavigateToKafkaSettings}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="kafka-explorer-layout" data-testid="topic-explorer-page">
@@ -192,4 +180,24 @@ export function KafkaTopicExplorerPage({ kafkaState, onNavigateToKafkaSettings }
       )}
     </div>
   );
+}
+
+export function KafkaTopicExplorerPage({ kafkaState, onNavigateToKafkaSettings }: KafkaTopicExplorerPageProps) {
+  if (!kafkaState.loaded) {
+    return <div className="kafka-message-studio-page"><p className="kafka-ms-loading">Loading Kafka settings…</p></div>;
+  }
+
+  if (kafkaState.connection.state !== 'connected') {
+    return (
+      <div className="kafka-message-studio-page">
+        <KafkaStudioGuard
+          connection={kafkaState.connection}
+          hasClusters={kafkaState.clusters.length > 0}
+          onNavigateToSettings={onNavigateToKafkaSettings}
+        />
+      </div>
+    );
+  }
+
+  return <KafkaTopicExplorerContent kafkaState={kafkaState} />;
 }

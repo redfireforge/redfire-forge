@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { KafkaPublishStudio } from './KafkaPublishStudio';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { KafkaPublishDraft } from './types';
@@ -265,5 +265,167 @@ describe('KafkaPublishStudio — Map from Workflow', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     const btn = screen.getByTestId('pub-map-workflow-btn');
     expect(btn.getAttribute('title')).toBe('Run a workflow first');
+  });
+});
+
+// ─────────────────────── Template Save / Delete ───────────────────────
+
+describe('KafkaPublishStudio — Template Save', () => {
+  it('opens save input when Save button clicked', () => {
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+  });
+
+  it('confirm button disabled when save name is empty', () => {
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    expect((screen.getByText('✓') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('calls onSaveTemplate when confirm button clicked with name', async () => {
+    const tplProps = defaultTemplateProps();
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Publish Preset' } });
+    fireEvent.click(screen.getByText('✓'));
+    await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
+  });
+
+  it('calls onSaveTemplate when Enter pressed in save input', async () => {
+    const tplProps = defaultTemplateProps();
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    const input = screen.getByPlaceholderText('Template name');
+    fireEvent.change(input, { target: { value: 'My Publish Preset' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
+  });
+
+  it('closes save input on Escape key', () => {
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    const input = screen.getByPlaceholderText('Template name');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+  });
+
+  it('cancel button closes save input', () => {
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    fireEvent.click(screen.getByText('✕'));
+    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+  });
+
+  it('calls onDeleteTemplate when delete button clicked on template item', async () => {
+    const tplProps = defaultTemplateProps();
+    tplProps.publishTemplates = [
+      { id: 'pub-1', name: 'My Preset', createdAt: '2026-01-01', draft: basePublishDraft() },
+    ];
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    fireEvent.click(screen.getByTitle('Delete template'));
+    await waitFor(() => expect(tplProps.onDeleteTemplate).toHaveBeenCalledWith('pub-1'));
+  });
+});
+
+// ─────────────────────── Form Fields ───────────────────────
+
+describe('KafkaPublishStudio — Form Fields', () => {
+  let studio: UseKafkaMessageStudioReturn;
+
+  beforeEach(() => {
+    studio = makeStudio();
+  });
+
+  it('calls setPublishDraft when Acks select changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Acks'), { target: { value: '1' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ acks: 1 });
+  });
+
+  it('calls setPublishDraft when Key input changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Key'), { target: { value: 'my-key' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ key: 'my-key' });
+  });
+
+  it('calls setPublishDraft when Partition input changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Partition'), { target: { value: '2' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ partition: '2' });
+  });
+
+  it('calls setPublishDraft when Timeout changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Timeout (ms)'), { target: { value: '5000' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ timeoutMs: '5000' });
+  });
+
+  it('calls setPublishDraft when Message Body textarea changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Message Body (JSON)'), { target: { value: '{"new":"body"}' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ body: '{"new":"body"}' });
+  });
+});
+
+// ─────────────────────── Header Row Actions ───────────────────────
+
+describe('KafkaPublishStudio — Header Row Actions', () => {
+  function renderWithHeader() {
+    const draft = { ...basePublishDraft(), headers: [{ id: 'h-1', key: 'x-env', value: 'prod', enabled: true }] };
+    const studio = makeStudio({ publishDraft: draft });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    return studio;
+  }
+
+  it('calls setPublishDraft when header key changes', () => {
+    const studio = renderWithHeader();
+    fireEvent.change(screen.getByPlaceholderText('key'), { target: { value: 'x-region' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: [expect.objectContaining({ key: 'x-region' })] }),
+    );
+  });
+
+  it('calls setPublishDraft when header value changes', () => {
+    const studio = renderWithHeader();
+    fireEvent.change(screen.getByPlaceholderText('value'), { target: { value: 'eu-west' } });
+    expect(studio.setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: [expect.objectContaining({ value: 'eu-west' })] }),
+    );
+  });
+
+  it('calls setPublishDraft when header enabled checkbox changes', () => {
+    const studio = renderWithHeader();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'enabled' }));
+    expect(studio.setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: [expect.objectContaining({ enabled: false })] }),
+    );
+  });
+
+  it('calls setPublishDraft when remove header button clicked', () => {
+    const studio = renderWithHeader();
+    fireEvent.click(screen.getByLabelText('Remove header'));
+    expect(studio.setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: [] }),
+    );
+  });
+
+  it('shows move-up button for second header row', () => {
+    const draft = {
+      ...basePublishDraft(),
+      headers: [
+        { id: 'h-1', key: 'k1', value: 'v1', enabled: true },
+        { id: 'h-2', key: 'k2', value: 'v2', enabled: true },
+      ],
+    };
+    const studio = makeStudio({ publishDraft: draft });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    const moveUpBtn = screen.getByLabelText('Move up');
+    expect(moveUpBtn).toBeTruthy();
+    fireEvent.click(moveUpBtn);
+    expect(studio.setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: expect.arrayContaining([expect.objectContaining({ id: 'h-2' })]) }),
+    );
   });
 });
