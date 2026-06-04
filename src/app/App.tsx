@@ -601,7 +601,7 @@ export default function App() {
           )}
 
           {activeTab === 'kafka-message-studio' && (
-            <div className="app-tab-pane">
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
               <KafkaMessageStudioPage
                 kafkaState={kafkaState}
                 onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
