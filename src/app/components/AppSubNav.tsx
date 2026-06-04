@@ -38,6 +38,9 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'preferences', label: 'Preferences' },
     { tab: 'kafka-settings', label: 'Kafka' },
   ],
+  protocols: [
+    { tab: 'kafka-message-studio', label: 'Kafka Studio' },
+  ],
 };
 
 function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab) => void) {
@@ -85,6 +88,11 @@ export default function AppSubNav({ activeTab, setActiveTab }: AppSubNavProps) {
       {domain === 'settings' && (
         <div className="sub-nav-tabs">
           {renderTabs(DOMAIN_ITEMS.settings, activeTab, setActiveTab)}
+        </div>
+      )}
+      {domain === 'protocols' && (
+        <div className="sub-nav-tabs">
+          {renderTabs(DOMAIN_ITEMS.protocols, activeTab, setActiveTab)}
         </div>
       )}
     </div>
