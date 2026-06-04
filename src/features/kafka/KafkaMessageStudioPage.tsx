@@ -6,6 +6,10 @@ import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
 import { KafkaPublishStudio } from './KafkaPublishStudio';
 import { KafkaConsumeStudio } from './KafkaConsumeStudio';
+import { KafkaTopicExplorerContent } from './KafkaTopicExplorerPage';
+import { KafkaSchemaRegistryContent } from './KafkaSchemaRegistryPage';
+
+type KafkaStudioTab = 'publish' | 'consume' | 'topics' | 'schema';
 
 interface KafkaMessageStudioPageProps {
   kafkaState: UseKafkaStateReturn;
@@ -20,7 +24,7 @@ export function KafkaMessageStudioPage({
   onUseAsWorkflowInput,
   lastWorkflowOutput,
 }: KafkaMessageStudioPageProps) {
-  const [activeTab, setActiveTab] = useState<'publish' | 'consume'>('publish');
+  const [activeTab, setActiveTab] = useState<KafkaStudioTab>('publish');
   const studio = useKafkaMessageStudio(kafkaState);
   const templates = useKafkaTemplates();
   const streamMode = useKafkaStreamMode(kafkaState);
@@ -84,14 +88,30 @@ export function KafkaMessageStudioPage({
           className={`builder-tab ${activeTab === 'publish' ? 'active' : ''}`}
           onClick={() => setActiveTab('publish')}
         >
-          Publish Studio
+          Publish
         </button>
         <button
           type="button"
           className={`builder-tab ${activeTab === 'consume' ? 'active' : ''}`}
           onClick={() => setActiveTab('consume')}
         >
-          Consume Studio
+          Consume
+        </button>
+        <button
+          type="button"
+          className={`builder-tab ${activeTab === 'topics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('topics')}
+          data-testid="tab-topics"
+        >
+          Topics
+        </button>
+        <button
+          type="button"
+          className={`builder-tab ${activeTab === 'schema' ? 'active' : ''}`}
+          onClick={() => setActiveTab('schema')}
+          data-testid="tab-schema"
+        >
+          Schema Registry
         </button>
       </div>
       {templates.templateError && (
@@ -124,6 +144,12 @@ export function KafkaMessageStudioPage({
             streamMode={streamMode}
             onUseAsWorkflowInput={onUseAsWorkflowInput}
           />
+        )}
+        {activeTab === 'topics' && (
+          <KafkaTopicExplorerContent kafkaState={kafkaState} />
+        )}
+        {activeTab === 'schema' && (
+          <KafkaSchemaRegistryContent kafkaState={kafkaState} />
         )}
       </div>
     </div>

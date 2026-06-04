@@ -2,8 +2,8 @@
 
 > Branch: `feature/kafka-integration`  
 > Created: 2025-07-14  
-> Last Reviewed: 2026-06-04 (Phase 3 re-evaluation pass #2 + Docker validation)
-> Status: ✅ Phase 3/4/5 re-evaluated — pending merge to develop
+> Last Reviewed: 2026-06-05 (Navigation architecture refactored — unified Kafka Studio tabs)
+> Status: ✅ All phases complete + nav restructured — pending merge to develop
 
 ---
 
@@ -174,23 +174,25 @@ Message Studio will read these to gate operations (must be connected) and popula
 Activity Bar:  API | Workflow | Harness | Gallery | Protocols | Settings
 
 Protocols sub-nav:
-  kafka-message-studio   → "Kafka Studio"
-  kafka-topic-explorer   → "Topic Explorer"
+  kafka-message-studio   → "Kafka"     (internal tabs: Publish | Consume | Topics | Schema Registry)
   (future) graphql-studio     → "GraphQL"
   (future) grpc-studio        → "gRPC"
   (future) websocket-studio   → "WebSocket"
 ```
 
-**Nav change (Phase 1 + Phase 4):**
+> **Architecture note (2026-06-05):** Topic Explorer and Schema Registry were originally separate sub-nav tabs (`kafka-topic-explorer`, `kafka-schema-registry`). They were consolidated as internal tabs within `KafkaMessageStudioPage` to keep all Kafka features cohesive under a single "Kafka" entry point. This reserves Protocols sub-nav slots for distinct protocol families (GraphQL, gRPC, etc.) and avoids Kafka-specific clutter in the top-level navigation.
+
+**Nav change:**
 ```ts
 // appTabUtils.ts:
-//   - Add 'kafka-message-studio' | 'kafka-topic-explorer' to Tab union
-//   - Add new PROTOCOLS_TABS set, isProtocolsTab() predicate, 'protocols' Domain
-//   - Update domainOf() to return 'protocols' for protocol tabs
+//   - Tab union has only 'kafka-message-studio' (no separate topic-explorer or schema-registry tabs)
+//   - PROTOCOLS_TABS set: ['kafka-message-studio']
+//   - domainOf() returns 'protocols' for protocol tabs
 
-// AppActivityBar.tsx: add Protocols button (between Gallery and Settings)
-// AppSubNav.tsx: add DOMAIN_ITEMS.protocols with two initial tabs
-// App.tsx: add render branches for the two new tabs
+// AppActivityBar.tsx: Protocols button (between Gallery and Settings)
+// AppSubNav.tsx: DOMAIN_ITEMS.protocols = [{ tab: 'kafka-message-studio', label: 'Kafka' }]
+// App.tsx: single render branch for kafka-message-studio
+// KafkaMessageStudioPage: 4 internal tabs (Publish | Consume | Topics | Schema Registry)
 ```
 
 ### Decision 2: One page, two panels (Publish + Consume side by side)
@@ -223,46 +225,39 @@ Phase 1 only calls `produce` and `consume-once`. The "Start Stream" button in th
 ### Changes to `src/app/utils/appTabUtils.ts`
 
 ```ts
-// Extend Tab union:
-export type Tab = ... | 'kafka-message-studio' | 'kafka-topic-explorer';
+// Tab union — only 'kafka-message-studio' (topics/schema are internal tabs):
+export type Tab = ... | 'kafka-message-studio';
 
-// Extend Domain union:
+// Domain union:
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'protocols' | 'settings';
 
-// New protocols set:
-const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'kafka-topic-explorer']);
+// Protocols set — single entry:
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
 
-// Update domainOf():
+// domainOf():
 export function domainOf(tab: Tab): Domain {
   if (isApiTab(tab)) return 'api';
   if (isWorkflowTab(tab)) return 'workflow';
   if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';
-  if (isProtocolsTab(tab)) return 'protocols';   // NEW
+  if (isProtocolsTab(tab)) return 'protocols';
   return 'settings';
 }
-
-// Add both tabs to ALL_TABS.
 ```
 
 ### Changes to `src/app/components/AppSubNav.tsx`
 
 ```ts
-// Phase 1 — Protocols domain starts with one sub-tab:
+// All Kafka features under a single "Kafka" sub-nav entry:
 protocols: [
-  { tab: 'kafka-message-studio', label: 'Kafka Studio' },
+  { tab: 'kafka-message-studio', label: 'Kafka' },
 ],
-// Phase 4 — same domain extended to two tabs:
+// Future protocols add their own entries:
 // protocols: [
-//   { tab: 'kafka-message-studio', label: 'Kafka Studio' },
-//   { tab: 'kafka-topic-explorer', label: 'Topic Explorer' },  // added in Phase 4
-// ],
-// Phase 5 — fully populated:
-// protocols: [
-//   { tab: 'kafka-message-studio',  label: 'Kafka Studio'   },
-//   { tab: 'kafka-topic-explorer',  label: 'Topic Explorer' },
-//   { tab: 'kafka-schema-registry', label: 'Schema Registry' },  // added in Phase 5
+//   { tab: 'kafka-message-studio', label: 'Kafka' },
+//   { tab: 'graphql-studio',       label: 'GraphQL' },  // future
+//   { tab: 'grpc-studio',          label: 'gRPC' },     // future
 // ],
 ```
 
@@ -289,25 +284,18 @@ Add a new "Protocols" button between Gallery and Settings:
 ### Changes to `src/app/App.tsx`
 
 ```tsx
-// Phase 1:
-import KafkaMessageStudioPage from '../features/kafka/KafkaMessageStudioPage';
+// Single import — KafkaMessageStudioPage handles all 4 internal tabs:
+import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
 
-// Phase 4 adds:
-// import KafkaTopicExplorerPage from '../features/kafka/KafkaTopicExplorerPage';
-
-// Phase 1 render branch:
+// Single render branch:
 {activeTab === 'kafka-message-studio' && (
   <KafkaMessageStudioPage
     kafkaState={kafkaState}
     onNavigateToKafkaSettings={() => setActiveTab('kafka-settings')}
   />
 )}
-
-// Phase 4 adds:
-// {activeTab === 'kafka-topic-explorer' && (
-//   <KafkaTopicExplorerPage kafkaState={kafkaState}
-//     onNavigateToKafkaSettings={() => setActiveTab('kafka-settings')} />
-// )}
+// KafkaMessageStudioPage internally renders:
+//   Publish | Consume | Topics (KafkaTopicExplorerContent) | Schema Registry (KafkaSchemaRegistryContent)
 ```
 
 ### `isSettingsTab` and `domainOf` interaction with AppActivityBar / App.tsx
@@ -2008,7 +1996,7 @@ src/styles/settings.css                      MODIFY — add kafka-explorer-* CSS
 
 ### Phase 4 Success Criteria
 
-- [x] `'kafka-topic-explorer'` tab visible in Protocols sub-nav (Protocols domain itself added in Phase 1)
+- [x] Topic Explorer accessible as internal tab within Kafka Studio (consolidated from separate sub-nav tab)
 - [x] `KafkaTopicExplorerPage` shows `KafkaStudioGuard` when cluster not connected
 - [x] Topic list: two-column layout (list + detail panel) — CSS added with 1.1fr/1fr grid, collapses below 960px
 - [x] Topic list: Name, Partitions columns visible immediately (no extra fetch)
@@ -2101,20 +2089,18 @@ This is the only place in the app where schemas can be browsed standalone — to
 
 ### Navigation
 
-Phase 5 adds `'kafka-schema-registry'` to the Tab union and `PROTOCOLS_TABS` set in `appTabUtils.ts`. The Protocols domain sub-nav becomes:
+Schema Registry is an internal tab within `KafkaMessageStudioPage` (alongside Publish, Consume, and Topics). No separate sub-nav entry or Tab union member is needed.
 
 ```ts
-// AppSubNav.tsx — Phase 5 fully populated:
-protocols: [
-  { tab: 'kafka-message-studio',  label: 'Kafka Studio'      },  // Phase 1
-  { tab: 'kafka-topic-explorer',  label: 'Topic Explorer'    },  // Phase 4
-  { tab: 'kafka-schema-registry', label: 'Schema Registry'   },  // Phase 5
-],
+// KafkaMessageStudioPage internal tabs:
+//   Publish | Consume | Topics | Schema Registry
+//
+// KafkaSchemaRegistryContent is rendered when the "Schema Registry" tab is active.
 ```
 
 ### Guard
 
-`KafkaSchemaRegistryPage` renders the shared `KafkaStudioGuard` when the cluster is not connected (same pattern as Phases 1 and 4).
+`KafkaMessageStudioPage` renders the shared `KafkaStudioGuard` when the cluster is not connected. The `KafkaSchemaRegistryContent` component is only rendered when already connected.
 
 Additionally, if connected but no Registry URL has been entered yet, the page shows a **URL prompt state** (not the cluster guard):
 
@@ -2230,9 +2216,9 @@ export function useSchemaRegistry(
 ### Phase 5 New Files
 
 ```
-src/app/utils/appTabUtils.ts           MODIFY — add 'kafka-schema-registry' to Tab union + PROTOCOLS_TABS
-src/app/components/AppSubNav.tsx       MODIFY — add 'kafka-schema-registry' sub-tab in protocols block
-src/app/App.tsx                        MODIFY — add render branch for 'kafka-schema-registry'
+src/app/utils/appTabUtils.ts           (no change needed — schema registry is an internal tab)
+src/app/components/AppSubNav.tsx       (no change needed — schema registry is an internal tab)
+src/app/App.tsx                        (no change needed — KafkaMessageStudioPage handles all Kafka tabs)
 src/features/kafka/KafkaSchemaRegistryPage.tsx       NEW
 src/features/kafka/KafkaSchemaRegistryPage.test.tsx  NEW
 src/features/kafka/useSchemaRegistry.ts              NEW
@@ -2257,7 +2243,7 @@ src/styles/settings.css                MODIFY — add kafka-schema-* CSS classes
 
 ### Phase 5 Success Criteria
 
-- [x] New "Schema Registry" sub-tab visible in Protocols domain
+- [x] Schema Registry accessible as internal tab within Kafka Studio (consolidated from separate sub-nav tab)
 - [x] Guard state shown when cluster not connected
 - [x] URL prompt shown when connected but no Registry URL entered
 - [x] `[Connect to Registry]` fetches subjects from `POST /api/kafka/schema-subjects`
@@ -2333,9 +2319,8 @@ src/styles/settings.css                MODIFY — add kafka-schema-* CSS classes
 
 | File | Change |
 |---|---|
-| `src/app/utils/appTabUtils.ts` | Added `'kafka-schema-registry'` to `Tab`, `PROTOCOLS_TABS`, `ALL_TABS` |
-| `src/app/components/AppSubNav.tsx` | Added `{ tab: 'kafka-schema-registry', label: 'Schema Registry' }` to protocols |
-| `src/app/App.tsx` | Added import + render branch for `kafka-schema-registry` |
+| `src/features/kafka/KafkaSchemaRegistryPage.tsx` | Added `KafkaSchemaRegistryContent` (guard-free) + `KafkaSchemaRegistryPage` (standalone wrapper) |
+| `src/features/kafka/KafkaMessageStudioPage.tsx` | Embedded `KafkaSchemaRegistryContent` as "Schema Registry" internal tab |
 | `src/styles/settings.css` | Added 8 CSS class groups (`kafka-schema-*`) for layout, cards, URL/auth, subject table, format badge, detail panel, version select, schema content, actions, skeleton |
 
 #### Test Results
@@ -2351,7 +2336,7 @@ src/styles/settings.css                MODIFY — add kafka-schema-* CSS classes
 
 | Step | Result |
 |---|---|
-| Schema Registry tab visible in Protocols sub-nav | PASS |
+| Schema Registry tab visible in Kafka Studio internal tabs | PASS |
 | Guard state shown when cluster not connected | PASS |
 | URL prompt shown when connected but no URL entered | PASS |
 | Enter `http://localhost:8085`, click Connect → 2 subjects loaded | PASS |
@@ -2601,6 +2586,7 @@ NO changes to:
 | Phase 3 — Streaming & Workflow Integration | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Docker validated: 3A server curl (subscribe/poll/unsubscribe/404), 3B streaming UI (start/stop/clear/export/LIVE badge), 3C consume→workflow (variable injection + navigation), 3D workflow→publish (Map from Workflow dropdown) | — |
 | Phase 4 — Topic Explorer Enhancement | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Docker validated: topic-detail, partitions, CGs, config, error/disconnect guards | — |
 | Phase 5 — Schema Registry Browser | ✅ Complete | 2026-06-04 | 2026-06-04 | ✅ Docker validated: subject list, detail panel, version switch, filter, format badges, copy/export | — |
+| Nav Refactor — Unified Kafka Studio | ✅ Complete | 2026-06-05 | 2026-06-05 | ✅ Consolidated Topic Explorer + Schema Registry as internal tabs in Kafka Studio; removed `kafka-topic-explorer` and `kafka-schema-registry` from Tab union, sub-nav, and App.tsx routes; 80 tests pass | — |
 
 ---
 

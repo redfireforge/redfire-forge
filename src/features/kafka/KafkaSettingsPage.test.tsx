@@ -3,11 +3,15 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { RenderResult } from '@testing-library/react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import KafkaSettingsPage from './KafkaSettingsPage';
+
+vi.mock('../../shared/utils/fileSaver', () => ({
+  saveJsonFile: vi.fn().mockResolvedValue(undefined),
+}));
 
 type KafkaState = UseKafkaStateReturn;
 
@@ -544,5 +548,147 @@ describe('KafkaSettingsPage', () => {
 
     expect(screen.queryByTestId('kafka-delete-confirm')).toBeNull();
     expect(removeCluster).not.toHaveBeenCalled();
+  });
+
+  it('export button calls saveJsonFile with cluster data', async () => {
+    const { saveJsonFile } = await import('../../shared/utils/fileSaver');
+    const user = userEvent.setup();
+
+    renderPage(makeState({ clusters: [CLUSTER_A] }));
+
+    await user.click(screen.getByTestId('kafka-export-btn'));
+
+    await waitFor(() => {
+      expect(saveJsonFile).toHaveBeenCalledWith(
+        expect.objectContaining({ clusters: [CLUSTER_A] }),
+        expect.stringContaining('kafka-clusters-'),
+      );
+    });
+  });
+
+  it('import: success with valid JSON cluster array', async () => {
+    const user = userEvent.setup();
+    const upsertCluster = vi.fn();
+    renderPage(makeState({ clusters: [CLUSTER_A], upsertCluster }));
+
+    const jsonPayload = JSON.stringify([CLUSTER_A]);
+    const file = new File([jsonPayload], 'clusters.json', { type: 'application/json' });
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('kafka-import-feedback')).toBeTruthy();
+      expect(screen.getByText(/Imported 1 cluster/)).toBeTruthy();
+    });
+    expect(upsertCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it('import: success with {clusters:[...]} envelope format', async () => {
+    const user = userEvent.setup();
+    const upsertCluster = vi.fn();
+    renderPage(makeState({ clusters: [CLUSTER_A], upsertCluster }));
+
+    const jsonPayload = JSON.stringify({ version: 1, clusters: [CLUSTER_A] });
+    const file = new File([jsonPayload], 'export.json', { type: 'application/json' });
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('kafka-import-feedback')).toBeTruthy();
+      expect(screen.getByText(/Imported 1 cluster/)).toBeTruthy();
+    });
+  });
+
+  it('import: shows skipped count when some clusters are invalid', async () => {
+    const user = userEvent.setup();
+    const upsertCluster = vi.fn();
+    renderPage(makeState({ clusters: [CLUSTER_A], upsertCluster }));
+
+    const jsonPayload = JSON.stringify([CLUSTER_A, { notACluster: true }, null]);
+    const file = new File([jsonPayload], 'mixed.json', { type: 'application/json' });
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Imported 1 cluster.*2 skipped/)).toBeTruthy();
+    });
+  });
+
+  it('import: shows error feedback for invalid JSON', async () => {
+    const user = userEvent.setup();
+    renderPage(makeState({ clusters: [CLUSTER_A] }));
+
+    const file = new File(['not-json{{{'], 'bad.json', { type: 'application/json' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Import failed: invalid JSON/)).toBeTruthy();
+    });
+  });
+
+  it('import feedback can be dismissed', async () => {
+    const user = userEvent.setup();
+    renderPage(makeState({ clusters: [CLUSTER_A] }));
+
+    const jsonPayload = JSON.stringify([CLUSTER_A]);
+    const file = new File([jsonPayload], 'clusters.json', { type: 'application/json' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => expect(screen.getByTestId('kafka-import-feedback')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByTestId('kafka-import-feedback')).toBeNull();
+  });
+
+  it('auto-connect toggle calls setAutoConnectOnStartup', async () => {
+    const user = userEvent.setup();
+    const setAutoConnectOnStartup = vi.fn();
+    renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'cluster-a' },
+      setAutoConnectOnStartup,
+    }));
+
+    const toggle = screen.getByTestId('kafka-auto-connect-toggle').querySelector('input[type="checkbox"]')!;
+    await user.click(toggle);
+    expect(setAutoConnectOnStartup).toHaveBeenCalledWith(true);
+  });
+
+  it('clear error button calls clearError', async () => {
+    const user = userEvent.setup();
+    const clearError = vi.fn();
+    renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'cluster-a' },
+      lastError: 'some error',
+      clearError,
+    }));
+
+    await user.click(screen.getByRole('button', { name: 'Clear Error' }));
+    expect(clearError).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresh status button calls refreshConnectionStatus', async () => {
+    const user = userEvent.setup();
+    const refreshConnectionStatus = vi.fn().mockResolvedValue(undefined);
+    renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'cluster-a' },
+      refreshConnectionStatus,
+    }));
+
+    await user.click(screen.getByRole('button', { name: 'Refresh Status' }));
+    expect(refreshConnectionStatus).toHaveBeenCalledWith({ force: true });
   });
 });

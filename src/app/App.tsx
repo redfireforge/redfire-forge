@@ -34,8 +34,6 @@ import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
-import { KafkaTopicExplorerPage } from '../features/kafka/KafkaTopicExplorerPage';
-import { KafkaSchemaRegistryPage } from '../features/kafka/KafkaSchemaRegistryPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -631,23 +629,6 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'kafka-topic-explorer' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <KafkaTopicExplorerPage
-                kafkaState={kafkaState}
-                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
-              />
-            </div>
-          )}
-
-          {activeTab === 'kafka-schema-registry' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
-              <KafkaSchemaRegistryPage
-                kafkaState={kafkaState}
-                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
-              />
-            </div>
-          )}
 
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
