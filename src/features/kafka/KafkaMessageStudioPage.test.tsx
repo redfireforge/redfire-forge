@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { KafkaMessageStudioPage } from './KafkaMessageStudioPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 
@@ -92,15 +93,39 @@ describe('KafkaMessageStudioPage', () => {
     expect(screen.getByText('Connecting to cluster…')).toBeTruthy();
   });
 
-  it('shows publish and consume panels when connected', () => {
+  it('shows tab bar with Publish Studio and Consume Studio tabs when connected', () => {
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState()}
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
-    // KafkaPublishStudio renders "Publish" header; KafkaConsumeStudio renders "Consume"
+    expect(screen.getByRole('button', { name: 'Publish Studio' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Consume Studio' })).toBeTruthy();
+  });
+
+  it('defaults to Publish Studio tab and shows publish panel', () => {
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    // Publish Studio tab is active by default → KafkaPublishStudio is rendered
+    expect(screen.getByRole('button', { name: 'Publish Studio' }).className).toContain('active');
     expect(screen.getByText('Publish')).toBeTruthy();
+  });
+
+  it('switches to Consume Studio when tab is clicked', async () => {
+    const user = userEvent.setup();
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Consume Studio' }));
+    expect(screen.getByRole('button', { name: 'Consume Studio' }).className).toContain('active');
     expect(screen.getByText('Consume')).toBeTruthy();
   });
 
