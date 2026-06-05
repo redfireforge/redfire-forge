@@ -7,20 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import KafkaProduceConfig from './KafkaProduceConfig';
 import type { KafkaProduceNodeData } from '../../types/workflow';
 
-vi.mock('../expression/InsertVarField', () => ({
-  default: ({
-    children,
-    onInsert,
-  }: {
-    children: React.ReactNode;
-    onInsert: (snippet: string) => void;
-  }) => (
-    <div data-testid="insert-var-field">
-      {children}
-      <button type="button" data-testid="insert-var-apply" onClick={() => onInsert('{{snippet}}')}>Apply insert</button>
-    </div>
-  ),
-}));
+vi.mock('../expression/InsertVarField');
 
 function makeData(overrides: Partial<KafkaProduceNodeData> = {}): KafkaProduceNodeData {
   return {
