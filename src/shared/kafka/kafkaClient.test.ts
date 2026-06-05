@@ -6,7 +6,7 @@ vi.mock('../utils/httpClient', () => ({
   httpFetch: (...args: unknown[]) => httpFetchMock(...args),
 }));
 
-import { KafkaClientError, dispatchKafkaOperation, setKafkaClientTransport, toKafkaUiSafeError } from './kafkaClient';
+import { KafkaClientError, dispatchKafkaOperation, envelopeErrorToUiError, setKafkaClientTransport, throwIfEnvelopeNotOk, toKafkaUiSafeError } from './kafkaClient';
 
 describe('kafkaClient dispatcher', () => {
   beforeEach(() => {
@@ -276,5 +276,77 @@ describe('kafkaClient dispatcher', () => {
 
     // Empty code and message → fallback `Kafka produce failed`
     await expect(dispatchKafkaOperation('produce', {})).rejects.toThrow('Kafka produce failed');
+  });
+});
+
+describe('envelopeErrorToUiError', () => {
+  it('extracts message, code, and retryable from envelope.error', () => {
+    const envelope = {
+      ok: false, op: 'produce',
+      error: { code: 'KAFKA_NOT_CONNECTED', message: 'Not connected', retryable: false },
+    };
+    const result = envelopeErrorToUiError(envelope, 'Produce failed', 'PRODUCE_FAILED');
+    expect(result).toEqual({
+      kind: 'server',
+      code: 'KAFKA_NOT_CONNECTED',
+      message: 'Not connected',
+      retryable: false,
+    });
+  });
+
+  it('uses fallback message and code when envelope.error is absent', () => {
+    const envelope = { ok: false, op: 'produce' };
+    const result = envelopeErrorToUiError(envelope, 'Produce failed', 'PRODUCE_FAILED');
+    expect(result.message).toBe('Produce failed');
+    expect(result.code).toBe('PRODUCE_FAILED');
+    expect(result.retryable).toBe(true);
+  });
+
+  it('defaults retryable to true when not specified in envelope.error', () => {
+    const envelope = {
+      ok: false, op: 'subscribe',
+      error: { code: 'KAFKA_SUBSCRIBE_FAILED', message: 'Failed' },
+    };
+    const result = envelopeErrorToUiError(envelope, 'Subscribe failed', 'KAFKA_SUBSCRIBE_FAILED');
+    expect(result.retryable).toBe(true);
+  });
+
+  it('always returns kind server', () => {
+    const result = envelopeErrorToUiError({ ok: false, op: 'status' }, 'Status failed', 'STATUS_FAILED');
+    expect(result.kind).toBe('server');
+  });
+});
+
+describe('throwIfEnvelopeNotOk', () => {
+  it('does nothing when envelope.ok is true', () => {
+    expect(() => throwIfEnvelopeNotOk('status', { ok: true, op: 'status' })).not.toThrow();
+  });
+
+  it('throws KafkaClientError when envelope.ok is false', () => {
+    expect(() =>
+      throwIfEnvelopeNotOk('connect', { ok: false, op: 'connect', error: { code: 'KAFKA_AUTH_FAILED', message: 'Auth failed', retryable: false } }),
+    ).toThrow('Auth failed');
+  });
+
+  it('uses fallback message when envelope.error.message is empty', () => {
+    expect(() =>
+      throwIfEnvelopeNotOk('produce', { ok: false, op: 'produce', error: { code: 'PRODUCE_ERR', message: '   ' } }),
+    ).toThrow('Kafka produce failed (PRODUCE_ERR)');
+  });
+
+  it('uses KAFKA_OPERATION_FAILED code when envelope.error.code is blank', () => {
+    try {
+      throwIfEnvelopeNotOk('produce', { ok: false, op: 'produce', error: { code: '  ', message: 'Some error' } });
+    } catch (e) {
+      expect((e as KafkaClientError).code).toBe('KAFKA_OPERATION_FAILED');
+    }
+  });
+
+  it('preserves retryable from envelope.error', () => {
+    try {
+      throwIfEnvelopeNotOk('connect', { ok: false, op: 'connect', error: { code: 'KAFKA_TLS_ERROR', message: 'TLS', retryable: false } });
+    } catch (e) {
+      expect((e as KafkaClientError).retryable).toBe(false);
+    }
   });
 });
