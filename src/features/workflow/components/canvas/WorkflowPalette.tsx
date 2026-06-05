@@ -119,6 +119,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
   const handleBlockDragStart = useCallback((e: React.DragEvent, block: BlockDef) => {
     e.dataTransfer.setData('application/reactflow-type', block.type);
+    e.dataTransfer.setData('text/x-reactflow-type', block.type);
     e.dataTransfer.effectAllowed = 'move';
     // Create styled drag ghost
     const ghost = document.createElement('div');
@@ -129,13 +130,13 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
     document.body.appendChild(ghost);
     dragGhostRef.current = ghost;
     e.dataTransfer.setDragImage(ghost, 40, 20);
-    // Clean up after drag ends
-    setTimeout(() => {
-      if (dragGhostRef.current) {
-        document.body.removeChild(dragGhostRef.current);
-        dragGhostRef.current = null;
-      }
-    }, 0);
+  }, []);
+
+  const handleBlockDragEnd = useCallback(() => {
+    if (dragGhostRef.current) {
+      document.body.removeChild(dragGhostRef.current);
+      dragGhostRef.current = null;
+    }
   }, []);
 
   const toggle = (id: string) => setExpanded(prev => {
@@ -178,19 +179,23 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                     <span className="wf-palette-count">{blocks.length}</span>
                   </button>
                   {isOpen && blocks.map(block => (
-                    <button
+                    <div
                       key={block.type}
+                      role="button"
+                      tabIndex={0}
                       className={`wf-palette-block wf-palette-block-${block.type}`}
                       onClick={() => onAddNode(block.type)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAddNode(block.type); } }}
                       draggable
                       onDragStart={(e) => handleBlockDragStart(e, block)}
+                      onDragEnd={handleBlockDragEnd}
                     >
                       <NodeIcon type={block.type} />
                       <div>
                         <div className="wf-pb-title">{highlightMatch(block.title, searchQuery.trim())}</div>
                         <div className="wf-pb-desc">{highlightMatch(block.desc, searchQuery.trim())}</div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               );

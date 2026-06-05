@@ -533,6 +533,16 @@ export interface KafkaTriggerNodeData {
   maxConcurrentRuns?: number;
   /** Additional variables to extract from the message body into workflow context via JSONPath. */
   extractVariables?: Array<{ name: string; jsonPath: string }>;
+  /**
+   * Sample Kafka message body for Quick Test.
+   * When set, Quick Test uses this as the trigger message instead of dry-running with empty variables.
+   * JSON string — same semantics as WebhookTriggerNodeData.samplePayload.
+   */
+  samplePayload?: string;
+  /** Optional sample message key for Quick Test. */
+  sampleKey?: string;
+  /** Optional sample message headers for Quick Test (JSON object string). */
+  sampleHeaders?: string;
   /** Optional description/notes. */
   notes?: string;
 }
@@ -570,6 +580,16 @@ export interface KafkaWaitNodeData {
   keyRegex?: string;
   /** Optional header match filters applied before correlation matching. */
   headerFilters?: KafkaConsumeHeaderFilterRow[];
+  /**
+   * Sample Kafka message body for Quick Test.
+   * When set, Quick Test uses this as the correlated response message instead of waiting forever.
+   * JSON string — same semantics as KafkaTriggerNodeData.samplePayload.
+   */
+  samplePayload?: string;
+  /** Optional sample message key for Quick Test. */
+  sampleKey?: string;
+  /** Optional sample message headers for Quick Test (JSON object string). */
+  sampleHeaders?: string;
   /** Optional description/notes. */
   notes?: string;
   /** How this node behaves during load/performance tests. When omitted, defaults to 'wait-for-real'. */

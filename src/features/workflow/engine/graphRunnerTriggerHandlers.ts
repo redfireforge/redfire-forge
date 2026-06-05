@@ -182,7 +182,7 @@ export async function handleKafkaTriggerNode(
   // Read and clear the runtime Kafka message pre-set by the subscription dispatcher.
   const rawMessage = hCtx.ctx.get('__kafkaTriggerMessage');
   let message: KafkaConsumedMessage | null = null;
-  let messageSource = 'none';
+  let messageSource: 'runtime' | 'sample' | 'none' = 'none';
 
   if (rawMessage) {
     try {
@@ -193,8 +193,24 @@ export async function handleKafkaTriggerNode(
     } catch {
       // Unparseable __kafkaTriggerMessage — proceed with empty seeds
     }
-    // Always clear regardless of parse outcome
     hCtx.ctx.delete('__kafkaTriggerMessage');
+  } else if (data.samplePayload?.trim()) {
+    // Quick Test with sample payload — build a synthetic KafkaConsumedMessage from the configured test data
+    const sampleBody = data.samplePayload.trim();
+    let sampleHeaders: Record<string, string> = {};
+    if (data.sampleHeaders?.trim()) {
+      try { sampleHeaders = JSON.parse(data.sampleHeaders) as Record<string, string>; } catch { /* ignore invalid headers JSON */ }
+    }
+    message = {
+      topic: data.topic ?? '',
+      partition: 0,
+      offset: '0',
+      key: data.sampleKey ?? '',
+      value: sampleBody,
+      headers: sampleHeaders,
+      timestamp: new Date().toISOString(),
+    };
+    messageSource = 'sample';
   }
 
   // Seed kafka.trigger.* context variables
@@ -222,7 +238,43 @@ export async function handleKafkaTriggerNode(
   }
 
   hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
-  hCtx.log({ prefix: '*', text: `[Kafka Trigger] Seeded variables from ${messageSource} Kafka message` });
+
+  // ── Detailed Kafka Trigger logging ──
+  const triggerLabel = data.label || 'Kafka Trigger';
+  if (messageSource === 'runtime') {
+    hCtx.log({ prefix: '✓', text: `[${triggerLabel}] Triggered by live Kafka message` });
+  } else if (messageSource === 'sample') {
+    hCtx.log({ prefix: '✓', text: `[${triggerLabel}] Triggered by sample payload (Quick Test)` });
+  } else {
+    hCtx.log({ prefix: '~', text: `[${triggerLabel}] Dry-run (Quick Test) — no sample payload configured` });
+    hCtx.log({ prefix: '~', text: `[${triggerLabel}]   configured topic: ${data.topic ?? '(none)'}` });
+    hCtx.log({ prefix: '~', text: `[${triggerLabel}]   All kafka.trigger.* variables seeded as empty strings` });
+    hCtx.log({ prefix: '~', text: `[${triggerLabel}]   Tip: add a Test Payload in the trigger config to simulate a real message` });
+  }
+
+  if (message) {
+    hCtx.log({ prefix: '✓', text: `[${triggerLabel}]   topic: ${message.topic}` });
+    if (message.key) {
+      hCtx.log({ prefix: '✓', text: `[${triggerLabel}]   key: ${message.key}` });
+    }
+    if (message.headers && Object.keys(message.headers).length > 0) {
+      for (const [k, v] of Object.entries(message.headers)) {
+        hCtx.log({ prefix: '✓', text: `[${triggerLabel}]   header ${k}: ${v}` });
+      }
+    }
+    if (message.value) {
+      const bodyPreview = message.value.length > 300 ? message.value.slice(0, 300) + '…' : message.value;
+      hCtx.log({ prefix: '✓', text: `[${triggerLabel}]   Body: ${bodyPreview}` });
+    }
+  }
+
+  if (data.extractVariables && data.extractVariables.length > 0) {
+    const varEntries = data.extractVariables.map(v => {
+      const val = hCtx.ctx.get(v.name);
+      return `${v.name}=${val ? `"${val}"` : '(empty)'}`;
+    });
+    hCtx.log({ prefix: message ? '✓' : '~', text: `[${triggerLabel}]   variables: ${varEntries.join(', ')}` });
+  }
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
   await hCtx.visitOutgoing(nodeId, hCtx.threadId);

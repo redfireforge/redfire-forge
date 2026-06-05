@@ -547,21 +547,26 @@ describe('WorkflowNodeConfigModal', () => {
     expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Patched Kafka Consume' }));
   });
 
-  it('renders placeholder panel for kafkaTrigger node (Phase 5B not yet implemented)', () => {
-    const node = makeNode('kafkaTrigger', { clusterId: '', topic: '', label: 'My Trigger' });
+  it('renders full KafkaTriggerConfig panel for kafkaTrigger node', () => {
+    const node = makeNode('kafkaTrigger', { clusterId: 'test-cluster', topic: 'orders.created', label: 'My Trigger' });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
-    expect(screen.getByText(/Kafka Trigger configuration panel is coming soon/)).toBeTruthy();
-    // Label field should be editable
-    const input = screen.getByPlaceholderText('Kafka Trigger') as HTMLInputElement;
-    expect(input.value).toBe('My Trigger');
+    expect(screen.getByTestId('kafka-trigger-config')).toBeTruthy();
+    expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
+    expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
+    expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
+    expect(screen.getByText('Max Concurrent Runs')).toBeTruthy();
+    expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
-  it('renders placeholder panel for kafkaWait node (Phase 5C not yet implemented)', () => {
-    const node = makeNode('kafkaWait', { clusterId: '', topic: '', correlationIdExpression: '', correlationSource: 'body', timeoutMs: 60000, label: 'My Wait' });
+  it('renders full KafkaWaitConfig panel for kafkaWait node', () => {
+    const node = makeNode('kafkaWait', { clusterId: 'test-cluster', topic: 'payments.done', correlationIdExpression: '{{orderId}}', correlationSource: 'body', timeoutMs: 60000, label: 'My Wait' });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
-    expect(screen.getByText(/Kafka Wait configuration panel is coming soon/)).toBeTruthy();
-    const input = screen.getByPlaceholderText('Kafka Wait') as HTMLInputElement;
-    expect(input.value).toBe('My Wait');
+    expect(screen.getByTestId('kafka-wait-config')).toBeTruthy();
+    expect(screen.getByDisplayValue('My Wait')).toBeTruthy();
+    expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
+    expect(screen.getByDisplayValue('payments.done')).toBeTruthy();
+    expect(screen.getByText('Correlation Matching')).toBeTruthy();
+    expect(screen.getByText('Correlation Source')).toBeTruthy();
   });
 
   // ── Draft / base URL / HTTP callbacks ──

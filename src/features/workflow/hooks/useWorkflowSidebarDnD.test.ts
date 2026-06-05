@@ -264,7 +264,7 @@ describe('useWorkflowSidebarDnD', () => {
       result.current.handleDrop(createDragEvent({ clientY: 0 }));
     });
 
-    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('wf', 'child-b');
+    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('wf', 'child-b', 0);
   });
 
   it('handleDrop uses onMoveWorkflowsToFolder when multiSelected includes source', () => {
@@ -289,7 +289,7 @@ describe('useWorkflowSidebarDnD', () => {
       result.current.handleDrop(createDragEvent({ clientY: 0 }));
     });
 
-    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(['a', 'b'], workflows[1].folderId ?? null);
+    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(['a', 'b'], workflows[1].folderId ?? null, 0);
   });
 
   it('handleDrop moves folder inside another folder', () => {
@@ -606,7 +606,7 @@ describe('useWorkflowSidebarDnD', () => {
     });
 
     expect(onMoveWorkflowToFolder).toHaveBeenCalledTimes(1);
-    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('a', null);
+    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('a', null, 0);
   });
 
   it('resolveTargetFolderId covers folder reorder zone, workflows, and fallback null', () => {
@@ -680,7 +680,7 @@ describe('useWorkflowSidebarDnD', () => {
     act(() => {
       result.current.handleDrop(createDragEvent({ clientY: 0 }));
     });
-    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('mov', null);
+    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('mov', null, 0);
   });
 
   it('does not invoke onMoveFolder when folder dragged but handler missing', () => {

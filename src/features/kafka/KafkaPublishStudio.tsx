@@ -310,22 +310,24 @@ export function KafkaPublishStudio({
                     value={row.value}
                     onChange={(e) => updateHeader(idx, { ...row, value: e.target.value })}
                   />
-                  <button
-                    className="kafka-ms-remove-btn"
-                    onClick={() => removeHeader(idx)}
-                    aria-label="Remove header"
-                  >
-                    ×
-                  </button>
-                  {idx > 0 && (
+                  <span className="kafka-ms-kv-actions">
+                    {idx > 0 && (
+                      <button
+                        className="kafka-ms-move-btn"
+                        onClick={() => moveHeader(idx, -1)}
+                        aria-label="Move up"
+                      >
+                        ↑
+                      </button>
+                    )}
                     <button
-                      className="kafka-ms-move-btn"
-                      onClick={() => moveHeader(idx, -1)}
-                      aria-label="Move up"
+                      className="kafka-ms-remove-btn"
+                      onClick={() => removeHeader(idx)}
+                      aria-label="Remove header"
                     >
-                      ↑
+                      ×
                     </button>
-                  )}
+                  </span>
                 </div>
               ))}
             </div>

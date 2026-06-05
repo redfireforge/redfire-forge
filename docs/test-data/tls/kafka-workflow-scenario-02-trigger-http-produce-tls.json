@@ -1,0 +1,136 @@
+{
+  "id": "kafka-wf-02-trigger-http-produce-tls",
+  "name": "TLS Kafka Scenario 02 — Trigger → HTTP → Produce",
+  "description": "[TLS+SASL] Event-driven: kafkaTrigger listens on orders.created, calls an HTTP enrichment API, then produces the enriched result to orders.enriched.",
+  "variables": {
+    "enrichmentUrl": "https://jsonplaceholder.typicode.com/posts/1"
+  },
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "kafkaTrigger",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "data": {
+        "label": "Order Created Trigger",
+        "clusterId": "local-tls",
+        "topic": "orders.created",
+        "startPosition": "latest",
+        "maxConcurrentRuns": 5,
+        "headerFilters": [
+          {
+            "id": "hf1",
+            "key": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "jsonPathFilters": [
+          {
+            "id": "jpf1",
+            "jsonPath": "$.status",
+            "expectedValue": "new",
+            "enabled": true
+          }
+        ],
+        "extractVariables": [
+          {
+            "name": "orderId",
+            "jsonPath": "$.orderId"
+          },
+          {
+            "name": "customerId",
+            "jsonPath": "$.customerId"
+          }
+        ],
+        "samplePayload": "{\n  \"orderId\": \"ORD-2025-001\",\n  \"customerId\": \"CUST-789\",\n  \"status\": \"new\",\n  \"amount\": 149.99\n}",
+        "sampleKey": "ORD-2025-001",
+        "notes": "Triggers when a new order arrives with status=new"
+      }
+    },
+    {
+      "id": "http-enrich",
+      "type": "http",
+      "position": {
+        "x": 400,
+        "y": 200
+      },
+      "data": {
+        "label": "Enrich Order",
+        "scenario": {
+          "id": "http-enrich-sc",
+          "name": "Enrich Order",
+          "method": "GET",
+          "url": "{{enrichmentUrl}}",
+          "headers": [],
+          "body": "",
+          "extractions": [],
+          "validation": {
+            "mode": "none"
+          },
+          "auth": {
+            "type": "none"
+          }
+        }
+      }
+    },
+    {
+      "id": "produce-enriched",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 700,
+        "y": 200
+      },
+      "data": {
+        "label": "Produce Enriched Order",
+        "clusterId": "local-tls",
+        "topic": "orders.enriched",
+        "keyTemplate": "{{orderId}}",
+        "bodyTemplate": "{\n  \"orderId\": \"{{orderId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"enrichedAt\": \"{{$timestamp}}\",\n  \"source\": \"redfireforge\"\n}",
+        "headers": [
+          {
+            "id": "h1",
+            "key": "X-Enriched-By",
+            "value": "redfireforge",
+            "enabled": true
+          }
+        ],
+        "ackMode": "all",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": {
+        "x": 950,
+        "y": 200
+      },
+      "data": {
+        "label": "End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-trigger-http",
+      "source": "trigger-1",
+      "target": "http-enrich"
+    },
+    {
+      "id": "e-http-produce",
+      "source": "http-enrich",
+      "target": "produce-enriched"
+    },
+    {
+      "id": "e-produce-end",
+      "source": "produce-enriched",
+      "target": "end-1"
+    }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749110400000
+}

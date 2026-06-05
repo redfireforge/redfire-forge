@@ -190,9 +190,9 @@ export default function KafkaSchemaConfigSection({
               <button
                 type="button"
                 className="btn btn-sm"
-                onClick={loadSubjects}
+                onClick={() => subjects.length > 0 ? setSubjects([]) : loadSubjects()}
                 disabled={loadingSubjects || !value.registryUrl?.trim()}
-                title="Load subjects from registry"
+                title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
               >
                 {loadingSubjects ? '…' : '↓'}
               </button>
@@ -200,9 +200,12 @@ export default function KafkaSchemaConfigSection({
             {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
             {subjects.length > 0 && (
               <select
-                size={Math.min(subjects.length, 5)}
+                size={Math.min(subjects.length + 1, 6)}
                 style={{ marginTop: 4, width: '100%' }}
-                onChange={(e) => patch({ subject: e.target.value || undefined })}
+                onChange={(e) => {
+                  patch({ subject: e.target.value || undefined });
+                  setSubjects([]);
+                }}
                 value={value.subject ?? ''}
               >
                 <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
@@ -225,9 +228,9 @@ export default function KafkaSchemaConfigSection({
               <button
                 type="button"
                 className="btn btn-sm"
-                onClick={loadVersions}
+                onClick={() => versions.length > 0 ? setVersions([]) : loadVersions()}
                 disabled={loadingVersions || !value.registryUrl?.trim()}
-                title="Load versions from registry"
+                title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
               >
                 {loadingVersions ? '…' : '↓'}
               </button>
@@ -235,9 +238,12 @@ export default function KafkaSchemaConfigSection({
             {versionsError && <span className="wf-config-error">{versionsError}</span>}
             {versions.length > 0 && (
               <select
-                size={Math.min(versions.length, 5)}
+                size={Math.min(versions.length + 1, 6)}
                 style={{ marginTop: 4, width: '100%' }}
-                onChange={(e) => patch({ version: e.target.value === '' ? undefined : Number(e.target.value) })}
+                onChange={(e) => {
+                  patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
+                  setVersions([]);
+                }}
                 value={value.version ?? ''}
               >
                 <option value="">(latest)</option>

@@ -1,0 +1,126 @@
+{
+  "id": "kafka-wf-03-produce-wait-tls",
+  "name": "TLS Kafka Scenario 03 — Produce then Wait (Correlation)",
+  "description": "[TLS+SASL] Correlation pattern: Start → kafkaProduce (send order) → kafkaWait (wait for payment confirmation on a different topic, matched by orderId) → End.",
+  "variables": {
+    "orderId": "ORD-2025-001",
+    "orderAmount": "129.99"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "data": {
+        "label": "Start"
+      }
+    },
+    {
+      "id": "produce-order",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 350,
+        "y": 200
+      },
+      "data": {
+        "label": "Send Order",
+        "clusterId": "local-tls",
+        "topic": "orders.submitted",
+        "keyTemplate": "{{orderId}}",
+        "bodyTemplate": "{\n  \"orderId\": \"{{orderId}}\",\n  \"amount\": {{orderAmount}},\n  \"currency\": \"USD\",\n  \"submittedAt\": \"{{$timestamp}}\"\n}",
+        "headers": [
+          {
+            "id": "h1",
+            "key": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "wait-payment",
+      "type": "kafkaWait",
+      "position": {
+        "x": 650,
+        "y": 200
+      },
+      "data": {
+        "label": "Wait for Payment",
+        "clusterId": "local-tls",
+        "topic": "payments.confirmed",
+        "correlationIdExpression": "{{orderId}}",
+        "correlationSource": "body",
+        "correlationJsonPath": "$.orderId",
+        "timeoutMs": 30000,
+        "extractVariables": [
+          {
+            "name": "paymentId",
+            "jsonPath": "$.paymentId"
+          },
+          {
+            "name": "paidAmount",
+            "jsonPath": "$.amount"
+          }
+        ],
+        "headerFilters": [
+          {
+            "id": "hf1",
+            "key": "X-Payment-Status",
+            "value": "confirmed",
+            "enabled": true
+          }
+        ],
+        "samplePayload": "{\n  \"orderId\": \"ORD-2025-001\",\n  \"paymentId\": \"PAY-TEST-001\",\n  \"amount\": 129.99,\n  \"status\": \"confirmed\"\n}",
+        "sampleKey": "ORD-2025-001",
+        "sampleHeaders": "{\"X-Payment-Status\": \"confirmed\"}",
+        "notes": "Waits up to 30s for a payment confirmation matching the orderId",
+        "loadTestBehavior": {
+          "mode": "auto-resume",
+          "mockPayload": {
+            "orderId": "ORD-2025-001",
+            "paymentId": "PAY-MOCK-001",
+            "amount": 129.99,
+            "status": "confirmed"
+          }
+        }
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": {
+        "x": 950,
+        "y": 200
+      },
+      "data": {
+        "label": "End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-produce",
+      "source": "start-1",
+      "target": "produce-order"
+    },
+    {
+      "id": "e-produce-wait",
+      "source": "produce-order",
+      "target": "wait-payment"
+    },
+    {
+      "id": "e-wait-end",
+      "source": "wait-payment",
+      "target": "end-1"
+    }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749110400000
+}
