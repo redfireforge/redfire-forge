@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "exportedAt": 1749124000000,
+  "clusters": [
+    {
+      "clusterId": "local-plaintext",
+      "name": "Local Plaintext",
+      "clientId": "redfireforge",
+      "brokers": ["127.0.0.1:19092"],
+      "auth": { "mode": "none" },
+      "tls": { "enabled": false },
+      "createdAt": 1749110400000,
+      "updatedAt": 1749110400000
+    },
+    {
+      "clusterId": "local-secure",
+      "name": "Local Secure (SASL)",
+      "clientId": "redfireforge-secure",
+      "brokers": ["127.0.0.1:19093"],
+      "auth": {
+        "mode": "scram-sha-256",
+        "username": "redfireforge-app",
+        "password": "app-password"
+      },
+      "tls": { "enabled": false },
+      "createdAt": 1749124000000,
+      "updatedAt": 1749124000000
+    },
+    {
+      "clusterId": "local-tls",
+      "name": "Local TLS (TLS+SASL)",
+      "clientId": "redfireforge-tls",
+      "brokers": ["127.0.0.1:19095"],
+      "auth": {
+        "mode": "scram-sha-256",
+        "username": "redfireforge-app",
+        "password": "app-password"
+      },
+      "tls": {
+        "enabled": true,
+        "rejectUnauthorized": false
+      },
+      "createdAt": 1749124000000,
+      "updatedAt": 1749124000000
+    },
+    {
+      "clusterId": "local-schema-registry",
+      "name": "Local Schema Registry",
+      "clientId": "redfireforge-sr",
+      "brokers": ["127.0.0.1:19094"],
+      "auth": { "mode": "none" },
+      "tls": { "enabled": false },
+      "createdAt": 1749124000000,
+      "updatedAt": 1749124000000
+    }
+  ]
+}

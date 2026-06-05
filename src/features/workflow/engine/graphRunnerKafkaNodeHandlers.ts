@@ -174,7 +174,26 @@ export async function handleKafkaProduceNode(
   }
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
-  hCtx.log({ prefix: '→', text: `[${label}] Producing to ${resolvedTopic}` });
+
+  // ── Request details ──
+  hCtx.log({ prefix: '→', text: `[${label}] PRODUCE ${resolvedTopic}` });
+  hCtx.log({ prefix: '→', text: `[${label}]   cluster: ${data.clusterId ?? 'default'}` });
+  if (resolvedKey) {
+    hCtx.log({ prefix: '→', text: `[${label}]   key: ${resolvedKey}` });
+  }
+  if (data.ackMode && data.ackMode !== 'all') {
+    hCtx.log({ prefix: '→', text: `[${label}]   acks: ${data.ackMode}` });
+  }
+  const hdrEntries = Object.entries(resolvedHeaders);
+  if (hdrEntries.length > 0) {
+    for (const [k, v] of hdrEntries) {
+      hCtx.log({ prefix: '→', text: `[${label}]   header ${k}: ${v}` });
+    }
+  }
+  if (resolvedBody) {
+    const bodyPreview = resolvedBody.length > 300 ? resolvedBody.slice(0, 300) + '…' : resolvedBody;
+    hCtx.log({ prefix: '→', text: `[${label}]   Body: ${bodyPreview}` });
+  }
 
   const t0 = performance.now();
   try {
@@ -184,18 +203,16 @@ export async function handleKafkaProduceNode(
       key: resolvedKey,
       value: resolvedBody,
       partition: data.partition,
-      headers: Object.keys(resolvedHeaders).length > 0 ? resolvedHeaders : undefined,
+      headers: hdrEntries.length > 0 ? resolvedHeaders : undefined,
       ackMode: data.ackMode,
       timeoutMs: data.timeoutMs ?? DEFAULT_PRODUCE_TIMEOUT_MS,
       schemaConfig: data.schemaConfig,
     });
     const durationMs = Math.round(performance.now() - t0);
 
-    // Write output bindings
     writeKafkaBindings(data.outputBindings, result, hCtx.ctx, hCtx.log, label);
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
-    // Capture structured details
     captureKafkaDetails(nodeId, hCtx, {
       topic: resolvedTopic,
       partition: result.partition,
@@ -205,7 +222,12 @@ export async function handleKafkaProduceNode(
       bodyPreview: resolvedBody ? truncate(resolvedBody, MAX_BODY_PREVIEW) : undefined,
     });
 
-    hCtx.log({ prefix: '✓', text: `[${label}] Produced → partition ${result.partition}, offset ${result.offset} (${durationMs}ms)` });
+    // ── Result details ──
+    hCtx.log({ prefix: '✓', text: `[${label}] Produced — ${durationMs}ms` });
+    hCtx.log({ prefix: '✓', text: `[${label}]   partition: ${result.partition}, offset: ${result.offset}` });
+    if (result.timestamp) {
+      hCtx.log({ prefix: '✓', text: `[${label}]   timestamp: ${result.timestamp}` });
+    }
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
   } catch (err) {
@@ -220,7 +242,8 @@ export async function handleKafkaProduceNode(
       failureClass,
     });
 
-    hCtx.log({ prefix: '!', text: `[${label}] Produce failed [${failureClass}]: ${msg}` });
+    hCtx.log({ prefix: '!', text: `[${label}] Produce failed [${failureClass}] — ${durationMs}ms` });
+    hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
   }
 }
@@ -315,7 +338,24 @@ export async function handleKafkaConsumeNode(
     .filter(f => f.jsonPath.trim()); // drop filters where jsonPath resolved to empty string
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
-  hCtx.log({ prefix: '→', text: `[${label}] Consuming from ${resolvedTopic} (max ${maxMessages}, timeout ${timeoutMs}ms)` });
+
+  // ── Request details ──
+  hCtx.log({ prefix: '→', text: `[${label}] CONSUME ${resolvedTopic}` });
+  hCtx.log({ prefix: '→', text: `[${label}]   cluster: ${data.clusterId ?? 'default'}` });
+  hCtx.log({ prefix: '→', text: `[${label}]   maxMessages: ${maxMessages}, timeout: ${timeoutMs}ms, startPosition: ${data.startPosition ?? 'latest'}` });
+  if (data.keyRegex) {
+    hCtx.log({ prefix: '→', text: `[${label}]   keyRegex: ${data.keyRegex}` });
+  }
+  if (headerFilters.length > 0) {
+    for (const f of headerFilters) {
+      hCtx.log({ prefix: '→', text: `[${label}]   headerFilter: ${f.key} = ${f.value}` });
+    }
+  }
+  if (jsonPathFilters.length > 0) {
+    for (const f of jsonPathFilters) {
+      hCtx.log({ prefix: '→', text: `[${label}]   jsonPathFilter: ${f.jsonPath}${f.expectedValue !== undefined ? ` = ${f.expectedValue}` : ''}` });
+    }
+  }
 
   const t0 = performance.now();
   try {
@@ -334,15 +374,11 @@ export async function handleKafkaConsumeNode(
 
     const firstMsg = messages[0];
 
-    // Write output bindings from first consumed message
     writeKafkaBindings(data.outputBindings, firstMsg, hCtx.ctx, hCtx.log, label);
-
-    // Write consume body and count to variable context
     hCtx.ctx.set('__kafkaConsumeBody', firstMsg?.value ?? '');
     hCtx.ctx.set('__kafkaConsumeCount', String(messages.length));
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
-    // Capture structured details
     captureKafkaDetails(nodeId, hCtx, {
       topic: resolvedTopic,
       partition: firstMsg?.partition,
@@ -353,10 +389,24 @@ export async function handleKafkaConsumeNode(
       bodyPreview: firstMsg?.value ? truncate(firstMsg.value, MAX_BODY_PREVIEW) : undefined,
     });
 
+    // ── Result details ──
     if (messages.length === 0) {
       hCtx.log({ prefix: '~', text: `[${label}] No messages received (timeout, ${durationMs}ms)` });
     } else {
-      hCtx.log({ prefix: '✓', text: `[${label}] Consumed ${messages.length} message(s) from partition ${firstMsg!.partition} (${durationMs}ms)` });
+      hCtx.log({ prefix: '✓', text: `[${label}] Consumed ${messages.length} message(s) — ${durationMs}ms` });
+      hCtx.log({ prefix: '✓', text: `[${label}]   partition: ${firstMsg!.partition}, offset: ${firstMsg!.offset}` });
+      if (firstMsg!.key) {
+        hCtx.log({ prefix: '✓', text: `[${label}]   key: ${firstMsg!.key}` });
+      }
+      if (firstMsg!.headers && Object.keys(firstMsg!.headers).length > 0) {
+        for (const [k, v] of Object.entries(firstMsg!.headers)) {
+          hCtx.log({ prefix: '✓', text: `[${label}]   header ${k}: ${v}` });
+        }
+      }
+      if (firstMsg!.value) {
+        const bodyPreview = firstMsg!.value.length > 300 ? firstMsg!.value.slice(0, 300) + '…' : firstMsg!.value;
+        hCtx.log({ prefix: '✓', text: `[${label}]   Body: ${bodyPreview}` });
+      }
     }
 
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
@@ -374,7 +424,8 @@ export async function handleKafkaConsumeNode(
       matchedMessages: 0,
     });
 
-    hCtx.log({ prefix: '!', text: `[${label}] Consume failed [${failureClass}]: ${msg}` });
+    hCtx.log({ prefix: '!', text: `[${label}] Consume failed [${failureClass}] — ${durationMs}ms` });
+    hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
   }
 }

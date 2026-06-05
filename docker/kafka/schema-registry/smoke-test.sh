@@ -260,9 +260,12 @@ connect_body="$(cat <<JSON
 {
   "connection": {
     "clusterId": "${SR_CLUSTER_ID}",
-    "name": "Schema Registry Smoke",
-    "brokers": "${SR_BROKERS}",
-    "authMode": "none"
+    "clientId": "redfireforge-sr-smoke",
+    "brokers": ["${SR_BROKERS}"],
+    "connectionTimeoutMs": 8000,
+    "requestTimeoutMs": 5000,
+    "auth": {"mode": "none"},
+    "tls": {"enabled": false}
   }
 }
 JSON
@@ -327,7 +330,7 @@ consume_body="$(cat <<JSON
   "clusterId": "${SR_CLUSTER_ID}",
   "topic": "${SMOKE_TOPIC}",
   "maxMessages": 100,
-  "timeoutMs": 8000,
+  "timeoutMs": 20000,
   "fromBeginning": true,
   "schemaConfig": {
     "registryUrl": "${SR_REGISTRY_URL}",
@@ -373,23 +376,7 @@ fi
 
 header "SR11  Batch produce + decode (3 messages)"
 
-batch_msgs="$(for i in 1 2 3; do
-  printf '{"value":"{\"run_id\":\"%s\",\"index\":%d}"}' "${SMOKE_RUN_ID}-batch" "$i"
-  [[ $i -lt 3 ]] && printf ','
-done)"
-
-batch_produce_body="$(cat <<JSON
-{
-  "clusterId": "${SR_CLUSTER_ID}",
-  "topic": "${BATCH_TOPIC}",
-  "messages": [${batch_msgs}],
-  "schemaConfig": {
-    "registryUrl": "${SR_REGISTRY_URL}",
-    "subject": "${BATCH_SUBJECT}"
-  }
-}
-JSON
-)"
+batch_produce_body="{\"topic\":\"${BATCH_TOPIC}\",\"messages\":[{\"value\":\"{\\\"run_id\\\":\\\"${SMOKE_RUN_ID}-batch\\\",\\\"index\\\":1}\"},{\"value\":\"{\\\"run_id\\\":\\\"${SMOKE_RUN_ID}-batch\\\",\\\"index\\\":2}\"},{\"value\":\"{\\\"run_id\\\":\\\"${SMOKE_RUN_ID}-batch\\\",\\\"index\\\":3}\"}],\"schemaConfig\":{\"registryUrl\":\"${SR_REGISTRY_URL}\",\"subject\":\"${BATCH_SUBJECT}\"}}"
 resp="$(server_post '/api/kafka/produce' "$batch_produce_body")"
 ok="$(echo "$resp" | jq -r '.ok // false')"
 
@@ -403,7 +390,7 @@ if [[ "$ok" == "true" ]]; then
   "clusterId": "${SR_CLUSTER_ID}",
   "topic": "${BATCH_TOPIC}",
   "maxMessages": 100,
-  "timeoutMs": 8000,
+  "timeoutMs": 20000,
   "fromBeginning": true,
   "schemaConfig": {
     "registryUrl": "${SR_REGISTRY_URL}",

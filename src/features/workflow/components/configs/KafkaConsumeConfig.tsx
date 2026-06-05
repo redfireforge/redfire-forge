@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { KafkaConsumeHeaderFilterRow, KafkaConsumeJsonPathFilterRow, KafkaConsumeLoadTestBehavior, KafkaConsumeNodeData, KafkaConsumeStartPosition, KafkaNodeMetadataBinding } from '../../types/workflow';
+import type { KafkaConsumeLoadTestBehavior, KafkaConsumeNodeData, KafkaConsumeStartPosition, KafkaNodeMetadataBinding } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
+import { createHeaderFilter, createJsonPathFilter } from './kafkaConfigFactories';
 
 const START_OPTIONS: { value: KafkaConsumeStartPosition; label: string }[] = [
   { value: 'latest', label: 'Latest' },
@@ -21,14 +22,6 @@ const LOAD_TEST_OPTIONS: { value: KafkaConsumeLoadTestBehavior['mode']; label: s
   { value: 'auto-resume', label: 'Auto resume' },
   { value: 'synthetic-inject', label: 'Synthetic inject' },
 ];
-
-function createHeaderFilter(): KafkaConsumeHeaderFilterRow {
-  return { id: uuid().slice(0, 8), key: '', value: '', enabled: true };
-}
-
-function createJsonPathFilter(): KafkaConsumeJsonPathFilterRow {
-  return { id: uuid().slice(0, 8), jsonPath: '', expectedValue: '', enabled: true };
-}
 
 function createBinding(): KafkaNodeMetadataBinding {
   return { id: uuid().slice(0, 8), source: 'topic', targetVariable: '', enabled: true };

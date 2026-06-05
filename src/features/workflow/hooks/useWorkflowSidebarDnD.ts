@@ -22,8 +22,8 @@ interface UseSidebarDnDArgs {
   setMultiSelected: (s: Set<string>) => void;
   listRef: React.RefObject<HTMLDivElement | null>;
   onSetFolderCollapsed?: (folderId: string, collapsed: boolean) => void;
-  onMoveWorkflowToFolder?: (workflowId: string, folderId: string | null) => void;
-  onMoveWorkflowsToFolder?: (workflowIds: string[], folderId: string | null) => void;
+  onMoveWorkflowToFolder?: (workflowId: string, folderId: string | null, order: number) => void;
+  onMoveWorkflowsToFolder?: (workflowIds: string[], folderId: string | null, startOrder: number) => void;
   onMoveFolder?: (folderId: string, newParentId: string | null, newOrder: number) => void;
 }
 
@@ -158,11 +158,27 @@ export function useWorkflowSidebarDnD({
     if (srcType === 'workflow') {
       const destFolderId = resolveTargetFolderId(tgtType, tgtId, zone);
       const draggedIds = multiSelected.size > 1 && multiSelected.has(srcId) ? [...multiSelected] : [srcId];
+      const draggedSet = new Set(draggedIds);
+
+      const targetFolder = destFolderId ?? undefined;
+      const siblings = workflows
+        .filter((w) => (w.folderId ?? undefined) === targetFolder && !draggedSet.has(w.id))
+        .sort((a, b) => (a.folderOrder ?? 0) - (b.folderOrder ?? 0));
+
+      let insertIdx: number;
+      if (tgtType === 'workflow') {
+        const tgtIdx = siblings.findIndex((w) => w.id === tgtId);
+        insertIdx = zone === 'above' ? Math.max(0, tgtIdx) : tgtIdx + 1;
+      } else if (tgtType === 'folder' && zone === 'inside') {
+        insertIdx = siblings.length;
+      } else {
+        insertIdx = siblings.length;
+      }
 
       if (draggedIds.length > 1 && onMoveWorkflowsToFolder) {
-        onMoveWorkflowsToFolder(draggedIds, destFolderId);
+        onMoveWorkflowsToFolder(draggedIds, destFolderId, insertIdx);
       } else {
-        onMoveWorkflowToFolder?.(srcId, destFolderId);
+        onMoveWorkflowToFolder?.(srcId, destFolderId, insertIdx);
       }
       setMultiSelected(new Set());
     } else if (srcType === 'folder' && onMoveFolder) {
@@ -183,7 +199,7 @@ export function useWorkflowSidebarDnD({
     }
 
     clearDragState();
-  }, [dragSource, dropTarget, folders, multiSelected, onMoveWorkflowToFolder, onMoveWorkflowsToFolder, onMoveFolder, clearDragState, resolveTargetFolderId, setMultiSelected]);
+  }, [dragSource, dropTarget, folders, workflows, multiSelected, onMoveWorkflowToFolder, onMoveWorkflowsToFolder, onMoveFolder, clearDragState, resolveTargetFolderId, setMultiSelected]);
 
   const handleDragEnd = useCallback(() => { clearDragState(); }, [clearDragState]);
 

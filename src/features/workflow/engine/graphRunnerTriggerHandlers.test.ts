@@ -460,6 +460,120 @@ describe('handleKafkaTriggerNode', () => {
     expect(states['kt1']?.state).toBe('pass');
     expect(ctx.get('x')).toBeUndefined();
   });
+
+  // ── Sample Payload (Quick Test) ──
+
+  it('uses samplePayload when no runtime message is present', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'orders.created',
+      samplePayload: '{"orderId": "ORD-001", "amount": 99.99}',
+      sampleKey: 'ORD-001',
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('kafka.trigger.topic')).toBe('orders.created');
+    expect(ctx.get('kafka.trigger.key')).toBe('ORD-001');
+    expect(ctx.get('kafka.trigger.value')).toBe('{"orderId": "ORD-001", "amount": 99.99}');
+    expect(hCtx.visitOutgoing).toHaveBeenCalled();
+  });
+
+  it('samplePayload seeds headers from sampleHeaders JSON', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'events',
+      samplePayload: '{"event":"test"}',
+      sampleHeaders: '{"X-Source": "test-runner", "X-Region": "us-east"}',
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('kafka.trigger.header.X-Source')).toBe('test-runner');
+    expect(ctx.get('kafka.trigger.header.X-Region')).toBe('us-east');
+  });
+
+  it('ignores invalid sampleHeaders JSON gracefully', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'events',
+      samplePayload: '{"event":"test"}',
+      sampleHeaders: 'not-json',
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    // No headers should be seeded
+    expect(ctx.get('kafka.trigger.header.X-Source')).toBeUndefined();
+  });
+
+  it('runtime message takes precedence over samplePayload', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const runtimeMsg = { topic: 'live-topic', partition: 5, offset: '100', key: 'live-key', value: '{"live":true}', timestamp: '0' };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(runtimeMsg));
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'configured-topic',
+      samplePayload: '{"sample":true}',
+      sampleKey: 'sample-key',
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('kafka.trigger.topic')).toBe('live-topic');
+    expect(ctx.get('kafka.trigger.key')).toBe('live-key');
+    expect(ctx.get('kafka.trigger.value')).toBe('{"live":true}');
+  });
+
+  it('whitespace-only samplePayload falls through to dry-run', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'dry-topic',
+      samplePayload: '   ',
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('kafka.trigger.topic')).toBe('dry-topic');
+    expect(ctx.get('kafka.trigger.value')).toBe('');
+  });
+
+  it('samplePayload extracts variables via extractVariables', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 'orders',
+      samplePayload: '{"orderId":"ORD-X","amount":55}',
+      extractVariables: [
+        { name: 'orderId', jsonPath: '$.orderId' },
+        { name: 'orderAmount', jsonPath: '$.amount' },
+      ],
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('orderId')).toBe('ORD-X');
+    expect(ctx.get('orderAmount')).toBe('55');
+  });
 });
 
 // ── matchesKafkaMessageFilters ──

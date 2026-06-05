@@ -136,6 +136,16 @@ export async function handleKafkaWaitNode(
 
   // ── Resolve correlation ID ──
   let correlationId = hCtx.ctx.resolve(data.correlationIdExpression);
+
+  // ── Request details ──
+  hCtx.log({ prefix: '→', text: `[${label}] KAFKA WAIT on topic "${data.topic}"` });
+  hCtx.log({ prefix: '→', text: `[${label}]   correlationIdExpression: ${data.correlationIdExpression}` });
+  hCtx.log({ prefix: '→', text: `[${label}]   correlationId: ${correlationId || '(empty)'}` });
+  hCtx.log({ prefix: '→', text: `[${label}]   correlationSource: ${data.correlationSource ?? 'body'}${data.correlationSource === 'body' && data.correlationJsonPath ? ` (jsonPath: ${data.correlationJsonPath})` : ''}${data.correlationSource === 'header' && data.correlationHeader ? ` (header: ${data.correlationHeader})` : ''}` });
+  if (data.timeoutMs > 0) {
+    hCtx.log({ prefix: '→', text: `[${label}]   timeout: ${data.timeoutMs}ms` });
+  }
+
   if (!correlationId) {
     passed.value = false;
     hCtx.log({ prefix: '!', text: `[${label}] Correlation ID expression resolved to empty string` });
@@ -172,15 +182,25 @@ export async function handleKafkaWaitNode(
     return;
   }
 
-  // ── Load Test Mode: Synthetic Inject (inline, no store) ──
-  if (hCtx.loadTestMode && effectiveMode === 'synthetic-inject' && !hCtx.correlationStore) {
+  // ── Synthetic Inject (inline) — works in both load-test and Quick Test ──
+  // When the node is configured for synthetic-inject and there is no correlation
+  // store (or we're not in load-test mode with a store), do an inline synthetic
+  // inject so Quick Test can dry-run kafkaWait nodes without real Kafka messages.
+  const useSyntheticInline = effectiveMode === 'synthetic-inject'
+    && (!hCtx.loadTestMode || !hCtx.correlationStore);
+  if (useSyntheticInline) {
     const mockData = buildMockKafkaMessage(
       nodeId,
       runnerConfig?.mockPayloads,
       data.loadTestBehavior?.mockPayload,
       data.topic,
     );
-    const actualDelay = calculateSyntheticDelay(runnerConfig?.syntheticDelayMs ?? 0, runnerConfig?.syntheticJitterMs);
+    const nodeDelay = data.loadTestBehavior?.syntheticDelayMs ?? 0;
+    const nodeJitter = data.loadTestBehavior?.syntheticJitterMs;
+    const actualDelay = calculateSyntheticDelay(
+      runnerConfig?.syntheticDelayMs ?? nodeDelay,
+      runnerConfig?.syntheticJitterMs ?? nodeJitter,
+    );
 
     hCtx.log({ prefix: '*', text: `[${label}] Synthetic inject (inline) — waiting ${Math.round(actualDelay)}ms` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'paused', responseDetail: `Synthetic wait ${Math.round(actualDelay)}ms` });
@@ -203,8 +223,42 @@ export async function handleKafkaWaitNode(
     return;
   }
 
+  // ── Sample Payload (Quick Test) — use configured test data instead of waiting ──
+  // In non-load-test mode (Quick Test / Debug), prefer the sample payload over waiting for real messages.
+  if (!hCtx.loadTestMode && data.samplePayload?.trim()) {
+    let sampleHeaders: Record<string, string> = {};
+    if (data.sampleHeaders?.trim()) {
+      try { sampleHeaders = JSON.parse(data.sampleHeaders) as Record<string, string>; } catch { /* ignore invalid headers JSON */ }
+    }
+    const sampleMsg: Record<string, unknown> = {
+      topic: data.topic,
+      partition: 0,
+      offset: '0',
+      key: data.sampleKey ?? '',
+      value: data.samplePayload.trim(),
+      headers: sampleHeaders,
+      timestamp: new Date().toISOString(),
+    };
+    hCtx.log({ prefix: '✓', text: `[${label}] Resolved from sample payload (Quick Test)` });
+    injectKafkaWaitPayload(sampleMsg, correlationId, data, hCtx.ctx, hCtx.log, label);
+    hCtx.ctx.set('__kwWaitDurationMs', '0');
+    hCtx.ctx.set('__kwOutcome', 'matched');
+    hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
+    const bodyPreview = data.samplePayload.length > 300 ? data.samplePayload.slice(0, 300) + '…' : data.samplePayload;
+    hCtx.log({ prefix: '✓', text: `[${label}]   Body: ${bodyPreview}` });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+    await hCtx.visitOutgoing(nodeId, hCtx.threadId);
+    return;
+  }
+
   // ── Normal Mode / Synthetic Inject with Store: Require correlation store ──
   if (!hCtx.correlationStore) {
+    if (!hCtx.loadTestMode) {
+      passed.value = false;
+      hCtx.log({ prefix: '!', text: `[${label}] No correlation store — add a Test Payload in node config for Quick Test` });
+      hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'No correlation store; configure a Test Payload for Quick Test' });
+      return;
+    }
     passed.value = false;
     hCtx.log({ prefix: '!', text: `[${label}] No correlation store available` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'No correlation store configured' });
@@ -250,11 +304,20 @@ export async function handleKafkaWaitNode(
     hCtx.ctx.set('__kwOutcome', 'matched');
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
+    const waitDurationMs = Date.now() - waitStartTime;
     if (isSyntheticWithStore) {
-      hCtx.log({ prefix: '*', text: `[${label}] Synthetic inject complete — workflow resumed` });
+      hCtx.log({ prefix: '✓', text: `[${label}] Synthetic inject complete — resumed (${waitDurationMs}ms)` });
     } else {
-      const timeStr = data.timeoutMs > 0 ? ` (within ${data.timeoutMs}ms timeout)` : '';
-      hCtx.log({ prefix: '*', text: `[${label}] Resumed — Kafka message received${timeStr}` });
+      hCtx.log({ prefix: '✓', text: `[${label}] Kafka message received — resumed (${waitDurationMs}ms)` });
+    }
+    // Log received payload details
+    if (resumeData && typeof resumeData === 'object') {
+      const rd = resumeData as Record<string, unknown>;
+      if (rd.value) {
+        const bodyStr = typeof rd.value === 'string' ? rd.value : JSON.stringify(rd.value);
+        const bodyPreview = bodyStr.length > 300 ? bodyStr.slice(0, 300) + '…' : bodyStr;
+        hCtx.log({ prefix: '✓', text: `[${label}]   Body: ${bodyPreview}` });
+      }
     }
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
