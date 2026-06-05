@@ -3,7 +3,7 @@
 > **Purpose:** Master plan for all remaining Kafka visual test-scenarios MD files.
 > **Created:** 2026-06-04
 > **Updated:** 2026-06-05
-> **Completed:** `kafka-settings-test-scenarios.md` (22 scenarios), `kafka-message-studio-test-scenarios.md` (39 scenarios), `kafka-topic-explorer-test-scenarios.md` (26 scenarios)
+> **Completed:** `kafka-settings-test-scenarios.md` (24 scenarios), `kafka-message-studio-test-scenarios.md` (39 scenarios), `kafka-topic-explorer-test-scenarios.md` (26 scenarios)
 > **Remaining:** 4 files, ~118 scenarios total
 >
 > **Source documents referenced:**
@@ -27,7 +27,7 @@
 
 | # | File | Covers | Integration Test Plan Scenarios | Count | Status |
 |---|---|---|---|---|---|
-| ✅ | `kafka-settings-test-scenarios.md` | Integration Phases 1–3 + Phase 9 settings Tauri (SC-21) | Scenarios 1–4 | 22 | **Done** |
+| ✅ | `kafka-settings-test-scenarios.md` | Integration Phases 1–3 + Phase 9 settings Tauri (SC-21) + SASL/SCRAM e2e (SC-23, SC-24) | Scenarios 1–4 | 24 | **Done** |
 | ✅ | `kafka-message-studio-test-scenarios.md` | Message Studio Phases 1–3 (Publish, Consume, Templates, Streaming, Workflow) | — (MS Plan Phases 1–3) | 39 | **Done** |
 | ✅ | `kafka-topic-explorer-test-scenarios.md` | Message Studio Phase 4 (Topic Explorer standalone page) | Scenario 4 (extended) | 26 | **Done** |
 | 3 | `kafka-schema-registry-test-scenarios.md` | Message Studio Phase 5 + Integration Phase 10 (Registry Browser + schema-aware produce/consume) | Scenarios 15–15I | ~25 | Pending |
@@ -526,6 +526,37 @@ npm run dev
 
 ---
 
+## Automated Test Scripts
+
+Reusable scripts for setting up the test environment and running API-level smoke tests:
+
+| Script | Purpose | Usage |
+|---|---|---|
+| `docker/kafka/e2e/ui-test-seed.sh` | Creates 16 topics + seeds 20+ messages for all test-scenario MD files | `./docker/kafka/e2e/ui-test-seed.sh` |
+| `docker/kafka/e2e/run-all-smoke.sh` | One-command: start Docker, seed data, run all API smoke tests | `./docker/kafka/e2e/run-all-smoke.sh` |
+| `docker/kafka/e2e/run-all-smoke.sh --seed-only` | Start Docker + seed data only (for manual UI testing) | `./docker/kafka/e2e/run-all-smoke.sh --seed-only` |
+| `docker/kafka/plaintext/smoke-test.sh` | API smoke test: plaintext connect → topics → produce → consume → disconnect | `./docker/kafka/plaintext/smoke-test.sh` |
+| `docker/kafka/secure/smoke-test.sh` | API smoke test: SASL/SCRAM auth validation (6 scenarios, S1–S6) | `./docker/kafka/secure/smoke-test.sh` |
+| `docker/kafka/schema-registry/smoke-test.sh` | API smoke test: Avro encode/decode round-trip (14 scenarios, SR01–SR14) | `./docker/kafka/schema-registry/smoke-test.sh` |
+| `docker/kafka/topics/seed-messages.sh` | Legacy seed: 10 messages into pre-existing topics (used by old smoke tests) | `./docker/kafka/topics/seed-messages.sh` |
+
+**Quick start for manual UI testing:**
+
+```bash
+# 1. Start Docker + seed all test data (one command)
+./docker/kafka/e2e/run-all-smoke.sh --seed-only plaintext
+
+# 2. Start the server + web UI
+npm run server    # terminal 1
+npm run dev       # terminal 2
+
+# 3. Open http://localhost:5173 and follow the test-scenario MD files
+```
+
+See `docker/kafka/e2e/README.md` for full documentation.
+
+---
+
 ## Execution Order
 
 Recommended order for writing and validating these files:
@@ -548,7 +579,7 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 
 | Test Scenarios File | Integration Plan Phases | Message Studio Phases | Integration Test Plan Scenarios | Status |
 |---|---|---|---|---|
-| `kafka-settings-test-scenarios.md` | Phases 1–3 + Phase 9 settings (SC-21) | — | Scenarios 1–4 | ✅ Done |
+| `kafka-settings-test-scenarios.md` | Phases 1–3 + Phase 9 settings (SC-21) + SASL/SCRAM e2e | — | Scenarios 1–4 | ✅ Done |
 | `kafka-message-studio-test-scenarios.md` | Phase 1 (APIs) | MS Phases 1–3 | — (MS Plan-driven) | ✅ Done |
 | `kafka-topic-explorer-test-scenarios.md` | Phase 3D (basic topics) | MS Phase 4 | Scenario 4 (extended) | ✅ Done |
 | `kafka-schema-registry-test-scenarios.md` | Phase 10 (registry + schema produce/consume) | MS Phase 5 | Scenarios 15–15I | Pending |
@@ -566,7 +597,7 @@ Every numbered scenario from `integration-test-plan.md` must be covered by at le
 |---|---|---|
 | Scenario 1 (Plaintext cluster connect) | 3 | ✅ `kafka-settings` SC-03, SC-08 |
 | Scenario 2 (Invalid broker/credentials) | 3 | ✅ `kafka-settings` SC-15 |
-| Scenario 3 (Auth/SSL combinations) | 3 | ✅ `kafka-settings` SC-16, SC-17 |
+| Scenario 3 (Auth/SSL combinations) | 3 | ✅ `kafka-settings` SC-16, SC-17, SC-23 (SCRAM e2e web), SC-24 (SCRAM e2e Tauri) |
 | Scenario 4 (Topic list search/detail) | 3 | ✅ `kafka-settings` SC-10, SC-11; ✅ `kafka-topic-explorer` TE-05–TE-26 |
 | Scenario 5 (kafkaProduce publishes) | 4 | `kafka-workflow-nodes` WN-09 |
 | Scenario 6 (kafkaConsume captures) | 4 | `kafka-workflow-nodes` WN-14, WN-15, WN-18 |

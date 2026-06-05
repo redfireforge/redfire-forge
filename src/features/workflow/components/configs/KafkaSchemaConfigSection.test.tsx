@@ -188,4 +188,148 @@ describe('KafkaSchemaConfigSection', () => {
       expect(screen.getByText(/registry unreachable/i)).toBeTruthy();
     });
   });
+
+  it('updates subject input field by typing', () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
+    render(<Host initial={initial} />);
+
+    // The subject input has placeholder that includes 'value (default)'
+    const subjectInput = screen.getByPlaceholderText(/value \(default\)/i);
+    fireEvent.change(subjectInput, { target: { value: 'my-topic-value' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.subject).toBe('my-topic-value');
+  });
+
+  it('clears subject when input is cleared', () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'existing' };
+    render(<Host initial={initial} />);
+
+    const subjectInput = screen.getByDisplayValue('existing');
+    fireEvent.change(subjectInput, { target: { value: '' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.subject).toBeUndefined();
+  });
+
+  it('updates version number input by typing', () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
+    render(<Host initial={initial} />);
+
+    const versionInput = screen.getByPlaceholderText(/latest \(default\)/i);
+    fireEvent.change(versionInput, { target: { value: '5' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.version).toBe(5);
+  });
+
+  it('clears version when version input is cleared', () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', version: 3 };
+    render(<Host initial={initial} />);
+
+    const versionInput = screen.getByDisplayValue('3');
+    fireEvent.change(versionInput, { target: { value: '' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.version).toBeUndefined();
+  });
+
+  it('selects a subject from the loaded dropdown and patches subject', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      op: 'schema-subjects',
+      data: { subjects: ['orders-value', 'payments-value'] },
+    } as Awaited<ReturnType<typeof kafkaClientModule.dispatchKafkaOperation>>);
+
+    render(<Host initial={initial} />);
+
+    const subjectBtn = screen.getAllByRole('button').find((b) => b.title?.includes('ubject'));
+    fireEvent.click(subjectBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText('orders-value')).toBeTruthy();
+    });
+
+    // Select 'payments-value' from the dropdown
+    const select = screen.getAllByRole('listbox')[0] as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'payments-value' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.subject).toBe('payments-value');
+  });
+
+  it('clears subject when (default) option selected from subject dropdown', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'orders-value' };
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      op: 'schema-subjects',
+      data: { subjects: ['orders-value'] },
+    } as Awaited<ReturnType<typeof kafkaClientModule.dispatchKafkaOperation>>);
+
+    render(<Host initial={initial} />);
+
+    const subjectBtn = screen.getAllByRole('button').find((b) => b.title?.includes('ubject'));
+    fireEvent.click(subjectBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText('orders-value')).toBeTruthy();
+    });
+
+    const select = screen.getAllByRole('listbox')[0] as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: '' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.subject).toBeUndefined();
+  });
+
+  it('selects a version from the loaded dropdown and patches version', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'orders-value' };
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      op: 'schema-versions',
+      data: { subject: 'orders-value', versions: [1, 2, 3] },
+    } as Awaited<ReturnType<typeof kafkaClientModule.dispatchKafkaOperation>>);
+
+    render(<Host initial={initial} />);
+
+    const versionBtn = screen.getAllByRole('button').find((b) => b.title?.includes('ersion'));
+    fireEvent.click(versionBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText('3')).toBeTruthy();
+    });
+
+    const listboxes = screen.getAllByRole('listbox');
+    const versionSelect = listboxes[listboxes.length - 1] as HTMLSelectElement;
+    fireEvent.change(versionSelect, { target: { value: '2' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.version).toBe(2);
+  });
+
+  it('clears version when (latest) option selected from version dropdown', async () => {
+    const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro', subject: 'orders-value', version: 3 };
+    mockDispatch.mockResolvedValueOnce({
+      ok: true,
+      op: 'schema-versions',
+      data: { subject: 'orders-value', versions: [1, 2, 3] },
+    } as Awaited<ReturnType<typeof kafkaClientModule.dispatchKafkaOperation>>);
+
+    render(<Host initial={initial} />);
+
+    const versionBtn = screen.getAllByRole('button').find((b) => b.title?.includes('ersion'));
+    fireEvent.click(versionBtn!);
+
+    await waitFor(() => {
+      expect(screen.getByText('3')).toBeTruthy();
+    });
+
+    const listboxes = screen.getAllByRole('listbox');
+    const versionSelect = listboxes[listboxes.length - 1] as HTMLSelectElement;
+    fireEvent.change(versionSelect, { target: { value: '' } });
+
+    const output = JSON.parse(screen.getByTestId('output').textContent!);
+    expect(output.version).toBeUndefined();
+  });
 });

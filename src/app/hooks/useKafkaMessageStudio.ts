@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import {
   dispatchKafkaOperation,
+  envelopeErrorToUiError,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
 } from '../../shared/kafka/kafkaClient';
@@ -152,10 +153,7 @@ export function useKafkaMessageStudio(
       const body = buildPublishRequest(publishDraftState, clusterId);
       const envelope = await dispatch<KafkaPublishResult>('produce', body);
       if (!envelope.ok || !envelope.data) {
-        const msg = envelope.error?.message ?? 'Produce failed';
-        const code = envelope.error?.code ?? 'PRODUCE_FAILED';
-        const retryable = envelope.error?.retryable ?? true;
-        setPublishError({ kind: 'server', code, message: msg, retryable });
+        setPublishError(envelopeErrorToUiError(envelope, 'Produce failed', 'PRODUCE_FAILED'));
         return;
       }
       setPublishResult(envelope.data);
@@ -182,10 +180,7 @@ export function useKafkaMessageStudio(
         timedOut: boolean;
       }>('consume-once', body);
       if (!envelope.ok || !envelope.data) {
-        const msg = envelope.error?.message ?? 'Consume failed';
-        const code = envelope.error?.code ?? 'CONSUME_FAILED';
-        const retryable = envelope.error?.retryable ?? true;
-        setConsumeError({ kind: 'server', code, message: msg, retryable });
+        setConsumeError(envelopeErrorToUiError(envelope, 'Consume failed', 'CONSUME_FAILED'));
         return;
       }
       setConsumeResult(envelope.data.messages);

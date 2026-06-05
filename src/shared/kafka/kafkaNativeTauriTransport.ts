@@ -35,6 +35,7 @@
 import {
   KafkaClientError,
   defaultTransport,
+  throwIfEnvelopeNotOk,
   type KafkaClientTransport,
   type KafkaDispatchRequest,
   type KafkaEnvelope,
@@ -157,22 +158,7 @@ export const kafkaNativeTauriTransport: KafkaClientTransport = async (
     });
   }
 
-  if (!envelope.ok) {
-    const code = envelope.error?.code?.trim();
-    const message = envelope.error?.message?.trim();
-    const fallback = code
-      ? `Kafka ${request.op} failed (${code})`
-      : `Kafka ${request.op} failed`;
-    throw new KafkaClientError(
-      request.op,
-      message && message.length > 0 ? message : fallback,
-      {
-        code: code && code.length > 0 ? code : 'KAFKA_OPERATION_FAILED',
-        retryable: envelope.error?.retryable ?? true,
-      },
-    );
-  }
-
+  throwIfEnvelopeNotOk(request.op, envelope);
   return envelope;
 };
 

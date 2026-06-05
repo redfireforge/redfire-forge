@@ -44,7 +44,16 @@ docker compose ps      # Status should show "healthy" for redfireforge-redpanda
 
 ### Seed Multiple Topics for Rich Filtering
 
-The plaintext broker comes with `redfireforge.results.summary`. For richer testing, create additional topics with varying partition counts and seed some messages:
+**Recommended (automated):** Run the UI test seed script to create all 16 topics and 20+ messages in one command:
+
+```bash
+# From the repo root
+docker/kafka/e2e/ui-test-seed.sh
+```
+
+This covers all topics and messages needed for every scenario below. Skip the manual commands if using this script.
+
+**Alternative (manual):** The plaintext broker comes with `redfireforge.results.summary`. For richer testing, create additional topics with varying partition counts and seed some messages:
 
 ```bash
 # Create topics with different partition counts and prefixes

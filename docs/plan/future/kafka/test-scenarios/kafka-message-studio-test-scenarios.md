@@ -46,7 +46,14 @@ docker compose ps      # Status should show "healthy" for redfireforge-redpanda
 
 ### Seed Test Topics
 
-The broker comes with `redfireforge.results.summary` pre-created. For richer testing, create an additional topic:
+**Recommended (automated):** Run the UI test seed script to create all topics and messages at once:
+
+```bash
+# From the repo root — creates 16 topics + 20+ messages
+docker/kafka/e2e/ui-test-seed.sh
+```
+
+**Alternative (manual):** If you prefer to seed manually, the broker comes with `redfireforge.results.summary` pre-created. For richer testing, create an additional topic:
 
 ```bash
 docker compose -f docker/kafka/plaintext/docker-compose.yml exec redpanda \
