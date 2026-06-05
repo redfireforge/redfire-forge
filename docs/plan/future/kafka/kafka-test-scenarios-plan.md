@@ -3,8 +3,8 @@
 > **Purpose:** Master plan for all remaining Kafka visual test-scenarios MD files.
 > **Created:** 2026-06-04
 > **Updated:** 2026-06-05
-> **Completed:** `kafka-settings-test-scenarios.md` (24 scenarios), `kafka-message-studio-test-scenarios.md` (39 scenarios), `kafka-topic-explorer-test-scenarios.md` (26 scenarios)
-> **Remaining:** 4 files, ~118 scenarios total
+> **Completed:** `kafka-settings-test-scenarios.md` (24), `kafka-message-studio-test-scenarios.md` (39), `kafka-topic-explorer-test-scenarios.md` (26), `kafka-schema-registry-test-scenarios.md` (28), `kafka-workflow-nodes-test-scenarios.md` (48)
+> **Remaining:** 2 files, ~55 scenarios total
 >
 > **Source documents referenced:**
 > - `integration-plan.md` — Phase definitions and scope (Phases 1–9 + optional Phase 10)
@@ -30,8 +30,8 @@
 | ✅ | `kafka-settings-test-scenarios.md` | Integration Phases 1–3 + Phase 9 settings Tauri (SC-21) + SASL/SCRAM e2e (SC-23, SC-24) | Scenarios 1–4 | 24 | **Done** |
 | ✅ | `kafka-message-studio-test-scenarios.md` | Message Studio Phases 1–3 (Publish, Consume, Templates, Streaming, Workflow) | — (MS Plan Phases 1–3) | 39 | **Done** |
 | ✅ | `kafka-topic-explorer-test-scenarios.md` | Message Studio Phase 4 (Topic Explorer standalone page) | Scenario 4 (extended) | 26 | **Done** |
-| 3 | `kafka-schema-registry-test-scenarios.md` | Message Studio Phase 5 + Integration Phase 10 (Registry Browser + schema-aware produce/consume) | Scenarios 15–15I | ~25 | Pending |
-| 4 | `kafka-workflow-nodes-test-scenarios.md` | Integration Phases 4–5 (Workflow Kafka nodes, Trigger, Wait) | Scenarios 5–9I | ~38 | Pending |
+| ✅ | `kafka-schema-registry-test-scenarios.md` | Message Studio Phase 5 + Integration Phase 10 (Registry Browser + schema-aware produce/consume) | Scenarios 15–15I | 28 | **Done** |
+| ✅ | `kafka-workflow-nodes-test-scenarios.md` | Integration Phases 4–5 (Workflow Kafka nodes, Trigger, Wait) | Scenarios 5–9I | 48 | **Done** |
 | 5 | `kafka-runner-test-scenarios.md` | Integration Phases 6–8 (Runner, Load Policy, Results Publishing) | Scenarios 10–13G | ~35 | Pending |
 | 6 | `kafka-tauri-transport-test-scenarios.md` | Integration Phase 9 (Tauri-native transport parity, beyond settings) | Scenarios 14–14H | ~20 | Pending |
 
@@ -564,8 +564,8 @@ Recommended order for writing and validating these files:
 ```
 1. kafka-message-studio-test-scenarios.md    (MS-01 → MS-35)   ✅ Done — 39 scenarios
 2. kafka-topic-explorer-test-scenarios.md    (TE-01 → TE-26)   ✅ Done — 26 scenarios
-3. kafka-schema-registry-test-scenarios.md   (SR-01 → SR-28)   ← Next
-4. kafka-workflow-nodes-test-scenarios.md     (WN-01 → WN-48)
+3. kafka-schema-registry-test-scenarios.md   (SR-01 → SR-28)   ✅ Done — 28 scenarios
+4. kafka-workflow-nodes-test-scenarios.md     (WN-01 → WN-48)   ✅ Done — 48 scenarios
 5. kafka-runner-test-scenarios.md            (KR-01 → KR-38)
 6. kafka-tauri-transport-test-scenarios.md   (TT-01 → TT-18)   ← Requires Tauri build
 ```
@@ -582,8 +582,8 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | `kafka-settings-test-scenarios.md` | Phases 1–3 + Phase 9 settings (SC-21) + SASL/SCRAM e2e | — | Scenarios 1–4 | ✅ Done |
 | `kafka-message-studio-test-scenarios.md` | Phase 1 (APIs) | MS Phases 1–3 | — (MS Plan-driven) | ✅ Done |
 | `kafka-topic-explorer-test-scenarios.md` | Phase 3D (basic topics) | MS Phase 4 | Scenario 4 (extended) | ✅ Done |
-| `kafka-schema-registry-test-scenarios.md` | Phase 10 (registry + schema produce/consume) | MS Phase 5 | Scenarios 15–15I | Pending |
-| `kafka-workflow-nodes-test-scenarios.md` | Phases 4–5 | MS Phase 3C/3D (bridge) | Scenarios 5–9I | Pending |
+| `kafka-schema-registry-test-scenarios.md` | Phase 10 (registry + schema produce/consume) | MS Phase 5 | Scenarios 15–15I | ✅ Done |
+| `kafka-workflow-nodes-test-scenarios.md` | Phases 4–5 | MS Phase 3C/3D (bridge) | Scenarios 5–9I | ✅ Done |
 | `kafka-runner-test-scenarios.md` | Phases 6–8 | — | Scenarios 10–13G | Pending |
 | `kafka-tauri-transport-test-scenarios.md` | Phase 9 (full transport parity) | — | Scenarios 14–14H | Pending |
 
@@ -599,27 +599,27 @@ Every numbered scenario from `integration-test-plan.md` must be covered by at le
 | Scenario 2 (Invalid broker/credentials) | 3 | ✅ `kafka-settings` SC-15 |
 | Scenario 3 (Auth/SSL combinations) | 3 | ✅ `kafka-settings` SC-16, SC-17, SC-23 (SCRAM e2e web), SC-24 (SCRAM e2e Tauri) |
 | Scenario 4 (Topic list search/detail) | 3 | ✅ `kafka-settings` SC-10, SC-11; ✅ `kafka-topic-explorer` TE-05–TE-26 |
-| Scenario 5 (kafkaProduce publishes) | 4 | `kafka-workflow-nodes` WN-09 |
-| Scenario 6 (kafkaConsume captures) | 4 | `kafka-workflow-nodes` WN-14, WN-15, WN-18 |
-| Scenario 6B (Config persistence) | 4 | `kafka-workflow-nodes` WN-19, WN-20, WN-21 |
-| Scenario 6C (Mixed chain) | 4 | `kafka-workflow-nodes` WN-22 |
-| Scenario 6D (Kafka node logs) | 4 | `kafka-workflow-nodes` WN-29, WN-30 |
-| Scenario 6E (Output bindings) | 4 | `kafka-workflow-nodes` WN-10, WN-11 |
-| Scenario 6F (Consume earliest) | 4 | `kafka-workflow-nodes` WN-17 |
-| Scenario 6G (Auto-resume) | 4 | `kafka-workflow-nodes` WN-25, WN-26 |
-| Scenario 6H (Results Explorer trace) | 4 | `kafka-workflow-nodes` WN-27, WN-28 |
-| Scenario 6I (continueOnError) | 4 | `kafka-workflow-nodes` WN-23, WN-24 |
-| Scenario 7 (Trigger starts workflow) | 5 | `kafka-workflow-nodes` WN-34, WN-35, WN-36 |
-| Scenario 8 (KafkaWait resumes) | 5 | `kafka-workflow-nodes` WN-40, WN-41 |
-| Scenario 9 (KafkaWait timeout) | 5 | `kafka-workflow-nodes` WN-42 |
-| Scenario 9B (Duplicate callback) | 5 | `kafka-workflow-nodes` WN-43 |
-| Scenario 9C (Correlation mismatch) | 5 | `kafka-workflow-nodes` WN-44 |
-| Scenario 9D (Restart recovery) | 5 | `kafka-workflow-nodes` WN-45 |
-| Scenario 9E (Resume-path parity) | 5 | `kafka-workflow-nodes` WN-46 |
-| Scenario 9F (Trigger offset policy) | 5 | `kafka-workflow-nodes` WN-37 |
-| Scenario 9G (Backpressure) | 5 | `kafka-workflow-nodes` WN-38 |
-| Scenario 9H (Consumer cleanup) | 5 | `kafka-workflow-nodes` WN-47 |
-| Scenario 9I (Variable seeding) | 5 | `kafka-workflow-nodes` WN-48 |
+| Scenario 5 (kafkaProduce publishes) | 4 | ✅ `kafka-workflow-nodes` WN-09 |
+| Scenario 6 (kafkaConsume captures) | 4 | ✅ `kafka-workflow-nodes` WN-14, WN-15, WN-18 |
+| Scenario 6B (Config persistence) | 4 | ✅ `kafka-workflow-nodes` WN-19, WN-20, WN-21 |
+| Scenario 6C (Mixed chain) | 4 | ✅ `kafka-workflow-nodes` WN-22 |
+| Scenario 6D (Kafka node logs) | 4 | ✅ `kafka-workflow-nodes` WN-29, WN-30 |
+| Scenario 6E (Output bindings) | 4 | ✅ `kafka-workflow-nodes` WN-10, WN-11 |
+| Scenario 6F (Consume earliest) | 4 | ✅ `kafka-workflow-nodes` WN-17 |
+| Scenario 6G (Auto-resume) | 4 | ✅ `kafka-workflow-nodes` WN-25, WN-26 |
+| Scenario 6H (Results Explorer trace) | 4 | ✅ `kafka-workflow-nodes` WN-27, WN-28 |
+| Scenario 6I (continueOnError) | 4 | ✅ `kafka-workflow-nodes` WN-23, WN-24 |
+| Scenario 7 (Trigger starts workflow) | 5 | ✅ `kafka-workflow-nodes` WN-34, WN-35, WN-36 |
+| Scenario 8 (KafkaWait resumes) | 5 | ✅ `kafka-workflow-nodes` WN-40, WN-41 |
+| Scenario 9 (KafkaWait timeout) | 5 | ✅ `kafka-workflow-nodes` WN-42 |
+| Scenario 9B (Duplicate callback) | 5 | ✅ `kafka-workflow-nodes` WN-43 |
+| Scenario 9C (Correlation mismatch) | 5 | ✅ `kafka-workflow-nodes` WN-44 |
+| Scenario 9D (Restart recovery) | 5 | ✅ `kafka-workflow-nodes` WN-45 |
+| Scenario 9E (Resume-path parity) | 5 | ✅ `kafka-workflow-nodes` WN-46 |
+| Scenario 9F (Trigger offset policy) | 5 | ✅ `kafka-workflow-nodes` WN-37 |
+| Scenario 9G (Backpressure) | 5 | ✅ `kafka-workflow-nodes` WN-38 |
+| Scenario 9H (Consumer cleanup) | 5 | ✅ `kafka-workflow-nodes` WN-47 |
+| Scenario 9I (Variable seeding) | 5 | ✅ `kafka-workflow-nodes` WN-48 |
 | Scenario 10 (Standard runner) | 6 | `kafka-runner` KR-03, KR-04 |
 | Scenario 11 (Parameterized runner) | 6 | `kafka-runner` KR-09, KR-10, KR-11 |
 | Scenario 11B (Migration safety) | 6 | `kafka-runner` KR-14 |
@@ -651,14 +651,14 @@ Every numbered scenario from `integration-test-plan.md` must be covered by at le
 | Scenario 14F (Secure-profile parity) | 9 | `kafka-tauri-transport` TT-16 |
 | Scenario 14G (Concurrent operations) | 9 | `kafka-tauri-transport` TT-17 |
 | Scenario 14H (Broker reconnect) | 9 | `kafka-tauri-transport` TT-18 |
-| Scenario 15 (Registry connection) | 10 | `kafka-schema-registry` SR-03, SR-05, SR-07 |
-| Scenario 15B (Schema-aware produce) | 10 | `kafka-schema-registry` SR-17 |
-| Scenario 15C (Schema-aware consume) | 10 | `kafka-schema-registry` SR-21, SR-22 |
-| Scenario 15D (Schema mismatch) | 10 | `kafka-schema-registry` SR-18, SR-23 |
-| Scenario 15E (Plain-JSON unaffected) | 10 | `kafka-schema-registry` SR-24, SR-28 |
-| Scenario 15F (Registry auth failure) | 10 | `kafka-schema-registry` SR-04, SR-26 |
-| Scenario 15G (Registry unavailable) | 10 | `kafka-schema-registry` SR-25, SR-27 |
-| Scenario 15H (Batch produce with schema) | 10 | `kafka-schema-registry` SR-19 |
-| Scenario 15I (Schema ID caching) | 10 | `kafka-schema-registry` SR-20 |
+| Scenario 15 (Registry connection) | 10 | ✅ `kafka-schema-registry` SR-03, SR-05, SR-07 |
+| Scenario 15B (Schema-aware produce) | 10 | ✅ `kafka-schema-registry` SR-17 |
+| Scenario 15C (Schema-aware consume) | 10 | ✅ `kafka-schema-registry` SR-21, SR-22 |
+| Scenario 15D (Schema mismatch) | 10 | ✅ `kafka-schema-registry` SR-18, SR-23 |
+| Scenario 15E (Plain-JSON unaffected) | 10 | ✅ `kafka-schema-registry` SR-24, SR-28 |
+| Scenario 15F (Registry auth failure) | 10 | ✅ `kafka-schema-registry` SR-04, SR-26 |
+| Scenario 15G (Registry unavailable) | 10 | ✅ `kafka-schema-registry` SR-25, SR-27 |
+| Scenario 15H (Batch produce with schema) | 10 | ✅ `kafka-schema-registry` SR-19 |
+| Scenario 15I (Schema ID caching) | 10 | ✅ `kafka-schema-registry` SR-20 |
 
 **Note:** Scenario 12H (`load-profile` execution mode unaffected) and Scenario 13F (retry/idempotency) are automated-only validations without direct visual test scenarios — they are covered by unit tests rather than manual UI testing.

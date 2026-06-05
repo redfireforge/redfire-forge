@@ -183,6 +183,7 @@ export async function executeHttpNode(
   }
   const resolvedScenario: Scenario = {
     ...data.scenario,
+    validation: data.scenario?.validation ?? { mode: 'none' as const },
     auth: resolveHttpAuth?.(data) ?? data.scenario?.auth ?? { type: 'none' as const },
   };
   const resolved = resolveScenario(resolvedScenario, stepCtx);

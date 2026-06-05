@@ -119,7 +119,7 @@ test.describe('Workflow persistence across hard refresh', () => {
     await expect(page.locator('.react-flow__node')).toHaveCount(1, { timeout: 10000 });
 
     // Add 3 HTTP nodes from the blocks palette
-    const httpBlock = page.locator('button.wf-palette-block-http');
+    const httpBlock = page.locator('.wf-palette-block-http');
     for (let i = 0; i < 3; i++) {
       await httpBlock.click();
       await page.waitForTimeout(300);
@@ -190,7 +190,7 @@ test.describe('Workflow persistence across hard refresh', () => {
     await expect(page.locator('.react-flow__node')).toHaveCount(1, { timeout: 10000 });
 
     // Rapidly add 5 HTTP nodes with minimal delay
-    const httpBlock = page.locator('button.wf-palette-block-http');
+    const httpBlock = page.locator('.wf-palette-block-http');
     for (let i = 0; i < 5; i++) {
       await httpBlock.click();
     }

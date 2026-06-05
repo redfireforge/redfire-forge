@@ -6282,7 +6282,12 @@
 }
 
 /* Make palette blocks show grab cursor when draggable */
-.wf-palette-block[draggable="true"] { cursor: grab; }
+.wf-palette-block[draggable="true"] {
+  cursor: grab;
+  -webkit-user-drag: element;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
 .wf-palette-block[draggable="true"]:active { cursor: grabbing; }
 
 /* ── Error Handler node ────────────────────────── */

@@ -462,12 +462,12 @@ export default function App() {
               onCreateFolder={wfFolders.create}
               onRenameFolder={wfFolders.rename}
               onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
-              onMoveWorkflowToFolder={(wfId, folderId) => {
-                wfHook.update(wfId, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              onMoveWorkflowToFolder={(wfId, folderId, order) => {
+                wfHook.reorder(wfId, folderId, order);
               }}
-              onMoveWorkflowsToFolder={(wfIds, folderId) => {
-                wfIds.forEach((id) => {
-                  wfHook.update(id, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              onMoveWorkflowsToFolder={(wfIds, folderId, startOrder) => {
+                wfIds.forEach((id, i) => {
+                  wfHook.reorder(id, folderId, startOrder + i);
                 });
               }}
               onMoveFolder={wfFolders.move}

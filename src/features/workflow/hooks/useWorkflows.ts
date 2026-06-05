@@ -10,6 +10,7 @@ import {
 } from '../../../shared/utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 import { WORKFLOW_SCHEMA_VERSION } from './useWorkflowPersistence';
+import { moveWorkflow } from '../utils/workflowFolderTree';
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -135,6 +136,14 @@ export function useWorkflows() {
     setSelectedId(wf.id);
   }, []);
 
+  const reorder = useCallback((workflowId: string, newFolderId: string | null, newOrder: number) => {
+    setWorkflows((prev) => {
+      const next = moveWorkflow(workflowId, newFolderId, newOrder, prev);
+      void saveWorkflows(next);
+      return next;
+    });
+  }, []);
+
   const duplicate = useCallback((id: string) => {
     let copyId: string | null = null;
     setWorkflows((prev) => {
@@ -166,6 +175,7 @@ export function useWorkflows() {
     create,
     insert,
     update,
+    reorder,
     remove,
     duplicate,
   };

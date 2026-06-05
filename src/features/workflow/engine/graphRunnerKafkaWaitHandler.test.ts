@@ -303,6 +303,153 @@ describe('handleKafkaWaitNode', () => {
     });
   });
 
+  describe('sample payload (Quick Test)', () => {
+    it('resolves immediately from samplePayload in non-load-test mode', async () => {
+      const { callbacks, states } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-123' });
+      const hCtx = makeHandlerContext({ callbacks, ctx });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 30000,
+        correlationSource: 'body',
+        correlationJsonPath: '$.orderId',
+        samplePayload: '{"orderId":"order-123","status":"confirmed","amount":129.99}',
+        sampleKey: 'order-123',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(states['kw1']?.state).toBe('pass');
+      expect(ctx.get('kafka.wait.topic')).toBe('payments');
+      expect(ctx.get('kafka.wait.key')).toBe('order-123');
+      expect(ctx.get('kafka.wait.value')).toContain('confirmed');
+      expect(ctx.get('__kwWaitDurationMs')).toBe('0');
+      expect(ctx.get('__kwOutcome')).toBe('matched');
+      expect(hCtx.visitOutgoing).toHaveBeenCalledWith('kw1', 'main');
+    });
+
+    it('seeds sampleHeaders into kafka.wait.header.* keys', async () => {
+      const { callbacks } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-h' });
+      const hCtx = makeHandlerContext({ callbacks, ctx });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '{"orderId":"order-h"}',
+        sampleHeaders: '{"X-Payment-Status":"confirmed","X-Region":"eu"}',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(ctx.get('kafka.wait.header.X-Payment-Status')).toBe('confirmed');
+      expect(ctx.get('kafka.wait.header.X-Region')).toBe('eu');
+    });
+
+    it('ignores invalid sampleHeaders JSON gracefully', async () => {
+      const { callbacks, states } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-bad-hdr' });
+      const hCtx = makeHandlerContext({ callbacks, ctx });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '{"orderId":"order-bad-hdr"}',
+        sampleHeaders: 'not-valid-json',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(states['kw1']?.state).toBe('pass');
+    });
+
+    it('extracts variables from samplePayload body', async () => {
+      const { callbacks } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-ev' });
+      const hCtx = makeHandlerContext({ callbacks, ctx });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '{"orderId":"order-ev","paymentId":"PAY-001","amount":99}',
+        extractVariables: [
+          { name: 'paymentId', jsonPath: '$.paymentId' },
+          { name: 'paymentAmount', jsonPath: '$.amount' },
+        ],
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(ctx.get('paymentId')).toBe('PAY-001');
+      expect(ctx.get('paymentAmount')).toBe('99');
+    });
+
+    it('whitespace-only samplePayload falls through to correlation store path', async () => {
+      const { callbacks, states } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-ws' });
+      const hCtx = makeHandlerContext({ callbacks, ctx });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '   ',
+      });
+      const passed = makePassedFlag();
+      await handleKafkaWaitNode('kw1', node, hCtx, passed);
+      expect(passed.value).toBe(false);
+      expect(states['kw1']?.state).toBe('fail');
+      expect(states['kw1']?.error).toContain('No correlation store');
+    });
+
+    it('load test mode ignores samplePayload (uses correlation store instead)', async () => {
+      const kafkaMsg = makeMockKafkaMessage({ topic: 'payments' });
+      const store = makeCorrelationStore({
+        pause: vi.fn().mockResolvedValue(kafkaMsg as unknown as Record<string, unknown>),
+      });
+      const { callbacks, states } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-lt' });
+      const hCtx = makeHandlerContext({
+        callbacks,
+        ctx,
+        loadTestMode: true,
+        correlationStore: store,
+      });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '{"should":"not-be-used"}',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(states['kw1']?.state).toBe('pass');
+      expect(store.pause).toHaveBeenCalled();
+      expect(ctx.get('kafka.wait.value')).not.toContain('not-be-used');
+    });
+
+    it('samplePayload takes precedence even when correlation store exists (non-load-test)', async () => {
+      const store = makeCorrelationStore();
+      const { callbacks, states } = makeCallbacks();
+      const ctx = makeCtx({ orderId: 'order-prio' });
+      const hCtx = makeHandlerContext({ callbacks, ctx, correlationStore: store });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: '{{orderId}}',
+        topic: 'payments',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+        samplePayload: '{"orderId":"order-prio","from":"sample"}',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(states['kw1']?.state).toBe('pass');
+      expect(store.pause).not.toHaveBeenCalled();
+      expect(ctx.get('kafka.wait.value')).toContain('from');
+    });
+  });
+
   describe('wait-for-real mode', () => {
     it('fails if no correlation store available', async () => {
       const { callbacks, states } = makeCallbacks();

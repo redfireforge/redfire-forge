@@ -177,7 +177,8 @@ function classifyRegistryError(error: unknown): SchemaRegistryError {
     normalised.includes('avro decode') ||
     normalised.includes('avro encode') ||
     normalised.includes('serializ') ||
-    normalised.includes('deserializ')
+    normalised.includes('deserializ') ||
+    /invalid "[a-z]+"/.test(normalised)
   ) {
     return new SchemaRegistryError(SCHEMA_ERROR_CODES.SCHEMA_MISMATCH, `Schema mismatch: ${message}`);
   }
