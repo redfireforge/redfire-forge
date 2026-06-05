@@ -10,26 +10,8 @@ import type { KafkaWaitNodeData } from '../../types/workflow';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-vi.mock('../expression/InsertVarField', () => ({
-  default: ({
-    children,
-    onInsert,
-  }: {
-    children: React.ReactNode;
-    onInsert: (snippet: string) => void;
-  }) => (
-    <div data-testid="insert-var-field">
-      {children}
-      <button type="button" data-testid="insert-var-apply" onClick={() => onInsert('{{snippet}}')}>
-        Apply insert
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('../expression/AvailableVariables', () => ({
-  default: () => <div data-testid="available-variables" />,
-}));
+vi.mock('../expression/InsertVarField');
+vi.mock('../expression/AvailableVariables');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
