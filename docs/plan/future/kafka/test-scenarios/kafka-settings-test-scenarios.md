@@ -19,7 +19,16 @@
 
 ### Docker: Start the Plaintext Broker
 
-These scenarios require a running Redpanda broker. Start it once before running the suite.
+These scenarios require a running Redpanda broker. You can start everything in one command or manually.
+
+**Option A — Automated (recommended):**
+
+```bash
+# From the repo root — starts Docker, seeds all test data
+docker/kafka/e2e/run-all-smoke.sh --seed-only plaintext
+```
+
+**Option B — Manual:**
 
 ```bash
 # From the repo root
@@ -82,6 +91,8 @@ Open http://localhost:5173 in your browser.
 | SC-20 | Auto-connect on startup toggle | No | No |
 | SC-21 | Also verify in Tauri (desktop parity) | ✅ Yes | N/A |
 | SC-22 | Export and import cluster configurations | No | No |
+| SC-23 | SASL/SCRAM end-to-end: connect, produce, consume on secure broker (web) | ✅ Yes | ✅ Yes |
+| SC-24 | SASL/SCRAM end-to-end via Tauri native transport (desktop) | ✅ Yes | N/A |
 
 ---
 
@@ -626,4 +637,239 @@ Re-run these key scenarios in the desktop window:
 
 - ☐ Red feedback banner appears: **"Import failed: invalid JSON file."**
 - ☐ No clusters are modified
+
+---
+
+## SC-23 — SASL/SCRAM End-to-End: Connect, Produce, Consume on Secure Broker (Web)
+
+> **Purpose:** Verify that the full Kafka lifecycle (connect → list topics → produce → consume → disconnect) works through the web server-proxy transport with **SASL/SCRAM-SHA-256** authentication on a real broker. This is the end-to-end TLS/Auth test for the normal (browser) path.
+
+### Prerequisites: Start the Secure Broker
+
+The secure Docker profile runs a Redpanda instance with SASL enabled on port **19093**. An init container creates two users and seeds topics.
+
+```bash
+# From the repo root
+cd docker/kafka/secure
+docker compose up -d
+
+# Wait for both containers to complete (broker + init)
+docker compose ps
+# redfireforge-redpanda-secure      → healthy
+# redfireforge-redpanda-secure-init → exited (0)
+```
+
+Wait for the init container to exit with code 0 before proceeding (~15–20 seconds).
+
+**Credentials:**
+
+| User | Password | Mechanism | Role |
+|---|---|---|---|
+| `admin` | `admin-secret` | SCRAM-SHA-256 | Superuser |
+| `redfireforge-app` | `app-password` | SCRAM-SHA-256 | Application (ACLs on all topics/groups) |
+
+**Pre-created topics:** `redfireforge.debug.consume` (3 partitions), `redfireforge.results.summary` (3 partitions)
+
+Ensure the local server is running: `npm run server`
+
+---
+
+### Part A — Create and Connect a SCRAM-SHA-256 Cluster
+
+**Steps:**
+1. Navigate to **Settings → Kafka**
+2. Click **"+ New"** to open the cluster creation form
+3. Set **Cluster Name** to `Secure Dev (SCRAM)`
+4. Set broker to `127.0.0.1:19093` (the secure broker port)
+5. In **Authentication**, select **SCRAM-SHA-256** from the dropdown
+6. In the **Username** field, type `redfireforge-app`
+7. In the **Password** field, type `app-password`
+8. Leave **TLS / SSL** unchecked (the secure Docker profile uses SASL without TLS encryption)
+9. Click **Save Cluster**
+10. Select the newly created cluster
+11. Click **Connect**
+
+**Expected:**
+- ☐ When SCRAM-SHA-256 is selected, Username and Password fields appear immediately
+- ☐ After save, the cluster card appears in the list
+- ☐ Clicking Connect → status transitions: **Idle → testing → Connected**
+- ☐ Status text shows **"Connected to secure-dev-scram"** (or the generated cluster ID)
+- ☐ **Connected** badge appears (green) on the cluster card
+- ☐ AppHeader Kafka pill shows **"Connected"**
+- ☐ No auth error — the SCRAM-SHA-256 handshake succeeds
+
+---
+
+### Part B — List Topics on Secure Broker
+
+**Steps:**
+1. After connecting (Part A), observe the Topic Explorer panel on the right
+
+**Expected:**
+- ☐ Topics load successfully — at least `redfireforge.debug.consume` and `redfireforge.results.summary` are visible
+- ☐ The Topic Explorer shows the same columns (Name, Partitions) as the plaintext broker
+- ☐ No authentication errors appear in the topic list
+
+---
+
+### Part C — Produce a Message via Message Studio
+
+**Steps:**
+1. Navigate to **Protocols → Kafka → Publish** tab
+2. Set **Topic** to `redfireforge.debug.consume`
+3. Set **Key** to `scram-test-key`
+4. Add a header: key = `source`, value = `scram-manual-test`
+5. Set body to:
+   ```json
+   {"test": "scram-auth", "from": "manual-ui-test", "timestamp": "now"}
+   ```
+6. Click **"Send Once"**
+
+**Expected:**
+- ☐ Send succeeds — green result block: **"✓ Sent 1 message to redfireforge.debug.consume"**
+- ☐ Result shows partition number and offset
+- ☐ No auth error — SCRAM credentials are passed through to the broker by the server
+
+---
+
+### Part D — Consume the Message Back
+
+**Steps:**
+1. Switch to **Protocols → Kafka → Consume** tab
+2. Set **Topic** to `redfireforge.debug.consume`
+3. Set **Start Position** to **Earliest**
+4. Set **Key Match** to `scram-test-key` (to filter for our specific message)
+5. Click **"Consume Once"**
+
+**Expected:**
+- ☐ At least 1 message appears in the results table
+- ☐ The message has key `scram-test-key` and body containing `"test": "scram-auth"`
+- ☐ Click the row → detail pane shows headers including `source: scram-manual-test`
+- ☐ The full produce → consume round-trip works through SASL/SCRAM authentication
+
+---
+
+### Part E — Invalid Credentials → Auth Error
+
+**Steps:**
+1. Click **Disconnect** on the secure cluster
+2. Click **Edit** on the `Secure Dev (SCRAM)` cluster
+3. Change the **Password** to `wrong-password`
+4. Click **Save Cluster**
+5. Click **Connect**
+
+**Expected:**
+- ☐ Connection fails — error banner appears
+- ☐ Error code: **"KAFKA_AUTH_FAILED"** (or similar auth-specific error)
+- ☐ Error message clearly indicates an **authentication failure** — NOT a generic network/timeout error
+- ☐ Advisory text mentions verifying credentials
+
+**Clean up:** Edit the cluster back to the correct password (`app-password`) or delete it.
+
+---
+
+### Part F — Disconnect
+
+**Steps:**
+1. If connected, click **Disconnect**
+
+**Expected:**
+- ☐ Clean disconnect — badge reverts to **Idle**
+- ☐ No lingering errors
+
+### Docker Clean Up
+
+```bash
+cd docker/kafka/secure && docker compose down
+```
+
+---
+
+## SC-24 — SASL/SCRAM End-to-End via Tauri Native Transport (Desktop)
+
+> **Purpose:** Verify the same SASL/SCRAM-SHA-256 lifecycle (connect → topics → produce → consume → disconnect) works through the **Tauri native rdkafka transport** on the desktop app. This ensures TLS/auth parity between the web server-proxy path and the native desktop path.
+
+### Prerequisites
+
+- Secure Docker broker running (same as SC-23): `cd docker/kafka/secure && docker compose up -d`
+- Tauri desktop app built and running: `npm run tauri:dev`
+- The desktop app does **not** need the `npm run server` backend — it connects directly to Kafka via the Rust rdkafka library
+
+---
+
+### Part A — Create and Connect a SCRAM-SHA-256 Cluster in Tauri
+
+**Steps:**
+1. In the Tauri desktop window, navigate to **Settings → Kafka**
+2. Click **"+ New"** to open the cluster creation form
+3. Set **Cluster Name** to `Secure Dev Tauri`
+4. Set broker to `127.0.0.1:19093`
+5. In **Authentication**, select **SCRAM-SHA-256**
+6. Set **Username** to `redfireforge-app`, **Password** to `app-password`
+7. Leave TLS / SSL unchecked
+8. Click **Save Cluster** → select the cluster → click **Connect**
+
+**Expected:**
+- ☐ Connection succeeds via native rdkafka transport — **Connected** badge appears
+- ☐ No "server not reachable" error — Tauri connects directly, no server-proxy needed
+- ☐ AppHeader pill shows **"Connected"**
+
+---
+
+### Part B — Topics and Produce via Tauri
+
+**Steps:**
+1. Navigate to **Protocols → Kafka → Topics** tab
+2. Observe topic list
+3. Switch to **Publish** tab
+4. Set Topic to `redfireforge.debug.consume`, Key to `tauri-scram-key`
+5. Set body to `{"test": "tauri-scram", "transport": "native"}`
+6. Click **"Send Once"**
+
+**Expected:**
+- ☐ Topics load (same topics as SC-23 Part B)
+- ☐ Produce succeeds with partition/offset result
+- ☐ No auth errors — the native Rust SCRAM handshake works
+
+---
+
+### Part C — Consume via Tauri
+
+**Steps:**
+1. Switch to **Consume** tab
+2. Set Topic to `redfireforge.debug.consume`, Start Position to **Earliest**, Key Match to `tauri-scram-key`
+3. Click **"Consume Once"**
+
+**Expected:**
+- ☐ Message with key `tauri-scram-key` appears in results
+- ☐ Body contains `"transport": "native"` confirming the Tauri round-trip
+- ☐ Full produce → consume lifecycle works through native SCRAM-SHA-256
+
+---
+
+### Part D — Invalid Credentials in Tauri
+
+**Steps:**
+1. Disconnect → Edit the cluster → change Password to `wrong-password` → Save → Connect
+
+**Expected:**
+- ☐ Connection fails with an **auth failure error** — same user-facing message as SC-23 Part E
+- ☐ Error classification matches the web server-proxy path (not a generic timeout)
+
+---
+
+### Part E — Cross-Transport Parity Check
+
+**Steps:**
+1. Fix the password back to `app-password` in the Tauri app
+2. Connect and produce a message with key `tauri-cross-check`
+3. Open the **web browser** app (http://localhost:5173) with the server running
+4. Connect to the same secure broker in the web UI (SC-23 cluster or create a new one)
+5. Consume with Key Match `tauri-cross-check`
+
+**Expected:**
+- ☐ The message produced via Tauri native transport is **visible** when consumed via the web server-proxy transport
+- ☐ Message content, key, headers are identical — transport is transparent to the data
+
+**Clean up:** Disconnect in both apps. Stop the secure broker: `cd docker/kafka/secure && docker compose down`
 

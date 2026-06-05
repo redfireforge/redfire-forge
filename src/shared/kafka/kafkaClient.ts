@@ -155,6 +155,41 @@ export function toKafkaUiSafeError(error: unknown, op: KafkaOperation): KafkaUiS
   };
 }
 
+/**
+ * Convert a not-ok envelope's error fields into a KafkaUiSafeError for React state.
+ * Callers should only invoke this after confirming `!envelope.ok`.
+ *
+ * @param envelope - The failed envelope.
+ * @param fallbackMessage - Human-readable default when envelope has no message.
+ * @param fallbackCode - Error code default when envelope has no code.
+ */
+export function envelopeErrorToUiError(
+  envelope: KafkaEnvelope,
+  fallbackMessage: string,
+  fallbackCode: string,
+): KafkaUiSafeError {
+  const msg = envelope.error?.message ?? fallbackMessage;
+  const code = envelope.error?.code ?? fallbackCode;
+  const retryable = envelope.error?.retryable ?? true;
+  return { kind: 'server', code, message: msg, retryable };
+}
+
+/**
+ * Throw a KafkaClientError if the envelope indicates a failure.
+ * Extracted so both the HTTP and Tauri transports can share identical logic.
+ */
+export function throwIfEnvelopeNotOk(op: KafkaOperation, envelope: KafkaEnvelope): void {
+  if (!envelope.ok) {
+    const code = envelope.error?.code?.trim();
+    const message = envelope.error?.message?.trim();
+    const fallback = code ? `Kafka ${op} failed (${code})` : `Kafka ${op} failed`;
+    throw new KafkaClientError(op, message && message.length > 0 ? message : fallback, {
+      code: code && code.length > 0 ? code : 'KAFKA_OPERATION_FAILED',
+      retryable: envelope.error?.retryable ?? true,
+    });
+  }
+}
+
 export type KafkaClientTransport = (request: KafkaDispatchRequest) => Promise<KafkaEnvelope>;
 
 const OPERATION_MAP: Record<KafkaOperation, KafkaOperationSpec> = {
@@ -261,18 +296,7 @@ function parseEnvelope(op: KafkaOperation, response: HttpResponse): KafkaEnvelop
     });
   }
 
-  if (!envelope.ok) {
-    const code = envelope.error?.code?.trim();
-    const message = envelope.error?.message?.trim();
-    const fallback = code
-      ? `Kafka ${op} failed (${code})`
-      : `Kafka ${op} failed`;
-    throw new KafkaClientError(op, message && message.length > 0 ? message : fallback, {
-      code: code && code.length > 0 ? code : 'KAFKA_OPERATION_FAILED',
-      retryable: envelope.error?.retryable ?? true,
-    });
-  }
-
+  throwIfEnvelopeNotOk(op, envelope);
   return envelope;
 }
 

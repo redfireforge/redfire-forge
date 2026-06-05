@@ -285,4 +285,88 @@ describe('useKafkaStreamMode', () => {
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.streamSubscriptionId).toBeNull();
   });
+
+  it('startStream: sets streamError when subscribe returns ok=false', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: 'KAFKA_NOT_CONNECTED', message: 'Not connected' },
+    });
+
+    const { result } = renderHook(() => useKafkaStreamMode(makeKafkaState(), { dispatch }));
+
+    await act(async () => {
+      await result.current.startStream(makeDraft(), 'cluster-1');
+    });
+
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.streamError).not.toBeNull();
+    expect(result.current.streamError?.code).toBe('KAFKA_NOT_CONNECTED');
+  });
+
+  it('startStream: uses KAFKA_SUBSCRIBE_FAILED fallback code when error has no code', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { message: 'Subscribe failed' },
+    });
+
+    const { result } = renderHook(() => useKafkaStreamMode(makeKafkaState(), { dispatch }));
+
+    await act(async () => {
+      await result.current.startStream(makeDraft(), 'cluster-1');
+    });
+
+    expect(result.current.streamError?.code).toBe('KAFKA_SUBSCRIBE_FAILED');
+  });
+
+  it('startStream: sets streamError when dispatch throws', async () => {
+    const dispatch = vi.fn().mockRejectedValue(new Error('network failure'));
+
+    const { result } = renderHook(() => useKafkaStreamMode(makeKafkaState(), { dispatch }));
+
+    await act(async () => {
+      await result.current.startStream(makeDraft(), 'cluster-1');
+    });
+
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.streamError).not.toBeNull();
+    expect(result.current.streamError?.message).toMatch(/network failure/);
+  });
+
+  it('pollMessages: swallows error silently when stream has already stopped', async () => {
+    let subscribeCalled = false;
+    const dispatch = vi.fn().mockImplementation((op: string) => {
+      if (op === 'subscribe') {
+        subscribeCalled = true;
+        return Promise.resolve({
+          ok: true,
+          data: { subscription: { subscriptionId: 'sub-swallow', topic: 't', groupId: 'g', createdAt: '' } },
+        });
+      }
+      if (op === 'subscription-messages') {
+        // Poll throws but stream has been stopped by the time it rejects
+        return Promise.reject(new Error('poll error'));
+      }
+      return Promise.resolve({ ok: true, data: {} });
+    });
+
+    const { result } = renderHook(() => useKafkaStreamMode(makeKafkaState(), { dispatch }));
+
+    await act(async () => {
+      await result.current.startStream(makeDraft(), 'cluster-1');
+    });
+    expect(subscribeCalled).toBe(true);
+
+    // Stop the stream before the poll error propagates
+    await act(async () => {
+      await result.current.stopStream();
+    });
+
+    // Advance timer to trigger a poll — should NOT set streamError because streaming stopped
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+
+    expect(result.current.streamError).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+  });
 });

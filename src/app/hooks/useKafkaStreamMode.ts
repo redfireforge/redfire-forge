@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   dispatchKafkaOperation,
+  envelopeErrorToUiError,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
 } from '../../shared/kafka/kafkaClient';
@@ -121,9 +122,7 @@ export function useKafkaStreamMode(
       }>('subscribe', body);
 
       if (!envelope.ok || !envelope.data) {
-        const msg = envelope.error?.message ?? 'Subscribe failed';
-        const code = envelope.error?.code ?? 'KAFKA_SUBSCRIBE_FAILED';
-        setStreamError({ kind: 'server', code, message: msg, retryable: true });
+        setStreamError(envelopeErrorToUiError(envelope, 'Subscribe failed', 'KAFKA_SUBSCRIBE_FAILED'));
         return;
       }
 
