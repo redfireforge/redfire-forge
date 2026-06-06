@@ -544,9 +544,15 @@ export function createKafkaAsyncCorrelationWorkflow(): Workflow {
           loadTestBehavior: {
             mode: 'synthetic-inject',
             mockPayload: {
-              orderId: '{{orderId}}',
-              status: 'APPROVED',
-              transactionId: 'TXN-{{orderId}}-001',
+              // value must be a JSON string — the handler reads message.value and
+              // runs JSONPath extractions against it (extractVariables configuration).
+              // Without this, message.value defaults to '{}' and paymentStatus is never set.
+              value: JSON.stringify({
+                orderId: 'ORD-5001',
+                status: 'APPROVED',
+                transactionId: 'TXN-ORD-5001-001',
+                failureReason: null,
+              }),
             },
             syntheticDelayMs: 500,
             syntheticJitterMs: 100,
