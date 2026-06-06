@@ -95,7 +95,7 @@
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Event-Driven<br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 8 &nbsp;|&nbsp; Category: Event-Driven<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -140,17 +140,18 @@
   <li>Waiting for a container deployment to reach "Running" state</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Initiating a <strong>long-running job</strong> via HTTP POST and extracting a job ID</li>
-  <li>Building a <strong>polling loop</strong> with a back-edge that repeats until a condition is met</li>
-  <li>Using a <strong>Wait</strong> node to introduce a delay between poll attempts</li>
-  <li>Checking job status with an <strong>HTTP GET</strong> request inside the loop</li>
-  <li>Using a <strong>Condition</strong> node as the loop exit gate</li>
-  <li>Processing the <strong>final result</strong> after the loop completes</li>
+  <li>Using a <strong>waitForCondition</strong> node to poll until a target state is reached</li>
+  <li>Configuring <code>pollIntervalMs</code>, <code>timeoutMs</code>, and <code>maxAttempts</code></li>
+  <li>The <strong>body</strong> outlet (fired each poll) vs the <strong>done</strong> outlet (fired when finished)</li>
+  <li>Reading <code>{{wait.conditionMet}}</code>, <code>{{wait.attempts}}</code>, and <code>{{wait.elapsed}}</code></li>
+  <li>Branching on timeout vs. success via a Condition node on <code>{{wait.conditionMet}}</code></li>
+  <li>Snapshot variables in LogDebug to capture final state</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -158,57 +159,54 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │
-  └──────┬──────┘
-         ▼
-  ┌──────────────────────────────┐
-  │  1. Start Job                │  POST https://httpbin.org/post
-  │     (HTTP)                   │  Body: {"action":"start"}
-  │                              │
-  │  Extracts: jobId             │  ← body $.json.action
-  └──────┬───────────────────────┘
-         ▼
-  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
-  │  POLLING LOOP                │
-  │                              │
-  │  ┌───────────────────────┐   │
-  │  │  2. Wait 5s           │   │  Wait
-  │  │     (Wait)            │   │  Delay: 5000ms
-  │  └──────┬────────────────┘   │
-  │         ▼                    │
-  │  ┌───────────────────────┐   │
-  │  │  3. Check Status      │   │  GET https://httpbin.org
-  │  │     (HTTP)            │   │      /get?status=completed
-  │  │                       │   │
-  │  │  Extracts: jobStatus  │   │  ← body $.args.status
-  │  └──────┬────────────────┘   │
-  │         ▼                    │
-  │  ┌───────────────────────┐   │
-  │  │  4. Done?             │   │  Condition
-  │  │     (Condition)       │   │
-  │  │                       │   │  {{jobStatus}} == "completed"
-  │  │  false ──┘            │   │  false → loop back to Wait
-  │  │  true  ──────────▶    │   │  true  → exit loop
-  │  └───────────────────────┘   │
-  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
-         │ (true)
-         ▼
-  ┌──────────────────────────────┐
-  │  5. Process Result           │  Log
-  │     (Log)                    │
-  │                              │  "Job {{jobId}} completed
-  │                              │   with status: {{jobStatus}}"
-  └──────┬───────────────────────┘
-         ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌──────────────────────────────────────┐
+  │  Start                               │  inputVariables: jobName = "data-import"
+  └─────────────────┬────────────────────┘
+                    ▼
+  ┌──────────────────────────────────────┐
+  │  1. Create Job                       │  POST /posts  body: { title, body, userId }
+  │  (HTTP POST)                         │  Extracts: jobId ← $.id
+  └─────────────────┬────────────────────┘
+                    ▼
+  ┌──────────────────────────────────────┐
+  │  Log: Job Created                    │  logDebug info
+  │  (LogDebug)                          │  "Job {{jobId}} ({{jobName}}) created.
+  │                                      │   Starting polling..."
+  └─────────────────┬────────────────────┘
+                    ▼
+  ┌──────────────────────────────────────┐
+  │  Wait: Job Complete                  │  conditionExpression: {{jobStatus}} == 1
+  │  (waitForCondition)                  │  pollIntervalMs: 2000
+  │                                      │  timeoutMs: 30000  maxAttempts: 15
+  └──────────┬───────────────────────────┘
+             │                      │
+         body outlet            done outlet
+      (each poll cycle)      (all polls done)
+             ▼                      ▼
+  ┌─────────────────────┐  ┌──────────────────────────────────────┐
+  │  2. Poll Status     │  │  Completed?                          │
+  │  (HTTP GET)         │  │  (Condition)                         │
+  │  GET /posts/1       │  │  {{wait.conditionMet}} == "true"     │
+  │  jobStatus ← $.userId  └────────────┬─────────────────┬───────┘
+  └─────────────────────┘               │ true            │ false
+                                        ▼                 ▼
+                              ┌──────────────────┐  ┌─────────────────────┐
+                              │  Log: Success    │  │  Log: Timeout       │
+                              │  (LogDebug info) │  │  (LogDebug warn)    │
+                              │  snapshotVars    │  │  snapshotVars       │
+                              └────────┬─────────┘  └──────────┬──────────┘
+                                       └─────────────┬──────────┘
+                                                     ▼
+                                              ┌──────────────┐
+                                              │  End         │
+                                              └──────────────┘
 </div>
 
 <p>
-  <strong>6 nodes, 7 edges</strong> (including the loop back-edge). The polling loop
-  repeats nodes 2–4 until the Condition evaluates to true, then exits to Process Result.
+  <strong>8 nodes, 9 edges</strong> (including the poll-loop back-edge on the body outlet).
+  The <code>waitForCondition</code> node automatically polls on its <strong>body</strong> outlet
+  and signals completion on its <strong>done</strong> outlet.
+  <code>jobStatus</code> is refreshed each poll cycle; when it equals <code>1</code> the condition is met.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -222,76 +220,70 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. No input variables — the job ID is obtained from the Start Job response.</td>
+    <td>Input variable: <code>jobName = "data-import"</code>. Default name for the long-running job to create.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Start Job</td>
-    <td>HTTP</td>
-    <td>Sends POST to start a long-running job. Extracts <code>jobId</code> from the response.</td>
+    <td><span class="step-num">1</span> Create Job</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code>. Body: <code>{ "title": "Import Job", "body": "Processing data...", "userId": 1 }</code>. Extracts <code>jobId ← $.id</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Wait 5s</td>
-    <td>Wait</td>
-    <td>Pauses execution for 5 seconds before the next poll attempt. Prevents overwhelming the status endpoint.</td>
+    <td><span class="step-num">2</span> Log: Job Created</td>
+    <td>LogDebug (info)</td>
+    <td>Logs <code>"Job {{jobId}} ({{jobName}}) created. Starting polling..."</code>. Marks the start of the polling phase.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Check Status</td>
-    <td>HTTP</td>
-    <td>Sends GET to check the job's current status. Extracts <code>jobStatus</code> from the response.</td>
+    <td><span class="step-num">3</span> Wait: Job Complete</td>
+    <td>waitForCondition</td>
+    <td>
+      Polls until <code>{{jobStatus}} == 1</code>.<br>
+      <code>pollIntervalMs: 2000</code> · <code>timeoutMs: 30000</code> · <code>maxAttempts: 15</code>.<br>
+      <strong>body</strong> outlet → runs 2. Poll Status each cycle.<br>
+      <strong>done</strong> outlet → runs Completed? when polling ends.
+    </td>
   </tr>
   <tr>
-    <td><span class="step-num">4</span> Done?</td>
+    <td><span class="step-num">4</span> 2. Poll Status</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts/1</code>. Extracts <code>jobStatus ← $.userId</code>. Called repeatedly by the body outlet each poll cycle.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> Completed?</td>
     <td>Condition</td>
-    <td>Evaluates <code>{{jobStatus}} == "completed"</code>. If false, loops back to Wait 5s. If true, exits the loop.</td>
+    <td>Checks <code>{{wait.conditionMet}} == "true"</code>. true → Log: Success. false → Log: Timeout.</td>
   </tr>
   <tr>
-    <td><span class="step-num">5</span> Process Result</td>
-    <td>Log</td>
-    <td>Logs <code>"Job {{jobId}} completed with status: {{jobStatus}}"</code>. Final processing after the job finishes.</td>
+    <td><span class="step-num">6a</span> Log: Success</td>
+    <td>LogDebug (info)</td>
+    <td>Logs <code>"Job {{jobId}} completed after {{wait.attempts}} polls ({{wait.elapsed}}ms)"</code>. <code>snapshotVariables: true</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">6b</span> Log: Timeout</td>
+    <td>LogDebug (warn)</td>
+    <td>Logs <code>"Job {{jobId}} timed out after {{wait.attempts}} polls"</code>. <code>snapshotVariables: true</code>. Reached when all poll attempts are exhausted without the condition being met.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Both success and timeout branches converge here.</td>
   </tr>
 </table>
 
-<h3>HTTP POST Configuration (Start Job)</h3>
+<h3>waitForCondition Configuration</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://httpbin.org/post</code></td></tr>
-  <tr><td><strong>Method</strong></td><td>POST</td></tr>
-  <tr><td><strong>Body</strong></td><td><code>{"action":"start","type":"data-export"}</code></td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>jobId</code> ← body <code>$.json.action</code></td></tr>
+  <tr><td><strong>Condition Expression</strong></td><td><code>{{jobStatus}} == 1</code></td></tr>
+  <tr><td><strong>Poll Interval</strong></td><td>2000 ms (2 seconds)</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>30000 ms (30 seconds)</td></tr>
+  <tr><td><strong>Max Attempts</strong></td><td>15</td></tr>
+  <tr><td><strong>Outlets</strong></td><td><code>body</code> (each poll) / <code>done</code> (polling ends)</td></tr>
+  <tr><td><strong>Wait Variables</strong></td><td><code>{{wait.conditionMet}}</code>, <code>{{wait.attempts}}</code>, <code>{{wait.elapsed}}</code></td></tr>
 </table>
 
-<h3>Wait Configuration</h3>
-<table>
-  <tr><td><strong>Delay</strong></td><td><code>5000</code> ms (5 seconds)</td></tr>
-</table>
-
-<h3>HTTP GET Configuration (Check Status)</h3>
-<table>
-  <tr><td><strong>URL</strong></td><td><code>https://httpbin.org/get?status=completed</code></td></tr>
-  <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>jobStatus</code> ← body <code>$.args.status</code></td></tr>
-</table>
-
-<h3>Condition Configuration (Loop Exit)</h3>
-<table>
-  <tr><td><strong>Expression</strong></td><td><code>{{jobStatus}} == "completed"</code></td></tr>
-  <tr><td><strong>True path</strong></td><td>→ Process Result (exit loop)</td></tr>
-  <tr><td><strong>False path</strong></td><td>→ Wait 5s (continue polling)</td></tr>
-</table>
-
-<div class="callout">
-  <strong>📘 Polling Loop Mechanics</strong>
-  The loop is created by connecting the Condition node's <strong>false</strong> output
-  back to the Wait node, forming a cycle. Each iteration: wait → check → decide. The
-  loop exits only when the Condition evaluates to true. Always include a Wait node to
-  avoid hammering the external service.
-</div>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Infinite Loop Protection</strong>
-  In production, always add a <strong>max iterations</strong> counter or a
-  <strong>timeout</strong> check to prevent infinite polling. If the job never completes,
-  the loop will run forever. Add a second Condition that checks
-  <code>{{loopCount}} > 60</code> (5 minutes at 5s intervals) and exits with an error.
+<div class="callout callout-tip">
+  <strong>💡 Why the body outlet loops back</strong>
+  The <code>body</code> outlet fires after each poll action (2. Poll Status).
+  Connect it back to the Wait node so the next poll reads the freshly-updated
+  <code>jobStatus</code> variable. The Wait node tracks the attempt count internally.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -302,64 +294,47 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔄 Polling with Wait for Condition"</strong>
-    in the <em>Event-Driven</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Polling with Wait for Condition"</strong>
+    in the <em>Event-Driven</em> category. Click <em>Import</em>.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Polling with Wait for Condition".
+    <strong>Add Start node.</strong> Input variable: <code>jobName = "data-import"</code>.
   </li>
   <li>
-    <strong>Add the Start Job HTTP node.</strong><br>
-    Drag an HTTP node. Configure:
-    <ul>
-      <li><em>URL</em>: <code>https://httpbin.org/post</code></li>
-      <li><em>Method</em>: POST</li>
-      <li><em>Body</em>: <code>{"action":"start","type":"data-export"}</code></li>
-      <li><em>Extractions</em>: <code>jobId</code> ← body <code>$.json.action</code></li>
-    </ul>
-    Connect Start → Start Job.
+    <strong>Add 1. Create Job (HTTP POST).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/posts</code>. Body type: JSON.<br>
+    Body: <code>{"title":"Import Job","body":"Processing data...","userId":1}</code>.<br>
+    Extraction: <code>jobId ← $.id</code>. Connect Start → Create Job.
   </li>
   <li>
-    <strong>Add the Wait node.</strong><br>
-    Drag a Wait node. Set delay to <code>5000</code> ms.
-    Connect Start Job → Wait 5s.
+    <strong>Add Log: Job Created (LogDebug info).</strong><br>
+    Message: <code>Job {{jobId}} ({{jobName}}) created. Starting polling...</code>
+    Connect Create Job → Log: Job Created.
   </li>
   <li>
-    <strong>Add the Check Status HTTP node.</strong><br>
-    Drag an HTTP node. Configure:
-    <ul>
-      <li><em>URL</em>: <code>https://httpbin.org/get?status=completed</code></li>
-      <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: <code>jobStatus</code> ← body <code>$.args.status</code></li>
-    </ul>
-    Connect Wait 5s → Check Status.
+    <strong>Add Wait: Job Complete (waitForCondition).</strong><br>
+    Condition: <code>{{jobStatus}} == 1</code>. Interval: 2000 ms. Timeout: 30 000 ms. Max attempts: 15.<br>
+    Connect Log: Job Created → Wait: Job Complete.
   </li>
   <li>
-    <strong>Add the Condition node.</strong><br>
-    Drag a Condition node. Configure:
-    <ul>
-      <li><em>Expression</em>: <code>{{jobStatus}} == "completed"</code></li>
-    </ul>
-    Connect Check Status → Done?.
-    <br><br>
-    <strong>Create the loop:</strong> Connect the Condition's <em>false</em> output back
-    to the Wait 5s node.
+    <strong>Add 2. Poll Status (HTTP GET).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/posts/1</code>.<br>
+    Extraction: <code>jobStatus ← $.userId</code>.<br>
+    Connect Wait <strong>body</strong> outlet → Poll Status, and Poll Status → Wait (loop back).
   </li>
   <li>
-    <strong>Add the Process Result node.</strong><br>
-    Drag a Log node. Set message to <code>"Job {{jobId}} completed with status: {{jobStatus}}"</code>.
-    Connect the Condition's <em>true</em> output → Process Result → End.
+    <strong>Add Completed? (Condition).</strong><br>
+    Left: <code>{{wait.conditionMet}}</code>, Operator: <code>==</code>, Right: <code>true</code>.<br>
+    Connect Wait <strong>done</strong> outlet → Completed?
   </li>
   <li>
-    <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. Since the simulated endpoint always returns
-    <code>status=completed</code>, the loop will exit after one iteration. To test
-    multiple iterations, change the status query parameter to a different value for
-    the first few runs.
+    <strong>Add Log: Success and Log: Timeout.</strong><br>
+    Success: info · message with <code>{{wait.attempts}}</code> and <code>{{wait.elapsed}}</code>.<br>
+    Timeout: warn · message with <code>{{wait.attempts}}</code>.<br>
+    Both: <code>snapshotVariables: true</code>. Connect to End.
   </li>
 </ol>
 
@@ -368,46 +343,26 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (job completes on first poll)</h3>
+<h3>Node States (condition met on first poll)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Start Job</td><td>✅ Pass</td><td>HTTP 200, jobId = "start"</td></tr>
-  <tr><td>2. Wait 5s</td><td>✅ Pass</td><td>Delayed 5000ms</td></tr>
-  <tr><td>3. Check Status</td><td>✅ Pass</td><td>HTTP 200, jobStatus = "completed"</td></tr>
-  <tr><td>4. Done?</td><td>✅ Pass</td><td>Condition: true → exit loop</td></tr>
-  <tr><td>5. Process Result</td><td>✅ Pass</td><td>"Job start completed with status: completed"</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>jobName = "data-import"</td></tr>
+  <tr><td>1. Create Job</td><td>✅ Pass</td><td>HTTP 201 · jobId = 101</td></tr>
+  <tr><td>Log: Job Created</td><td>✅ Pass</td><td>info logged</td></tr>
+  <tr><td>Wait: Job Complete</td><td>✅ Pass</td><td>Condition {{jobStatus}} == 1 met after 1 poll</td></tr>
+  <tr><td>2. Poll Status</td><td>✅ Pass</td><td>HTTP 200 · jobStatus = 1</td></tr>
+  <tr><td>Completed?</td><td>✅ Pass (true)</td><td>wait.conditionMet = "true"</td></tr>
+  <tr><td>Log: Success</td><td>✅ Pass</td><td>"Job 101 completed after 1 polls (2001ms)"</td></tr>
+  <tr><td>Log: Timeout</td><td>⏭️ Skipped</td><td>false branch not taken</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
 
-<h3>Start Job Response (Node 1)</h3>
-<pre>
-{
-  "json": {
-    "action": "start",
-    "type": "data-export"
-  },
-  "url": "https://httpbin.org/post",
-  ...
-}</pre>
-
-<h3>Check Status Response (Node 3)</h3>
-<pre>
-{
-  "args": {
-    "status": "completed"
-  },
-  "url": "https://httpbin.org/get?status=completed",
-  ...
-}</pre>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Simulated Endpoint</strong>
-  This sample uses <code>httpbin.org</code> for demonstration. The status endpoint
-  always returns <code>"completed"</code>, so the loop exits after one iteration. In a
-  real workflow, the status endpoint would return <code>"pending"</code> or
-  <code>"running"</code> until the job finishes, causing the loop to iterate multiple
-  times.
+<div class="callout callout-info">
+  <strong>ℹ️ Why the condition is met immediately</strong>
+  The factory uses <code>$.userId</code> from <code>/posts/1</code> which always returns <code>1</code>.
+  This means the condition <code>{{jobStatus}} == 1</code> is satisfied on the first poll.
+  In a real workflow you would point Poll Status at your actual job-status API and the
+  condition would be met once the job finishes.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -416,44 +371,26 @@
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add a Max Retries Guard</h3>
+<h3>Exercise 1: Simulate Delayed Completion</h3>
 <p>
-  Add a <code>pollCount</code> variable that increments on each loop iteration. Add a
-  second Condition node that checks <code>{{pollCount}} > 12</code> (1 minute at 5s
-  intervals). If exceeded, log an error <code>"Job timed out after 12 attempts"</code>
-  and exit the loop.
+  Change the Poll Status URL to <code>/posts/5</code> and the condition to
+  <code>{{jobStatus}} == 5</code>. The condition is still met immediately (userId=5).
+  Try pointing it at a URL that returns a different userId to simulate a real delay.
 </p>
 
-<h3>Exercise 2: Exponential Backoff</h3>
+<h3>Exercise 2: Reduce the Timeout</h3>
 <p>
-  Instead of a fixed 5-second wait, implement increasing delays: 2s, 4s, 8s, 16s…
-  Use a <code>waitTime</code> variable that doubles each iteration. Cap it at 30 seconds.
-  This reduces load on the status endpoint for long-running jobs.
+  Set <code>timeoutMs: 5000</code> and <code>maxAttempts: 2</code>.
+  Change the condition to <code>{{jobStatus}} == 99</code> (never true).
+  Observe the timeout branch being taken and the Log: Timeout message.
 </p>
 
-<h3>Exercise 3: Handle Failure Status</h3>
+<h3>Exercise 3: Add a Retry Notification</h3>
 <p>
-  Modify the Condition node to also check for <code>{{jobStatus}} == "failed"</code>.
-  Use a Switch node with three cases: <code>completed</code> → process result,
-  <code>failed</code> → log error, default → continue polling.
+  After Log: Timeout, add an HTTP POST to <code>/posts</code> that sends a retry-request
+  notification. This simulates alerting an operator when the job doesn't finish in time.
 </p>
 
-<h3>Exercise 4: Replace Polling with a Webhook Callback</h3>
-<p>
-  Redesign the workflow to eliminate polling entirely. Start the job with a callback URL
-  pointing to a WebhookTrigger in a second workflow. The job service calls the webhook
-  when done. Compare the two approaches in terms of efficiency and complexity.
-  See the <a href="../async-correlation/">Async Correlation</a> samples for this pattern.
-</p>
-
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  Mastering polling loops prepares you for the
-  <a href="../async-correlation/">Async Correlation</a> patterns, where you combine
-  webhooks with correlation IDs to replace polling with event-driven callbacks.
-</div>
-
-<footer>RedfireForge Training Manual — Polling with Wait for Condition · April 2026</footer>
+<footer>RedfireForge Training Manual — Polling with Wait for Condition · v0.6.0</footer>
 
 </body>
-</html>

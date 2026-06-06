@@ -140,16 +140,18 @@
   <li>Common data transformation pipelines reused across ETL workflows</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Preparing <strong>input parameters</strong> for a sub-workflow call</li>
-  <li>Using a <strong>Call Sub-Workflow</strong> node to invoke a reusable workflow</li>
-  <li><strong>Parameter passing</strong> — mapping parent variables to sub-workflow inputs</li>
-  <li>Extracting <strong>output variables</strong> from the sub-workflow's result</li>
-  <li>The <strong>composition pattern</strong> — building complex logic from tested components</li>
+  <li>Using a <strong>Sub-Workflow node</strong> with <code>multiInstance</code> to iterate over a collection</li>
+  <li><strong>Input mappings</strong> — passing parent variables to a child workflow</li>
+  <li><strong>Output mappings</strong> — bringing child results back into the parent scope</li>
+  <li><code>onChildFailure: "continue"</code> — keep processing even if one child iteration fails</li>
+  <li>Checking <code>{{__subWorkflowFailed}}</code> after the loop to detect partial failures</li>
+  <li>Using <strong>LogDebug with snapshotVariables</strong> to capture the full state after bulk processing</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -157,52 +159,77 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │  Input: orderData
-  └──────┬──────┘
+  ┌──────────────────────────────┐
+  │    Start                     │  apiBase = "https://jsonplaceholder.typicode.com"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  1. Prepare Params          │  Extract fields for
-  │     (Script)                │  sub-workflow input
-  │                             │
-  │  Output: validationInput    │  { orderId, amount,
-  │                             │    customerId }
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  1. Fetch User List          │  GET {{apiBase}}/users
+  │  (HTTP GET)                  │  Extracts: usersJson, userCount
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  2. Call Sub-Workflow        │  Invokes: "Order
-  │     (Sub-Workflow)          │  Validation" workflow
-  │                             │
-  │  Input: validationInput     │  Waits for completion
-  │  Output: validationResult   │  → { isValid, errors }
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  2. Extract User IDs         │  SetVariable
+  │  (SetVariable)               │  userIds = [1,2,3]
+  │                              │  processedCount = 0
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  3. Process Result          │  Evaluate sub-workflow
-  │     (Script)                │  output and decide
-  │                             │  next action
-  │  Reads: validationResult    │
-  │  Sets: approvalStatus       │
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  3. Process Each User        │  SubWorkflow (multi-instance)
+  │  (SubWorkflow)               │  Collection: {{userIds}}, element: userId
+  │                              │  Mode: sequential
+  │  ╔═══════════════════╗       │  onChildFailure: continue
+  │  ║  User Processor   ║       │  Output: lastUserStatus ← userStatus
+  │  ║  (child)          ║       │
+  │  ╚═══════════════════╝       │
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
-</div>
+  ┌──────────────────────────────┐
+  │  4. Log Results              │  LogDebug: info, snapshotVariables=true
+  │  (LogDebug)                  │  "Sub-workflow completed. Last: {{lastUserStatus}}"
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  5. All Succeeded?           │  Condition: {{__subWorkflowFailed}} != "true"
+  │  (Condition)                 │
+  └──────┬───────────────┬───────┘
+         │ true (ok)      │ false (some failed)
+         ▼                ▼
+  ┌──────────────┐  ┌──────────────────┐
+  │  All Good    │  │  Partial Failure  │
+  │ (LogDebug)   │  │ (LogDebug)        │
+  └──────┬───────┘  └──────────┬────────┘
+         └──────────┬──────────┘
+                    ▼
+                ┌──────┐
+                │  End │
+                └──────┘
 
-<h4>Sub-Workflow: "Order Validation" (called by Node 2)</h4>
-<div class="flow-diagram">
-  ┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌─────────┐
-  │  Start   │ ──▶ │ Validate     │ ──▶ │ Check        │ ──▶ │  End    │
-  │          │     │ Fields       │     │ Business     │     │         │
-  │ Input:   │     │ (Script)     │     │ Rules        │     │ Output: │
-  │ order    │     │              │     │ (Condition)  │     │ result  │
-  └──────────┘     └──────────────┘     └──────────────┘     └─────────┘
+  ═══ Child: User Processor (runs once per userId) ═══
+
+  ┌──────────────────────────────┐
+  │  Start                       │  apiBase, userId (injected by parent)
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  Fetch User                  │  GET {{apiBase}}/users/{{userId}}
+  │  (HTTP GET)                  │  Extracts: userName, userEmail
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  Build Status                │  SetVariable
+  │  (SetVariable)               │  userStatus = "processed:{{userName}}"
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  End                         │  Returns: userStatus → parent
+  └──────────────────────────────┘
 </div>
 
 <p>
-  <strong>5 nodes in the parent, 4 nodes in the sub-workflow</strong> — the parent
-  orchestrator delegates validation to a reusable sub-workflow and processes its result.
+  <strong>8 nodes in the parent + 4 nodes in the child (User Processor)</strong> — the Sub-Workflow
+  node iterates over <code>userIds = [1,2,3]</code> sequentially, calling the child once per user.
+  A Condition checks the built-in <code>{{__subWorkflowFailed}}</code> flag after the loop completes.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -216,46 +243,44 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. Receives <code>orderData</code> — a JSON object with order details.</td>
+    <td>Input variable: <code>apiBase = "https://jsonplaceholder.typicode.com"</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Prepare Params</td>
-    <td>Script</td>
-    <td>Extracts relevant fields from <code>orderData</code> and builds a <code>validationInput</code> object with <code>{ orderId, amount, customerId }</code>.</td>
+    <td><span class="step-num">1</span> Fetch User List</td>
+    <td>HTTP GET</td>
+    <td>GET <code>{{apiBase}}/users</code>. Extracts: <code>usersJson</code> (full array), <code>userCount</code> ← <code>$.length</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Call Sub-Workflow</td>
-    <td>Sub-Workflow</td>
-    <td>Invokes the "Order Validation" sub-workflow with <code>validationInput</code> as input. Waits for completion and extracts <code>validationResult</code> containing <code>{ isValid, errors[] }</code>.</td>
+    <td><span class="step-num">2</span> Extract User IDs</td>
+    <td>SetVariable</td>
+    <td>Sets <code>userIds = [1,2,3]</code> (slice to first 3 for demo) and <code>processedCount = 0</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Process Result</td>
-    <td>Script</td>
-    <td>Evaluates <code>validationResult.isValid</code>. Sets <code>approvalStatus</code> to "approved" or "rejected" with reason details.</td>
+    <td><span class="step-num">3</span> Process Each User</td>
+    <td>SubWorkflow</td>
+    <td>Multi-instance: iterates over <code>{{userIds}}</code>, element variable: <code>userId</code>. Mode: sequential. Input mapping: <code>apiBase={{apiBase}}</code>. Output mapping: <code>lastUserStatus ← userStatus</code>. onChildFailure: continue. Retry: 1, delay 2s.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
-    <td>End</td>
-    <td>Workflow completes with <code>approvalStatus</code> available as output.</td>
+    <td><span class="step-num">4</span> Log Results</td>
+    <td>LogDebug (info)</td>
+    <td>Logs <code>Sub-workflow completed. Last status: {{lastUserStatus}}</code>. snapshotVariables: true.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> All Succeeded?</td>
+    <td>Condition</td>
+    <td>Checks <code>{{__subWorkflowFailed}} != "true"</code>. If any iteration failed with <code>onChildFailure: continue</code>, the engine sets this flag.</td>
+  </tr>
+  <tr>
+    <td>All Good</td>
+    <td>LogDebug (info)</td>
+    <td>Logs "All users processed successfully".</td>
+  </tr>
+  <tr>
+    <td>Partial Failure</td>
+    <td>LogDebug (warn)</td>
+    <td>Logs partial failure details.</td>
   </tr>
 </table>
-
-<h3>Sub-Workflow Configuration (Node 2)</h3>
-<table>
-  <tr><td><strong>Target Workflow</strong></td><td><code>Order Validation</code></td></tr>
-  <tr><td><strong>Input Mapping</strong></td><td><code>order</code> ← <code>{{validationInput}}</code></td></tr>
-  <tr><td><strong>Output Mapping</strong></td><td><code>validationResult</code> ← sub-workflow output <code>result</code></td></tr>
-  <tr><td><strong>Timeout</strong></td><td>30 seconds</td></tr>
-  <tr><td><strong>On Error</strong></td><td>Fail parent workflow</td></tr>
-</table>
-
-<div class="callout">
-  <strong>📘 Variable Scope Isolation</strong>
-  Sub-workflows have their own variable scope. Variables from the parent are <em>not</em>
-  automatically visible inside the sub-workflow. You must explicitly map inputs and
-  outputs through the Call Sub-Workflow node's configuration. This isolation prevents
-  accidental side effects and makes sub-workflows truly reusable.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 5. DEV GUIDE                                -->
@@ -265,55 +290,29 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🎭 Sub-Workflow Orchestrator"</strong>
-    in the <em>Orchestration</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Sub-Workflow Orchestrator"</strong>
+    in the <em>Orchestration</em> category. Click <em>Import</em>. Both parent and child are imported.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Create the sub-workflow first.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Order Validation". Build a simple
-    validation flow: Start → Validate Fields (Script) → Check Business Rules (Condition) → End.
-    Define input variable <code>order</code> and output variable <code>result</code>.
+    <strong>Build the child workflow first.</strong><br>
+    Create "User Processor". Add: Start (apiBase, userId) → Fetch User → Build Status → End.
   </li>
   <li>
-    <strong>Create the parent workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Sub-Workflow Orchestrator".
+    <strong>Build the parent workflow.</strong><br>
+    Add: Start → Fetch User List → Extract User IDs → Process Each User → Log Results → All Succeeded? → [All Good | Partial Failure] → End.
   </li>
   <li>
-    <strong>Add the Prepare Params node.</strong><br>
-    Drag a Script node. Extract fields from the input:
-    <pre>
-const validationInput = {
-  orderId: variables.orderData.id,
-  amount: variables.orderData.total,
-  customerId: variables.orderData.customerId
-};
-setVariable('validationInput', validationInput);</pre>
-    Connect Start → Prepare Params.
-  </li>
-  <li>
-    <strong>Add the Call Sub-Workflow node.</strong><br>
-    Drag a Sub-Workflow node. Select "Order Validation" as the target.
-    Map <code>validationInput</code> → sub-workflow input <code>order</code>.
-    Map sub-workflow output <code>result</code> → <code>validationResult</code>.
-    Connect Prepare Params → Call Sub-Workflow.
-  </li>
-  <li>
-    <strong>Add the Process Result node.</strong><br>
-    Drag a Script node. Evaluate the sub-workflow's output:
-    <pre>
-const status = variables.validationResult.isValid
-  ? 'approved'
-  : 'rejected: ' + variables.validationResult.errors.join(', ');
-setVariable('approvalStatus', status);</pre>
-    Connect Call Sub-Workflow → Process Result → End.
+    <strong>Configure the Sub-Workflow node.</strong><br>
+    Select "User Processor". Enable multi-instance, collection: <code>{{userIds}}</code>, element: <code>userId</code>. Mode: sequential.
+    Input: <code>apiBase = {{apiBase}}</code>. Output: <code>userStatus → lastUserStatus</code>.
+    Set <code>onChildFailure = continue</code>.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Provide sample <code>orderData</code> JSON. Verify the sub-workflow executes,
-    returns a result, and the parent correctly processes it.
+    Click <em>Quick Test</em>. Observe 3 sequential child invocations in the Results Explorer.
   </li>
 </ol>
 
@@ -322,31 +321,18 @@ setVariable('approvalStatus', status);</pre>
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (valid order)</h3>
+<h3>Node States</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>orderData received</td></tr>
-  <tr><td>1. Prepare Params</td><td>✅ Pass</td><td>validationInput = { orderId: "ORD-001", amount: 149.99, customerId: "C-42" }</td></tr>
-  <tr><td>2. Call Sub-Workflow</td><td>✅ Pass</td><td>Sub-workflow "Order Validation" completed in 120ms</td></tr>
-  <tr><td>3. Process Result</td><td>✅ Pass</td><td>approvalStatus = "approved"</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>apiBase set</td></tr>
+  <tr><td>1. Fetch User List</td><td>✅ Pass</td><td>HTTP 200 · userCount=10</td></tr>
+  <tr><td>2. Extract User IDs</td><td>✅ Pass</td><td>userIds=[1,2,3]</td></tr>
+  <tr><td>3. Process Each User</td><td>✅ Pass</td><td>3 iterations completed · lastUserStatus="processed:Clementine Bauch"</td></tr>
+  <tr><td>4. Log Results</td><td>✅ Pass</td><td>snapshot captured</td></tr>
+  <tr><td>5. All Succeeded?</td><td>✅ Pass (true)</td><td>__subWorkflowFailed != "true"</td></tr>
+  <tr><td>All Good</td><td>✅ Pass</td><td>info · All users processed successfully</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
-
-<h3>Sub-Workflow Output (Node 2)</h3>
-<pre>
-{
-  "isValid": true,
-  "errors": [],
-  "validatedAt": "2026-04-29T10:15:30Z",
-  "rulesChecked": ["required-fields", "amount-range", "customer-exists"]
-}</pre>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Circular References</strong>
-  Never create a sub-workflow that calls itself (directly or indirectly). Circular
-  sub-workflow references cause infinite loops. RedfireForge detects and blocks
-  circular references at design time, but always verify your call chains.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -354,41 +340,33 @@ setVariable('approvalStatus', status);</pre>
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add Error Handling</h3>
+<h3>Exercise 1: Switch to Parallel Mode</h3>
 <p>
-  After the Call Sub-Workflow node, add a Condition node that checks
-  <code>{{validationResult.isValid}}</code>. On the false branch, add a Log node
-  that outputs the validation errors before setting the rejection status.
+  Change the Sub-Workflow node's mode from <code>sequential</code> to <code>parallel</code>.
+  Run again and compare execution times in the Results Explorer. Note that output variable
+  order is non-deterministic in parallel mode.
 </p>
 
-<h3>Exercise 2: Multiple Sub-Workflows</h3>
+<h3>Exercise 2: Force a Failure</h3>
 <p>
-  Add a second sub-workflow call for "Fraud Detection" after validation passes.
-  Chain the two sub-workflow calls: Validate → if valid → Check Fraud → Process Result.
+  In the User Processor child, change the Fetch User URL to <code>{{apiBase}}/invalid/{{userId}}</code>
+  for userId 2 only (use a Condition). Observe that <code>onChildFailure: continue</code> keeps
+  the loop running, and <code>{{__subWorkflowFailed}}</code> becomes <code>"true"</code> after the loop.
 </p>
 
-<h3>Exercise 3: Sub-Workflow with Timeout</h3>
+<h3>Exercise 3: Count Successes</h3>
 <p>
-  Set a 5-second timeout on the Call Sub-Workflow node. Add a slow Script node
-  (with a delay) inside the sub-workflow to simulate a timeout. Handle the timeout
-  error in the parent workflow with a fallback path.
+  Extend the child to return a <code>success</code> variable ("true"/"false"). In the parent,
+  use an Aggregate node after the sub-workflow to count how many children returned success.
 </p>
 
-<h3>Exercise 4: Dynamic Sub-Workflow Selection</h3>
+<h3>Exercise 4: Dynamic Collection</h3>
 <p>
-  Use a Switch node before the Call Sub-Workflow to select different validation
-  sub-workflows based on the order type: "standard" → Standard Validation,
-  "express" → Express Validation, "international" → International Validation.
+  Replace the hardcoded <code>userIds = [1,2,3]</code> with <code>{{usersJson}}</code> — passing
+  the full users array directly. Update the child to extract the user ID from the object
+  field <code>{{userId.id}}</code> instead of a plain integer.
 </p>
 
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  Once you're comfortable with sub-workflow invocation, try the
-  <a href="order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a> to see
-  how sub-workflows integrate into a full multi-stage order processing pipeline.
-</div>
-
-<footer>RedfireForge Training Manual — Sub-Workflow Orchestrator · April 2026</footer>
+<footer>RedfireForge Training Manual — Sub-Workflow Orchestrator · v0.6.0</footer>
 
 </body>
-</html>
