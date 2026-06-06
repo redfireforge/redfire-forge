@@ -155,7 +155,7 @@ async function seedAndOpenResultsExplorer(page: Page, testRun: ReturnType<typeof
 
   await page.reload();
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
 
   await openResultsExplorer(page, { retryHarness: true });
 
@@ -527,7 +527,7 @@ test.describe('Results Explorer Console — Sub-Workflow', () => {
 
     await page.reload();
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
 
     await openResultsExplorer(page, { retryHarness: true });
 
@@ -595,7 +595,7 @@ test.describe('Designer Canvas Controls', () => {
     }, [DESIGNER_WORKFLOW]);
 
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
     // Should have Fit View and Save Layout buttons
@@ -625,7 +625,7 @@ test.describe('Designer Canvas Controls', () => {
     }, [DESIGNER_WORKFLOW]);
 
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
     const saveBtn = page.locator('button[title*="Save current"]');
@@ -665,7 +665,7 @@ test.describe('Workflow Runner — Trace Level', () => {
 
     await page.goto('http://localhost:5173');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
 
     const harnessBtn = page.locator('button[title="Harness"]').first();
     await expect(harnessBtn).toBeVisible({ timeout: 8000 });

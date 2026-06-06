@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka Studio: Getting Started (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🟡</div>
+  <h1>Kafka Studio: Getting Started</h1>
+  <div class="subtitle">Easy — Step-by-Step Training Guide</div>
+  <p style="max-width: 540px; color: #495057; font-size: 14px;">
+    Set up your first Kafka cluster, publish a message, consume it back, and browse topics.
+    A complete first-run experience for the RedfireForge Kafka Protocol Studio.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Time: ~20 minutes<br>
+    Covers: Kafka Settings, Message Studio (Publish + Consume), Topic Explorer<br>
+    Requires: Kafka broker on <code>localhost:19092</code>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">Kafka Studio Overview</a></li>
+  <li><a href="#setup">Part 1 — Set Up a Cluster</a></li>
+  <li><a href="#publish">Part 2 — Publish a Message</a></li>
+  <li><a href="#consume">Part 3 — Consume Messages</a></li>
+  <li><a href="#explore">Part 4 — Browse Topics</a></li>
+  <li><a href="#export">Part 5 — Export &amp; Import</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="overview">1. Kafka Studio Overview</h2>
+<p>
+  The <strong>Kafka Studio</strong> is accessed via <strong>Protocols → Kafka</strong> in the
+  left sidebar. It contains four tabs:
+</p>
+<table>
+  <thead><tr><th>Tab</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Publish</strong></td><td>Send individual messages to any topic. Set key, body, headers, schema.</td></tr>
+    <tr><td><strong>Consume</strong></td><td>Fetch messages from a topic (one-shot or streaming). Filter, export results.</td></tr>
+    <tr><td><strong>Topics</strong></td><td>Browse all topics, see partition/replica metadata, and view/consume messages per topic.</td></tr>
+    <tr><td><strong>Schema Registry</strong></td><td>View registered Avro/Protobuf/JSON Schema subjects and their versions.</td></tr>
+  </tbody>
+</table>
+<p>
+  Cluster management lives in <strong>Settings → Kafka</strong>. You can have multiple cluster
+  profiles and switch between them without leaving the app.
+</p>
+
+<h2 id="setup">2. Part 1 — Set Up a Cluster</h2>
+
+<h3><span class="step-num">1</span> Start the Kafka Broker</h3>
+<p>This guide uses the bundled Redpanda Docker profile (plaintext, no auth):</p>
+<pre>cd docker/kafka/plaintext
+docker compose up -d
+# Wait ~10 seconds for broker to be ready
+docker compose ps  # Both containers should be "healthy"</pre>
+
+<h3><span class="step-num">2</span> Open Kafka Settings</h3>
+<ol>
+  <li>Click <strong>Settings</strong> in the left sidebar</li>
+  <li>Select the <strong>Kafka</strong> tab</li>
+  <li>You'll see the <em>Kafka Cluster Studio</em> page with "Clusters" and "Create Cluster" panels</li>
+</ol>
+
+<h3><span class="step-num">3</span> Create a New Cluster Profile</h3>
+<ol>
+  <li>Click <strong>+ New</strong> in the Clusters panel header</li>
+  <li>Fill in the form:
+    <ul>
+      <li><strong>Cluster Name</strong>: <code>Local Plaintext</code></li>
+      <li><strong>Brokers</strong>: <code>127.0.0.1:19092</code></li>
+      <li><strong>Authentication</strong>: None</li>
+      <li><strong>TLS</strong>: disabled</li>
+    </ul>
+  </li>
+  <li>Click <strong>Save Cluster</strong></li>
+  <li>The new cluster appears in the list with an <em>Idle</em> status badge</li>
+</ol>
+
+<h3><span class="step-num">4</span> Connect to the Cluster</h3>
+<ol>
+  <li>Click the <strong>Local Plaintext</strong> card to select it</li>
+  <li>Click <strong>Connect</strong></li>
+  <li>The status transitions: Idle → testing → <strong>Connected</strong> (green badge)</li>
+  <li>The AppHeader Kafka pill in the top bar shows <strong>Connected</strong></li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Auto-Connect on Startup</strong>
+  Check <em>"Auto-connect the selected cluster on startup"</em> to automatically connect this
+  cluster when you open RedfireForge. No manual "Connect" click needed each session.
+</div>
+
+<h2 id="publish">3. Part 2 — Publish a Message</h2>
+
+<h3><span class="step-num">5</span> Open the Publish Tab</h3>
+<ol>
+  <li>Navigate to <strong>Protocols → Kafka</strong></li>
+  <li>Click the <strong>Publish</strong> tab</li>
+</ol>
+
+<h3><span class="step-num">6</span> Configure and Send a Message</h3>
+<ol>
+  <li>Set <strong>Topic</strong> to <code>orders.created</code></li>
+  <li>Set <strong>Key</strong> to <code>CUST-100</code></li>
+  <li>In the <strong>Body</strong> editor, paste:
+    <pre>{"orderId":"ORD-DEMO-001","customerId":"CUST-100","amount":149.99,"status":"CREATED"}</pre>
+  </li>
+  <li>Click <strong>Add Header</strong> → Key: <code>source</code>, Value: <code>getting-started</code></li>
+  <li>Click <strong>Send Once</strong></li>
+</ol>
+
+<h3><span class="step-num">7</span> Read the Result</h3>
+<p>After a successful publish, the result block shows:</p>
+<ul>
+  <li><code>partition=0</code> (or whichever partition the key was routed to)</li>
+  <li><code>offset=N</code> (the assigned offset in that partition)</li>
+  <li><code>ts=&lt;timestamp&gt;</code> (broker-assigned create time, may be -1 for some broker configs)</li>
+</ul>
+
+<h2 id="consume">4. Part 3 — Consume Messages</h2>
+
+<h3><span class="step-num">8</span> Switch to the Consume Tab</h3>
+<ol>
+  <li>Click the <strong>Consume</strong> tab</li>
+</ol>
+
+<h3><span class="step-num">9</span> Configure a Consume Request</h3>
+<ol>
+  <li>Set <strong>Topic</strong> to <code>orders.created</code></li>
+  <li>Set <strong>Start Position</strong> to <code>Earliest</code> (to see all messages including the one we just published)</li>
+  <li>Set <strong>Max Messages</strong> to <code>10</code></li>
+  <li>Click <strong>Consume Once</strong></li>
+</ol>
+
+<h3><span class="step-num">10</span> Read the Results Table</h3>
+<p>The results table shows columns: <strong># | Offset | Partition | Key | Value</strong></p>
+<ul>
+  <li>Find the row with Key = <code>CUST-100</code> — that's the message you just published</li>
+  <li>Click the row to open the detail pane on the right</li>
+  <li>The detail pane shows: full body (formatted JSON), key, headers, partition, offset</li>
+  <li>You should see <code>source: getting-started</code> in the headers section</li>
+</ul>
+
+<h3><span class="step-num">11</span> Export the Results</h3>
+<ol>
+  <li>Click <strong>Export Result Set</strong> (appears in the action row after a successful consume)</li>
+  <li>A JSON file downloads: <code>kafka-consume-orders.created-&lt;timestamp&gt;.json</code></li>
+  <li>The file contains an array of message objects: <code>[{topic, partition, offset, key, value, headers, timestamp}, ...]</code></li>
+</ol>
+
+<h2 id="explore">5. Part 4 — Browse Topics</h2>
+
+<h3><span class="step-num">12</span> Open the Topics Tab</h3>
+<ol>
+  <li>Click the <strong>Topics</strong> tab</li>
+  <li>Wait for the topic list to load — you should see all topics on the broker</li>
+  <li>The header shows the total count: e.g., <em>"37 of 37 topics"</em> (if you seeded the full smoke-test dataset)</li>
+</ol>
+
+<h3><span class="step-num">13</span> Filter and Explore Topics</h3>
+<ol>
+  <li>Type <code>orders</code> in the search box — topics filter to match</li>
+  <li>Click a domain chip (e.g., <strong>orders</strong>) to filter by topic prefix</li>
+  <li>Click on <code>orders.created</code> — the right panel opens showing topic details</li>
+</ol>
+
+<h3><span class="step-num">14</span> Explore Topic Details</h3>
+<p>The topic detail panel (right side) has three tabs:</p>
+<table>
+  <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Info</strong></td><td>Topic name, partition count, replication factor, creation time</td></tr>
+    <tr><td><strong>Partitions</strong></td><td>Table: Partition | Leader | Replicas | ISR | Earliest | Latest | Messages</td></tr>
+    <tr><td><strong>Messages</strong></td><td>Consume form (same as Consume tab) scoped to this topic, plus message table: # | Offset | Partition | Timestamp | Key | Value</td></tr>
+  </tbody>
+</table>
+<div class="callout-tip callout">
+  <strong>💡 Messages Tab Has Timestamps</strong>
+  The Topic Explorer Messages tab shows a Timestamp column (broker-assigned CreateTime) that is
+  not shown in the standalone Consume tab. This is useful for timeline debugging.
+</div>
+
+<h2 id="export">6. Part 5 — Export &amp; Import Cluster Configs</h2>
+
+<h3><span class="step-num">15</span> Export Your Cluster Configuration</h3>
+<ol>
+  <li>Return to <strong>Settings → Kafka</strong></li>
+  <li>Click <strong>↓ Export</strong> in the Clusters panel header</li>
+  <li>A JSON file downloads: <code>kafka-clusters-&lt;date&gt;.json</code></li>
+  <li>The file contains all your saved cluster profiles with their connection settings</li>
+</ol>
+
+<h3><span class="step-num">16</span> Import Cluster Configurations</h3>
+<ol>
+  <li>Click <strong>↑ Import</strong></li>
+  <li>Select a previously exported JSON file</li>
+  <li>The clusters are merged into your current list (existing clusters are preserved)</li>
+  <li>A success banner shows: <em>"Imported N clusters."</em></li>
+</ol>
+<div class="callout callout">
+  <strong>ℹ️ Sharing Cluster Configs</strong>
+  Export your cluster configurations and share the JSON file with your team members.
+  Each developer imports the file once and immediately has all the pre-configured cluster profiles.
+</div>
+
+<h2 id="exercises">7. Try It Yourself</h2>
+<ol>
+  <li><strong>Publish multiple messages</strong>: send 5 messages to <code>orders.created</code> with different orderId values. Then consume with Earliest and verify all 5 appear in the results.</li>
+  <li><strong>Use filters</strong>: use the Consume tab <em>Key Equals</em> filter to retrieve only the message with a specific key.</li>
+  <li><strong>Stream mode</strong>: in the Consume tab, set Start Position to <em>Latest</em> and click <strong>Stream</strong> instead of Consume Once. Then publish a new message — it should appear in real time.</li>
+  <li><strong>Export and re-import</strong>: export your cluster configuration, clear localStorage (DevTools → Application → Local Storage → Clear), reimport the file, and verify the cluster reappears.</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka Studio: Getting Started (Easy)</footer>
+</body>
+</html>

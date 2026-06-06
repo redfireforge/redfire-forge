@@ -1,0 +1,93 @@
+{
+  "id": "kafka-wf-04-schema-produce-secure",
+  "name": "Secure Kafka Scenario 04 — Produce with Schema Registry (Avro)",
+  "description": "[SASL/SCRAM] Produces a structured JSON message (simulating Avro schema). Start → kafkaProduce → kafkaConsume → End. Schema Registry disabled for local testing without a registry service.",
+  "variables": {
+    "testTopic": "users.avro"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "data": {
+        "label": "Start"
+      }
+    },
+    {
+      "id": "produce-avro",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 400,
+        "y": 200
+      },
+      "data": {
+        "label": "Produce Avro User",
+        "clusterId": "local-secure",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "user-42",
+        "bodyTemplate": "{\n  \"name\": \"Alice Johnson\",\n  \"email\": \"alice@example.com\",\n  \"age\": 30,\n  \"active\": true\n}",
+        "headers": [
+          {
+            "id": "h1",
+            "key": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "ackMode": "all",
+        "timeoutMs": 10000
+      }
+    },
+    {
+      "id": "consume-avro",
+      "type": "kafkaConsume",
+      "position": {
+        "x": 700,
+        "y": 200
+      },
+      "data": {
+        "label": "Consume Avro User",
+        "clusterId": "local-secure",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": {
+        "x": 950,
+        "y": 200
+      },
+      "data": {
+        "label": "End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-produce",
+      "source": "start-1",
+      "target": "produce-avro"
+    },
+    {
+      "id": "e-produce-consume",
+      "source": "produce-avro",
+      "target": "consume-avro"
+    },
+    {
+      "id": "e-consume-end",
+      "source": "consume-avro",
+      "target": "end-1"
+    }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749110400000
+}

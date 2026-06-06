@@ -17,8 +17,8 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths]);
   });
 
-  it('has exactly 17 paths', () => {
-    expect(trainingPaths).toHaveLength(17);
+  it('has exactly 19 paths', () => {
+    expect(trainingPaths).toHaveLength(19);
   });
 });
 
@@ -34,19 +34,19 @@ describe('corePaths module', () => {
 });
 
 describe('contentPaths module', () => {
-  it('contains 4 paths', () => {
-    expect(contentPaths).toHaveLength(4);
+  it('contains 5 paths', () => {
+    expect(contentPaths).toHaveLength(5);
   });
 
   it('has expected path IDs', () => {
     const ids = contentPaths.map(p => p.id);
-    expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper']);
+    expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper', 'kafka-protocols']);
   });
 });
 
 describe('workflowPaths module', () => {
-  it('contains 9 paths', () => {
-    expect(workflowPaths).toHaveLength(9);
+  it('contains 10 paths', () => {
+    expect(workflowPaths).toHaveLength(10);
   });
 
   it('has expected path IDs', () => {
@@ -61,6 +61,7 @@ describe('workflowPaths module', () => {
       'wf-orchestration',
       'wf-node-reference',
       'wf-runner',
+      'wf-kafka-event-driven',
     ]);
   });
 });

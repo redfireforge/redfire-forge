@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
 import type { Environment, Microservice } from '../../shared/types';
+import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
 import { isCustomThemeId, findSavedTheme } from '../themeCustomizerUtils';
+import KafkaConnectionIndicator from './KafkaConnectionIndicator';
 
 interface ThemeItem {
   readonly id: string;
@@ -30,6 +32,10 @@ interface AppHeaderProps {
   THEMES: readonly ThemeGroup[];
   THEME_ICONS: Record<string, string>;
   setShowCustomizer: (show: boolean) => void;
+  kafkaConnection: KafkaConnectionSnapshot;
+  kafkaClusterName: string | null;
+  kafkaHasClusters: boolean;
+  onNavigateToKafkaSettings: () => void;
 }
 
 export default function AppHeader({
@@ -48,6 +54,10 @@ export default function AppHeader({
   THEMES,
   THEME_ICONS,
   setShowCustomizer,
+  kafkaConnection,
+  kafkaClusterName,
+  kafkaHasClusters,
+  onNavigateToKafkaSettings,
 }: AppHeaderProps) {
   return (
     <header ref={headerRef} className="app-header">
@@ -74,6 +84,12 @@ export default function AppHeader({
             {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
           </select>
         </div>
+        <KafkaConnectionIndicator
+          connection={kafkaConnection}
+          clusterName={kafkaClusterName}
+          hasClusters={kafkaHasClusters}
+          onNavigateToSettings={onNavigateToKafkaSettings}
+        />
         <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
           <button className="theme-toggle" onClick={() => setThemePickerOpen((o: boolean) => !o)}
             title={`Theme: ${isCustomThemeId(theme) ? (findSavedTheme(theme)?.name ?? 'Custom') : theme}`}>

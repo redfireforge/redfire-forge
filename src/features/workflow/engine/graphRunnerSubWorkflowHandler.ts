@@ -132,6 +132,8 @@ export async function handleSubWorkflowNode(
           undefined, // correlationWaitConfig
           undefined, // pollSemaphore
           hCtx.traceOptions,
+          undefined, // httpTimeoutMs
+          hCtx.kafkaOperations,
         );
       } finally {
         if (timeoutHandle) clearTimeout(timeoutHandle);

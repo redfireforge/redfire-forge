@@ -1,0 +1,97 @@
+services:
+  redpanda-tls:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.18
+    container_name: redfireforge-redpanda-tls
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        cat > /tmp/tls-patch.yaml <<'PATCH'
+        redpanda:
+          kafka_api_tls:
+            - name: external
+              enabled: true
+              cert_file: /etc/redpanda/certs/broker.crt
+              key_file: /etc/redpanda/certs/broker.key
+              truststore_file: /etc/redpanda/certs/ca.crt
+              require_client_auth: false
+        PATCH
+
+        exec rpk redpanda start \
+          --mode=dev-container \
+          --smp=1 \
+          --memory=1G \
+          --reserve-memory=0M \
+          --overprovisioned \
+          --check=false \
+          --node-id=0 \
+          --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19095 \
+          --advertise-kafka-addr internal://redpanda-tls:9092,external://127.0.0.1:19095 \
+          --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18085 \
+          --advertise-pandaproxy-addr internal://redpanda-tls:8082,external://127.0.0.1:18085 \
+          --rpc-addr 0.0.0.0:33145 \
+          --advertise-rpc-addr redpanda-tls:33145 \
+          --set redpanda.kafka_api_tls='[{name: external, enabled: true, cert_file: /etc/redpanda/certs/broker.crt, key_file: /etc/redpanda/certs/broker.key, truststore_file: /etc/redpanda/certs/ca.crt, require_client_auth: false}]'
+    volumes:
+      - ./.bootstrap.yaml:/etc/redpanda/.bootstrap.yaml:ro
+      - ./certs/broker.crt:/etc/redpanda/certs/broker.crt:ro
+      - ./certs/broker.key:/etc/redpanda/certs/broker.key:ro
+      - ./certs/ca.crt:/etc/redpanda/certs/ca.crt:ro
+    ports:
+      - "19095:19095"
+      - "18085:18085"
+      - "19648:9644"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health --api-urls localhost:9644 --exit-when-healthy >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    restart: unless-stopped
+
+  redpanda-tls-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.18
+    container_name: redfireforge-redpanda-tls-init
+    depends_on:
+      redpanda-tls:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        rpk acl user create admin \
+          --password admin-secret \
+          --mechanism SCRAM-SHA-256 \
+          --api-urls redpanda-tls:9644
+
+        rpk acl user create redfireforge-app \
+          --password app-password \
+          --mechanism SCRAM-SHA-256 \
+          --api-urls redpanda-tls:9644
+
+        for topic in redfireforge.workflow.test orders.created orders.enriched orders.submitted \
+                     payments.confirmed orders.approved notifications.email users.avro \
+                     headers.inbound headers.outbound; do
+          rpk topic create $$topic --partitions 1 \
+            -X brokers=redpanda-tls:9092 \
+            -X user=admin \
+            -X pass=admin-secret \
+            -X sasl.mechanism=SCRAM-SHA-256
+        done
+
+        rpk acl create --allow-principal User:redfireforge-app \
+          --operation all --topic '*' \
+          -X brokers=redpanda-tls:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        rpk acl create --allow-principal User:redfireforge-app \
+          --operation all --group '*' \
+          -X brokers=redpanda-tls:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        echo "TLS profile initialization complete."
+    restart: "no"

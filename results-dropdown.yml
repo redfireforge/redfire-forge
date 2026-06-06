@@ -1,0 +1,188 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.10" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.10
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+          - option "sales-sim"
+        - 'button "Kafka status: Local Plaintext — Connected. Click to open Kafka settings." [ref=e15] [cursor=pointer]':
+          - generic [ref=e17]: Kafka
+        - button "🌙" [ref=e19] [cursor=pointer]
+    - generic [ref=e20]:
+      - navigation [ref=e21]:
+        - button "API" [ref=e22] [cursor=pointer]:
+          - img [ref=e24]
+          - generic [ref=e26]: API
+        - button "Workflow" [ref=e27] [cursor=pointer]:
+          - img [ref=e29]
+          - generic [ref=e33]: Workflow
+        - button "Harness" [ref=e34] [cursor=pointer]:
+          - img [ref=e36]
+          - generic [ref=e40]: Harness
+        - button "Gallery" [ref=e41] [cursor=pointer]:
+          - img [ref=e43]
+          - generic [ref=e48]: Gallery
+        - button "Protocols" [ref=e49] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e54]: Protocols
+        - button "Settings" [ref=e55] [cursor=pointer]:
+          - img [ref=e57]
+          - generic [ref=e60]: Settings
+      - complementary [ref=e61]:
+        - generic [ref=e181]:
+          - generic [ref=e182]:
+            - button "Environments" [ref=e183] [cursor=pointer]
+            - button "Microservices" [ref=e184] [cursor=pointer]
+          - button "Collapse All" [ref=e278] [cursor=pointer]
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic [ref=e190] [cursor=pointer]: ▸
+              - generic [ref=e191] [cursor=pointer]: Test-3A
+              - generic [ref=e192]: "1"
+            - generic [ref=e280] [cursor=pointer]: ●jsonplaceholder
+        - button "⚙ Settings" [ref=e114] [cursor=pointer]
+      - button "◀" [ref=e116] [cursor=pointer]
+      - main [ref=e117]:
+        - generic [ref=e193]:
+          - button "Feature Groups" [ref=e194] [cursor=pointer]
+          - button "Test Runner" [ref=e195] [cursor=pointer]
+          - button "Parameterized Runner" [ref=e196] [cursor=pointer]
+          - button "Workflow Runner" [ref=e197] [cursor=pointer]
+          - button "Results" [ref=e198] [cursor=pointer]
+        - generic [ref=e1257]:
+          - generic [ref=e1258]:
+            - generic [ref=e1259]:
+              - heading "Results" [level=2] [ref=e1260]
+              - generic [ref=e1581]:
+                - generic "Runner — Auto-Resume Load" [ref=e1582]: ⚡ Runner — Auto-Resume Load
+                - generic [ref=e1583]: Workflow · C:1 · I:10
+              - generic [ref=e1266]:
+                - button "Refresh" [ref=e1267] [cursor=pointer]
+                - button "📂 Import Workflow Replay" [ref=e1268] [cursor=pointer]
+                - button "📥 Import Test Results" [ref=e1269] [cursor=pointer]
+                - button "📊 Results Explorer" [ref=e1584] [cursor=pointer]
+                - button "Export JSON" [ref=e1585] [cursor=pointer]
+                - button "Export CSV" [ref=e1586] [cursor=pointer]
+                - button "Generate Report ▾" [ref=e1588] [cursor=pointer]
+                - button "Delete" [ref=e1589] [cursor=pointer]
+            - generic [ref=e1275]:
+              - button "All Runs (22)" [ref=e1276] [cursor=pointer]
+              - button "🧪 Test Runs (6)" [ref=e1277] [cursor=pointer]
+              - button "⚡ Workflow Runs (16)" [ref=e1278] [cursor=pointer]
+            - generic [ref=e1279]:
+              - button "⚡ — ⚫ — 6/5/2026, 4:22:54 PM — Runner — Auto-Resume Load — 4 req — 59.88 TPS ▾" [ref=e1590] [cursor=pointer]:
+                - generic [ref=e1282]: ⚡ — ⚫ — 6/5/2026, 4:22:54 PM — Runner — Auto-Resume Load — 4 req — 59.88 TPS
+                - generic [ref=e1283]: ▾
+              - button "☆ Set Baseline" [ref=e1592] [cursor=pointer]
+            - tablist "Results view tabs" [ref=e1286]:
+              - tab "Overview" [ref=e1287] [cursor=pointer]
+              - tab "Request Details" [active] [selected] [ref=e1288] [cursor=pointer]
+              - tab "SLA" [ref=e1289] [cursor=pointer]
+              - tab "Comparison & Trends" [ref=e1290] [cursor=pointer]
+          - tabpanel "Request Details" [ref=e1937]:
+            - generic [ref=e1938]:
+              - generic [ref=e1939]:
+                - combobox [ref=e1940] [cursor=pointer]:
+                  - option "All Results" [selected]
+                  - option "Passed Only"
+                  - option "Failed Only"
+                - generic [ref=e1941]:
+                  - generic [ref=e1942]: Group by
+                  - combobox [ref=e1943] [cursor=pointer]:
+                    - option "Feature" [selected]
+                    - option "Scenario"
+                    - option "Test Name (flat)"
+                    - option "Iteration"
+                    - option "Workflow Step"
+                  - combobox [ref=e1944] [cursor=pointer]:
+                    - option "Then by Scenario" [selected]
+                    - option "Then by Test Name"
+                - generic [ref=e1945]: 2 groups · 4 results
+                - textbox "Search..." [ref=e1946]
+              - table [ref=e1948]:
+                - rowgroup [ref=e1949]:
+                  - row "Feature Total Passed Failed Val. Failed Avg (ms) Min (ms) Max (ms)" [ref=e1950]:
+                    - columnheader [ref=e1951]
+                    - columnheader "Feature" [ref=e1952]
+                    - columnheader "Total" [ref=e1953]
+                    - columnheader "Passed" [ref=e1954]
+                    - columnheader "Failed" [ref=e1955]
+                    - columnheader "Val. Failed" [ref=e1956]
+                    - columnheader "Avg (ms)" [ref=e1957]
+                    - columnheader "Min (ms)" [ref=e1958]
+                    - columnheader "Max (ms)" [ref=e1959]
+                - rowgroup [ref=e1960]:
+                  - 'row "▼ Workflow: Runner — Auto-Resume Load 4 4 0 0 12 6 21" [ref=e1961] [cursor=pointer]':
+                    - cell "▼" [ref=e1962]
+                    - 'cell "Workflow: Runner — Auto-Resume Load" [ref=e1963]'
+                    - cell "4" [ref=e1964]
+                    - cell "4" [ref=e1965]
+                    - cell "0" [ref=e1966]
+                    - cell "0" [ref=e1967]
+                    - cell "12" [ref=e1968]
+                    - cell "6" [ref=e1969]
+                    - cell "21" [ref=e1970]
+                  - row "▼ Produce Load Event 4 4 0 0 12 6 21" [ref=e1971] [cursor=pointer]:
+                    - cell "▼" [ref=e1972]
+                    - cell "Produce Load Event" [ref=e1973]
+                    - cell "4" [ref=e1974]
+                    - cell "4" [ref=e1975]
+                    - cell "0" [ref=e1976]
+                    - cell "0" [ref=e1977]
+                    - cell "12" [ref=e1978]
+                    - cell "6" [ref=e1979]
+                    - cell "21" [ref=e1980]
+                  - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e1981]:
+                    - columnheader "ID" [ref=e1982]
+                    - columnheader "Test Name" [ref=e1983]
+                    - columnheader "URL" [ref=e1984]
+                    - columnheader "Status" [ref=e1985]
+                    - columnheader "Validation" [ref=e1986]
+                    - columnheader "Time (ms)" [ref=e1987]
+                    - columnheader "Passed" [ref=e1988]
+                    - columnheader "Error / Details" [ref=e1989]
+                  - row "1 PRODUCE Produce Load Event kafka://runner.load.test PRODUCE none 15 ✓" [ref=e1990] [cursor=pointer]:
+                    - cell "1" [ref=e1991]
+                    - cell "PRODUCE Produce Load Event" [ref=e1992]
+                    - cell "kafka://runner.load.test" [ref=e1993]
+                    - cell "PRODUCE" [ref=e1994]
+                    - cell "none" [ref=e1995]
+                    - cell "15" [ref=e1996]
+                    - cell "✓" [ref=e1997]
+                    - cell [ref=e1998]
+                  - row "2 PRODUCE Produce Load Event kafka://runner.load.test PRODUCE none 6 ✓" [ref=e1999] [cursor=pointer]:
+                    - cell "2" [ref=e2000]
+                    - cell "PRODUCE Produce Load Event" [ref=e2001]
+                    - cell "kafka://runner.load.test" [ref=e2002]
+                    - cell "PRODUCE" [ref=e2003]
+                    - cell "none" [ref=e2004]
+                    - cell "6" [ref=e2005]
+                    - cell "✓" [ref=e2006]
+                    - cell [ref=e2007]
+                  - row "3 PRODUCE Produce Load Event kafka://runner.load.test PRODUCE none 7 ✓" [ref=e2008] [cursor=pointer]:
+                    - cell "3" [ref=e2009]
+                    - cell "PRODUCE Produce Load Event" [ref=e2010]
+                    - cell "kafka://runner.load.test" [ref=e2011]
+                    - cell "PRODUCE" [ref=e2012]
+                    - cell "none" [ref=e2013]
+                    - cell "7" [ref=e2014]
+                    - cell "✓" [ref=e2015]
+                    - cell [ref=e2016]
+                  - row "4 PRODUCE Produce Load Event kafka://runner.load.test PRODUCE none 21 ✓" [ref=e2017] [cursor=pointer]:
+                    - cell "4" [ref=e2018]
+                    - cell "PRODUCE Produce Load Event" [ref=e2019]
+                    - cell "kafka://runner.load.test" [ref=e2020]
+                    - cell "PRODUCE" [ref=e2021]
+                    - cell "none" [ref=e2022]
+                    - cell "21" [ref=e2023]
+                    - cell "✓" [ref=e2024]
+                    - cell [ref=e2025]
+  - status
+  - generic [ref=e1480]: "0.25"

@@ -172,4 +172,50 @@ describe('buildMarkdownReport', () => {
 
     expect(md).toContain('| **Tags** | critical, regression, smoke |');
   });
+
+  describe('Kafka action results in failed rows', () => {
+    it('shows PRODUCE in status column for failed Kafka produce results', () => {
+      const summary = makeSummary({ failedRequests: 1 });
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'r1',
+          dataRowLabel: 'Row 1',
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaProduce',
+          httpStatus: 0,
+          errorMessage: 'Broker unreachable',
+          kafkaResultMeta: { topic: 'orders', partition: 0, offset: 0 },
+        }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('| PRODUCE |');
+      expect(md).not.toContain('| Row 1 | 0 |'); // status cell must not show raw httpStatus
+    });
+
+    it('shows CONSUME in status column for failed Kafka consume results', () => {
+      const summary = makeSummary({ failedRequests: 1 });
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'r1',
+          dataRowLabel: 'Row 1',
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaConsume',
+          httpStatus: 0,
+          errorMessage: 'No messages received within timeout',
+          kafkaResultMeta: { topic: 'events', partition: 0, offset: 0 },
+        }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('| CONSUME |');
+      expect(md).not.toContain('| Row 1 | 0 |'); // status cell must not show raw httpStatus
+    });
+  });
 });

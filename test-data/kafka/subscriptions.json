@@ -1,0 +1,37 @@
+{
+  "operation": "subscriptions",
+  "description": "List active subscriptions for parity-test-cluster (empty list when none active)",
+  "request": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedDispatch": {
+    "op": "subscriptions",
+    "method": "GET",
+    "path": "/api/kafka/subscriptions",
+    "query": {
+      "clusterId": "parity-test-cluster"
+    }
+  },
+  "expectedInvokeCommand": "kafka_subscriptions",
+  "expectedInvokeArgs": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedHttpQuery": "clusterId=parity-test-cluster",
+  "expectedResponse": {
+    "ok": true,
+    "op": "subscriptions",
+    "data": {
+      "clusterId": "parity-test-cluster",
+      "subscriptions": []
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z"
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_CLUSTER_MISMATCH",
+    "message": "Subscriptions request cluster 'parity-test-cluster' does not match active cluster 'other-cluster'",
+    "retryable": true
+  },
+  "expectedErrorKind": "cluster"
+}

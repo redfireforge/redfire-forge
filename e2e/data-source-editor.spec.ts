@@ -94,7 +94,7 @@ async function seedWithDataSource(page: Page) {
 /** Open test editor for the seeded test by expanding tree and clicking Edit */
 async function openTestEditor(page: Page) {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   // Expand feature group

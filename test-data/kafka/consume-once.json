@@ -1,0 +1,69 @@
+{
+  "operation": "consume-once",
+  "description": "Consume up to 1 message from orders.created from the beginning",
+  "request": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "fromBeginning": true,
+    "maxMessages": 1,
+    "timeoutMs": 5000
+  },
+  "expectedDispatch": {
+    "op": "consume-once",
+    "method": "POST",
+    "path": "/api/kafka/consume-once",
+    "query": {},
+    "body": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "fromBeginning": true,
+      "maxMessages": 1,
+      "timeoutMs": 5000
+    }
+  },
+  "expectedInvokeCommand": "kafka_consume_once",
+  "expectedInvokeArgs": {
+    "request": {
+      "clusterId": "parity-test-cluster",
+      "topic": "orders.created",
+      "fromBeginning": true,
+      "maxMessages": 1,
+      "timeoutMs": 5000
+    }
+  },
+  "expectedHttpBody": {
+    "clusterId": "parity-test-cluster",
+    "topic": "orders.created",
+    "fromBeginning": true,
+    "maxMessages": 1,
+    "timeoutMs": 5000
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "consume-once",
+    "data": {
+      "messageCount": 1,
+      "messages": [
+        {
+          "topic": "orders.created",
+          "partition": 0,
+          "offset": "42",
+          "timestamp": "2026-06-01T00:00:00.000Z",
+          "key": "order-123",
+          "value": "{\"id\":\"order-123\",\"status\":\"created\"}"
+        }
+      ],
+      "timedOut": false
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 350
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_CONSUME_ONCE_FAILED",
+    "message": "Consumer failed while reading from orders.created",
+    "retryable": true
+  },
+  "expectedErrorKind": "server"
+}

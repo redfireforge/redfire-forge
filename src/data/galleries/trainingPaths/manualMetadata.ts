@@ -322,6 +322,21 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'data-mapper/data-mapper-debugger-advanced.html', addedAt: date('2026-05-11'), updatedAt: date('2026-05-14'), changeNote: 'Added keyboard navigation, hover-highlight, mapping profiles, and Code vs Rules distinction' },
   { manualPath: 'data-mapper/data-mapper-operators-dsl-advanced.html', addedAt: date('2026-05-14') },
   { manualPath: 'data-mapper/data-mapper-custom-assertions-advanced.html', addedAt: date('2026-05-14') },
+
+  // ============================================================================
+  // Workflow: Kafka Event-Driven (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/event-driven/kafka-produce-easy.html', addedAt: date('2026-06-06') },
+  { manualPath: 'workflow/event-driven/kafka-trigger-easy.html', addedAt: date('2026-06-06') },
+  { manualPath: 'workflow/event-driven/kafka-event-pipeline-medium.html', addedAt: date('2026-06-06') },
+  { manualPath: 'workflow/event-driven/kafka-async-correlation-advanced.html', addedAt: date('2026-06-06') },
+
+  // ============================================================================
+  // Kafka Protocols (contentPaths)
+  // ============================================================================
+  { manualPath: 'kafka/kafka-getting-started-easy.html', addedAt: date('2026-06-06') },
+  { manualPath: 'kafka/kafka-topic-explorer-medium.html', addedAt: date('2026-06-06') },
+  { manualPath: 'kafka/kafka-schema-registry-medium.html', addedAt: date('2026-06-06') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

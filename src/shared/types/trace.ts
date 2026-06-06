@@ -126,9 +126,51 @@ export interface ExecutionEventDetails {
   /** Per-mapping data flow traces showing source→expression→target values */
   mappingTraces?: import('../components/data-mapper/utils/mappingTrace').MappingTrace[];
 
+  // Kafka nodes
+  /** Body of the first consumed Kafka message (JSON string) */
+  kafkaConsumeBody?: string;
+  /** Number of messages consumed in this node execution */
+  kafkaConsumeCount?: number;
+  /** Structured Kafka execution details (captured at standard+ trace level) */
+  kafkaDetails?: CapturedKafkaNodeDetails;
+  /** Metadata captured from a KafkaTrigger node fire (topic, partition, offset, key) */
+  kafkaTriggerDetails?: {
+    topic: string;
+    partition?: number;
+    offset?: string;
+    key?: string;
+  };
+  /** Metadata captured from a KafkaWait node resume (topic, correlationId, wait duration) */
+  kafkaWaitDetails?: {
+    topic: string;
+    correlationId: string;
+    waitDurationMs?: number;
+    partition?: number;
+    offset?: string;
+    key?: string;
+    /** Terminal outcome of the wait: matched = successfully resumed, timed_out = timeout expired, cancelled = aborted */
+    outcome?: 'matched' | 'timed_out' | 'cancelled';
+  };
+
   // Errors
   error?: string;
   errorStack?: string;
+}
+
+/** Failure class for Kafka node errors — actionable categorization. */
+export type KafkaFailureClass = 'validation' | 'auth' | 'tls' | 'timeout' | 'network' | 'extraction';
+
+/** Structured capture of a Kafka node execution for trace/replay. */
+export interface CapturedKafkaNodeDetails {
+  topic: string;
+  partition?: number;
+  offset?: string;
+  key?: string;
+  durationMs: number;
+  matchedMessages?: number;
+  failureClass?: KafkaFailureClass;
+  /** Truncated preview of the message body (max 512 chars). */
+  bodyPreview?: string;
 }
 
 /**
@@ -143,7 +185,8 @@ export interface ExecutionEvent {
   nodeType: 'http' | 'condition' | 'delay' | 'fork' | 'join' |
            'loop' | 'setVariable' | 'script' | 'aggregate' |
            'correlationWait' | 'waitForCondition' | 'subWorkflow' |
-           'webhook' | 'schedule' | 'start' | 'errorHandler';
+           'webhook' | 'schedule' | 'start' | 'errorHandler' |
+           'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait';
 
   /** User-visible node label */
   nodeLabel: string;

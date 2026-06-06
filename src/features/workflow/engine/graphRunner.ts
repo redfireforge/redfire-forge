@@ -28,6 +28,10 @@ import {
   handleWaitForConditionNode,
   handleSubWorkflowNode,
   handleCorrelationWaitNode,
+  handleKafkaProduceNode,
+  handleKafkaConsumeNode,
+  handleKafkaTriggerNode,
+  handleKafkaWaitNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
@@ -76,6 +80,8 @@ export async function runGraph(
   traceOptions?: import('../../../shared/types').ExecutionTraceOptions,
   /** Per-request HTTP timeout in milliseconds for HTTP nodes. Defaults to 30 000 ms. */
   httpTimeoutMs?: number,
+  /** Kafka client operations for produce/consume nodes. When omitted, Kafka nodes will fail. */
+  kafkaOperations?: import('./graphRunnerNodeHandlerContext').KafkaNodeOperations,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -88,6 +94,7 @@ export async function runGraph(
   const capturedHttpDetails = new Map<string, import('./graphRunnerNodeHandlerContext').CapturedHttpNodeDetails>();
   const capturedSubWorkflowTraces = new Map<string, import('../../../shared/types').WorkflowExecutionTrace>();
   const capturedScriptOutput = new Map<string, string[]>();
+  const capturedKafkaDetails = new Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>();
 
   const effectiveLevelOnce = resolveTraceLevel(traceOptions);
   const nodeLogBuffer = new Map<string, { prefix: string; text: string; ts: number }[]>();
@@ -214,6 +221,8 @@ export async function runGraph(
       capturedSubWorkflowTraces,
       capturedScriptOutput,
       httpTimeoutMs: httpTimeoutMs ?? 30_000,
+      kafkaOperations,
+      capturedKafkaDetails,
     };
 
     // Phase 7e: Record node execution start
@@ -256,6 +265,14 @@ export async function runGraph(
         await handleSubWorkflowNode(nodeId, node, hCtx, passedFlag, runGraph);
       } else if (node.type === 'correlationWait') {
         await handleCorrelationWaitNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'kafkaProduce') {
+        await handleKafkaProduceNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'kafkaConsume') {
+        await handleKafkaConsumeNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'kafkaTrigger') {
+        await handleKafkaTriggerNode(nodeId, node, hCtx);
+      } else if (node.type === 'kafkaWait') {
+        await handleKafkaWaitNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -339,6 +356,69 @@ export async function runGraph(
             subWorkflowPassed: passedFlag.value,
             subWorkflowTrace: capturedSubWorkflowTraces.get(nodeId),
           };
+        } else if (node.type === 'kafkaProduce') {
+          // Produce nodes do NOT set __kafkaConsumeBody/__kafkaConsumeCount — those are
+          // consume-only internal vars and must not be read or deleted here.
+          const kafkaCaptured = capturedKafkaDetails.get(nodeId);
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(kafkaCaptured ? { kafkaDetails: kafkaCaptured } : {}),
+          };
+        } else if (node.type === 'kafkaConsume') {
+          const body = ctx.get('__kafkaConsumeBody');
+          const count = ctx.get('__kafkaConsumeCount');
+          const kafkaCaptured = capturedKafkaDetails.get(nodeId);
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(body !== undefined ? { kafkaConsumeBody: body } : {}),
+            ...(count !== undefined ? { kafkaConsumeCount: Number(count) } : {}),
+            ...(kafkaCaptured ? { kafkaDetails: kafkaCaptured } : {}),
+          };
+          ctx.delete('__kafkaConsumeBody');
+          ctx.delete('__kafkaConsumeCount');
+        } else if (node.type === 'kafkaTrigger') {
+          // Capture seeded trigger variables into the execution trace.
+          // The raw __kafkaTriggerMessage was already cleared by handleKafkaTriggerNode;
+          // read the seeded kafka.trigger.* keys that are now in the context.
+          const triggerTopic = ctx.get('kafka.trigger.topic');
+          const triggerPartitionRaw = ctx.get('kafka.trigger.partition');
+          const triggerOffset = ctx.get('kafka.trigger.offset');
+          const triggerKey = ctx.get('kafka.trigger.key');
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            kafkaTriggerDetails: {
+              topic: triggerTopic ?? '',
+              ...(triggerPartitionRaw !== undefined && triggerPartitionRaw !== ''
+                ? { partition: Number(triggerPartitionRaw) } : {}),
+              ...(triggerOffset ? { offset: triggerOffset } : {}),
+              ...(triggerKey ? { key: triggerKey } : {}),
+            },
+          };
+        } else if (node.type === 'kafkaWait') {
+          // Capture kafka.wait.* context keys seeded on resume.
+          const waitTopic = ctx.get('kafka.wait.topic');
+          const waitCorrelationId = ctx.get('kafka.wait.correlationId') ?? '';
+          const waitPartitionRaw = ctx.get('kafka.wait.partition');
+          const waitOffset = ctx.get('kafka.wait.offset');
+          const waitKey = ctx.get('kafka.wait.key');
+          const waitDurationRaw = ctx.get('__kwWaitDurationMs');
+          const waitOutcome = ctx.get('__kwOutcome') as 'matched' | 'timed_out' | 'cancelled' | undefined;
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            kafkaWaitDetails: {
+              topic: waitTopic ?? '',
+              correlationId: waitCorrelationId,
+              ...(waitDurationRaw ? { waitDurationMs: Number(waitDurationRaw) } : {}),
+              ...(waitPartitionRaw !== undefined && waitPartitionRaw !== ''
+                ? { partition: Number(waitPartitionRaw) } : {}),
+              ...(waitOffset ? { offset: waitOffset } : {}),
+              ...(waitKey ? { key: waitKey } : {}),
+              ...(waitOutcome ? { outcome: waitOutcome } : {}),
+            },
+          };
+          ctx.delete('__kwWaitDurationMs');
+          ctx.delete('__kwResumeData');
+          ctx.delete('__kwOutcome');
         }
       } else {
         // Minimal: only capture error info for failed nodes

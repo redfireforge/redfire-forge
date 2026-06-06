@@ -199,6 +199,13 @@ export interface RunOpts {
   onProgress: (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;
   abortSignal?: AbortSignal;
   getThinkTimeMs: () => number;
+  /**
+   * Optional per-scenario dispatch for non-HTTP actions.
+   * When set, called instead of the HTTP runner for any scenario where
+   * `(scenario.actionType ?? 'http') !== 'http'`.
+   * Kafka (and future protocol) logic lives in the callback — not in this file.
+   */
+  executeNonHttp?: (scenario: Scenario) => Promise<RequestResult>;
 }
 
 export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {
@@ -207,6 +214,15 @@ export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<R
 
   for (const scenario of queue) {
     if (abortSignal?.aborted || breaker.shouldStop) break;
+    // Route non-HTTP actions (e.g. Kafka) through the caller-supplied callback.
+    if (opts.executeNonHttp && (scenario.actionType ?? 'http') !== 'http') {
+      const result = await opts.executeNonHttp(scenario);
+      allResults.push(result);
+      breaker.record(result);
+      onProgress(allResults.length, queue.length, allResults);
+      await applyThinkTime(getThinkTimeMs, abortSignal);
+      continue;
+    }
     const prep = prepareScenario(scenario);
     const token = prep.needsOAuth ? await tokenManager.getToken(scenario) : undefined;
     const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
@@ -230,6 +246,10 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
 
     const batch = queue.slice(i, i + concurrency);
     const batchPromises = batch.map(async (scenario) => {
+      // Route non-HTTP actions through the caller-supplied callback.
+      if (opts.executeNonHttp && (scenario.actionType ?? 'http') !== 'http') {
+        return opts.executeNonHttp(scenario);
+      }
       const prep = prepareScenario(scenario);
       const token = prep.needsOAuth ? await tokenManager.getToken(scenario) : undefined;
       const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
@@ -265,16 +285,23 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
         if (abortSignal?.aborted || breaker.shouldStop) break;
         const scenario = queue[nextIdx++];
         inFlight++;
-        const prep = prepareScenario(scenario);
-        const tokenPromise = prep.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
-        tokenPromise.then((token) => {
-          const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
-          return executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
-        }).then((result) => {
+        // Route non-HTTP actions through the caller-supplied callback.
+        const isNonHttp = opts.executeNonHttp && (scenario.actionType ?? 'http') !== 'http';
+        const httpPrep = isNonHttp ? null : prepareScenario(scenario);
+        const execPromise = isNonHttp
+          ? opts.executeNonHttp!(scenario)
+          : (() => {
+              const tokenPromise = httpPrep!.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
+              return tokenPromise.then((token) => {
+                const headers = token ? { ...httpPrep!.baseHeaders, Authorization: `Bearer ${token}` } : httpPrep!.baseHeaders;
+                return executeWithRetry(scenario, headers, httpPrep!.body, timeoutMs, retryCount, retryDelayMs, httpPrep!.resolvedUrl);
+              });
+            })();
+        execPromise.then((result) => {
           allResults.push(result);
           breaker.record(result);
         }).catch((err) => {
-          const errorResult = buildErrorResult(scenario, err, prep.body);
+          const errorResult = buildErrorResult(scenario, err, httpPrep?.body);
           allResults.push(errorResult);
           breaker.record(errorResult);
         }).finally(() => {

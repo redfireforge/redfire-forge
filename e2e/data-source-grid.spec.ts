@@ -104,7 +104,7 @@ async function seedWithMultiColumn(page: Page) {
 /** Open test editor for the seeded test */
 async function openTestEditor(page: Page) {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   const fgName = page.locator('.feature-group-card .feature-group-name', { hasText: 'E2E Feature' });

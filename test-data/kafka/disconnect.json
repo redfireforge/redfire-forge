@@ -1,0 +1,44 @@
+{
+  "operation": "disconnect",
+  "description": "Disconnect from active parity-test-cluster",
+  "request": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedDispatch": {
+    "op": "disconnect",
+    "method": "POST",
+    "path": "/api/kafka/disconnect",
+    "query": {},
+    "body": {
+      "clusterId": "parity-test-cluster"
+    }
+  },
+  "expectedInvokeCommand": "kafka_disconnect",
+  "expectedInvokeArgs": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedHttpBody": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "disconnect",
+    "data": {
+      "status": {
+        "state": "disconnected"
+      },
+      "disconnected": true,
+      "cleanedSubscriptions": 0
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 20
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_NOT_CONNECTED",
+    "message": "No active connection to disconnect",
+    "retryable": false
+  },
+  "expectedErrorKind": "cluster"
+}

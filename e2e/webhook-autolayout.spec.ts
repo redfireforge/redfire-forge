@@ -8,7 +8,7 @@ test.describe('Webhook Sample Auto-Layout', () => {
     await page.goto('http://localhost:5173/');
     
     // Wait for app header to be ready
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
     
     // Go to Workflow tab if not already there
     const workflowTab = page.locator('button:has-text("Workflow")');

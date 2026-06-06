@@ -7,7 +7,7 @@ import { fetchScenarioSample } from '../engine/fetchScenarioSample';
 import { prettyJson, parseJsonOrRaw, isValidJson, toErrorMessage } from '../../../shared/utils/helpers';
 import { getByPath } from '../../../shared/utils/jsonPath';
 import { createResponseVersion, createRulesVersion } from '../../scenarios/utils/versionFactory';
-import { hasActiveRules, hasAssertions, hasExpectedFields, hasSampleJson, getExpectedFields } from '../../scenarios/utils/validationHelpers';
+import { hasActiveRules, hasAssertions, hasExpectedFields, hasSampleJson, getExpectedFields, checkValidationScopeGuards } from '../../scenarios/utils/validationHelpers';
 import { jsonEqual } from '../../scenarios/utils/testEditorUtils';
 
 export interface UseWorkflowValidationFetchOptions {
@@ -217,24 +217,12 @@ export function useWorkflowValidationFetch({
 
   const handleValidateResponse = useCallback(async (scope: 'assertions' | 'rules' | 'all' = 'all') => {
     const cur = draftRef.current;
-    if (!cur.url.trim()) {
-      setValidationResult({ passed: false, failures: [{ path: '(url)', expected: 'a URL', actual: 'empty' }] });
-      return;
-    }
     const v = cur.validation;
     const rulesConfigured = hasActiveRules(v);
     const assertionsConfigured = hasAssertions(v);
-
-    if (scope === 'rules' && !rulesConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
-      return;
-    }
-    if (scope === 'assertions' && !assertionsConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'assertions', actual: 'no assertions configured' }] });
-      return;
-    }
-    if (scope === 'all' && !rulesConfigured && !assertionsConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules or assertions', actual: 'none configured' }] });
+    const scopeFailures = checkValidationScopeGuards(cur.url, v, scope);
+    if (scopeFailures) {
+      setValidationResult({ passed: false, failures: scopeFailures });
       return;
     }
 

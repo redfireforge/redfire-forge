@@ -659,4 +659,100 @@ describe('WorkflowResultsSummary', () => {
     render(<WorkflowResultsSummary run={run} />);
     expect(document.querySelector('.pass-rate-value')).toHaveTextContent('0%');
   });
+
+  it('shows PRODUCE in result-status for Kafka produce result', () => {
+    const results: RequestResult[] = [
+      createMockResult({
+        id: 'kp-0',
+        scenarioName: 'Produce Step',
+        transportType: 'kafkaProduce',
+        method: 'KAFKA',
+        httpStatus: undefined as unknown as number,
+        passed: false,
+        iterationIndex: 0,
+        workflowNodeId: 'node-0',
+        responseTimeMs: 50,
+      }),
+    ];
+    const run: TestRun = {
+      id: 'run-kp',
+      timestamp: Date.now(),
+      config: {
+        executionMode: 'workflow',
+        iterations: 1,
+        concurrentUsers: 1,
+        thinkTimeMs: 0,
+        errorPolicy: 'continue',
+      },
+      summary: {
+        tps: 1,
+        avgResponseTime: 50,
+        minResponseTime: 50,
+        maxResponseTime: 50,
+        p50ResponseTime: 50,
+        p95ResponseTime: 50,
+        p99ResponseTime: 50,
+        errorRate: 100,
+        errorsByStatus: {},
+        totalRequests: 1,
+        successfulRequests: 0,
+        failedRequests: 1,
+        failedValidations: 0,
+        totalDurationMs: 50,
+      },
+      results,
+    };
+    render(<WorkflowResultsSummary run={run} />);
+    fireEvent.click(screen.getByText('Per-Iteration Detail').closest('div')!);
+    fireEvent.click(screen.getByText('Iteration #0').closest('div')!);
+    expect(screen.getByText('PRODUCE')).toBeInTheDocument();
+  });
+
+  it('shows CONSUME in result-status for Kafka consume result', () => {
+    const results: RequestResult[] = [
+      createMockResult({
+        id: 'kc-0',
+        scenarioName: 'Consume Step',
+        transportType: 'kafkaConsume',
+        method: 'KAFKA',
+        httpStatus: undefined as unknown as number,
+        passed: false,
+        iterationIndex: 0,
+        workflowNodeId: 'node-0',
+        responseTimeMs: 50,
+      }),
+    ];
+    const run: TestRun = {
+      id: 'run-kc',
+      timestamp: Date.now(),
+      config: {
+        executionMode: 'workflow',
+        iterations: 1,
+        concurrentUsers: 1,
+        thinkTimeMs: 0,
+        errorPolicy: 'continue',
+      },
+      summary: {
+        tps: 1,
+        avgResponseTime: 50,
+        minResponseTime: 50,
+        maxResponseTime: 50,
+        p50ResponseTime: 50,
+        p95ResponseTime: 50,
+        p99ResponseTime: 50,
+        errorRate: 100,
+        errorsByStatus: {},
+        totalRequests: 1,
+        successfulRequests: 0,
+        failedRequests: 1,
+        failedValidations: 0,
+        totalDurationMs: 50,
+      },
+      results,
+    };
+    render(<WorkflowResultsSummary run={run} />);
+    fireEvent.click(screen.getByText('Per-Iteration Detail').closest('div')!);
+    fireEvent.click(screen.getByText('Iteration #0').closest('div')!);
+    expect(screen.getByText('CONSUME')).toBeInTheDocument();
+  });
 });

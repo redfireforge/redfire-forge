@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import WorkflowRunner from './WorkflowRunner';
 import {
   mockWorkflows,
+  allWorkflowVariants,
   selectWorkflowById,
 } from './__test-utils__/workflowRunnerTestHelpers';
 import type { RequestResult, TestSummary } from '../../../shared/types';
@@ -312,5 +313,71 @@ describe('WorkflowRunner', () => {
     });
 
     expect(thresholdInput).toHaveValue(90);
+  });
+
+  describe('Kafka load policy banners (Phase 7C)', () => {
+    it('renders block banner when kafkaConsume node has wait-for-real mode', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-wfr');
+
+      await waitFor(() => {
+        expect(document.querySelector('.kafka-load-warning--block')).toBeTruthy();
+      });
+      expect(document.querySelector('.kafka-load-warning--block')).toHaveTextContent('wait-for-real');
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
+
+    it('renders no banner when kafkaConsume node has auto-resume mode', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-ar');
+
+      await waitFor(() => screen.getByText('▶ Run Workflow'));
+      expect(document.querySelector('.kafka-load-warning--block')).toBeNull();
+      expect(document.querySelector('.kafka-load-warning--warn')).toBeNull();
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
+
+    it('renders no banner when kafkaConsume node has synthetic-inject mode', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-si');
+
+      await waitFor(() => screen.getByText('▶ Run Workflow'));
+      expect(document.querySelector('.kafka-load-warning--block')).toBeNull();
+      expect(document.querySelector('.kafka-load-warning--warn')).toBeNull();
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
+
+    it('renders info advisory when kafkaConsume node has no loadTestBehavior', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-nlb');
+
+      await waitFor(() => {
+        expect(document.querySelector('.kafka-load-info')).toBeTruthy();
+      });
+      expect(document.querySelector('.kafka-load-info')).toHaveTextContent('auto-resume');
+      expect(document.querySelector('.kafka-load-warning--block')).toBeNull();
+    });
+
+    it('renders no banners when workflow has no kafkaConsume nodes', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf1');
+
+      await waitFor(() => screen.getByText('▶ Run Workflow'));
+      expect(document.querySelector('.kafka-load-warning--block')).toBeNull();
+      expect(document.querySelector('.kafka-load-warning--warn')).toBeNull();
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
+
+    it('shows only the block banner (not the info advisory) when both block and info nodes exist — priority rule', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-mixed');
+
+      await waitFor(() => {
+        expect(document.querySelector('.kafka-load-warning--block')).toBeTruthy();
+      });
+      expect(document.querySelector('.kafka-load-warning--block')).toHaveTextContent('wait-for-real');
+      // Info advisory must be suppressed when a block banner is present
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
   });
 });
