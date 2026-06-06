@@ -51,7 +51,7 @@
     The KafkaWait node matches replies by a correlation ID extracted from the message body.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.10</strong><br>
+    <strong>RedfireForge v0.6.0</strong><br>
     Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
     Requires: Kafka broker on <code>localhost:19092</code>
   </div>
@@ -208,7 +208,7 @@
     <ul>
       <li>Mode: <code>synthetic-inject</code></li>
       <li>Delay: 500ms — simulates realistic payment processing latency</li>
-      <li>Mock payload: <code>{ orderId: "{{orderId}}", status: "APPROVED", transactionId: "TXN-..." }</code></li>
+      <li>Mock payload: <code>{ orderId: "ORD-5001", status: "APPROVED", transactionId: "TXN-ORD-5001-001", failureReason: null }</code></li>
     </ul>
   </li>
 </ol>
@@ -296,6 +296,6 @@
   <li><strong>Add header correlation</strong>: modify both KafkaProduce (add header <code>X-Order-ID: {{orderId}}</code>) and KafkaWait (correlationSource=header, correlationHeader=X-Order-ID). Test the header-based correlation path.</li>
 </ol>
 
-<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Async Request–Reply (Advanced) &nbsp;|&nbsp; Category: Event-Driven</footer>
+<footer>RedfireForge v0.6.0 &nbsp;|&nbsp; Kafka: Async Request–Reply (Advanced) &nbsp;|&nbsp; Category: Event-Driven</footer>
 </body>
 </html>

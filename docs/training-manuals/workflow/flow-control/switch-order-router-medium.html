@@ -89,13 +89,13 @@
   <h1>Switch Order Router</h1>
   <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
   <p style="max-width: 520px; color: #495057; font-size: 14px;">
-    Fetch an order from an API and route it to different processing paths based
-    on its status: pending, shipped, delivered, or an unknown default. The
-    essential multi-path routing pattern.
+    Fetch a post from the JSONPlaceholder API and route it to different HTTP processing
+    endpoints based on the extracted order type value (1=Standard, 2=Express, 3=Gift).
+    The essential multi-path routing pattern.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.4</strong><br>
-    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Flow Control<br>
+    <strong>RedfireForge v0.6.0</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 8 &nbsp;|&nbsp; Category: Flow Control<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -122,14 +122,14 @@
 <h2 id="purpose">1. Purpose &amp; Use Case</h2>
 <p>
   This workflow demonstrates <strong>multi-path routing with a Switch node</strong>.
-  Instead of a simple true/false branch, the Switch node evaluates a variable against
-  multiple named cases and routes execution to the matching path.
+  Instead of a simple true/false branch, the Switch node evaluates an expression against
+  multiple named cases and routes execution to the matching HTTP processing path.
 </p>
 <p>
   <strong>Real-world analogy:</strong> An order management system fetches an order
-  and routes it to different processing pipelines based on its status — pending orders
-  go to the warehouse queue, shipped orders trigger tracking notifications, and delivered
-  orders update the customer's order history.
+  and routes it to different processing pipelines based on its type — standard orders
+  use normal fulfillment, express orders get priority handling, and gift orders
+  require special wrapping instructions.
 </p>
 <p><strong>Examples of this pattern in production:</strong></p>
 <ul>
@@ -148,7 +148,7 @@
   <li>Defining <strong>named cases</strong> with exact-match values</li>
   <li>Implementing a <strong>default case</strong> for unrecognized values</li>
   <li>Extracting a routing field from an API response</li>
-  <li>Using <strong>Log</strong> nodes to trace which path was taken</li>
+  <li>Using <strong>HTTP POST</strong> branches for different processing paths</li>
   <li>The <strong>fan-out / fan-in</strong> pattern where multiple branches converge</li>
 </ul>
 
@@ -162,26 +162,29 @@
   └──────┬──────┘
          ▼
   ┌─────────────────────────────┐
-  │  1. Get Order               │  GET https://fakestoreapi
-  │     (HTTP)                  │      .com/products/1
-  │                             │
-  │  Extracts: orderStatus      │  → orderStatus (string)
+  │  1. Fetch Order             │  GET /posts/1
+  │     (HTTP)                  │
+  │                             │  Extracts: orderType  ← $.userId
+  │                             │           orderTitle ← $.title
   └──────┬──────────────────────┘
          ▼
   ┌─────────────────────────────────────────────────────┐
-  │  2. Route by Status (Switch)                        │
+  │  2. Route by Type (Switch)                          │
   │                                                     │
-  │  Variable: {{orderStatus}}                          │
+  │  Expression: {{orderType}}                          │
   │                                                     │
-  │  ┌──────────┬───────────┬────────────┬───────────┐  │
-  │  │ pending  │ shipped   │ delivered  │ default   │  │
-  │  └────┬─────┴─────┬─────┴──────┬─────┴─────┬─────┘  │
-  └───────┘           │            │            │        │
-       │              │            │            │
-       ▼              ▼            ▼            ▼
+  │  ┌──────────┬───────────┬─────────┬───────────┐     │
+  │  │   "1"    │   "2"     │   "3"   │ default   │     │
+  │  │ Standard │  Express  │  Gift   │           │     │
+  │  └────┬─────┴─────┬─────┴──────┬──┴─────┬─────┘     │
+  └───────┘           │            │        │           │
+       │              │            │        │
+       ▼              ▼            ▼        ▼
   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ 3a. Log  │  │ 3b. Log  │  │ 3c. Log  │  │ 3d. Log  │
-  │ Pending  │  │ Shipped  │  │ Delivered│  │ Unknown  │
+  │ 3a.      │  │ 3b.      │  │ 3c. Gift │  │ 3d.      │
+  │ Standard │  │ Express  │  │ (HTTP    │  │ Default  │
+  │ (HTTP    │  │ (HTTP    │  │  POST)   │  │ (HTTP    │
+  │  POST)   │  │  POST)   │  │          │  │  POST)   │
   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
        │              │            │              │
        └──────────┬───┴────────┬───┘              │
@@ -193,8 +196,8 @@
 </div>
 
 <p>
-  <strong>6 nodes, 8 edges</strong> — a fan-out/fan-in pipeline. The Switch node splits
-  execution into four possible paths, all of which converge at the End node.
+  <strong>8 nodes, 10 edges</strong> — a fan-out/fan-in pipeline. The Switch node splits
+  execution into four possible paths (three cases + default), all of which converge at the End node.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -211,51 +214,52 @@
     <td>Entry point. No input variables — the order ID is hardcoded for this sample.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Get Order</td>
+    <td><span class="step-num">1</span> Fetch Order</td>
     <td>HTTP</td>
-    <td>Sends a GET request to fetch an order. Extracts the <code>status</code> field into <code>orderStatus</code>.</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts/1</code>. Extracts <code>orderType</code> from <code>$.userId</code> and <code>orderTitle</code> from <code>$.title</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Route by Status</td>
+    <td><span class="step-num">2</span> Route by Type</td>
     <td>Switch</td>
-    <td>Evaluates <code>{{orderStatus}}</code> against four cases: <code>pending</code>, <code>shipped</code>, <code>delivered</code>, and <code>default</code>.</td>
+    <td>Evaluates <code>{{orderType}}</code> against cases <code>1</code> (Standard), <code>2</code> (Express), <code>3</code> (Gift), and <code>default</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3a</span> Log Pending</td>
-    <td>Log</td>
-    <td>Logs <code>"Order is pending — adding to warehouse queue"</code>.</td>
+    <td><span class="step-num">3a</span> Standard Processing</td>
+    <td>HTTP</td>
+    <td>POST <code>/posts</code> with body <code>{"type":"standard","order":"{{orderTitle}}"}</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3b</span> Log Shipped</td>
-    <td>Log</td>
-    <td>Logs <code>"Order shipped — sending tracking notification"</code>.</td>
+    <td><span class="step-num">3b</span> Express Processing</td>
+    <td>HTTP</td>
+    <td>POST <code>/posts</code> with body <code>{"type":"express","priority":"high","order":"{{orderTitle}}"}</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3c</span> Log Delivered</td>
-    <td>Log</td>
-    <td>Logs <code>"Order delivered — updating order history"</code>.</td>
+    <td><span class="step-num">3c</span> Gift Processing</td>
+    <td>HTTP</td>
+    <td>POST <code>/posts</code> with body <code>{"type":"gift","wrapping":true,"order":"{{orderTitle}}"}</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3d</span> Log Unknown</td>
-    <td>Log</td>
-    <td>Logs <code>"Unknown status: {{orderStatus}} — flagging for review"</code>. Default catch-all.</td>
+    <td><span class="step-num">3d</span> Default Handler</td>
+    <td>HTTP</td>
+    <td>POST <code>/posts</code> with body <code>{"type":"unknown","order":"{{orderTitle}}"}</code>. Default catch-all for any other value.</td>
   </tr>
 </table>
 
-<h3>HTTP GET Configuration</h3>
+<h3>HTTP GET Configuration (Node 1)</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://fakestoreapi.com/products/1</code></td></tr>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td></tr>
   <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>orderStatus</code> ← body <code>$.status</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>orderType</code> ← body <code>$.userId</code></td></tr>
+  <tr><td></td><td><code>orderTitle</code> ← body <code>$.title</code></td></tr>
 </table>
 
-<h3>Switch Configuration</h3>
+<h3>Switch Configuration (Node 2)</h3>
 <table>
   <tr><th>Case</th><th>Match Value</th><th>Target Node</th></tr>
-  <tr><td>pending</td><td><code>"pending"</code></td><td>Log Pending</td></tr>
-  <tr><td>shipped</td><td><code>"shipped"</code></td><td>Log Shipped</td></tr>
-  <tr><td>delivered</td><td><code>"delivered"</code></td><td>Log Delivered</td></tr>
-  <tr><td>default</td><td><em>(any other value)</em></td><td>Log Unknown</td></tr>
+  <tr><td>Standard</td><td><code>"1"</code></td><td>Standard Processing</td></tr>
+  <tr><td>Express</td><td><code>"2"</code></td><td>Express Processing</td></tr>
+  <tr><td>Gift</td><td><code>"3"</code></td><td>Gift Processing</td></tr>
+  <tr><td>default</td><td><em>(any other value)</em></td><td>Default Handler</td></tr>
 </table>
 
 <div class="callout">
@@ -284,39 +288,47 @@
     Click <em>Workflows → + New</em>. Name it "Switch Order Router".
   </li>
   <li>
-    <strong>Add the HTTP GET node.</strong><br>
+    <strong>Add the HTTP GET node (node 1).</strong><br>
     Drag an HTTP node onto the canvas. Configure:
     <ul>
-      <li><em>URL</em>: <code>https://fakestoreapi.com/products/1</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts/1</code></li>
       <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: Add <code>orderStatus</code> ← body <code>$.status</code></li>
+      <li><em>Extractions</em>: <code>orderType</code> ← body <code>$.userId</code></li>
+      <li><em>Extractions</em>: <code>orderTitle</code> ← body <code>$.title</code></li>
     </ul>
-    Connect Start → Get Order.
+    Connect Start → Fetch Order.
   </li>
   <li>
-    <strong>Add the Switch node.</strong><br>
+    <strong>Add the Switch node (node 2).</strong><br>
     Drag a Switch node. Configure:
     <ul>
-      <li><em>Variable</em>: <code>{{orderStatus}}</code></li>
-      <li><em>Cases</em>: Add <code>pending</code>, <code>shipped</code>, <code>delivered</code></li>
+      <li><em>Expression</em>: <code>{{orderType}}</code></li>
+      <li><em>Cases</em>: Add <code>1</code> (Standard), <code>2</code> (Express), <code>3</code> (Gift)</li>
       <li><em>Default</em>: Enable the default output</li>
     </ul>
-    Connect Get Order → Route by Status.
+    Connect Fetch Order → Route by Type.
   </li>
   <li>
-    <strong>Add four Log nodes.</strong><br>
-    Drag four Log nodes onto the canvas. Configure each with the appropriate message.
-    Connect each Switch output to its corresponding Log node.
+    <strong>Add four HTTP POST nodes (nodes 3a–3d).</strong><br>
+    Drag four HTTP nodes. Configure each with method POST and URL
+    <code>https://jsonplaceholder.typicode.com/posts</code>, with different JSON bodies:
+    <ul>
+      <li><strong>Standard Processing</strong>: <code>{"type":"standard","order":"{{orderTitle}}"}</code></li>
+      <li><strong>Express Processing</strong>: <code>{"type":"express","priority":"high","order":"{{orderTitle}}"}</code></li>
+      <li><strong>Gift Processing</strong>: <code>{"type":"gift","wrapping":true,"order":"{{orderTitle}}"}</code></li>
+      <li><strong>Default Handler</strong>: <code>{"type":"unknown","order":"{{orderTitle}}"}</code></li>
+    </ul>
+    Connect each Switch output to its corresponding HTTP node.
   </li>
   <li>
-    <strong>Connect all Log nodes to End.</strong><br>
-    Draw edges from all four Log nodes to the End node, creating the fan-in pattern.
+    <strong>Connect all processing nodes to End.</strong><br>
+    Draw edges from all four HTTP POST nodes to the End node, creating the fan-in pattern.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. The API will return a status value, and the Switch
-    will route to the matching Log node. Check the execution trace to confirm
-    the correct branch was taken.
+    Click <em>Quick Test</em>. The API returns <code>userId: 1</code> for <code>/posts/1</code>,
+    so <code>orderType</code> = <code>1</code> and the Switch routes to <em>Standard Processing</em>.
+    Check the execution trace to confirm the correct branch was taken.
   </li>
 </ol>
 
@@ -325,34 +337,34 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (when status = "pending")</h3>
+<h3>Node States (when orderType = "1" = Standard)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Get Order</td><td>✅ Pass</td><td>HTTP 200 OK, orderStatus = "pending"</td></tr>
-  <tr><td>2. Route by Status</td><td>✅ Pass</td><td>Matched case: "pending"</td></tr>
-  <tr><td>3a. Log Pending</td><td>✅ Pass</td><td>"Order is pending — adding to warehouse queue"</td></tr>
-  <tr><td>3b. Log Shipped</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
-  <tr><td>3c. Log Delivered</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
-  <tr><td>3d. Log Unknown</td><td>⏭️ Skipped</td><td>Default not triggered</td></tr>
+  <tr><td>1. Fetch Order</td><td>✅ Pass</td><td>HTTP 200 OK · orderType = "1" · orderTitle = "sunt aut facere..."</td></tr>
+  <tr><td>2. Route by Type</td><td>✅ Pass</td><td>Matched case: "1" (Standard)</td></tr>
+  <tr><td>3a. Standard Processing</td><td>✅ Pass</td><td>HTTP 201 · POST with type=standard</td></tr>
+  <tr><td>3b. Express Processing</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
+  <tr><td>3c. Gift Processing</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
+  <tr><td>3d. Default Handler</td><td>⏭️ Skipped</td><td>Default not triggered</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
 
 <h3>Sample API Response (Node 1)</h3>
 <pre>
 {
+  "userId": 1,
   "id": 1,
-  "title": "Wireless Headphones",
-  "price": 49.99,
-  "status": "pending",
-  ...
+  "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
+  "body": "quia et suscipit..."
 }</pre>
 
-<div class="callout callout-warn">
-  <strong>⚠️ Simulated Status Field</strong>
-  The FakeStoreAPI does not include a <code>status</code> field. In this sample, the
-  status is simulated for training purposes. When building with a real order API, map
-  the Switch variable to the actual status field in the response.
+<div class="callout callout-info">
+  <strong>ℹ️ JSONPlaceholder Note</strong>
+  GET <code>/posts/1</code> always returns <code>userId: 1</code>, so the Switch always
+  routes to the <em>Standard Processing</em> branch. To test other branches, change the
+  URL to <code>/posts/2</code> (userId=1 again) or manually set <code>orderType</code>
+  to <code>2</code> or <code>3</code> via a SetVariable node before the Switch.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -361,32 +373,32 @@
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add Processing Logic</h3>
+<h3>Exercise 1: Add More Processing Logic</h3>
 <p>
-  Replace the Log nodes with real processing: on "pending", POST to a warehouse API;
-  on "shipped", POST a tracking notification; on "delivered", PATCH the order to
-  mark it complete.
+  Extend each HTTP POST branch: add an extraction that captures the response <code>id</code>
+  (e.g., <code>processedId</code>) from each branch. Confirm in Quick Test that the
+  correct branch's response is captured.
 </p>
 
-<h3>Exercise 2: Add a Fifth Case</h3>
+<h3>Exercise 2: Add a Fourth Case</h3>
 <p>
-  Add a <code>"cancelled"</code> case to the Switch node. Route it to a Log node
-  that records <code>"Order cancelled — initiating refund"</code>. This demonstrates
-  how easy it is to extend a Switch-based routing workflow.
+  Add a <code>4</code> case to the Switch node representing "Bulk" orders.
+  Add an HTTP POST branch with <code>{"type":"bulk","discount":true,"order":"{{orderTitle}}"}</code>.
+  This demonstrates how easy it is to extend a Switch-based routing workflow.
 </p>
 
-<h3>Exercise 3: Parameterize the Order ID</h3>
+<h3>Exercise 3: Parameterize the Post ID</h3>
 <p>
-  Add an <code>orderId</code> input variable to the Start node. Update the HTTP URL
-  to include <code>{{orderId}}</code>. Run the workflow multiple times with different
-  order IDs to trigger different Switch cases.
+  Add a <code>postId</code> input variable to the Start node. Update the HTTP URL
+  to include <code>{{postId}}</code>. Run the workflow multiple times with different
+  post IDs — different <code>userId</code> values (1–3) will trigger different Switch cases.
 </p>
 
 <h3>Exercise 4: Combine with Condition</h3>
 <p>
-  On the "pending" branch, add a Condition node that checks if the order total
-  exceeds $100. If yes, route to a "priority processing" Log; if no, route to
-  "standard processing". This combines Switch and Condition patterns.
+  On the "Standard" branch, add a Condition node that checks if <code>{{orderType}}</code>
+  is less than <code>2</code>. If yes, route to a second HTTP node with priority processing;
+  if no, proceed normally. This combines Switch and Condition patterns.
 </p>
 
 <div class="callout callout-tip">
