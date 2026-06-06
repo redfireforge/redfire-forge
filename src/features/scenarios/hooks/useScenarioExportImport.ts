@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
 import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData, normalizeTestFields } from '../utils/scenarioImportExport';
+import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 
 interface UseScenarioExportImportParams {
@@ -120,11 +121,11 @@ export function useScenarioExportImport({
         if (conflicts.length > 0) {
           const names = conflicts.map((fg) => `  • "${fg.name}"`).join('\n');
           confirm('Import Conflicts', `The following feature groups already exist:\n${names}\n\nImport as new copies with fresh IDs?`, () => {
-            const imported = finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
+            const imported = normalizeGroupActionTypes(finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) })));
             setFeatureGroups((prev) => [...prev, ...imported]);
           });
         } else {
-          const imported = finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
+          const imported = normalizeGroupActionTypes(finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) })));
           setFeatureGroups((prev) => [...prev, ...imported]);
         }
         // Merge shared data sources (deduplicate by id)

@@ -32,14 +32,14 @@ describe('useRequestsSidebarDnD', () => {
     act(() => result.current.handleReqDragStart(e, 'c1', 'r1'));
     expect(result.current.dragItem).toEqual({ kind: 'request', reqId: 'r1', colId: 'c1' });
 
-    result.current.autoExpandTimer.current = setTimeout(() => {}, 9999);
+    result.current.autoExpandTimerRef.current = setTimeout(() => {}, 9999);
 
     act(() => result.current.handleDragEnd());
 
     expect(result.current.dragItem).toBeNull();
     expect(result.current.dropTarget).toBeNull();
     expect(result.current.dropInsert).toBeNull();
-    expect(result.current.autoExpandTimer.current).toBeNull();
+    expect(result.current.autoExpandTimerRef.current).toBeNull();
     vi.useRealTimers();
   });
 

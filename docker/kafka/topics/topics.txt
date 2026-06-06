@@ -1,0 +1,10 @@
+orders.created
+orders.updated
+orders.failed
+payments.authorized
+inventory.adjusted
+notifications.email
+redfireforge.workflow.input
+redfireforge.workflow.output
+redfireforge.results.summary
+redfireforge.debug.consume

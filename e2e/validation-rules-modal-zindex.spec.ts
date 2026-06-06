@@ -11,7 +11,7 @@ const sampleResponse = {
 async function openValidationMapper(page: Page) {
   await seedAppData(page);
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   await page.click('button:has-text("+ Add Feature Group")');

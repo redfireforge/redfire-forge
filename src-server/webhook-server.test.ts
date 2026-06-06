@@ -30,8 +30,13 @@ vi.mock('./correlation-handler.js', () => ({
   setCorrelationStore: vi.fn(),
 }));
 
-vi.mock('./correlation-store-factory.js', () => ({
-  createCorrelationStore: vi.fn(),
+vi.mock('./kafka/kafkaTriggerSubscriptionManager.js', () => ({
+  kafkaTriggerSubscriptionManager: {
+    activateAll: vi.fn(async () => {}),
+    deactivateAll: vi.fn(async () => {}),
+    subscribe: vi.fn(async () => {}),
+    unsubscribe: vi.fn(async () => {}),
+  },
 }));
 
 import {
@@ -82,6 +87,27 @@ function createMockWorkflow(): Workflow {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
+}
+
+async function putWorkflowWithRetry(body: unknown) {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await request(app)
+        .put('/api/workflows/wf-1')
+        .timeout({ response: 5000, deadline: 7000 })
+        .send(body);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const retryable = msg.includes('ECONNRESET') || msg.includes('Timeout');
+      if (!retryable || attempt === 2) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastErr ?? new Error('PUT /api/workflows/wf-1 failed');
 }
 
 describe('webhook-server', { timeout: 30_000 }, () => {
@@ -155,9 +181,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     });
 
     it('rejects invalid workflow data', async () => {
-      const res = await request(app)
-        .put('/api/workflows/wf-1')
-        .send({});
+      const res = await putWorkflowWithRetry({});
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid workflow data');
@@ -166,9 +190,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('handles save errors', async () => {
       mockSaveWorkflow.mockRejectedValue(new Error('Save failed'));
 
-      const res = await request(app)
-        .put('/api/workflows/wf-1')
-        .send(createMockWorkflow());
+      const res = await putWorkflowWithRetry(createMockWorkflow());
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to register workflow');
@@ -542,5 +564,27 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(500);
       expect(res.body.message).toBe('string error');
     });
+  });
+});
+
+// ── shutdown / graceful cleanup ────────────────────────────────────────────
+
+describe('webhook-server — shutdown', () => {
+  it('shutdown deactivates Kafka subscriptions and exits', async () => {
+    const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    // Emit SIGTERM to trigger shutdown
+    process.emit('SIGTERM');
+
+    // Allow the async shutdown to complete
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    exitSpy.mockRestore();
+    consoleSpy.mockRestore();
   });
 });

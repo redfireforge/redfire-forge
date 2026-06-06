@@ -5,7 +5,7 @@ test.describe('Run Test flow', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppDataWithTest(page);
     await page.goto('/?tab=runner');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

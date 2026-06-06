@@ -9,6 +9,9 @@ import {
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
 import { createCorrelationRouter } from './correlation-handler.js';
+import { createKafkaRouter } from './routes/kafka-routes.js';
+import { createKafkaTriggerRouter } from './routes/kafka-trigger-routes.js';
+import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
@@ -120,6 +123,12 @@ app.get('/api/webhook-deliveries', async (req: Request, res: Response) => {
 
 // Correlation webhook handler routes (must be before /webhooks/:workflowId/:triggerId)
 app.use(createCorrelationRouter());
+
+// Kafka transport routes
+app.use(createKafkaRouter({ onLog: broadcastLog }));
+
+// Kafka trigger subscription routes
+app.use(createKafkaTriggerRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {
@@ -306,5 +315,15 @@ app.use((err: Error, _req: Request, res: Response, _next: (...args: unknown[]) =
     message: err.message,
   });
 });
+
+// Graceful shutdown: deactivate all Kafka trigger subscriptions
+async function shutdown(signal: string): Promise<void> {
+  console.log(`[Server] Received ${signal} — shutting down Kafka trigger subscriptions`);
+  await kafkaTriggerSubscriptionManager.deactivateAll();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
 export { app };

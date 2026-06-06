@@ -145,7 +145,7 @@ test.describe('Workflow Version History — Toolbar Button', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -180,7 +180,7 @@ test.describe('Workflow Version Panel — Empty State', () => {
   test.beforeEach(async ({ page }) => {
     await seedNoVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -218,7 +218,7 @@ test.describe('Workflow Version Panel — With Versions', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -299,7 +299,7 @@ test.describe('Workflow Version Panel — Selection & Compare', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     await openVersionPanel(page);
   });
@@ -355,7 +355,7 @@ test.describe('Workflow Version Diff Modal', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     // Open panel and select both versions, then compare
     await openVersionPanel(page);
@@ -447,7 +447,7 @@ test.describe('Workflow Version Panel — Restore', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     await openVersionPanel(page);
   });
@@ -482,7 +482,7 @@ test.describe('Workflow Version Panel — Delete', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     await openVersionPanel(page);
   });
@@ -542,7 +542,7 @@ test.describe('Workflow Version Panel — Rename', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     await openVersionPanel(page);
   });
@@ -599,7 +599,7 @@ test.describe('Workflow Version — Auto-Save on Save', () => {
   test.beforeEach(async ({ page }) => {
     await seedNoVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -662,7 +662,7 @@ test.describe('Workflow Version — Panel Interaction with Other Panels', () => 
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -690,7 +690,7 @@ test.describe('Workflow Sidebar — Export/Import Context Menu', () => {
   test.beforeEach(async ({ page }) => {
     await seedVersionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

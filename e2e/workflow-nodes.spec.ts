@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // This suite reuses seeded workflow state and is flaky when tests race each other.
@@ -86,9 +86,7 @@ async function seedWorkflowData(page: import('@playwright/test').Page) {
 test.describe('Workflow - Log/Debug, Error Handler, Wait for Condition nodes', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('renders Log/Debug node on canvas', async ({ page }) => {

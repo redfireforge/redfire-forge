@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka: Async Request–Reply (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-adv { background: #f8d7da; color: #721c24; }
+  .flow-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">⚡</div>
+  <h1>Kafka: Async Request–Reply</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 560px; color: #495057; font-size: 14px;">
+    The most powerful Kafka pattern: publish a request message, then
+    <em>wait for a correlated reply</em> on a response topic before continuing.
+    The KafkaWait node matches replies by a correlation ID extracted from the message body.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
+    Requires: Kafka broker on <code>localhost:19092</code>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#correlation">The Correlation Pattern Explained</a></li>
+  <li><a href="#architecture">Workflow Architecture</a></li>
+  <li><a href="#nodes">Node-by-Node Reference</a></li>
+  <li><a href="#walkthrough">Step-by-Step Walkthrough</a></li>
+  <li><a href="#load-testing">Load Testing with Synthetic Inject</a></li>
+  <li><a href="#results">Expected Results</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  The <strong>Kafka async request–reply</strong> pattern solves a fundamental challenge in
+  event-driven systems: how do you wait for a response to a specific request when both parties
+  communicate through Kafka topics?
+</p>
+<p>
+  Traditional HTTP has a synchronous request-response model. With Kafka, you publish a request
+  message and a separate service publishes the response to a different topic. Your workflow needs
+  to wait for the response that belongs to <em>this specific request</em> — identified by a
+  shared <strong>correlation ID</strong> (here: the orderId).
+</p>
+<p><strong>Real-world applications:</strong></p>
+<ul>
+  <li>Payment processing: submit payment request → wait for bank authorization response</li>
+  <li>Fraud scoring: submit transaction → wait for risk engine decision</li>
+  <li>Inventory reservation: submit hold request → wait for warehouse confirmation</li>
+  <li>KYC verification: submit document → wait for compliance team approval (with long timeout)</li>
+</ul>
+
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li><strong>KafkaWait</strong> — the correlation wait node that pauses execution until a matching reply arrives</li>
+  <li><strong>Correlation source</strong> — matching by message body (<code>$.orderId</code>), header, or message key</li>
+  <li><strong>Correlation ID expression</strong> — the expected value, sourced from workflow variables (<code>{{orderId}}</code>)</li>
+  <li><strong>Synthetic inject</strong> mode — configurable-delay mock injection for load testing</li>
+  <li>Handling both success (APPROVED) and failure (DECLINED) response paths</li>
+  <li>How KafkaWait differs from KafkaConsume (correlation vs. simple key regex)</li>
+</ul>
+
+<h2 id="correlation">3. The Correlation Pattern Explained</h2>
+<p>
+  The correlation works like this:
+</p>
+<ol>
+  <li>Workflow receives a payment request for orderId <code>ORD-5001</code></li>
+  <li>Workflow publishes to <code>payments.processing</code> with <code>correlationId=ORD-5001</code> in the header</li>
+  <li>A payment processor service consumes from <code>payments.processing</code> and processes the payment</li>
+  <li>The payment processor publishes a response to <code>payments.responses</code> containing <code>"orderId": "ORD-5001"</code></li>
+  <li>The <strong>KafkaWait</strong> node is watching <code>payments.responses</code> for a message where <code>$.orderId == "ORD-5001"</code></li>
+  <li>When the matching message arrives, the wait resolves and execution continues</li>
+</ol>
+<div class="callout-tip callout">
+  <strong>💡 Correlation vs. Key-Based Filtering</strong>
+  KafkaConsume uses <code>keyRegex</code> to filter messages by the message key field.
+  KafkaWait uses a <em>correlation expression</em> that matches a value extracted from the message body, header, or key —
+  giving you full flexibility. Most payment/response systems put the correlation ID in the body.
+</div>
+
+<h2 id="architecture">4. Workflow Architecture</h2>
+<div class="flow-diagram">KafkaTrigger: payments.requests
+  │  extractVars: orderId, amount, currency, customerId
+  ▼
+① Log: Log Payment Request
+  ▼
+② HTTP: Pre-validate (GET merchant info)   →  extracts: merchantName
+  ▼
+③ KafkaProduce: payments.processing
+  │  key: {{orderId}}   header: correlationId={{orderId}}
+  │  body: {orderId, amount, currency, customerId, merchant, requestedAt}
+  ▼
+④ KafkaWait: payments.responses     ← WAITS HERE until matching reply
+  │  correlationSource: body
+  │  correlationJsonPath: $.orderId
+  │  correlationIdExpression: {{orderId}}
+  │  timeoutMs: 60000
+  │  extractVars: paymentStatus, transactionId, failureReason
+  │  loadTestBehavior: synthetic-inject (delay=500ms)
+  ▼
+⑤ Condition: paymentStatus == APPROVED?
+  │ true                          │ false
+  ▼                               ▼
+⑥a Log: Payment Approved        ⑥b Log: Payment Failed
+    (info: transactionId)           (error: failureReason)
+  │                               │
+  └──────────┬────────────────────┘
+             ▼
+            End</div>
+
+<h2 id="nodes">5. Node-by-Node Reference</h2>
+<table>
+  <thead><tr><th>Node</th><th>Type</th><th>Key Config</th></tr></thead>
+  <tbody>
+    <tr><td>Payment Request Trigger</td><td>KafkaTrigger</td><td>payments.requests; extracts orderId, amount, currency, customerId</td></tr>
+    <tr><td>Log Payment Request</td><td>Log/Debug</td><td>info: logs orderId + amount + currency</td></tr>
+    <tr><td>Pre-validate Payment</td><td>HTTP</td><td>GET jsonplaceholder; extracts merchantName</td></tr>
+    <tr><td>Submit to Payment Processor</td><td>KafkaProduce</td><td>payments.processing; key={{orderId}}; header: correlationId={{orderId}}</td></tr>
+    <tr><td>Wait for Payment Result</td><td>KafkaWait</td><td>payments.responses; correlationSource=body; correlationJsonPath=$.orderId; timeout=60s; synthetic-inject 500ms</td></tr>
+    <tr><td>Payment Approved?</td><td>Condition</td><td>paymentStatus == APPROVED</td></tr>
+    <tr><td>Payment Approved</td><td>Log/Debug</td><td>info: transactionId</td></tr>
+    <tr><td>Payment Failed</td><td>Log/Debug</td><td>error: failureReason</td></tr>
+    <tr><td>End</td><td>End</td><td>Payment Handled</td></tr>
+  </tbody>
+</table>
+
+<h2 id="walkthrough">6. Step-by-Step Walkthrough</h2>
+
+<h3><span class="step-num">1</span> Load the Sample</h3>
+<ol>
+  <li>Gallery → Workflows → Event-Driven → <strong>"Kafka: Async Request–Reply"</strong> <span class="badge badge-adv">Advanced</span> → Load</li>
+  <li>The workflow opens. Note the KafkaWait node in the middle — this is the correlation point</li>
+</ol>
+
+<h3><span class="step-num">2</span> Inspect the KafkaTrigger Node</h3>
+<ol>
+  <li>Click <strong>Payment Request Trigger</strong></li>
+  <li>Sample payload: <code>{ orderId: "ORD-5001", amount: "499.99", currency: "USD", customerId: "CUST-300" }</code></li>
+  <li>The four extracted variables become available to all downstream nodes</li>
+</ol>
+
+<h3><span class="step-num">3</span> Inspect the KafkaProduce Node</h3>
+<ol>
+  <li>Click <strong>Submit to Payment Processor</strong></li>
+  <li>The body template includes all payment fields plus <code>requestedAt: {{$now}}</code></li>
+  <li>The <strong>correlationId header</strong> (<code>{{orderId}}</code>) is the signal to the downstream processor</li>
+</ol>
+
+<h3><span class="step-num">4</span> Inspect the KafkaWait Node — The Core of This Pattern</h3>
+<ol>
+  <li>Click <strong>Wait for Payment Result</strong></li>
+  <li>
+    Understand each config field:
+    <ul>
+      <li><strong>Topic</strong>: <code>payments.responses</code> — where reply messages arrive</li>
+      <li><strong>Correlation ID Expression</strong>: <code>{{orderId}}</code> — the value to match against</li>
+      <li><strong>Correlation Source</strong>: <code>body</code> — extract from the message body</li>
+      <li><strong>Correlation JSON Path</strong>: <code>$.orderId</code> — the path within the body to extract</li>
+      <li><strong>Timeout</strong>: 60,000ms — fails if no matching message arrives within 60 seconds</li>
+      <li><strong>Extract Variables</strong>: paymentStatus, transactionId, failureReason — pulled from the matching message</li>
+    </ul>
+  </li>
+  <li>
+    In the <strong>Load Test Behavior</strong> section:
+    <ul>
+      <li>Mode: <code>synthetic-inject</code></li>
+      <li>Delay: 500ms — simulates realistic payment processing latency</li>
+      <li>Mock payload: <code>{ orderId: "{{orderId}}", status: "APPROVED", transactionId: "TXN-..." }</code></li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout-kafka callout">
+  <strong>🟡 How KafkaWait Matching Works</strong>
+  When messages arrive on <code>payments.responses</code>, the KafkaWait node extracts
+  <code>$.orderId</code> from each message body and compares it to <code>{{orderId}}</code>
+  (resolved from the current workflow context). Only the matching message triggers resume.
+  All non-matching messages on that topic are discarded (they may belong to other workflow instances).
+</div>
+
+<h3><span class="step-num">5</span> Run Quick Test</h3>
+<ol>
+  <li>Ensure Local Plaintext is Connected (required for KafkaProduce)</li>
+  <li>Click <strong>Quick Test</strong></li>
+  <li>Execution flow:
+    <ol>
+      <li>Trigger fires with sample payload (orderId=ORD-5001)</li>
+      <li>Log records the payment request</li>
+      <li>HTTP fetches merchant info</li>
+      <li>KafkaProduce publishes to <code>payments.processing</code></li>
+      <li>KafkaWait enters wait state… then synthetic-inject fires after 500ms with APPROVED payload</li>
+      <li>Condition: APPROVED → Payment Approved log</li>
+    </ol>
+  </li>
+</ol>
+
+<h3><span class="step-num">6</span> Test the Failure Path</h3>
+<ol>
+  <li>Click the <strong>KafkaWait</strong> node → Load Test Behavior</li>
+  <li>Edit the mock payload: change <code>"status": "APPROVED"</code> to <code>"status": "DECLINED"</code> and add <code>"failureReason": "Insufficient funds"</code></li>
+  <li>Run Quick Test again — now the Payment Failed path is taken</li>
+  <li>The Log node records the failure reason at <code>error</code> level</li>
+</ol>
+
+<h3><span class="step-num">7</span> End-to-End with Real Services</h3>
+<p>To test with a real payment processor:</p>
+<ol>
+  <li>Deploy this workflow (it listens on <code>payments.requests</code>)</li>
+  <li>Create a "simulator" workflow that:
+    <ul>
+      <li>Produces test messages to <code>payments.requests</code></li>
+      <li>Consumes from <code>payments.processing</code></li>
+      <li>Produces a response to <code>payments.responses</code> with the same orderId</li>
+    </ul>
+  </li>
+  <li>Or use Message Studio Consume to watch <code>payments.processing</code> and manually reply via Publish</li>
+</ol>
+
+<h2 id="load-testing">7. Load Testing with Synthetic Inject</h2>
+<p>
+  The <code>synthetic-inject</code> load test mode is ideal for performance testing:
+</p>
+<ul>
+  <li>The KafkaWait node injects the mock payload after the configured delay (500ms ± 100ms jitter)</li>
+  <li>This simulates realistic payment processor latency without needing a real upstream service</li>
+  <li>You can measure end-to-end workflow throughput at any simulated latency: 100ms, 500ms, 2000ms</li>
+  <li>Jitter (±100ms by default) simulates natural variation in processing times</li>
+</ul>
+<p>To run a load test: Workflow Runner → select this workflow → configure run count → Run.</p>
+
+<h2 id="results">8. Expected Results</h2>
+<ul>
+  <li>All 9 nodes show green ✅ with the APPROVED path taken</li>
+  <li>Payment Approved log: <code>Payment APPROVED for order ORD-5001 — transactionId=TXN-ORD-5001-001, amount=499.99 USD</code></li>
+  <li>A message appears in <code>payments.processing</code> topic (verify in Topic Explorer)</li>
+</ul>
+<table>
+  <thead><tr><th>Variable</th><th>Source</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>orderId</code></td><td>KafkaTrigger extraction</td><td>ORD-5001</td></tr>
+    <tr><td><code>merchantName</code></td><td>HTTP extraction</td><td>Romaguera-Crona</td></tr>
+    <tr><td><code>paymentStatus</code></td><td>KafkaWait extraction</td><td>APPROVED</td></tr>
+    <tr><td><code>transactionId</code></td><td>KafkaWait extraction</td><td>TXN-ORD-5001-001</td></tr>
+    <tr><td><code>failureReason</code></td><td>KafkaWait extraction</td><td>null (on success)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="exercises">9. Try It Yourself</h2>
+<ol>
+  <li><strong>Change correlation to key</strong>: edit the KafkaWait node — change correlationSource from <code>body</code> to <code>key</code>. Update the KafkaProduce node to set the message key to <code>{{orderId}}</code>. Update the mock payload. Does it still correlate correctly?</li>
+  <li><strong>Add timeout handling</strong>: add a Condition node after KafkaWait checking if <code>paymentStatus</code> is empty (timeout scenario). Route to an error log node: <em>"Payment timed out for order {{orderId}}"</em>.</li>
+  <li><strong>Vary the synthetic delay</strong>: change syntheticDelayMs to 2000ms and run a load test. Compare the p95 latency to the 500ms version.</li>
+  <li><strong>Add header correlation</strong>: modify both KafkaProduce (add header <code>X-Order-ID: {{orderId}}</code>) and KafkaWait (correlationSource=header, correlationHeader=X-Order-ID). Test the header-based correlation path.</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Async Request–Reply (Advanced) &nbsp;|&nbsp; Category: Event-Driven</footer>
+</body>
+</html>

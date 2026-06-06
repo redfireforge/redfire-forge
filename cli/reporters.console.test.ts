@@ -221,4 +221,46 @@ describe('printConsoleSummary', () => {
     expect(output).toContain('Timing Breakdown');
     expect(output).toContain('DNS Lookup:');
   });
+
+  it('prints KAFKA (produce) in failed data row details for Kafka produce results', () => {
+    const summary = makeSummary({ failedRequests: 1 });
+    const config = makeConfig();
+    const results = [
+      makeResult({
+        dataRowId: 'row-1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        transportType: 'kafkaProduce',
+        method: 'KAFKA',
+        httpStatus: undefined as unknown as number,
+        failureDetails: [],
+      }),
+    ];
+
+    printConsoleSummary(summary, config, results);
+
+    const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+    expect(output).toContain('KAFKA (produce)');
+  });
+
+  it('prints KAFKA (consume) in failed data row details for Kafka consume results', () => {
+    const summary = makeSummary({ failedRequests: 1 });
+    const config = makeConfig();
+    const results = [
+      makeResult({
+        dataRowId: 'row-2',
+        dataRowLabel: 'Row 2',
+        passed: false,
+        transportType: 'kafkaConsume',
+        method: 'KAFKA',
+        httpStatus: undefined as unknown as number,
+        failureDetails: [],
+      }),
+    ];
+
+    printConsoleSummary(summary, config, results);
+
+    const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+    expect(output).toContain('KAFKA (consume)');
+  });
 });

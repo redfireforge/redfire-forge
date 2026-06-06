@@ -1,0 +1,39 @@
+{
+  "operation": "status",
+  "description": "Check connection status for parity-test-cluster",
+  "request": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedDispatch": {
+    "op": "status",
+    "method": "GET",
+    "path": "/api/kafka/status",
+    "query": {
+      "clusterId": "parity-test-cluster"
+    }
+  },
+  "expectedInvokeCommand": "kafka_status",
+  "expectedInvokeArgs": {
+    "clusterId": "parity-test-cluster"
+  },
+  "expectedHttpQuery": "clusterId=parity-test-cluster",
+  "expectedResponse": {
+    "ok": true,
+    "op": "status",
+    "data": {
+      "state": "connected",
+      "clusterId": "parity-test-cluster",
+      "connectedAt": "2026-06-01T00:00:00.000Z",
+      "subscriptionCount": 0
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z"
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_NOT_CONNECTED",
+    "message": "Not connected to cluster parity-test-cluster",
+    "retryable": false
+  },
+  "expectedErrorKind": "cluster"
+}

@@ -97,6 +97,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -132,6 +133,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -163,6 +165,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -214,6 +217,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -380,6 +384,7 @@ describe('graphLoadRunner', () => {
         undefined,
         traceOpts, // traceOptions passed through
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -489,6 +494,7 @@ describe('graphLoadRunner', () => {
         expect.anything(), // pollSemaphore should be defined
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
 
@@ -520,6 +526,7 @@ describe('graphLoadRunner', () => {
         undefined, // No pollSemaphore
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
     });
   });

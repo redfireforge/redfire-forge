@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { makeFolderForE2E, makeWorkflowForE2E, seedAppData } from './helpers';
+import { gotoAppTab, makeFolderForE2E, makeWorkflowForE2E, seedAppData } from './helpers';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
 const folders: WorkflowFolder[] = [
@@ -27,9 +27,7 @@ async function seedData(page: Page) {
 test.describe('Workflow Multi-Select', () => {
   test.beforeEach(async ({ page }) => {
     await seedData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('Ctrl+click selects multiple workflows and shows checkboxes', async ({ page }) => {

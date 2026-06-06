@@ -3,6 +3,7 @@ import type { HttpResponse } from '../shared/utils/httpClient';
 import { httpFetchViaViteProxy, setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
 import { toErrorMessage } from '../shared/utils/helpers';
+import { buildKafkaNodeOperations } from '../shared/kafka/buildKafkaNodeOperations';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;
@@ -93,6 +94,8 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
           msg.workflow,
           undefined,
           msg.workerIndex,
+          undefined,
+          msg.workflow ? buildKafkaNodeOperations() : undefined,
         );
         if (hasPending) {
           postMsg({ type: 'progress', completed: pendingCompleted, total: pendingTotal, newResults: pendingNewResults, meta: pendingMeta });

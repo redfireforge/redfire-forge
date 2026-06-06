@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeScriptWorkflow(): Workflow {
@@ -80,10 +80,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows', workflowJson);
     localStorage.setItem('workflows_selected_id', 'wf-script-e2e');
   }, JSON.stringify([makeScriptWorkflow()]));
-  await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
+  await gotoAppTab(page, 'workflow');
 }
 
 /** Open the Script node config modal via the configure badge */
@@ -171,7 +168,7 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     await expect(scriptModal).not.toHaveClass(/modal-fullscreen/);
 
     // Click expand
-    await expandBtn.dispatchEvent('click');
+    await expandBtn.click();
 
     // Should now have modal-fullscreen class (same behavior as config modal)
     await expect(scriptModal).toHaveClass(/modal-fullscreen/, { timeout: 2000 });
@@ -189,22 +186,20 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     const overlay = page.locator('.wf-script-modal-overlay');
     await expect(overlay).toBeVisible({ timeout: 3000 });
 
-    const scriptModal = overlay.locator('.wf-script-modal');
+    const scriptModal = overlay.locator('.wf-script-modal').first();
+    await expect(scriptModal).toBeVisible({ timeout: 3000 });
 
-    // Expand first
     const expandBtn = scriptModal.getByRole('button', { name: 'Expand modal' }).first();
-    await expandBtn.dispatchEvent('click');
-    await expect(scriptModal).toHaveClass(/modal-fullscreen/, { timeout: 2000 });
+    await expandBtn.click({ force: true });
+    await expect(overlay.locator('.wf-script-modal.modal-fullscreen').first()).toBeVisible({ timeout: 3000 });
 
-    // Now shrink
-    const shrinkBtn = scriptModal.getByRole('button', { name: 'Shrink modal' }).first();
-    await shrinkBtn.dispatchEvent('click');
+    const shrinkBtn = overlay.locator('.wf-script-modal').getByRole('button', { name: 'Shrink modal' }).first();
+    await expect(shrinkBtn).toBeVisible({ timeout: 3000 });
+    await shrinkBtn.evaluate((el) => (el as HTMLButtonElement).click());
 
-    // Should no longer have modal-fullscreen class
-    await expect(scriptModal).not.toHaveClass(/modal-fullscreen/, { timeout: 2000 });
-
-    // Expand button should be back to ⊕
-    await expect(scriptModal.getByRole('button', { name: 'Expand modal' }).first()).toHaveText('⊕');
+    // Should no longer have modal-fullscreen class.
+    await expect(overlay.locator('.wf-script-modal.modal-fullscreen')).toHaveCount(0, { timeout: 3000 });
+    await expect(overlay.locator('.wf-script-modal').getByRole('button', { name: 'Expand modal' }).first()).toHaveText('⊕');
   });
 
   test('config modal has Close and Save buttons in footer', async ({ page }) => {

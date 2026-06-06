@@ -9,13 +9,11 @@
  * "From Template" now navigates to the Gallery tab.
  */
 import { test, expect } from '@playwright/test';
-import { confirmFolderPickerModal, seedAppData } from './helpers';
+import { confirmFolderPickerModal, gotoAppTab, seedAppData } from './helpers';
 
 async function navigateToWorkflow(page: import('@playwright/test').Page) {
   await seedAppData(page);
-  await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  await gotoAppTab(page, 'workflow');
 }
 
 /** Open the Gallery page via sidebar +New → From Template */
@@ -89,8 +87,9 @@ test.describe('Gallery Page — Workflow Templates', () => {
     await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
     await page.waitForTimeout(300);
 
-    // Click the first card
-    await page.locator('.gallery-card').first().click();
+    const firstWorkflowCard = page.locator('.gallery-card[data-domain="workflows"]').first();
+    await expect(firstWorkflowCard).toBeVisible({ timeout: 5000 });
+    await firstWorkflowCard.click();
     await page.waitForTimeout(300);
 
     // Detail panel should show with "Load Workflow" action button
@@ -103,7 +102,9 @@ test.describe('Gallery Page — Workflow Templates', () => {
     // Filter to Workflows and select a card
     await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
     await page.waitForTimeout(300);
-    await page.locator('.gallery-card').first().click();
+    const firstWorkflowCard = page.locator('.gallery-card[data-domain="workflows"]').first();
+    await expect(firstWorkflowCard).toBeVisible({ timeout: 5000 });
+    await firstWorkflowCard.click();
     await page.waitForTimeout(300);
 
     // Click "Load Workflow"

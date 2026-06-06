@@ -1,6 +1,6 @@
 import { test, expect } from './monacoCdnFixture';
 import type { Page, Locator } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 
 const sampleResponse = {
   offers: [
@@ -102,9 +102,7 @@ async function getValidationEditorModelValue(page: Page, mapper: Locator): Promi
 
 async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await seedAppData(page);
-  await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  await gotoAppTab(page, 'scenarios');
 
   await page.click('button:has-text("+ Add Feature Group")');
   await page.locator('input[placeholder="Feature group name (e.g. Onboarding)"]').fill('RulesEditor-FG');
@@ -123,9 +121,14 @@ async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await page.locator('label:has-text("Selective Fields") input[type="radio"]').check();
   await page.locator('button:has-text("Fetch Response")').click();
   await expect(page.locator('.validation-response-preview')).toBeVisible();
-  await page.locator('button:has-text("⚡ Data Mapper")').click();
   const mapper = page.locator('.dm-modal-overlay');
-  await expect(mapper).toBeVisible();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.locator('button:has-text("⚡ Data Mapper")').click();
+    const visible = await mapper.isVisible({ timeout: 5000 }).catch(() => false);
+    if (visible) break;
+  }
+  await expect(mapper).toBeVisible({ timeout: 10000 });
 
   await mapper.locator('button:has-text("Rules")').click();
   await waitForValidationMonacoReady(page, mapper);

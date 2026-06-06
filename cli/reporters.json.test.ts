@@ -69,4 +69,42 @@ describe('buildDataRowSummary', () => {
       error: 'Bad Request',
     });
   });
+
+  it('uses PRODUCE status label for failed Kafka produce data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'KAFKA',
+        transportType: 'kafkaProduce',
+        httpStatus: 0,
+        errorMessage: 'Broker unreachable',
+        kafkaResultMeta: { topic: 'orders', partition: 0, offset: 0 },
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('PRODUCE');
+  });
+
+  it('uses CONSUME status label for failed Kafka consume data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'KAFKA',
+        transportType: 'kafkaConsume',
+        httpStatus: 0,
+        errorMessage: 'No messages received',
+        kafkaResultMeta: { topic: 'events', partition: 0, offset: 0 },
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('CONSUME');
+  });
 });

@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useRunnerOrchestration } from './useRunnerOrchestration';
 import { FeatureGroup } from '../../../shared/types';
 
-const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress, mockTestExecOverrides, mockRunnerConfigOverrides, mockLoadProgress, mockDownloadReport, mockGenerateReport } = vi.hoisted(() => ({
+const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress, mockTestExecOverrides, mockRunnerConfigOverrides, mockLoadProgress, mockDownloadReport, mockGenerateReport, mockCapturedPublishConfig } = vi.hoisted(() => ({
   mockExecute: vi.fn(),
   mockSetWeights: vi.fn(),
   mockSetLoadProfile: vi.fn((fn: unknown) => { if (typeof fn === 'function') (fn as (prev: unknown) => unknown)({ phases: [], maxConcurrency: 10 }); }),
@@ -14,26 +14,30 @@ const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress, mock
   mockLoadProgress: vi.fn(() => null),
   mockDownloadReport: vi.fn(),
   mockGenerateReport: vi.fn(() => '<html></html>'),
+  mockCapturedPublishConfig: { value: undefined as unknown },
 }));
 
 vi.mock('./useTestExecution', () => ({
-  useTestExecution: () => ({
-    isRunning: false,
-    completed: 0,
-    total: 0,
-    liveSummary: null,
-    liveResults: [],
-    profileMeta: null,
-    timeSeries: [],
-    error: null,
-    execute: mockExecute,
-    abort: vi.fn(),
-    finalRun: null,
-    pendingRun: null,
-    confirmSavePendingRun: vi.fn(),
-    dismissPendingRun: vi.fn(),
-    ...mockTestExecOverrides.value,
-  }),
+  useTestExecution: (publishConfig?: unknown) => {
+    mockCapturedPublishConfig.value = publishConfig;
+    return {
+      isRunning: false,
+      completed: 0,
+      total: 0,
+      liveSummary: null,
+      liveResults: [],
+      profileMeta: null,
+      timeSeries: [],
+      error: null,
+      execute: mockExecute,
+      abort: vi.fn(),
+      finalRun: null,
+      pendingRun: null,
+      confirmSavePendingRun: vi.fn(),
+      dismissPendingRun: vi.fn(),
+      ...mockTestExecOverrides.value,
+    };
+  },
 }));
 
 vi.mock('./useRunnerConfig', () => ({
@@ -958,6 +962,30 @@ describe('useRunnerOrchestration', () => {
       }];
       const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
       expect(result.current.definitionSlaTargetCount).toBe(4); // 1 FG + 0 sc + 2 t1 + 1 t2 + 0 t3
+    });
+  });
+
+  describe('kafkaResultsPublish threading', () => {
+    afterEach(() => {
+      mockRunnerConfigOverrides.value = {};
+      mockCapturedPublishConfig.value = undefined;
+    });
+
+    it('passes kafkaResultsPublish from useRunnerConfig to useTestExecution', () => {
+      const publishCfg = { enabled: true, clusterId: 'c1', topic: 'redfireforge.results.summary' };
+      mockRunnerConfigOverrides.value = { kafkaResultsPublish: publishCfg };
+
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+
+      expect(mockCapturedPublishConfig.value).toEqual(publishCfg);
+    });
+
+    it('passes undefined to useTestExecution when kafkaResultsPublish is not set', () => {
+      mockRunnerConfigOverrides.value = {};
+
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+
+      expect(mockCapturedPublishConfig.value).toBeUndefined();
     });
   });
 });

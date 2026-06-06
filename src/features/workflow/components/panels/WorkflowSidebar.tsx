@@ -30,8 +30,8 @@ interface Props {
   onCreateFolder?: (name: string, parentId?: string) => void;
   onRenameFolder?: (id: string, name: string) => void;
   onDeleteFolder?: (id: string) => Set<string>;
-  onMoveWorkflowToFolder?: (workflowId: string, folderId: string | null) => void;
-  onMoveWorkflowsToFolder?: (workflowIds: string[], folderId: string | null) => void;
+  onMoveWorkflowToFolder?: (workflowId: string, folderId: string | null, order: number) => void;
+  onMoveWorkflowsToFolder?: (workflowIds: string[], folderId: string | null, startOrder: number) => void;
   onMoveFolder?: (folderId: string, newParentId: string | null, newOrder: number) => void;
   onRunAllInFolder?: (workflows: Workflow[]) => void;
 }
@@ -462,10 +462,12 @@ export default function WorkflowSidebar({
           : !!wfCtxMenu.workflowFolderId;
 
         const moveCtxWorkflows = (folderId: string | null) => {
+          const targetFolder = folderId ?? undefined;
+          const endOrder = workflows.filter((w) => (w.folderId ?? undefined) === targetFolder).length;
           if (isBulk && onMoveWorkflowsToFolder) {
-            onMoveWorkflowsToFolder(ctxIds, folderId);
+            onMoveWorkflowsToFolder(ctxIds, folderId, endOrder);
           } else {
-            onMoveWorkflowToFolder?.(wfCtxMenu.workflowId, folderId);
+            onMoveWorkflowToFolder?.(wfCtxMenu.workflowId, folderId, endOrder);
           }
           setMultiSelected(new Set());
           clearAllMenus();
@@ -612,9 +614,10 @@ export default function WorkflowSidebar({
                       onConfirm: () => {
                         const removedIds = onDeleteFolder(folderCtxMenu.folderId);
                         if (onMoveWorkflowToFolder) {
+                          const unfiledCount = workflows.filter((w) => !w.folderId).length;
                           workflows
                             .filter((w) => w.folderId && removedIds.has(w.folderId))
-                            .forEach((w) => onMoveWorkflowToFolder(w.id, null));
+                            .forEach((w, i) => onMoveWorkflowToFolder(w.id, null, unfiledCount + i));
                         }
                       },
                     });

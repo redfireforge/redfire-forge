@@ -1,0 +1,115 @@
+{
+  "_exportMeta": {
+    "version": 2,
+    "exportedAt": 1749200000000,
+    "source": "RedfireForge"
+  },
+  "data": {
+    "featureGroups": [
+      {
+        "id": "kafka-harness-runner-test",
+        "name": "Kafka Runner Test Suite",
+        "enabled": true,
+        "testScenarios": [
+          {
+            "id": "kafka-produce-basic",
+            "name": "Kafka Produce — Basic Order",
+            "kind": "standard",
+            "tests": [
+              {
+                "id": "produce-order-001",
+                "name": "Produce Order Event",
+                "url": "kafka://runner.kafka.produce",
+                "method": "KAFKA",
+                "actionType": "kafkaProduce",
+                "kafkaProduceAction": {
+                  "clusterId": "local-plaintext",
+                  "topic": "runner.kafka.produce",
+                  "key": "order-001",
+                  "value": "{\"orderId\":\"ORD-001\",\"amount\":49.99,\"currency\":\"USD\"}",
+                  "headers": {
+                    "x-correlation-id": "corr-001",
+                    "x-source": "redfireforge-test"
+                  },
+                  "acks": -1,
+                  "timeoutMs": 5000
+                },
+                "headers": [],
+                "validation": {
+                  "mode": "selective",
+                  "assertions": [
+                    {
+                      "type": "kafkaField",
+                      "target": "kafka.key",
+                      "operator": "equals",
+                      "value": "order-001"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "kafka-consume-basic",
+            "name": "Kafka Consume — Read Orders",
+            "kind": "standard",
+            "tests": [
+              {
+                "id": "consume-order-001",
+                "name": "Consume Order Events",
+                "url": "kafka://runner.kafka.consume",
+                "method": "KAFKA",
+                "actionType": "kafkaConsume",
+                "kafkaConsumeAction": {
+                  "clusterId": "local-plaintext",
+                  "topic": "runner.kafka.consume",
+                  "fromBeginning": true,
+                  "maxMessages": 1,
+                  "timeoutMs": 5000,
+                  "filter": {
+                    "keyEquals": "order-1"
+                  }
+                },
+                "headers": [],
+                "validation": {
+                  "mode": "selective",
+                  "assertions": [
+                    {
+                      "type": "kafkaField",
+                      "target": "kafka.key",
+                      "operator": "equals",
+                      "value": "order-1"
+                    },
+                    {
+                      "type": "kafkaField",
+                      "target": "kafka.header.x-source",
+                      "operator": "equals",
+                      "value": "runner-test"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "http-mixed-scenario",
+            "name": "HTTP — Health Check (Mixed)",
+            "kind": "standard",
+            "tests": [
+              {
+                "id": "http-health-001",
+                "name": "GET Health Check",
+                "url": "http://localhost:3001/health",
+                "method": "GET",
+                "headers": [],
+                "validation": {
+                  "mode": "status"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

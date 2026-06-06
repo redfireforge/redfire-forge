@@ -1,6 +1,7 @@
 pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
+mod kafka;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
@@ -52,24 +53,36 @@ mod validation_result_test;
 mod validation_types_test;
 
 use commands::ExecutorState;
+use kafka::state::KafkaState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  #[allow(unused_mut)] // `mut` is required when the `mcp-bridge` feature is enabled
   let mut builder = tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     .manage(ExecutorState::new())
+    .manage(KafkaState::new())
     .invoke_handler(tauri::generate_handler![
       commands::start_load_test,
       commands::abort_load_test,
       commands::is_rust_executor_available,
+      kafka::lifecycle::kafka_connect,
+      kafka::lifecycle::kafka_disconnect,
+      kafka::lifecycle::kafka_status,
+      kafka::lifecycle::kafka_topics,
+      kafka::operations::kafka_produce,
+      kafka::operations::kafka_consume_once,
+      kafka::operations::kafka_subscribe,
+      kafka::operations::kafka_unsubscribe,
+      kafka::operations::kafka_subscriptions,
     ]);
 
-  #[cfg(feature = "mcp-bridge")]
+  #[cfg(debug_assertions)]
   {
-    builder = builder.plugin(tauri_plugin_connector::init());
+    builder = builder.plugin(tauri_plugin_mcp_bridge::init());
   }
 
   builder

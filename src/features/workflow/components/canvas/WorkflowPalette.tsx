@@ -26,6 +26,10 @@ const ALL_BLOCKS: BlockDef[] = [
   { type: 'webhook', title: 'Webhook Trigger', desc: 'Incoming HTTP request', category: 'triggers' },
   { type: 'schedule', title: 'Schedule Trigger', desc: 'Cron-based execution', category: 'triggers' },
   { type: 'http', title: 'HTTP Request', desc: 'API call with extraction', category: 'actions' },
+  { type: 'kafkaProduce', title: 'Kafka Produce', desc: 'Publish a message to Kafka', category: 'actions' },
+  { type: 'kafkaConsume', title: 'Kafka Consume', desc: 'Read messages from Kafka', category: 'actions' },
+  { type: 'kafkaTrigger', title: 'Kafka Trigger', desc: 'Start workflow from a Kafka message', category: 'triggers' },
+  { type: 'kafkaWait', title: 'Kafka Wait', desc: 'Pause workflow until a correlated Kafka message arrives', category: 'actions' },
   { type: 'delay', title: 'Delay', desc: 'Pause between steps', category: 'actions' },
   { type: 'condition', title: 'Condition', desc: 'If/Else branching', category: 'logic' },
   { type: 'switch', title: 'Switch', desc: 'Multi-way branching', category: 'logic' },
@@ -115,6 +119,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
   const handleBlockDragStart = useCallback((e: React.DragEvent, block: BlockDef) => {
     e.dataTransfer.setData('application/reactflow-type', block.type);
+    e.dataTransfer.setData('text/x-reactflow-type', block.type);
     e.dataTransfer.effectAllowed = 'move';
     // Create styled drag ghost
     const ghost = document.createElement('div');
@@ -125,13 +130,13 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
     document.body.appendChild(ghost);
     dragGhostRef.current = ghost;
     e.dataTransfer.setDragImage(ghost, 40, 20);
-    // Clean up after drag ends
-    setTimeout(() => {
-      if (dragGhostRef.current) {
-        document.body.removeChild(dragGhostRef.current);
-        dragGhostRef.current = null;
-      }
-    }, 0);
+  }, []);
+
+  const handleBlockDragEnd = useCallback(() => {
+    if (dragGhostRef.current) {
+      document.body.removeChild(dragGhostRef.current);
+      dragGhostRef.current = null;
+    }
   }, []);
 
   const toggle = (id: string) => setExpanded(prev => {
@@ -174,19 +179,23 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                     <span className="wf-palette-count">{blocks.length}</span>
                   </button>
                   {isOpen && blocks.map(block => (
-                    <button
+                    <div
                       key={block.type}
+                      role="button"
+                      tabIndex={0}
                       className={`wf-palette-block wf-palette-block-${block.type}`}
                       onClick={() => onAddNode(block.type)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAddNode(block.type); } }}
                       draggable
                       onDragStart={(e) => handleBlockDragStart(e, block)}
+                      onDragEnd={handleBlockDragEnd}
                     >
                       <NodeIcon type={block.type} />
                       <div>
                         <div className="wf-pb-title">{highlightMatch(block.title, searchQuery.trim())}</div>
                         <div className="wf-pb-desc">{highlightMatch(block.desc, searchQuery.trim())}</div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               );

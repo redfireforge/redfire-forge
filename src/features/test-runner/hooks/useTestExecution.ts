@@ -10,6 +10,9 @@ import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
 import { toErrorMessage } from '../../../shared/utils/helpers';
+import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
+import type { KafkaResultsPublishConfig } from '../../../shared/types';
+import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -50,7 +53,10 @@ function capResults(results: RequestResult[]): RequestResult[] {
   return [...failed, ...sampled];
 }
 
-export function useTestExecution() {
+export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
+  const publishConfigRef = useRef(publishConfig);
+  publishConfigRef.current = publishConfig;
+
   const [state, setState] = useState<TestExecutionState>({
     isRunning: false,
     completed: 0,
@@ -169,7 +175,7 @@ export function useTestExecution() {
     if (r.responseTimeMs < inc.min) inc.min = r.responseTimeMs;
     if (r.responseTimeMs > inc.max) inc.max = r.responseTimeMs;
     if (!hasStreamingMetrics) inc.times.push(r.responseTimeMs);
-    if (r.httpStatus >= 400 || r.httpStatus === 0) {
+    if ((r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)) {
       inc.failedRequests++;
       inc.errorsByStatus[r.httpStatus] = (inc.errorsByStatus[r.httpStatus] || 0) + 1;
     }
@@ -199,7 +205,7 @@ export function useTestExecution() {
       const recentWindow = pending.allResults.slice(-Math.max(intervalCompleted, 1));
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
-      const failedInWindow = recentWindow.filter(r => r.httpStatus >= 400 || r.httpStatus === 0).length;
+      const failedInWindow = recentWindow.filter(r => (r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)).length;
       const errorPct = (failedInWindow / recentWindow.length) * 100;
 
       const point: TimeSeriesPoint = {
@@ -325,6 +331,8 @@ export function useTestExecution() {
         : onProgress;
 
       let testResult;
+      // Build Kafka operations for both workflow-mode and harness-mode Kafka scenarios.
+      const kafkaOps = buildKafkaNodeOperations();
       if (useRust) {
         testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
@@ -333,10 +341,10 @@ export function useTestExecution() {
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
       }
 
       if (flushTimerRef.current) {
@@ -389,6 +397,14 @@ export function useTestExecution() {
 
       const saveResult = await saveTestRun(testRun);
 
+      if (!saveResult.quotaError && publishConfigRef.current?.enabled) {
+        void publishRunResults(testRun, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed', outcome);
+          }
+        });
+      }
+
       const wasAborted = abortRef.current?.signal.aborted ?? false;
       const activeResults = testResult.results.filter(r => !r.cancelled);
       const finalCompleted = wasAborted
@@ -438,6 +454,13 @@ export function useTestExecution() {
     if (!pending) return;
     const result = await forceSaveTestRun(pending);
     if (result.ok) {
+      if (publishConfigRef.current?.enabled) {
+        void publishRunResults(pending, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed (confirmSave)', outcome);
+          }
+        });
+      }
       setState((prev) => ({ ...prev, finalRun: prev.pendingRun, pendingRun: null }));
     } else {
       setState((prev) => ({ ...prev, error: 'Storage is full. Please clear data manually in Settings → Storage.', pendingRun: null }));
@@ -555,6 +578,14 @@ export function useTestExecution() {
       };
 
       const saveResult = await saveTestRun(testRun);
+
+      if (!saveResult.quotaError && publishConfigRef.current?.enabled) {
+        void publishRunResults(testRun, publishConfigRef.current).then((outcome) => {
+          if (outcome.status === 'failed') {
+            console.warn('[RedfireForge] Kafka results publish failed (externalExec)', outcome);
+          }
+        });
+      }
 
       if (saveResult.quotaError) {
         setState((prev) => ({

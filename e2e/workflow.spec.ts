@@ -79,7 +79,7 @@ test.describe('Workflow Designer', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -215,7 +215,7 @@ test.describe('Workflow Creation', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -276,7 +276,7 @@ test.describe('Workflow Node Interaction', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
   });

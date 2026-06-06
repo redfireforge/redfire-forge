@@ -171,7 +171,7 @@ export default function RequestsSidebar({
     setDropTarget,
     dropInsert,
     setDropInsert,
-    autoExpandTimer,
+    autoExpandTimerRef,
     handleCollectionDragStart,
     handleReqDragStart,
     handleFolderDragStart,
@@ -197,6 +197,14 @@ export default function RequestsSidebar({
   const dismissCtx = useCallback(() => {
     setContextMenu(null); setShowMoveMenu(false); setShowFolderMoveMenu(false);
   }, []);
+
+  // Shared onDragLeave for collection/group containers with auto-expand timer cleanup.
+  const handleContainerDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropTarget(null);
+      if (autoExpandTimerRef.current) { clearTimeout(autoExpandTimerRef.current); autoExpandTimerRef.current = null; }
+    }
+  }, [setDropTarget, autoExpandTimerRef]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -542,24 +550,19 @@ export default function RequestsSidebar({
           e.dataTransfer.dropEffect = 'move';
           if (di.colId === col.id) return;
           setDropTarget(`col-header-${col.id}`);
-          if (!expandedCols.has(col.id) && !autoExpandTimer.current) {
-            autoExpandTimer.current = setTimeout(() => {
+          if (!expandedCols.has(col.id) && !autoExpandTimerRef.current) {
+            autoExpandTimerRef.current = setTimeout(() => {
               setExpandedCols(prev => new Set(prev).add(col.id));
-              autoExpandTimer.current = null;
+              autoExpandTimerRef.current = null;
             }, 500);
           }
         }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setDropTarget(null);
-            if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
-          }
-        }}
+        onDragLeave={handleContainerDragLeave}
         onDrop={(e) => {
           e.preventDefault();
           const di = dragItemRef.current;
           if (!di || di.colId === col.id) return;
-          if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
+          if (autoExpandTimerRef.current) { clearTimeout(autoExpandTimerRef.current); autoExpandTimerRef.current = null; }
           handleDrop(e, col.id, null);
         }}>
         <div className={`req-col-header ${selectedCollectionId === col.id && !selectedRequestId ? 'selected' : ''} ${dropTarget === `col-header-${col.id}` ? 'drop-target' : ''} ${dragItem?.kind === 'collection' && dragItem.colId === col.id ? 'dragging' : ''}`}
@@ -623,19 +626,14 @@ export default function RequestsSidebar({
           e.preventDefault(); e.stopPropagation();
           e.dataTransfer.dropEffect = 'move';
           setDropTarget(`group-${group.id}`);
-          if (!expandedCols.has(group.id) && !autoExpandTimer.current) {
-            autoExpandTimer.current = setTimeout(() => {
+          if (!expandedCols.has(group.id) && !autoExpandTimerRef.current) {
+            autoExpandTimerRef.current = setTimeout(() => {
               setExpandedCols(prev => new Set(prev).add(group.id));
-              autoExpandTimer.current = null;
+              autoExpandTimerRef.current = null;
             }, 500);
           }
         }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setDropTarget(null);
-            if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
-          }
-        }}
+        onDragLeave={handleContainerDragLeave}
         onDrop={(e) => handleGroupDrop(e, group.id)}>
 
         <div className={`req-group-header ${isDraggingThis ? 'dragging' : ''} ${isDropTgt ? 'drop-target' : ''}`}
