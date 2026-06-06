@@ -139,17 +139,18 @@
   <li>Migrating records from one system to another in batches</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Loading data from a <strong>CSV or JSON</strong> source into a workflow variable</li>
-  <li>Using a <strong>Loop</strong> node to iterate over an array of records</li>
-  <li>Sending <strong>HTTP POST</strong> requests for each item in the loop</li>
-  <li>Logging per-item results for <strong>audit trail</strong> and debugging</li>
-  <li><strong>Error accumulation</strong> — collecting failures without stopping the loop</li>
-  <li>Generating a <strong>summary report</strong> with success/failure counts</li>
+  <li>Using a <strong>Loop node</strong> (forEach mode) to iterate over a JSON array</li>
+  <li>Using <strong>Aggregate nodes</strong> with <code>count</code> and <code>concat</code> strategies to accumulate results across iterations</li>
+  <li>Branching on HTTP response status (<code>201</code> = success) inside a loop body</li>
+  <li>Using the Loop node's <strong>done</strong> edge to exit after all iterations</li>
+  <li>Routing the final result via a <strong>Switch node</strong> based on failure count</li>
+  <li>Using a <strong>SetVariable node</strong> to build a human-readable summary</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -157,46 +158,78 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │  Input: userList (CSV/JSON)
-  └──────┬──────┘
+  ┌──────────────────────────────┐
+  │    Start                     │  users = JSON array of 3 user objects
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  1. Load User List          │  Parse CSV/JSON into
-  │     (Script)                │  array of user records
-  │                             │
-  │  Output: users[] array      │
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  Init Trackers               │  SetVariable
+  │  (SetVariable)               │  successCount=0, failCount=0, createdIds=[]
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────────────────┐
-  │  2. Loop — For Each User                │
-  │  ┌─────────────────────────────────┐    │
-  │  │ 2a. Create User (HTTP POST)     │    │
-  │  │     POST /api/users             │    │
-  │  │     Body: { name, email, role } │    │
-  │  ├─────────────────────────────────┤    │
-  │  │ 2b. Log Result (Log)            │    │
-  │  │     "Created user: {{name}}"    │    │
-  │  ├─────────────────────────────────┤    │
-  │  │ 2c. Error Check (Condition)     │    │
-  │  │     if status != 201 →          │    │
-  │  │       accumulate error          │    │
-  │  └─────────────────────────────────┘    │
-  └──────┬──────────────────────────────────┘
+  ┌──────────────────────────────┐   ← body
+  │  Each User (Loop)            │──────────────────────────────────┐
+  │  (Loop - forEach)            │   sourceExpression: {{users}}    │
+  │                              │   itemVariable: user             │
+  └──────┬───────────────────────┘                                  │
+    done │                                                          ▼
+         │                                          ┌──────────────────────────┐
+         │                                          │  Create User             │
+         │                                          │  (HTTP POST /users)      │
+         │                                          │  Extracts: createStatus  │
+         │                                          │           (status code), │
+         │                                          │           userId ($.id)  │
+         │                                          └──────────────┬───────────┘
+         │                                                         ▼
+         │                                          ┌──────────────────────────┐
+         │                                          │  Created?                │
+         │                                          │  (Condition)             │
+         │                                          │  createStatus == 201     │
+         │                                          └──────────┬───────┬───────┘
+         │                                                true  │       │ false
+         │                                                      ▼       ▼
+         │                                       ┌─────────────┐  ┌─────────────────┐
+         │                                       │ Track       │  │ Track Failure   │
+         │                                       │ Success     │  │ (Aggregate)     │
+         │                                       │ (Aggregate) │  │ count→failCount │
+         │                                       │ concat→     │  └─────────────────┘
+         │                                       │ createdIds  │
+         │                                       │ count→      │
+         │                                       │ successCount│
+         │                                       └─────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  3. Summary Report          │  Log total created,
-  │     (Log)                   │  failed, skipped
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  Build Summary               │  SetVariable
+  │  (SetVariable)               │  resultType = {{failCount}}
+  │                              │  summary = "Created {{successCount}} users
+  │                              │             ({{failCount}} failed)"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌──────────────────────────────┐
+  │  Result Router               │  Switch on {{resultType}}
+  │  (Switch)                    │  case "0" → All OK
+  │                              │  default → Partial Report
+  └──────┬───────────────┬───────┘
+         │               │
+         ▼               ▼
+  ┌──────────────┐  ┌─────────────────┐
+  │  Success     │  │  Partial Report  │
+  │  Report      │  │  (HTTP POST)    │
+  │  (HTTP POST) │  └──────┬──────────┘
+  └──────┬───────┘         │
+         └────────┬─────────┘
+                  ▼
+             ┌──────┐
+             │  End │
+             └──────┘
 </div>
 
 <p>
-  <strong>6 nodes, 7 edges</strong> — a batch pipeline with a loop body containing
-  three steps (POST, Log, Error Check) that repeat for every user record.
+  <strong>12 nodes</strong> — Start → Init Trackers → Loop (forEach) →
+  [Create User → Created? → Track Success | Track Failure] →
+  Build Summary → Switch → [Success Report | Partial Report] → End.
+  The Loop's <em>body</em> edge runs for each user; the <em>done</em> edge fires
+  once all iterations complete.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -210,50 +243,66 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. Receives <code>userList</code> input — a CSV string or JSON array of user records.</td>
+    <td>Input variable: <code>users</code> — a JSON array of 3 user objects (title, body, userId).</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Load User List</td>
-    <td>Script</td>
-    <td>Parses the input into a <code>users[]</code> array. Initializes <code>results</code> accumulator with <code>{ success: 0, failed: 0, errors: [] }</code>.</td>
+    <td><span class="step-num">1</span> Init Trackers</td>
+    <td>SetVariable</td>
+    <td>Initialises <code>successCount=0</code>, <code>failCount=0</code>, <code>createdIds=[]</code> before the loop starts.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2a</span> Create User</td>
-    <td>HTTP</td>
-    <td>Inside the loop: sends <code>POST /api/users</code> with <code>{ name, email, role }</code> from the current item. Extracts <code>status</code> and <code>userId</code>.</td>
+    <td><span class="step-num">2</span> Each User</td>
+    <td>Loop (forEach)</td>
+    <td>Iterates over <code>{{users}}</code>. Current item available as <code>{{user}}</code>. Connects to Create User via the <em>body</em> edge, exits to Build Summary via the <em>done</em> edge. maxIterations: 50.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2b</span> Log Result</td>
-    <td>Log</td>
-    <td>Logs <code>"Created user: {{currentUser.name}} → status {{status}}"</code> for each iteration.</td>
+    <td><span class="step-num">3</span> Create User</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/users</code>. Body: <code>{{user}}</code>. Extracts: <code>createStatus</code> (HTTP status code), <code>userId</code> ← <code>$.id</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2c</span> Error Check</td>
+    <td><span class="step-num">4</span> Created?</td>
     <td>Condition</td>
-    <td>If <code>{{status}} != 201</code>, appends the error to <code>results.errors[]</code> and increments <code>results.failed</code>. Otherwise increments <code>results.success</code>.</td>
+    <td>Checks <code>{{createStatus}} == 201</code>. true → Track Success, false → Track Failure.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Summary Report</td>
-    <td>Log</td>
-    <td>After the loop completes, logs: <code>"Provisioning complete: {{results.success}} created, {{results.failed}} failed"</code>.</td>
+    <td><span class="step-num">5a</span> Track Success</td>
+    <td>Aggregate</td>
+    <td>Two mappings: concat <code>{{userId}}</code> into <code>createdIds</code>; count <code>1</code> into <code>successCount</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5b</span> Track Failure</td>
+    <td>Aggregate</td>
+    <td>One mapping: count <code>1</code> into <code>failCount</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">6</span> Build Summary</td>
+    <td>SetVariable</td>
+    <td>Sets <code>resultType = {{failCount}}</code> and <code>summary = "Created {{successCount}} users ({{failCount}} failed)"</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">7</span> Result Router</td>
+    <td>Switch</td>
+    <td>Switches on <code>{{resultType}}</code>. Case "0" → Success Report (all succeeded). Default → Partial Report (some failed).</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">8a</span> Success Report</td>
+    <td>HTTP POST</td>
+    <td>POST /posts with <code>{"title":"Batch Report","body":"{{summary}}","userId":1}</code>. Reports all-success outcome.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">8b</span> Partial Report</td>
+    <td>HTTP POST</td>
+    <td>POST /posts with <code>{"title":"Batch Report (Partial)","body":"{{summary}}","userId":1}</code>. Reports partial outcome.</td>
   </tr>
 </table>
 
-<h3>HTTP POST Configuration (Node 2a)</h3>
-<table>
-  <tr><td><strong>URL</strong></td><td><code>https://api.example.com/users</code></td></tr>
-  <tr><td><strong>Method</strong></td><td>POST</td></tr>
-  <tr><td><strong>Headers</strong></td><td><code>Content-Type: application/json</code>, <code>Authorization: Bearer {{apiToken}}</code></td></tr>
-  <tr><td><strong>Body</strong></td><td><code>{ "name": "{{currentUser.name}}", "email": "{{currentUser.email}}", "role": "{{currentUser.role}}" }</code></td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>status</code> ← response status code, <code>userId</code> ← body <code>$.id</code></td></tr>
-</table>
-
-<div class="callout">
-  <strong>📘 Error Accumulation Pattern</strong>
-  In batch processing, <em>never</em> fail on the first error. Instead, catch each
-  error, append it to an accumulator array, and continue processing remaining items.
-  The summary report at the end gives operators a complete picture of what succeeded
-  and what needs manual attention.
+<div class="callout callout-tip">
+  <strong>💡 Aggregate Node Strategies</strong>
+  The <code>count</code> strategy increments a counter each time the node fires.
+  The <code>concat</code> strategy appends the source value to an array variable.
+  Both persist their totals across loop iterations because Aggregate nodes write
+  to the workflow's shared variable scope.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -264,49 +313,44 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🎭 Batch User Provisioning"</strong>
-    in the <em>Orchestration</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Batch User Provisioning"</strong>
+    in the <em>Flow Control</em> category. Click <em>Import</em>.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Batch User Provisioning".
+    <strong>Add Start node.</strong><br>
+    Input variable: <code>users</code> = the JSON array shown above (3 user objects).
   </li>
   <li>
-    <strong>Add the Script node (Load User List).</strong><br>
-    Drag a Script node. Configure it to parse the <code>userList</code> input:
-    <pre>
-const users = JSON.parse(variables.userList);
-const results = { success: 0, failed: 0, errors: [] };
-setVariable('users', users);
-setVariable('results', results);</pre>
-    Connect Start → Load User List.
+    <strong>Add Init Trackers (SetVariable).</strong><br>
+    Set <code>successCount=0</code>, <code>failCount=0</code>, <code>createdIds=[]</code>.
+    Connect Start → Init Trackers.
   </li>
   <li>
-    <strong>Add the Loop node.</strong><br>
-    Drag a Loop node. Set the collection to <code>{{users}}</code> and the
-    item variable to <code>currentUser</code>. Connect Load User List → Loop.
+    <strong>Add Loop node (forEach).</strong><br>
+    Source: <code>{{users}}</code>. Item variable: <code>user</code>. maxIterations: 50.
+    Connect Init Trackers → Loop (body edge → Create User, done edge → Build Summary).
   </li>
   <li>
-    <strong>Build the loop body.</strong><br>
-    Inside the loop, add three nodes in sequence:
-    <ul>
-      <li><strong>Create User (HTTP)</strong> — POST with current user data</li>
-      <li><strong>Log Result (Log)</strong> — log the outcome per user</li>
-      <li><strong>Error Check (Condition)</strong> — branch on status code, update accumulator</li>
-    </ul>
+    <strong>Add Create User (HTTP POST).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/users</code>. Method: POST.
+    Body: <code>{{user}}</code>. Extractions: <code>createStatus</code> (status code), <code>userId</code> ← <code>$.id</code>.
   </li>
   <li>
-    <strong>Add the Summary Report node.</strong><br>
-    After the loop, add a Log node that outputs the final <code>results</code> object.
-    Connect Loop (completed) → Summary Report → End.
+    <strong>Add Created? Condition and both Aggregate nodes.</strong><br>
+    Condition: <code>{{createStatus}} == 201</code>. true → Track Success (concat+count). false → Track Failure (count).
+    Both Aggregates loop back to the Loop node (or leave dangling — the Loop's next iteration begins automatically).
   </li>
   <li>
-    <strong>Run with sample data.</strong><br>
-    Use the sample CSV or JSON input to test with 3–5 users. Verify each user is
-    created, errors are accumulated, and the summary is accurate.
+    <strong>Add Build Summary → Switch → Reports → End.</strong><br>
+    Switch expression: <code>{{resultType}}</code>. Case "0" → Success Report, default → Partial Report.
+    Both reports POST to /posts with <code>{{summary}}</code> in the body.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. JSONPlaceholder returns 201 for POST /users, so all 3 succeed and the Success Report fires.
   </li>
 </ol>
 
@@ -315,39 +359,20 @@ setVariable('results', results);</pre>
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (3 users: 2 success, 1 failure)</h3>
+<h3>Node States</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>userList input received</td></tr>
-  <tr><td>1. Load User List</td><td>✅ Pass</td><td>Parsed 3 user records</td></tr>
-  <tr><td>2. Loop (iteration 1)</td><td>✅ Pass</td><td>User "Alice" → 201 Created</td></tr>
-  <tr><td>2. Loop (iteration 2)</td><td>⚠️ Error</td><td>User "Bob" → 409 Conflict (duplicate)</td></tr>
-  <tr><td>2. Loop (iteration 3)</td><td>✅ Pass</td><td>User "Carol" → 201 Created</td></tr>
-  <tr><td>3. Summary Report</td><td>✅ Pass</td><td>2 created, 1 failed</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>users array loaded (3 items)</td></tr>
+  <tr><td>Init Trackers</td><td>✅ Pass</td><td>successCount=0, failCount=0, createdIds=[]</td></tr>
+  <tr><td>Each User (Loop)</td><td>✅ Pass</td><td>3 iterations completed</td></tr>
+  <tr><td>Create User (×3)</td><td>✅ Pass</td><td>HTTP 201 each time</td></tr>
+  <tr><td>Created? (×3)</td><td>✅ Pass (true)</td><td>201 == 201</td></tr>
+  <tr><td>Track Success (×3)</td><td>✅ Pass</td><td>successCount=3, createdIds=[11,12,13]</td></tr>
+  <tr><td>Build Summary</td><td>✅ Pass</td><td>summary = "Created 3 users (0 failed)"</td></tr>
+  <tr><td>Result Router</td><td>✅ Pass (case "0")</td><td>failCount=0 → All OK</td></tr>
+  <tr><td>Success Report</td><td>✅ Pass</td><td>POST /posts · HTTP 201</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
-
-<h3>Summary Output (Node 3)</h3>
-<pre>
-{
-  "success": 2,
-  "failed": 1,
-  "errors": [
-    {
-      "user": "Bob",
-      "email": "bob@example.com",
-      "status": 409,
-      "message": "User already exists"
-    }
-  ]
-}</pre>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Rate Limiting</strong>
-  When processing large batches (100+ items), add a delay between API calls to avoid
-  hitting rate limits. Use a Script node with a configurable <code>delayMs</code>
-  variable between iterations, or implement exponential backoff on 429 responses.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -355,40 +380,33 @@ setVariable('results', results);</pre>
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add Retry Logic</h3>
+<h3>Exercise 1: Trigger the Partial Path</h3>
 <p>
-  When a user creation fails with a 5xx error, retry up to 3 times with exponential
-  backoff before marking it as failed. Use a nested loop or a retry counter variable.
+  The real JSONPlaceholder POST /users always returns 201. To test the failure path:
+  change the Create User URL to a <em>non-existent endpoint</em> for every other iteration
+  (use a Condition before the HTTP call). Verify <code>failCount &gt; 0</code> routes to Partial Report.
 </p>
 
-<h3>Exercise 2: CSV File Input</h3>
+<h3>Exercise 2: Add a Rate Limiter</h3>
 <p>
-  Modify the Load User List node to accept a CSV file path instead of inline JSON.
-  Parse the CSV headers and map columns to the <code>{ name, email, role }</code>
-  structure.
+  Add a <strong>Delay node</strong> after each Create User call (500ms). This simulates
+  respecting a rate limit on the provisioning API.
 </p>
 
-<h3>Exercise 3: Parallel Batch Processing</h3>
+<h3>Exercise 3: Store the Full Created Users List</h3>
 <p>
-  Split the user list into chunks of 10 and process each chunk in parallel using
-  parallel branches. Merge the results from all chunks into a single summary report.
+  Change the Track Success Aggregate to also concat the full <code>{{user}}</code> object
+  into a <code>createdUsers</code> array. Include the array length in the summary using
+  <code>$count(createdUsers)</code>.
 </p>
 
-<h3>Exercise 4: Email the Report</h3>
+<h3>Exercise 4: Parallel Batch Processing</h3>
 <p>
-  After the Summary Report node, add an HTTP POST node that sends the report as an
-  email via a mail API (e.g., SendGrid or Mailgun). Include the success/failure
-  counts and the full error list.
+  Replace the forEach Loop with a Fork/Join parallel split (one branch per user).
+  Compare execution time. Note that you cannot use Aggregate nodes the same way —
+  use separate variables for each branch instead.
 </p>
 
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  After mastering batch processing, try the
-  <a href="order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a> to learn
-  how to compose multi-stage pipelines with reusable validation sub-workflows.
-</div>
-
-<footer>RedfireForge Training Manual — Batch User Provisioning · April 2026</footer>
+<footer>RedfireForge Training Manual — Batch User Provisioning · v0.6.0</footer>
 
 </body>
-</html>
