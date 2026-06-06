@@ -460,4 +460,102 @@ describe('KafkaSchemaRegistryPage', () => {
     // Raw schema returned as-is when JSON.parse fails
     expect(screen.getByTestId('schema-content').textContent).toContain('not-valid-json}');
   });
+
+  it('shows "No subjects match the filter" when filter excludes all subjects', async () => {
+    // Covers line 182: reg.subjects.length > 0 but filteredSubjects.length === 0
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['orders.v1', 'payments.v1'] } });
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    await connectAndLoad(mockDispatch);
+    await waitFor(() => { expect(screen.getByText('orders.v1')).toBeTruthy(); });
+
+    // Apply a filter that matches nothing
+    fireEvent.change(screen.getByTestId('subject-filter'), {
+      target: { value: 'zzz-no-match' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('No subjects match the filter')).toBeTruthy();
+    });
+  });
+
+  it('shows versions error banner when versions fetch fails', async () => {
+    // Covers the `{reg.versionsError && <div data-testid="versions-error">}` branch
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['orders.v1'] } })
+      .mockRejectedValueOnce(new Error('version fetch error'));
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    await connectAndLoad(mockDispatch);
+    await waitFor(() => { expect(screen.getByText('orders.v1')).toBeTruthy(); });
+    fireEvent.click(screen.getByTestId('subject-row-orders.v1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('versions-error')).toBeTruthy();
+    });
+  });
+
+  it('shows schema error banner when schema detail fetch fails', async () => {
+    // Covers the `{reg.schemaError && <div data-testid="schema-error">}` branch
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['orders.v1'] } })
+      .mockResolvedValueOnce({ data: { subject: 'orders.v1', versions: [1, 2] } })
+      .mockRejectedValueOnce(new Error('schema fetch error'));
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    await connectAndLoad(mockDispatch);
+    await waitFor(() => { expect(screen.getByText('orders.v1')).toBeTruthy(); });
+    fireEvent.click(screen.getByTestId('subject-row-orders.v1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('schema-error')).toBeTruthy();
+    });
+  });
+
+  it('version select value uses empty string when selectedVersion is null', async () => {
+    // Covers the `reg.selectedVersion ?? ""` null-coalescing fallback (line 245)
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['topic-v1'] } })
+      .mockResolvedValueOnce({ data: { subject: 'topic-v1', versions: [] } }); // empty versions
+
+    render(
+      <KafkaSchemaRegistryPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+        deps={{ dispatch: mockDispatch }}
+      />,
+    );
+
+    await connectAndLoad(mockDispatch);
+    await waitFor(() => { expect(screen.getByText('topic-v1')).toBeTruthy(); });
+    fireEvent.click(screen.getByTestId('subject-row-topic-v1'));
+
+    // Version list loaded but is empty → selectedVersion is null → select value = ''
+    await waitFor(() => {
+      const select = screen.queryByTestId('version-select') as HTMLSelectElement | null;
+      if (select) expect(select.value).toBe('');
+    });
+  });
 });

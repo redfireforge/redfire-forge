@@ -309,4 +309,82 @@ describe('KafkaMessageStudioPage', () => {
     await waitFor(() => expect(loadConsume).toHaveBeenCalledWith('c1'));
     spy.mockRestore();
   });
+
+  it('clicking the Publish tab calls setActiveTab (back to publish)', async () => {
+    // Covers line 89: onClick={() => setActiveTab('publish')
+    const user = userEvent.setup();
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    // Switch to Consume first
+    await user.click(screen.getByRole('button', { name: 'Consume' }));
+    expect(screen.getByRole('button', { name: 'Consume' }).className).toContain('active');
+    // Switch back to Publish — this fires setActiveTab('publish')
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+    expect(screen.getByRole('button', { name: 'Publish' }).className).toContain('active');
+  });
+
+  it('handleLoadPublishTemplate: when loadPublishTemplate returns null, setPublishDraft is NOT called', async () => {
+    // Covers the `if (draft)` false branch in handleLoadPublishTemplate (line 41)
+    const mockTemplateModule = await import('../../app/hooks/useKafkaTemplates');
+    const loadPublish = vi.fn().mockReturnValue(null); // returns null → if(draft) is false
+    const setPublishDraft = vi.fn();
+    const studioModule = await import('../../app/hooks/useKafkaMessageStudio');
+    const studioSpy = vi.spyOn(studioModule, 'useKafkaMessageStudio').mockReturnValue({
+      publishDraft: { topic: '', key: '', partition: '', acks: -1 as const, timeoutMs: '', headers: [], body: '' },
+      consumeDraft: { topic: '', groupId: '', startPosition: 'latest' as const, timeoutMs: '10000', maxMessages: '10', keyEquals: '', headerMatch: '', jsonPath: '', jsonPathEquals: '' },
+      setPublishDraft,
+      setConsumeDraft: vi.fn(),
+      publishResult: null,
+      publishError: null,
+      publishLoading: false,
+      consumeResult: null,
+      consumeError: null,
+      consumeLoading: false,
+      consumeMessageCount: 0,
+      consumeTimedOut: false,
+      selectedMessage: null,
+      selectedMessageIndex: null,
+      hasMore: false,
+      loadMoreLoading: false,
+      selectMessage: vi.fn(),
+      publish: vi.fn(),
+      consume: vi.fn(),
+      loadMore: vi.fn(),
+      cancelConsume: vi.fn(),
+      clearConsumeError: vi.fn(),
+      clearPublishError: vi.fn(),
+    } as never);
+    const spy = vi.spyOn(mockTemplateModule, 'useKafkaTemplates').mockReturnValue({
+      publishTemplates: [{ id: 'p1', name: 'Null Draft', createdAt: '2026-01-01', draft: null as never }],
+      consumeTemplates: [],
+      templatesLoading: false,
+      templateError: null,
+      savePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      loadPublishTemplate: loadPublish,
+      deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+      saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+      loadConsumeTemplate: vi.fn().mockReturnValue(null),
+      deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    fireEvent.click(screen.getByText('Null Draft'));
+    await waitFor(() => expect(loadPublish).toHaveBeenCalledWith('p1'));
+    // draft was null → setPublishDraft should NOT be called
+    expect(setPublishDraft).not.toHaveBeenCalled();
+    spy.mockRestore();
+    studioSpy.mockRestore();
+  });
+
+  it('when selectedClusterId is null, clusterId defaults to empty string', () => {
+    // Covers the `kafkaState.selectedClusterId ?? ''` null-coalescing branch (line 81)
+    render(
+      <KafkaMessageStudioPage
+        kafkaState={makeKafkaState({ selectedClusterId: null as unknown as string })}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    // Component renders without crash — clusterId is '' (no cluster to show errors about)
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeTruthy();
+  });
 });

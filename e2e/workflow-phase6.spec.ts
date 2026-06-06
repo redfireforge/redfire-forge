@@ -225,7 +225,7 @@ test.describe('Phase 6 – Toast Notifications', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

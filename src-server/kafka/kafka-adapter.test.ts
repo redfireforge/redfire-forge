@@ -63,6 +63,7 @@ const mocks = vi.hoisted(() => {
     stop: vi.fn(async () => undefined),
     pause: vi.fn(() => undefined),
     resume: vi.fn(() => undefined),
+    seek: vi.fn(() => undefined),
   };
 
   function KafkaMock(this: unknown) {
@@ -564,6 +565,310 @@ describe('kafka-adapter', () => {
       expect(detail.healthStatus).toBe('unknown');
       expect(detail.replicationFactor).toBe(0);
       expect(detail.partitionCount).toBe(0);
+    });
+
+    it('uses false for isInternal when topicMeta is not in topics array', async () => {
+      // Covers the `topicMeta ? ... : false` false branch (line 229) when topics is empty
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({ topics: [] }); // no topic meta
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('ghost-topic');
+
+      expect(detail.isInternal).toBe(false); // false branch of topicMeta ? ... : false
+      expect(detail.partitionCount).toBe(0);
+    });
+
+    it('uses false for isInternal when isInternal property is undefined on topicMeta', async () => {
+      // Covers the `isInternal ?? false` null-coalescing branch (line 230)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{ name: 'no-internal-flag', partitions: [] }], // no isInternal property
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('no-internal-flag');
+
+      expect(detail.isInternal).toBe(false); // isInternal was undefined → ?? false
+    });
+
+    it('uses default offset 0/0 when partition is missing from offsets result', async () => {
+      // Covers `offsetMap.get(p.partitionId) ?? { low: "0", high: "0" }` fallback (line 237)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [
+            { partitionId: 0, leader: 1, replicas: [1], isr: [1] },
+            { partitionId: 1, leader: 2, replicas: [1], isr: [1] }, // partition 1 has no offsets
+          ],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([
+        { partition: 0, low: '10', high: '20' }, // only partition 0 has offsets
+      ]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      // Partition 1 falls back to { low: '0', high: '0' } → messageCount = 0
+      expect(detail.partitions[1].earliestOffset).toBe('0');
+      expect(detail.partitions[1].latestOffset).toBe('0');
+      expect(detail.partitions[1].messageCount).toBe(0);
+    });
+
+    it('uses 0 for messageCount when offset arithmetic yields NaN', async () => {
+      // Covers `isNaN(msgCount) ? 0 : msgCount` true branch (line 248)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([
+        { partition: 0, low: 'n/a', high: 'n/a' }, // non-numeric offsets → NaN
+      ]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.partitions[0].messageCount).toBe(0); // isNaN → 0
+    });
+
+    it('uses null replicas and isr arrays when partition properties are undefined', async () => {
+      // Covers `p.replicas ?? []` and `p.isr ?? []` null-coalescing branches (lines 243-244)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1 }], // no replicas or isr
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '10' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.partitions[0].replicas).toEqual([]); // replicas ?? [] fallback
+      expect(detail.partitions[0].isr).toEqual([]); // isr ?? [] fallback
+    });
+
+    it('uses empty configEntries when resources is undefined in describeConfigs result', async () => {
+      // Covers `configResult.resources?.[0]?.configEntries ?? []` null fallback (line 261)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{ name: 'orders.created', isInternal: false, partitions: [] }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({}); // no resources property
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.config).toEqual({}); // empty config — no entries
+    });
+
+    it('skips config entry when configValue is null', async () => {
+      // Covers `entry.configValue != null` false branch (line 264)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{ name: 'orders.created', isInternal: false, partitions: [] }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({
+        resources: [{ configEntries: [
+          { configName: 'retention.ms', configValue: '604800000' },
+          { configName: 'null-entry', configValue: null }, // this entry should be skipped
+        ] }],
+      });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.config['retention.ms']).toBe('604800000');
+      expect(Object.keys(detail.config)).not.toContain('null-entry'); // skipped
+    });
+
+    it('swallows consumer groups error and returns empty array (best-effort catch)', async () => {
+      // Covers the catch block in fetchConsumerGroupsForTopic (line ~279-282)
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{ name: 'orders.created', isInternal: false, partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }] }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      // listGroups throws — this triggers the catch block which swallows the error
+      mocks.admin.listGroups.mockRejectedValueOnce(new Error('group list timeout'));
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      // Error was swallowed — consumer groups defaults to []
+      expect(detail.consumerGroups).toEqual([]);
+    });
+  });
+
+  describe('KafkaJsAdminAdapter — fetchTopicOffsets', () => {
+    it('maps raw kafkajs partition offsets to KafkaPartitionOffsets', async () => {
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([
+        { partition: 0, low: '10', high: '200' },
+        { partition: 1, low: '0', high: '50' },
+      ]);
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const offsets = await admin.fetchTopicOffsets('orders.created');
+
+      expect(offsets).toEqual([
+        { partition: 0, low: '10', high: '200' },
+        { partition: 1, low: '0', high: '50' },
+      ]);
+    });
+  });
+
+  describe('KafkaJsConsumerAdapter — seek and pause/resume', () => {
+    it('seek delegates to consumer.seek with correct args', () => {
+      const runtime = createKafkaRuntimeAdapter();
+      const consumer = runtime.createConsumer(makeConnection(), 'test-group');
+      consumer.seek('orders.created', 1, '42');
+      expect(mocks.consumer.seek).toHaveBeenCalledWith({
+        topic: 'orders.created',
+        partition: 1,
+        offset: '42',
+      });
+    });
+
+    it('resume delegates to consumer.resume', () => {
+      const runtime = createKafkaRuntimeAdapter();
+      const consumer = runtime.createConsumer(makeConnection(), 'test-group');
+      consumer.resume([{ topic: 'orders.created', partitions: [0] }]);
+      expect(mocks.consumer.resume).toHaveBeenCalledWith([{ topic: 'orders.created', partitions: [0] }]);
+    });
+  });
+
+  describe('fetchConsumerGroupsForTopic — branch coverage', () => {
+    it('uses empty partitions array when topicOffsetEntries.partitions is undefined', async () => {
+      // Covers line 309: (topicOffsetEntries as {...}).partitions ?? []
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'grp-no-parts' }] });
+      // fetchOffsets returns topic entry but partitions is undefined
+      mocks.admin.fetchOffsets.mockResolvedValueOnce([{
+        topic: 'orders.created',
+        // partitions property intentionally omitted
+      }]);
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      // No committed offsets found → consumer group is skipped
+      expect(detail.consumerGroups).toHaveLength(0);
+    });
+
+    it('uses 0 as latest when partition is not in the topic offset latestMap', async () => {
+      // Covers line 317: latestMap.get(po.partition) ?? 0
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      // fetchTopicOffsets for the topic — partition 0 is in the map
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'grp-unknown-part' }] });
+      // Consumer group claims partition 99 which is NOT in the latestMap
+      mocks.admin.fetchOffsets.mockResolvedValueOnce([{
+        topic: 'orders.created',
+        partitions: [{ partition: 99, offset: '5' }], // partition 99 not in latestMap
+      }]);
+      mocks.admin.describeGroups.mockResolvedValueOnce({ groups: [{ state: 'Stable' }] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      // Group should be included with lag = max(0, 0 - 5) = 0 (latest ?? 0 = 0, committed = 5, lag = max(0, 0-5) = 0)
+      expect(detail.consumerGroups).toHaveLength(1);
+      expect(detail.consumerGroups[0].totalLag).toBe(0);
+    });
+
+    it('uses Unknown state when describeGroups returns group with no state', async () => {
+      // Covers line 324: desc.groups?.[0]?.state ?? 'Unknown'
+      mocks.admin.fetchTopicMetadata.mockResolvedValueOnce({
+        topics: [{
+          name: 'orders.created',
+          isInternal: false,
+          partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1] }],
+        }],
+      });
+      mocks.admin.fetchTopicOffsets.mockResolvedValueOnce([{ partition: 0, low: '0', high: '100' }]);
+      mocks.admin.describeConfigs.mockResolvedValueOnce({ resources: [{ configEntries: [] }] });
+      mocks.admin.listGroups.mockResolvedValueOnce({ groups: [{ groupId: 'grp-no-state' }] });
+      mocks.admin.fetchOffsets.mockResolvedValueOnce([{
+        topic: 'orders.created',
+        partitions: [{ partition: 0, offset: '50' }],
+      }]);
+      // describeGroups returns a group with no state field
+      mocks.admin.describeGroups.mockResolvedValueOnce({ groups: [{ /* no state */ }] });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const admin = runtime.createAdmin(makeConnection());
+      const detail = await admin.fetchTopicDetail('orders.created');
+
+      expect(detail.consumerGroups).toHaveLength(1);
+      expect(detail.consumerGroups[0].state).toBe('Unknown');
+    });
+  });
+
+  describe('KafkaJsConsumerAdapter — rawValue with non-Buffer message.value', () => {
+    it('wraps non-Buffer message.value in Buffer.from for rawValue', async () => {
+      // Covers line 407: Buffer.from(message.value) branch when value is not a Buffer
+      const stringValue = 'plain-string-value';
+      mocks.setConsumerMessage({
+        offset: '30',
+        timestamp: '0',
+        key: null,
+        value: stringValue as unknown as Buffer, // non-Buffer value
+        headers: undefined,
+      });
+
+      const runtime = createKafkaRuntimeAdapter();
+      const consumer = runtime.createConsumer(makeConnection(), 'grp-non-buf');
+      const eachMessage = vi.fn(async () => undefined);
+
+      await consumer.run(eachMessage);
+
+      const record = eachMessage.mock.calls[0][0] as Record<string, unknown>;
+      expect(Buffer.isBuffer(record['rawValue'])).toBe(true);
+      expect((record['rawValue'] as Buffer).toString('utf8')).toBe(stringValue);
     });
   });
 });

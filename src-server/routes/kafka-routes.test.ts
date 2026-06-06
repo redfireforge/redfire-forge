@@ -647,4 +647,81 @@ describe('kafka-routes', () => {
       );
     });
   });
+
+  describe('GET /api/kafka/topics/:topicName/detail', () => {
+    it('returns 200 with topic detail on success', async () => {
+      const service = createMockService();
+      (service as Record<string, unknown>).getTopicDetail = vi.fn(async () =>
+        createKafkaSuccessEnvelope('topic-detail', {
+          clusterId: 'local-dev',
+          topic: { name: 'orders.created', partitionCount: 3, replicationFactor: 1, isInternal: false, partitions: [], consumerGroups: [], config: {}, healthStatus: 'healthy' as const },
+        }),
+      );
+      const app = createApp(service);
+
+      const res = await request(app).get('/api/kafka/topics/orders.created/detail');
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+    });
+
+    it('catches unexpected thrown errors and returns KAFKA_TOPIC_DETAIL_FAILED', async () => {
+      const service = createMockService();
+      (service as Record<string, unknown>).getTopicDetail = vi.fn(async () => {
+        throw new Error('broker disconnected');
+      });
+      const app = createApp(service);
+
+      const res = await request(app).get('/api/kafka/topics/orders.created/detail?clusterId=local-dev');
+
+      expect(res.status).toBe(500);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.error.code).toBe('KAFKA_TOPIC_DETAIL_FAILED');
+      expect(res.body.error.message).toContain('broker disconnected');
+    });
+
+    it('forwards clusterId query parameter to service', async () => {
+      const service = createMockService();
+      const detailMock = vi.fn(async () =>
+        createKafkaSuccessEnvelope('topic-detail', {
+          clusterId: 'cluster-a',
+          topic: { name: 'payments', partitionCount: 1, replicationFactor: 1, isInternal: false, partitions: [], consumerGroups: [], config: {}, healthStatus: 'unknown' as const },
+        }),
+      );
+      (service as Record<string, unknown>).getTopicDetail = detailMock;
+      const app = createApp(service);
+
+      await request(app).get('/api/kafka/topics/payments/detail?clusterId=cluster-a');
+
+      expect(detailMock).toHaveBeenCalledWith('payments', expect.objectContaining({ clusterId: 'cluster-a' }));
+    });
+  });
+
+  describe('POST /api/kafka/schema-versions — additional branches', () => {
+    it('rejects non-object body with 400', async () => {
+      const service = createMockService();
+      const app = createApp(service);
+
+      const res = await request(app)
+        .post('/api/kafka/schema-versions')
+        .send([{ schemaConfig: { registryUrl: 'http://r:8081' }, subject: 'my-topic-value' }]);
+
+      expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+    });
+  });
+
+  describe('POST /api/kafka/schema-fetch — additional branches', () => {
+    it('rejects non-object body with 400', async () => {
+      const service = createMockService();
+      const app = createApp(service);
+
+      const res = await request(app)
+        .post('/api/kafka/schema-fetch')
+        .send([{ schemaConfig: { registryUrl: 'http://r:8081' }, subject: 'my-topic-value', version: 1 }]);
+
+      expect(res.status).toBe(400);
+      expect(res.body.ok).toBe(false);
+    });
+  });
 });

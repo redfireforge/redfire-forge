@@ -30,8 +30,13 @@ vi.mock('./correlation-handler.js', () => ({
   setCorrelationStore: vi.fn(),
 }));
 
-vi.mock('./correlation-store-factory.js', () => ({
-  createCorrelationStore: vi.fn(),
+vi.mock('./kafka/kafkaTriggerSubscriptionManager.js', () => ({
+  kafkaTriggerSubscriptionManager: {
+    activateAll: vi.fn(async () => {}),
+    deactivateAll: vi.fn(async () => {}),
+    subscribe: vi.fn(async () => {}),
+    unsubscribe: vi.fn(async () => {}),
+  },
 }));
 
 import {
@@ -559,5 +564,27 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(500);
       expect(res.body.message).toBe('string error');
     });
+  });
+});
+
+// ── shutdown / graceful cleanup ────────────────────────────────────────────
+
+describe('webhook-server — shutdown', () => {
+  it('shutdown deactivates Kafka subscriptions and exits', async () => {
+    const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    // Emit SIGTERM to trigger shutdown
+    process.emit('SIGTERM');
+
+    // Allow the async shutdown to complete
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    exitSpy.mockRestore();
+    consoleSpy.mockRestore();
   });
 });

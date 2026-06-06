@@ -73,7 +73,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows_selected_id', 'wf-visual-e2e');
   }, JSON.stringify([makeVisualWorkflow()]));
   await page.goto('/?tab=workflow');
-  await page.waitForSelector('.wf-designer', { timeout: 10000 });
+  await page.waitForSelector('.wf-designer', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 }
 

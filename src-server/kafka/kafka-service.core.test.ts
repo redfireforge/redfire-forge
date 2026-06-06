@@ -521,3 +521,27 @@ describe('KafkaService — Core Scenarios', () => {
     expect(list.data.subscriptions).toHaveLength(0);
   });
 });
+
+// ── test-utils coverage helpers ───────────────────────────────────────────
+
+describe('createMockRuntimeAdapter — coverage helpers', () => {
+  it('fetchTopicDetail marks internal topics (__ prefix)', async () => {
+    // Covers line 59: topicName.startsWith('__')
+    const mock = createMockRuntimeAdapter();
+    const admin = mock.runtimeAdapter.createAdmin(makeConnection());
+    const internalDetail = await admin.fetchTopicDetail('__consumer_offsets');
+    expect(internalDetail.isInternal).toBe(true);
+    const normalDetail = await admin.fetchTopicDetail('orders.created');
+    expect(normalDetail.isInternal).toBe(false);
+  });
+
+  it('consumer pause and resume do not throw (mock stubs)', () => {
+    // Covers lines 106-107: pause: vi.fn(() => undefined), resume: vi.fn(() => undefined)
+    const mock = createMockRuntimeAdapter();
+    const consumer = mock.runtimeAdapter.createConsumer(makeConnection(), 'grp-1');
+    expect(() => consumer.pause([{ topic: 'orders.created' }])).not.toThrow();
+    expect(() => consumer.resume([{ topic: 'orders.created' }])).not.toThrow();
+    expect(mock.consumer.pause).toHaveBeenCalledWith([{ topic: 'orders.created' }]);
+    expect(mock.consumer.resume).toHaveBeenCalledWith([{ topic: 'orders.created' }]);
+  });
+});
