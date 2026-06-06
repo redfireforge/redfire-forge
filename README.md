@@ -824,6 +824,10 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 | **End** | Terminal state | Marks workflow completion; stops execution even if other nodes haven't run yet |
 | **Webhook Trigger** | HTTP endpoint trigger | Configure HTTP method, endpoint path, and sample payload; extract variables via JSONPath for downstream nodes; visual badge with method/path/extraction count |
 | **Schedule Trigger** | Cron-based trigger | 5-field cron expression with timezone support; human-readable schedule description; automatic `{{triggerTime}}` (ISO) and `{{triggerTimestamp}}` (epoch) variables |
+| **Kafka Trigger** | Kafka topic subscription trigger | Subscribe to a Kafka topic; extract variables via JSONPath from the message body; key/header/jsonpath filters; `kafka.trigger.*` context variables; bounded concurrency via pause/resume |
+| **Kafka Produce** | Publish a message to Kafka | Configurable topic, key, body (template), headers, ack mode, schema encoding (Avro/Protobuf/JSON Schema); output bindings extract partition/offset/timestamp |
+| **Kafka Consume** | Consume messages from Kafka | Fetch up to N messages from earliest/latest; filter by key, headers, JSONPath equals; schema decoding; output bindings map message fields to variables |
+| **Kafka Wait** | Pause until a correlated Kafka reply | Waits for a message matching a correlation ID expression; extracts variables from the response body; supports synthetic-inject mode for Quick Test / load testing |
 
 **Parallel Execution:**
 

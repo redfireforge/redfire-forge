@@ -1,0 +1,124 @@
+{
+  "id": "kafka-wf-06-header-passthrough-tls",
+  "name": "TLS Kafka Scenario 06 — Header Pass-Through",
+  "description": "[TLS+SASL] Trigger receives order with 4 custom headers → kafkaProduce forwards body + all headers to output topic. Verifies header preservation through the workflow engine.",
+  "variables": {},
+  "nodes": [
+    {
+      "id": "trigger-with-headers",
+      "type": "kafkaTrigger",
+      "position": {
+        "x": 300,
+        "y": 50
+      },
+      "data": {
+        "label": "Inbound Order (with Headers)",
+        "clusterId": "local-tls",
+        "topic": "headers.inbound",
+        "startPosition": "latest",
+        "extractVariables": [
+          {
+            "name": "orderId",
+            "jsonPath": "$.orderId"
+          },
+          {
+            "name": "amount",
+            "jsonPath": "$.amount"
+          },
+          {
+            "name": "customerName",
+            "jsonPath": "$.customerName"
+          }
+        ],
+        "samplePayload": "{\"orderId\": \"ORD-HDR-001\", \"amount\": 199.99, \"customerName\": \"Alice Johnson\"}",
+        "sampleKey": "ORD-HDR-001",
+        "sampleHeaders": "{\"X-Trace-Id\": \"TR-E2E-001\", \"X-Correlation-Id\": \"COR-E2E-001\", \"X-Source\": \"kafka-studio\", \"X-Environment\": \"test\"}",
+        "notes": "Trigger receives an order event with 4 custom headers. Sample payload simulates this in Quick Test."
+      }
+    },
+    {
+      "id": "forward-with-headers",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 300,
+        "y": 250
+      },
+      "data": {
+        "label": "Forward Order (Preserve Headers)",
+        "clusterId": "local-tls",
+        "topic": "headers.outbound",
+        "keyTemplate": "{{orderId}}",
+        "bodyTemplate": "{\n  \"orderId\": \"{{orderId}}\",\n  \"amount\": {{amount}},\n  \"customerName\": \"{{customerName}}\",\n  \"processedAt\": \"2026-06-05T10:45:00Z\",\n  \"processedBy\": \"redfireforge\"\n}",
+        "headers": [
+          {
+            "id": "h1",
+            "key": "X-Trace-Id",
+            "value": "{{kafka.trigger.header.X-Trace-Id}}",
+            "enabled": true
+          },
+          {
+            "id": "h2",
+            "key": "X-Correlation-Id",
+            "value": "{{kafka.trigger.header.X-Correlation-Id}}",
+            "enabled": true
+          },
+          {
+            "id": "h3",
+            "key": "X-Source",
+            "value": "{{kafka.trigger.header.X-Source}}",
+            "enabled": true
+          },
+          {
+            "id": "h4",
+            "key": "X-Environment",
+            "value": "{{kafka.trigger.header.X-Environment}}",
+            "enabled": true
+          },
+          {
+            "id": "h5",
+            "key": "X-Processed-By",
+            "value": "redfireforge",
+            "enabled": true
+          }
+        ],
+        "ackMode": "all",
+        "timeoutMs": 10000,
+        "outputBindings": [
+          {
+            "enabled": true,
+            "source": "partition",
+            "targetVariable": "outPartition"
+          },
+          {
+            "enabled": true,
+            "source": "offset",
+            "targetVariable": "outOffset"
+          }
+        ]
+      }
+    },
+    {
+      "id": "end-node",
+      "type": "end",
+      "position": {
+        "x": 300,
+        "y": 450
+      },
+      "data": {
+        "label": "End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-trigger-produce",
+      "source": "trigger-with-headers",
+      "target": "forward-with-headers"
+    },
+    {
+      "id": "e-produce-end",
+      "source": "forward-with-headers",
+      "target": "end-node"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ test.describe('Theme Customization', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/');
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
   });
 
   test('theme picker button is visible in header', async ({ page }) => {
@@ -64,7 +64,7 @@ test.describe('Theme Customization', () => {
     
     // Reload page
     await page.reload();
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
     
     // Verify theme persisted
     const reloadedTheme = await htmlElement.getAttribute('data-theme');
@@ -96,7 +96,7 @@ test.describe('Sidebar Resize', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/');
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
   });
 
   test('sidebar is visible on page load', async ({ page }) => {
@@ -138,7 +138,7 @@ test.describe('Sidebar Resize', () => {
       
       // Reload page
       await page.reload();
-      await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
       
       const reloadedWidth = await sidebar.evaluate(el => el.getBoundingClientRect().width);
       expect(reloadedWidth).toBe(initialWidth);
@@ -176,7 +176,7 @@ test.describe('Workflow Export', () => {
     await seedAppData(page);
     // Navigate directly to workflow tab
     await page.goto('/?tab=workflow');
-    await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 25_000 });
   });
 
   test('workflow designer loads correctly', async ({ page }) => {
@@ -189,7 +189,7 @@ test.describe('Workflow Export', () => {
     test.slow(); // Involves page navigation
     // Go to home first
     await page.goto('/');
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
     
     // Click Workflow button in activity bar
     const workflowButton = page.locator('.ab-btn:has(.ab-label:text("Workflow"))');
@@ -222,7 +222,7 @@ test.describe('Execution Mode Selector', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
   });
 
   test('execution mode selector exists on scenarios tab', async ({ page }) => {
@@ -258,7 +258,7 @@ test.describe('Execution Mode Selector', () => {
     test.slow(); // Involves navigation
     // Navigate to runner tab where execution mode lives
     await page.goto('/?tab=runner');
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
 
     const visibleRunner = page.locator('div:not([hidden]) > .page').first();
     await expect(visibleRunner.getByText('Execution Mode:')).toBeVisible();

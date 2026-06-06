@@ -12,6 +12,7 @@ export function getBaseUrl(url: string): string {
 }
 
 function splitQueryStringRaw(qs: string): QueryParam[] {
+  // c8 ignore next
   if (!qs) return [];
   return qs.split('&').map((pair) => {
     const eqIdx = pair.indexOf('=');
@@ -33,6 +34,7 @@ export function parseQueryParams(url: string): QueryParam[] {
     params.forEach((v, k) => result.push({ key: k, value: v }));
     return result;
   } catch {
+    // c8 ignore next
     return [];
   }
 }

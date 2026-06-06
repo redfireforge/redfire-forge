@@ -1,0 +1,258 @@
+{
+  "id": "kafka-wf-05-full-pipeline-secure",
+  "name": "Secure Kafka Scenario 05 — Full Event-Driven Pipeline",
+  "description": "[SASL/SCRAM] Complete event-driven pipeline: kafkaTrigger → HTTP validation → Condition (approve/reject) → kafkaProduce (approved path) → kafkaWait (payment confirmation) → kafkaProduce (notification) → End. The reject path goes directly to a reject produce → End.",
+  "variables": {
+    "validationUrl": "https://jsonplaceholder.typicode.com/posts/1",
+    "notificationTopic": "notifications.email"
+  },
+  "nodes": [
+    {
+      "id": "trigger-order",
+      "type": "kafkaTrigger",
+      "position": {
+        "x": 50,
+        "y": 250
+      },
+      "data": {
+        "label": "New Order Trigger",
+        "clusterId": "local-secure",
+        "topic": "orders.new",
+        "startPosition": "latest",
+        "maxConcurrentRuns": 10,
+        "jsonPathFilters": [
+          {
+            "id": "jpf1",
+            "jsonPath": "$.amount",
+            "expectedValue": "",
+            "enabled": false
+          }
+        ],
+        "extractVariables": [
+          {
+            "name": "orderId",
+            "jsonPath": "$.orderId"
+          },
+          {
+            "name": "customerId",
+            "jsonPath": "$.customerId"
+          },
+          {
+            "name": "amount",
+            "jsonPath": "$.amount"
+          }
+        ],
+        "samplePayload": "{\n  \"orderId\": \"ORD-PIPE-001\",\n  \"customerId\": \"CUST-555\",\n  \"amount\": 249.99,\n  \"status\": \"new\"\n}",
+        "sampleKey": "ORD-PIPE-001",
+        "notes": "Triggers on any new order event"
+      }
+    },
+    {
+      "id": "http-validate",
+      "type": "http",
+      "position": {
+        "x": 300,
+        "y": 250
+      },
+      "data": {
+        "label": "Validate Order",
+        "scenario": {
+          "id": "http-validate-sc",
+          "name": "Validate Order",
+          "method": "GET",
+          "url": "{{validationUrl}}",
+          "headers": [],
+          "body": "",
+          "extractions": [
+            {
+              "name": "validationResult",
+              "source": "body",
+              "expression": "$.id"
+            }
+          ],
+          "validation": {
+            "mode": "none"
+          },
+          "auth": {
+            "type": "none"
+          }
+        }
+      }
+    },
+    {
+      "id": "condition-approve",
+      "type": "condition",
+      "position": {
+        "x": 550,
+        "y": 250
+      },
+      "data": {
+        "label": "Order Approved?",
+        "left": "{{validationResult}}",
+        "operator": "!=",
+        "right": ""
+      }
+    },
+    {
+      "id": "produce-approved",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 800,
+        "y": 150
+      },
+      "data": {
+        "label": "Emit Approved Event",
+        "clusterId": "local-secure",
+        "topic": "orders.approved",
+        "keyTemplate": "{{orderId}}",
+        "bodyTemplate": "{\n  \"orderId\": \"{{orderId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"amount\": {{amount}},\n  \"approvedAt\": \"{{$timestamp}}\"\n}",
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "wait-payment",
+      "type": "kafkaWait",
+      "position": {
+        "x": 1050,
+        "y": 150
+      },
+      "data": {
+        "label": "Await Payment",
+        "clusterId": "local-secure",
+        "topic": "payments.completed",
+        "correlationIdExpression": "{{orderId}}",
+        "correlationSource": "body",
+        "correlationJsonPath": "$.orderId",
+        "timeoutMs": 60000,
+        "extractVariables": [
+          {
+            "name": "paymentId",
+            "jsonPath": "$.paymentId"
+          },
+          {
+            "name": "paymentStatus",
+            "jsonPath": "$.status"
+          }
+        ],
+        "samplePayload": "{\n  \"orderId\": \"ORD-PIPE-001\",\n  \"paymentId\": \"PAY-TEST-001\",\n  \"amount\": 249.99,\n  \"status\": \"completed\"\n}",
+        "sampleKey": "ORD-PIPE-001",
+        "loadTestBehavior": {
+          "mode": "wait-for-real",
+          "mockPayload": {
+            "orderId": "ORD-MOCK-001",
+            "paymentId": "PAY-SYNTH-001",
+            "amount": 99.99,
+            "status": "completed"
+          }
+        },
+        "notes": "Waits up to 60s for payment completion"
+      }
+    },
+    {
+      "id": "produce-notify",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 1300,
+        "y": 150
+      },
+      "data": {
+        "label": "Send Notification",
+        "clusterId": "local-secure",
+        "topic": "{{notificationTopic}}",
+        "keyTemplate": "{{customerId}}",
+        "bodyTemplate": "{\n  \"to\": \"{{customerId}}\",\n  \"subject\": \"Order {{orderId}} confirmed\",\n  \"body\": \"Payment {{paymentId}} received. Status: {{paymentStatus}}.\"\n}",
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "produce-rejected",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 800,
+        "y": 400
+      },
+      "data": {
+        "label": "Emit Rejected Event",
+        "clusterId": "local-secure",
+        "topic": "orders.rejected",
+        "keyTemplate": "{{orderId}}",
+        "bodyTemplate": "{\n  \"orderId\": \"{{orderId}}\",\n  \"reason\": \"Validation failed\",\n  \"rejectedAt\": \"{{$timestamp}}\"\n}",
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "end-approved",
+      "type": "end",
+      "position": {
+        "x": 1550,
+        "y": 150
+      },
+      "data": {
+        "label": "Approved End"
+      }
+    },
+    {
+      "id": "end-rejected",
+      "type": "end",
+      "position": {
+        "x": 1050,
+        "y": 400
+      },
+      "data": {
+        "label": "Rejected End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-trigger-validate",
+      "source": "trigger-order",
+      "target": "http-validate"
+    },
+    {
+      "id": "e-validate-condition",
+      "source": "http-validate",
+      "target": "condition-approve"
+    },
+    {
+      "id": "e-approved",
+      "source": "condition-approve",
+      "target": "produce-approved",
+      "sourceHandle": "true",
+      "label": "Approved"
+    },
+    {
+      "id": "e-rejected",
+      "source": "condition-approve",
+      "target": "produce-rejected",
+      "sourceHandle": "false",
+      "label": "Rejected"
+    },
+    {
+      "id": "e-approved-wait",
+      "source": "produce-approved",
+      "target": "wait-payment"
+    },
+    {
+      "id": "e-wait-notify",
+      "source": "wait-payment",
+      "target": "produce-notify"
+    },
+    {
+      "id": "e-notify-end",
+      "source": "produce-notify",
+      "target": "end-approved"
+    },
+    {
+      "id": "e-rejected-end",
+      "source": "produce-rejected",
+      "target": "end-rejected"
+    }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749110400000
+}

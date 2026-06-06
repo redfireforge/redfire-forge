@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, openWorkflowBlocksTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeWorkflowWithStart(): Workflow {
@@ -49,10 +49,7 @@ async function seedWorkflowData(page: import('@playwright/test').Page) {
 test.describe('Workflow Trigger Nodes', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
+    await gotoAppTab(page, 'workflow');
   });
 
   test('shows Start node on canvas', async ({ page }) => {
@@ -67,10 +64,7 @@ test.describe('Workflow Trigger Nodes', () => {
   });
 
   test('palette shows Triggers category with Manual Start block', async ({ page }) => {
-    // Open blocks tab in palette
-    await expect(page.locator('.wf-palette')).toBeVisible();
-    const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
-    await blocksTab.click();
+    await openWorkflowBlocksTab(page);
 
     // Should show Triggers category header
     await expect(page.locator('.wf-palette-category-title', { hasText: 'Triggers' })).toBeVisible();
@@ -80,16 +74,14 @@ test.describe('Workflow Trigger Nodes', () => {
   });
 
   test('palette shows Flow category with Parallel Fork block', async ({ page }) => {
-    const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
-    await blocksTab.click();
+    await openWorkflowBlocksTab(page);
 
     await expect(page.locator('.wf-palette-category-title', { hasText: 'Flow' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-fork .wf-pb-title')).toHaveText('Parallel Fork');
   });
 
   test('palette shows Actions category with HTTP and Delay blocks', async ({ page }) => {
-    const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
-    await blocksTab.click();
+    await openWorkflowBlocksTab(page);
 
     await expect(page.locator('.wf-palette-category-title', { hasText: 'Actions' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-http .wf-pb-title')).toHaveText('HTTP Request');
@@ -112,8 +104,7 @@ test.describe('Workflow Trigger Nodes', () => {
   });
 
   test('adding Manual Start from palette creates a Start node', async ({ page }) => {
-    const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
-    await blocksTab.click();
+    await openWorkflowBlocksTab(page);
 
     // Click the Manual Start block to add it
     await page.locator('.wf-palette-block-start').click();
@@ -124,8 +115,7 @@ test.describe('Workflow Trigger Nodes', () => {
   });
 
   test('adding Parallel Fork from palette creates a Fork node', async ({ page }) => {
-    const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
-    await blocksTab.click();
+    await openWorkflowBlocksTab(page);
 
     // Click the Fork block to add it
     await page.locator('.wf-palette-block-fork').click();

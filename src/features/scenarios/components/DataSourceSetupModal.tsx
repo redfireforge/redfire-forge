@@ -68,6 +68,17 @@ interface Props {
 
 type Step = 'variables' | 'columns' | 'validate' | 'order' | 'create';
 
+function patchSelectionRecord(
+  prev: Record<string, { enabled: boolean; name: string }>,
+  key: string,
+  patch: Partial<{ enabled: boolean; name: string }>,
+): Record<string, { enabled: boolean; name: string }> {
+  return {
+    ...prev,
+    [key]: { ...prev[key], ...patch },
+  };
+}
+
 export default function DataSourceSetupModal({ test, mode, onApply, onClose, onFetchRow, featureGroups, editingTest, sourceName }: Props) {
   // Pre-populate from existing data table if available
   const existingDt = test.dataSource;
@@ -219,24 +230,15 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
   };
 
   const setParamSelection = (key: string, patch: Partial<{ enabled: boolean; name: string }>) => {
-    setParamSelections(prev => ({
-      ...prev,
-      [key]: { ...prev[key], ...patch },
-    }));
+    setParamSelections(prev => patchSelectionRecord(prev, key, patch));
   };
 
   const setHeaderSelection = (key: string, patch: Partial<{ enabled: boolean; name: string }>) => {
-    setHeaderSelections(prev => ({
-      ...prev,
-      [key]: { ...prev[key], ...patch },
-    }));
+    setHeaderSelections(prev => patchSelectionRecord(prev, key, patch));
   };
 
   const setBodySelection = (key: string, patch: Partial<{ enabled: boolean; name: string }>) => {
-    setBodySelections(prev => ({
-      ...prev,
-      [key]: { ...prev[key], ...patch },
-    }));
+    setBodySelections(prev => patchSelectionRecord(prev, key, patch));
   };
 
   const pathVars = Object.entries(selections)

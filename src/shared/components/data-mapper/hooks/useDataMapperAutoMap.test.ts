@@ -345,4 +345,32 @@ describe('useDataMapperAutoMap', () => {
     vi.mocked(loadPattern).mockReturnValue(null);
     vi.mocked(patternToSuggestions).mockReturnValue([]);
   });
+
+  it('handleLoadGallerySample falls back to activeSourceId when adapter has no sources', () => {
+    const setSourceSample = vi.fn();
+    const deps = makeDeps({
+      adapter: {
+        label: 'test',
+        contextId: 'ctx',
+        sources: [],
+        target: { label: 'Target', allowCustomFields: false, sampleData: '{}' },
+        serialize: vi.fn().mockReturnValue({}),
+        deserialize: vi.fn().mockReturnValue([]),
+      } as unknown as DataMapperAutoMapDeps['adapter'],
+      activeSourceId: 'fallback-src',
+      setSourceSample,
+    });
+    const { result } = renderHook(() => useDataMapperAutoMap(deps));
+
+    const sample = {
+      name: 'Empty Sources',
+      description: '',
+      sources: [{ id: 'unknown', sampleData: { key: 'val' } }],
+      mappings: [],
+    };
+
+    act(() => { result.current.handleLoadGallerySample(sample); });
+
+    expect(setSourceSample).toHaveBeenCalledWith('fallback-src', { key: 'val' });
+  });
 });

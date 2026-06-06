@@ -153,4 +153,31 @@ describe('runnerConfigDefaults', () => {
       expect(defaultThinkTime.mode).toBe('none');
     });
   });
+
+  describe('kafkaResultsPublish in resolveLoadedConfig', () => {
+    it('preserves a valid kafkaResultsPublish object from saved config', () => {
+      const publishCfg = { enabled: true, clusterId: 'cluster-1', topic: 'redfireforge.results.summary' };
+      const resolved = resolveLoadedConfig({ kafkaResultsPublish: publishCfg });
+      expect(resolved).not.toBeNull();
+      expect(resolved!.kafkaResultsPublish).toEqual(publishCfg);
+    });
+
+    it('passes through undefined when the field is absent from saved config', () => {
+      const resolved = resolveLoadedConfig({});
+      expect(resolved).not.toBeNull();
+      expect(resolved!.kafkaResultsPublish).toBeUndefined();
+    });
+
+    it('passes through undefined when the field is explicitly undefined', () => {
+      const resolved = resolveLoadedConfig({ kafkaResultsPublish: undefined });
+      expect(resolved).not.toBeNull();
+      expect(resolved!.kafkaResultsPublish).toBeUndefined();
+    });
+
+    it('preserves a disabled publish config', () => {
+      const publishCfg = { enabled: false, clusterId: 'c', topic: 't' };
+      const resolved = resolveLoadedConfig({ kafkaResultsPublish: publishCfg });
+      expect(resolved!.kafkaResultsPublish).toEqual(publishCfg);
+    });
+  });
 });

@@ -1,0 +1,60 @@
+{
+  "id": "kafka-runner-load-policy-info",
+  "name": "Runner — Load Policy Info",
+  "description": "Workflow with kafkaConsume that has NO loadTestBehavior set. Should show INFO auto-resume banner in Workflow Runner.",
+  "variables": {
+    "testTopic": "runner.load.test"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 100, "y": 200 },
+      "data": { "label": "Start" }
+    },
+    {
+      "id": "produce-1",
+      "type": "kafkaProduce",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "label": "Produce Event",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "info-test-key",
+        "bodyTemplate": "{\"type\":\"info-test\",\"ts\":\"{{$timestamp}}\"}",
+        "headers": [
+          { "id": "h1", "key": "Content-Type", "value": "application/json", "enabled": true }
+        ],
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "consume-info",
+      "type": "kafkaConsume",
+      "position": { "x": 650, "y": 200 },
+      "data": {
+        "label": "Consume (no load mode)",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 900, "y": 200 },
+      "data": { "label": "End" }
+    }
+  ],
+  "edges": [
+    { "id": "e-start-produce", "source": "start-1", "target": "produce-1" },
+    { "id": "e-produce-consume", "source": "produce-1", "target": "consume-info" },
+    { "id": "e-consume-end", "source": "consume-info", "target": "end-1" }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749200000000,
+  "updatedAt": 1749200000000
+}

@@ -165,6 +165,41 @@ describe('useTestExecution', () => {
       expect(result.current.liveSummary?.errorsByStatus[0]).toBe(1);
     });
 
+    it('does not count failed Kafka results as HTTP errors in incremental summary', async () => {
+      let progressCallback: ((c: number, t: number, r: RequestResult[]) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 2000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      const mockResults = [
+        createMockResult({ httpStatus: 200 }),                                          // HTTP success
+        createMockResult({ httpStatus: 500 }),                                          // HTTP error — counts
+        createMockResult({ httpStatus: 0, transportType: 'kafkaProduce' as const }), // Kafka fail — must NOT count
+      ];
+
+      await act(async () => {
+        progressCallback?.(3, 10, mockResults);
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      // Only the HTTP 500 result should count as a failed request
+      expect(result.current.liveSummary?.failedRequests).toBe(1);
+      expect(result.current.liveSummary?.errorsByStatus[500]).toBe(1);
+      expect(result.current.liveSummary?.errorsByStatus[0]).toBeUndefined();
+    });
+
     it('tracks validation failures', async () => {
       let progressCallback: ((c: number, t: number, r: RequestResult[]) => void) | undefined;
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {

@@ -3517,6 +3517,7 @@
 .wf-node-icon-badge--data { background: var(--cat-data-badge); color: var(--cat-data); }
 .wf-node-icon-badge--flow { background: var(--cat-flow-badge); color: var(--cat-flow); }
 .wf-node-icon-badge--terminal { background: var(--cat-terminal-badge); color: var(--cat-terminal); }
+.wf-node-icon-badge--integration { background: var(--cat-integration-badge); color: var(--cat-integration); }
 
 /* Node sub-label (category) */
 .wf-node-sublabel {
@@ -3551,7 +3552,11 @@
 .wf-errorhandler-body > div:has(.wf-node-label),
 .wf-logdebug-body > div:has(.wf-node-label),
 .wf-waitcond-body > div:has(.wf-node-label),
-.wf-webhook-body > div:has(.wf-node-label) {
+.wf-webhook-body > div:has(.wf-node-label),
+.wf-kafka-body > div:has(.wf-node-label),
+.wf-correlation-body > div:has(.wf-node-label),
+.wf-subworkflow-body > div:has(.wf-node-label),
+.wf-script-body > div:has(.wf-node-label) {
   min-width: 0; overflow: hidden; flex: 1;
 }
 .wf-source-badge {
@@ -6277,7 +6282,12 @@
 }
 
 /* Make palette blocks show grab cursor when draggable */
-.wf-palette-block[draggable="true"] { cursor: grab; }
+.wf-palette-block[draggable="true"] {
+  cursor: grab;
+  -webkit-user-drag: element;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
 .wf-palette-block[draggable="true"]:active { cursor: grabbing; }
 
 /* ── Error Handler node ────────────────────────── */
@@ -8482,4 +8492,90 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Kafka Integration Nodes ── */
+.wf-node-kafkaProduce,
+.wf-node-kafkaConsume,
+.wf-node-kafkaWait {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(135deg, var(--cat-integration-bg) 0%, var(--surface) 60%);
+}
+.wf-node-kafkaTrigger {
+  min-width: 200px; border-color: var(--cat-trigger);
+  background: linear-gradient(135deg, var(--cat-trigger-bg) 0%, var(--surface) 60%);
+}
+.wf-kafka-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-kafka-details {
+  padding: 4px 16px 6px; font-size: 0.72rem; color: var(--text-muted);
+}
+.wf-kafka-topic {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+}
+.wf-kafka-topic strong,
+.wf-kafka-cluster strong {
+  color: var(--cat-integration); font-weight: 600; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+/* kafkaTrigger uses trigger color for label accents */
+.wf-node-kafkaTrigger .wf-kafka-topic strong,
+.wf-node-kafkaTrigger .wf-kafka-cluster strong {
+  color: var(--cat-trigger);
+}
+.wf-kafka-cluster {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  margin-top: 2px;
+}
+.wf-kafka-meta {
+  margin-top: 2px; font-size: 0.68rem; color: var(--text-muted);
+}
 
+/* ── Kafka Config Sections ── */
+.wf-kafka-section {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: rgba(50, 208, 165, 0.04); border: 1px solid rgba(50, 208, 165, 0.12);
+}
+.wf-kafka-section-title {
+  font-size: 0.78rem; font-weight: 700; color: var(--cat-integration);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+
+
+/* ── Kafka Load Policy Banners (WorkflowRunner, Phase 7C) ── */
+.kafka-load-warning--block {
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-warning--block strong { color: #ef4444; font-weight: 600; }
+
+.kafka-load-warning--warn {
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  color: #f59e0b;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-warning--warn strong { color: #f59e0b; font-weight: 600; }
+
+.kafka-load-info {
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-info strong { color: #3b82f6; font-weight: 600; }

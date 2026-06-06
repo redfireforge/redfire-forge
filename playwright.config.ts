@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: 1,
   // Favor deterministic full-suite runs over maximal parallel throughput.
-  workers: process.env.CI ? 12 : 8,
+  workers: process.env.CI ? 12 : 4,
   // 30s default handles page reloads under high parallelism.
   timeout: 30_000,
   reporter: [

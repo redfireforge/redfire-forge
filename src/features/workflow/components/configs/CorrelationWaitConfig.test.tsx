@@ -10,27 +10,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-vi.mock('../expression/InsertVarField', () => ({
-  default: ({
-    children,
-    onInsert,
-  }: {
-    children: React.ReactNode;
-    onInsert: (snippet: string) => void;
-  }) => (
-    <div data-testid="insert-var-field">
-      {children}
-      <button type="button" data-testid="insert-var-apply" onClick={() => onInsert('{{snippet}}')}>
-        Apply insert
-      </button>
-    </div>
-  ),
-}));
-
-// Mock AvailableVariables
-vi.mock('../expression/AvailableVariables', () => ({
-  default: () => <div data-testid="available-variables" />,
-}));
+vi.mock('../expression/InsertVarField');
+vi.mock('../expression/AvailableVariables');
 
 function makeData(overrides: Partial<CorrelationWaitNodeData> = {}): CorrelationWaitNodeData {
   return {

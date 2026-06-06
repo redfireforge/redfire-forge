@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka: Publish Order Event (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-kafka { background: #fff3cd; color: #856404; }
+  .flow-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📤</div>
+  <h1>Kafka: Publish Order Event</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Create an order via HTTP, then publish a structured event to a Kafka topic using the
+    KafkaProduce node. Learn headers, output bindings, and message key templates.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
+    Requires: Kafka broker running on <code>localhost:19092</code><br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#architecture">Workflow Architecture</a></li>
+  <li><a href="#walkthrough">Step-by-Step Walkthrough</a></li>
+  <li><a href="#results">Expected Results</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  The <strong>KafkaProduce</strong> node publishes a message to a Kafka topic. It is the output
+  side of event-driven architectures — your workflow produces an event that downstream services
+  (other workflows, microservices, analytics pipelines) can consume independently.
+</p>
+<p><strong>Common patterns:</strong></p>
+<ul>
+  <li>Publishing domain events when a resource changes (<em>order.created</em>, <em>user.updated</em>)</li>
+  <li>Feeding a real-time analytics pipeline with click events or metrics</li>
+  <li>Sending commands to asynchronous workers (<em>send-email</em>, <em>generate-report</em>)</li>
+  <li>Fanout: one event consumed independently by many downstream services</li>
+</ul>
+<p>
+  This sample creates an order via a public API, then publishes a structured order event to the
+  <code>orders.created</code> Kafka topic. After publishing, it captures the partition and offset
+  into workflow variables using <strong>output bindings</strong>.
+</p>
+
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>The <strong>KafkaProduce</strong> node and its configuration panel</li>
+  <li><strong>Message key template</strong> — how to set a consistent key from a workflow variable</li>
+  <li><strong>Body template</strong> — composing a JSON message body using <code>{{variable}}</code> syntax</li>
+  <li><strong>Headers</strong> — attaching metadata headers to the message</li>
+  <li><strong>Output bindings</strong> — capturing <code>partition</code> and <code>offset</code> from the produce result</li>
+  <li><strong>Ack mode</strong> — choosing between <code>all</code>, <code>leader</code>, and <code>none</code> durability levels</li>
+</ul>
+
+<h2 id="prerequisites">3. Prerequisites</h2>
+<div class="callout-kafka callout">
+  <strong>🟡 Kafka Broker Required</strong>
+  This sample requires a running Kafka broker. Use the bundled Docker profile:
+  <code>cd docker/kafka/plaintext &amp;&amp; docker compose up -d</code><br>
+  Then create a <strong>Local Plaintext</strong> cluster in Settings → Kafka pointing to <code>localhost:19092</code>.
+</div>
+<ol>
+  <li>Start the dev server: <code>npm run dev:server</code> (port 3001)</li>
+  <li>Start the Kafka Docker profile: <code>cd docker/kafka/plaintext &amp;&amp; docker compose up -d</code></li>
+  <li>In RedfireForge → Settings → Kafka → create a cluster named <strong>Local Plaintext</strong>, broker <code>127.0.0.1:19092</code>, auth <em>None</em></li>
+  <li>Click <strong>Connect</strong> — the cluster card should show <em>Connected</em></li>
+</ol>
+
+<h2 id="architecture">4. Workflow Architecture</h2>
+<div class="flow-diagram">Start (variables: orderId, customerId, amount, status)
+  │
+  ▼
+① HTTP: Create Order       → POST https://jsonplaceholder.typicode.com/posts
+  │  extracts: postId
+  ▼
+② KafkaProduce             → topic: orders.created
+  │  key: {{customerId}}     body: {orderId, customerId, amount, status, postId, publishedAt}
+  │  headers: source, eventType
+  │  outputBindings: kafkaPartition, kafkaOffset
+  ▼
+③ Log: Log Publish Result  → "Published order {{orderId}} — partition={{kafkaPartition}}, offset={{kafkaOffset}}"
+  │
+  ▼
+End</div>
+
+<table>
+  <thead><tr><th>Node</th><th>Type</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>Start</td><td>Start</td><td>Provides input variables: orderId, customerId, amount, status</td></tr>
+    <tr><td>Create Order</td><td>HTTP</td><td>POST to jsonplaceholder to simulate order creation; extracts <code>postId</code></td></tr>
+    <tr><td>Publish to orders.created</td><td>KafkaProduce</td><td>Publishes enriched event with key, body template, headers, and output bindings</td></tr>
+    <tr><td>Log Publish Result</td><td>Log/Debug</td><td>Records partition and offset into the workflow console</td></tr>
+    <tr><td>End</td><td>End</td><td>Marks successful completion</td></tr>
+  </tbody>
+</table>
+
+<h2 id="walkthrough">5. Step-by-Step Walkthrough</h2>
+
+<h3><span class="step-num">1</span> Load the Sample from Gallery</h3>
+<ol>
+  <li>Navigate to <strong>Gallery</strong> in the left sidebar</li>
+  <li>Select the <strong>Workflows</strong> tab</li>
+  <li>Filter by category <strong>Event-Driven</strong> or search for <em>"Kafka"</em></li>
+  <li>Find <strong>"Kafka: Publish Order Event"</strong> <span class="badge badge-easy">Easy</span> and click <strong>Load</strong></li>
+  <li>The workflow opens in the Workflow Editor</li>
+</ol>
+
+<h3><span class="step-num">2</span> Inspect the Start Node</h3>
+<ol>
+  <li>Click the <strong>Start</strong> node to open its config</li>
+  <li>You'll see four input variables pre-filled: <code>orderId=ORD-2001</code>, <code>customerId=CUST-100</code>, <code>amount=149.99</code>, <code>status=CREATED</code></li>
+  <li>These are the values used by all downstream <code>{{variable}}</code> references</li>
+</ol>
+
+<h3><span class="step-num">3</span> Inspect the HTTP Node</h3>
+<ol>
+  <li>Click <strong>Create Order</strong> to open the HTTP config panel</li>
+  <li>Method: <strong>POST</strong>, URL: <code>https://jsonplaceholder.typicode.com/posts</code></li>
+  <li>The body uses <code>{{orderId}}</code>, <code>{{customerId}}</code>, etc. to interpolate variables</li>
+  <li>The <em>Extractions</em> tab captures <code>postId</code> from the response body (<code>$.id</code>)</li>
+</ol>
+
+<h3><span class="step-num">4</span> Inspect the KafkaProduce Node</h3>
+<ol>
+  <li>Click <strong>Publish to orders.created</strong> to open the Kafka Produce config</li>
+  <li>
+    Note these key fields:
+    <ul>
+      <li><strong>Cluster</strong>: <em>local-plaintext</em> — must match your connected cluster</li>
+      <li><strong>Topic</strong>: <code>orders.created</code></li>
+      <li><strong>Key Template</strong>: <code>{{customerId}}</code> — ensures all orders for a customer go to the same partition</li>
+      <li><strong>Body Template</strong>: a JSON object with <code>{{variable}}</code> placeholders resolved at runtime</li>
+      <li><strong>Headers</strong>: <code>source=order-service</code>, <code>eventType=order.created</code></li>
+      <li><strong>Ack Mode</strong>: <code>all</code> — waits for all in-sync replicas to acknowledge before continuing</li>
+    </ul>
+  </li>
+  <li>Scroll to the <strong>Output Bindings</strong> section — two bindings are configured: <code>kafkaPartition</code> and <code>kafkaOffset</code></li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Output Bindings</strong>
+  After a successful produce, the node captures the broker-assigned partition and offset into
+  workflow variables. You can use <code>{{kafkaPartition}}</code> and <code>{{kafkaOffset}}</code>
+  in downstream nodes to log, store, or route based on the publish result.
+</div>
+
+<h3><span class="step-num">5</span> Run with Quick Test</h3>
+<ol>
+  <li>Click <strong>Quick Test</strong> in the toolbar (▶)</li>
+  <li>The workflow executes node by node:
+    <ol>
+      <li>Start → variables injected</li>
+      <li>HTTP → POST to jsonplaceholder, <code>postId</code> extracted</li>
+      <li>KafkaProduce → message published to <code>orders.created</code></li>
+      <li>Log → partition and offset logged</li>
+    </ol>
+  </li>
+  <li>Each node shows a ✅ green badge when it succeeds</li>
+  <li>Click any node → <strong>Results</strong> tab to inspect its output variables</li>
+</ol>
+
+<h3><span class="step-num">6</span> Verify the Message was Published</h3>
+<ol>
+  <li>Navigate to <strong>Protocols → Kafka</strong></li>
+  <li>Click the <strong>Consume</strong> tab</li>
+  <li>Set <strong>Topic</strong> to <code>orders.created</code>, <strong>Start Position</strong> to <code>Earliest</code></li>
+  <li>Click <strong>Consume Once</strong></li>
+  <li>Find the row with key <code>CUST-100</code> — click it to see the full message body and the headers (<code>source</code>, <code>eventType</code>)</li>
+</ol>
+
+<h2 id="results">6. Expected Results</h2>
+<p>After a successful run:</p>
+<ul>
+  <li>All 4 nodes show green ✅ badges</li>
+  <li>The <strong>Log</strong> node console entry reads:
+    <pre>Published order ORD-2001 to orders.created — partition=0, offset=&lt;N&gt;</pre>
+  </li>
+  <li>Workflow variables include: <code>kafkaPartition=0</code>, <code>kafkaOffset=&lt;N&gt;</code>, <code>postId=101</code></li>
+  <li>A message with key <code>CUST-100</code> appears in the <code>orders.created</code> topic</li>
+</ul>
+
+<table>
+  <thead><tr><th>Variable</th><th>Source</th><th>Example value</th></tr></thead>
+  <tbody>
+    <tr><td><code>postId</code></td><td>HTTP response extraction</td><td><code>101</code></td></tr>
+    <tr><td><code>kafkaPartition</code></td><td>KafkaProduce output binding</td><td><code>0</code></td></tr>
+    <tr><td><code>kafkaOffset</code></td><td>KafkaProduce output binding</td><td><code>12</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="exercises">7. Try It Yourself</h2>
+<ol>
+  <li><strong>Change the topic</strong>: modify the KafkaProduce node to publish to <code>orders.premium</code> instead. Run again and verify in the Consume tab.</li>
+  <li><strong>Add a header</strong>: add a header <code>priority=high</code> to the KafkaProduce node. After running, verify the header appears in Message Studio.</li>
+  <li><strong>Add a second binding</strong>: add an output binding for <code>timestamp</code> → <code>publishedTs</code>. Update the Log node message to include <code>{{publishedTs}}</code>.</li>
+  <li><strong>Try ackMode=none</strong>: change Ack Mode to <code>none</code> and observe that the workflow continues without waiting for broker acknowledgment (fastest but least durable).</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Publish Order Event (Easy) &nbsp;|&nbsp; Category: Event-Driven</footer>
+</body>
+</html>

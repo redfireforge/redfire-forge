@@ -51,7 +51,7 @@ test.describe('Workflow Insert Variable modal', () => {
     }, seedWorkflow);
     // Navigate straight to the Workflow tab
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

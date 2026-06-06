@@ -253,4 +253,64 @@ describe('useWorkflowDragDrop', () => {
     expect(opts.setEdges).toHaveBeenCalled();
     expect(opts.update).toHaveBeenCalled();
   });
+
+  it('handleCanvasDragOver skips edge re-highlight when prev === next (same edge)', () => {
+    // Covers line 65: prev === next ? prev : next — returns prev without re-render
+    const edge: WorkflowRFEdge = { id: 'e-same', source: 'n1', target: 'n2' };
+    mockFindClosest.mockReturnValue(edge);
+    const opts = defaultOpts();
+    const { result } = renderHook(() => useWorkflowDragDrop(opts));
+
+    // Mock performance.now to force time > 16ms gap so the throttle lets both through
+    let t = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => t);
+
+    const makeDragEvent = () => ({
+      preventDefault: vi.fn(),
+      dataTransfer: { types: ['application/reactflow-type'], dropEffect: '' },
+      clientX: 100,
+      clientY: 100,
+    } as unknown as React.DragEvent);
+
+    act(() => {
+      t = 0;
+      result.current.handleCanvasDragOver(makeDragEvent());
+    });
+
+    // Advance time, second drag-over will return same edge → prev === next branch
+    act(() => {
+      t = 30;
+      result.current.handleCanvasDragOver(makeDragEvent());
+    });
+
+    // dropTargetEdgeId should be set to e-same
+    expect(result.current.dropTargetEdgeId).toBe('e-same');
+
+    vi.spyOn(performance, 'now').mockRestore();
+  });
+
+  it('hasMimeType: falls back to Array.prototype.includes when types has no .contains', () => {
+    // Covers line 29: Array.prototype.includes.call branch
+    // jsdom dataTransfer.types is a regular array (no .contains method) → line 29 executes
+    mockFindClosest.mockReturnValue(null);
+    const opts = defaultOpts();
+    const { result } = renderHook(() => useWorkflowDragDrop(opts));
+
+    // Plain array (no .contains) — exercises the Array fallback path
+    const e = {
+      preventDefault: vi.fn(),
+      dataTransfer: {
+        types: ['application/reactflow-type'], // plain Array, no .contains
+        dropEffect: '',
+      },
+      clientX: 10,
+      clientY: 10,
+    } as unknown as React.DragEvent;
+
+    act(() => {
+      result.current.handleCanvasDragOver(e);
+    });
+
+    expect(result.current.isDragOver).toBe(true);
+  });
 });

@@ -312,4 +312,27 @@ describe('Workflow reporters', () => {
       expect(md).not.toContain('Failed Iterations');
     });
   });
+
+  describe('Kafka transport in workflow reporters', () => {
+    it('buildWorkflowJunitXml includes KAFKA step detail for Kafka produce failure', () => {
+      const summary = makeSummary({ failedRequests: 1 });
+      const workflow = makeWorkflow();
+      const results = [
+        makeResult({
+          iterationIndex: 0,
+          passed: false,
+          transportType: 'kafkaProduce',
+          method: 'KAFKA',
+          url: 'orders-topic',
+          httpStatus: undefined as unknown as number,
+          errorMessage: 'produce timeout',
+        }),
+      ];
+
+      const xml = buildWorkflowJunitXml(results, summary, workflow.name, 1);
+
+      expect(xml).toContain('KAFKA KAFKA');
+      expect(xml).toContain('orders-topic');
+    });
+  });
 });

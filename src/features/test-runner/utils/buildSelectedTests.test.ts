@@ -321,4 +321,41 @@ describe('buildSelectedTests', () => {
       expect(result[0].dataSource?.validationMode).toBe('none');
     });
   });
+
+  describe('skipAssertions', () => {
+    it('clears assertions when skipAssertions is true and assertions exist', () => {
+      const assertions: Assertion[] = [{ type: 'status', expected: '200' }];
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ validation: { mode: 'selective', assertions } })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, true, 'default', 'default', []);
+      expect(result[0].validation.assertions).toEqual([]);
+    });
+
+    it('preserves assertions when skipAssertions is false', () => {
+      const assertions: Assertion[] = [{ type: 'status', expected: '200' }];
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ validation: { mode: 'selective', assertions } })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'default', 'default', []);
+      expect(result[0].validation.assertions).toEqual(assertions);
+    });
+
+    it('no-op when skipAssertions true but assertions is empty', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ validation: { mode: 'selective', assertions: [] } })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, true, 'default', 'default', []);
+      expect(result[0].validation.assertions).toEqual([]);
+    });
+  });
 });

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { RequestResult, TestRun } from '../../../shared/types';
+import { percentile } from '../../../shared/utils/percentiles';
 import {
   hasWorkflowData,
   computeWorkflowStepSummaries,
@@ -33,7 +34,7 @@ export function WorkflowIterationChart({ iterations, maxHeight = 200 }: Iteratio
       min: round1(times[0]),
       max: round1(times[times.length - 1]),
       avg: Math.round(sum / times.length),
-      p95: round1(times[Math.floor(times.length * 0.95)] ?? times[times.length - 1]),
+      p95: round1(percentile(times, 0.95)),
     };
   }, [iterations]);
 
@@ -352,7 +353,7 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
                       >
                         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
                         <span className="result-name">{r.scenarioName}</span>
-                        <span className="result-status">{r.httpStatus || 'ERR'}</span>
+                        <span className="result-status">{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</span>
                         <span className="result-time">{Math.round(r.responseTimeMs * 10) / 10}ms</span>
                         <span className="result-passed">{r.passed ? '✓' : '✗'}</span>
                       </div>

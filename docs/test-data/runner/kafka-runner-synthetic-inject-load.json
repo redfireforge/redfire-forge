@@ -1,0 +1,66 @@
+{
+  "id": "kafka-runner-synthetic-inject-load",
+  "name": "Runner — Synthetic Inject Load",
+  "description": "Workflow for load testing: kafkaProduce sends real messages, kafkaConsume uses synthetic-inject mode (injects mock payload with optional delay).",
+  "variables": {
+    "testTopic": "runner.load.test"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 100, "y": 200 },
+      "data": { "label": "Start" }
+    },
+    {
+      "id": "produce-1",
+      "type": "kafkaProduce",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "label": "Produce Load Event",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "synth-{{$iteration}}",
+        "bodyTemplate": "{\"type\":\"synthetic-test\",\"iteration\":\"{{$iteration}}\",\"ts\":\"{{$timestamp}}\"}",
+        "headers": [
+          { "id": "h1", "key": "Content-Type", "value": "application/json", "enabled": true }
+        ],
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "consume-synth",
+      "type": "kafkaConsume",
+      "position": { "x": 650, "y": 200 },
+      "data": {
+        "label": "Consume (synthetic-inject)",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest",
+        "loadTestBehavior": {
+          "mode": "synthetic-inject",
+          "mockPayload": "{\"syntheticOrder\":\"SYN-001\",\"amount\":99.99}",
+          "mockDelay": 50,
+          "mockJitter": 10
+        }
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 900, "y": 200 },
+      "data": { "label": "End" }
+    }
+  ],
+  "edges": [
+    { "id": "e-start-produce", "source": "start-1", "target": "produce-1" },
+    { "id": "e-produce-consume", "source": "produce-1", "target": "consume-synth" },
+    { "id": "e-consume-end", "source": "consume-synth", "target": "end-1" }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749200000000,
+  "updatedAt": 1749200000000
+}

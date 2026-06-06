@@ -551,7 +551,7 @@ describe('WorkflowSidebar', () => {
     fireEvent.contextMenu(screen.getByText('Health Check'));
     fireEvent.click(screen.getByText(/Move to Folder/));
     fireEvent.click(screen.getByRole('menuitem', { name: '📁 Performance' }));
-    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('w3', 'f-perf');
+    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('w3', 'f-perf', 2);
   });
 
   it('toggles workflow move submenu closed on second toggle click', () => {
@@ -581,7 +581,7 @@ describe('WorkflowSidebar', () => {
     fireEvent.contextMenu(screen.getByText('Order Flow'));
     fireEvent.click(screen.getByText(/Move 2 workflows/));
     fireEvent.click(screen.getByRole('menuitem', { name: '📁 Performance' }));
-    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w3']), 'f-perf');
+    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w3']), 'f-perf', 2);
   });
 
   it('bulk moves workflows out of folder from submenu', () => {
@@ -599,7 +599,7 @@ describe('WorkflowSidebar', () => {
     fireEvent.contextMenu(screen.getByText('Order Flow'));
     fireEvent.click(screen.getByText(/Move 2 workflows/));
     fireEvent.click(screen.getByRole('menuitem', { name: /Move out of Folder/ }));
-    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w2']), null);
+    expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w2']), null, 1);
   });
 
   it('does not render move submenu when foldersLoaded is false', () => {
@@ -684,7 +684,7 @@ describe('WorkflowSidebar', () => {
     fireEvent.contextMenu(screen.getByText('Order Flow'));
     fireEvent.click(screen.getByText(/Move 2 workflows/));
     fireEvent.click(screen.getByRole('menuitem', { name: '📁 Performance' }));
-    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('w1', 'f-perf');
+    expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('w1', 'f-perf', 2);
   });
 
   it('shows drag count badge when dragging multi-selection', () => {
