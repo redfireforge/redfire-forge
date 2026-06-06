@@ -195,6 +195,63 @@ export function resolveScenarioFromDataRow(
   const body = applyBodyColumns(base.body, columns, row);
   const label = buildRowLabel(row, columns, rowIndex);
 
+  // Build body-column variable map for Kafka field interpolation.
+  // The same {{varName}} substitution used for HTTP body also applies to all
+  // Kafka config string fields — no new DataSourceColumn.type variant is needed.
+  const bodyCols = columns.filter(c => c.type === 'body');
+  const bodyVars: Record<string, string> = {};
+  for (const col of bodyCols) {
+    bodyVars[col.mapping] = row.values[col.id] ?? '';
+  }
+  const hasBodyVars = bodyCols.length > 0;
+
+  // Apply variable substitution to Kafka produce config fields
+  const kafkaProduceAction = base.kafkaProduceAction && hasBodyVars
+    ? {
+        ...base.kafkaProduceAction,
+        topic: substituteVariables(base.kafkaProduceAction.topic, bodyVars),
+        key: base.kafkaProduceAction.key !== undefined
+          ? substituteVariables(base.kafkaProduceAction.key, bodyVars)
+          : undefined,
+        value: base.kafkaProduceAction.value !== undefined
+          ? substituteVariables(base.kafkaProduceAction.value, bodyVars)
+          : undefined,
+        headers: base.kafkaProduceAction.headers
+          ? Object.fromEntries(
+              Object.entries(base.kafkaProduceAction.headers).map(
+                ([k, v]) => [k, substituteVariables(v, bodyVars)],
+              ),
+            )
+          : undefined,
+      }
+    : base.kafkaProduceAction;
+
+  // Apply variable substitution to Kafka consume config fields
+  const kafkaConsumeAction = base.kafkaConsumeAction && hasBodyVars
+    ? {
+        ...base.kafkaConsumeAction,
+        topic: substituteVariables(base.kafkaConsumeAction.topic, bodyVars),
+        filter: base.kafkaConsumeAction.filter
+          ? {
+              ...base.kafkaConsumeAction.filter,
+              keyEquals: base.kafkaConsumeAction.filter.keyEquals !== undefined
+                ? substituteVariables(base.kafkaConsumeAction.filter.keyEquals, bodyVars)
+                : undefined,
+              jsonEquals: base.kafkaConsumeAction.filter.jsonEquals !== undefined
+                ? substituteVariables(base.kafkaConsumeAction.filter.jsonEquals, bodyVars)
+                : undefined,
+              headersMatch: base.kafkaConsumeAction.filter.headersMatch
+                ? Object.fromEntries(
+                    Object.entries(base.kafkaConsumeAction.filter.headersMatch).map(
+                      ([k, v]) => [k, substituteVariables(v, bodyVars)],
+                    ),
+                  )
+                : undefined,
+            }
+          : undefined,
+      }
+    : base.kafkaConsumeAction;
+
   // Build expectedFields from validate columns that have values in this row
   const validateCols = columns.filter(c => c.type === 'validate');
   const expectedFields: ExpectedField[] = validateCols
@@ -226,12 +283,29 @@ export function resolveScenarioFromDataRow(
     validation = { ...validation, unorderedArrays: true };
   }
 
+  // Substitute variables in kafkaField assertion values so parameterized rows
+  // can template expected values (e.g. kafka.key equals "{{orderId}}").
+  // Note: this substitution is scoped to kafkaField only for Phase 6C.
+  // Extending to all assertion types is a separate improvement (latent gap).
+  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField')) {
+    validation = {
+      ...validation,
+      assertions: validation.assertions!.map(a =>
+        a.type === 'kafkaField' && a.value !== undefined
+          ? { ...a, value: substituteVariables(a.value, bodyVars) }
+          : a,
+      ),
+    };
+  }
+
   return {
     ...base,
     url,
     headers,
     body,
     validation,
+    kafkaProduceAction,
+    kafkaConsumeAction,
     // Clear the data source on expanded scenarios — they are already resolved
     dataSource: undefined,
     // Tag with row context for result tracking

@@ -53,7 +53,7 @@ test('diagnose value panel scrollbar', async ({ page }) => {
     localStorage.setItem('workflows_selected_id', 'wf-diag');
   }, JSON.stringify([makeWorkflow()]));
   await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   // Open script config

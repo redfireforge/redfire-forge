@@ -333,6 +333,45 @@ tests:
       expect(scenarios[1].dataSource).toBe(externalDataSource);
     });
 
+    it('builds inline data source from test data when no externalDataSource provided', () => {
+      const file = {
+        tests: [{
+          name: 'Test',
+          url: '/users',
+          data: {
+            columns: [{ name: 'userId' }],
+            rows: [{ userId: '1' }],
+          },
+        }],
+      };
+
+      const scenarios = buildScenarios(file);
+
+      expect(scenarios[0].dataSource).toBeDefined();
+      expect(scenarios[0].dataSource!.columns[0].name).toBe('userId');
+    });
+
+    it('externalDataSource takes priority over inline test data', () => {
+      const file = {
+        tests: [{
+          name: 'Test',
+          url: '/users',
+          data: {
+            columns: [{ name: 'userId' }],
+            rows: [{ userId: '1' }],
+          },
+        }],
+      };
+      const externalDataSource = {
+        columns: [{ id: 'c1', name: 'external' }],
+        rows: [{ id: 'r1', values: { c1: 'ext' }, enabled: true }],
+      };
+
+      const scenarios = buildScenarios(file, undefined, externalDataSource);
+
+      expect(scenarios[0].dataSource).toBe(externalDataSource);
+    });
+
     it('featureGroupName and groupName are set from file', () => {
       const file = {
         tests: [{

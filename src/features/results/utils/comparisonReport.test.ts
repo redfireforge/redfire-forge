@@ -322,4 +322,45 @@ describe('generateComparisonMarkdown', () => {
     const md = generateComparisonMarkdown(comparison);
     expect(md).toContain('— OK');
   });
+
+  it('includes service name in header when svcName is set on current run', () => {
+    const comparison = makeComparison();
+    comparison.currentRun.svcName = 'order-service';
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('order-service');
+  });
+
+  it('includes environment name in header when envName is set on current run', () => {
+    const comparison = makeComparison();
+    comparison.currentRun.envName = 'production';
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('production');
+  });
+
+  it('uses plural "regressions" in banner when multiple regressions detected', () => {
+    const comparison = makeComparison();
+    comparison.regressions = [
+      { metric: 'Avg Response Time', threshold: 10, actual: 20, severity: 'warning' },
+      { metric: 'TPS', threshold: 5, actual: 15, severity: 'warning' },
+    ];
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('2 regressions detected');
+  });
+
+  it('shows 🔴 Critical in Metric Deltas table for a metric with critical regression', () => {
+    const comparison = makeComparison();
+    comparison.regressions = [{ metric: 'Avg Response Time', threshold: 10, actual: 25, severity: 'critical' }];
+    const md = generateComparisonMarkdown(comparison);
+    const line = md.split('\n').find((l) => l.includes('Avg Response Time') && l.includes('|'));
+    expect(line).toContain('🔴 Critical');
+  });
+
+  it('shows ✓ Improved in Metric Deltas table for a metric with improved=true', () => {
+    const comparison = makeComparison();
+    comparison.metricDeltas = [
+      { metric: 'TPS', baselineValue: 80, currentValue: 100, delta: 20, deltaPercent: 25, improved: true, regressed: false },
+    ];
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('✓ Improved');
+  });
 });

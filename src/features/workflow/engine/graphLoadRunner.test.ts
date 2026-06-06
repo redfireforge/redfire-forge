@@ -35,6 +35,7 @@ vi.mock('./syntheticEventInjector', () => ({
 
 import { runGraphLoad } from './graphLoadRunner';
 import { runGraph } from './graphRunner';
+import { resolveKafkaConsumeLoadPolicy } from './kafkaLoadPolicy';
 
 const mockRunGraph = vi.mocked(runGraph);
 
@@ -232,6 +233,7 @@ describe('graphLoadRunner', () => {
         undefined,          // pollSemaphore
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
+        undefined,          // kafkaOperations
       );
     });
 
@@ -499,6 +501,42 @@ describe('graphLoadRunner', () => {
       const { results } = await runGraphLoad(workflow, { iterations: 1, concurrency: 1 });
       expect(results).toHaveLength(1);
       expect(results[0].groupName).toBe('From Name');
+    });
+
+    it('onComplete falls back to scenarioId for nodeLabels lookup when workflowNodeId is absent', async () => {
+      // Covers the right side of `r.workflowNodeId || r.scenarioId` in onComplete (branch coverage)
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockImplementation(async (_nodes, _edges, _vars, callbacks) => {
+        callbacks.onComplete(
+          [createMockResult({ workflowNodeId: '' as unknown as undefined, scenarioId: 'http1', scenarioName: 'Via ScenarioId' })],
+          true,
+          1,
+        );
+        return [];
+      });
+
+      const { results } = await runGraphLoad(workflow, { iterations: 1, concurrency: 1 });
+      expect(results).toHaveLength(1);
+      // nodeLabels.get('http1') === 'Get Users', so groupName is from nodeLabels
+      expect(results[0].groupName).toBe('Get Users');
+    });
+
+    it('post-runGraph tagging falls back to scenarioId when workflowNodeId is absent', async () => {
+      // Covers the right side of `r.workflowNodeId || r.scenarioId` in the in-loop tagging (branch coverage)
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([
+        createMockResult({
+          workflowNodeId: '' as unknown as undefined,
+          scenarioId: 'http1',
+          featureGroupName: undefined as unknown as string,
+          groupName: undefined as unknown as string,
+        }),
+      ]);
+
+      const { results } = await runGraphLoad(workflow, { iterations: 1, concurrency: 1 });
+      expect(results[0].featureGroupName).toBe('Workflow: Test Workflow');
+      // nodeLabels.get('http1') === 'Get Users'
+      expect(results[0].groupName).toBe('Get Users');
     });
 
     it('preserves existing iterationIndex on raw results from runGraph', async () => {
@@ -769,7 +807,409 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
       );
+    });
+
+    it('passes kafkaOperations from opts through to runGraph', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const kafkaOperations = {
+        produce: vi.fn(),
+        consume: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        kafkaOperations,
+      });
+
+      expect(mockRunGraph).toHaveBeenCalledWith(
+        workflow.nodes,
+        workflow.edges,
+        expect.any(Object),
+        expect.any(Object),
+        undefined,          // abortSignal
+        undefined,          // environmentLayer
+        undefined,          // resolveHttpBaseUrl
+        undefined,          // resolveHttpAuth
+        undefined,          // debugController
+        undefined,          // errorConfig
+        undefined,          // resolveSubWorkflow
+        undefined,          // correlationStore
+        true,               // loadTestMode
+        undefined,          // correlationWaitConfig
+        undefined,          // pollSemaphore
+        undefined,          // traceOptions
+        undefined,          // httpTimeoutMs
+        kafkaOperations,    // kafkaOperations ← must be threaded through
+      );
+    });
+
+    describe('Kafka load policy guard (Phase 7B)', () => {
+      function createWorkflowWithKafkaConsume(mode?: 'wait-for-real' | 'auto-resume' | 'synthetic-inject'): Workflow {
+        return {
+          id: 'wf-kafka',
+          name: 'Kafka Workflow',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'consume1',
+              type: 'kafkaConsume',
+              position: { x: 0, y: 100 },
+              data: {
+                label: 'Consume Orders',
+                clusterId: 'c1',
+                topic: 'orders',
+                ...(mode !== undefined ? { loadTestBehavior: { mode } } : {}),
+              },
+            },
+            { id: 'end', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'start', target: 'consume1' },
+            { id: 'e2', source: 'consume1', target: 'end' },
+          ],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+      }
+
+      it('rejects before any iteration when a kafkaConsume node has wait-for-real mode', async () => {
+        const workflow = createWorkflowWithKafkaConsume('wait-for-real');
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .rejects.toThrow(/wait-for-real/);
+        expect(mockRunGraph).not.toHaveBeenCalled();
+      });
+
+      it('does not reject when a kafkaConsume node has auto-resume mode', async () => {
+        mockRunGraph.mockResolvedValue([createMockResult()]);
+        const workflow = createWorkflowWithKafkaConsume('auto-resume');
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .resolves.toBeDefined();
+      });
+
+      it('does not reject when kafkaConsume node has no loadTestBehavior (auto-resume fallback)', async () => {
+        mockRunGraph.mockResolvedValue([createMockResult()]);
+        const workflow = createWorkflowWithKafkaConsume(undefined);
+        await expect(runGraphLoad(workflow, { iterations: 1, concurrency: 1 }))
+          .resolves.toBeDefined();
+      });
+    });
+
+    // ── Phase 7 Advanced Validation: Deterministic Simulation ────────────────
+
+    describe('deterministic load simulation (Phase 7 validation)', () => {
+      function kafkaConsumeWorkflow(mode?: 'auto-resume' | 'synthetic-inject'): Workflow {
+        return {
+          id: 'wf-det',
+          name: 'Deterministic Kafka Workflow',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'consume1',
+              type: 'kafkaConsume',
+              position: { x: 0, y: 100 },
+              data: {
+                label: 'Consume Orders',
+                clusterId: 'c1',
+                topic: 'orders',
+                ...(mode ? { loadTestBehavior: { mode } } : {}),
+              },
+            },
+            { id: 'http1', type: 'http', position: { x: 0, y: 200 }, data: { label: 'Process Order' } },
+            { id: 'end', type: 'end', position: { x: 0, y: 300 }, data: { label: 'End' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'start', target: 'consume1' },
+            { id: 'e2', source: 'consume1', target: 'http1' },
+            { id: 'e3', source: 'http1', target: 'end' },
+          ],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+      }
+
+      it('all iterations complete deterministically with auto-resume mode (no hangs)', async () => {
+        const workflow = kafkaConsumeWorkflow('auto-resume');
+        const ITERATIONS = 10;
+        let callCount = 0;
+        mockRunGraph.mockImplementation(async () => {
+          callCount++;
+          return [createMockResult({ passed: true })];
+        });
+
+        const { results } = await runGraphLoad(workflow, {
+          iterations: ITERATIONS,
+          concurrency: 3,
+        });
+
+        expect(callCount).toBe(ITERATIONS);
+        expect(results).toHaveLength(ITERATIONS);
+        const iterationIndices = results.map(r => r.iterationIndex).sort((a, b) => (a ?? 0) - (b ?? 0));
+        for (let i = 0; i < ITERATIONS; i++) {
+          expect(iterationIndices[i]).toBe(i);
+        }
+      });
+
+      it('all iterations complete deterministically with undefined loadTestBehavior (auto-resume fallback)', async () => {
+        const workflow = kafkaConsumeWorkflow(undefined);
+        const ITERATIONS = 5;
+        mockRunGraph.mockResolvedValue([createMockResult({ passed: true })]);
+
+        const { results } = await runGraphLoad(workflow, {
+          iterations: ITERATIONS,
+          concurrency: 2,
+        });
+
+        expect(results).toHaveLength(ITERATIONS);
+        expect(mockRunGraph).toHaveBeenCalledTimes(ITERATIONS);
+      });
+
+      it('synthetic-inject mode completes all iterations without hanging', async () => {
+        const workflow = kafkaConsumeWorkflow('synthetic-inject');
+        const ITERATIONS = 8;
+        mockRunGraph.mockResolvedValue([createMockResult({ passed: true })]);
+
+        const { results } = await runGraphLoad(workflow, {
+          iterations: ITERATIONS,
+          concurrency: 4,
+          correlationWaitConfig: { mode: 'synthetic-inject', syntheticDelayMs: 0 },
+        });
+
+        expect(results).toHaveLength(ITERATIONS);
+        expect(mockRunGraph).toHaveBeenCalledTimes(ITERATIONS);
+      });
+
+      it('results are bounded — total results never exceed iterations × results-per-iteration', async () => {
+        const workflow = kafkaConsumeWorkflow('auto-resume');
+        const ITERATIONS = 6;
+        const RESULTS_PER_ITERATION = 3;
+        mockRunGraph.mockImplementation(async () => [
+          createMockResult({ scenarioId: 'step1' }),
+          createMockResult({ scenarioId: 'step2' }),
+          createMockResult({ scenarioId: 'step3' }),
+        ]);
+
+        const { results } = await runGraphLoad(workflow, {
+          iterations: ITERATIONS,
+          concurrency: 2,
+        });
+
+        expect(results).toHaveLength(ITERATIONS * RESULTS_PER_ITERATION);
+      });
+
+      it('no cross-iteration variable leakage — each iteration starts fresh', async () => {
+        const workflow = kafkaConsumeWorkflow('auto-resume');
+        const receivedVars: Record<string, string>[] = [];
+        mockRunGraph.mockImplementation(async (_nodes, _edges, vars) => {
+          receivedVars.push({ ...vars as Record<string, string> });
+          return [createMockResult()];
+        });
+
+        await runGraphLoad(workflow, {
+          iterations: 3,
+          concurrency: 1,
+          initialVariables: { userId: 'user-1' },
+        });
+
+        expect(receivedVars).toHaveLength(3);
+        for (const vars of receivedVars) {
+          expect(vars['userId']).toBe('user-1');
+        }
+      });
+
+      it('progress callback reports monotonically increasing completion count', async () => {
+        const workflow = kafkaConsumeWorkflow('auto-resume');
+        mockRunGraph.mockResolvedValue([createMockResult()]);
+        const progressLog: number[] = [];
+
+        await runGraphLoad(workflow, {
+          iterations: 5,
+          concurrency: 1,
+          onProgress: (completed) => { progressLog.push(completed); },
+        });
+
+        expect(progressLog).toHaveLength(5);
+        for (let i = 1; i < progressLog.length; i++) {
+          expect(progressLog[i]).toBeGreaterThanOrEqual(progressLog[i - 1]);
+        }
+        expect(progressLog[progressLog.length - 1]).toBe(5);
+      });
+    });
+
+    // ── Phase 7 Advanced Validation: Constant-Arrival Gating ─────────────────
+
+    describe('constant-arrival gating (Phase 7 validation)', () => {
+      it('constant-arrival + wait-for-real policy returns warn (not block) — enforcement is desktop-side', () => {
+        const outcome = resolveKafkaConsumeLoadPolicy('constant-arrival', 'wait-for-real');
+        expect(outcome.decision).toBe('warn');
+        expect(outcome.message).toBeTruthy();
+      });
+
+      it('constant-arrival + auto-resume policy returns allow — safe for deterministic throughput', () => {
+        const outcome = resolveKafkaConsumeLoadPolicy('constant-arrival', 'auto-resume');
+        expect(outcome.decision).toBe('allow');
+        expect(outcome.message).toBeUndefined();
+      });
+
+      it('constant-arrival + undefined policy returns allow with auto-resume fallback', () => {
+        const outcome = resolveKafkaConsumeLoadPolicy('constant-arrival', undefined);
+        expect(outcome.decision).toBe('allow');
+        expect(outcome.fallbackMode).toBe('auto-resume');
+      });
+
+      it('workflow mode blocks wait-for-real before execution starts — no iterations run', async () => {
+        const workflow: Workflow = {
+          id: 'wf-ca-test',
+          name: 'CA Test',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'kc1', type: 'kafkaConsume', position: { x: 0, y: 100 },
+              data: { label: 'Consume', clusterId: 'c1', topic: 't1', loadTestBehavior: { mode: 'wait-for-real' } },
+            },
+          ],
+          edges: [{ id: 'e1', source: 'start', target: 'kc1' }],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await expect(runGraphLoad(workflow, { iterations: 10, concurrency: 5 }))
+          .rejects.toThrow(/wait-for-real/);
+        expect(mockRunGraph).not.toHaveBeenCalled();
+      });
+    });
+
+    // ── Phase 7 Advanced Validation: Repeated-Run Variance ───────────────────
+
+    describe('repeated-run variance checks (Phase 7 validation)', () => {
+      it('repeated runs produce the same result count for the same config', async () => {
+        const workflow: Workflow = {
+          id: 'wf-var',
+          name: 'Variance Check',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'kc1', type: 'kafkaConsume', position: { x: 0, y: 100 },
+              data: { label: 'Consume', clusterId: 'c1', topic: 't1', loadTestBehavior: { mode: 'auto-resume' } },
+            },
+            { id: 'http1', type: 'http', position: { x: 0, y: 200 }, data: { label: 'Process' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'start', target: 'kc1' },
+            { id: 'e2', source: 'kc1', target: 'http1' },
+          ],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        const opts = { iterations: 5, concurrency: 2 };
+        mockRunGraph.mockResolvedValue([createMockResult({ passed: true }), createMockResult({ passed: true })]);
+
+        const counts: number[] = [];
+        for (let run = 0; run < 3; run++) {
+          const { results } = await runGraphLoad(workflow, opts);
+          counts.push(results.length);
+        }
+
+        // All runs should produce the same total result count
+        expect(counts[0]).toBe(counts[1]);
+        expect(counts[1]).toBe(counts[2]);
+        expect(counts[0]).toBe(10); // 5 iterations × 2 results
+      });
+
+      it('repeated runs produce identical pass/fail ratios for deterministic workflows', async () => {
+        const workflow: Workflow = {
+          id: 'wf-ratio',
+          name: 'Ratio Check',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'kc1', type: 'kafkaConsume', position: { x: 0, y: 100 },
+              data: { label: 'Consume', clusterId: 'c1', topic: 't1', loadTestBehavior: { mode: 'auto-resume' } },
+            },
+          ],
+          edges: [{ id: 'e1', source: 'start', target: 'kc1' }],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        let callIdx = 0;
+        mockRunGraph.mockImplementation(async () => {
+          callIdx++;
+          // Deterministic: even iterations pass, odd fail
+          return [createMockResult({ passed: callIdx % 2 === 0 })];
+        });
+
+        const ratios: number[] = [];
+        for (let run = 0; run < 3; run++) {
+          callIdx = 0;
+          const { results } = await runGraphLoad(workflow, { iterations: 4, concurrency: 1 });
+          const passCount = results.filter(r => r.passed).length;
+          ratios.push(passCount / results.length);
+        }
+
+        // All runs produce 50% pass rate (2 of 4 pass)
+        expect(ratios[0]).toBe(0.5);
+        expect(ratios[1]).toBe(0.5);
+        expect(ratios[2]).toBe(0.5);
+      });
+
+      it('concurrent execution produces same total results as sequential for the same iteration count', async () => {
+        const workflow: Workflow = {
+          id: 'wf-conc',
+          name: 'Concurrency Parity',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'kc1', type: 'kafkaConsume', position: { x: 0, y: 100 },
+              data: { label: 'Consume', clusterId: 'c1', topic: 't1', loadTestBehavior: { mode: 'auto-resume' } },
+            },
+          ],
+          edges: [{ id: 'e1', source: 'start', target: 'kc1' }],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        mockRunGraph.mockImplementation(async () => [createMockResult()]);
+
+        const { results: sequential } = await runGraphLoad(workflow, { iterations: 6, concurrency: 1 });
+        const { results: concurrent } = await runGraphLoad(workflow, { iterations: 6, concurrency: 3 });
+
+        expect(sequential.length).toBe(concurrent.length);
+        expect(sequential.length).toBe(6);
+      });
+
+      it('iteration indices cover the full range [0, N-1] in concurrent execution', async () => {
+        const workflow: Workflow = {
+          id: 'wf-idx',
+          name: 'Index Coverage',
+          nodes: [
+            { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            {
+              id: 'kc1', type: 'kafkaConsume', position: { x: 0, y: 100 },
+              data: { label: 'Consume', clusterId: 'c1', topic: 't1', loadTestBehavior: { mode: 'auto-resume' } },
+            },
+          ],
+          edges: [{ id: 'e1', source: 'start', target: 'kc1' }],
+          variables: {},
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        mockRunGraph.mockImplementation(async () => [createMockResult()]);
+
+        const { results } = await runGraphLoad(workflow, { iterations: 8, concurrency: 4 });
+
+        const indices = new Set(results.map(r => r.iterationIndex));
+        for (let i = 0; i < 8; i++) {
+          expect(indices.has(i)).toBe(true);
+        }
+      });
     });
   });
 

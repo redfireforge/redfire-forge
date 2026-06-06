@@ -50,6 +50,12 @@ vi.mock('uuid', () => ({
   v4: vi.fn(() => 'test-uuid'),
 }));
 
+const mockPublishRunResults = vi.fn().mockResolvedValue({ status: 'published', retryCount: 0, durationMs: 5 });
+
+vi.mock('../../../shared/kafka/kafkaResultsPublisher', () => ({
+  publishRunResults: (...args: unknown[]) => mockPublishRunResults(...args),
+}));
+
 describe('useTestExecution - Save Handlers', () => {
   registerUseTestExecutionTestLifecycle();
 
@@ -125,5 +131,182 @@ describe('useTestExecution - Save Handlers', () => {
 
       expect(result.current.pendingRun).toBeNull();
     });
+  });
+});
+
+// ── Phase 8B: publishRunResults integration ──────────────────────────────────
+
+describe('useTestExecution - Kafka publish on completion', () => {
+  registerUseTestExecutionTestLifecycle();
+
+  beforeEach(() => {
+    mockPublishRunResults.mockClear();
+  });
+
+  const enabledConfig = { enabled: true, clusterId: 'c1', topic: 'redfireforge.results.summary' };
+  const disabledConfig = { enabled: false, clusterId: 'c1', topic: 'redfireforge.results.summary' };
+
+  it('calls publishRunResults after successful save in execute() when enabled', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(mockPublishRunResults).toHaveBeenCalledTimes(1);
+    expect(mockPublishRunResults).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'test-uuid' }),
+      enabledConfig,
+    );
+  });
+
+  it('does not call publishRunResults when enabled is false', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+
+    const { result } = renderHook(() => useTestExecution(disabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(mockPublishRunResults).not.toHaveBeenCalled();
+  });
+
+  it('does not call publishRunResults when no publishConfig is provided', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+
+    const { result } = renderHook(() => useTestExecution());
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(mockPublishRunResults).not.toHaveBeenCalled();
+  });
+
+  it('does not call publishRunResults when saveTestRun returns quotaError', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(mockPublishRunResults).not.toHaveBeenCalled();
+  });
+
+  it('publish failure does not change finalRun or error state', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+    mockPublishRunResults.mockResolvedValueOnce({ status: 'failed', retryCount: 3, durationMs: 100, errorCode: 'KAFKA_TIMEOUT' });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(result.current.finalRun).not.toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it('calls publishRunResults after forceSaveTestRun succeeds in confirmSavePendingRun()', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+    mockForceSaveTestRun.mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    expect(result.current.pendingRun).not.toBeNull();
+    expect(mockPublishRunResults).not.toHaveBeenCalled(); // not called at quota-exceeded site
+
+    await act(async () => {
+      await result.current.confirmSavePendingRun();
+    });
+
+    expect(mockPublishRunResults).toHaveBeenCalledTimes(1);
+    expect(result.current.finalRun).not.toBeNull();
+    expect(result.current.pendingRun).toBeNull();
+  });
+
+  it('does not call publishRunResults when forceSaveTestRun fails', async () => {
+    mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+    mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+    mockForceSaveTestRun.mockResolvedValue({ ok: false });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    await act(async () => {
+      await result.current.execute(createMockConfig(), [createMockScenario()]);
+    });
+
+    await act(async () => {
+      await result.current.confirmSavePendingRun();
+    });
+
+    expect(mockPublishRunResults).not.toHaveBeenCalled();
+    expect(result.current.error).toContain('Storage is full');
+  });
+
+  it('calls publishRunResults after complete() in startExternalExecution() when enabled', async () => {
+    // Verify the third save site (complete() callback inside startExternalExecution)
+    // also triggers publish when publishConfig is enabled and save succeeds.
+    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    let callbacks: ReturnType<typeof result.current.startExternalExecution>;
+    act(() => {
+      callbacks = result.current.startExternalExecution(1);
+    });
+
+    await act(async () => {
+      callbacks!.reportProgress([createMockResult()], 1);
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    await act(async () => {
+      await callbacks!.complete(createMockConfig());
+    });
+
+    expect(mockPublishRunResults).toHaveBeenCalledTimes(1);
+    expect(mockPublishRunResults).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'test-uuid' }),
+      enabledConfig,
+    );
+  });
+
+  it('does not call publishRunResults from startExternalExecution() when saveTestRun returns quotaError', async () => {
+    mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+
+    const { result } = renderHook(() => useTestExecution(enabledConfig));
+
+    let callbacks: ReturnType<typeof result.current.startExternalExecution>;
+    act(() => {
+      callbacks = result.current.startExternalExecution(1);
+    });
+
+    await act(async () => {
+      callbacks!.reportProgress([createMockResult()], 1);
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    await act(async () => {
+      await callbacks!.complete(createMockConfig());
+    });
+
+    expect(mockPublishRunResults).not.toHaveBeenCalled();
+    expect(result.current.pendingRun).not.toBeNull();
   });
 });

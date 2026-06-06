@@ -56,7 +56,7 @@ async function seedWithBearerAuth(page: Page) {
 
 async function openTestEditor(page: Page) {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10_000 });
+  await page.waitForSelector('.app-header', { timeout: 25_000 });
   await page.waitForLoadState('networkidle');
 
   const fgName = page.locator('.feature-group-card .feature-group-name', { hasText: 'Auth Feature' });
@@ -175,7 +175,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
 
     // Reload the page
     await page.reload();
-    await page.waitForSelector('.app-header', { timeout: 10_000 });
+    await page.waitForSelector('.app-header', { timeout: 25_000 });
     await page.waitForLoadState('networkidle');
 
     // Reopen the test

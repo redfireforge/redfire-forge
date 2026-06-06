@@ -37,6 +37,9 @@
   --cat-terminal: #f87171;
   --cat-terminal-bg: rgba(239, 68, 68, 0.10);
   --cat-terminal-badge: rgba(239, 68, 68, 0.18);
+  --cat-integration: #32d0a5;
+  --cat-integration-bg: rgba(50, 208, 165, 0.10);
+  --cat-integration-badge: rgba(50, 208, 165, 0.18);
   --shadow-subtle: rgba(255, 255, 255, 0.05);
   --shadow-soft: rgba(255, 255, 255, 0.08);
   --confirm-bg: #1e293b;
@@ -85,6 +88,9 @@
   --cat-terminal: #b91c1c;
   --cat-terminal-bg: rgba(239, 68, 68, 0.08);
   --cat-terminal-badge: rgba(239, 68, 68, 0.15);
+  --cat-integration: #0d9668;
+  --cat-integration-bg: rgba(50, 208, 165, 0.08);
+  --cat-integration-badge: rgba(50, 208, 165, 0.15);
   --shadow-subtle: rgba(0, 0, 0, 0.06);
   --shadow-soft: rgba(0, 0, 0, 0.10);
   --confirm-bg: #ffffff;
@@ -117,6 +123,7 @@
   --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
   --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
   --cat-terminal: #f47067; --cat-terminal-bg: rgba(244,112,103,0.10); --cat-terminal-badge: rgba(244,112,103,0.18);
+  --cat-integration: #32d0a5; --cat-integration-bg: rgba(50,208,165,0.10); --cat-integration-badge: rgba(50,208,165,0.18);
   --shadow-subtle: rgba(255,255,255,0.04);
   --shadow-soft: rgba(255,255,255,0.06);
   --confirm-bg: #2d333b; --confirm-shadow: rgba(0,0,0,0.4);
@@ -146,6 +153,7 @@
   --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
   --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
   --cat-terminal: #f14c4c; --cat-terminal-bg: rgba(241,76,76,0.10); --cat-terminal-badge: rgba(241,76,76,0.18);
+  --cat-integration: #32d0a5; --cat-integration-bg: rgba(50,208,165,0.10); --cat-integration-badge: rgba(50,208,165,0.18);
   --shadow-subtle: rgba(255,255,255,0.04);
   --shadow-soft: rgba(255,255,255,0.06);
   --confirm-bg: #272727; --confirm-shadow: rgba(0,0,0,0.5);
@@ -175,6 +183,7 @@
   --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
   --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
   --cat-terminal: #f87171; --cat-terminal-bg: rgba(239,68,68,0.10); --cat-terminal-badge: rgba(239,68,68,0.18);
+  --cat-integration: #32d0a5; --cat-integration-bg: rgba(50,208,165,0.10); --cat-integration-badge: rgba(50,208,165,0.18);
   --shadow-subtle: rgba(255,255,255,0.05);
   --shadow-soft: rgba(255,255,255,0.08);
   --confirm-bg: #182636; --confirm-shadow: rgba(0,0,0,0.5);
@@ -204,6 +213,7 @@
   --cat-data: #c678dd; --cat-data-bg: rgba(198,120,221,0.10); --cat-data-badge: rgba(198,120,221,0.18);
   --cat-flow: #c678dd; --cat-flow-bg: rgba(198,120,221,0.10); --cat-flow-badge: rgba(198,120,221,0.18);
   --cat-terminal: #e06c75; --cat-terminal-bg: rgba(224,108,117,0.10); --cat-terminal-badge: rgba(224,108,117,0.18);
+  --cat-integration: #56b6c2; --cat-integration-bg: rgba(86,182,194,0.10); --cat-integration-badge: rgba(86,182,194,0.18);
   --shadow-subtle: rgba(255,255,255,0.04);
   --shadow-soft: rgba(255,255,255,0.06);
   --confirm-bg: #333842; --confirm-shadow: rgba(0,0,0,0.4);
@@ -233,6 +243,7 @@
   --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
   --cat-flow: #c084fc; --cat-flow-bg: rgba(167,139,250,0.10); --cat-flow-badge: rgba(167,139,250,0.18);
   --cat-terminal: #f47067; --cat-terminal-bg: rgba(244,112,103,0.10); --cat-terminal-badge: rgba(244,112,103,0.18);
+  --cat-integration: #32d0a5; --cat-integration-bg: rgba(50,208,165,0.10); --cat-integration-badge: rgba(50,208,165,0.18);
   --shadow-subtle: rgba(255,255,255,0.04);
   --shadow-soft: rgba(255,255,255,0.06);
   --confirm-bg: #27262b; --confirm-shadow: rgba(0,0,0,0.5);
@@ -262,6 +273,7 @@
   --cat-data: #e01e5a; --cat-data-bg: rgba(224,30,90,0.10); --cat-data-badge: rgba(224,30,90,0.18);
   --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
   --cat-terminal: #e01e5a; --cat-terminal-bg: rgba(224,30,90,0.10); --cat-terminal-badge: rgba(224,30,90,0.18);
+  --cat-integration: #2eb67d; --cat-integration-bg: rgba(46,182,125,0.10); --cat-integration-badge: rgba(46,182,125,0.18);
   --shadow-subtle: rgba(255,255,255,0.04);
   --shadow-soft: rgba(255,255,255,0.06);
   --confirm-bg: #27292d; --confirm-shadow: rgba(0,0,0,0.4);
@@ -294,6 +306,7 @@
   --cat-data: #be185d; --cat-data-bg: rgba(236,72,153,0.08); --cat-data-badge: rgba(236,72,153,0.15);
   --cat-flow: #6d28d9; --cat-flow-bg: rgba(168,85,247,0.08); --cat-flow-badge: rgba(168,85,247,0.15);
   --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(239,68,68,0.08); --cat-terminal-badge: rgba(239,68,68,0.15);
+  --cat-integration: #0d9668; --cat-integration-bg: rgba(50,208,165,0.08); --cat-integration-badge: rgba(50,208,165,0.15);
   --shadow-subtle: rgba(0,0,0,0.06);
   --shadow-soft: rgba(0,0,0,0.10);
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.18);
@@ -326,6 +339,7 @@
   --cat-data: #be185d; --cat-data-bg: rgba(236,72,153,0.08); --cat-data-badge: rgba(236,72,153,0.15);
   --cat-flow: #6d28d9; --cat-flow-bg: rgba(168,85,247,0.08); --cat-flow-badge: rgba(168,85,247,0.15);
   --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(239,68,68,0.08); --cat-terminal-badge: rgba(239,68,68,0.15);
+  --cat-integration: #0d9668; --cat-integration-bg: rgba(50,208,165,0.08); --cat-integration-badge: rgba(50,208,165,0.15);
   --shadow-subtle: rgba(0,0,0,0.06);
   --shadow-soft: rgba(0,0,0,0.10);
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);
@@ -358,6 +372,7 @@
   --cat-data: #9d174d; --cat-data-bg: rgba(181,80,138,0.08); --cat-data-badge: rgba(181,80,138,0.15);
   --cat-flow: #5b21b6; --cat-flow-bg: rgba(124,109,174,0.08); --cat-flow-badge: rgba(124,109,174,0.15);
   --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(192,57,43,0.08); --cat-terminal-badge: rgba(192,57,43,0.15);
+  --cat-integration: #0d9668; --cat-integration-bg: rgba(39,174,96,0.08); --cat-integration-badge: rgba(39,174,96,0.15);
   --shadow-subtle: rgba(0,0,0,0.06);
   --shadow-soft: rgba(0,0,0,0.10);
   --confirm-bg: #f5f5f0; --confirm-shadow: rgba(0,0,0,0.15);
@@ -390,6 +405,7 @@
   --cat-data: #be185d; --cat-data-bg: rgba(219,39,119,0.08); --cat-data-badge: rgba(219,39,119,0.15);
   --cat-flow: #6d28d9; --cat-flow-bg: rgba(124,58,237,0.08); --cat-flow-badge: rgba(124,58,237,0.15);
   --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(192,57,43,0.08); --cat-terminal-badge: rgba(192,57,43,0.15);
+  --cat-integration: #0d9668; --cat-integration-bg: rgba(50,208,165,0.08); --cat-integration-badge: rgba(50,208,165,0.15);
   --shadow-subtle: rgba(0,0,0,0.06);
   --shadow-soft: rgba(0,0,0,0.10);
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);

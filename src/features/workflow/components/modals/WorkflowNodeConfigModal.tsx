@@ -18,6 +18,10 @@ import type {
   SubWorkflowNodeData,
   ScriptNodeData,
   CorrelationWaitNodeData,
+  KafkaProduceNodeData,
+  KafkaConsumeNodeData,
+  KafkaTriggerNodeData,
+  KafkaWaitNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -46,6 +50,10 @@ import ScriptConfig from '../configs/ScriptConfig';
 import CorrelationWaitConfig from '../configs/CorrelationWaitConfig';
 import WebhookConfig from '../configs/WebhookConfig';
 import ScheduleConfig from '../configs/ScheduleConfig';
+import KafkaProduceConfig from '../configs/KafkaProduceConfig';
+import KafkaConsumeConfig from '../configs/KafkaConsumeConfig';
+import KafkaTriggerConfig from '../configs/KafkaTriggerConfig';
+import KafkaWaitConfig from '../configs/KafkaWaitConfig';
 import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
@@ -417,6 +425,42 @@ export default function WorkflowNodeConfigModal({
             {draftNode.type === 'correlationWait' && (
               <CorrelationWaitConfig
                 data={draftNode.data as CorrelationWaitNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'kafkaProduce' && (
+              <KafkaProduceConfig
+                data={draftNode.data as KafkaProduceNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'kafkaConsume' && (
+              <KafkaConsumeConfig
+                data={draftNode.data as KafkaConsumeNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'kafkaTrigger' && (
+              <KafkaTriggerConfig
+                data={draftNode.data as KafkaTriggerNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'kafkaWait' && (
+              <KafkaWaitConfig
+                data={draftNode.data as KafkaWaitNodeData}
                 onChange={(data) => updateDraft(data)}
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}

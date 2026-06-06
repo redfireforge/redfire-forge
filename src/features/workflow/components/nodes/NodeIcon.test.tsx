@@ -9,7 +9,7 @@ const ALL_TYPES = [
   'start', 'end', 'http', 'condition', 'delay',
   'fork', 'join', 'switch', 'loop', 'setVariable',
   'aggregate', 'webhook', 'schedule', 'errorHandler',
-  'logDebug', 'waitForCondition', 'subWorkflow',
+  'logDebug', 'waitForCondition', 'subWorkflow', 'kafkaProduce', 'kafkaConsume',
 ];
 
 describe('NodeIcon', () => {
@@ -31,6 +31,11 @@ describe('NodeIcon', () => {
   it('applies category-specific CSS class', () => {
     const { container } = render(<NodeIcon type="http" />);
     expect(container.querySelector('.wf-node-icon-badge--action')).toBeTruthy();
+  });
+
+  it('applies category-specific CSS class for kafka nodes', () => {
+    const { container } = render(<NodeIcon type="kafkaProduce" />);
+    expect(container.querySelector('.wf-node-icon-badge--integration')).toBeTruthy();
   });
 
   it('applies trigger category for start node', () => {
@@ -89,6 +94,8 @@ describe('getNodeCategory', () => {
   it('returns correct category labels', () => {
     expect(getNodeCategory('start')).toBe('Trigger');
     expect(getNodeCategory('http')).toBe('Action');
+    expect(getNodeCategory('kafkaProduce')).toBe('Integration');
+    expect(getNodeCategory('kafkaConsume')).toBe('Integration');
     expect(getNodeCategory('condition')).toBe('Logic');
     expect(getNodeCategory('setVariable')).toBe('Data');
     expect(getNodeCategory('fork')).toBe('Flow');

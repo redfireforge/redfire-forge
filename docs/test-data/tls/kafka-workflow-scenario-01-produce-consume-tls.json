@@ -1,0 +1,100 @@
+{
+  "id": "kafka-wf-01-produce-consume-tls",
+  "name": "TLS Kafka Scenario 01 — Produce then Consume",
+  "description": "[TLS+SASL] Simple chain: Start → kafkaProduce → kafkaConsume → End. Produces a JSON message to a topic, then consumes it back and verifies receipt.",
+  "variables": {
+    "testTopic": "redfireforge.workflow.test",
+    "messageKey": "order-123"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "data": {
+        "label": "Start"
+      }
+    },
+    {
+      "id": "produce-1",
+      "type": "kafkaProduce",
+      "position": {
+        "x": 350,
+        "y": 200
+      },
+      "data": {
+        "label": "Produce Order Event",
+        "clusterId": "local-tls",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "{{messageKey}}",
+        "bodyTemplate": "{\n  \"orderId\": \"order-123\",\n  \"amount\": 49.99,\n  \"currency\": \"USD\",\n  \"items\": [\"widget-A\", \"gadget-B\"]\n}",
+        "headers": [
+          {
+            "id": "h1",
+            "key": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          },
+          {
+            "id": "h2",
+            "key": "X-Source",
+            "value": "redfireforge-test",
+            "enabled": true
+          }
+        ],
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "consume-1",
+      "type": "kafkaConsume",
+      "position": {
+        "x": 650,
+        "y": 200
+      },
+      "data": {
+        "label": "Consume Order Event",
+        "clusterId": "local-tls",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": {
+        "x": 900,
+        "y": 200
+      },
+      "data": {
+        "label": "End"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-produce",
+      "source": "start-1",
+      "target": "produce-1"
+    },
+    {
+      "id": "e-produce-consume",
+      "source": "produce-1",
+      "target": "consume-1"
+    },
+    {
+      "id": "e-consume-end",
+      "source": "consume-1",
+      "target": "end-1"
+    }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749110400000
+}

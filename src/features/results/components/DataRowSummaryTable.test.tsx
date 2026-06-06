@@ -222,4 +222,20 @@ describe('DataRowSummaryTable', () => {
     expect(screen.queryByText(/passed/)).not.toBeInTheDocument();
     expect(screen.getByText(/2 failed/)).toBeInTheDocument();
   });
+
+  it('shows PRODUCE in status column for Kafka produce results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'kafkaProduce', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('PRODUCE')).toBeInTheDocument();
+  });
+
+  it('shows CONSUME in status column for Kafka consume results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'kafkaConsume', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('CONSUME')).toBeInTheDocument();
+  });
 });

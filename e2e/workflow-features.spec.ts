@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
@@ -77,10 +77,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows', workflowJson);
     localStorage.setItem('workflows_selected_id', 'wf-e2e-feat');
   }, JSON.stringify([makeSampleWorkflow()]));
-  await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
+  await gotoAppTab(page, 'workflow');
 }
 
 test.describe('Canvas Controls', () => {

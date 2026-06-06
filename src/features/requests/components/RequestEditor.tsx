@@ -326,9 +326,10 @@ export default function RequestEditor({
     const patch: Partial<typeof parsedFields & { name?: string }> = {
       ...parsedFields,
       url: stripToRelative(parsedFields.url),
+      method: parsedFields.method as HttpMethod,
     };
     if (!request.name.trim() && parsedName) patch.name = parsedName;
-    onUpdateRequest(patch);
+    onUpdateRequest(patch as Partial<RequestItem>);
     setInputMode('builder'); setCurlText('');
     if (parsed.bodyType && parsed.bodyType !== 'none' && parsed.method !== 'GET') setActiveTab('body');
   }, [curlText, onUpdateRequest, stripToRelative, request.name]);

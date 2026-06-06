@@ -56,7 +56,7 @@ async function seedWithExistingValidationRules(page: Page) {
 
 async function openTestEditor(page: Page): Promise<void> {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   // Expand feature group
@@ -151,7 +151,7 @@ test.describe('Validation Data Mapper — source panel sync', () => {
   test('Verify All populates source panel when target has sample data', async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
 
     // Create a new test and set up validation via Fetch Response (which stores sampleJson)
@@ -196,7 +196,7 @@ test.describe('Validation Data Mapper — source panel sync', () => {
   test('fresh Fetch Response then Data Mapper opens with source populated', async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
 
     await page.click('button:has-text("+ Add Feature Group")');

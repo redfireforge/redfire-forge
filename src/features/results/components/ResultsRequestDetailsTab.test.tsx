@@ -352,4 +352,32 @@ describe('ResultsRequestDetailsTab', () => {
     expect(screen.getByText('none')).toBeTruthy();
     expect(screen.getByText('2 validation failures')).toBeTruthy();
   });
+
+  it('shows PRODUCE label in status column for Kafka produce result (flat view)', () => {
+    const props = makeBaseProps();
+    const row = makeResult({
+      id: 'kp-1',
+      scenarioName: 'Kafka Produce',
+      passed: false,
+      transportType: 'kafkaProduce',
+      method: 'KAFKA',
+      httpStatus: undefined as unknown as number,
+    });
+    render(<ResultsRequestDetailsTab {...props} isFlat groupTree={[]} filteredResults={[row]} />);
+    expect(screen.getByText('PRODUCE')).toBeTruthy();
+  });
+
+  it('shows CONSUME label in status column for Kafka consume result (flat view)', () => {
+    const props = makeBaseProps();
+    const row = makeResult({
+      id: 'kc-1',
+      scenarioName: 'Kafka Consume',
+      passed: false,
+      transportType: 'kafkaConsume',
+      method: 'KAFKA',
+      httpStatus: undefined as unknown as number,
+    });
+    render(<ResultsRequestDetailsTab {...props} isFlat groupTree={[]} filteredResults={[row]} />);
+    expect(screen.getByText('CONSUME')).toBeTruthy();
+  });
 });

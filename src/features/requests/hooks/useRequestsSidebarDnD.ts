@@ -51,7 +51,7 @@ export function useRequestsSidebarDnD({
   }, []);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dropInsert, setDropInsert] = useState<{ beforeReqId: string; folderId: string | null } | null>(null);
-  const autoExpandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleCollectionDragStart = useCallback((e: React.DragEvent, colId: string) => {
     setDragItem({ kind: 'collection', colId });
@@ -147,9 +147,9 @@ export function useRequestsSidebarDnD({
     setDragItem(null);
     setDropTarget(null);
     setDropInsert(null);
-    if (autoExpandTimer.current) {
-      clearTimeout(autoExpandTimer.current);
-      autoExpandTimer.current = null;
+    if (autoExpandTimerRef.current) {
+      clearTimeout(autoExpandTimerRef.current);
+      autoExpandTimerRef.current = null;
     }
   }, [setDragItem]);
 
@@ -210,7 +210,7 @@ export function useRequestsSidebarDnD({
     setDropTarget,
     dropInsert,
     setDropInsert,
-    autoExpandTimer,
+    autoExpandTimerRef,
     setDragItem,
     handleCollectionDragStart,
     handleReqDragStart,

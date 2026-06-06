@@ -3,7 +3,7 @@
  * Single source of truth — both client pages and src-server import from here.
  */
 
-export type TriggerType = 'webhook' | 'schedule';
+export type TriggerType = 'webhook' | 'schedule' | 'kafka-trigger';
 export type ExecutionStatus = 'success' | 'failed' | 'error';
 
 export interface ExecutionResult {

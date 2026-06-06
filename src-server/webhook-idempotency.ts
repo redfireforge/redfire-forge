@@ -139,3 +139,19 @@ export function getIdempotencySize(): number {
 export function clearIdempotency(): void {
   processedRequests.clear();
 }
+
+/**
+ * Build a deterministic idempotency key for a Kafka message using its position.
+ *
+ * The key is unique per message delivery since topic+partition+offset uniquely
+ * identifies a message position in a Kafka partition. If the same offset is
+ * replayed (e.g., after a consumer restart), the key matches and the
+ * duplicate delivery is detected.
+ */
+export function extractKafkaIdempotencyKey(
+  topic: string,
+  partition: number,
+  offset: string,
+): string {
+  return `kafka:${topic}:${partition}:${offset}`;
+}

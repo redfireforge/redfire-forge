@@ -1,0 +1,258 @@
+/**
+ * Phase 10C — Shared schema registry configuration section.
+ *
+ * Renders a collapsible section at the bottom of KafkaProduceConfig and
+ * KafkaConsumeConfig that lets users opt-in to Avro/Protobuf/JSON-Schema
+ * encoding/decoding via a Confluent-compatible schema registry.
+ *
+ * Design decisions:
+ *   - Off by default (hidden unless the user explicitly enables it).
+ *   - Subject and version dropdowns are loaded lazily (only when the
+ *     registry URL is provided and the user focuses the field).
+ *   - Credentials travel in POST request body only (OWASP A02).
+ *   - "No schema" means `schemaConfig: undefined` in the node data —
+ *     this keeps backward compatibility with non-schema workflows.
+ */
+
+import { useState, useCallback } from 'react';
+import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
+import { dispatchKafkaOperation } from '../../../../shared/kafka/kafkaClient';
+
+const FORMAT_OPTIONS: { value: KafkaSchemaConfig['format']; label: string }[] = [
+  { value: 'avro', label: 'Avro' },
+  { value: 'protobuf', label: 'Protobuf' },
+  { value: 'json-schema', label: 'JSON Schema' },
+];
+
+interface KafkaSchemaConfigSectionProps {
+  /** Current schema config; `undefined` means schema is disabled. */
+  value: KafkaSchemaConfig | undefined;
+  onChange: (next: KafkaSchemaConfig | undefined) => void;
+  /** Topic name — used to derive the default subject (`{topic}-value`). */
+  topic: string;
+}
+
+/**
+ * Collapsible schema registry config section for Kafka produce/consume panels.
+ * Renders an "Enable Schema Registry" toggle and the relevant fields when enabled.
+ */
+export default function KafkaSchemaConfigSection({
+  value,
+  onChange,
+  topic,
+}: KafkaSchemaConfigSectionProps) {
+  const enabled = value != null;
+
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [versions, setVersions] = useState<number[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [subjectsError, setSubjectsError] = useState<string | null>(null);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // ── Enable / disable ────────────────────────────────────────────────────────
+
+  function handleToggle(checked: boolean) {
+    if (checked) {
+      onChange({ registryUrl: '', format: 'avro' });
+    } else {
+      onChange(undefined);
+      setSubjects([]);
+      setVersions([]);
+      setSubjectsError(null);
+      setVersionsError(null);
+    }
+  }
+
+  // ── Field helpers ───────────────────────────────────────────────────────────
+
+  function patch(updates: Partial<KafkaSchemaConfig>) {
+    if (!value) return;
+    onChange({ ...value, ...updates });
+  }
+
+  function patchAuth(updates: Partial<{ username: string; password: string }>) {
+    if (!value) return;
+    const auth = { username: value.auth?.username ?? '', password: value.auth?.password ?? '', ...updates };
+    // Clear auth entirely when both fields are empty
+    onChange({ ...value, auth: auth.username || auth.password ? auth : undefined });
+  }
+
+  // ── Lazy subject loader ─────────────────────────────────────────────────────
+
+  const loadSubjects = useCallback(async () => {
+    if (!value?.registryUrl?.trim()) return;
+    setLoadingSubjects(true);
+    setSubjectsError(null);
+    try {
+      const envelope = await dispatchKafkaOperation<{ subjects: string[] }>('schema-subjects', {
+        schemaConfig: value,
+      });
+      setSubjects(envelope.data?.subjects ?? []);
+    } catch (err) {
+      setSubjectsError(err instanceof Error ? err.message : 'Failed to load subjects');
+    } finally {
+      setLoadingSubjects(false);
+    }
+  }, [value]);
+
+  // ── Lazy version loader ─────────────────────────────────────────────────────
+
+  const loadVersions = useCallback(async () => {
+    if (!value?.registryUrl?.trim()) return;
+    const subject = value.subject?.trim() || (topic ? `${topic}-value` : '');
+    if (!subject) return;
+    setLoadingVersions(true);
+    setVersionsError(null);
+    try {
+      const envelope = await dispatchKafkaOperation<{ versions: number[] }>('schema-versions', {
+        schemaConfig: value,
+        subject,
+      });
+      setVersions(envelope.data?.versions ?? []);
+    } catch (err) {
+      setVersionsError(err instanceof Error ? err.message : 'Failed to load versions');
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [value, topic]);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="wf-kafka-section">
+      <div className="wf-kafka-section-title">
+        <label className="wf-config-checkbox-label">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => handleToggle(e.target.checked)}
+          />
+          Enable Schema Registry
+        </label>
+      </div>
+
+      {enabled && value && (
+        <div className="wf-schema-config">
+          <div className="wf-config-field">
+            <label>Registry URL</label>
+            <input
+              value={value.registryUrl}
+              onChange={(e) => patch({ registryUrl: e.target.value })}
+              placeholder="http://schema-registry:8081"
+            />
+          </div>
+
+          <div className="wf-config-field">
+            <label>Format</label>
+            <select
+              value={value.format}
+              onChange={(e) => patch({ format: e.target.value as KafkaSchemaConfig['format'] })}
+            >
+              {FORMAT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Auth — optional */}
+          <div className="wf-config-field">
+            <label>Username (optional)</label>
+            <input
+              value={value.auth?.username ?? ''}
+              onChange={(e) => patchAuth({ username: e.target.value })}
+              placeholder="schema-user"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="wf-config-field">
+            <label>Password (optional)</label>
+            <input
+              type="password"
+              value={value.auth?.password ?? ''}
+              onChange={(e) => patchAuth({ password: e.target.value })}
+              placeholder="••••••"
+              autoComplete="new-password"
+            />
+          </div>
+
+          {/* Subject selector — loaded lazily */}
+          <div className="wf-config-field">
+            <label>Subject</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                value={value.subject ?? ''}
+                onChange={(e) => patch({ subject: e.target.value || undefined })}
+                placeholder={topic ? `${topic}-value (default)` : 'topic-name-value'}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => subjects.length > 0 ? setSubjects([]) : loadSubjects()}
+                disabled={loadingSubjects || !value.registryUrl?.trim()}
+                title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
+              >
+                {loadingSubjects ? '…' : '↓'}
+              </button>
+            </div>
+            {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
+            {subjects.length > 0 && (
+              <select
+                size={Math.min(subjects.length + 1, 6)}
+                style={{ marginTop: 4, width: '100%' }}
+                onChange={(e) => {
+                  patch({ subject: e.target.value || undefined });
+                  setSubjects([]);
+                }}
+                value={value.subject ?? ''}
+              >
+                <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
+                {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+          </div>
+
+          {/* Version selector — loaded lazily */}
+          <div className="wf-config-field">
+            <label>Version</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="number"
+                value={value.version ?? ''}
+                onChange={(e) => patch({ version: e.target.value === '' ? undefined : Number(e.target.value) })}
+                placeholder="latest (default)"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => versions.length > 0 ? setVersions([]) : loadVersions()}
+                disabled={loadingVersions || !value.registryUrl?.trim()}
+                title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
+              >
+                {loadingVersions ? '…' : '↓'}
+              </button>
+            </div>
+            {versionsError && <span className="wf-config-error">{versionsError}</span>}
+            {versions.length > 0 && (
+              <select
+                size={Math.min(versions.length + 1, 6)}
+                style={{ marginTop: 4, width: '100%' }}
+                onChange={(e) => {
+                  patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
+                  setVersions([]);
+                }}
+                value={value.version ?? ''}
+              >
+                <option value="">(latest)</option>
+                {versions.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
