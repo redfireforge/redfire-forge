@@ -359,4 +359,29 @@ describe('useWorkflows', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(mockSaveSelectedId).not.toHaveBeenCalled();
   });
+
+  it('reorder calls saveWorkflows with reordered list', async () => {
+    const wf1 = makeWorkflow({ id: 'wf-1', order: 0, folderId: null });
+    const wf2 = makeWorkflow({ id: 'wf-2', order: 1, folderId: null });
+    mockLoadWorkflows.mockResolvedValue([wf1, wf2]);
+
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    act(() => result.current.reorder('wf-1', null, 2));
+
+    await waitFor(() => expect(mockSaveWorkflows).toHaveBeenCalled());
+    const saved = mockSaveWorkflows.mock.calls.at(-1)![0] as Workflow[];
+    expect(saved.map((w) => w.id)).toContain('wf-1');
+  });
+
+  it('reorder ignores unknown workflowId without throwing', async () => {
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ id: 'wf-1' })]);
+
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // Should not throw — non-existent id is silently ignored by moveWorkflow
+    expect(() => act(() => result.current.reorder('ghost-wf', null, 0))).not.toThrow();
+  });
 });

@@ -66,6 +66,9 @@ export function createMockRuntimeAdapter(options?: {
       config: {},
       healthStatus: 'unknown' as const,
     })),
+    fetchTopicOffsets: vi.fn(async () => [
+      { partition: 0, low: '0', high: '0' },
+    ]),
   };
 
   const producer: KafkaProducerAdapter = {
@@ -102,6 +105,7 @@ export function createMockRuntimeAdapter(options?: {
     stop: vi.fn(async () => undefined),
     pause: vi.fn(() => undefined),
     resume: vi.fn(() => undefined),
+    seek: vi.fn(() => undefined),
   };
 
   const runtimeAdapter: KafkaRuntimeAdapter = {

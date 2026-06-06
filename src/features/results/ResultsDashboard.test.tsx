@@ -106,8 +106,11 @@ vi.mock('./hooks/useResultsGrouping', () => ({
 }));
 
 vi.mock('../requests/components/ResponseDetailModal', () => ({
-  default: ({ result }: { result: { id: string } | null }) => (
-    <div data-testid="response-detail-modal">{result?.id ?? 'none'}</div>
+  default: ({ result, onClose }: { result: { id: string } | null; onClose: () => void }) => (
+    <div data-testid="response-detail-modal">
+      {result?.id ?? 'none'}
+      <button type="button" onClick={onClose}>mock-close-response-modal</button>
+    </div>
   ),
 }));
 vi.mock('../test-runner/components/WaterfallBar', () => ({ AggregatedTimingTable: () => <div>timing-table</div> }));
@@ -928,5 +931,71 @@ describe('ResultsDashboard', () => {
     const snippet = await screen.findByText('boom');
     fireEvent.click(snippet);
     expect(screen.getByTestId('response-detail-modal').textContent).toContain('error-result');
+  });
+
+  it('closes response detail modal via onClose callback', async () => {
+    const run = makeTestRun({ id: 'requests-run', results: [makeResult()] });
+    storageMocks.loadTestRunsLite.mockResolvedValue([run]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([]);
+
+    render(<ResultsDashboard />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Request Details' }));
+    fireEvent.click(await screen.findByText('boom'));
+
+    expect(screen.getByTestId('response-detail-modal').textContent).toContain('error-result');
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-close-response-modal' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('response-detail-modal').textContent).not.toContain('error-result'),
+    );
+  });
+
+  it('closes compare action modal via Cancel button', async () => {
+    const run = makeTestRun({
+      id: 'selected-run',
+      timestamp: 300,
+      projectName: 'Project',
+      summary: makeSummary({ errorsByStatus: {} }),
+      results: [makeResult()],
+    });
+    storageMocks.loadTestRunsLite.mockResolvedValue([run]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([{ runId: 'selected-run', markedAt: 9 }]);
+
+    render(<ResultsDashboard />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Comparison & Trends/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-set-compare-target' }));
+
+    expect(await screen.findByText('Choose Comparison Action')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByText('Choose Comparison Action')).toBeNull());
+  });
+
+  it('calls onRename callback on BaselineListPanel and updates baselines', async () => {
+    const selectedRun = makeTestRun({
+      id: 'selected-run',
+      timestamp: 300,
+      projectName: 'Project',
+      summary: makeSummary({ errorsByStatus: {} }),
+      results: [makeResult()],
+    });
+    const baselineRun = makeTestRun({
+      id: 'baseline-run',
+      timestamp: 200,
+      projectName: 'Baseline Project',
+      summary: makeSummary({ errorsByStatus: {} }),
+      results: [makeResult()],
+    });
+    storageMocks.loadTestRunsLite.mockResolvedValue([selectedRun, baselineRun]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([{ runId: 'baseline-run', markedAt: 9 }]);
+    runBaselineMocks.renameBaseline.mockResolvedValue([{ runId: 'baseline-run', markedAt: 9, label: 'Renamed' }]);
+
+    render(<ResultsDashboard />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Comparison & Trends/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-rename-baseline' }));
+    await waitFor(() =>
+      expect(runBaselineMocks.renameBaseline).toHaveBeenCalledWith('baseline-run', 'Renamed From Panel'),
+    );
   });
 });

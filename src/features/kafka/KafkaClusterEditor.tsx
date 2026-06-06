@@ -266,7 +266,9 @@ export function KafkaClusterEditor({
                       />
                       Enable TLS
                     </label>
-                    <label className="kafka-editor-checkbox">
+                    <label
+                      className={`kafka-editor-checkbox${!draft.tlsEnabled ? ' kafka-editor-checkbox--disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
                         checked={draft.tlsRejectUnauthorized}

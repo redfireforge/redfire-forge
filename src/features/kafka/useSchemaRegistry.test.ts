@@ -421,4 +421,200 @@ describe('deriveSchemaFormat', () => {
   it('missing schemaType + no content → undefined', () => {
     expect(deriveSchemaFormat(undefined, undefined)).toBeUndefined();
   });
+  it('missing schemaType + valid JSON object without $schema or type=record → undefined', () => {
+    expect(deriveSchemaFormat(undefined, '{"type":"object","properties":{}}')).toBeUndefined();
+  });
+  it('unknown schemaType + no content → undefined', () => {
+    expect(deriveSchemaFormat('XML', undefined)).toBeUndefined();
+  });
+});
+
+describe('useSchemaRegistry — additional branch coverage', () => {
+  let mockDispatch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDispatch = vi.fn();
+  });
+
+  it('loadSubjects: no-op when registryUrl is empty', async () => {
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+    // registryUrl defaults to '' — loadSubjects should return immediately
+    await act(async () => {
+      await result.current.loadSubjects();
+    });
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(result.current.subjectsLoading).toBe(false);
+  });
+
+  it('selectSubject(null): clears state without dispatching', async () => {
+    mockDispatch.mockResolvedValueOnce({ data: { subjects: ['a'] } });
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    // Select something first
+    mockDispatch.mockResolvedValueOnce({ data: { subject: 'a', versions: [1] } });
+    mockDispatch.mockResolvedValueOnce({ data: makeSchemaDetail({ subject: 'a', version: 1 }) });
+    act(() => { result.current.selectSubject('a'); });
+    await waitFor(() => expect(result.current.selectedSubject).toBe('a'));
+
+    // Now de-select
+    const callsBefore = mockDispatch.mock.calls.length;
+    act(() => { result.current.selectSubject(null); });
+
+    expect(result.current.selectedSubject).toBeNull();
+    expect(result.current.versions).toEqual([]);
+    expect(result.current.selectedVersion).toBeNull();
+    expect(mockDispatch.mock.calls.length).toBe(callsBefore); // no new dispatch for null
+  });
+
+  it('selectSubject: empty versions list → no auto-select, no schema-fetch', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['empty-topic'] } })
+      .mockResolvedValueOnce({ data: { subject: 'empty-topic', versions: [] } });
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    act(() => { result.current.selectSubject('empty-topic'); });
+    await waitFor(() => expect(result.current.versionsLoading).toBe(false));
+
+    expect(result.current.versions).toEqual([]);
+    expect(result.current.selectedVersion).toBeNull();
+    expect(mockDispatch).toHaveBeenCalledTimes(2); // no schema-fetch call
+  });
+
+  it('selectSubject: versions dispatch error → versionsError set', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['bad-topic'] } })
+      .mockRejectedValueOnce(new Error('Versions fetch failed'));
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    act(() => { result.current.selectSubject('bad-topic'); });
+    await waitFor(() => expect(result.current.versionsError).not.toBeNull());
+
+    expect(result.current.versionsError!.message).toContain('Versions fetch failed');
+    expect(result.current.versionsLoading).toBe(false);
+  });
+
+  it('selectVersion(null): clears selectedVersion without dispatching', async () => {
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => { result.current.selectVersion(null); });
+
+    expect(result.current.selectedVersion).toBeNull();
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('selectVersion: no-op dispatch when selectedSubject is null', async () => {
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    // selectedSubject is null by default → setting a version should not dispatch
+    act(() => { result.current.selectVersion(1); });
+
+    expect(result.current.selectedVersion).toBe(1);
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('fetchSchemaForVersion: skips format update when detail is null', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['x'] } })
+      .mockResolvedValueOnce({ data: { subject: 'x', versions: [1] } })
+      .mockResolvedValueOnce({ data: null }); // schema-fetch returns null detail
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    act(() => { result.current.selectSubject('x'); });
+    await waitFor(() => expect(result.current.schemaLoading).toBe(false));
+
+    expect(result.current.schemaDetail).toBeNull();
+    // Format should not be set on subject since detail was null
+    expect(result.current.subjects[0].format).toBeUndefined();
+  });
+
+  it('auth with password-only → auth block included in dispatch', async () => {
+    mockDispatch.mockResolvedValueOnce({ data: { subjects: [] } });
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => {
+      result.current.setRegistryConfig({
+        registryUrl: 'http://localhost:8085',
+        auth: { username: '', password: 'secret' },
+      });
+    });
+
+    await act(async () => { await result.current.loadSubjects(); });
+
+    const callArgs = mockDispatch.mock.calls[0][1];
+    expect(callArgs.schemaConfig.auth).toEqual({ username: '', password: 'secret' });
+  });
+
+  it('schema fetch error → schemaError set, schemaDetail null, schemaLoading cleared', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['y'] } })
+      .mockResolvedValueOnce({ data: { subject: 'y', versions: [1] } })
+      .mockRejectedValueOnce(new Error('Schema fetch network error'));
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    act(() => { result.current.selectSubject('y'); });
+    await waitFor(() => expect(result.current.schemaError).not.toBeNull());
+
+    expect(result.current.schemaError!.message).toContain('Schema fetch network error');
+    expect(result.current.schemaDetail).toBeNull();
+    expect(result.current.schemaLoading).toBe(false);
+  });
+
+  it('schema format is derived and attached to subject when detail.schemaType is set', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({ data: { subjects: ['z'] } })
+      .mockResolvedValueOnce({ data: { subject: 'z', versions: [1] } })
+      .mockResolvedValueOnce({ data: makeSchemaDetail({ subject: 'z', version: 1, schemaType: 'JSON' }) });
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' }));
+    await act(async () => { await result.current.loadSubjects(); });
+
+    act(() => { result.current.selectSubject('z'); });
+    await waitFor(() => expect(result.current.schemaDetail).not.toBeNull());
+
+    expect(result.current.subjects[0].format).toBe('json-schema');
+  });
 });

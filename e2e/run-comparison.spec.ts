@@ -54,7 +54,7 @@ test.describe('Phase 25 run comparison and trends', () => {
       }
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

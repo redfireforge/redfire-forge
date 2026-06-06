@@ -200,6 +200,20 @@ describe('KafkaProduceConfig', () => {
     expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
   });
 
+  it('updates keyTemplate via ExpressionInput onChange', () => {
+    // Covers line 73: onChange={(value) => update({ keyTemplate: value })}
+    const onChange = vi.fn();
+    render(<KafkaProduceConfig data={makeData({ keyTemplate: 'old-key' })} onChange={onChange} variableHints={[]} />);
+
+    // The keyTemplate input has placeholder "e.g. {{orderId}}"
+    const keyInput = screen.getByPlaceholderText('e.g. {{orderId}}') as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: 'new-key' } });
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ keyTemplate: 'new-key' }),
+    );
+  });
+
   it('passes schemaConfig to onChange when schema registry is enabled', () => {
     const onChange = vi.fn();
     render(<KafkaProduceConfig data={makeData()} onChange={onChange} variableHints={[]} />);
@@ -211,5 +225,32 @@ describe('KafkaProduceConfig', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ schemaConfig: { registryUrl: '', format: 'avro' } }),
     );
+  });
+
+  it('onInsert for keyTemplate uses empty string fallback when keyTemplate is undefined', () => {
+    // Covers the `data.keyTemplate ?? ''` null-coalescing false branch (line 69)
+    render(<Host initial={makeData({ keyTemplate: undefined })} />);
+    const applyBtns = screen.getAllByTestId('insert-var-apply');
+    fireEvent.click(applyBtns[0]); // first InsertVarField is keyTemplate
+    // keyTemplate was undefined → `${'' }${'{{snippet}}'}` = '{{snippet}}'
+    expect(screen.getByDisplayValue('{{snippet}}')).toBeTruthy();
+  });
+
+  it('onInsert for bodyTemplate uses empty string fallback when bodyTemplate is undefined', () => {
+    // Covers the `data.bodyTemplate ?? ''` null-coalescing false branch (line 132)
+    render(<Host initial={makeData({ bodyTemplate: undefined })} />);
+    const applyBtns = screen.getAllByTestId('insert-var-apply');
+    // keyTemplate insert is index 0, bodyTemplate is index 1 (no headers)
+    fireEvent.click(applyBtns[1]);
+    // bodyTemplate was undefined → '' + '{{snippet}}'
+    expect((screen.getByDisplayValue('{{snippet}}') as HTMLTextAreaElement).value).toBe('{{snippet}}');
+  });
+
+  it('passes topic as empty string to KafkaSchemaConfigSection when topic is undefined', () => {
+    // Covers the `data.topic ?? ''` null-coalescing false branch (line 189)
+    const onChange = vi.fn();
+    render(<KafkaProduceConfig data={makeData({ topic: undefined })} onChange={onChange} variableHints={[]} />);
+    // Component renders without crash — topic ?? '' evaluates to ''
+    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
   });
 });

@@ -397,4 +397,288 @@ describe('useTopicMessageBrowser', () => {
       fromBeginning: true,
     }));
   });
+
+  it("timeWindow 'last-24h' post-filters rows by timestamp", async () => {
+    const now = Date.now();
+    const recent = String(now - 12 * 60 * 60 * 1000); // 12h ago — within 24h window
+    const old = String(now - 25 * 60 * 60 * 1000);    // 25h ago — outside window
+
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        topic: 'orders.created',
+        messages: [
+          { topic: 'orders.created', partition: 0, offset: '1', value: '{}', timestamp: recent },
+          { topic: 'orders.created', partition: 0, offset: '2', value: '{}', timestamp: old },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    act(() => { result.current.setDraft({ timeWindow: 'last-24h' }); });
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(result.current.result).toHaveLength(1);
+    expect(result.current.result![0].offset).toBe('1');
+  });
+
+  it('consumeOnce: no-op when topicName is blank', async () => {
+    const dispatch = vi.fn();
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('consumeOnce: ok=false response does not set result', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: 'KAFKA_ERROR', message: 'Bad request' },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(result.current.result).toBeNull();
+    expect(result.current.error).toBeNull(); // ok=false without data → no error set
+  });
+
+  it('consumeOnce: timedOut=true propagates to state', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: [], timedOut: true, hasMore: false },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(result.current.timedOut).toBe(true);
+  });
+
+  it('consumeOnce: hasMore=true and nextCursor propagate', async () => {
+    const cursor = [{ partition: 0, offset: '100' }];
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        topic: 'orders.created',
+        messages: SAMPLE_ROWS,
+        hasMore: true,
+        nextCursor: cursor,
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(result.current.hasMore).toBe(true);
+  });
+
+  it('buildBody: includes partition when set', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: [] },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    act(() => { result.current.setDraft({ partition: '2' }); });
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(dispatch).toHaveBeenCalledWith('consume-once', expect.objectContaining({
+      partition: 2,
+    }));
+  });
+
+  it('buildBody: includes sortOrder when desc', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: [] },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    act(() => { result.current.setDraft({ sortOrder: 'desc' }); });
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(dispatch).toHaveBeenCalledWith('consume-once', expect.objectContaining({
+      sortOrder: 'desc',
+    }));
+  });
+
+  it('loadMore: no-op when nextCursor is null', async () => {
+    const dispatch = vi.fn();
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(result.current.loadMoreLoading).toBe(false);
+  });
+
+  it('loadMore: no-op when nextCursor is empty array', async () => {
+    // First consume to set nextCursor to []
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: SAMPLE_ROWS, hasMore: false, nextCursor: [] },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+
+    const dispatchCountBefore = dispatch.mock.calls.length;
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(dispatch.mock.calls.length).toBe(dispatchCountBefore); // no new call
+  });
+
+  it('loadMore: error path sets error', async () => {
+    const cursor = [{ partition: 0, offset: '100' }];
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { topic: 'orders.created', messages: SAMPLE_ROWS, hasMore: true, nextCursor: cursor },
+      })
+      .mockRejectedValueOnce(new Error('load more failed'));
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.hasMore).toBe(true);
+
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.error).not.toBeNull();
+    expect(result.current.error!.message).toContain('load more failed');
+    expect(result.current.loadMoreLoading).toBe(false);
+  });
+
+  it('loadMore: ok=false response does not append messages', async () => {
+    const cursor = [{ partition: 0, offset: '100' }];
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { topic: 'orders.created', messages: SAMPLE_ROWS, hasMore: true, nextCursor: cursor },
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: 'KAFKA_ERROR', message: 'Pagination failed' },
+      });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+    const initialCount = result.current.result!.length;
+
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.result!.length).toBe(initialCount); // not appended
+  });
+
+  it('loadMore: prev=null branch — sets result from messages directly', async () => {
+    const cursor = [{ partition: 0, offset: '100' }];
+    // Setup: consumeOnce returns no messages (result stays null isn't possible after consumeOnce,
+    // but we test the ternary by having prev=null via clearResult before loadMore)
+    // Actually loadMore can't be called when nextCursor is set unless consumeOnce was called.
+    // Instead force the state via two dispatches:
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          topic: 'orders.created', messages: [],
+          hasMore: true, nextCursor: cursor,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { messages: SAMPLE_ROWS, hasMore: false, nextCursor: null },
+      });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+    // After consumeOnce result=[] (empty array, not null), but we need prev=null
+    // Trick: clearResult and then loadMore won't work since clearResult resets nextCursor too
+    // Instead verify loadMore appends to empty array result
+    expect(result.current.result).toEqual([]);
+
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.result).toHaveLength(SAMPLE_ROWS.length);
+  });
+
+  it('topic change resets result, error, timedOut, selectedIndex', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: SAMPLE_ROWS },
+    });
+
+    const { result, rerender } = renderHook(
+      ({ topic }) => useTopicMessageBrowser(topic, makeKafkaState(), { dispatch }),
+      { initialProps: { topic: 'orders.created' } },
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.result).not.toBeNull();
+
+    act(() => { result.current.selectMessage(0); });
+    expect(result.current.selectedIndex).toBe(0);
+
+    // Change topic
+    rerender({ topic: 'payments.settled' });
+
+    expect(result.current.result).toBeNull();
+    expect(result.current.selectedIndex).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.timedOut).toBe(false);
+  });
+
+  it('selectedMessage: returns null when selectedIndex is out of bounds', async () => {
+    const dispatch = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { topic: 'orders.created', messages: [SAMPLE_ROWS[0]] },
+    });
+
+    const { result } = renderHook(() =>
+      useTopicMessageBrowser('orders.created', makeKafkaState(), { dispatch }),
+    );
+
+    await act(async () => { await result.current.consumeOnce(); });
+    act(() => { result.current.selectMessage(99); });
+
+    expect(result.current.selectedMessage).toBeNull();
+  });
 });

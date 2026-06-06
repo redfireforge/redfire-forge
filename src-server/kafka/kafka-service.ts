@@ -309,30 +309,18 @@ export class KafkaService {
   }
 
   async produce(request: KafkaProduceRequest): Promise<KafkaRouteEnvelope<KafkaProduceResult>> {
-    if (!request || typeof request !== 'object' || Array.isArray(request)) {
-      return createKafkaErrorEnvelope('produce', {
-        code: 'KAFKA_INVALID_PRODUCE',
-        message: 'request body must be an object',
-      });
-    }
+    const bodyErr = KafkaService.requirePlainObject('produce', request, 'KAFKA_INVALID_PRODUCE');
+    if (bodyErr) return bodyErr;
 
-    const readiness = this.ensureConnected('produce', request.clusterId);
-    if (!readiness.ok) {
-      return readiness;
-    }
+    const connResult = this.requireReadyConnection('produce', request.clusterId);
+    if (!connResult.ok) return connResult.envelope;
 
     const validationError = validateKafkaProduceRequest(request);
     if (validationError) {
       return createKafkaErrorEnvelope('produce', validationError);
     }
 
-    const connection = this.snapshot.connection;
-    if (!connection) {
-      return createKafkaErrorEnvelope('produce', {
-        code: 'KAFKA_NOT_CONNECTED',
-        message: 'Kafka service is not connected',
-      });
-    }
+    const { connection } = connResult;
 
     const producer = this.runtimeAdapter.createProducer(connection);
     try {
@@ -411,41 +399,21 @@ export class KafkaService {
   }
 
   async consumeOnce(request: KafkaConsumeOnceRequest): Promise<KafkaRouteEnvelope<KafkaConsumeResult>> {
-    if (!request || typeof request !== 'object' || Array.isArray(request)) {
-      return createKafkaErrorEnvelope('consume-once', {
-        code: 'KAFKA_INVALID_CONSUME_ONCE',
-        message: 'request body must be an object',
-      });
-    }
+    const bodyErr = KafkaService.requirePlainObject('consume-once', request, 'KAFKA_INVALID_CONSUME_ONCE');
+    if (bodyErr) return bodyErr;
 
-    const readiness = this.ensureConnected('consume-once', request.clusterId);
-    if (!readiness.ok) {
-      return readiness;
-    }
+    const connResult = this.requireReadyConnection('consume-once', request.clusterId);
+    if (!connResult.ok) return connResult.envelope;
 
-    const connection = this.snapshot.connection;
-    if (!connection) {
-      return createKafkaErrorEnvelope('consume-once', {
-        code: 'KAFKA_NOT_CONNECTED',
-        message: 'Kafka service is not connected',
-      });
-    }
-
-    return executeConsumeOnce(this.runtimeAdapter, connection, request);
+    return executeConsumeOnce(this.runtimeAdapter, connResult.connection, request);
   }
 
   async subscribe(request: KafkaSubscribeRequest): Promise<KafkaRouteEnvelope<KafkaSubscribeResult>> {
-    if (!request || typeof request !== 'object' || Array.isArray(request)) {
-      return createKafkaErrorEnvelope('subscribe', {
-        code: 'KAFKA_INVALID_SUBSCRIBE',
-        message: 'request body must be an object',
-      });
-    }
+    const bodyErr = KafkaService.requirePlainObject('subscribe', request, 'KAFKA_INVALID_SUBSCRIBE');
+    if (bodyErr) return bodyErr;
 
-    const readiness = this.ensureConnected('subscribe', request.clusterId);
-    if (!readiness.ok) {
-      return readiness;
-    }
+    const connResult = this.requireReadyConnection('subscribe', request.clusterId);
+    if (!connResult.ok) return connResult.envelope;
 
     if (!request.topic?.trim()) {
       return createKafkaErrorEnvelope('subscribe', {
@@ -454,13 +422,7 @@ export class KafkaService {
       });
     }
 
-    const connection = this.snapshot.connection;
-    if (!connection) {
-      return createKafkaErrorEnvelope('subscribe', {
-        code: 'KAFKA_NOT_CONNECTED',
-        message: 'Kafka service is not connected',
-      });
-    }
+    const { connection } = connResult;
 
     const subscriptionId = randomUUID();
     const groupId = request.groupId ?? `redfireforge-sub-${connection.clusterId}-${subscriptionId.slice(0, 8)}`;
@@ -617,6 +579,49 @@ export class KafkaService {
         durationMs: Date.now() - startTs,
       });
     }
+  }
+
+  /**
+   * Guards that `body` is a non-null, non-array plain object.
+   * Returns an error envelope when the check fails, or `null` when valid.
+   * Used by produce, consumeOnce, and subscribe to eliminate repeated inline guards.
+   */
+  private static requirePlainObject(
+    op: KafkaOperation,
+    body: unknown,
+    code: string,
+  ): KafkaRouteEnvelope<never> | null {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return createKafkaErrorEnvelope(op, { code, message: 'request body must be an object' });
+    }
+    return null;
+  }
+
+  /**
+   * Combines the `ensureConnected` readiness check with the `snapshot.connection`
+   * null-guard that all write operations (produce, consumeOnce, subscribe) share.
+   * Returns `{ ok: false, envelope }` when either guard fails, or
+   * `{ ok: true, connection }` when the service is ready.
+   */
+  private requireReadyConnection(
+    op: 'produce' | 'consume-once' | 'subscribe',
+    clusterId?: string,
+  ): { ok: false; envelope: KafkaRouteEnvelope<never> } | { ok: true; connection: KafkaConnectionConfig } {
+    const readiness = this.ensureConnected(op, clusterId);
+    if (!readiness.ok) {
+      return { ok: false, envelope: readiness };
+    }
+    const connection = this.snapshot.connection;
+    if (!connection) {
+      return {
+        ok: false,
+        envelope: createKafkaErrorEnvelope(op, {
+          code: 'KAFKA_NOT_CONNECTED',
+          message: 'Kafka service is not connected',
+        }),
+      };
+    }
+    return { ok: true, connection };
   }
 
   private currentStatus(): KafkaServiceStatus {

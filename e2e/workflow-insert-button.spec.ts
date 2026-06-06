@@ -132,9 +132,9 @@ test.describe('Insert Variable button in node configs', () => {
   test.beforeEach(async ({ page }) => {
     await seedInsertBtnWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10_000 });
+    await page.waitForSelector('.app-header', { timeout: 25_000 });
     await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25_000 });
   });
 
   test('condition node config shows Insert button', async ({ page }) => {

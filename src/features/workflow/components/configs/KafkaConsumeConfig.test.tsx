@@ -297,4 +297,91 @@ describe('KafkaConsumeConfig', () => {
       expect.objectContaining({ schemaConfig: { registryUrl: '', format: 'avro' } }),
     );
   });
+
+  it('updates keyRegex via ExpressionInput onChange', () => {
+    // Covers line 104: onChange={(value) => update({ keyRegex: value })}
+    const onChange = vi.fn();
+    render(<KafkaConsumeConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    const keyRegexInput = screen.getByPlaceholderText('Optional regex filter') as HTMLInputElement;
+    fireEvent.change(keyRegexInput, { target: { value: 'order-.*' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ keyRegex: 'order-.*' }));
+  });
+
+  it('updates header filter value via ExpressionInput onChange', () => {
+    // Covers line 130: onChange={(value) => headerCrud.update(index, { value })}
+    const onChange = vi.fn();
+    render(<KafkaConsumeConfig
+      data={makeData({ headerFilters: [{ id: 'h1', key: 'x-type', value: 'old', enabled: true }] })}
+      onChange={onChange} variableHints={[]} />
+    );
+    const valueInput = screen.getByPlaceholderText('Value') as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value: 'new-val' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ headerFilters: expect.arrayContaining([expect.objectContaining({ value: 'new-val' })]) }),
+    );
+  });
+
+  it('updates jsonPath expectedValue via ExpressionInput onChange', () => {
+    // Covers line 162: onChange={(value) => jsonPathCrud.update(index, { expectedValue: value })}
+    const onChange = vi.fn();
+    render(<KafkaConsumeConfig
+      data={makeData({ jsonPathFilters: [{ id: 'j1', jsonPath: '$.id', expectedValue: 'old', enabled: true }] })}
+      onChange={onChange} variableHints={[]} />
+    );
+    const expInput = screen.getByPlaceholderText('Expected value') as HTMLInputElement;
+    fireEvent.change(expInput, { target: { value: '99' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ jsonPathFilters: expect.arrayContaining([expect.objectContaining({ expectedValue: '99' })]) }),
+    );
+  });
+
+  it('inserts snippet into jsonPath expectedValue when expectedValue is undefined (null-coalescing fallback)', () => {
+    // Covers the `row.expectedValue ?? ''` null-coalescing false branch (lines 157, 160)
+    render(<Host initial={makeData({ jsonPathFilters: [{ id: 'j1', jsonPath: '$.id', expectedValue: undefined, enabled: true }] })} />);
+
+    const applyBtns = screen.getAllByTestId('insert-var-apply');
+    // Index 0 = keyRegex, Index 1 = jsonPath row expectedValue
+    fireEvent.click(applyBtns[1]);
+    // expectedValue was undefined → '' + '{{snippet}}' = '{{snippet}}'
+    expect(screen.getByDisplayValue('{{snippet}}')).toBeTruthy();
+  });
+
+  it('clears synthetic jitter when jitter input is emptied', () => {
+    // Covers the `e.target.value === '' ? undefined : Number(...)` empty-string branch
+    render(<Host initial={makeData({ loadTestBehavior: { mode: 'synthetic-inject', syntheticJitterMs: 100 } })} />);
+    fireEvent.change(screen.getByLabelText('Synthetic Jitter (ms)'), { target: { value: '' } });
+    expect((screen.getByLabelText('Synthetic Jitter (ms)') as HTMLInputElement).value).toBe('');
+  });
+
+  it('shows empty string in jitter input when syntheticJitterMs is undefined', () => {
+    // Covers the `syntheticJitterMs ?? ''` null-coalescing false branch (line 240)
+    render(<Host initial={makeData({ loadTestBehavior: { mode: 'synthetic-inject', syntheticJitterMs: undefined } })} />);
+    const jitter = screen.getByLabelText('Synthetic Jitter (ms)') as HTMLInputElement;
+    expect(jitter.value).toBe('');
+  });
+
+  it('handleMockPayloadChange: ignores parsed JSON when it is an array (not object)', () => {
+    // Covers the `!Array.isArray(parsed)` false branch — array JSON is not spread to bindings
+    render(<Host initial={makeData({ loadTestBehavior: { mode: 'auto-resume', mockPayload: null } })} />);
+    const textarea = screen.getByLabelText('Mock Payload') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '[1,2,3]' } });
+    // Array value is valid JSON but not an object → no crash, text stays
+    expect(textarea.value).toBe('[1,2,3]');
+  });
+
+  it('handleMockPayloadChange: ignores parsed JSON when it is a primitive (number)', () => {
+    // Covers the `typeof parsed === "object"` false branch
+    render(<Host initial={makeData({ loadTestBehavior: { mode: 'auto-resume', mockPayload: null } })} />);
+    const textarea = screen.getByLabelText('Mock Payload') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '42' } });
+    // Primitive is valid JSON but typeof is "number" not "object"
+    expect(textarea.value).toBe('42');
+  });
+
+  it('passes topic as empty string to KafkaSchemaConfigSection when topic is undefined', () => {
+    // Covers the `data.topic ?? ''` null-coalescing false branch
+    const onChange = vi.fn();
+    render(<KafkaConsumeConfig data={makeData({ topic: undefined })} onChange={onChange} variableHints={[]} />);
+    expect(screen.getByText('Enable Schema Registry')).toBeTruthy();
+  });
 });

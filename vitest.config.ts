@@ -13,6 +13,7 @@ export default defineConfig({
     ],
     coverage: {
       reporter: ['text', 'json-summary'],
+      clean: false,
       exclude: [
         '**/__test-utils__/**',
         '**/__mocks__/**',
