@@ -431,4 +431,78 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
       expect.objectContaining({ headers: expect.arrayContaining([expect.objectContaining({ id: 'h-2' })]) }),
     );
   });
+
+  it('outside click closes dropdown when dropdownOpen is true', () => {
+    const tplProps = defaultTemplateProps();
+    tplProps.publishTemplates = [
+      { id: 'tpl-1', name: 'My Template', createdAt: '2026-01-01', draft: basePublishDraft() },
+    ];
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
+    // Open dropdown
+    fireEvent.click(screen.getByTitle('Load a saved template'));
+    expect(screen.getByText('My Template')).toBeTruthy();
+    // Click outside (on document body)
+    fireEvent.mouseDown(document.body);
+    // Dropdown should close
+    expect(screen.queryByText('My Template')).toBeNull();
+  });
+
+  it('outside click on wf dropdown closes it', () => {
+    const WF_OUTPUT = { some_var: 'value' };
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} lastWorkflowOutput={WF_OUTPUT} />);
+    fireEvent.click(screen.getByTestId('pub-map-workflow-btn'));
+    expect(screen.getByTestId('pub-wf-dropdown')).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('pub-wf-dropdown')).toBeNull();
+  });
+
+  it('handleSaveSubmit: no-op when save name is blank', async () => {
+    const tplProps = defaultTemplateProps();
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
+    fireEvent.click(screen.getByTitle('Save current settings as a template'));
+    // Don't type anything — name is empty
+    fireEvent.click(screen.getByText('✓'));
+    // Wait a tick to ensure async handler completes
+    await waitFor(() => expect(tplProps.onSaveTemplate).not.toHaveBeenCalled());
+  });
+
+  it('schemaConfig onChange calls setPublishDraft', () => {
+    // Covers line 356: onChange={(next) => setPublishDraft({ schemaConfig: next })}
+    const setPublishDraft = vi.fn();
+    render(<KafkaPublishStudio studio={makeStudio({ setPublishDraft })} clusterId="c" {...defaultTemplateProps()} />);
+
+    const schemaCheckbox = screen.getAllByRole('checkbox').at(-1) as HTMLInputElement;
+    fireEvent.click(schemaCheckbox);
+
+    expect(setPublishDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ schemaConfig: { registryUrl: '', format: 'avro' } }),
+    );
+  });
+
+  it('shows valueEncoding badge when publishResult has valueEncoding set', () => {
+    // Covers lines 455-457: {publishResult.valueEncoding && <span>Encoding: ...</span>}
+    const studio = makeStudio({
+      publishResult: { topic: 'orders.events', sentCount: 1, records: [{ partition: 0, offset: '42' }], valueEncoding: 'avro' },
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    expect(screen.getByTestId('pub-result').textContent).toContain('Encoding: avro');
+  });
+
+  it('shows plural "messages" when sentCount is greater than 1', () => {
+    // Covers the `sentCount !== 1 ? 's' : ''` true branch (sentCount > 1)
+    const studio = makeStudio({
+      publishResult: { topic: 'events', sentCount: 3, records: [] },
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    expect(screen.getByTestId('pub-result').textContent).toContain('3 messages');
+  });
+
+  it('shows timestamp in record row when r.timestamp is set', () => {
+    // Covers the `r.timestamp ? \`, ts ...\` : ''` true branch
+    const studio = makeStudio({
+      publishResult: { topic: 'orders', sentCount: 1, records: [{ partition: 0, offset: '5', timestamp: '1700000000000' }] },
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    expect(screen.getByTestId('pub-result').textContent).toContain('ts 1700000000000');
+  });
 });

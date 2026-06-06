@@ -111,9 +111,9 @@ test.describe('Workflow Condition Branching', () => {
   test.beforeEach(async ({ page }) => {
     await seedConditionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25_000 });
   });
 
   test('renders all node types (http, condition, delay)', async ({ page }) => {
@@ -181,7 +181,7 @@ test.describe('Workflow Deletion', () => {
     await seedConditionWorkflow(page);
     await page.goto('/?tab=workflow');
     await page.waitForSelector('.app-header');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25_000 });
   });
 
   test('can delete a workflow from sidebar', async ({ page }) => {

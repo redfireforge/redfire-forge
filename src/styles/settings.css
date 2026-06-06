@@ -870,20 +870,40 @@
 .kafka-editor-toggle-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 18px 28px;
+  padding: 4px 0;
 }
 
-.kafka-editor-checkbox {
+label.kafka-editor-checkbox {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 0.82rem;
   color: var(--text);
   white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  cursor: pointer;
+  user-select: none;
 }
 
-.kafka-editor-checkbox input {
+.kafka-editor-checkbox input[type="checkbox"] {
   margin: 0;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent, #89b4fa);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.kafka-editor-checkbox--disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.kafka-editor-checkbox--disabled input[type="checkbox"] {
+  cursor: default;
 }
 
 .kafka-editor-brokers-header {

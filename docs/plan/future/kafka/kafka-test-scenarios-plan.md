@@ -2,10 +2,10 @@
 
 > **Purpose:** Master plan for all Kafka visual test-scenarios MD files.
 > **Created:** 2026-06-04
-> **Updated:** 2026-06-05
-> **Completed:** `kafka-settings-test-scenarios.md` (24), `kafka-message-studio-test-scenarios.md` (39), `kafka-topic-explorer-test-scenarios.md` (26), `kafka-schema-registry-test-scenarios.md` (37), `kafka-workflow-nodes-test-scenarios.md` (48), `kafka-secure-tls-stream-test-scenarios.md` (17), `kafka-runner-test-scenarios.md` (20) — **Total: 211 scenarios across 7 files**
-> **In Progress:** None — all files complete except Tauri transport
-> **Remaining:** 1 file (`kafka-tauri-transport-test-scenarios.md`, ~18 scenarios)
+> **Updated:** 2026-06-06
+> **Completed:** `kafka-settings-test-scenarios.md` (24), `kafka-message-studio-test-scenarios.md` (39), `kafka-topic-explorer-test-scenarios.md` (26), `kafka-schema-registry-test-scenarios.md` (37), `kafka-workflow-nodes-test-scenarios.md` (48), `kafka-secure-tls-stream-test-scenarios.md` (17), `kafka-runner-test-scenarios.md` (20), `kafka-tauri-transport-test-scenarios.md` (18) — **Total: 229 scenarios across 8 files**
+> **In Progress:** None — all files complete
+> **Remaining:** 0 files
 >
 > **Source documents referenced:**
 > - `integration-plan.md` — Phase definitions and scope (Phases 1–9 + optional Phase 10)
@@ -35,7 +35,7 @@
 | ✅ | `kafka-workflow-nodes-test-scenarios.md` | Integration Phases 4–5 (Workflow Kafka nodes, Trigger, Wait) | Scenarios 5–9I | 48 | **Done** |
 | ✅ | `kafka-secure-tls-stream-test-scenarios.md` | SASL/SCRAM workflows, TLS-encrypted workflows, Kafka Studio Stream mode | — (cross-cutting) | 17 | **Done** |
 | ✅ | `kafka-runner-test-scenarios.md` | Integration Phases 6–8 (Runner, Load Policy, Results Publishing) | Scenarios 10–13G | 20 | **Done** — 20/20 validated, 3 design gaps fixed |
-| 7 | `kafka-tauri-transport-test-scenarios.md` | Integration Phase 9 (Tauri-native transport parity, beyond settings) | Scenarios 14–14H | ~18 | Pending |
+| ✅ | `kafka-tauri-transport-test-scenarios.md` | Integration Phase 9 (Tauri-native transport parity, beyond settings) | Scenarios 14–14H | 18 | **Done** — 17/18 validated via Tauri MCP live testing. 1 known gap (streaming split-brain). TT-16 fully validated after adding `ssl` feature to rdkafka |
 
 ---
 
@@ -570,7 +570,7 @@ Recommended order for writing and validating these files:
 4. kafka-workflow-nodes-test-scenarios.md        (WN-01 → WN-48)   ✅ Done — 48 scenarios
 5. kafka-secure-tls-stream-test-scenarios.md    (SW/TW/SM scenarios) ✅ Done — 17 scenarios
 6. kafka-runner-test-scenarios.md               (KR-01 → KR-20)   ✅ Done — 20/20 validated
-7. kafka-tauri-transport-test-scenarios.md      (TT-01 → TT-18)   ← Requires Tauri build
+7. kafka-tauri-transport-test-scenarios.md      (TT-01 → TT-18)   ✅ Done — 17/18 validated (Tauri MCP live)
 ```
 
 Each file should be completed end-to-end before moving to the next:
@@ -589,7 +589,7 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | `kafka-workflow-nodes-test-scenarios.md` | Phases 4–5 | MS Phase 3C/3D (bridge) | Scenarios 5–9I | ✅ Done |
 | `kafka-secure-tls-stream-test-scenarios.md` | Cross-cutting (SASL/TLS workflows + Studio Stream) | MS Phase 3B (stream) | — (security + stream) | ✅ Done |
 | `kafka-runner-test-scenarios.md` | Phases 6–8 | — | Scenarios 10–13G | ✅ Done |
-| `kafka-tauri-transport-test-scenarios.md` | Phase 9 (full transport parity) | — | Scenarios 14–14H | Pending |
+| `kafka-tauri-transport-test-scenarios.md` | Phase 9 (full transport parity) | — | Scenarios 14–14H | ✅ Done |
 
 ---
 
@@ -666,3 +666,15 @@ Every numbered scenario from `integration-test-plan.md` must be covered by at le
 | Scenario 15I (Schema ID caching) | 10 | ✅ `kafka-schema-registry` SR-20 |
 
 **Note:** Scenario 12H (`load-profile` execution mode unaffected) and Scenario 13F (retry/idempotency) are automated-only validations without direct visual test scenarios — they are covered by unit tests rather than manual UI testing.
+
+---
+
+## Bugs Found & Fixed During Testing
+
+| Date | File | Bug | Root Cause | Fix |
+|---|---|---|---|---|
+| 2026-06-05 | `kafka-runner` | Workflow Runner reports "0 Requests" for Kafka workflows | `graphRunnerKafkaNodeHandlers.ts` never pushed `RequestResult` entries | Created and pushed `RequestResult` objects after Kafka operations |
+| 2026-06-05 | `kafka-runner` | Results publishing not working for Workflow Runner | `WorkflowRunner.tsx` called `useTestExecution()` without `publishConfig` | Wired `kafkaResultsPublish` through `useWorkflowRunnerConfig` |
+| 2026-06-05 | `kafka-runner` | Standard Runner `kafkaOperations` wiring gap | `useTestExecution.ts` only built `kafkaOperations` when `workflow` arg present | Unconditionally call `buildKafkaNodeOperations()` |
+| 2026-06-05 | `kafka-tauri` | SCRAM-SHA-256 connect fails: "No provider for SASL mechanism" | `rdkafka` crate compiled without SSL/SASL support (only `cmake-build` feature) | Added `ssl` feature: `features = ["cmake-build", "ssl"]` in `Cargo.toml` |
+| 2026-06-05 | `kafka-settings` | TLS/SSL section checkboxes rendered in ALL CAPS | `.kafka-editor-field label { text-transform: uppercase }` inherited by checkbox labels | Added `label.kafka-editor-checkbox` rule with `text-transform: none` and disabled styling |

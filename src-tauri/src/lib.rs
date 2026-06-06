@@ -80,9 +80,9 @@ pub fn run() {
       kafka::operations::kafka_subscriptions,
     ]);
 
-  #[cfg(feature = "mcp-bridge")]
+  #[cfg(debug_assertions)]
   {
-    builder = builder.plugin(tauri_plugin_connector::init());
+    builder = builder.plugin(tauri_plugin_mcp_bridge::init());
   }
 
   builder

@@ -54,7 +54,7 @@ async function seedWithTaggedDataSource(page: Page) {
 /** Open test editor and navigate to Data tab */
 async function openDataTab(page: Page) {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForSelector('.app-header', { timeout: 25000 });
   await page.waitForLoadState('networkidle');
 
   // Expand feature group

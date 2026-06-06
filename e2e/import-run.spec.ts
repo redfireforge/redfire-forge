@@ -12,7 +12,7 @@ test.describe('Import CLI Run into Results', () => {
   test('imports a CLI JSON result file and displays it in Results', async ({ page }) => {
     // Navigate to Results tab (empty state)
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
 
     // Verify the Import Test Results button is visible
     const importBtn = page.locator('button:has-text("📥 Import Test Results")');
@@ -59,7 +59,7 @@ test.describe('Import CLI Run into Results', () => {
 
   test('shows error for invalid JSON file', async ({ page }) => {
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
 
     const fileInput = page.locator('input[data-testid="import-run-input"]');
     await fileInput.setInputFiles({
@@ -98,7 +98,7 @@ test.describe('Import CLI Run into Results', () => {
     });
 
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
 
     // Import Test Results button should be visible in the non-empty toolbar

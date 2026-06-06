@@ -267,6 +267,33 @@ describe('useWorkflowSidebarDnD', () => {
     expect(onMoveWorkflowToFolder).toHaveBeenCalledWith('wf', 'child-b', 0);
   });
 
+  it('handleDrop: sorts siblings by folderOrder ?? 0 when folderOrder is undefined', () => {
+    // Covers line 166: (a.folderOrder ?? 0) - (b.folderOrder ?? 0)
+    const onMoveWorkflowToFolder = vi.fn();
+    const workflows = [
+      // folderOrder intentionally omitted → ?? 0 fallback executes
+      makeWorkflow({ id: 'w2', folderId: undefined }),
+      makeWorkflow({ id: 'wf', folderId: undefined }),
+    ];
+    const { result } = renderDnD({
+      workflows,
+      onMoveWorkflowToFolder,
+    });
+
+    act(() => {
+      result.current.handleDragStart(createDragEvent({ clientY: 0 }), 'workflow', 'wf');
+    });
+    act(() => {
+      result.current.setDropTarget({ type: 'workflow', id: 'w2', zone: 'above' });
+    });
+    act(() => {
+      result.current.handleDrop(createDragEvent({ clientY: 0 }));
+    });
+
+    // onMoveWorkflowToFolder called — sort comparator executed without crashing
+    expect(onMoveWorkflowToFolder).toHaveBeenCalled();
+  });
+
   it('handleDrop uses onMoveWorkflowsToFolder when multiSelected includes source', () => {
     const onMoveWorkflowsToFolder = vi.fn();
     const workflows = [

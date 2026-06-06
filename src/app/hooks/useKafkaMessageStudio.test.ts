@@ -331,3 +331,284 @@ describe('clearConsumeResult', () => {
     expect(result.current.selectedMessageIndex).toBeNull();
   });
 });
+
+// ── loadMore (pagination) ─────────────────────────────────────────────────
+
+describe('loadMore', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('appends messages to existing result on success', async () => {
+    const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{"p":1}' }];
+    const page2 = [{ topic: 'o', partition: 0, offset: '1', value: '{"p":2}' }];
+
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1,
+        messages: page1,
+        timedOut: false,
+        hasMore: true,
+        nextCursor: [{ partition: 0, offset: '1' }],
+      }))
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1,
+        messages: page2,
+        timedOut: false,
+        hasMore: false,
+        nextCursor: [],
+      }));
+
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setConsumeDraft({ topic: 'o' }); });
+    await act(async () => { await result.current.consumeOnce(); });
+
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.consumeResult).toHaveLength(1);
+
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.consumeResult).toHaveLength(2);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it('sets consumeError on server error during loadMore', async () => {
+    const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{}' }];
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1,
+        messages: page1,
+        timedOut: false,
+        hasMore: true,
+        nextCursor: [{ partition: 0, offset: '1' }],
+      }))
+      .mockResolvedValueOnce(errEnvelope('Load more failed', 'PAGE_ERR'));
+
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.consumeError?.code).toBe('PAGE_ERR');
+  });
+
+  it('does nothing when nextCursor is empty', async () => {
+    const dispatch = vi.fn()
+      .mockResolvedValue(okEnvelope({
+        messageCount: 1,
+        messages: [{ topic: 'o', partition: 0, offset: '0', value: '{}' }],
+        timedOut: false,
+        hasMore: false,
+      }));
+
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    // dispatch was called once for consumeOnce; no nextCursor so loadMore is no-op
+    const callsBefore = dispatch.mock.calls.length;
+    await act(async () => { await result.current.loadMore(); });
+    expect(dispatch.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('sets consumeError when loadMore dispatch throws', async () => {
+    const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{}' }];
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1, messages: page1, timedOut: false,
+        hasMore: true, nextCursor: [{ partition: 0, offset: '1' }],
+      }))
+      .mockRejectedValueOnce(new Error('network error'));
+
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.consumeError?.message).toBe('network error');
+  });
+});
+
+// ── validateJsonBody ───────────────────────────────────────────────────────
+
+describe('validateJsonBody', () => {
+  it('returns true and formats valid JSON', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setPublishDraft({ body: '{"a":1}' }); });
+    let valid = false;
+    act(() => { valid = result.current.validateJsonBody(); });
+    expect(valid).toBe(true);
+    expect(result.current.publishDraft.body).toBe('{\n  "a": 1\n}');
+    expect(result.current.publishError).toBeNull();
+  });
+
+  it('returns false and sets INVALID_JSON error for malformed JSON', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    act(() => { result.current.setPublishDraft({ body: '{bad json}' }); });
+    let valid = true;
+    act(() => { valid = result.current.validateJsonBody(); });
+    expect(valid).toBe(false);
+    expect(result.current.publishError?.code).toBe('INVALID_JSON');
+    expect(result.current.publishError?.retryable).toBe(false);
+  });
+
+  it('clears prior INVALID_JSON error when JSON becomes valid', () => {
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState()),
+    );
+    // First invalidate
+    act(() => { result.current.setPublishDraft({ body: 'bad' }); });
+    act(() => { result.current.validateJsonBody(); });
+    expect(result.current.publishError?.code).toBe('INVALID_JSON');
+    // Then fix
+    act(() => { result.current.setPublishDraft({ body: '{"fixed":true}' }); });
+    act(() => { result.current.validateJsonBody(); });
+    expect(result.current.publishError).toBeNull();
+  });
+
+  it('preserves non-INVALID_JSON errors when JSON is valid', async () => {
+    const dispatch = makeDispatch(errEnvelope('Server error', 'SERVER_ERR'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't', body: '' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishError?.code).toBe('SERVER_ERR');
+    // validateJsonBody with valid JSON should NOT clear non-INVALID_JSON errors
+    act(() => { result.current.setPublishDraft({ body: '{"ok":true}' }); });
+    act(() => { result.current.validateJsonBody(); });
+    expect(result.current.publishError?.code).toBe('SERVER_ERR');
+  });
+});
+
+// ── sendOnce throw path ────────────────────────────────────────────────────
+
+describe('sendOnce — throw path', () => {
+  it('sets publishError when dispatch throws', async () => {
+    const dispatch = vi.fn().mockRejectedValue(new Error('network down'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    act(() => { result.current.setPublishDraft({ topic: 't' }); });
+    await act(async () => { await result.current.sendOnce(); });
+    expect(result.current.publishError?.message).toBe('network down');
+    expect(result.current.publishLoading).toBe(false);
+  });
+});
+
+// ── consumeOnce throw path ────────────────────────────────────────────────
+
+describe('consumeOnce — throw path', () => {
+  it('sets consumeError when dispatch throws', async () => {
+    const dispatch = vi.fn().mockRejectedValue(new Error('timeout'));
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState(), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    expect(result.current.consumeError?.message).toBe('timeout');
+    expect(result.current.consumeLoading).toBe(false);
+  });
+});
+
+// ── loadMore branch coverage ──────────────────────────────────────────────
+
+describe('loadMore — branch coverage', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('is a no-op when nextCursor is an empty array (length === 0)', async () => {
+    // Covers the || nextCursor.length === 0 branch at line 212
+    const dispatch = vi.fn().mockResolvedValueOnce(okEnvelope({
+      messageCount: 1,
+      messages: [{ topic: 'o', partition: 0, offset: '0', value: '{}' }],
+      timedOut: false,
+      hasMore: false,
+      nextCursor: [], // empty array → loadMore should no-op
+    }));
+
+    const { result } = renderHook(() => useKafkaMessageStudio(makeKafkaState(), { dispatch }));
+    await act(async () => { await result.current.consumeOnce(); });
+
+    const callsBefore = dispatch.mock.calls.length;
+    await act(async () => { await result.current.loadMore(); });
+    expect(dispatch.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('uses empty string clusterId when selectedClusterId is null', async () => {
+    // Covers line 213: const clusterId = kafkaState.selectedClusterId ?? ''
+    const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{}' }];
+    const page2 = [{ topic: 'o', partition: 0, offset: '1', value: '{}' }];
+
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1, messages: page1, timedOut: false,
+        hasMore: true, nextCursor: [{ partition: 0, offset: '1' }],
+      }))
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1, messages: page2, timedOut: false,
+        hasMore: false, nextCursor: undefined,
+      }));
+
+    const { result } = renderHook(() =>
+      useKafkaMessageStudio(makeKafkaState({ selectedClusterId: null as unknown as string }), { dispatch }),
+    );
+    await act(async () => { await result.current.consumeOnce(); });
+    await act(async () => { await result.current.loadMore(); });
+
+    // loadMore should have run (dispatch called twice)
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(result.current.consumeResult).toHaveLength(2);
+    // clusterId should be '' (empty string) since selectedClusterId was null
+    const loadMoreCall = dispatch.mock.calls[1];
+    expect(loadMoreCall[1]).toMatchObject({ clusterId: '' });
+  });
+
+  it('handles loadMore response with undefined hasMore and nextCursor', async () => {
+    // Covers lines 231-232: ?? false and ?? null in loadMore success path
+    const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{}' }];
+    const page2 = [{ topic: 'o', partition: 0, offset: '1', value: '{}' }];
+
+    const dispatch = vi.fn()
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1, messages: page1, timedOut: false,
+        hasMore: true, nextCursor: [{ partition: 0, offset: '1' }],
+      }))
+      .mockResolvedValueOnce(okEnvelope({
+        messageCount: 1, messages: page2, timedOut: false,
+        // hasMore and nextCursor intentionally omitted → triggers ?? false and ?? null
+      }));
+
+    const { result } = renderHook(() => useKafkaMessageStudio(makeKafkaState(), { dispatch }));
+    await act(async () => { await result.current.consumeOnce(); });
+    await act(async () => { await result.current.loadMore(); });
+
+    expect(result.current.hasMore).toBe(false);   // ?? false applied
+    expect(result.current.consumeResult).toHaveLength(2);
+    // nextCursor was undefined → ?? null → no more loadMore possible
+    const callsBefore = dispatch.mock.calls.length;
+    await act(async () => { await result.current.loadMore(); });
+    expect(dispatch.mock.calls.length).toBe(callsBefore); // loadMore no-op (nextCursor=null)
+  });
+});
+
+// ── selectedMessage out-of-bounds ─────────────────────────────────────────
+
+describe('selectedMessage — out-of-bounds', () => {
+  it('returns null when selectedMessageIndex is within consumeResult bounds check but index is out of range', async () => {
+    // Covers line 261: ? (consumeResult[selectedMessageIndex] ?? null)
+    // consumeResult = [] (empty array, truthy), selectedMessageIndex = 0
+    // consumeResult[0] = undefined → ?? null → selectedMessage = null
+    const dispatch = makeDispatch(okEnvelope({ messageCount: 0, messages: [], timedOut: false }));
+    const { result } = renderHook(() => useKafkaMessageStudio(makeKafkaState(), { dispatch }));
+    await act(async () => { await result.current.consumeOnce(); });
+    // consumeResult = [] (empty array) — truthy in the ternary
+    act(() => { result.current.selectMessage(0); });
+    // consumeResult[0] = undefined → ?? null
+    expect(result.current.selectedMessage).toBeNull();
+  });
+});

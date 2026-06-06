@@ -34,10 +34,11 @@ regex = "1"
 jsonschema = "0.27"
 chrono = "0.4"
 hdrhistogram = "7"
-rdkafka = { version = "0.37", features = ["cmake-build"] }
+rdkafka = { version = "0.37", features = ["cmake-build", "ssl"] }
 futures = "0.3"
 uuid = { version = "1", features = ["v4"] }
 tauri-plugin-connector = { version = "0.12", optional = true }
+tauri-plugin-mcp-bridge = "0.11.2"
 
 [features]
 default = []

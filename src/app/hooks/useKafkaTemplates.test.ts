@@ -343,6 +343,105 @@ describe('deleteConsumeTemplate', () => {
   });
 });
 
+// ── deleteConsumeTemplate error path ─────────────────────────────────────
+
+describe('deleteConsumeTemplate — error path', () => {
+  it('sets templateError when delete throws', async () => {
+    const stored = [{ id: 'c1', name: 'A', createdAt: '2026-06-05', draft: conDraft }];
+    mockLoadCon.mockResolvedValue(stored);
+    mockSaveCon.mockRejectedValueOnce(new Error('consume delete failed'));
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try { await result.current.deleteConsumeTemplate('c1'); } catch { /* expected */ }
+    });
+
+    expect(result.current.templateError).toBe('consume delete failed');
+  });
+
+
+});
+
+// ── Non-Error thrown value (String branch) ────────────────────────────────
+
+describe('non-Error thrown value — uses String() fallback', () => {
+  it('savePublishTemplate: uses String(err) when a non-Error is thrown', async () => {
+    mockSavePub.mockRejectedValueOnce('raw string thrown');
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try { await result.current.savePublishTemplate('T', pubDraft); } catch { /* expected */ }
+    });
+    expect(result.current.templateError).toBe('raw string thrown');
+  });
+
+  it('deletePublishTemplate: uses String(err) when a non-Error is thrown', async () => {
+    const stored = [{ id: 'p9', name: 'P', createdAt: '2026-06-05', draft: pubDraft }];
+    mockLoadPub.mockResolvedValue(stored);
+    mockSavePub.mockRejectedValueOnce(42);
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try { await result.current.deletePublishTemplate('p9'); } catch { /* expected */ }
+    });
+    expect(result.current.templateError).toBe('42');
+  });
+
+  it('saveConsumeTemplate: uses String(err) when a non-Error is thrown', async () => {
+    mockSaveCon.mockRejectedValueOnce({ code: 'QUOTA' });
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try { await result.current.saveConsumeTemplate('C', conDraft); } catch { /* expected */ }
+    });
+    expect(result.current.templateError).toBe('[object Object]');
+  });
+
+  it('mount error: uses String(err) when load throws a non-Error', async () => {
+    mockLoadPub.mockRejectedValueOnce('load-failed-string');
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+    expect(result.current.templateError).toBe('load-failed-string');
+  });
+
+  it('deleteConsumeTemplate: uses String(err) when a non-Error is thrown', async () => {
+    const stored = [{ id: 'c9', name: 'ConTemplate', createdAt: '2026-06-05', draft: conDraft }];
+    mockLoadCon.mockResolvedValue(stored);
+    mockSaveCon.mockRejectedValueOnce('not an Error object');
+
+    const { result } = renderHook(() => useKafkaTemplates());
+    await waitFor(() => expect(result.current.templatesLoading).toBe(false));
+
+    await act(async () => {
+      try { await result.current.deleteConsumeTemplate('c9'); } catch { /* expected */ }
+    });
+    expect(result.current.templateError).toBe('not an Error object');
+  });
+});
+
+// ── Cleanup: cancelled flag on unmount ────────────────────────────────────
+
+describe('cancelled flag on unmount during load', () => {
+  it('does not update state if unmounted before load resolves', async () => {
+    let resolvePub!: (v: unknown[]) => void;
+    mockLoadPub.mockReturnValue(new Promise((r) => { resolvePub = r; }));
+
+    const { result, unmount } = renderHook(() => useKafkaTemplates());
+    // Still loading — unmount immediately
+    unmount();
+    // Now resolve after unmount — should be a no-op (no state update)
+    await act(async () => { resolvePub([]); });
+    // After unmount, state is frozen; just verify no errors thrown
+    expect(result.current.publishTemplates).toEqual([]);
+  });
+});
+
 // ── templateError cleared on success ─────────────────────────────────────
 
 describe('templateError cleared on next successful operation', () => {
