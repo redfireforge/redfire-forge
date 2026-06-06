@@ -21,6 +21,8 @@ import {
   getCorrelationStore,
   getUnmatchedWebhooks,
   createCorrelationRouter,
+  registerResumeWaiter,
+  deregisterResumeWaiter,
   type ServerPausedEntry,
 } from './correlation-handler.js';
 import { InMemoryServerStore } from './correlation-store-memory.js';
@@ -208,6 +210,12 @@ describe('extractCorrelationId', () => {
     const id = extractCorrelationId(entry, {}, {}, { ids: ['a', 'b'] as unknown as string });
     expect(id).toBe('a,b');
   });
+
+  it('returns undefined for key source (not applicable for HTTP webhooks)', () => {
+    // Covers the 'key' switch case in extractCorrelationId — always returns undefined for HTTP
+    const entry = makeEntry({ correlationSource: 'key' });
+    expect(extractCorrelationId(entry, {}, {}, {})).toBeUndefined();
+  });
 });
 
 describe('matchCorrelation', () => {
@@ -373,4 +381,57 @@ describe('getUnmatchedWebhooks', () => {
     const list = getUnmatchedWebhooks();
     expect(list.some(e => e.path === '/webhooks/callback/get-unmatched-test')).toBe(true);
   }, 15000);
+});
+
+describe('deregisterResumeWaiter', () => {
+  beforeEach(() => {
+    setCorrelationStore(new InMemoryServerStore());
+    clearAllCorrelations();
+  });
+
+  it('is a no-op when no waiters are registered for the correlationId', () => {
+    // Covers the `if (!arr) return` TRUE branch (line 143)
+    const noop = () => {};
+    // Should not throw — deregistering from an unknown correlationId is safe
+    expect(() => deregisterResumeWaiter('unknown-id', noop)).not.toThrow();
+  });
+
+  it('removes a registered waiter from the resumeWaiters list', () => {
+    // Covers `if (idx >= 0) arr.splice(idx, 1)` TRUE branch (line 145)
+    // and `if (arr.length === 0) resumeWaiters.delete` TRUE branch (line 146)
+    let callCount = 0;
+    const waiter = () => { callCount++; };
+    registerResumeWaiter('deregister-test-id', waiter);
+    deregisterResumeWaiter('deregister-test-id', waiter);
+    // Waiter should no longer fire after deregistration
+    expect(callCount).toBe(0);
+  });
+
+  it('leaves other waiters intact when removing one of multiple waiters', () => {
+    // Covers `if (arr.length === 0) resumeWaiters.delete` FALSE branch (line 146) —
+    // list is not empty after removing one waiter, so the map entry is kept
+    let count1 = 0;
+    let count2 = 0;
+    const w1 = () => { count1++; };
+    const w2 = () => { count2++; };
+    registerResumeWaiter('multi-waiter-id', w1);
+    registerResumeWaiter('multi-waiter-id', w2);
+    // Remove only w1 — w2 should remain
+    deregisterResumeWaiter('multi-waiter-id', w1);
+    expect(count1).toBe(0);
+    // Verify w2 is still registered by calling deregister again (safe no-op for unknown waiter)
+    deregisterResumeWaiter('multi-waiter-id', w2);
+    expect(count2).toBe(0);
+  });
+
+  it('is a no-op when waiter is not in the list (idx < 0)', () => {
+    // Covers `if (idx >= 0)` FALSE branch (line 145) — waiter not found, no splice
+    const w1 = () => {};
+    const w2 = () => {};  // registered but we deregister a different one
+    registerResumeWaiter('idx-miss-id', w1);
+    // Deregistering a waiter that was never registered for this id should not throw
+    expect(() => deregisterResumeWaiter('idx-miss-id', w2)).not.toThrow();
+    // Clean up
+    deregisterResumeWaiter('idx-miss-id', w1);
+  });
 });

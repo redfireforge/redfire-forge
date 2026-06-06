@@ -93,7 +93,7 @@ export function applyTemplateLiteralsToScenario(scenario: Scenario, flat: Record
 // ── Graph traversal helpers ──────────────────────────
 
 export function findStartNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
-  const triggerNodes = nodes.filter(n => n.type === 'start' || n.type === 'webhook' || n.type === 'schedule');
+  const triggerNodes = nodes.filter(n => n.type === 'start' || n.type === 'webhook' || n.type === 'schedule' || n.type === 'kafkaTrigger');
   if (triggerNodes.length > 0) return triggerNodes;
   const targets = new Set(edges.map(e => e.target));
   return nodes.filter(n => !targets.has(n.id));
@@ -183,6 +183,7 @@ export async function executeHttpNode(
   }
   const resolvedScenario: Scenario = {
     ...data.scenario,
+    validation: data.scenario?.validation ?? { mode: 'none' as const },
     auth: resolveHttpAuth?.(data) ?? data.scenario?.auth ?? { type: 'none' as const },
   };
   const resolved = resolveScenario(resolvedScenario, stepCtx);

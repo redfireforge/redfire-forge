@@ -1,4 +1,4 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
@@ -29,6 +29,10 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   logDebug:          { icon: '📝', category: 'Logic' },
   script:            { icon: '⟨/⟩', category: 'Data' },
   correlationWait:   { icon: '🔗', category: 'Integrations' },
+  kafkaProduce:      { icon: '⇢',  category: 'Integrations' },
+  kafkaConsume:      { icon: '⇠',  category: 'Integrations' },
+  kafkaTrigger:      { icon: '⚡', category: 'Triggers' },
+  kafkaWait:         { icon: '⏸', category: 'Integrations' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
@@ -81,8 +85,9 @@ function stepLabel(data: HttpNodeData): string {
 
 const NON_HTTP_TYPES = new Set([
   'start', 'webhook', 'schedule', 'condition', 'delay', 'fork', 'join',
-  'switch', 'loop', 'set-variable', 'script', 'aggregate', 'log-debug',
-  'wait-for-condition', 'correlation-wait', 'error-handler', 'sub-workflow', 'end',
+  'switch', 'loop', 'setVariable', 'script', 'aggregate', 'logDebug',
+  'waitForCondition', 'correlationWait', 'errorHandler', 'subWorkflow', 'end',
+  'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
@@ -328,6 +333,70 @@ export function collectConditionVariableHints(
         if (!kt) continue;
         const val = (data.inputVariables ?? {})[k];
         push(kt, `${kt} ← "${label}" (trigger input)`, `Trigger input variable from "${label}" node. Default: "${val}"`, guessValueType(val), startSource, val);
+      }
+    } else if (n.type === 'kafkaProduce') {
+      const data = n.data as KafkaProduceNodeData;
+      const label = data.label?.trim() || 'Kafka Produce';
+      const kafkaSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'kafkaProduce', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.targetVariable?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.source})`, `Kafka produce metadata (${b.source}) from "${label}"`, 'string', kafkaSource);
+        }
+      }
+    } else if (n.type === 'kafkaConsume') {
+      const data = n.data as KafkaConsumeNodeData;
+      const label = data.label?.trim() || 'Kafka Consume';
+      const kafkaSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'kafkaConsume', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.targetVariable?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.source})`, `Kafka consume metadata (${b.source}) from "${label}"`, 'string', kafkaSource);
+        }
+      }
+    } else if (n.type === 'kafkaTrigger') {
+      const data = n.data as KafkaTriggerNodeData;
+      const label = data.label?.trim() || 'Kafka Trigger';
+      const triggerSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'kafkaTrigger', category: 'Triggers' };
+      // Standard kafka.trigger.* context variables seeded from the triggering message
+      const triggerKeys = [
+        { ref: 'kafka.trigger.topic',     desc: 'Topic the triggering message was consumed from' },
+        { ref: 'kafka.trigger.partition', desc: 'Partition the triggering message was in' },
+        { ref: 'kafka.trigger.offset',    desc: 'Offset of the triggering message in its partition' },
+        { ref: 'kafka.trigger.key',       desc: 'Message key of the triggering message (may be empty)' },
+        { ref: 'kafka.trigger.value',     desc: 'Full message value (body) of the triggering message' },
+      ];
+      for (const { ref, desc } of triggerKeys) {
+        push(ref, `${ref} ← "${label}"`, desc, 'string', triggerSource);
+      }
+      // User-defined extract variables from message body
+      for (const ev of data.extractVariables ?? []) {
+        const nm = ev.name?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from Kafka trigger message via JSONPath "${ev.jsonPath}"`, 'string', triggerSource);
+        }
+      }
+    } else if (n.type === 'kafkaWait') {
+      const data = n.data as KafkaWaitNodeData;
+      const label = data.label?.trim() || 'Kafka Wait';
+      const waitSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'kafkaWait', category: 'Integrations' };
+      // Standard kafka.wait.* context variables seeded on resume
+      const waitKeys = [
+        { ref: 'kafka.wait.topic',     desc: 'Topic the correlation message was consumed from' },
+        { ref: 'kafka.wait.partition', desc: 'Partition the correlation message was in' },
+        { ref: 'kafka.wait.offset',    desc: 'Offset of the correlation message in its partition' },
+        { ref: 'kafka.wait.key',       desc: 'Message key of the correlation message (may be empty)' },
+        { ref: 'kafka.wait.value',     desc: 'Full message value (body) of the correlation message' },
+      ];
+      for (const { ref, desc } of waitKeys) {
+        push(ref, `${ref} ← "${label}"`, desc, 'string', waitSource);
+      }
+      // User-defined extract variables
+      for (const ev of data.extractVariables ?? []) {
+        const nm = ev.name?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from Kafka wait message via JSONPath "${ev.jsonPath}"`, 'string', waitSource);
+        }
       }
     }
   }

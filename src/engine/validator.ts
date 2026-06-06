@@ -305,6 +305,16 @@ export interface AssertionContext {
   responseHeaders: Record<string, string>;
   responseBody: unknown;
   rawBody?: string;
+  /**
+   * Kafka-specific field context for `kafkaField` assertion evaluation.
+   * Populated by `kafkaExecution.ts` when building `ValidationInput`.
+   */
+  kafkaContext?: {
+    key?: string;
+    offset?: number;
+    partition?: number;
+    topic?: string;
+  };
 }
 
 export function evaluateAssertions(
@@ -697,7 +707,34 @@ export function evaluateAssertions(
         break;
       }
 
+      case 'kafkaField': {
+        // Resolve a field from Kafka action result (key, offset, partition, header.*, body)
+        let kafkaFieldVal: string | undefined;
+        const kTarget = a.target;
+        if (kTarget === 'kafka.body') {
+          kafkaFieldVal = ctx.rawBody ?? (typeof ctx.responseBody === 'string' ? ctx.responseBody : JSON.stringify(ctx.responseBody));
+        } else if (kTarget === 'kafka.key') {
+          kafkaFieldVal = ctx.kafkaContext?.key;
+        } else if (kTarget === 'kafka.partition') {
+          kafkaFieldVal = ctx.kafkaContext?.partition !== undefined ? String(ctx.kafkaContext.partition) : undefined;
+        } else if (kTarget === 'kafka.offset') {
+          kafkaFieldVal = ctx.kafkaContext?.offset !== undefined ? String(ctx.kafkaContext.offset) : undefined;
+        } else if (kTarget.startsWith('kafka.header.')) {
+          kafkaFieldVal = findHeader(ctx.responseHeaders, kTarget.slice('kafka.header.'.length));
+        }
+        const kOpResult = evaluateHeaderOp(kafkaFieldVal, a.operator, a.value);
+        if (!kOpResult.pass) {
+          assertionFailures.push({
+            path: `(kafkaField:${kTarget})`,
+            expected: kOpResult.expected,
+            actual: kOpResult.actual,
+          });
+        }
+        break;
+      }
+
       case 'custom': {
+        // (handled above)
         const expr = a.expression?.trim();
         if (!expr) {
           assertionFailures.push({
@@ -723,6 +760,18 @@ export function evaluateAssertions(
           }
           if (name.startsWith('$.')) {
             return getByPath(ctx.responseBody, name);
+          }
+          // Kafka field selectors for custom assertions on Kafka action results
+          if (name.startsWith('kafka.')) {
+            const kafkaPath = name.slice('kafka.'.length);
+            if (kafkaPath === 'body') return ctx.rawBody ?? ctx.responseBody;
+            if (kafkaPath === 'key') return ctx.kafkaContext?.key;
+            if (kafkaPath === 'partition') return ctx.kafkaContext?.partition;
+            if (kafkaPath === 'offset') return ctx.kafkaContext?.offset;
+            if (kafkaPath === 'topic') return ctx.kafkaContext?.topic;
+            if (kafkaPath.startsWith('header.')) {
+              return findHeader(ctx.responseHeaders, kafkaPath.slice('header.'.length));
+            }
           }
           return undefined;
         };

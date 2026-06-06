@@ -1,0 +1,103 @@
+services:
+  redpanda-secure:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.18
+    container_name: redfireforge-redpanda-secure
+    # The Redpanda Docker image ENTRYPOINT is /usr/bin/rpk, so 'command' provides
+    # arguments to rpk.  Start with 'redpanda start' (NOT 'rpk redpanda start') to
+    # avoid the double-rpk invocation.  The --set flag is processed by rpk and writes
+    # to redpanda.yaml; it is NOT a flag understood by the underlying redpanda binary.
+    # Superusers are configured via .bootstrap.yaml (mounted below) so they are
+    # available before the Kafka API comes up — no init-container workaround needed.
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --check=false
+      - --node-id=0
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19093
+      - --advertise-kafka-addr=internal://redpanda-secure:9092,external://127.0.0.1:19093
+      - --pandaproxy-addr=internal://0.0.0.0:8082,external://0.0.0.0:18083
+      - --advertise-pandaproxy-addr=internal://redpanda-secure:8082,external://127.0.0.1:18083
+      - --rpc-addr=0.0.0.0:33145
+      - --advertise-rpc-addr=redpanda-secure:33145
+    volumes:
+      # Bootstrap file sets CLUSTER-level properties (enable_sasl, superusers) before
+      # the Kafka API comes up.  This avoids needing a post-startup Admin API config
+      # call.  IMPORTANT: 'enable_sasl' must be in .bootstrap.yaml, not redpanda.yaml,
+      # because it is a cluster-level property.
+      - ./.bootstrap.yaml:/etc/redpanda/.bootstrap.yaml:ro
+    ports:
+      - "19093:19093"
+      - "18083:18083"
+      - "19645:9644"
+    healthcheck:
+      # Admin API (9644) does not require SASL — safe to call before users are created.
+      test: ["CMD-SHELL", "rpk cluster health --api-urls localhost:9644 --exit-when-healthy >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    restart: unless-stopped
+
+  redpanda-secure-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.18
+    container_name: redfireforge-redpanda-secure-init
+    depends_on:
+      redpanda-secure:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        # Create admin user with SCRAM-SHA-256 so it can authenticate on the Kafka port.
+        # 'admin' is already a superuser via .bootstrap.yaml mounted into the broker.
+        rpk acl user create admin \
+          --password admin-secret \
+          --mechanism SCRAM-SHA-256 \
+          --api-urls redpanda-secure:9644
+
+        # Create application user with SCRAM-SHA-256.
+        rpk acl user create redfireforge-app \
+          --password app-password \
+          --mechanism SCRAM-SHA-256 \
+          --api-urls redpanda-secure:9644
+
+        # Inline -X flags per command to avoid SASL state confusion from mixing
+        # Admin API (no-auth) and Kafka API (SASL) calls in the same rpk session.
+        # Note: literal -X flags are hardcoded to avoid Docker Compose variable
+        # interpolation of shell-level $ variables.
+
+        # Create topics for smoke tests.
+        rpk topic create redfireforge.debug.consume --partitions 3 \
+          -X brokers=redpanda-secure:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        rpk topic create redfireforge.results.summary --partitions 3 \
+          -X brokers=redpanda-secure:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        # Grant ACLs to application user on all topics and groups.
+        rpk acl create --allow-principal User:redfireforge-app \
+          --operation all --topic '*' \
+          -X brokers=redpanda-secure:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        rpk acl create --allow-principal User:redfireforge-app \
+          --operation all --group '*' \
+          -X brokers=redpanda-secure:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
+        echo "Secure profile initialization complete."
+    restart: "no"

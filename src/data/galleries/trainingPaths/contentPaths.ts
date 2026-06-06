@@ -637,4 +637,45 @@ export const contentPaths: TrainingPath[] = [
       },
     ],
   },
+
+  /* ── Kafka Protocols ── */
+  {
+    id: 'kafka-protocols',
+    name: 'Kafka Protocols',
+    icon: '🚀',
+    description:
+      'Use the Kafka Protocol Studio to publish/consume messages, explore topics, and manage Schema Registry — without writing workflow code.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Kafka Studio: Getting Started',
+            description: 'Set up a cluster, publish your first message, consume it back, and browse topics in one guided session.',
+            difficulty: 'easy',
+            manualPath: 'kafka/kafka-getting-started-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Exploration Tools',
+        manuals: [
+          {
+            title: 'Kafka Topic Explorer',
+            description: 'Browse all topics, inspect partition metadata, filter by domain chips, and read messages from within the explorer.',
+            difficulty: 'medium',
+            manualPath: 'kafka/kafka-topic-explorer-medium.html',
+          },
+          {
+            title: 'Kafka Schema Registry',
+            description: 'Connect a Schema Registry, browse Avro/Protobuf/JSON Schema subjects, compare versions, and copy schemas.',
+            difficulty: 'medium',
+            manualPath: 'kafka/kafka-schema-registry-medium.html',
+          },
+        ],
+      },
+    ],
+  },
 ];

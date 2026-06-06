@@ -9,7 +9,7 @@ import { MapperFetchError, type FetchErrorDetail } from '../../../shared/compone
 import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
 import { jsonEqual } from '../utils/testEditorUtils';
 import { getByPath } from '../../../shared/utils/jsonPath';
-import { hasExpectedFields, hasActiveRules, hasAssertions, hasSampleJson, getExpectedFields } from '../utils/validationHelpers';
+import { hasExpectedFields, hasActiveRules, hasAssertions, hasSampleJson, getExpectedFields, checkValidationScopeGuards } from '../utils/validationHelpers';
 
 // ─── Shared helpers ──────────────────────────────────────────
 
@@ -390,24 +390,12 @@ export function useTestFetch({
 
   const handleValidateResponse = useCallback(async (scope: 'assertions' | 'rules' | 'all' = 'all') => {
     const cur = draftRef.current;
-    if (!cur.url.trim()) {
-      setValidationResult({ passed: false, failures: [{ path: '(url)', expected: 'a URL', actual: 'empty' }] });
-      return;
-    }
     const v = cur.validation;
     const rulesConfigured = hasActiveRules(v);
     const assertionsConfigured = hasAssertions(v);
-
-    if (scope === 'rules' && !rulesConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
-      return;
-    }
-    if (scope === 'assertions' && !assertionsConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'assertions', actual: 'no assertions configured' }] });
-      return;
-    }
-    if (scope === 'all' && !rulesConfigured && !assertionsConfigured) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules or assertions', actual: 'none configured' }] });
+    const scopeFailures = checkValidationScopeGuards(cur.url, v, scope);
+    if (scopeFailures) {
+      setValidationResult({ passed: false, failures: scopeFailures });
       return;
     }
 

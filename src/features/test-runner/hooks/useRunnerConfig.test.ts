@@ -423,5 +423,69 @@ describe('useRunnerConfig', () => {
     expect(typeof result.current.setMaxErrorRate).toBe('function');
     expect(typeof result.current.setAutoReport).toBe('function');
     expect(typeof result.current.setAutoReportFormat).toBe('function');
+    expect(typeof result.current.setKafkaResultsPublish).toBe('function');
+  });
+});
+
+// ── kafkaResultsPublish tests ──────────────────────────────────────────────────
+
+describe('useRunnerConfig — kafkaResultsPublish', () => {
+  beforeEach(() => {
+    mockSaveRunnerConfig.mockClear();
+    mockLoadRunnerConfig.mockClear();
+  });
+
+  it('defaults to undefined when no saved config exists', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => useRunnerConfig('kp-default'));
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+    expect(result.current.kafkaResultsPublish).toBeUndefined();
+  });
+
+  it('restores kafkaResultsPublish from saved config', async () => {
+    const publishCfg = { enabled: true, clusterId: 'c1', topic: 'redfireforge.results.summary' };
+    mockLoadRunnerConfig.mockResolvedValueOnce({ kafkaResultsPublish: publishCfg } as unknown as RunnerConfig);
+    const { result } = renderHook(() => useRunnerConfig('kp-restore'));
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+    expect(result.current.kafkaResultsPublish).toEqual(publishCfg);
+  });
+
+  it('includes kafkaResultsPublish in saved config when it changes', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => useRunnerConfig('kp-save'));
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    const publishCfg = { enabled: true, clusterId: 'c2', topic: 'my-topic' };
+    act(() => {
+      result.current.setKafkaResultsPublish(publishCfg);
+    });
+
+    await waitFor(() => {
+      const lastCall = mockSaveRunnerConfig.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(lastCall?.kafkaResultsPublish).toEqual(publishCfg);
+    });
+  });
+
+  it('saves kafkaResultsPublish as undefined when cleared', async () => {
+    const publishCfg = { enabled: true, clusterId: 'c3', topic: 't' };
+    mockLoadRunnerConfig.mockResolvedValueOnce({ kafkaResultsPublish: publishCfg } as unknown as RunnerConfig);
+    const { result } = renderHook(() => useRunnerConfig('kp-clear'));
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    act(() => {
+      result.current.setKafkaResultsPublish(undefined);
+    });
+
+    await waitFor(() => {
+      const lastCall = mockSaveRunnerConfig.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(lastCall?.kafkaResultsPublish).toBeUndefined();
+    });
+  });
+
+  it('exposes setKafkaResultsPublish as a function', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => useRunnerConfig('kp-setter'));
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+    expect(typeof result.current.setKafkaResultsPublish).toBe('function');
   });
 });

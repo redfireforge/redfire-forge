@@ -1,0 +1,70 @@
+{
+  "id": "kafka-wf-04-schema-produce",
+  "name": "Kafka Scenario 04 — Produce with Schema Registry (Avro)",
+  "description": "Produces an Avro-encoded message via Confluent Schema Registry, then consumes and decodes it. Uses the local-schema-registry cluster (port 19094) with real Avro encoding/decoding.",
+  "variables": {
+    "testTopic": "users.avro"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 100, "y": 200 },
+      "data": { "label": "Start" }
+    },
+    {
+      "id": "produce-avro",
+      "type": "kafkaProduce",
+      "position": { "x": 400, "y": 200 },
+      "data": {
+        "label": "Produce Avro User",
+        "clusterId": "local-schema-registry",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "user-42",
+        "bodyTemplate": "{\n  \"name\": \"Alice Johnson\",\n  \"email\": \"alice@example.com\",\n  \"age\": 30,\n  \"active\": true\n}",
+        "headers": [
+          { "id": "h1", "key": "Content-Type", "value": "application/avro", "enabled": true }
+        ],
+        "ackMode": "all",
+        "timeoutMs": 10000,
+        "schemaConfig": {
+          "registryUrl": "http://localhost:8085",
+          "format": "avro",
+          "subject": "users.avro-value"
+        }
+      }
+    },
+    {
+      "id": "consume-avro",
+      "type": "kafkaConsume",
+      "position": { "x": 700, "y": 200 },
+      "data": {
+        "label": "Consume Avro User",
+        "clusterId": "local-schema-registry",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest",
+        "schemaConfig": {
+          "registryUrl": "http://localhost:8085",
+          "format": "avro",
+          "subject": "users.avro-value"
+        }
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 950, "y": 200 },
+      "data": { "label": "End" }
+    }
+  ],
+  "edges": [
+    { "id": "e-start-produce", "source": "start-1", "target": "produce-avro" },
+    { "id": "e-produce-consume", "source": "produce-avro", "target": "consume-avro" },
+    { "id": "e-consume-end", "source": "consume-avro", "target": "end-1" }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749110400000,
+  "updatedAt": 1749196800000
+}

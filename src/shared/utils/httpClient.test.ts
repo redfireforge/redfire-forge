@@ -325,4 +325,154 @@ describe('httpFetch', () => {
       );
     });
   });
+
+  describe('relative-URL native fetch path', () => {
+    it('uses native fetch for relative paths starting with /', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: () => Promise.resolve('{"ok":true}'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+
+      expect(result.status).toBe(200);
+      expect(result.body).toBe('{"ok":true}');
+      // Should NOT go through /__proxy
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
+      expect(call[0]).toBe('/api/kafka/status');
+    });
+
+    it('uses native fetch for relative paths starting with ./', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        text: () => Promise.resolve('result'),
+      } as unknown as Response);
+
+      const result = await httpFetch('./api/test', 'GET', {});
+      expect(result.status).toBe(200);
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
+      expect(call[0]).toBe('./api/test');
+    });
+
+    it('includes body for POST but not for GET on relative path', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 201,
+        statusText: 'Created',
+        headers: new Headers(),
+        text: () => Promise.resolve('{}'),
+      } as unknown as Response);
+
+      await httpFetch('/api/kafka/connect', 'POST', { 'Content-Type': 'application/json' }, '{"id":"c1"}');
+
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
+      expect((call[1] as RequestInit).body).toBe('{"id":"c1"}');
+    });
+
+    it('does not include body for GET on relative path', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        text: () => Promise.resolve('ok'),
+      } as unknown as Response);
+
+      await httpFetch('/api/kafka/status', 'GET', {}, '{"ignored":true}');
+
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
+      expect((call[1] as RequestInit).body).toBeUndefined();
+    });
+
+    it('maps gateway error 502 to networkError string', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: new Headers(),
+        text: () => Promise.resolve('upstream down'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+      expect(result.status).toBe(502);
+      expect(result.body).toBe('');
+      expect(result.error).toMatch(/Server returned 502/);
+    });
+
+    it('maps gateway error 503 to networkError string', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers(),
+        text: () => Promise.resolve(''),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+      expect(result.error).toMatch(/Server returned 503/);
+    });
+
+    it('maps gateway error 504 to networkError string', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 504,
+        statusText: 'Gateway Timeout',
+        headers: new Headers(),
+        text: () => Promise.resolve(''),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+      expect(result.error).toMatch(/Server returned 504/);
+    });
+
+    it('returns body for non-gateway error responses (e.g. 400)', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 400,
+        statusText: 'Bad Request',
+        headers: new Headers(),
+        text: () => Promise.resolve('{"error":"invalid"}'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+      expect(result.status).toBe(400);
+      expect(result.body).toBe('{"error":"invalid"}');
+      expect(result.error).toBeUndefined();
+    });
+
+    it('returns error object when native fetch throws', async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      const result = await httpFetch('/api/kafka/status', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toMatch(/Failed to fetch/);
+    });
+
+    it('passes AbortSignal to native fetch on relative path', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        text: () => Promise.resolve('ok'),
+      } as unknown as Response);
+
+      const ac = new AbortController();
+      await httpFetch('/api/kafka/status', 'GET', {}, undefined, ac.signal);
+
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
+      expect((call[1] as RequestInit).signal).toBe(ac.signal);
+    });
+
+    it('returns timing object with non-negative values', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        text: () => Promise.resolve('pong'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/ping', 'GET', {});
+      expect(result.timing).toBeDefined();
+      expect(result.timing!.ttfb).toBeGreaterThanOrEqual(0);
+      expect(result.timing!.total).toBeGreaterThanOrEqual(0);
+    });
+  });
 });

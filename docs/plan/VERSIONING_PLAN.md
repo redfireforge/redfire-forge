@@ -556,6 +556,6 @@ Items intentionally deferred from the versioning plan — tracked here for futur
 | CLI `--baseline <run-id>` flag for CI comparison output | V-Phase 4 | Belongs to a separate CLI enhancement phase |
 | ~~Response time distribution overlay histogram~~ | ~~V-Phase 4~~ | ~~Implemented — see Companion Improvements~~ |
 | Persist response history to localStorage | V-Phase 5 | Separate concern from definition versioning — it's HTTP response caching, not version control |
-| Kafka message versioning / schema evolution tracking | Future | Depends on Kafka integration (see `docs/plan/future/kafka-integration-plan.md`) |
+| Kafka message versioning / schema evolution tracking | Future | Depends on Kafka integration (see `docs/plan/future/kafka/integration-plan.md`) |
 | Data Source version history | Future | Track changes to CSV/JSON data source content over time |
 | Workflow execution trace archival | Future | Long-term storage of execution traces beyond in-memory/IndexedDB |

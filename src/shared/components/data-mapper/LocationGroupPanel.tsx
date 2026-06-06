@@ -175,6 +175,20 @@ export default function LocationGroupPanel({
     });
   }, []);
 
+  // Shared props passed to every TargetTreeNode instance in this panel.
+  const sharedTreeNodeProps = {
+    search, mappingFilter, mappedTargetPaths, onNodeSelect, selectedNodePath,
+    mappings, onDrop, expandedPaths, onToggle: handleToggle, selectedMappingId,
+    onSelectMapping, onEditExpression, typeMismatches, onQuickFix, onRemoveMapping,
+    focusedPath, traceOverlay, fieldOrigins, onRemoveCustomField, onUpdateCustomField,
+    onReorderField, onTargetFieldDragStart, onTargetFieldDragEnd, getDraggedSource,
+    getDraggedTargetFieldPath, unorderedDefault, onToggleUnorderedArray, capabilities,
+    onUpdateMappingOperator, onToggleMappingNegate, nodeStatusMap, fieldVerifyResults,
+    onAddArrayAssertion, onUpdateArrayAssertion, onRemoveArrayAssertion,
+    arrayAssertions, assertionVerifyMap, onRemapDrop, onRemapDragStart, onRemapDragEnd,
+    getDraggedRemapId,
+  };
+
   const renderGroup = (group: GroupData) => {
     const meta = LOCATION_META[group.location];
     const isCollapsed = collapsedGroups.has(group.location);
@@ -197,47 +211,7 @@ export default function LocationGroupPanel({
             <TargetTreeNode
               node={group.tree}
               depth={0}
-              search={search}
-              mappingFilter={mappingFilter}
-              mappedTargetPaths={mappedTargetPaths}
-              onNodeSelect={onNodeSelect}
-              selectedNodePath={selectedNodePath}
-              mappings={mappings}
-              onDrop={onDrop}
-              expandedPaths={expandedPaths}
-              onToggle={handleToggle}
-              selectedMappingId={selectedMappingId}
-              onSelectMapping={onSelectMapping}
-              onEditExpression={onEditExpression}
-              typeMismatches={typeMismatches}
-              onQuickFix={onQuickFix}
-              onRemoveMapping={onRemoveMapping}
-              focusedPath={focusedPath}
-              traceOverlay={traceOverlay}
-              fieldOrigins={fieldOrigins}
-              onRemoveCustomField={onRemoveCustomField}
-              onUpdateCustomField={onUpdateCustomField}
-              onReorderField={onReorderField}
-              onTargetFieldDragStart={onTargetFieldDragStart}
-              onTargetFieldDragEnd={onTargetFieldDragEnd}
-              getDraggedSource={getDraggedSource}
-              getDraggedTargetFieldPath={getDraggedTargetFieldPath}
-              unorderedDefault={unorderedDefault}
-              onToggleUnorderedArray={onToggleUnorderedArray}
-              capabilities={capabilities}
-              onUpdateMappingOperator={onUpdateMappingOperator}
-              onToggleMappingNegate={onToggleMappingNegate}
-              nodeStatusMap={nodeStatusMap}
-              fieldVerifyResults={fieldVerifyResults}
-              onAddArrayAssertion={onAddArrayAssertion}
-              onUpdateArrayAssertion={onUpdateArrayAssertion}
-              onRemoveArrayAssertion={onRemoveArrayAssertion}
-              arrayAssertions={arrayAssertions}
-              assertionVerifyMap={assertionVerifyMap}
-              onRemapDrop={onRemapDrop}
-              onRemapDragStart={onRemapDragStart}
-              onRemapDragEnd={onRemapDragEnd}
-              getDraggedRemapId={getDraggedRemapId}
+              {...sharedTreeNodeProps}
             />
             {allowCustomFields && onAddCustomField && (
               <AddFieldRow
@@ -272,47 +246,7 @@ export default function LocationGroupPanel({
             <TargetTreeNode
               node={ungroupedTree}
               depth={0}
-              search={search}
-              mappingFilter={mappingFilter}
-              mappedTargetPaths={mappedTargetPaths}
-              onNodeSelect={onNodeSelect}
-              selectedNodePath={selectedNodePath}
-              mappings={mappings}
-              onDrop={onDrop}
-              expandedPaths={expandedPaths}
-              onToggle={handleToggle}
-              selectedMappingId={selectedMappingId}
-              onSelectMapping={onSelectMapping}
-              onEditExpression={onEditExpression}
-              typeMismatches={typeMismatches}
-              onQuickFix={onQuickFix}
-              onRemoveMapping={onRemoveMapping}
-              focusedPath={focusedPath}
-              traceOverlay={traceOverlay}
-              fieldOrigins={fieldOrigins}
-              onRemoveCustomField={onRemoveCustomField}
-              onUpdateCustomField={onUpdateCustomField}
-              onReorderField={onReorderField}
-              onTargetFieldDragStart={onTargetFieldDragStart}
-              onTargetFieldDragEnd={onTargetFieldDragEnd}
-              getDraggedSource={getDraggedSource}
-              getDraggedTargetFieldPath={getDraggedTargetFieldPath}
-              unorderedDefault={unorderedDefault}
-              onToggleUnorderedArray={onToggleUnorderedArray}
-              capabilities={capabilities}
-              onUpdateMappingOperator={onUpdateMappingOperator}
-              onToggleMappingNegate={onToggleMappingNegate}
-              nodeStatusMap={nodeStatusMap}
-              fieldVerifyResults={fieldVerifyResults}
-              onAddArrayAssertion={onAddArrayAssertion}
-              onUpdateArrayAssertion={onUpdateArrayAssertion}
-              onRemoveArrayAssertion={onRemoveArrayAssertion}
-              arrayAssertions={arrayAssertions}
-              assertionVerifyMap={assertionVerifyMap}
-              onRemapDrop={onRemapDrop}
-              onRemapDragStart={onRemapDragStart}
-              onRemapDragEnd={onRemapDragEnd}
-              getDraggedRemapId={getDraggedRemapId}
+              {...sharedTreeNodeProps}
             />
           </div>
         </div>

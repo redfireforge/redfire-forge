@@ -21,6 +21,15 @@ interface UseWorkflowDragDropOptions {
   undoRedo: { takeSnapshot: (label: string) => void };
 }
 
+const DND_MIME = 'application/reactflow-type';
+const DND_MIME_FALLBACK = 'text/x-reactflow-type';
+
+/** Safari / Tauri WebView expose dataTransfer.types as DOMStringList (no .includes). */
+function hasMimeType(types: DOMStringList | readonly string[], mime: string): boolean {
+  if (typeof (types as DOMStringList).contains === 'function') return (types as DOMStringList).contains(mime);
+  return Array.prototype.includes.call(types, mime);
+}
+
 export function useWorkflowDragDrop({
   nodesRef,
   edgesRef,
@@ -47,7 +56,7 @@ export function useWorkflowDragDrop({
   const lastEdgeCheckTime = useRef(0);
 
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/reactflow-type')) {
+    if (hasMimeType(e.dataTransfer.types, DND_MIME) || hasMimeType(e.dataTransfer.types, DND_MIME_FALLBACK)) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       setIsDragOver(true);
@@ -74,7 +83,7 @@ export function useWorkflowDragDrop({
     e.preventDefault();
     setIsDragOver(false);
     setDropTargetEdgeId(null);
-    const type = e.dataTransfer.getData('application/reactflow-type') as WorkflowNodeType;
+    const type = (e.dataTransfer.getData(DND_MIME) || e.dataTransfer.getData(DND_MIME_FALLBACK)) as WorkflowNodeType;
     if (!type || !selected) return;
 
     const bounds = canvasAreaRef.current?.querySelector('.react-flow')?.getBoundingClientRect();

@@ -81,7 +81,7 @@ export function ResultsRequestDetailsTab({
         {r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}
       </td>
       <td colSpan={2} className="url-cell">{r.url}</td>
-      <td>{r.httpStatus || 'ERR'}</td>
+      <td>{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
       <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
       <td>{r.responseTimeMs}</td>
       <td>{r.passed ? '✓' : '✗'}</td>
@@ -275,7 +275,7 @@ export function ResultsRequestDetailsTab({
                   <td>{r.scenarioName}{r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}</td>
                   <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
                   <td className="url-cell">{r.url}</td>
-                  <td>{r.httpStatus || 'ERR'}</td>
+                  <td>{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
                   <td>{r.responseTimeMs}</td>
                   <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
                   <td>{r.passed ? '✓' : '✗'}</td>

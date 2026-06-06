@@ -1,5 +1,6 @@
 import type { TestRun, RequestResult } from '../../../shared/types';
 import { getResultErrorMessage } from '../../../shared/utils/helpers';
+import { percentile } from '../../../shared/utils/percentiles';
 // import { escapeCsv } from '../../../shared/utils/export';
 
 export interface ReportOptions {
@@ -38,9 +39,9 @@ function computeRowStats(results: RequestResult[]): RowStats {
     failed: total - passed,
     passRate: total > 0 ? Math.round((passed / total) * 100) : 0,
     avg: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
-    p50: times.length ? times[Math.floor(times.length * 0.5)] : 0,
-    p95: times.length ? times[Math.floor(times.length * 0.95)] : 0,
-    p99: times.length ? times[Math.floor(times.length * 0.99)] : 0,
+    p50: percentile(times, 0.5),
+    p95: percentile(times, 0.95),
+    p99: percentile(times, 0.99),
   };
 }
 
@@ -57,7 +58,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const failedRowsHtml = failed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${r.httpStatus || 'ERR'}</td>
+      <td>${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
       <td>${r.responseTimeMs}ms</td>
       <td>${esc(getResultErrorMessage(r))}</td>
     </tr>`).join('');
@@ -65,7 +66,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const passedRowsHtml = opts.includePassedRows ? passed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${r.httpStatus}</td>
+      <td>${(r.transportType ?? 'http') === 'http' ? r.httpStatus : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
       <td>${r.responseTimeMs}ms</td>
       <td></td>
     </tr>`).join('') : '';
@@ -230,7 +231,7 @@ function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
     for (const r of failed) {
       const label = r.dataRowLabel || r.scenarioName;
       const err = getResultErrorMessage(r);
-      md += `| ${label} | ${r.httpStatus || 'ERR'} | ${r.responseTimeMs}ms | ${err} |\n`;
+      md += `| ${label} | ${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'} | ${r.responseTimeMs}ms | ${err} |\n`;
     }
     md += '\n';
   }

@@ -91,6 +91,7 @@ export async function handleCorrelationWaitNode(
       const abortPromise = createAbortPromise(hCtx.abortSignal);
       const effectiveTimeout = data.timeoutMs ?? 300000;
       const waitPromise = hCtx.correlationStore.pause(correlationId, data.webhookPath, pausedState, effectiveTimeout, data.webhookFilter);
+      if (abortPromise) waitPromise.catch(() => {}); // prevent unhandled rejection if abort wins the race
       const webhookData = abortPromise ? await Promise.race([waitPromise, abortPromise]) : await waitPromise;
 
       injectWebhookPayload(webhookData, correlationId, data, hCtx.ctx, hCtx.log, label);
@@ -101,7 +102,9 @@ export async function handleCorrelationWaitNode(
       hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       await hCtx.visitOutgoing(nodeId, hCtx.threadId);
     } catch (err) {
-      if (hCtx.abortSignal?.aborted) {
+      hCtx.correlationStore?.cancel(correlationId);
+      const isAbort = hCtx.abortSignal?.aborted || hCtx.debugController?.isStopped;
+      if (isAbort) {
         hCtx.log({ prefix: '!', text: `[${label}] Correlation wait aborted` });
         hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted' });
       } else {
@@ -133,6 +136,7 @@ export async function handleCorrelationWaitNode(
       correlationId, data.webhookPath, pausedState, data.timeoutMs, data.webhookFilter,
       { correlationSource: data.correlationSource, correlationJsonPath: data.correlationJsonPath, correlationHeader: data.correlationHeader, correlationQueryParam: data.correlationQueryParam },
     );
+    if (abortPromise) waitPromise.catch(() => {}); // prevent unhandled rejection if abort wins the race
     const webhookData = abortPromise ? await Promise.race([waitPromise, abortPromise]) : await waitPromise;
 
     injectWebhookPayload(webhookData, correlationId, data, hCtx.ctx, hCtx.log, label);

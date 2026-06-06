@@ -222,6 +222,49 @@ async function proxyFetch(
   body?: string,
   signal?: AbortSignal,
 ): Promise<HttpResponse> {
+  // Relative paths (e.g. /api/kafka/status) must NOT go through /__proxy because
+  // the Vite middleware runs in Node.js and Node's fetch requires absolute URLs.
+  // Use the browser's native fetch instead — Vite's dev/preview server proxy
+  // config handles forwarding /api → localhost:3001 transparently.
+  if (url.startsWith('/') || url.startsWith('./')) {
+    try {
+      const opts: RequestInit = { method, headers: headers as HeadersInit };
+      if (body && method !== 'GET') opts.body = body;
+      if (signal) opts.signal = signal;
+      const t0 = performance.now();
+      const response = await fetch(url, opts);
+      const tFirstByte = performance.now();
+      const responseBody = await response.text();
+      const tDone = performance.now();
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+      // Treat gateway / server-not-running responses as network errors so the
+      // caller classifies them as KAFKA_NETWORK_ERROR (retryable) rather than
+      // KAFKA_INVALID_ENVELOPE (configuration error).
+      const networkError =
+        response.status === 0 ||
+        response.status === 502 ||
+        response.status === 503 ||
+        response.status === 504
+          ? `Server returned ${response.status} ${response.statusText || 'error'} — is the backend server running?`
+          : undefined;
+      return {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+        body: networkError ? '' : responseBody,
+        error: networkError,
+        timing: {
+          dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0,
+          ttfb: round2(tFirstByte - t0),
+          download: round2(tDone - tFirstByte),
+          total: round2(tDone - t0),
+        },
+      };
+    } catch (err) {
+      return { status: 0, statusText: '', headers: {}, body: '', error: deepErrorMessage(err) };
+    }
+  }
   return httpFetchViaViteProxy(url, method, headers, body, signal);
 }
 

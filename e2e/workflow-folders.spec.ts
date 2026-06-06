@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { makeFolderForE2E, makeWorkflowForE2E, seedAppData } from './helpers';
+import { gotoAppTab, makeFolderForE2E, makeWorkflowForE2E, seedAppData } from './helpers';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
 const folders: WorkflowFolder[] = [
@@ -27,9 +27,7 @@ async function seedFolderData(page: Page) {
 test.describe('Workflow Folders', () => {
   test.beforeEach(async ({ page }) => {
     await seedFolderData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('renders folder tree with nested folders in sidebar', async ({ page }) => {
@@ -132,9 +130,7 @@ test.describe('Workflow Folders', () => {
 test.describe('Workflow Picker (Runner)', () => {
   test.beforeEach(async ({ page }) => {
     await seedFolderData(page);
-    await page.goto('/?tab=workflow-runner');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow-runner');
   });
 
   test('shows custom dropdown trigger with placeholder', async ({ page }) => {

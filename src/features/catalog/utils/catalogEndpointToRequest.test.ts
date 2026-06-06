@@ -276,4 +276,57 @@ describe('catalogEndpointToRequest', () => {
     const ep = makeEndpoint({ tags: undefined });
     expect(catalogEndpointToRequest(ep, servers, { type: 'none' }).catalogMeta?.tags).toEqual([]);
   });
+
+  it('sampleFromSchema: object type with no properties returns empty object', () => {
+    const ep = makeEndpoint({
+      method: 'POST',
+      path: '/obj-noprops',
+      requestBody: {
+        required: true,
+        contentTypes: [{
+          mediaType: 'application/json',
+          schema: { type: 'object' },
+        }],
+      },
+    });
+    expect(JSON.parse(catalogEndpointToRequest(ep, servers, { type: 'none' }).body)).toEqual({});
+  });
+
+  it('sampleFromSchema: array type with no items schema returns array with empty object', () => {
+    const ep = makeEndpoint({
+      method: 'POST',
+      path: '/arr-noitems',
+      requestBody: {
+        required: true,
+        contentTypes: [{
+          mediaType: 'application/json',
+          schema: { type: 'array' },
+        }],
+      },
+    });
+    expect(JSON.parse(catalogEndpointToRequest(ep, servers, { type: 'none' }).body)).toEqual([{}]);
+  });
+
+  it('sampleFromSchema: nested property with example uses example value', () => {
+    const ep = makeEndpoint({
+      method: 'POST',
+      path: '/nested-example',
+      requestBody: {
+        required: true,
+        contentTypes: [{
+          mediaType: 'application/json',
+          schema: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer', example: 42 },
+              name: { type: 'string' },
+            },
+          },
+        }],
+      },
+    });
+    const parsed = JSON.parse(catalogEndpointToRequest(ep, servers, { type: 'none' }).body);
+    expect(parsed.id).toBe(42);
+    expect(parsed.name).toBe('string');
+  });
 });

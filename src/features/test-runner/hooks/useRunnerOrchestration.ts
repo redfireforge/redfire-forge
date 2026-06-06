@@ -140,7 +140,7 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   }, [featureGroups, selectedScenarios]);
   const definitionSlaTargetCount = definitionSlaTargets.length;
 
-  const execution = useTestExecution();
+  const execution = useTestExecution(config.kafkaResultsPublish);
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, finalRun } = execution;
 
   const selectedTests = useMemo(

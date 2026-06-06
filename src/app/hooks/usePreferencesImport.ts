@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
 import type { Tab } from '../utils/appTabUtils';
 import { mergeById } from '../../shared/utils/helpers';
+import { normalizeGroupActionTypes } from '../../shared/utils/scenarioMigration';
 
 export interface UsePreferencesImportParams {
   setEnvironments: React.Dispatch<React.SetStateAction<Environment[]>>;
@@ -31,7 +32,7 @@ export function usePreferencesImport({
       setMicroservices((prev) => mergeById(prev, data.microservices!));
     }
     if (data.featureGroups?.length) {
-      setFeatureGroups((prev) => [...prev, ...data.featureGroups!]);
+      setFeatureGroups((prev) => [...prev, ...normalizeGroupActionTypes(data.featureGroups!)]);
     }
     if (data.globalAuthProfiles?.length) {
       setAppGlobalAuthProfiles((prev) => mergeById(prev, data.globalAuthProfiles!));

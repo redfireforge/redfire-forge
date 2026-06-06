@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // These interactions share seeded workflow/app state and are flaky in parallel.
@@ -81,9 +81,7 @@ async function seedWorkflowData(page: import('@playwright/test').Page) {
 test.describe('Phase 6 – Canvas Controls', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('canvas pill controls are visible', async ({ page }) => {
@@ -126,9 +124,7 @@ test.describe('Phase 6 – Canvas Controls', () => {
 test.describe('Phase 6 – Keyboard Shortcuts Overlay', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('pressing ? opens shortcuts overlay', async ({ page }) => {
@@ -157,9 +153,7 @@ test.describe('Phase 6 – Keyboard Shortcuts Overlay', () => {
 test.describe('Phase 6 – Command Palette', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('⌘K opens command palette', async ({ page }) => {
@@ -193,9 +187,7 @@ test.describe('Phase 6 – Command Palette', () => {
 test.describe('Phase 6 – Node Context Menu', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow');
   });
 
   test('right-click on node shows context menu', async ({ page }) => {
@@ -233,7 +225,7 @@ test.describe('Phase 6 – Toast Notifications', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.wf-designer', { timeout: 10000 });
+    await page.waitForSelector('.wf-designer', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 

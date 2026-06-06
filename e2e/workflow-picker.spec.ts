@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { gotoAppTab, reloadAppTab } from './helpers';
 
 /**
  * Smoke tests for Workflow Picker in Workflow Runner (after runner split)
@@ -15,8 +16,7 @@ async function selectWorkflow(page: Page, workflowName: string) {
 
 test.describe('Workflow Picker Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/?tab=workflow-runner');
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow-runner');
   });
 
   test('shows workflow picker on workflow runner page', async ({ page }) => {
@@ -29,8 +29,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.evaluate(() => {
       localStorage.removeItem('workflows');
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     const picker = page.locator('.workflow-picker');
     await expect(picker).toBeVisible();
@@ -61,8 +60,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     const trigger = page.locator('[data-testid="workflow-select"]');
     await expect(trigger).toBeVisible();
@@ -85,8 +83,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'Order API Flow');
 
@@ -110,8 +107,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'Clear Test Workflow');
 
@@ -142,8 +138,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       ];
       localStorage.setItem('workflow-run-configs', JSON.stringify(history));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'History Test Workflow');
 
@@ -173,8 +168,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       ];
       localStorage.setItem('workflow-run-configs', JSON.stringify(presets));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'Restore Test');
 
@@ -201,8 +195,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'Modified Test');
 
@@ -227,8 +220,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
     });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    await reloadAppTab(page, 'workflow-runner');
 
     await selectWorkflow(page, 'Reset Test');
 

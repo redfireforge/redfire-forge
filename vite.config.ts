@@ -226,7 +226,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        timeout: 2000,
+        timeout: 60000,
         configure: (proxy) => {
           proxy.on('error', (_err, _req, res) => {
             if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }
@@ -236,7 +236,7 @@ export default defineConfig({
       '/health': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        timeout: 2000,
+        timeout: 5000,
         configure: (proxy) => {
           proxy.on('error', (_err, _req, res) => {
             if (res && 'writeHead' in res) { (res as import('http').ServerResponse).writeHead(502); (res as import('http').ServerResponse).end(); }

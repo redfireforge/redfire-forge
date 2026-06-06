@@ -3,7 +3,7 @@
  * Simplified version of useRunnerConfig, without scenario-specific state.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ExecutionTraceOptions } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ExecutionTraceOptions, KafkaResultsPublishConfig } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import { defaultLoadProfile, defaultThinkTime } from './runnerConfigDefaults';
 
@@ -23,6 +23,8 @@ export interface WorkflowRunnerConfig {
   selectedWorkflowId?: string;
   /** Trace capture options */
   traceOptions?: ExecutionTraceOptions;
+  /** Kafka results publishing configuration */
+  kafkaResultsPublish?: KafkaResultsPublishConfig;
 }
 
 const defaultConfig: WorkflowRunnerConfig = {
@@ -58,6 +60,8 @@ export interface UseWorkflowRunnerConfigResult {
   setSelectedWorkflowId: React.Dispatch<React.SetStateAction<string | null>>;
   traceOptions: ExecutionTraceOptions;
   setTraceOptions: React.Dispatch<React.SetStateAction<ExecutionTraceOptions>>;
+  kafkaResultsPublish: KafkaResultsPublishConfig | undefined;
+  setKafkaResultsPublish: React.Dispatch<React.SetStateAction<KafkaResultsPublishConfig | undefined>>;
   configLoaded: boolean;
 }
 
@@ -84,6 +88,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
     captureFullTrace: false,
     alwaysCaptureFailures: true,
   });
+  const [kafkaResultsPublish, setKafkaResultsPublish] = useState<KafkaResultsPublishConfig | undefined>(undefined);
   const [configLoaded, setConfigLoaded] = useState(false);
 
   // Load config from storage on mount
@@ -117,6 +122,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
             traceLevel: saved.traceOptions.traceLevel,
           });
         }
+        setKafkaResultsPublish(saved.kafkaResultsPublish);
       }
       setConfigLoaded(true);
     });
@@ -146,8 +152,9 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       maxErrorRate,
       selectedWorkflowId: selectedWorkflowId ?? undefined,
       traceOptions,
+      kafkaResultsPublish,
     } as WorkflowRunnerConfig, storageKey);
-  }, [configLoaded, concurrency, iterations, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId, traceOptions]);
+  }, [configLoaded, concurrency, iterations, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId, traceOptions, kafkaResultsPublish]);
 
   return {
     concurrency, setConcurrency,
@@ -163,6 +170,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
     maxErrorRate, setMaxErrorRate,
     selectedWorkflowId, setSelectedWorkflowId,
     traceOptions, setTraceOptions,
+    kafkaResultsPublish, setKafkaResultsPublish,
     configLoaded,
   };
 }

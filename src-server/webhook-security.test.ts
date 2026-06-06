@@ -165,6 +165,14 @@ describe('webhook-security', () => {
       const result = extractAndVerifyToken('not-valid-base64!!!', 'corr-123', '/path');
       expect(result.valid).toBe(false);
     });
+
+    it('rejects token with tampered signature', () => {
+      const token = generateWebhookToken('corr-123', '/path');
+      const tampered = { ...token, signature: 'a'.repeat(64) };
+      const encoded = Buffer.from(JSON.stringify(tampered)).toString('base64url');
+      const result = extractAndVerifyToken(encoded, 'corr-123', '/path');
+      expect(result.valid).toBe(false);
+    });
   });
 
   // ── IP Whitelist ──
@@ -197,6 +205,21 @@ describe('webhook-security', () => {
       expect(isIpAllowed('192.168.1.50')).toBe(true);
       expect(isIpAllowed('192.168.1.255')).toBe(true);
       expect(isIpAllowed('192.168.2.1')).toBe(false);
+    });
+
+    it('rejects non-IPv4 IP string against CIDR range', () => {
+      configureWebhookSecurity({ ipWhitelist: ['192.168.1.0/24'] });
+      expect(isIpAllowed('not-an-ip')).toBe(false);
+    });
+
+    it('rejects IP with out-of-range octet against CIDR range', () => {
+      configureWebhookSecurity({ ipWhitelist: ['192.168.1.0/24'] });
+      expect(isIpAllowed('256.0.0.1')).toBe(false);
+    });
+
+    it('rejects IP with non-numeric octet against CIDR range', () => {
+      configureWebhookSecurity({ ipWhitelist: ['192.168.1.0/24'] });
+      expect(isIpAllowed('192.abc.1.1')).toBe(false);
     });
 
     it('rejects CIDR with invalid prefix length', () => {

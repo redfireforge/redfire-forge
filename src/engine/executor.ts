@@ -6,9 +6,11 @@ import { resolveAuthHeaders } from '../shared/utils/authHeaders';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache, type RunOpts } from './requestExecution';
+import { executeKafkaAction } from './kafkaExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
+import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { expandQueue } from './dataSourceExpander';
 import { computeAllocation } from './allocationEngine';
 import { resolveHttpNodeBaseUrl, resolveServiceAuth } from '../features/workflow/utils/workflowHostResolve';
@@ -111,6 +113,8 @@ export async function runTest(
   workerIndex?: number,
   /** Data needed for per-node service/auth resolution in workflow runs. */
   workflowResolverData?: WorkflowResolverData,
+  /** Kafka operations for Kafka produce/consume nodes in workflow execution. */
+  kafkaOperations?: KafkaNodeOperations,
 ): Promise<TestResult> {
   resetResultIdCounter(workerIndex);
   clearPrepCache();
@@ -159,7 +163,12 @@ export async function runTest(
 
   const mode = config.executionMode ?? 'batch';
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
-  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
+  const opts: RunOpts = {
+    tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs,
+    executeNonHttp: kafkaOperations
+      ? (scenario: Scenario) => executeKafkaAction(scenario, kafkaOperations, timeoutMs)
+      : undefined,
+  };
 
   if (mode === 'workflow') {
     if (workflow && config.workflowId) {
@@ -198,6 +207,7 @@ export async function runTest(
         resolveSubWorkflow,
         resolveHttpBaseUrl: resolveBaseUrl,
         resolveHttpAuth: resolveAuth,
+        kafkaOperations,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);

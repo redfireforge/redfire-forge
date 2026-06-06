@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka: Event-Triggered Processor (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📥</div>
+  <h1>Kafka: Event-Triggered Processor</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Subscribe to a Kafka topic so that every incoming message automatically starts a new
+    workflow run. Extract fields, enrich data via HTTP, and route by business logic.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 7 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
+    Requires: Kafka broker running on <code>localhost:19092</code>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#architecture">Workflow Architecture</a></li>
+  <li><a href="#walkthrough">Step-by-Step Walkthrough</a></li>
+  <li><a href="#results">Expected Results</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  The <strong>KafkaTrigger</strong> node transforms a workflow into a long-running subscriber.
+  When a Kafka message arrives that matches the configured topic (and optional filters), the
+  engine launches a new workflow instance automatically — no polling or manual trigger needed.
+</p>
+<p><strong>Common patterns:</strong></p>
+<ul>
+  <li>React to <em>orders.created</em> events by notifying the warehouse team</li>
+  <li>Process IoT sensor readings as they stream in from devices</li>
+  <li>Fan-in: multiple upstream services all publish to one topic; your workflow reacts to each</li>
+  <li>Real-time fraud screening: check every payment event as it arrives</li>
+</ul>
+<p>
+  This sample subscribes to <code>orders.created</code>, extracts the orderId, customerId, and
+  amount, enriches the order with customer details from HTTP, then branches to either priority
+  or standard processing based on the order amount.
+</p>
+
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Configuring the <strong>KafkaTrigger</strong> node (topic, startPosition, maxConcurrentRuns)</li>
+  <li><strong>Extract variables</strong> — pulling fields from the Kafka message body using JSONPath</li>
+  <li><strong>JSON path filters</strong> — filtering messages before they trigger a run (e.g., status == CREATED)</li>
+  <li><strong>Sample payload</strong> — how Quick Test bypasses the real broker for local testing</li>
+  <li>Combining Kafka trigger with HTTP enrichment and conditional branching</li>
+</ul>
+
+<h2 id="prerequisites">3. Prerequisites</h2>
+<div class="callout-kafka callout">
+  <strong>🟡 Kafka Broker Required (for live testing)</strong>
+  Quick Test uses the pre-configured <em>sample payload</em> and does not need a live broker.
+  For live message delivery, start the plaintext Redpanda profile:
+  <code>cd docker/kafka/plaintext &amp;&amp; docker compose up -d</code>
+</div>
+<ol>
+  <li>Start the dev server: <code>npm run dev:server</code></li>
+  <li>(Optional for live) Start Kafka Docker and connect <strong>Local Plaintext</strong> in Settings → Kafka</li>
+  <li>Load this sample from Gallery → Workflows → Event-Driven → <strong>"Kafka: Event-Triggered Processor"</strong></li>
+</ol>
+
+<h2 id="architecture">4. Workflow Architecture</h2>
+<div class="flow-diagram">KafkaTrigger: orders.created  (filter: status == CREATED)
+  │  extractVariables: orderId, customerId, amount
+  ▼
+① Log: Log Received Event
+  │
+  ▼
+② HTTP: Enrich — GET customer details  →  extracts: customerName, customerEmail
+  │
+  ▼
+③ Condition: amount > 100?
+  │                     │
+  │ true                │ false
+  ▼                     ▼
+④a Log: Priority      ④b Log: Standard
+    Processing             Processing
+  │                     │
+  └──────────┬───────────┘
+             ▼
+            End</div>
+
+<table>
+  <thead><tr><th>Node</th><th>Type</th><th>Key Config</th></tr></thead>
+  <tbody>
+    <tr><td>Order Event Trigger</td><td>KafkaTrigger</td><td>topic=orders.created, filter status==CREATED, extracts orderId/customerId/amount</td></tr>
+    <tr><td>Log Received Event</td><td>Log/Debug</td><td>Logs all received variables with snapshotVariables=true</td></tr>
+    <tr><td>Enrich: Get Customer</td><td>HTTP</td><td>GET jsonplaceholder; extracts customerName, customerEmail</td></tr>
+    <tr><td>High Value Order?</td><td>Condition</td><td>amount &gt; 100</td></tr>
+    <tr><td>Priority Processing</td><td>Log/Debug</td><td>Logs HIGH VALUE flag (warn level)</td></tr>
+    <tr><td>Standard Processing</td><td>Log/Debug</td><td>Logs standard queue routing (info level)</td></tr>
+    <tr><td>End</td><td>End</td><td>Order Processed</td></tr>
+  </tbody>
+</table>
+
+<h2 id="walkthrough">5. Step-by-Step Walkthrough</h2>
+
+<h3><span class="step-num">1</span> Load the Sample</h3>
+<ol>
+  <li>Go to <strong>Gallery → Workflows</strong>, filter by <em>Event-Driven</em></li>
+  <li>Click <strong>Load</strong> on <strong>"Kafka: Event-Triggered Processor"</strong> <span class="badge badge-easy">Easy</span></li>
+  <li>The workflow opens in the editor with the KafkaTrigger node at the top</li>
+</ol>
+
+<h3><span class="step-num">2</span> Inspect the KafkaTrigger Node</h3>
+<ol>
+  <li>Click the <strong>Order Event Trigger</strong> node (the rounded square with the Kafka icon)</li>
+  <li>
+    Note the config fields:
+    <ul>
+      <li><strong>Cluster</strong>: <em>local-plaintext</em></li>
+      <li><strong>Topic</strong>: <code>orders.created</code></li>
+      <li><strong>Start Position</strong>: <code>latest</code> — only processes new messages (not replays)</li>
+      <li><strong>Max Concurrent Runs</strong>: 5 — at most 5 workflow instances run in parallel</li>
+      <li><strong>JSON Path Filters</strong>: <code>$.status == CREATED</code> — skips messages with other statuses</li>
+      <li><strong>Extract Variables</strong>: <code>orderId ← $.orderId</code>, <code>customerId ← $.customerId</code>, <code>amount ← $.amount</code></li>
+      <li><strong>Sample Payload</strong>: A JSON blob used by Quick Test to simulate a message</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Sample Payload</strong>
+  The KafkaTrigger node has a <em>Sample Payload</em> field. When you click Quick Test, the engine
+  uses this payload as the incoming Kafka message instead of waiting for a real message. This lets
+  you develop and test trigger-based workflows without needing a live broker.
+</div>
+
+<h3><span class="step-num">3</span> Run with Quick Test</h3>
+<ol>
+  <li>Click <strong>Quick Test</strong> (▶) in the toolbar</li>
+  <li>The engine uses the sample payload: <code>{ orderId: "ORD-2001", customerId: "CUST-100", amount: "149.99", status: "CREATED" }</code></li>
+  <li>The trigger fires, extract variables are populated, and the workflow runs through all nodes</li>
+  <li>Since amount (149.99) &gt; 100, the <em>Priority Processing</em> path is taken</li>
+</ol>
+
+<h3><span class="step-num">4</span> Inspect Results</h3>
+<ol>
+  <li>Click the <strong>Log Received Event</strong> node → Results tab → see all extracted variables snapshot</li>
+  <li>Click the <strong>Enrich: Get Customer</strong> node → Results tab → see <code>customerName</code> and <code>customerEmail</code></li>
+  <li>Click the <strong>High Value Order?</strong> Condition node → Results show which branch was taken (true/false)</li>
+  <li>Click <strong>Priority Processing</strong> → see the formatted log message</li>
+</ol>
+
+<h3><span class="step-num">5</span> Test the Standard Path</h3>
+<ol>
+  <li>Click the <strong>KafkaTrigger</strong> node config</li>
+  <li>Edit the <strong>Sample Payload</strong> — change <code>"amount": "149.99"</code> to <code>"amount": "49.99"</code></li>
+  <li>Click <strong>Quick Test</strong> again</li>
+  <li>This time the Standard Processing path is taken (amount ≤ 100)</li>
+</ol>
+
+<h3><span class="step-num">6</span> Live Testing (Optional)</h3>
+<p>To test with a real Kafka message:</p>
+<ol>
+  <li>Ensure Local Plaintext cluster is Connected in Settings → Kafka</li>
+  <li>The workflow is now deployed and listening on <code>orders.created</code></li>
+  <li>Navigate to <strong>Protocols → Kafka → Publish</strong> tab</li>
+  <li>Set Topic to <code>orders.created</code>, Key to <code>CUST-100</code>, and body to:
+    <pre>{"orderId":"ORD-LIVE-001","customerId":"CUST-100","amount":"299.99","status":"CREATED"}</pre>
+  </li>
+  <li>Click <strong>Send Once</strong> — the workflow trigger fires a new run</li>
+  <li>View the run in <strong>Workflow Runner → Execution History</strong></li>
+</ol>
+
+<h2 id="results">6. Expected Results</h2>
+<ul>
+  <li>All nodes show green ✅ badges</li>
+  <li>Log Received Event shows variables snapshot with orderId, customerId, amount</li>
+  <li>For amount=149.99 (>100): Priority Processing log entry at <code>warn</code> level reads:<br>
+    <pre>HIGH VALUE: Order ORD-2001 ($149.99) from ... — flagged for priority processing</pre>
+  </li>
+  <li>For amount=49.99 (≤100): Standard Processing log at <code>info</code> level:<br>
+    <pre>Order ORD-2001 ($49.99) from ... — routed to standard queue</pre>
+  </li>
+</ul>
+
+<h2 id="exercises">7. Try It Yourself</h2>
+<ol>
+  <li><strong>Add a new filter</strong>: add a JSON path filter for <code>$.amount &gt; 0</code> to reject zero-value orders. Verify it works by setting amount=0 in the sample payload.</li>
+  <li><strong>Add a header filter</strong>: add a header filter requiring <code>source=order-service</code>. Test with and without that header in the sample payload.</li>
+  <li><strong>Change the routing threshold</strong>: update the Condition node from <code>&gt; 100</code> to <code>&gt; 500</code>. Which test orders now go priority?</li>
+  <li><strong>Publish a real message</strong>: with the broker connected, use Message Studio Publish tab to send a message. Watch the Workflow Runner execute a new run.</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Event-Triggered Processor (Easy) &nbsp;|&nbsp; Category: Event-Driven</footer>
+</body>
+</html>
