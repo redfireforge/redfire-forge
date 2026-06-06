@@ -5,10 +5,11 @@ import {
   type KafkaUiSafeError,
 } from '../../shared/kafka/kafkaClient';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
-import type { KafkaConsumeResultRow } from './types';
+import type { KafkaConsumeCursor, KafkaConsumeResultRow } from './types';
 import { buildConsumeFilter } from './kafkaMessageStudioUtils';
 
 export type TimeWindow = 'latest' | 'last-1h' | 'last-24h' | 'earliest';
+export type SortOrder = 'asc' | 'desc';
 
 export interface TopicMessageBrowserDraft {
   groupId: string;
@@ -20,6 +21,7 @@ export interface TopicMessageBrowserDraft {
   headerMatch: string;
   jsonPath: string;
   jsonPathEquals: string;
+  sortOrder: SortOrder;
 }
 
 export interface UseTopicMessageBrowserReturn {
@@ -35,6 +37,9 @@ export interface UseTopicMessageBrowserReturn {
   selectMessage: (index: number | null) => void;
   consumeOnce: () => Promise<void>;
   clearResult: () => void;
+  hasMore: boolean;
+  loadMore: () => Promise<void>;
+  loadMoreLoading: boolean;
 }
 
 export interface UseTopicMessageBrowserDeps {
@@ -56,6 +61,7 @@ function makeDefaultDraft(): TopicMessageBrowserDraft {
     headerMatch: '',
     jsonPath: '',
     jsonPathEquals: '',
+    sortOrder: 'asc',
   };
 }
 
@@ -72,6 +78,9 @@ export function useTopicMessageBrowser(
   const [timedOut, setTimedOut] = useState(false);
   const [error, setError] = useState<KafkaUiSafeError | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<KafkaConsumeCursor[] | null>(null);
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false);
   const prevTopicRef = useRef(topicName);
 
   useEffect(() => {
@@ -88,13 +97,7 @@ export function useTopicMessageBrowser(
     setDraftState((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const consumeOnce = useCallback(async () => {
-    if (!topicName.trim()) return;
-    setLoading(true);
-    setError(null);
-    setTimedOut(false);
-    setSelectedIndex(null);
-
+  const buildBody = useCallback((seekOffsets?: KafkaConsumeCursor[]) => {
     const fromBeginning = draft.timeWindow === 'earliest' || draft.timeWindow === 'last-1h' || draft.timeWindow === 'last-24h';
     const filter = buildConsumeFilter({
       topic: topicName,
@@ -118,12 +121,29 @@ export function useTopicMessageBrowser(
     };
     if (draft.partition.trim()) body.partition = parseInt(draft.partition, 10);
     if (filter) body.filter = filter;
+    if (draft.sortOrder !== 'asc') body.sortOrder = draft.sortOrder;
+    if (seekOffsets && seekOffsets.length > 0) body.seekOffsets = seekOffsets;
+    return body;
+  }, [topicName, draft, kafkaState.selectedClusterId]);
+
+  const consumeOnce = useCallback(async () => {
+    if (!topicName.trim()) return;
+    setLoading(true);
+    setError(null);
+    setTimedOut(false);
+    setSelectedIndex(null);
+    setHasMore(false);
+    setNextCursor(null);
+
+    const body = buildBody();
 
     try {
       const envelope = await dispatch<{
         topic: string;
         messages: KafkaConsumeResultRow[];
         timedOut?: boolean;
+        hasMore?: boolean;
+        nextCursor?: KafkaConsumeCursor[];
       }>('consume-once', body);
 
       if (envelope.ok && envelope.data) {
@@ -137,19 +157,47 @@ export function useTopicMessageBrowser(
         }
         setResult(rows);
         setTimedOut(envelope.data.timedOut === true);
+        setHasMore(envelope.data.hasMore ?? false);
+        setNextCursor(envelope.data.nextCursor ?? null);
       }
     } catch (err) {
       setError(toKafkaUiSafeError(err, 'consume-once'));
     } finally {
       setLoading(false);
     }
-  }, [topicName, draft, kafkaState.selectedClusterId, dispatch]);
+  }, [topicName, draft, buildBody, dispatch]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || nextCursor.length === 0) return;
+    setLoadMoreLoading(true);
+    try {
+      const body = buildBody(nextCursor);
+      const envelope = await dispatch<{
+        messages: KafkaConsumeResultRow[];
+        hasMore?: boolean;
+        nextCursor?: KafkaConsumeCursor[];
+      }>('consume-once', body);
+      if (envelope.ok && envelope.data) {
+        setResult((prev) =>
+          prev ? [...prev, ...envelope.data!.messages] : envelope.data!.messages,
+        );
+        setHasMore(envelope.data.hasMore ?? false);
+        setNextCursor(envelope.data.nextCursor ?? null);
+      }
+    } catch (err) {
+      setError(toKafkaUiSafeError(err, 'consume-once'));
+    } finally {
+      setLoadMoreLoading(false);
+    }
+  }, [nextCursor, buildBody, dispatch]);
 
   const clearResult = useCallback(() => {
     setResult(null);
     setError(null);
     setTimedOut(false);
     setSelectedIndex(null);
+    setHasMore(false);
+    setNextCursor(null);
   }, []);
 
   const selectMessage = useCallback((index: number | null) => {
@@ -165,5 +213,6 @@ export function useTopicMessageBrowser(
     error,
     selectedIndex, selectedMessage, selectMessage,
     consumeOnce, clearResult,
+    hasMore, loadMore, loadMoreLoading,
   };
 }

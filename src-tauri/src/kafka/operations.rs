@@ -247,6 +247,8 @@ pub async fn kafka_consume_once(
             message_count: count,
             messages,
             timed_out,
+            has_more: None,
+            next_cursor: None,
         })
     }
     .await;

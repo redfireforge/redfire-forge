@@ -84,6 +84,15 @@ pub struct KafkaConsumeOnceRequest {
     pub timeout_ms: Option<u64>,
     pub max_messages: Option<usize>,
     pub filter: Option<KafkaMessageFilter>,
+    pub sort_order: Option<String>,
+    pub seek_offsets: Option<Vec<KafkaSeekOffset>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct KafkaSeekOffset {
+    pub partition: i32,
+    pub offset: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -230,6 +239,10 @@ pub struct KafkaConsumeResult {
     pub message_count: usize,
     pub messages: Vec<KafkaConsumeRecord>,
     pub timed_out: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<Vec<KafkaSeekOffset>>,
 }
 
 /// Aligned with `KafkaSubscribeInfo` in contracts.ts.
@@ -442,6 +455,8 @@ mod tests {
                 headers: None,
             }],
             timed_out: false,
+            has_more: None,
+            next_cursor: None,
         };
         let json = serde_json::to_value(&result).unwrap();
         assert_eq!(json["messageCount"], 1);

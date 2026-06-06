@@ -39,6 +39,7 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
   const [tab, setTab] = useState<DetailTab>('messages');
 
   const handleConsume = useCallback(() => { void browser.consumeOnce(); }, [browser]);
+  const handleLoadMore = useCallback(() => { void browser.loadMore(); }, [browser]);
   const handleExport = useCallback(() => {
     if (browser.result) void exportResultSet(browser.result, detail?.name ?? 'topic');
   }, [browser.result, detail?.name]);
@@ -165,6 +166,17 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
                 <label>Max Messages</label>
                 <input type="text" value={browser.draft.maxMessages} onChange={(e) => browser.setDraft({ maxMessages: e.target.value })} />
               </div>
+              <div className="kafka-ms-field">
+                <label>Sort Order</label>
+                <select
+                  value={browser.draft.sortOrder}
+                  onChange={(e) => browser.setDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                  data-testid="detail-sort-order"
+                >
+                  <option value="asc">Oldest First</option>
+                  <option value="desc">Newest First</option>
+                </select>
+              </div>
             </div>
 
             <div className="kafka-ms-action-row">
@@ -218,6 +230,18 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
                         ))}
                       </tbody>
                     </table>
+                    {browser.hasMore && (
+                      <div className="kafka-ms-load-more-row" data-testid="detail-load-more-row">
+                        <button
+                          className="kafka-ms-secondary-btn"
+                          onClick={handleLoadMore}
+                          disabled={browser.loadMoreLoading}
+                          data-testid="detail-load-more-btn"
+                        >
+                          {browser.loadMoreLoading ? 'Loading…' : 'Load More'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

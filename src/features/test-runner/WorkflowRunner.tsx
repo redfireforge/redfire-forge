@@ -65,6 +65,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     maxErrorRate, setMaxErrorRate,
     selectedWorkflowId, setSelectedWorkflowId,
     traceOptions, setTraceOptions,
+    kafkaResultsPublish,
     configLoaded,
   } = useWorkflowRunnerConfig();
 
@@ -75,7 +76,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   /** Session-scoped SLA override targets — merged with workflow.slaTargets at run time (SLA-B9). */
   const [workflowSlaOverrides, setWorkflowSlaOverrides] = useState<SlaTarget[]>([]);
 
-  const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, startExternalExecution } = useTestExecution();
+  const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, startExternalExecution } = useTestExecution(kafkaResultsPublish);
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
 

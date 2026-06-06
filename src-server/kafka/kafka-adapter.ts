@@ -32,12 +32,19 @@ export interface KafkaTopicMetadata {
   partitions: number;
 }
 
+export interface KafkaPartitionOffsets {
+  partition: number;
+  low: string;
+  high: string;
+}
+
 export interface KafkaAdminAdapter {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   listTopics(): Promise<string[]>;
   fetchTopicMetadata(): Promise<KafkaTopicMetadata[]>;
   fetchTopicDetail(topicName: string): Promise<KafkaTopicDetail>;
+  fetchTopicOffsets(topic: string): Promise<KafkaPartitionOffsets[]>;
 }
 
 export interface KafkaProducerMessage {
@@ -96,6 +103,7 @@ export interface KafkaConsumerAdapter {
   stop(): Promise<void>;
   pause(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
   resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void;
+  seek(topic: string, partition: number, offset: string): void;
 }
 
 export interface KafkaRuntimeAdapter {
@@ -196,6 +204,15 @@ class KafkaJsAdminAdapter implements KafkaAdminAdapter {
     return metadata.topics.map((topic) => ({
       name: topic.name,
       partitions: topic.partitions.length,
+    }));
+  }
+
+  async fetchTopicOffsets(topic: string): Promise<KafkaPartitionOffsets[]> {
+    const offsets = await this.admin.fetchTopicOffsets(topic);
+    return offsets.map((o) => ({
+      partition: o.partition,
+      low: o.low,
+      high: o.high,
     }));
   }
 
@@ -415,6 +432,10 @@ class KafkaJsConsumerAdapter implements KafkaConsumerAdapter {
 
   resume(topicPartitions: Array<{ topic: string; partitions?: number[] }>): void {
     this.consumer.resume(topicPartitions);
+  }
+
+  seek(topic: string, partition: number, offset: string): void {
+    this.consumer.seek({ topic, partition, offset: offset });
   }
 }
 

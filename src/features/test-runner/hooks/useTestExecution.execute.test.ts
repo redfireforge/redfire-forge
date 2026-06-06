@@ -226,7 +226,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
+      expect.objectContaining({ produce: expect.any(Function), consume: expect.any(Function) }),
     );
   });
 
