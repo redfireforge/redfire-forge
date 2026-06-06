@@ -95,7 +95,7 @@
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 4 &nbsp;|&nbsp; Category: Event-Driven<br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 8 &nbsp;|&nbsp; Category: Event-Driven<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -138,16 +138,18 @@
   <li>Scheduled cache invalidation or cleanup tasks</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Configuring a <strong>ScheduleTrigger</strong> node with a cron expression</li>
-  <li>Understanding <strong>cron syntax</strong>: minute, hour, day, month, weekday</li>
-  <li>Sending an <strong>HTTP GET</strong> request and checking the response status</li>
-  <li>Using a <strong>Condition</strong> node to branch on a health check result</li>
-  <li>Logging outcomes for <strong>monitoring and alerting</strong></li>
+  <li>Using a <strong>Schedule node</strong> as the workflow entry point (cron-based)</li>
+  <li>Configuring a <strong>daily 9 AM</strong> cron expression</li>
+  <li>Fetching and processing data in sequential HTTP nodes</li>
+  <li>Using a <strong>Fork</strong> node to fan-out and run parallel branches simultaneously</li>
+  <li>Using a <strong>Join</strong> node to wait for all parallel branches to complete</li>
+  <li>Difference between <strong>parallel execution</strong> (Fork/Join) and sequential chaining</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -155,36 +157,46 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌──────────────────────────────┐
-  │  ScheduleTrigger             │  Cron: */5 * * * *
-  │  (ScheduleTrigger)           │  (every 5 minutes)
-  └──────────┬───────────────────┘
-             ▼
-  ┌──────────────────────────────┐
-  │  1. Health Check             │  GET https://httpbin.org
-  │     (HTTP)                   │      /status/200
-  │                              │
-  │  Extracts: statusCode        │  ← response status code
-  └──────────┬───────────────────┘
-             ▼
-  ┌──────────────────────────────┐
-  │  2. Healthy?                 │  Condition
-  │     (Condition)              │
-  │                              │  {{statusCode}} == 200
-  │  true ──────┐  ┌── false    │
-  └─────────────┘  └────────────┘
-         │                │
-         ▼                ▼
-  ┌──────────────┐  ┌──────────────┐
-  │ 3a. Log      │  │ 3b. Log      │
-  │   Healthy    │  │   Degraded   │
-  │   (Log)      │  │   (Log)      │
-  └──────────────┘  └──────────────┘
+  ┌─────────────────────────────────┐
+  │  Daily Report                   │  Schedule: cron 0 9 * * * (every day 9 AM)
+  │  (Schedule)                     │  No input variables
+  └──────────────┬──────────────────┘
+                 ▼
+  ┌─────────────────────────────────┐
+  │  1. Fetch Sales Data            │  GET /posts?userId=1
+  │  (HTTP GET)                     │  Extracts: salesData ← $.length
+  └──────────────┬──────────────────┘
+                 ▼
+  ┌─────────────────────────────────┐
+  │  2. Generate Report             │  POST /posts  body: report with salesData
+  │  (HTTP POST)                    │  Extracts: reportId ← $.id
+  └──────────────┬──────────────────┘
+                 ▼
+  ┌─────────────────────────────────┐
+  │  Parallel Delivery              │  (Fork — fans out to two branches)
+  └──────┬──────────────────┬───────┘
+         │                  │
+         ▼                  ▼
+  ┌─────────────────┐  ┌────────────────────┐
+  │  3a. Email      │  │  3b. Archive       │
+  │  Report         │  │  Report            │
+  │  (HTTP POST)    │  │  (HTTP POST)       │
+  └────────┬────────┘  └──────────┬─────────┘
+           └──────────┬───────────┘
+                      ▼
+         ┌────────────────────────┐
+         │  Wait for Completion   │  (Join — waits for both branches)
+         └───────────┬────────────┘
+                     ▼
+              ┌──────────────┐
+              │  End         │
+              └──────────────┘
 </div>
 
 <p>
-  <strong>4 nodes, 4 edges</strong> — a scheduled pipeline that runs automatically.
-  The ScheduleTrigger replaces the Start node and fires on a cron schedule.
+  <strong>8 nodes</strong> — triggered daily at 9 AM. Fetches sales data, generates a report,
+  then delivers it in <strong>parallel</strong> via email and archive. The Join node ensures
+  the workflow does not end until both delivery branches have completed.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -196,62 +208,60 @@
 <table>
   <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
   <tr>
-    <td><span class="step-num">T</span> ScheduleTrigger</td>
-    <td>ScheduleTrigger</td>
-    <td>Fires every 5 minutes based on cron expression <code>*/5 * * * *</code>. No input data — the trigger itself is the event.</td>
+    <td><span class="step-num">T</span> Daily Report</td>
+    <td>Schedule</td>
+    <td>Cron expression <code>0 9 * * *</code> — fires every day at 09:00 AM. Replaces the Start node as the entry point.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Health Check</td>
-    <td>HTTP</td>
-    <td>Sends GET to <code>https://httpbin.org/status/200</code>. Extracts the HTTP status code into <code>statusCode</code>.</td>
+    <td><span class="step-num">1</span> Fetch Sales Data</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts?userId=1</code> — retrieves today's sales records. Extracts <code>salesData</code> ← <code>$.length</code> (number of records).</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Healthy?</td>
-    <td>Condition</td>
-    <td>Evaluates <code>{{statusCode}} == 200</code>. Routes to Log Healthy (true) or Log Degraded (false).</td>
+    <td><span class="step-num">2</span> Generate Report</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — submits a report document. Extracts <code>reportId</code> ← <code>$.id</code> for reference in delivery steps.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3a</span> Log Healthy</td>
-    <td>Log</td>
-    <td>Logs <code>"Service is healthy — HTTP 200"</code>.</td>
+    <td><span class="step-num">⑂</span> Parallel Delivery</td>
+    <td>Fork</td>
+    <td>Splits execution into two simultaneous branches: <em>Email Report</em> and <em>Archive Report</em>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3b</span> Log Degraded</td>
-    <td>Log</td>
-    <td>Logs <code>"Service is degraded — HTTP {{statusCode}}"</code>.</td>
+    <td><span class="step-num">3a</span> Email Report</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — simulates emailing the report. Body includes <code>reportId</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3b</span> Archive Report</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — simulates archiving the report. Body includes <code>reportId</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">⊕</span> Wait for Completion</td>
+    <td>Join</td>
+    <td>Waits for both the Email and Archive branches to finish before allowing execution to continue.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Workflow complete after all parallel delivery branches have finished.</td>
   </tr>
 </table>
 
-<h3>ScheduleTrigger Configuration</h3>
+<h3>Schedule Configuration</h3>
 <table>
-  <tr><td><strong>Cron Expression</strong></td><td><code>*/5 * * * *</code></td></tr>
-  <tr><td><strong>Description</strong></td><td>Every 5 minutes</td></tr>
-  <tr><td><strong>Timezone</strong></td><td>UTC (default)</td></tr>
+  <tr><td><strong>Type</strong></td><td>cron</td></tr>
+  <tr><td><strong>Cron Expression</strong></td><td><code>0 9 * * *</code></td></tr>
+  <tr><td><strong>Human-Readable</strong></td><td>Every day at 9:00 AM</td></tr>
+  <tr><td><strong>Timezone</strong></td><td>Server timezone (default)</td></tr>
 </table>
 
-<h3>Cron Expression Reference</h3>
-<table>
-  <tr><th>Field</th><th>Value</th><th>Meaning</th></tr>
-  <tr><td>Minute</td><td><code>*/5</code></td><td>Every 5th minute (0, 5, 10, 15…)</td></tr>
-  <tr><td>Hour</td><td><code>*</code></td><td>Every hour</td></tr>
-  <tr><td>Day of Month</td><td><code>*</code></td><td>Every day</td></tr>
-  <tr><td>Month</td><td><code>*</code></td><td>Every month</td></tr>
-  <tr><td>Day of Week</td><td><code>*</code></td><td>Every day of the week</td></tr>
-</table>
-
-<h3>HTTP GET Configuration</h3>
-<table>
-  <tr><td><strong>URL</strong></td><td><code>https://httpbin.org/status/200</code></td></tr>
-  <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>statusCode</code> ← response status code</td></tr>
-</table>
-
-<div class="callout">
-  <strong>📘 Common Cron Expressions</strong>
-  <code>0 * * * *</code> — every hour on the hour<br>
-  <code>0 0 * * *</code> — every day at midnight<br>
-  <code>0 9 * * 1-5</code> — weekdays at 9:00 AM<br>
-  <code>*/30 * * * *</code> — every 30 minutes
+<div class="callout callout-tip">
+  <strong>💡 Fork + Join Pattern</strong>
+  Use <strong>Fork</strong> when two or more steps are independent and can run simultaneously.
+  Use <strong>Join</strong> after the fork to collect both branches before continuing.
+  Without a Join the workflow would end as soon as the first branch completes.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -262,53 +272,44 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"⏰ Schedule Trigger"</strong>
-    in the <em>Event-Driven</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Schedule Trigger"</strong>
+    in the <em>Event-Driven</em> category. Click <em>Import</em>.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Schedule Trigger".
+    <strong>Add a Schedule node</strong> (instead of a Start node).<br>
+    Set cron to <code>0 9 * * *</code>, label it <em>Daily Report</em>.
   </li>
   <li>
-    <strong>Add the ScheduleTrigger node.</strong><br>
-    Drag a ScheduleTrigger node onto the canvas. Configure:
-    <ul>
-      <li><em>Cron Expression</em>: <code>*/5 * * * *</code></li>
-    </ul>
+    <strong>Add 1. Fetch Sales Data (HTTP GET).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/posts?userId=1</code>.<br>
+    Extraction: <code>salesData ← $.length</code>. Connect Schedule → Fetch Sales Data.
   </li>
   <li>
-    <strong>Add the HTTP GET node.</strong><br>
-    Drag an HTTP node. Configure:
-    <ul>
-      <li><em>URL</em>: <code>https://httpbin.org/status/200</code></li>
-      <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: Add <code>statusCode</code> ← response status code</li>
-    </ul>
-    Connect ScheduleTrigger → Health Check.
+    <strong>Add 2. Generate Report (HTTP POST).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/posts</code>. Method: POST.<br>
+    Body: JSON with title, salesData. Extraction: <code>reportId ← $.id</code>.
+    Connect Fetch Sales Data → Generate Report.
   </li>
   <li>
-    <strong>Add the Condition node.</strong><br>
-    Drag a Condition node. Configure:
-    <ul>
-      <li><em>Expression</em>: <code>{{statusCode}} == 200</code></li>
-    </ul>
-    Connect Health Check → Healthy?.
+    <strong>Add Parallel Delivery (Fork).</strong><br>
+    Connect Generate Report → Parallel Delivery.
   </li>
   <li>
-    <strong>Add two Log nodes.</strong><br>
-    <ul>
-      <li><strong>Log Healthy</strong>: Message = <code>"Service is healthy — HTTP 200"</code></li>
-      <li><strong>Log Degraded</strong>: Message = <code>"Service is degraded — HTTP {{statusCode}}"</code></li>
-    </ul>
-    Connect the Condition's <em>true</em> output → Log Healthy, and <em>false</em> output → Log Degraded.
+    <strong>Add the two parallel HTTP POST nodes.</strong><br>
+    3a Email Report: POST /posts with email body including <code>reportId</code>.<br>
+    3b Archive Report: POST /posts with archive body including <code>reportId</code>.<br>
+    Connect Fork → Email Report, Fork → Archive Report.
   </li>
   <li>
-    <strong>Test manually.</strong><br>
-    Click <em>Quick Test</em> to run the workflow once immediately without waiting for the
-    cron schedule. Verify the health check passes and the correct log branch executes.
+    <strong>Add Wait for Completion (Join).</strong><br>
+    Connect Email Report → Join, Archive Report → Join. Connect Join → End.
+  </li>
+  <li>
+    <strong>Quick-test using Run Once.</strong><br>
+    Scheduled workflows can be triggered manually via <em>Run Once</em> in the workflow editor.
   </li>
 </ol>
 
@@ -317,28 +318,18 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (healthy service)</h3>
+<h3>Node States</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>ScheduleTrigger</td><td>✅ Pass</td><td>Triggered by cron (or manual Quick Test)</td></tr>
-  <tr><td>1. Health Check</td><td>✅ Pass</td><td>HTTP 200 OK, statusCode = 200</td></tr>
-  <tr><td>2. Healthy?</td><td>✅ Pass</td><td>Condition: true → Log Healthy branch</td></tr>
-  <tr><td>3a. Log Healthy</td><td>✅ Pass</td><td>"Service is healthy — HTTP 200"</td></tr>
-  <tr><td>3b. Log Degraded</td><td>⏭️ Skipped</td><td>False branch not taken</td></tr>
+  <tr><td>Daily Report</td><td>✅ Pass</td><td>Cron fired · execution started</td></tr>
+  <tr><td>1. Fetch Sales Data</td><td>✅ Pass</td><td>HTTP 200 · salesData = 10 (length of array)</td></tr>
+  <tr><td>2. Generate Report</td><td>✅ Pass</td><td>HTTP 201 · reportId = 101</td></tr>
+  <tr><td>Parallel Delivery</td><td>✅ Pass</td><td>Forked into 2 parallel branches</td></tr>
+  <tr><td>3a. Email Report</td><td>✅ Pass</td><td>HTTP 201 · email branch complete</td></tr>
+  <tr><td>3b. Archive Report</td><td>✅ Pass</td><td>HTTP 201 · archive branch complete</td></tr>
+  <tr><td>Wait for Completion</td><td>✅ Pass</td><td>Both branches joined</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
-
-<h3>Health Check Response (Node 1)</h3>
-<pre>
-HTTP/1.1 200 OK
-Content-Type: text/html; charset=utf-8
-Content-Length: 0</pre>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Testing Failure Path</strong>
-  To test the degraded branch, change the Health Check URL to
-  <code>https://httpbin.org/status/503</code>. The Condition will evaluate to false,
-  and the Log Degraded node will execute instead.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -346,46 +337,24 @@ Content-Length: 0</pre>
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Check Multiple Endpoints</h3>
+<h3>Exercise 1: Add a Third Parallel Branch</h3>
 <p>
-  Add a second HTTP node that checks a different URL (e.g.,
-  <code>https://httpbin.org/status/200</code> for service A and
-  <code>https://httpbin.org/get</code> for service B). Use two Condition nodes to
-  evaluate both health checks independently.
+  After Generate Report, fork into three branches: Email Report, Archive Report,
+  and a new <em>Notify Slack</em> branch. Connect all three to the Join node.
 </p>
 
-<h3>Exercise 2: Send an Alert</h3>
+<h3>Exercise 2: Different Schedule Frequencies</h3>
 <p>
-  On the degraded branch, instead of just logging, add an HTTP POST node that sends
-  an alert to a Slack webhook URL or an email API. Include the
-  <code>{{statusCode}}</code> in the alert message body.
+  Change the cron to run <strong>every weekday at 8 AM</strong>: <code>0 8 * * 1-5</code>.
+  Then try <strong>every hour</strong>: <code>0 * * * *</code>.
 </p>
 
-<h3>Exercise 3: Change the Schedule</h3>
+<h3>Exercise 3: Conditional Delivery</h3>
 <p>
-  Modify the cron expression to run at different intervals:
-</p>
-<ul>
-  <li><code>*/1 * * * *</code> — every minute (for testing)</li>
-  <li><code>0 */2 * * *</code> — every 2 hours</li>
-  <li><code>0 8 * * 1-5</code> — weekdays at 8:00 AM only</li>
-</ul>
-
-<h3>Exercise 4: Measure Response Time</h3>
-<p>
-  Extract the response time from the HTTP node's execution metadata. Add a second
-  Condition node that checks if response time exceeds 2000ms. Log a <em>"Slow
-  response"</em> warning when the service is healthy but sluggish.
+  After Fetch Sales Data, add a Condition: if <code>{{salesData}} &gt; 5</code>
+  send the email; otherwise skip the email branch entirely.
 </p>
 
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  Once you're comfortable with schedule triggers, try the
-  <a href="wait-condition-advanced.html">Polling with Wait for Condition</a> sample
-  to learn how to build a polling loop for monitoring long-running jobs.
-</div>
-
-<footer>RedfireForge Training Manual — Schedule Trigger · April 2026</footer>
+<footer>RedfireForge Training Manual — Schedule Trigger · v0.6.0</footer>
 
 </body>
-</html>

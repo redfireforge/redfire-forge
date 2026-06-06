@@ -80,7 +80,7 @@
 
 <div class="flow-diagram">
   ┌─────────┐     ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────────┐     ┌─────┐
-  │  Start  │────▶│ HTTP: Initiate   │────▶│  CorrelationWait    │────▶│ HTTP: Lookup     │────▶│ End │
+  │  Start  │────▶│ Submit Payment   │────▶│  CorrelationWait    │────▶│ Confirm Order     │────▶│ End │
   │         │     │ Payment          │     │  "Wait for Payment" │     │ Payment Status   │     │     │
   └─────────┘     └──────────────────┘     └─────────────────────┘     └──────────────────┘     └─────┘
                          │                          ▲
@@ -116,7 +116,7 @@ YAML file <code>examples/easy-payment-callback-workflow.yaml</code> from the Tem
   <tr><td><code>currency</code></td><td><code>USD</code></td></tr>
 </table>
 
-<h3><span class="step-num">3</span> Add HTTP Node: Initiate Payment</h3>
+<h3><span class="step-num">3</span> Add HTTP Node: Submit Payment</h3>
 <table>
   <tr><th>Field</th><th>Value</th></tr>
   <tr><td>URL</td><td><code>https://payments.example.com/charges</code></td></tr>
@@ -129,7 +129,7 @@ YAML file <code>examples/easy-payment-callback-workflow.yaml</code> from the Tem
   "callbackUrl": "http://localhost:3001/webhooks/callback/payment"
 }</pre>
   </td></tr>
-  <tr><td>Extract</td><td><code>paymentId</code> from <code>$.paymentId</code></td></tr>
+  <tr><td>Extract</td><td><code>paymentId</code> from <code>$.id</code></td></tr>
 </table>
 
 <div class="callout callout-tip">
@@ -157,7 +157,7 @@ YAML file <code>examples/easy-payment-callback-workflow.yaml</code> from the Tem
   <tr><td><code>processedAt</code></td><td><code>$.processedAt</code></td></tr>
 </table>
 
-<h3><span class="step-num">5</span> Add HTTP Node: Lookup Payment Status</h3>
+<h3><span class="step-num">5</span> Add HTTP Node: Confirm Order</h3>
 <table>
   <tr><th>Field</th><th>Value</th></tr>
   <tr><td>URL</td><td><code>https://api.example.com/orders/{{orderId}}/payment-status</code></td></tr>

@@ -95,7 +95,7 @@
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: <span class="badge badge-advanced">★★★ Advanced</span> &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Flow Control<br>
+    Difficulty: <span class="badge badge-advanced">★★★ Advanced</span> &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Flow Control<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -147,7 +147,7 @@
 <ul>
   <li>Configuring a <strong>Workflow Error Handler</strong> (OnWorkflowError) as a global catch-all</li>
   <li>Difference between <strong>workflow-level</strong> and <strong>node-level</strong> (TryCatch) error handling</li>
-  <li>Accessing <strong>error context</strong> variables: <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, <code>{{wf_errorTimestamp}}</code></li>
+  <li>Accessing <strong>error context</strong> variables: <code>{{error.message}}</code>, <code>{{error.statusCode}}</code>, <code>{{error.failedCount}}</code></li>
   <li>Sending <strong>failure notifications</strong> (HTTP POST to a webhook) with structured error payloads</li>
   <li>Using <strong>Log</strong> nodes inside the error handler for audit trails</li>
   <li>Understanding <strong>error handler execution order</strong> — TryCatch fires first; only uncaught errors reach the Workflow Error Handler</li>
@@ -158,47 +158,59 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │
-  └──────┬──────┘
+  ┌──────────────────────────────┐
+  │    Start                     │  userId = "1"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  1. HTTP GET               │  GET /users/1
-  │     Fetch User Data        │
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  1. Fetch User (OK)          │  GET /users/{{userId}}
+  │     (HTTP GET)               │  Extracts: userName
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  2. Process Data           │  Transform &amp; validate
-  │     (Set Variable)         │  user payload
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  2. Log Success              │  LogDebug: info
+  │     (LogDebug)               │  "Fetched user: {{userName}}"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌──────────────────────────────┐
+  │  3. Call Bad URL (will fail) │  GET /invalid-endpoint-404
+  │     (HTTP GET)               │  Status assert 200 → FAILS!
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  4. This Never Runs          │  LogDebug: info
+  │     (LogDebug)               │  (never executes)
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │    End                       │
+  └──────────────────────────────┘
 
-  ═══ OnWorkflowError (global) ═══════════════
+  ═══ Workflow Error Handler (fires when any uncaught error occurs) ═══
 
-  ┌─────────────────────────────┐
-  │  3. Capture Error          │  Collect wf_errorMessage,
-  │     (Set Variable)         │  wf_errorNodeName, timestamp
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  ⚠ Error Caught              │  LogDebug: error
+  │     (LogDebug)               │  error.message / statusCode / failedCount
+  │                              │  ← entry node in errorConfig
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  4. Send Notification      │  POST to webhook with
-  │     (HTTP POST)            │  error payload
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  📧 POST Notification        │  POST {{notifyUrl}}
+  │     (HTTP POST)              │  Body: Slack-style alert JSON
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  5. Log Incident           │  Write structured log
-  │     (Log)                  │  for audit trail
-  └─────────────────────────────┘
+  ┌──────────────────────────────┐
+  │  ✅ Notification Sent        │  LogDebug: info
+  │     (LogDebug)               │  "Notification posted (id={{notificationId}})"
+  └──────────────────────────────┘
 </div>
 
 <p>
-  <strong>6 nodes</strong> — a main pipeline (Start → HTTP GET → Process → End) plus
-  a detached OnWorkflowError handler (Capture → Notify → Log). The error handler is
-  <em>not</em> connected to the main flow; it activates automatically when any uncaught
-  error occurs.
+  <strong>9 nodes</strong> — a main pipeline (Start → Fetch User → Log Success → Call Bad URL → Never Runs → End)
+  plus a detached error handler subgraph (⚠ Error Caught → POST Notification → ✅ Notification Sent).
+  The error handler subgraph is <em>not</em> connected to the main flow; it activates automatically
+  when any uncaught error occurs. Node 3 (Call Bad URL) <em>intentionally fails</em> to demonstrate
+  the error handler firing.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -213,17 +225,27 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. No input variables needed for this sample.</td>
+    <td>Entry point. Input variable: <code>userId = "1"</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> HTTP GET</td>
+    <td><span class="step-num">1</span> 1. Fetch User (OK)</td>
     <td>HTTP</td>
-    <td>Sends a GET request to <code>https://jsonplaceholder.typicode.com/users/1</code>. Extracts <code>name</code> and <code>email</code> from the response.</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/users/{{userId}}</code>. Extracts <code>userName</code> ← <code>$.name</code>. This succeeds (HTTP 200).</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Process Data</td>
-    <td>Set Variable</td>
-    <td>Transforms the extracted fields — e.g., normalizes the email to lowercase, validates the name is non-empty. If validation fails, throws an error.</td>
+    <td><span class="step-num">2</span> 2. Log Success</td>
+    <td>LogDebug</td>
+    <td>Info-level: <code>"Fetched user: {{userName}}"</code>. Demonstrates that early nodes execute normally.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> 3. Call Bad URL (will fail)</td>
+    <td>HTTP</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/invalid-endpoint-404</code>. Has a status assertion for HTTP 200. <strong>This intentionally fails</strong> to trigger the Workflow Error Handler.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> 4. This Never Runs</td>
+    <td>LogDebug</td>
+    <td>Info-level: <code>"You should not see this — the workflow stopped at step 3."</code> Never executes because node 3 always fails.</td>
   </tr>
 </table>
 
@@ -231,43 +253,47 @@
 <table>
   <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
   <tr>
-    <td><span class="step-num">3</span> Capture Error</td>
-    <td>Set Variable</td>
-    <td>Collects error context into a structured payload: <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, and current timestamp.</td>
+    <td><span class="step-num">EH1</span> ⚠ Error Caught</td>
+    <td>LogDebug</td>
+    <td>Error-level entry point of the error subgraph. Logs: <code>"Workflow-level error handler triggered! Error: {{error.message}} Status: {{error.statusCode}} Failed: {{error.failedCount}}"</code>. snapshotVariables=true. Entry node specified in <code>errorConfig.handlerEntryNodeId</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">4</span> Send Notification</td>
+    <td><span class="step-num">EH2</span> 📧 POST Notification</td>
     <td>HTTP</td>
-    <td>POSTs a JSON payload to a webhook URL (e.g., Slack incoming webhook) with workflow name, failed node, error message, and timestamp.</td>
+    <td>POST <code>{{notifyUrl}}</code> (workflow variable = <code>https://jsonplaceholder.typicode.com/posts</code>). Body: <code>{"channel":"#alerts","text":"Workflow failed! Error: {{error.message}} | Status: {{error.statusCode}} | Failed: {{error.failedCount}} node(s)"}</code>. Extracts <code>notificationId</code> ← <code>$.id</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">5</span> Log Incident</td>
-    <td>Log</td>
-    <td>Logs <code>"[WORKFLOW ERROR] Node '{{wf_errorNodeName}}' failed: {{wf_errorMessage}} at {{wf_errorTimestamp}}"</code> for the audit trail.</td>
+    <td><span class="step-num">EH3</span> ✅ Notification Sent</td>
+    <td>LogDebug</td>
+    <td>Info-level: <code>"Error notification posted (id={{notificationId}}). Recovery complete."</code>. Final node of the error subgraph.</td>
   </tr>
 </table>
 
-<h3>HTTP GET Configuration (Node 1)</h3>
+<h3>HTTP Configuration — Node 1: Fetch User (OK)</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td></tr>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/{{userId}}</code></td></tr>
   <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>name</code> ← body <code>$.name</code>, <code>email</code> ← body <code>$.email</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>userName</code> ← body <code>$.name</code></td></tr>
 </table>
 
-<h3>Notification POST Configuration (Node 4)</h3>
+<h3>HTTP Configuration — Node 3: Call Bad URL (will fail)</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://hooks.example.com/workflow-alerts</code></td></tr>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/invalid-endpoint-404</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Validation</strong></td><td>Status assertion: expected 200 (will fail since 404 is returned)</td></tr>
+</table>
+
+<h3>HTTP Configuration — Error Handler Node: POST Notification</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>{{notifyUrl}}</code> (workflow variable: <code>https://jsonplaceholder.typicode.com/posts</code>)</td></tr>
   <tr><td><strong>Method</strong></td><td>POST</td></tr>
   <tr><td><strong>Headers</strong></td><td><code>Content-Type: application/json</code></td></tr>
   <tr><td><strong>Body</strong></td><td>See JSON payload below</td></tr>
 </table>
 <pre>
 {
-  "workflow": "Workflow Error Handler – Failure Notification",
-  "failedNode": "{{wf_errorNodeName}}",
-  "error": "{{wf_errorMessage}}",
-  "timestamp": "{{wf_errorTimestamp}}",
-  "severity": "critical"
+  "channel": "#alerts",
+  "text": "Workflow failed! Error: {{error.message}} | Status: {{error.statusCode}} | Failed: {{error.failedCount}} node(s)"
 }</pre>
 
 <div class="callout">
@@ -301,10 +327,13 @@
     <strong>Build the main flow.</strong><br>
     Add three nodes to the canvas:
     <ul>
-      <li><strong>HTTP GET</strong> — URL: <code>https://jsonplaceholder.typicode.com/users/1</code>, Method: GET. Extract <code>name</code> and <code>email</code>.</li>
-      <li><strong>Process Data</strong> (Set Variable) — Normalize email: <code>email = {{email | lowercase}}</code>.</li>
+      <li><strong>1. Fetch User (HTTP GET)</strong> — URL: <code>https://jsonplaceholder.typicode.com/users/{{userId}}</code>, Method: GET. Extract <code>userName</code> ← <code>$.name</code>. Add Accept header.</li>
+      <li><strong>2. Log Success (LogDebug)</strong> — Level: info, message: <code>"Fetched user: {{userName}}"</code>.</li>
+      <li><strong>3. Call Bad URL (HTTP GET)</strong> — URL: <code>https://jsonplaceholder.typicode.com/invalid-endpoint-404</code>. Add status assertion: expected 200. This <em>intentionally fails</em>.</li>
+      <li><strong>4. This Never Runs (LogDebug)</strong> — Level: info. Should never execute.</li>
     </ul>
-    Connect Start → HTTP GET → Process Data → End.
+    Connect Start → Fetch User → Log Success → Call Bad URL → This Never Runs → End.
+    Also add the Start node's input variable: <code>userId = "1"</code>.
   </li>
   <li>
     <strong>Enable the Workflow Error Handler.</strong><br>
@@ -315,26 +344,26 @@
     <strong>Build the error handler.</strong><br>
     Inside the OnWorkflowError region, add three nodes:
     <ul>
-      <li><strong>Capture Error</strong> (Set Variable) — Set <code>errorPayload</code> from <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, and <code>{{wf_errorTimestamp}}</code>.</li>
-      <li><strong>Send Notification</strong> (HTTP POST) — URL: your webhook endpoint. Body: the JSON payload shown above.</li>
-      <li><strong>Log Incident</strong> (Log) — Message: <code>"[WORKFLOW ERROR] Node '{{wf_errorNodeName}}' failed: {{wf_errorMessage}} at {{wf_errorTimestamp}}"</code></li>
+      <li><strong>⚠ Error Caught (LogDebug)</strong> — Level: error, message: <code>"Workflow-level error handler triggered! Error: {{error.message}} Status: {{error.statusCode}} Failed: {{error.failedCount}}"</code>, snapshotVariables=true. This is the <em>entry node</em>.</li>
+      <li><strong>📧 POST Notification (HTTP POST)</strong> — URL: <code>{{notifyUrl}}</code>, body: <code>{"channel":"#alerts","text":"Workflow failed! Error: {{error.message}} | Status: {{error.statusCode}} | Failed: {{error.failedCount}} node(s)"}</code>. Extract <code>notificationId</code> ← <code>$.id</code>.</li>
+      <li><strong>✅ Notification Sent (LogDebug)</strong> — Level: info, message: <code>"Error notification posted (id={{notificationId}}). Recovery complete."</code></li>
     </ul>
-    Connect Capture Error → Send Notification → Log Incident.
+    Connect ⚠ Error Caught → 📧 POST Notification → ✅ Notification Sent.
   </li>
   <li>
     <strong>Test the happy path.</strong><br>
-    Click <em>Quick Test</em>. The API should return user data, Process Data normalizes
+    Click <em>Quick Test</em>. The workflow fetches user 1, logs success, then Call Bad URL fails.
     it, and the workflow completes. The error handler should <em>not</em> activate.
   </li>
   <li>
     <strong>Test the error path.</strong><br>
     Change the HTTP URL to <code>https://jsonplaceholder.typicode.com/invalid/999</code>
-    or add an invalid variable reference in Process Data (e.g., <code>{{undefined_var | uppercase}}</code>).
+    The Call Bad URL node is already configured to fail (status assertion on 404 → 200 expected).
     Re-run and verify:
     <ul>
-      <li>Capture Error collects the error context</li>
+      <li>⚠ Error Caught logs the error with {{error.message}}, {{error.statusCode}}, {{error.failedCount}}</li>
       <li>Send Notification fires the POST</li>
-      <li>Log Incident writes the audit log</li>
+      <li>✅ Notification Sent logs completion</li>
     </ul>
   </li>
 </ol>
@@ -348,12 +377,14 @@
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. HTTP GET</td><td>✅ Pass</td><td>HTTP 200 OK, name = "Leanne Graham", email = "Sincere@april.biz"</td></tr>
-  <tr><td>2. Process Data</td><td>✅ Pass</td><td>email normalized to "sincere@april.biz"</td></tr>
+  <tr><td>1. Fetch User (OK)</td><td>✅ Pass</td><td>HTTP 200 · userName = "Leanne Graham"</td></tr>
+  <tr><td>2. Log Success</td><td>✅ Pass</td><td>LogDebug: "Fetched user: Leanne Graham"</td></tr>
+  <tr><td>3. Call Bad URL</td><td>❌ Fail</td><td>HTTP 404 · status assertion fails → triggers error handler</td></tr>
+  <tr><td>4. This Never Runs</td><td>⏭️ Skipped</td><td>Execution aborted at node 3</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>3. Capture Error</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
+  <tr><td>⚠ Error Caught</td><td>⏭️ Not triggered</td><td>No uncaught error in workflow (error handler subgraph never fires in "happy path")</td></tr>
   <tr><td>4. Send Notification</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
-  <tr><td>5. Log Incident</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
+  <tr><td>✅ Notification Sent</td><td>⏭️ Not triggered</td><td>Error handler subgraph did not fire</td></tr>
 </table>
 
 <h3>Error Path (HTTP GET fails)</h3>
@@ -361,11 +392,12 @@
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
   <tr><td>1. HTTP GET</td><td>❌ Fail</td><td>HTTP 404 Not Found</td></tr>
-  <tr><td>2. Process Data</td><td>⏭️ Skipped</td><td>Workflow aborted</td></tr>
+  <tr><td>2. Log Success</td><td>⏭️ Skipped</td><td>Workflow aborted before reaching step 2</td></tr>
+  <tr><td>3. Call Bad URL</td><td>❌ Fail</td><td>HTTP 404 triggers error handler</td></tr>
   <tr><td>End</td><td>⏭️ Skipped</td><td>Workflow aborted</td></tr>
-  <tr><td>3. Capture Error</td><td>✅ Pass</td><td>wf_errorNodeName = "HTTP GET", wf_errorMessage = "HTTP 404 Not Found"</td></tr>
+  <tr><td>⚠ Error Caught</td><td>✅ Pass</td><td>error.message, error.statusCode=404, error.failedCount=1</td></tr>
   <tr><td>4. Send Notification</td><td>✅ Pass</td><td>POST sent to webhook with error payload</td></tr>
-  <tr><td>5. Log Incident</td><td>✅ Pass</td><td>"[WORKFLOW ERROR] Node 'HTTP GET' failed: HTTP 404 Not Found at 2026-04-29T10:00:00Z"</td></tr>
+  <tr><td>✅ Notification Sent</td><td>✅ Pass</td><td>LogDebug: "Error notification posted (id=101). Recovery complete."</td></tr>
 </table>
 
 <div class="callout callout-warn">
@@ -386,7 +418,7 @@
 <p>
   Wrap the HTTP GET node in a TryCatch with a local fallback. Verify that the
   TryCatch handles 404 errors locally and the Workflow Error Handler does <em>not</em>
-  fire. Then introduce an error in Process Data (outside the TryCatch) and confirm
+  fire. Then introduce an error in another node (outside the Error Handler boundary) and confirm
   the Workflow Error Handler catches it.
 </p>
 
@@ -399,7 +431,7 @@
 
 <h3>Exercise 3: Conditional Notification Routing</h3>
 <p>
-  Add a Condition node in the error handler that checks <code>{{wf_errorNodeName}}</code>.
+  Add a Condition node in the error handler that checks <code>{{error.statusCode}}</code>.
   If the failing node is "HTTP GET", send the notification to a <em>#api-alerts</em>
   channel. For any other node, send to a generic <em>#workflow-errors</em> channel.
 </p>
