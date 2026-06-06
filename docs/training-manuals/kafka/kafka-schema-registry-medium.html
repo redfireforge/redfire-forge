@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka Schema Registry (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #cce5ff; color: #004085; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🗄️</div>
+  <h1>Kafka Schema Registry</h1>
+  <div class="subtitle">Medium — Step-by-Step Training Guide</div>
+  <p style="max-width: 540px; color: #495057; font-size: 14px;">
+    Connect a Schema Registry, browse Avro/Protobuf/JSON Schema subjects,
+    compare versions, copy schemas, and understand how RedfireForge uses Schema Registry
+    for message validation and serialization.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Time: ~25 minutes<br>
+    Covers: Schema Registry tab — subjects list, schema viewer, version comparison<br>
+    Requires: Schema Registry on <code>localhost:19094</code> (or Confluent Cloud URL)
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#prereq">Prerequisites &amp; Setup</a></li>
+  <li><a href="#concepts">Schema Registry Concepts</a></li>
+  <li><a href="#connect">Part 1 — Configure Schema Registry URL</a></li>
+  <li><a href="#browse">Part 2 — Browse Subjects</a></li>
+  <li><a href="#view">Part 3 — View Schema Content</a></li>
+  <li><a href="#versions">Part 4 — Version Switching</a></li>
+  <li><a href="#export">Part 5 — Copy &amp; Export Schemas</a></li>
+  <li><a href="#produce">Part 6 — Using Schema Registry in KafkaProduce</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="prereq">1. Prerequisites &amp; Setup</h2>
+
+<h3>Start the Schema Registry Docker Profile</h3>
+<p>The bundled schema-registry profile runs Redpanda + Schema Registry on port 19094:</p>
+<pre>cd docker/kafka/schema-registry
+docker compose up -d
+# Wait ~15 seconds
+docker compose ps  # All containers should be healthy</pre>
+
+<h3>Seed Test Schemas</h3>
+<pre>./docker/kafka/e2e/run-all-smoke.sh schema-registry
+# This registers several Avro subjects used in the walkthrough</pre>
+
+<h3>Connect a Cluster with Schema Registry URL</h3>
+<ol>
+  <li>Settings → Kafka → select or create a cluster</li>
+  <li>In the cluster form, find <strong>Schema Registry URL</strong></li>
+  <li>Enter: <code>http://localhost:19094</code></li>
+  <li>Save and Connect</li>
+</ol>
+
+<h2 id="concepts">2. Schema Registry Concepts</h2>
+<table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Subject</td><td>A named schema namespace, typically <code>&lt;topicName&gt;-value</code> or <code>&lt;topicName&gt;-key</code></td></tr>
+    <tr><td>Schema</td><td>The actual schema definition (Avro, Protobuf, or JSON Schema)</td></tr>
+    <tr><td>Version</td><td>Each registered schema gets a version number (1, 2, 3...); older versions are retained</td></tr>
+    <tr><td>Schema ID</td><td>Global unique integer; Kafka messages embed this ID (first 5 bytes) for deserialization</td></tr>
+    <tr><td>Compatibility</td><td>Rules for allowed schema evolution: BACKWARD, FORWARD, FULL, NONE</td></tr>
+  </tbody>
+</table>
+
+<div class="callout callout">
+  <strong>ℹ️ Subject Naming Conventions</strong>
+  Confluent Schema Registry uses the <em>TopicNameStrategy</em> by default:
+  a topic named <code>orders.created</code> has subjects <code>orders.created-value</code>
+  (for the message body) and optionally <code>orders.created-key</code> (for the key).
+  Redpanda Schema Registry follows the same convention.
+</div>
+
+<h2 id="connect">3. Part 1 — Configure Schema Registry URL</h2>
+
+<h3><span class="step-num">1</span> Verify the Schema Registry URL Is Set</h3>
+<ol>
+  <li>Settings → Kafka → click the connected cluster</li>
+  <li>Confirm the <strong>Schema Registry URL</strong> field shows <code>http://localhost:19094</code></li>
+  <li>If empty, edit the cluster and add the URL, then save</li>
+</ol>
+
+<h3><span class="step-num">2</span> Navigate to the Schema Registry Tab</h3>
+<ol>
+  <li>Protocols → Kafka → <strong>Schema Registry</strong> tab</li>
+  <li>If Schema Registry URL is not configured, a prompt appears: <em>"No Schema Registry URL configured. Add one in Settings → Kafka."</em></li>
+  <li>If configured, subjects begin loading automatically</li>
+</ol>
+
+<h2 id="browse">4. Part 2 — Browse Subjects</h2>
+
+<h3><span class="step-num">3</span> Read the Subject List</h3>
+<ol>
+  <li>The left panel shows all registered subjects</li>
+  <li>The subject count badge shows total: e.g., <em>"8 subjects"</em> after the smoke test seed</li>
+  <li>Each subject shows its latest version number</li>
+</ol>
+
+<h3><span class="step-num">4</span> Filter Subjects</h3>
+<ol>
+  <li>Type <code>orders</code> in the search bar — filters to subjects starting with "orders"</li>
+  <li>You should see subjects like: <code>orders.created-value</code>, <code>orders.processed-value</code></li>
+</ol>
+
+<h2 id="view">5. Part 3 — View Schema Content</h2>
+
+<h3><span class="step-num">5</span> Select a Subject</h3>
+<ol>
+  <li>Click <code>orders.created-value</code></li>
+  <li>The right panel opens showing the schema for version <strong>latest</strong></li>
+</ol>
+
+<h3><span class="step-num">6</span> Read the Schema Panel</h3>
+<p>The schema panel shows:</p>
+<table>
+  <thead><tr><th>Section</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>Subject</td><td>Full subject name</td></tr>
+    <tr><td>Schema ID</td><td>Global integer ID embedded in Avro messages</td></tr>
+    <tr><td>Type</td><td>AVRO, PROTOBUF, or JSON</td></tr>
+    <tr><td>Version</td><td>Current version being viewed (dropdown to switch)</td></tr>
+    <tr><td>Compatibility</td><td>Configured compatibility level for this subject</td></tr>
+    <tr><td>Schema Content</td><td>Full schema definition, syntax-highlighted</td></tr>
+  </tbody>
+</table>
+
+<h3><span class="step-num">7</span> Example Avro Schema</h3>
+<p>The <code>orders.created-value</code> schema should look like:</p>
+<pre>{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "com.redfireforge.orders",
+  "fields": [
+    { "name": "orderId",    "type": "string" },
+    { "name": "customerId", "type": "string" },
+    { "name": "amount",     "type": "double" },
+    { "name": "currency",   "type": "string" },
+    { "name": "status",     "type": "string" },
+    { "name": "createdAt",  "type": "long", "logicalType": "timestamp-millis" }
+  ]
+}</pre>
+
+<h2 id="versions">6. Part 4 — Version Switching</h2>
+
+<h3><span class="step-num">8</span> Open the Version Dropdown</h3>
+<ol>
+  <li>In the schema panel, click the <strong>Version</strong> dropdown (shows "latest" by default)</li>
+  <li>The dropdown lists all available versions: v1, v2, ..., latest</li>
+</ol>
+
+<h3><span class="step-num">9</span> Switch to v1</h3>
+<ol>
+  <li>Select <strong>v1</strong></li>
+  <li>The schema content updates to show the v1 schema</li>
+  <li>Compare with the latest version — you should see the evolution (e.g., a new field added in v2)</li>
+</ol>
+
+<div class="callout-kafka callout">
+  <strong>🟡 Schema Evolution Best Practices</strong>
+  With BACKWARD compatibility (the default), new versions must be able to read data written by
+  the previous version. This means: you can ADD fields with defaults, but you cannot REMOVE
+  required fields. RedfireForge will warn you if you try to publish a message that doesn't match
+  the registered schema (if schema validation is enabled in the KafkaProduce node).
+</div>
+
+<h2 id="export">7. Part 5 — Copy &amp; Export Schemas</h2>
+
+<h3><span class="step-num">10</span> Copy Schema to Clipboard</h3>
+<ol>
+  <li>With a schema selected, click <strong>Copy Schema</strong> in the schema panel header</li>
+  <li>The full schema JSON is copied to clipboard</li>
+  <li>Paste it into your IDE to use as the basis for a new schema</li>
+</ol>
+
+<h3><span class="step-num">11</span> Export All Schemas</h3>
+<ol>
+  <li>Click <strong>↓ Export Schemas</strong> in the panel header</li>
+  <li>A JSON file downloads containing all subjects and their versions</li>
+  <li>Format: <code>{ subjects: [ { subject, versions: [ { version, id, schemaType, schema } ] } ] }</code></li>
+</ol>
+
+<h2 id="produce">8. Part 6 — Using Schema Registry in KafkaProduce</h2>
+<p>
+  When you configure a KafkaProduce node with Schema Registry, messages are serialized in the
+  standard Confluent Wire Format (magic byte + schema ID + Avro payload). This allows any Avro
+  consumer to deserialize correctly.
+</p>
+<ol>
+  <li>Open a workflow containing a KafkaProduce node</li>
+  <li>Click the KafkaProduce node</li>
+  <li>Enable <strong>Schema Registry</strong></li>
+  <li>Set <strong>Subject</strong> to <code>orders.created-value</code></li>
+  <li>The body template must now produce a JSON object that matches the Avro schema fields</li>
+  <li>RedfireForge validates the JSON against the schema before serializing</li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Schema Not Required for JSON Topics</strong>
+  Schema Registry is optional. For JSON messages without schema enforcement,
+  leave Schema Registry disabled in the KafkaProduce node. Schema Registry is most
+  useful for Avro/Protobuf topics where type safety and contract enforcement are required.
+</div>
+
+<h2 id="exercises">9. Try It Yourself</h2>
+<ol>
+  <li><strong>Compare v1 vs v2</strong>: open a multi-version subject, switch between versions, and identify exactly what changed (fields added, types changed, defaults added).</li>
+  <li><strong>Check compatibility</strong>: what compatibility level is configured for <code>orders.created-value</code>? Look it up in the schema panel. Is it BACKWARD, FORWARD, or FULL?</li>
+  <li><strong>Export and inspect</strong>: export all schemas to JSON. Open the file in a text editor and count how many subjects are registered. What schema types are present (AVRO, PROTOBUF, JSON)?</li>
+  <li><strong>Connect Confluent Cloud</strong>: if you have a Confluent Cloud account, add a new cluster with your Cloud bootstrap server and Schema Registry URL. Compare the subject count between local and cloud.</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka Schema Registry (Medium)</footer>
+</body>
+</html>

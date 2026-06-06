@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka Topic Explorer (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #cce5ff; color: #004085; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+  <h1>Kafka Topic Explorer</h1>
+  <div class="subtitle">Medium — Step-by-Step Training Guide</div>
+  <p style="max-width: 540px; color: #495057; font-size: 14px;">
+    Browse all Kafka topics, inspect partition metadata, filter by domain, read messages, and
+    debug event flows — all without leaving RedfireForge.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Time: ~25 minutes<br>
+    Covers: Topics tab — topic list, domain chips, partition details, message exploration<br>
+    Requires: Kafka broker with pre-loaded topics on <code>localhost:19092</code>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#prereq">Prerequisites</a></li>
+  <li><a href="#overview">Topics Tab Overview</a></li>
+  <li><a href="#list">Part 1 — Topic List &amp; Domain Chips</a></li>
+  <li><a href="#metadata">Part 2 — Partition Metadata</a></li>
+  <li><a href="#messages">Part 3 — Reading Messages from Topics</a></li>
+  <li><a href="#debug">Part 4 — Debugging Event Flows</a></li>
+  <li><a href="#column-ref">Column Reference</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="prereq">1. Prerequisites</h2>
+<ol>
+  <li>Redpanda running (plaintext, <code>localhost:19092</code>)</li>
+  <li>Smoke test dataset loaded: <code>./docker/kafka/e2e/run-all-smoke.sh plaintext</code> — this seeds all test topics</li>
+  <li>Local Plaintext cluster <strong>Connected</strong> in Settings → Kafka</li>
+  <li>Navigate to <strong>Protocols → Kafka → Topics</strong> tab</li>
+</ol>
+
+<h2 id="overview">2. Topics Tab Overview</h2>
+<p>The Topics tab is split into two panels:</p>
+<ul>
+  <li><strong>Left panel</strong>: Topic list with search bar, domain chips, topic count badge</li>
+  <li><strong>Right panel</strong>: Topic detail (Info / Partitions / Messages tabs) — appears when you select a topic</li>
+</ul>
+
+<h2 id="list">3. Part 1 — Topic List &amp; Domain Chips</h2>
+
+<h3><span class="step-num">1</span> Read the Topic Count</h3>
+<p>The header shows <em>"37 of 37 topics"</em> (with the full smoke-test seed). The count updates dynamically as you filter.</p>
+
+<h3><span class="step-num">2</span> Use the Search Bar</h3>
+<ol>
+  <li>Type <code>payment</code> in the search bar</li>
+  <li>The list filters in real time — only topics containing "payment" are shown</li>
+  <li>Clear the search to restore all topics</li>
+</ol>
+
+<h3><span class="step-num">3</span> Use Domain Chips</h3>
+<p>
+  Domain chips are automatically extracted from topic name prefixes (e.g., <code>orders.*</code>,
+  <code>payments.*</code>, <code>inventory.*</code>). They appear below the search bar.
+</p>
+<ol>
+  <li>Click the <strong>orders</strong> chip — the list filters to only <code>orders.*</code> topics</li>
+  <li>The count badge updates to show matching count</li>
+  <li>Click the chip again to deselect and show all topics</li>
+  <li>Click multiple chips to OR-filter (shows topics matching any selected domain)</li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Domain Chip Strategy</strong>
+  In a production environment with hundreds of topics, domain chips are invaluable for navigation.
+  Topic naming conventions like <code>domain.aggregate.event</code> (e.g., <code>orders.created</code>,
+  <code>orders.processed</code>) allow instant filtering by business domain.
+</div>
+
+<h2 id="metadata">4. Part 2 — Partition Metadata</h2>
+
+<h3><span class="step-num">4</span> Select a Topic</h3>
+<ol>
+  <li>Click <code>orders.events</code> in the topic list</li>
+  <li>The right panel opens showing the <strong>Info</strong> tab</li>
+</ol>
+
+<h3><span class="step-num">5</span> Read Topic Info</h3>
+<p>The Info tab shows:</p>
+<table>
+  <thead><tr><th>Field</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>Topic Name</td><td>Full topic name including prefix</td></tr>
+    <tr><td>Partitions</td><td>Number of partitions (default: 1 for Redpanda dev mode)</td></tr>
+    <tr><td>Replication Factor</td><td>Number of replicas (1 for single-broker)</td></tr>
+    <tr><td>Created</td><td>Broker-reported creation time (if available)</td></tr>
+  </tbody>
+</table>
+
+<h3><span class="step-num">6</span> Open the Partitions Tab</h3>
+<ol>
+  <li>Click the <strong>Partitions</strong> tab in the right panel</li>
+  <li>The partitions table shows all partitions with their metadata</li>
+</ol>
+
+<h4>Partition Table Column Reference</h4>
+<table>
+  <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Partition</td><td>Zero-indexed partition number (0, 1, 2, ...)</td></tr>
+    <tr><td>Leader</td><td>Broker ID of the current leader for this partition</td></tr>
+    <tr><td>Replicas</td><td>Comma-separated list of broker IDs holding replicas</td></tr>
+    <tr><td>ISR</td><td>In-Sync Replicas — replicas fully caught up to the leader</td></tr>
+    <tr><td>Earliest</td><td>Lowest available offset (messages before this are deleted)</td></tr>
+    <tr><td>Latest</td><td>Next offset to be written (= total message count if retention is infinite)</td></tr>
+    <tr><td>Messages</td><td>Latest − Earliest = approximate count of retained messages</td></tr>
+  </tbody>
+</table>
+
+<div class="callout-kafka callout">
+  <strong>🟡 Understanding Offsets</strong>
+  Earliest offset advances when old messages are deleted (due to retention policy).
+  Latest offset is always the next assigned offset — it increases monotonically.
+  Messages = Latest − Earliest is an estimate; it may not reflect exact counts when
+  log compaction is enabled.
+</div>
+
+<h2 id="messages">5. Part 3 — Reading Messages from Topics</h2>
+
+<h3><span class="step-num">7</span> Open the Messages Tab</h3>
+<ol>
+  <li>Click the <strong>Messages</strong> tab in the right panel of <code>orders.events</code></li>
+  <li>You see a consume form at the top and an empty message table below</li>
+</ol>
+
+<h3><span class="step-num">8</span> Fetch Messages</h3>
+<ol>
+  <li>Set Start Position to <code>Earliest</code></li>
+  <li>Set Max Messages to <code>10</code></li>
+  <li>Click <strong>Consume</strong></li>
+  <li>Messages appear in the table</li>
+</ol>
+
+<h4>Messages Table Column Reference</h4>
+<table>
+  <thead><tr><th>Column</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>#</td><td>Sequential result row number (1, 2, 3...)</td></tr>
+    <tr><td>Offset</td><td>Kafka partition offset of this message</td></tr>
+    <tr><td>Partition</td><td>Partition number the message belongs to</td></tr>
+    <tr><td>Timestamp</td><td>Message create time (broker-assigned); NOT shown in standalone Consume tab</td></tr>
+    <tr><td>Key</td><td>Message key (truncated to 40 chars if long)</td></tr>
+    <tr><td>Value</td><td>Message body (truncated; click row for full content)</td></tr>
+  </tbody>
+</table>
+
+<h3><span class="step-num">9</span> Click a Message Row for Details</h3>
+<ol>
+  <li>Click any row — a detail drawer opens on the right side</li>
+  <li>Sections: <strong>Value</strong> (formatted JSON), <strong>Key</strong>, <strong>Headers</strong>, <strong>Metadata</strong> (offset, partition, timestamp)</li>
+  <li>Click <strong>Copy Value</strong> to copy the full JSON to clipboard</li>
+</ol>
+
+<h2 id="debug">6. Part 4 — Debugging Event Flows</h2>
+<p>The Topic Explorer is your primary debugging tool for event-driven workflows. Use it to:</p>
+
+<h3>Find Messages Published by a Workflow</h3>
+<ol>
+  <li>Run a workflow that publishes to <code>orders.created</code></li>
+  <li>Open Topic Explorer → <code>orders.created</code> → Messages tab</li>
+  <li>Set Start Position to <code>Latest</code> and Max Messages to <code>5</code> → Consume</li>
+  <li>Verify the message from your workflow run appears (check key, body, headers)</li>
+</ol>
+
+<h3>Trace a Full Pipeline</h3>
+<ol>
+  <li>For the Kafka Event Pipeline sample: check both <code>orders.created</code> (trigger) and <code>orders.processed</code> (result)</li>
+  <li>Compare the timestamps to see processing latency</li>
+  <li>Check the <code>pipeline=order-processor</code> header in the result message</li>
+</ol>
+
+<h2 id="column-ref">7. Column Reference Summary</h2>
+<table>
+  <thead><tr><th>Column</th><th>Topic List</th><th>Topics → Messages</th><th>Consume Tab</th></tr></thead>
+  <tbody>
+    <tr><td>#</td><td>—</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Offset</td><td>—</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Partition</td><td>—</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Timestamp</td><td>—</td><td>✅ (shown)</td><td>❌ (not shown)</td></tr>
+    <tr><td>Key</td><td>—</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Value</td><td>—</td><td>✅</td><td>✅</td></tr>
+  </tbody>
+</table>
+
+<h2 id="exercises">8. Try It Yourself</h2>
+<ol>
+  <li><strong>Find the oldest message</strong>: open <code>orders.events</code> → Messages tab → set Start Position Earliest → Consume. What is the earliest offset? How many messages total are in the topic?</li>
+  <li><strong>Domain filter exploration</strong>: how many distinct domain prefixes does your broker have? Use the domain chips to count them. Which domain has the most topics?</li>
+  <li><strong>Partition inspection</strong>: open any topic with more than 1 partition. Check the Partitions tab — are all replicas in ISR? What does it mean if a broker ID is in Replicas but not ISR?</li>
+  <li><strong>Real-time trace</strong>: open <code>orders.created</code> → Messages tab → Latest position. In another tab, publish a message via the Publish tab. Refresh the Messages consume — does the new message appear?</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka Topic Explorer (Medium)</footer>
+</body>
+</html>
