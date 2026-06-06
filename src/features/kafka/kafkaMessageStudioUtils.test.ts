@@ -286,6 +286,32 @@ describe('buildConsumeRequest', () => {
     const req = buildConsumeRequest(baseDraft(), 'c');
     expect(req.filter).toBeUndefined();
   });
+
+  it('omits sortOrder when asc (default)', () => {
+    const req = buildConsumeRequest(baseDraft(), 'c');
+    expect(req.sortOrder).toBeUndefined();
+  });
+
+  it('includes sortOrder when desc', () => {
+    const req = buildConsumeRequest({ ...baseDraft(), sortOrder: 'desc' }, 'c');
+    expect(req.sortOrder).toBe('desc');
+  });
+
+  it('omits seekOffsets when not provided', () => {
+    const req = buildConsumeRequest(baseDraft(), 'c');
+    expect(req.seekOffsets).toBeUndefined();
+  });
+
+  it('includes seekOffsets when provided', () => {
+    const offsets = [{ partition: 0, offset: '50' }, { partition: 1, offset: '30' }];
+    const req = buildConsumeRequest(baseDraft(), 'c', offsets);
+    expect(req.seekOffsets).toEqual(offsets);
+  });
+
+  it('omits seekOffsets when empty array', () => {
+    const req = buildConsumeRequest(baseDraft(), 'c', []);
+    expect(req.seekOffsets).toBeUndefined();
+  });
 });
 
 // ── valuePreview ───────────────────────────────────────────────────────────

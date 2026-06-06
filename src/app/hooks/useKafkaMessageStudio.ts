@@ -8,6 +8,7 @@ import {
 } from '../../shared/kafka/kafkaClient';
 import type { UseKafkaStateReturn } from './useKafkaState';
 import type {
+  KafkaConsumeCursor,
   KafkaConsumeDraft,
   KafkaConsumeResultRow,
   KafkaPublishDraft,
@@ -42,6 +43,11 @@ export interface UseKafkaMessageStudioReturn {
   selectedMessage: KafkaConsumeResultRow | null;
   selectMessage: (index: number | null) => void;
   consumeOnce: () => Promise<void>;
+
+  // Pagination
+  hasMore: boolean;
+  loadMore: () => Promise<void>;
+  loadMoreLoading: boolean;
 
   // Utilities / reset
   clearPublishResult: () => void;
@@ -96,6 +102,9 @@ export function useKafkaMessageStudio(
   const [consumeTimedOut, setConsumeTimedOut] = useState(false);
   const [consumeError, setConsumeError] = useState<KafkaUiSafeError | null>(null);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<KafkaConsumeCursor[] | null>(null);
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false);
 
   // ── Setters ──────────────────────────────────────────────────────────────
   const setPublishDraft = useCallback((patch: Partial<KafkaPublishDraft>) => {
@@ -172,12 +181,16 @@ export function useKafkaMessageStudio(
     setConsumeError(null);
     setConsumeTimedOut(false);
     setSelectedMessageIndex(null);
+    setHasMore(false);
+    setNextCursor(null);
     try {
       const body = buildConsumeRequest(consumeDraftState, clusterId);
       const envelope = await dispatch<{
         messageCount: number;
         messages: KafkaConsumeResultRow[];
         timedOut: boolean;
+        hasMore?: boolean;
+        nextCursor?: KafkaConsumeCursor[];
       }>('consume-once', body);
       if (!envelope.ok || !envelope.data) {
         setConsumeError(envelopeErrorToUiError(envelope, 'Consume failed', 'CONSUME_FAILED'));
@@ -185,12 +198,44 @@ export function useKafkaMessageStudio(
       }
       setConsumeResult(envelope.data.messages);
       setConsumeTimedOut(envelope.data.timedOut);
+      setHasMore(envelope.data.hasMore ?? false);
+      setNextCursor(envelope.data.nextCursor ?? null);
     } catch (err) {
       setConsumeError(toKafkaUiSafeError(err, 'consume-once'));
     } finally {
       setConsumeLoading(false);
     }
   }, [kafkaState.selectedClusterId, consumeDraftState, dispatch]);
+
+  // ── loadMore (pagination) ───────────────────────────────────────────────
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || nextCursor.length === 0) return;
+    const clusterId = kafkaState.selectedClusterId ?? '';
+    setLoadMoreLoading(true);
+    try {
+      const body = buildConsumeRequest(consumeDraftState, clusterId, nextCursor);
+      const envelope = await dispatch<{
+        messageCount: number;
+        messages: KafkaConsumeResultRow[];
+        timedOut: boolean;
+        hasMore?: boolean;
+        nextCursor?: KafkaConsumeCursor[];
+      }>('consume-once', body);
+      if (!envelope.ok || !envelope.data) {
+        setConsumeError(envelopeErrorToUiError(envelope, 'Load more failed', 'CONSUME_FAILED'));
+        return;
+      }
+      setConsumeResult((prev) =>
+        prev ? [...prev, ...envelope.data!.messages] : envelope.data!.messages,
+      );
+      setHasMore(envelope.data.hasMore ?? false);
+      setNextCursor(envelope.data.nextCursor ?? null);
+    } catch (err) {
+      setConsumeError(toKafkaUiSafeError(err, 'consume-once'));
+    } finally {
+      setLoadMoreLoading(false);
+    }
+  }, [kafkaState.selectedClusterId, consumeDraftState, nextCursor, dispatch]);
 
   // ── Utilities ────────────────────────────────────────────────────────────
   const clearPublishResult = useCallback(() => {
@@ -203,6 +248,8 @@ export function useKafkaMessageStudio(
     setConsumeError(null);
     setConsumeTimedOut(false);
     setSelectedMessageIndex(null);
+    setHasMore(false);
+    setNextCursor(null);
   }, []);
 
   const selectMessage = useCallback((index: number | null) => {
@@ -235,6 +282,10 @@ export function useKafkaMessageStudio(
     selectedMessage,
     selectMessage,
     consumeOnce,
+
+    hasMore,
+    loadMore,
+    loadMoreLoading,
 
     clearPublishResult,
     clearConsumeResult,

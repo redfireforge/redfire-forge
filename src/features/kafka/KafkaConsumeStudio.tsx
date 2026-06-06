@@ -36,6 +36,7 @@ export function KafkaConsumeStudio({
     consumeLoading, consumeResult, consumeTimedOut, consumeError,
     selectedMessageIndex, selectedMessage,
     selectMessage, consumeOnce, clearConsumeResult, consumeMessageCount,
+    hasMore, loadMore, loadMoreLoading,
   } = studio;
 
   const [mode, setMode] = useState<ConsumeMode>('once');
@@ -110,6 +111,10 @@ export function KafkaConsumeStudio({
   const handleConsume = useCallback(() => {
     void consumeOnce();
   }, [consumeOnce]);
+
+  const handleLoadMore = useCallback(() => {
+    void loadMore();
+  }, [loadMore]);
 
   const handleExport = useCallback(() => {
     if (consumeResult) {
@@ -340,7 +345,7 @@ export function KafkaConsumeStudio({
           </div>
         </div>
 
-        {/* Max Messages */}
+        {/* Max Messages + Sort Order */}
         <div className="kafka-ms-field-grid">
           <div className="kafka-ms-field">
             <label htmlFor="kms-con-max">Max Messages</label>
@@ -350,6 +355,20 @@ export function KafkaConsumeStudio({
               value={consumeDraft.maxMessages}
               onChange={(e) => setConsumeDraft({ maxMessages: e.target.value })}
             />
+          </div>
+          <div className="kafka-ms-field">
+            <label htmlFor="kms-con-sort">Sort Order</label>
+            <select
+              id="kms-con-sort"
+              value={consumeDraft.sortOrder ?? 'asc'}
+              onChange={(e) =>
+                setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })
+              }
+              data-testid="con-sort-order"
+            >
+              <option value="asc">Oldest First</option>
+              <option value="desc">Newest First</option>
+            </select>
           </div>
         </div>
 
@@ -521,6 +540,18 @@ export function KafkaConsumeStudio({
                         ))}
                       </tbody>
                     </table>
+                    {hasMore && (
+                      <div className="kafka-ms-load-more-row" data-testid="con-load-more-row">
+                        <button
+                          className="kafka-ms-secondary-btn"
+                          onClick={handleLoadMore}
+                          disabled={loadMoreLoading}
+                          data-testid="con-load-more-btn"
+                        >
+                          {loadMoreLoading ? 'Loading…' : 'Load More'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

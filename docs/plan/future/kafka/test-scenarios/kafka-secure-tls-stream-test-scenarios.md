@@ -28,13 +28,13 @@
 | **TW-05** (TLS strict mode — self-signed rejection) | Manual | ☐ Pending | rejectUnauthorized=true with self-signed cert |
 | **TW-06** (TLS smoke test script) | CLI | ☐ Pending | `./docker/kafka/tls/smoke-test.sh` passes all scenarios |
 | **Kafka Studio Stream Mode** | | | |
-| **SM-01** (Stream mode UI) | Manual | ☐ Pending | Start/Stop Stream toggle, message counter, clear |
-| **SM-02** (Live message streaming) | Manual | ☐ Pending | Start stream → Publish → messages appear in real-time |
-| **SM-03** (Stream stop + message persistence) | Manual | ☐ Pending | Stop stream → messages preserved in table |
+| **SM-01** (Stream mode UI) | Playwright UI | ✅ Validated | Start/Stop Stream toggle, LIVE badge, message counter, detail pane verified |
+| **SM-02** (Live message streaming) | Playwright UI + Docker | ✅ Validated | 92 messages received in real-time on redfireforge.stream.test |
+| **SM-03** (Stream stop + message persistence) | Playwright UI | ✅ Validated | Stop Stream → messages preserved, LIVE badge disappears, Start Stream button returns |
 | **SM-04** (Stream auto-stop on disconnect) | Manual | ☐ Pending | Disconnect cluster while streaming → stream stops |
 | **SM-05** (Stream with filters) | Manual | ☐ Pending | Set key/header filter → only matching messages appear |
 
-**Summary:** 9 scenarios validated (automated), 8 scenarios pending manual verification.
+**Summary:** 12 scenarios validated (automated + manual), 5 scenarios pending manual verification.
 
 ---
 
@@ -368,7 +368,7 @@ The **Stream** mode in Kafka Studio's Consume tab provides continuous message co
 
 | Element | Description |
 |---|---|
-| **Consume Once / Stream** toggle | Mode selector (top of consume form) |
+| **Consume Once / Stream** toggle | Mode selector (bottom of consume form, below Schema Registry section) |
 | **Start Stream** button | Begins continuous consumption |
 | **Stop Stream** button | Stops the subscription and polling |
 | **Clear** button | Removes all accumulated stream messages |

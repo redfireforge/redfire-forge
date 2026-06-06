@@ -156,6 +156,18 @@ export interface KafkaConsumeOnceRequest {
    * When absent, message values are returned as plain UTF-8 strings (no change).
    */
   schemaConfig?: KafkaSchemaConfig;
+  /**
+   * Sort order for returned messages.
+   * 'asc' (default) returns oldest-first; 'desc' returns newest-first.
+   * When 'desc', the server fetches the last N messages from the topic tail.
+   */
+  sortOrder?: 'asc' | 'desc';
+  /**
+   * Explicit per-partition seek offsets for pagination.
+   * When provided, the consumer seeks to these offsets before consuming.
+   * Used by "Load More" to resume from a previous cursor position.
+   */
+  seekOffsets?: Array<{ partition: number; offset: string }>;
 }
 
 export interface KafkaSubscribeRequest {
@@ -220,6 +232,14 @@ export interface KafkaConsumeResult {
   messageCount: number;
   messages: KafkaConsumeRecord[];
   timedOut: boolean;
+  /** True when additional messages exist beyond this page. */
+  hasMore?: boolean;
+  /**
+   * Per-partition offsets for fetching the next page.
+   * For 'asc': offset of the first unconsumed message per partition.
+   * For 'desc': offset of the oldest message not yet returned.
+   */
+  nextCursor?: Array<{ partition: number; offset: string }>;
 }
 
 export interface KafkaSubscribeInfo {

@@ -44,6 +44,9 @@ function makeStudio(overrides?: Partial<UseKafkaMessageStudioReturn>): UseKafkaM
     selectedMessage: null,
     selectMessage: vi.fn(),
     consumeOnce: vi.fn().mockResolvedValue(undefined),
+    hasMore: false,
+    loadMore: vi.fn().mockResolvedValue(undefined),
+    loadMoreLoading: false,
     clearPublishResult: vi.fn(),
     clearConsumeResult: vi.fn(),
     consumeMessageCount: 0,
@@ -231,6 +234,55 @@ describe('KafkaConsumeStudio — Consume Once', () => {
     fireEvent.click(screen.getByTitle('Load a saved template'));
     fireEvent.click(screen.getByText('Consume Preset'));
     expect(tplProps.onLoadConsumeTemplate).toHaveBeenCalledWith('tpl-1');
+  });
+});
+
+// ─────────────────────── Sort Order ───────────────────────
+
+describe('KafkaConsumeStudio — Sort Order', () => {
+  it('renders Sort Order select', () => {
+    renderConsume();
+    const select = screen.getByLabelText('Sort Order') as HTMLSelectElement;
+    expect(select.value).toBe('asc');
+  });
+
+  it('calls setConsumeDraft when sort order changes to desc', () => {
+    const studio = makeStudio();
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.change(screen.getByLabelText('Sort Order'), { target: { value: 'desc' } });
+    expect(studio.setConsumeDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
+  });
+});
+
+// ─────────────────────── Load More ───────────────────────
+
+describe('KafkaConsumeStudio — Load More', () => {
+  it('shows Load More button when hasMore=true', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, hasMore: true } });
+    expect(screen.getByTestId('con-load-more-btn')).toBeTruthy();
+    expect(screen.getByTestId('con-load-more-btn').textContent).toBe('Load More');
+  });
+
+  it('hides Load More button when hasMore=false', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, hasMore: false } });
+    expect(screen.queryByTestId('con-load-more-btn')).toBeNull();
+  });
+
+  it('calls loadMore when Load More clicked', () => {
+    const studio = makeStudio({ consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, hasMore: true });
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('con-load-more-btn'));
+    expect(studio.loadMore).toHaveBeenCalledOnce();
+  });
+
+  it('shows Loading… when loadMoreLoading=true', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, hasMore: true, loadMoreLoading: true } });
+    expect(screen.getByTestId('con-load-more-btn').textContent).toBe('Loading…');
+  });
+
+  it('Load More button disabled while loading', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, hasMore: true, loadMoreLoading: true } });
+    expect((screen.getByTestId('con-load-more-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

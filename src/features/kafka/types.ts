@@ -44,6 +44,14 @@ export interface KafkaConsumeDraft {
   jsonPath: string;
   jsonPathEquals: string;
   schemaConfig?: KafkaSchemaConfig;
+  /** Sort order: 'asc' = oldest first (default), 'desc' = newest first. */
+  sortOrder?: 'asc' | 'desc';
+}
+
+/** Cursor for pagination — per-partition offsets for next page. */
+export interface KafkaConsumeCursor {
+  partition: number;
+  offset: string;
 }
 
 // ── Result types ───────────────────────────────────────────────────────────
