@@ -73,7 +73,7 @@ export function createKafkaProduceWorkflow(): Workflow {
         position: { x: 240, y: 300 },
         data: {
           label: '2. Publish to orders.created',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'orders.created',
           keyTemplate: '{{customerId}}',
           bodyTemplate: JSON.stringify({
@@ -142,7 +142,7 @@ export function createKafkaTriggerWorkflow(): Workflow {
         position: { x: 240, y: 30 },
         data: {
           label: 'Order Event Trigger',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'orders.created',
           startPosition: 'latest',
           maxConcurrentRuns: 5,
@@ -268,7 +268,7 @@ export function createKafkaEventPipelineWorkflow(): Workflow {
         position: { x: 240, y: 30 },
         data: {
           label: 'New Order Trigger',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'orders.created',
           startPosition: 'latest',
           maxConcurrentRuns: 10,
@@ -353,7 +353,7 @@ export function createKafkaEventPipelineWorkflow(): Workflow {
         position: { x: 240, y: 590 },
         data: {
           label: '4. Publish Result Event',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'orders.processed',
           keyTemplate: '{{orderId}}',
           bodyTemplate: JSON.stringify({
@@ -380,7 +380,7 @@ export function createKafkaEventPipelineWorkflow(): Workflow {
         position: { x: 240, y: 740 },
         data: {
           label: '5. Confirm Delivery',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'orders.processed',
           keyRegex: '{{orderId}}',
           timeoutMs: 15000,
@@ -444,7 +444,7 @@ export function createKafkaAsyncCorrelationWorkflow(): Workflow {
         position: { x: 260, y: 30 },
         data: {
           label: 'Payment Request Trigger',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'payments.requests',
           startPosition: 'latest',
           maxConcurrentRuns: 5,
@@ -503,7 +503,7 @@ export function createKafkaAsyncCorrelationWorkflow(): Workflow {
         position: { x: 260, y: 440 },
         data: {
           label: '3. Submit to Payment Processor',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'payments.processing',
           keyTemplate: '{{orderId}}',
           bodyTemplate: JSON.stringify({
@@ -529,7 +529,7 @@ export function createKafkaAsyncCorrelationWorkflow(): Workflow {
         position: { x: 260, y: 600 },
         data: {
           label: '4. Wait for Payment Result',
-          clusterId: 'local-plaintext',
+          clusterId: '',
           topic: 'payments.responses',
           correlationIdExpression: '{{orderId}}',
           correlationSource: 'body',
