@@ -8,6 +8,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Kafka Gallery Samples** — 4 ready-to-use workflow templates in the Gallery:
+  - *Kafka: Publish Order Event* (easy) — HTTP create order → KafkaProduce to `orders.created`
+  - *Kafka: Event-Triggered Processor* (easy) — KafkaTrigger → enrich via HTTP → KafkaProduce result
+  - *Kafka: Full Event Pipeline* (medium) — KafkaTrigger → HTTP validate → KafkaProduce → KafkaConsume verify
+  - *Kafka: Async Request–Reply* (advanced) — KafkaTrigger → KafkaProduce request → KafkaWait correlated reply → branch on outcome
+- **Kafka Training Manuals** — 7 new training manuals under `docs/training-manuals/`:
+  - Workflow event-driven series: Publish Order Event, Event-Triggered Processor, Full Event Pipeline, Async Request–Reply
+  - Kafka Protocols series: Plaintext, SASL/SCRAM-SHA-256, TLS
+- **Kafka Training Paths** — 2 new training paths (`wf-kafka-event-driven`, `kafka-protocols`)
+- **Live Docker E2E spec** (`e2e/kafka-live.spec.ts`) — 8 Playwright tests backed by live Redpanda containers covering Publish, Consume, Topics, Schema Registry, and all 4 Gallery workflow Quick Tests
+
+### Fixed
+- **Gallery Kafka workflows: KAFKA_CLUSTER_MISMATCH** — Workflow nodes in all Gallery Kafka samples now use `clusterId: ''` (empty) instead of `'local-plaintext'`, so they run against whatever cluster is currently connected instead of requiring a specific cluster ID.
+- **KafkaWait mockPayload in Async Reply workflow** — `loadTestBehavior.mockPayload.value` is now the JSON-encoded response body. Previously the mock had top-level fields that were spread onto the message envelope, causing `$.status` JSONPath to miss and `paymentStatus` to remain unset in Quick Test / synthetic-inject mode.
+- **Event Pipeline HTTP URL** — `createKafkaEventPipelineWorkflow` HTTP node changed from `/posts/{{orderId}}` (returns 404 for non-numeric orderId like `ORD-3001`) to `/posts/1`.
+
 ### Fixed
 - **Phase 10B — rawValue Buffer leakage in consume records**: `record as KafkaConsumeRecord` was a compile-time cast only; the runtime object still carried `rawValue: Buffer`. `JSON.stringify(Buffer)` produced `{"type":"Buffer","data":[...]}` in every client-facing consume message. Fixed by physically stripping the field via destructuring in `kafka-service.ts` before constructing the response envelope. Regression test added in `kafka-service.schema.test.ts`.
 - **Phase 10A — encodeValue always used latest schema ID**: `schema-registry-client.ts::encodeValue` called `getLatestSchemaId(subject)` unconditionally, ignoring `config.version`. Messages were always encoded with the latest schema ID even when a specific version was requested. Fixed: when `config.version != null`, `fetchSchema` is called first (result cached) and its `.id` is used for encoding. Regression test added in `schema-registry-client.test.ts`.
