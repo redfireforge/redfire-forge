@@ -4,8 +4,8 @@ import { sampleWorkflowCatalog, type SampleCategory } from './index';
 const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance'];
 
 describe('galleries/workflows — sampleWorkflowCatalog', () => {
-  it('has 36 entries', () => {
-    expect(sampleWorkflowCatalog).toHaveLength(37);
+  it('has 41 entries', () => {
+    expect(sampleWorkflowCatalog).toHaveLength(41);
   });
 
   it('every entry has a unique id', () => {

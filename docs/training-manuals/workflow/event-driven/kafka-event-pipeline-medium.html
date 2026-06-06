@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Kafka: Full Event Pipeline (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #cce5ff; color: #004085; }
+  .flow-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-kafka { background: #fff3cd; border-left-color: #fd7e14; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .step-num { display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔄</div>
+  <h1>Kafka: Full Event Pipeline</h1>
+  <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 560px; color: #495057; font-size: 14px;">
+    End-to-end Kafka pipeline: trigger on an incoming order → validate via HTTP →
+    publish a result event → consume to confirm delivery. Uses all three Kafka workflow nodes.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.10</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
+    Requires: Kafka broker on <code>localhost:19092</code>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#architecture">Pipeline Architecture</a></li>
+  <li><a href="#nodes">Node-by-Node Reference</a></li>
+  <li><a href="#walkthrough">Step-by-Step Walkthrough</a></li>
+  <li><a href="#load-testing">Load Testing Behavior</a></li>
+  <li><a href="#results">Expected Results</a></li>
+  <li><a href="#exercises">Try It Yourself</a></li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates a <strong>full Kafka event pipeline</strong> where every step of
+  order processing is mediated by Kafka topics. This pattern is the backbone of microservices
+  architectures with event sourcing:
+</p>
+<ul>
+  <li>An upstream service produces to <code>orders.created</code></li>
+  <li>This workflow consumes the event, validates it, and produces the result to <code>orders.processed</code></li>
+  <li>A downstream service (or another workflow) consumes <code>orders.processed</code></li>
+</ul>
+<p>
+  Using <strong>KafkaConsume</strong> at the end to confirm delivery closes the loop — the
+  workflow verifies that its own produce message reached the topic and is readable.
+</p>
+
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li><strong>KafkaTrigger</strong> — subscribe once, react to every message</li>
+  <li><strong>KafkaProduce</strong> — publish result events after processing</li>
+  <li><strong>KafkaConsume</strong> — one-shot fetch to verify delivery or read from upstream</li>
+  <li><strong>SetVariable</strong> — computing derived state (processedStatus) before producing</li>
+  <li><strong>Load test behavior</strong> — <code>auto-resume</code> mode on KafkaConsume for CI/performance testing</li>
+  <li>The difference between KafkaConsume <code>startPosition: committed</code> vs <code>earliest/latest</code></li>
+</ul>
+
+<h2 id="prerequisites">3. Prerequisites</h2>
+<div class="callout-kafka callout">
+  <strong>🟡 Topics Needed</strong>
+  The pipeline uses two topics: <code>orders.created</code> (trigger) and <code>orders.processed</code> (output/confirm).
+  Both are created automatically by Redpanda if they don't exist. Alternatively, seed them with the provided smoke-test script:
+  <code>./docker/kafka/e2e/run-all-smoke.sh --seed-only plaintext</code>
+</div>
+<ol>
+  <li>Start dev server: <code>npm run dev:server</code></li>
+  <li>Start plaintext Redpanda: <code>cd docker/kafka/plaintext &amp;&amp; docker compose up -d</code></li>
+  <li>Connect <strong>Local Plaintext</strong> cluster in Settings → Kafka</li>
+  <li>Load from Gallery → <strong>"Kafka: Full Event Pipeline"</strong> <span class="badge badge-medium">Medium</span></li>
+</ol>
+
+<h2 id="architecture">4. Pipeline Architecture</h2>
+<div class="flow-diagram">KafkaTrigger: orders.created
+  │  extractVars: orderId, customerId, amount, status
+  ▼
+① HTTP: Validate Order   →  GET /posts/{{orderId}}
+  │  extracts: validationStatus (HTTP status code)
+  ▼
+② Condition: status == 200?
+  │ true                   │ false
+  ▼                        ▼
+③a SetVar: VALIDATED     ③b SetVar: REJECTED
+  │                        │
+  └──────────┬─────────────┘
+             ▼
+④ KafkaProduce: orders.processed
+  │  key: {{orderId}}   body: {orderId, status, processedStatus, processedAt}
+  │  outputBindings: resultOffset
+  ▼
+⑤ KafkaConsume: orders.processed   (key regex: {{orderId}}, load: auto-resume)
+  │  outputBindings: confirmedOffset
+  ▼
+⑥ Log: Pipeline Complete
+  │
+  ▼
+End</div>
+
+<h2 id="nodes">5. Node-by-Node Reference</h2>
+<table>
+  <thead><tr><th>Node</th><th>Type</th><th>Key Config</th></tr></thead>
+  <tbody>
+    <tr><td>New Order Trigger</td><td>KafkaTrigger</td><td>orders.created, extracts orderId/customerId/amount/status</td></tr>
+    <tr><td>Validate Order</td><td>HTTP</td><td>GET jsonplaceholder/posts/{{orderId}}, extracts validationStatus</td></tr>
+    <tr><td>Validation Passed?</td><td>Condition</td><td>validationStatus == 200</td></tr>
+    <tr><td>Mark Validated / Mark Rejected</td><td>SetVariable</td><td>processedStatus = VALIDATED or REJECTED</td></tr>
+    <tr><td>Publish Result Event</td><td>KafkaProduce</td><td>orders.processed, key={{orderId}}, outputBindings: resultOffset</td></tr>
+    <tr><td>Confirm Delivery</td><td>KafkaConsume</td><td>orders.processed, keyRegex={{orderId}}, loadTestBehavior=auto-resume</td></tr>
+    <tr><td>Log Pipeline Complete</td><td>Log/Debug</td><td>Logs all offsets with snapshotVariables=true</td></tr>
+    <tr><td>End</td><td>End</td><td>Pipeline Done</td></tr>
+  </tbody>
+</table>
+
+<h2 id="walkthrough">6. Step-by-Step Walkthrough</h2>
+
+<h3><span class="step-num">1</span> Load and Open the Sample</h3>
+<ol>
+  <li>Gallery → Workflows → filter Event-Driven → <strong>"Kafka: Full Event Pipeline"</strong> → Load</li>
+  <li>The workflow canvas shows 9 nodes in a vertical pipeline layout</li>
+</ol>
+
+<h3><span class="step-num">2</span> Understand the Trigger</h3>
+<ol>
+  <li>Click the <strong>New Order Trigger</strong> node</li>
+  <li>The sample payload simulates: <code>{ orderId: "ORD-3001", customerId: "CUST-200", amount: "299.50", status: "CREATED" }</code></li>
+  <li>Four variables are extracted from the message body via JSONPath</li>
+</ol>
+
+<h3><span class="step-num">3</span> Understand the KafkaProduce Configuration</h3>
+<ol>
+  <li>Click the <strong>Publish Result Event</strong> node</li>
+  <li>The body template combines original and derived fields: orderId, customerId, amount, originalStatus, processedStatus, processedAt</li>
+  <li>The key is <code>{{orderId}}</code> — ensures the result event is co-located with the trigger message in the same partition</li>
+  <li>The <code>pipeline=order-processor</code> header allows downstream consumers to filter by source system</li>
+  <li>Output binding captures <code>resultOffset</code> for verification</li>
+</ol>
+
+<h3><span class="step-num">4</span> Understand KafkaConsume and Load Test Behavior</h3>
+<ol>
+  <li>Click the <strong>Confirm Delivery</strong> node</li>
+  <li>This is a <strong>one-shot consume</strong>: it fetches at most 1 message matching the key regex <code>{{orderId}}</code></li>
+  <li>
+    Note the <strong>Load Test Behavior</strong> setting: <code>auto-resume</code>
+    <ul>
+      <li><strong>auto-resume</strong>: during Quick Test or load tests, the node immediately resumes with the mock payload instead of waiting for a real Kafka message</li>
+      <li>In production workflow runs (not quick test), it waits for the real message to appear</li>
+    </ul>
+  </li>
+  <li>The <code>startPosition: committed</code> means: consume only messages after the last committed offset for this consumer group — it won't re-process old messages</li>
+</ol>
+
+<div class="callout-tip callout">
+  <strong>💡 Why Use KafkaConsume for Confirmation?</strong>
+  Producing a message doesn't guarantee a downstream service received it. KafkaConsume after
+  KafkaProduce is a pattern for <em>produce-then-verify</em> — the workflow confirms the message
+  is actually readable in the topic before declaring success.
+</div>
+
+<h3><span class="step-num">5</span> Run Quick Test</h3>
+<ol>
+  <li>Click <strong>Quick Test</strong> (▶)</li>
+  <li>The trigger fires with the sample payload</li>
+  <li>HTTP validates (jsonplaceholder returns 200 for post IDs 1-100), so the VALIDATED path is taken</li>
+  <li>KafkaProduce publishes the result event (requires live broker)</li>
+  <li>KafkaConsume immediately resumes via auto-resume with the mock payload</li>
+  <li>Log records all offset values</li>
+</ol>
+
+<div class="callout-warn callout">
+  <strong>⚠️ Broker Requirement for KafkaProduce</strong>
+  The KafkaProduce node always connects to a real broker — it does not have a Quick Test bypass.
+  Ensure Local Plaintext is Connected before running Quick Test. KafkaConsume uses auto-resume
+  to skip waiting for confirmation, so it works without a real consumer group.
+</div>
+
+<h3><span class="step-num">6</span> Inspect the Full Variable Timeline</h3>
+<ol>
+  <li>After running, click the <strong>Log Pipeline Complete</strong> node → Results → see the snapshotted variables</li>
+  <li>You should see: orderId, customerId, amount, status, validationStatus, processedStatus, processedAt, resultOffset, confirmedOffset</li>
+</ol>
+
+<h2 id="load-testing">7. Load Testing Behavior</h2>
+<p>
+  When running this workflow in the Workflow Runner (load test mode), the KafkaConsume node's
+  <code>auto-resume</code> setting prevents the runner from getting stuck waiting for confirmation
+  messages during each test iteration. The mock payload is injected as the confirmation, allowing
+  the runner to measure the full pipeline throughput without blocking on I/O.
+</p>
+<p>To change this behavior, click the Confirm Delivery node and change Load Test Behavior:</p>
+<ul>
+  <li><code>auto-resume</code>: skip wait, use mock payload (fastest for CI)</li>
+  <li><code>synthetic-inject</code>: inject mock after a configurable delay (realistic latency simulation)</li>
+  <li><code>wait-for-real</code>: wait for an actual message in the topic (full end-to-end, slowest)</li>
+</ul>
+
+<h2 id="results">8. Expected Results</h2>
+<ul>
+  <li>All 9 nodes show green ✅ badges</li>
+  <li>The Log node output contains all pipeline variables including two offset values</li>
+  <li>In the Topic Explorer (Protocols → Kafka → Topics), a new message appears in <code>orders.processed</code> with key = orderId</li>
+</ul>
+
+<h2 id="exercises">9. Try It Yourself</h2>
+<ol>
+  <li><strong>Force the rejected path</strong>: edit the HTTP node URL to <code>https://jsonplaceholder.typicode.com/posts/999999</code> (returns 404). Run Quick Test and verify REJECTED is published.</li>
+  <li><strong>Add a third topic</strong>: add another KafkaProduce node for REJECTED orders that publishes to <code>orders.rejected</code>. Connect it from the Mark Rejected branch.</li>
+  <li><strong>Switch to wait-for-real</strong>: change KafkaConsume to <code>wait-for-real</code>. Observe the behavior difference — the node waits up to the timeout for an actual message.</li>
+  <li><strong>Add schema validation</strong>: open KafkaProduce and enable Schema Registry with your local schema registry URL. Produce an Avro-encoded message.</li>
+</ol>
+
+<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Full Event Pipeline (Medium) &nbsp;|&nbsp; Category: Event-Driven</footer>
+</body>
+</html>
