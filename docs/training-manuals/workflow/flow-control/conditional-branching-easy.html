@@ -90,12 +90,13 @@
   <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
   <p style="max-width: 520px; color: #495057; font-size: 14px;">
     Fetch a user from an API and branch the workflow based on whether the
-    user is active or inactive. The foundational pattern for all decision-based
-    workflow logic.
+    request succeeded. If the user exists (HTTP 200), fetch their posts. If not,
+    create a new user instead. The foundational pattern for HTTP-status-based
+    workflow branching.
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 4 &nbsp;|&nbsp; Category: Flow Control<br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Flow Control<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -133,9 +134,9 @@
 <p><strong>Examples of this pattern in production:</strong></p>
 <ul>
   <li>Checking payment status before shipping an order</li>
-  <li>Validating user permissions before granting access</li>
-  <li>Routing support tickets to different queues based on priority</li>
-  <li>Enabling/disabling features based on a feature-flag API response</li>
+  <li>Attempting to GET a resource and creating it if not found ("upsert" pattern)</li>
+  <li>Routing API calls based on HTTP response codes (200 vs 404)</li>
+  <li>Validating a user account exists before proceeding with order processing</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -143,11 +144,11 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Sending an <strong>HTTP GET</strong> request and extracting response fields</li>
-  <li>Using a <strong>Condition</strong> node to evaluate a boolean expression</li>
-  <li>Routing execution down <strong>true</strong> and <strong>false</strong> branches</li>
-  <li>Using <strong>Log</strong> nodes to record outcomes for debugging</li>
-  <li>The <strong>branch-and-converge</strong> pattern where divergent paths rejoin</li>
+  <li>Sending an <strong>HTTP GET</strong> request and extracting the response status code</li>
+  <li>Using a <strong>Condition node</strong> to branch on <code>httpStatus == 200</code></li>
+  <li>Routing execution down <strong>true</strong> (user found) and <strong>false</strong> (not found) branches</li>
+  <li>Running <strong>different HTTP calls</strong> on each branch (fetch posts vs create user)</li>
+  <li>The <strong>found/not-found</strong> pattern for API-driven workflow routing</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -204,42 +205,44 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. No input variables needed — the user ID is hardcoded for this sample.</td>
+    <td>Entry point. No input variables needed — the user ID is hardcoded as user 1.</td>
   </tr>
   <tr>
     <td><span class="step-num">1</span> Get User</td>
     <td>HTTP</td>
-    <td>Sends a GET request to <code>jsonplaceholder.typicode.com/users/1</code>. Extracts the <code>active</code> field from the response body into <code>userActive</code>.</td>
+    <td>GET <code>jsonplaceholder.typicode.com/users/1</code>. Extracts <code>userName</code> from <code>$.name</code> and <code>httpStatus</code> from the status code.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Is Active?</td>
+    <td><span class="step-num">2</span> User Found?</td>
     <td>Condition</td>
-    <td>Evaluates <code>{{userActive}} == true</code>. Routes to the <strong>true</strong> branch (Log Success) or <strong>false</strong> branch (Log Inactive).</td>
+    <td>Evaluates <code>{{httpStatus}} == 200</code>. Routes to <strong>Get User Posts</strong> (true, user exists) or <strong>Create User</strong> (false, user not found).</td>
   </tr>
   <tr>
-    <td><span class="step-num">3a</span> Log Success</td>
-    <td>Log</td>
-    <td>Logs <code>"User is active — proceeding with order"</code>. Reached only when <code>userActive</code> is true.</td>
+    <td><span class="step-num">3a</span> Get User Posts</td>
+    <td>HTTP</td>
+    <td>GET <code>jsonplaceholder.typicode.com/users/1/posts</code>. Extracts <code>firstPostTitle</code> from <code>$[0].title</code>. Reached only when user exists.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3b</span> Log Inactive</td>
-    <td>Log</td>
-    <td>Logs <code>"User is inactive — skipping order"</code>. Reached only when <code>userActive</code> is false.</td>
+    <td><span class="step-num">3b</span> Create User</td>
+    <td>HTTP</td>
+    <td>POST <code>jsonplaceholder.typicode.com/users</code> with body <code>{name: 'New User', username: 'newuser', email: 'new@example.com'}</code>. Reached only when user not found.</td>
   </tr>
 </table>
 
-<h3>HTTP GET Configuration</h3>
+<h3>HTTP GET Configuration (Node 1)</h3>
 <table>
   <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td></tr>
   <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>userActive</code> ← body <code>$.active</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>userName</code> ← body <code>$.name</code><br><code>httpStatus</code> ← status code</td></tr>
 </table>
 
-<h3>Condition Configuration</h3>
+<h3>Condition Configuration (Node 2)</h3>
 <table>
-  <tr><td><strong>Expression</strong></td><td><code>{{userActive}} == true</code></td></tr>
-  <tr><td><strong>True path</strong></td><td>→ Log Success</td></tr>
-  <tr><td><strong>False path</strong></td><td>→ Log Inactive</td></tr>
+  <tr><td><strong>Left</strong></td><td><code>{{httpStatus}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>==</code></td></tr>
+  <tr><td><strong>Right</strong></td><td><code>200</code></td></tr>
+  <tr><td><strong>True path</strong></td><td>→ Get User Posts</td></tr>
+  <tr><td><strong>False path</strong></td><td>→ Create User</td></tr>
 </table>
 
 <div class="callout">
@@ -257,48 +260,67 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔀 Conditional Branching"</strong>
-    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <strong>Import from Gallery.</strong><br>
+    In the Workflow Designer, open <em>Gallery</em> → search for
+    <strong>"Sample: Conditional Branching"</strong> and click <em>Import</em>.
+    The 5-node workflow loads ready to run.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
     <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Conditional Branching".
+    Click <em>+ New Workflow</em>. Name it "Conditional Branching".
   </li>
   <li>
-    <strong>Add the HTTP GET node.</strong><br>
-    Drag an HTTP node onto the canvas. Configure:
+    <strong>Add the HTTP GET node (node 1).</strong><br>
+    Drag an HTTP node. Configure:
     <ul>
+      <li><em>Label</em>: <code>1. Get User</code></li>
       <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/users/1</code></li>
       <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: Add <code>userActive</code> ← body <code>$.active</code></li>
+      <li><em>Extractions</em>: <code>userName</code> ← body <code>$.name</code></li>
+      <li><em>Extractions</em>: <code>httpStatus</code> ← status code</li>
     </ul>
     Connect Start → Get User.
   </li>
   <li>
-    <strong>Add the Condition node.</strong><br>
+    <strong>Add the Condition node (node 2).</strong><br>
     Drag a Condition node. Configure:
     <ul>
-      <li><em>Expression</em>: <code>{{userActive}} == true</code></li>
+      <li><em>Label</em>: <code>2. User Found?</code></li>
+      <li><em>Left</em>: <code>{{httpStatus}}</code></li>
+      <li><em>Operator</em>: <code>==</code></li>
+      <li><em>Right</em>: <code>200</code></li>
     </ul>
-    Connect Get User → Is Active?.
+    Connect Get User → User Found?.
   </li>
   <li>
-    <strong>Add two Log nodes.</strong><br>
-    Drag two Log nodes onto the canvas:
+    <strong>Add the true-branch HTTP node (node 3a).</strong><br>
+    Drag an HTTP node. Configure:
     <ul>
-      <li><strong>Log Success</strong>: Message = <code>"User is active — proceeding with order"</code></li>
-      <li><strong>Log Inactive</strong>: Message = <code>"User is inactive — skipping order"</code></li>
+      <li><em>Label</em>: <code>3a. Get User Posts</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/users/1/posts</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: <code>firstPostTitle</code> ← body <code>$[0].title</code></li>
     </ul>
-    Connect the Condition node's <em>true</em> output → Log Success, and <em>false</em> output → Log Inactive.
-    Connect both Log nodes → End.
+    Connect User Found? <em>true</em> → Get User Posts.
+  </li>
+  <li>
+    <strong>Add the false-branch HTTP node (node 3b).</strong><br>
+    Drag an HTTP node. Configure:
+    <ul>
+      <li><em>Label</em>: <code>3b. Create User</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/users</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Body</em>: <code>{"name":"New User","username":"newuser","email":"new@example.com"}</code></li>
+    </ul>
+    Connect User Found? <em>false</em> → Create User.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. Verify the GET returns user data, the Condition evaluates
-    the <code>active</code> field, and the correct branch executes.
+    Click <em>Quick Test</em>. Node 1 returns HTTP 200 for user 1.
+    The Condition evaluates <code>httpStatus == 200</code> as true,
+    routing to <em>Get User Posts</em> which returns their post list.
   </li>
 </ol>
 
@@ -307,33 +329,31 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (when user is active)</h3>
+<h3>Node States (httpStatus == 200, true branch taken)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Get User</td><td>✅ Pass</td><td>HTTP 200 OK, userActive = true</td></tr>
-  <tr><td>2. Is Active?</td><td>✅ Pass</td><td>Condition: true → Log Success branch</td></tr>
-  <tr><td>3a. Log Success</td><td>✅ Pass</td><td>"User is active — proceeding with order"</td></tr>
-  <tr><td>3b. Log Inactive</td><td>⏭️ Skipped</td><td>False branch not taken</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Get User</td><td>✅ Pass</td><td>HTTP 200 OK · userName="Leanne Graham" · httpStatus=200</td></tr>
+  <tr><td>2. User Found?</td><td>✅ Pass</td><td>httpStatus==200 → true → Get User Posts</td></tr>
+  <tr><td>3a. Get User Posts</td><td>✅ Pass</td><td>HTTP 200 · firstPostTitle="sunt aut facere..."</td></tr>
+  <tr><td>3b. Create User</td><td>⏭️ Skipped</td><td>False branch not taken</td></tr>
 </table>
 
-<h3>GET Response (Node 1)</h3>
+<h3>GET /users/1 Response (Node 1)</h3>
 <pre>
 {
   "id": 1,
   "name": "Leanne Graham",
   "username": "Bret",
-  "email": "Sincere@april.biz",
-  "active": true,
-  ...
+  "email": "Sincere@april.biz"
 }</pre>
 
 <div class="callout callout-warn">
   <strong>⚠️ JSONPlaceholder Note</strong>
-  The JSONPlaceholder <code>/users</code> endpoint does not include an <code>active</code>
-  field by default. In this sample, we simulate the field for training purposes. When
-  building with a real API, map the condition to an actual boolean field in the response.
+  GET <code>/users/1</code> always returns HTTP 200, so the <em>true</em> branch (Get User Posts)
+  is always taken in Quick Test. To test the <em>false</em> branch, change the URL to
+  <code>/users/999</code> — JSONPlaceholder returns HTTP 404 for non-existent user IDs,
+  routing execution to <em>Create User</em>.
 </div>
 
 <!-- ════════════════════════════════════════════ -->

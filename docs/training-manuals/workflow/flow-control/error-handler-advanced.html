@@ -89,13 +89,13 @@
   <h1>Resilient API with Error Handling</h1>
   <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
   <p style="max-width: 520px; color: #495057; font-size: 14px;">
-    Wrap an HTTP API call inside a TryCatch node so failures are caught gracefully.
-    On error, log the failure, retry the request, and fall back to a default response
-    if all retries are exhausted.
+    Use the <strong>Error Handler</strong> node to wrap a protected HTTP POST
+    call with automatic retry, diagnostic logging, and outcome-based routing.
+    Built-in retry (maxRetries=2, fixed 500ms) with LogDebug tracing throughout.
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: <span class="badge badge-advanced">★★★ Advanced</span> &nbsp;|&nbsp; Nodes: 7 &nbsp;|&nbsp; Category: Flow Control<br>
+    Difficulty: <span class="badge badge-advanced">★★★ Advanced</span> &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Flow Control<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -121,12 +121,11 @@
 <div class="page-break"></div>
 <h2 id="purpose">1. Purpose &amp; Use Case</h2>
 <p>
-  This workflow demonstrates <strong>node-level error handling</strong> using a
-  <strong>TryCatch</strong> node. The happy path calls an API and processes the
-  response. If the API call fails (timeout, 5xx, network error), execution is
-  diverted to the <em>OnError</em> branch where the failure is logged, retried,
-  and — if all retries fail — a fallback response is returned so downstream
-  consumers always receive valid data.
+  This workflow demonstrates <strong>node-level error handling</strong> using an
+  <strong>Error Handler</strong> node. The protected HTTP POST call is wrapped inside
+  an Error Handler with automatic retry (up to 2 retries, 500ms fixed delay).
+  LogDebug nodes trace execution at every step. After the Error Handler completes,
+  a Condition node checks the HTTP status to confirm success or log failure.
 </p>
 <p>
   <strong>Real-world analogy:</strong> A price-comparison service fetches prices
@@ -147,12 +146,12 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Wrapping nodes inside a <strong>TryCatch</strong> boundary for error isolation</li>
-  <li>Implementing an <strong>OnError</strong> branch with logging, retry, and fallback</li>
-  <li>Using <strong>retry logic</strong> to recover from transient API failures</li>
-  <li>Returning a <strong>fallback response</strong> so downstream nodes always receive data</li>
-  <li>Distinguishing between <strong>retriable</strong> (5xx, timeout) and <strong>non-retriable</strong> (4xx) errors</li>
-  <li>Accessing <strong>error context variables</strong> (<code>{{errorMessage}}</code>, <code>{{errorCode}}</code>) inside the OnError branch</li>
+  <li>Using an <strong>Error Handler</strong> node to wrap protected nodes with auto-retry</li>
+  <li>Configuring <strong>maxRetries</strong> and <strong>retryDelayMs</strong> for built-in retry</li>
+  <li>Using <strong>LogDebug</strong> nodes for diagnostic tracing at begin, error, success, and failure</li>
+  <li>The Error Handler's three outputs: <strong>body</strong> (protected nodes), <strong>catch</strong> (error branch), <strong>done</strong> (after completion)</li>
+  <li>Using a <strong>Condition</strong> node after Error Handler done output to check outcome (httpStatus==201)</li>
+  <li>Reading the Start node's <strong>input variable</strong> (<code>apiKey</code>) in downstream LogDebug messages</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -160,50 +159,58 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │
-  └──────┬──────┘
+  ┌─────────────────────────────┐
+  │    Start                    │  apiKey = "demo-key"
+  └──────┬──────────────────────┘
          ▼
-  ╔═══════════════════════════════════════════╗
-  ║  TryCatch                                ║
-  ║  ┌─────────────────────────────┐         ║
-  ║  │  1. HTTP GET               │  GET     ║
-  ║  │     /posts/1               │  API     ║
-  ║  └──────┬──────────────────────┘         ║
-  ║         ▼                                ║
-  ║  ┌─────────────────────────────┐         ║
-  ║  │  2. Process Response       │  Extract ║
-  ║  │     (Set Variable)         │  &amp; map  ║
-  ║  └──────┬──────────────────────┘         ║
-  ╠═════════╪════════════════════════════════╣
-  ║  OnError│                                ║
-  ║         ▼                                ║
-  ║  ┌──────────────┐                        ║
-  ║  │ 3. Log Error │  Log errorMessage      ║
-  ║  └──────┬───────┘                        ║
-  ║         ▼                                ║
-  ║  ┌──────────────┐                        ║
-  ║  │ 4. Retry     │  Re-attempt GET        ║
-  ║  │    (HTTP)    │  (1 retry)             ║
-  ║  └──────┬───────┘                        ║
-  ║         ▼                                ║
-  ║  ┌──────────────┐                        ║
-  ║  │ 5. Fallback  │  Set default payload   ║
-  ║  │ (Set Var)    │  if retry also fails   ║
-  ║  └──────┬───────┘                        ║
-  ╚═════════╪════════════════════════════════╝
-            ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌─────────────────────────────┐
+  │  1. Log: Begin              │  LogDebug: info
+  │     (LogDebug)              │  "Starting resilient API call
+  │                             │   with key={{apiKey}}"
+  └──────┬──────────────────────┘
+         ▼
+  ╔═══════════════════════════════════════════════════╗
+  ║  2. API Guard (Error Handler)                    ║
+  ║     maxRetries=2, fixed 500ms delay              ║
+  ║  body port:                                      ║
+  ║  ┌──────────────────────────────────────────┐   ║
+  ║  │ Create Post (HTTP POST /posts)           │   ║
+  ║  │ Extracts: postId ← $.id                 │   ║
+  ║  │           httpStatus ← status           │   ║
+  ║  └──────────────────────────────────────────┘   ║
+  ║  catch port:                                     ║
+  ║  ┌──────────────────────────────────────────┐   ║
+  ║  │ Log: Error (LogDebug: error)             │   ║
+  ║  │ "API call failed — will retry.           │   ║
+  ║  │  Status={{httpStatus}}"                  │   ║
+  ║  └──────────────────────────────────────────┘   ║
+  ╚══════════════════════╤════════════════════════════╝
+                         │ done port
+                         ▼
+  ┌─────────────────────────────┐
+  │  3. Created OK?             │  Condition:
+  │     (Condition)             │  {{httpStatus}} == 201
+  └──────┬──────────────────────┘
+  true   │                  │ false
+         ▼                  ▼
+  ┌────────────┐    ┌─────────────────┐
+  │ 4. Log:    │    │ 5. Log: Failure │
+  │   Success  │    │   (LogDebug:    │
+  │  (LogDebug)│    │    warn)        │
+  └─────┬──────┘    └────────┬────────┘
+        └───────┬────────────┘
+                ▼
+         ┌─────────────┐
+         │    End      │
+         └─────────────┘
 </div>
 
 <p>
-  <strong>7 nodes, 8 edges</strong> — a TryCatch pipeline. The happy path flows through
-  the HTTP GET and Process nodes. On failure, execution diverts to the OnError branch
-  (Log → Retry → Fallback) before converging at End.
+  <strong>9 nodes, 9 edges</strong> — an Error Handler pipeline. Start provides an
+  <code>apiKey</code> input variable. Log:Begin traces the start. The Error Handler
+  wraps a POST call with built-in retry (up to 2 retries). After completion, a
+  Condition checks <code>httpStatus==201</code> to route to Log:Success or Log:Failure.
 </p>
-
 <!-- ════════════════════════════════════════════ -->
 <!-- 4. WALKTHROUGH                              -->
 <!-- ════════════════════════════════════════════ -->
@@ -215,56 +222,70 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. No input variables — the target URL is configured in the HTTP node.</td>
+    <td>Entry point. Input variable: <code>apiKey = "demo-key"</code> — passed to LogDebug messages downstream.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> HTTP GET</td>
+    <td><span class="step-num">1</span> Log: Begin</td>
+    <td>LogDebug</td>
+    <td>Info-level trace: <code>"Starting resilient API call with key={{apiKey}}"</code>. Snapshot: false.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> API Guard</td>
+    <td>Error Handler</td>
+    <td>Wraps the Create Post node. Config: <code>maxRetries=2</code>, <code>retryBackoffStrategy=fixed</code>, <code>retryDelayMs=500</code>, <code>failWorkflowOnError=false</code>. Three output ports: body, catch, done.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2a</span> Create Post</td>
     <td>HTTP</td>
-    <td>Sends a GET request to <code>https://jsonplaceholder.typicode.com/posts/1</code>. Wrapped inside the TryCatch try-block.</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code>. Body: <code>{"title":"Resilient Post","body":"Created with error handling","userId":1}</code>. Extracts: <code>postId</code> ← <code>$.id</code>, <code>httpStatus</code> ← status.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Process Response</td>
-    <td>Set Variable</td>
-    <td>Extracts <code>title</code> and <code>body</code> from the HTTP response and stores them in workflow variables for downstream use.</td>
+    <td><span class="step-num">2b</span> Log: Error</td>
+    <td>LogDebug</td>
+    <td>Error-level trace on the catch port: <code>"API call failed — will retry. Status={{httpStatus}}"</code>. snapshotVariables=true.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Log Error</td>
-    <td>Log</td>
-    <td>Logs <code>"API call failed: {{errorMessage}} (code: {{errorCode}})"</code>. First node in the OnError branch.</td>
+    <td><span class="step-num">3</span> Created OK?</td>
+    <td>Condition</td>
+    <td>Evaluates <code>{{httpStatus}} == 201</code> on the done port. True → Log:Success; False → Log:Failure.</td>
   </tr>
   <tr>
-    <td><span class="step-num">4</span> Retry</td>
-    <td>HTTP</td>
-    <td>Re-attempts the same GET request. If successful, execution continues to End. If it fails again, falls through to Fallback.</td>
+    <td><span class="step-num">4</span> Log: Success</td>
+    <td>LogDebug</td>
+    <td>Info-level: <code>"Post {{postId}} created successfully"</code>. Only runs on HTTP 201.</td>
   </tr>
   <tr>
-    <td><span class="step-num">5</span> Fallback</td>
-    <td>Set Variable</td>
-    <td>Sets <code>title</code> = <code>"Unavailable"</code> and <code>body</code> = <code>"The service is temporarily unavailable. Please try again later."</code></td>
+    <td><span class="step-num">5</span> Log: Failure</td>
+    <td>LogDebug</td>
+    <td>Warn-level: <code>"Post creation failed with status={{httpStatus}}"</code>. snapshotVariables=true. Runs when status is not 201.</td>
   </tr>
 </table>
 
-<h3>HTTP GET Configuration (Nodes 1 &amp; 4)</h3>
+<h3>HTTP POST Configuration (Create Post)</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td></tr>
-  <tr><td><strong>Method</strong></td><td>GET</td></tr>
-  <tr><td><strong>Timeout</strong></td><td>5000 ms</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>title</code> ← body <code>$.title</code>, <code>body</code> ← body <code>$.body</code></td></tr>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>POST</td></tr>
+  <tr><td><strong>Body</strong></td><td><code>{"title":"Resilient Post","body":"Created with error handling","userId":1}</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>postId</code> ← body <code>$.id</code></td></tr>
+  <tr><td></td><td><code>httpStatus</code> ← status</td></tr>
 </table>
 
-<h3>TryCatch Configuration</h3>
+<h3>Error Handler Configuration (API Guard)</h3>
 <table>
-  <tr><td><strong>Try block</strong></td><td>HTTP GET → Process Response</td></tr>
-  <tr><td><strong>OnError block</strong></td><td>Log Error → Retry → Fallback</td></tr>
-  <tr><td><strong>Error variables</strong></td><td><code>{{errorMessage}}</code>, <code>{{errorCode}}</code>, <code>{{errorNodeName}}</code></td></tr>
+  <tr><td><strong>Error filter</strong></td><td>all</td></tr>
+  <tr><td><strong>Max retries</strong></td><td>2</td></tr>
+  <tr><td><strong>Retry backoff strategy</strong></td><td>fixed</td></tr>
+  <tr><td><strong>Retry delay</strong></td><td>500 ms</td></tr>
+  <tr><td><strong>Fail workflow on error</strong></td><td>false</td></tr>
+  <tr><td><strong>Output ports</strong></td><td><em>body</em> → Create Post, <em>catch</em> → Log:Error, <em>done</em> → Created OK?</td></tr>
 </table>
 
 <div class="callout">
-  <strong>📘 TryCatch vs. Workflow Error Handler</strong>
-  A <strong>TryCatch</strong> node catches errors from specific nodes inside its boundary.
-  A <strong>Workflow Error Handler</strong> (covered in the companion manual) catches any
-  uncaught error across the entire workflow. Use TryCatch when you want fine-grained
-  control; use the Workflow Error Handler as a global safety net.
+  <strong>📘 Error Handler vs. Workflow Error Handler</strong>
+  An <strong>Error Handler</strong> node wraps specific nodes with fine-grained retry
+  and catch logic. A <strong>Workflow Error Handler</strong> (covered in the companion
+  manual) catches any uncaught error across the entire workflow. Use the Error Handler
+  for targeted protection with retry; use the Workflow Error Handler as a global safety net.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -275,55 +296,74 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🛡️ Resilient API with Error Handling"</strong>
-    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <strong>Import from Gallery.</strong><br>
+    In the Workflow Designer, open <em>Gallery</em> → search for
+    <strong>"Sample: Resilient API with Error Handling"</strong> and click <em>Import</em>.
+    The 9-node workflow loads ready to run.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
     <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Resilient API with Error Handling".
+    Click <em>+ New Workflow</em>. Name it "Resilient API with Error Handling".
   </li>
   <li>
-    <strong>Add a TryCatch node.</strong><br>
-    Drag a TryCatch node onto the canvas. This creates two regions: the <em>try</em>
-    block (top) and the <em>OnError</em> block (bottom). Connect Start → TryCatch.
+    <strong>Configure the Start node.</strong><br>
+    Click the Start node. Add an input variable:
+    <ul><li><code>apiKey</code> = <code>demo-key</code></li></ul>
   </li>
   <li>
-    <strong>Build the try block.</strong><br>
-    Inside the TryCatch try-block, add:
+    <strong>Add a LogDebug node (Log: Begin).</strong><br>
+    Drag a LogDebug node. Set level: <em>info</em>, message:
+    <code>"Starting resilient API call with key={{apiKey}}"</code>.
+    Connect Start → Log: Begin.
+  </li>
+  <li>
+    <strong>Add an Error Handler node (API Guard).</strong><br>
+    Drag an Error Handler node. Configure:
     <ul>
-      <li><strong>HTTP GET</strong> — URL: <code>https://jsonplaceholder.typicode.com/posts/1</code>, Method: GET, Timeout: 5000 ms. Add extractions for <code>title</code> and <code>body</code>.</li>
-      <li><strong>Process Response</strong> (Set Variable) — Maps extracted fields to workflow-level variables.</li>
+      <li><em>Error filter</em>: all</li>
+      <li><em>Max retries</em>: 2</li>
+      <li><em>Retry backoff</em>: fixed</li>
+      <li><em>Retry delay</em>: 500 ms</li>
+      <li><em>Fail workflow on error</em>: false</li>
     </ul>
-    Connect HTTP GET → Process Response inside the try block.
+    Connect Log: Begin → API Guard.
   </li>
   <li>
-    <strong>Build the OnError block.</strong><br>
-    Inside the OnError region, add three nodes:
+    <strong>Add the protected HTTP POST node (Create Post).</strong><br>
+    Drag an HTTP node. Configure:
     <ul>
-      <li><strong>Log Error</strong> — Message: <code>"API call failed: {{errorMessage}} (code: {{errorCode}})"</code></li>
-      <li><strong>Retry</strong> (HTTP) — Same URL and method as Node 1. This is the single retry attempt.</li>
-      <li><strong>Fallback</strong> (Set Variable) — Set <code>title</code> = <code>"Unavailable"</code>, <code>body</code> = <code>"The service is temporarily unavailable. Please try again later."</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Body</em>: <code>{"title":"Resilient Post","body":"Created with error handling","userId":1}</code></li>
+      <li><em>Extractions</em>: <code>postId</code> ← body <code>$.id</code>, <code>httpStatus</code> ← status</li>
     </ul>
-    Connect Log Error → Retry → Fallback inside the OnError block.
+    Connect the Error Handler's <em>body</em> port → Create Post.
   </li>
   <li>
-    <strong>Connect TryCatch to End.</strong><br>
-    Connect the TryCatch output → End. Both the try-block success and OnError fallback
-    paths converge at this single output.
+    <strong>Add the error LogDebug node (Log: Error).</strong><br>
+    Drag a LogDebug node. Set level: <em>error</em>, message:
+    <code>"API call failed — will retry. Status={{httpStatus}}"</code>, snapshotVariables: true.
+    Connect the Error Handler's <em>catch</em> port → Log: Error.
   </li>
   <li>
-    <strong>Test the happy path.</strong><br>
-    Click <em>Quick Test</em>. The API should return 200 OK and the Process Response
-    node should set <code>title</code> and <code>body</code>.
+    <strong>Add the Condition node (Created OK?).</strong><br>
+    Drag a Condition node. Configure: left=<code>{{httpStatus}}</code>, operator=<code>==</code>, right=<code>201</code>.
+    Connect the Error Handler's <em>done</em> port → Created OK?.
   </li>
   <li>
-    <strong>Test the error path.</strong><br>
-    Change the URL to an invalid endpoint (e.g., <code>https://jsonplaceholder.typicode.com/invalid/999</code>)
-    and re-run. Verify that Log Error fires, Retry attempts the call, and Fallback sets
-    default values.
+    <strong>Add success and failure LogDebug nodes.</strong><br>
+    <ul>
+      <li><strong>Log: Success</strong> (LogDebug, info): <code>"Post {{postId}} created successfully"</code> — connect Condition true → Log:Success → End</li>
+      <li><strong>Log: Failure</strong> (LogDebug, warn): <code>"Post creation failed with status={{httpStatus}}"</code>, snapshotVariables: true — connect Condition false → Log:Failure → End</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. JSONPlaceholder POST /posts returns HTTP 201,
+    so <code>httpStatus=201</code> → Condition true → Log:Success executes.
+    Check the execution trace to see LogDebug output at each step.
   </li>
 </ol>
 
@@ -332,44 +372,44 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Happy Path (API returns 200)</h3>
+<h3>Normal Execution (API returns 201)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. HTTP GET</td><td>✅ Pass</td><td>HTTP 200 OK</td></tr>
-  <tr><td>2. Process Response</td><td>✅ Pass</td><td>title = "sunt aut facere…", body = "quia et suscipit…"</td></tr>
-  <tr><td>3. Log Error</td><td>⏭️ Skipped</td><td>OnError branch not taken</td></tr>
-  <tr><td>4. Retry</td><td>⏭️ Skipped</td><td>OnError branch not taken</td></tr>
-  <tr><td>5. Fallback</td><td>⏭️ Skipped</td><td>OnError branch not taken</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>apiKey = "demo-key"</td></tr>
+  <tr><td>1. Log: Begin</td><td>✅ Pass</td><td>LogDebug info logged</td></tr>
+  <tr><td>2. API Guard</td><td>✅ Pass</td><td>Error Handler entered</td></tr>
+  <tr><td>2a. Create Post</td><td>✅ Pass</td><td>HTTP 201 · postId = 101 · httpStatus = 201</td></tr>
+  <tr><td>2b. Log: Error</td><td>⏭️ Skipped</td><td>catch port not taken (no error)</td></tr>
+  <tr><td>3. Created OK?</td><td>✅ Pass</td><td>201 == 201 → true</td></tr>
+  <tr><td>4. Log: Success</td><td>✅ Pass</td><td>"Post 101 created successfully"</td></tr>
+  <tr><td>5. Log: Failure</td><td>⏭️ Skipped</td><td>false branch not taken</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
 
-<h3>Error Path (API returns 5xx or times out)</h3>
+<h3>Error / Retry Path (API fails → retries → recovers)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. HTTP GET</td><td>❌ Fail</td><td>Timeout / 500 Internal Server Error</td></tr>
-  <tr><td>2. Process Response</td><td>⏭️ Skipped</td><td>Try block aborted</td></tr>
-  <tr><td>3. Log Error</td><td>✅ Pass</td><td>"API call failed: Request timed out (code: ETIMEDOUT)"</td></tr>
-  <tr><td>4. Retry</td><td>❌ Fail</td><td>Second attempt also failed</td></tr>
-  <tr><td>5. Fallback</td><td>✅ Pass</td><td>title = "Unavailable", body = "The service is temporarily unavailable…"</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>2a. Create Post</td><td>❌ Fail</td><td>Error occurs</td></tr>
+  <tr><td>2b. Log: Error</td><td>✅ Pass</td><td>catch port fires — "API call failed — will retry"</td></tr>
+  <tr><td>2a. Create Post (retry 1)</td><td>✅ Pass</td><td>Auto-retry after 500ms — HTTP 201</td></tr>
+  <tr><td>3. Created OK?</td><td>✅ Pass</td><td>201 == 201 → true</td></tr>
+  <tr><td>4. Log: Success</td><td>✅ Pass</td><td>"Post 101 created successfully"</td></tr>
 </table>
 
-<h3>GET Response — Happy Path (Node 1)</h3>
+<h3>POST Response (Create Post)</h3>
 <pre>
 {
+  "title": "Resilient Post",
+  "body": "Created with error handling",
   "userId": 1,
-  "id": 1,
-  "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
-  "body": "quia et suscipit\nsuscipit recusandae consequuntur expedita..."
+  "id": 101
 }</pre>
 
-<div class="callout callout-warn">
-  <strong>⚠️ Retry Strategy</strong>
-  This sample uses a single synchronous retry for simplicity. In production, consider
-  exponential back-off, jitter, and a configurable max-retry count. Avoid retrying on
-  4xx errors — those indicate client-side issues that won't resolve by retrying.
+<div class="callout callout-info">
+  <strong>ℹ️ JSONPlaceholder Note</strong>
+  JSONPlaceholder POST /posts always returns HTTP 201 with a mock <code>id</code>.
+  To test the error/retry path, temporarily change the URL to an invalid endpoint.
+  The Error Handler will retry up to 2 times before giving up.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -378,33 +418,34 @@
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add a Retry Counter</h3>
+<h3>Exercise 1: Increase Max Retries</h3>
 <p>
-  Introduce a <code>retryCount</code> variable initialized to <code>0</code>. In the
-  OnError branch, increment it before the Retry node. Add a Condition after Retry:
-  if <code>{{retryCount}} &lt; 3</code>, loop back to the Retry node; otherwise,
-  proceed to Fallback.
+  In the API Guard Error Handler node, increase <code>maxRetries</code> from 2 to 5.
+  Change the <code>retryBackoffStrategy</code> to <code>exponential</code>.
+  Observe how the backoff delay changes in the execution trace.
 </p>
 
-<h3>Exercise 2: Differentiate Error Types</h3>
+<h3>Exercise 2: Add Status Code Logging</h3>
 <p>
-  Add a Condition node in the OnError branch that checks <code>{{errorCode}}</code>.
-  If it starts with <code>4</code> (client error), skip retry and go directly to
-  Fallback with a "Bad Request" message. Only retry on <code>5xx</code> or timeout errors.
+  Add a SetVariable node between Log:Begin and API Guard that stores a timestamp:
+  <code>startTime = {{$now}}</code>. After Log:Success, add another LogDebug
+  that logs the total execution time.
 </p>
 
-<h3>Exercise 3: Send an Alert on Failure</h3>
+<h3>Exercise 3: Add an Alert on Failure</h3>
 <p>
-  After the Fallback node, add an HTTP POST that sends a notification to a Slack
-  webhook URL with the error details: node name, error message, and timestamp.
-  This transforms the workflow into a self-healing + alerting pipeline.
+  After Log: Failure, add an HTTP POST that sends a notification to
+  <code>https://jsonplaceholder.typicode.com/posts</code> with the failure details:
+  <code>{"alert":"Post creation failed","status":"{{httpStatus}}"}</code>.
+  This extends the workflow into a self-monitoring pipeline.
 </p>
 
 <h3>Exercise 4: Combine with Workflow Error Handler</h3>
 <p>
-  Add a Workflow Error Handler to this workflow as a global safety net. Intentionally
-  introduce a bug in the Fallback node (e.g., invalid variable reference). Observe
-  how the Workflow Error Handler catches errors that escape the TryCatch boundary.
+  Add a Workflow-level Error Handler to this workflow as a global safety net.
+  Intentionally break the Create Post URL to trigger the error path.
+  Observe how the Error Handler node retries, then the Workflow Error Handler
+  provides a final catch for any uncaught errors.
   See the <a href="wf-error-handler-advanced.html">Workflow Error Handler</a> manual.
 </p>
 

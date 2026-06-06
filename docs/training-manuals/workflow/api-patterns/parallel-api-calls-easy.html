@@ -92,9 +92,9 @@
   <h1>Parallel API Calls</h1>
   <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
   <p style="max-width: 520px; color: #495057; font-size: 14px;">
-    Execute multiple API calls concurrently using a fan-out/fan-in pattern.
-    Fetch users, posts, and todos simultaneously, then merge the results
-    into a single unified context.
+    Execute multiple API calls concurrently using explicit <strong>Fork</strong> and
+    <strong>Join</strong> nodes. Fetch post details first, then fan out to retrieve users
+    and comments in parallel, and finally post a summary combining all results.
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
@@ -124,10 +124,10 @@
 <div class="page-break"></div>
 <h2 id="purpose">1. Purpose &amp; Use Case</h2>
 <p>
-  This workflow demonstrates the <strong>fan-out/fan-in</strong> pattern — splitting
-  execution into multiple parallel branches and then merging the results. Instead of
-  calling APIs one after another (sequential), you call them all at once (parallel),
-  dramatically reducing total execution time.
+  This workflow demonstrates the <strong>Fork/Join parallel execution</strong> pattern —
+  splitting execution into concurrent branches using an explicit Fork node, running
+  independent API calls simultaneously, and recombining with a Join node. After joining,
+  a final POST node assembles all collected data into a summary request.
 </p>
 <p>
   <strong>Real-world analogy:</strong> A dashboard page needs to display user info,
@@ -148,12 +148,12 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>How to create <strong>parallel branches</strong> from a single node (fan-out)</li>
-  <li>How the workflow engine <strong>waits for all branches</strong> before continuing (fan-in)</li>
-  <li>Multiple HTTP nodes executing <strong>concurrently</strong></li>
+  <li>How the <strong>Fork node</strong> explicitly splits execution into parallel branches</li>
+  <li>How the <strong>Join node</strong> waits for all branches before continuing</li>
+  <li>Multiple HTTP nodes executing <strong>concurrently</strong> after a Fork</li>
   <li>Each branch writing to its own <strong>independent variables</strong></li>
   <li>How parallel execution <strong>reduces total latency</strong></li>
-  <li>Using a <strong>merge point</strong> to synchronize parallel branches</li>
+  <li>Combining parallel results in a <strong>downstream HTTP node</strong></li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -164,41 +164,53 @@
   ┌─────────────┐
   │    Start    │
   └──────┬──────┘
-         │
-    ┌────┼────────────────┐
-    │    │                │
-    ▼    ▼                ▼
-  ┌─────────┐  ┌─────────┐  ┌─────────┐
-  │ 1. GET  │  │ 2. GET  │  │ 3. GET  │
-  │  Users  │  │  Posts  │  │  Todos  │
-  │ (HTTP)  │  │ (HTTP)  │  │ (HTTP)  │
-  └────┬────┘  └────┬────┘  └────┬────┘
-       │            │            │
-       └────────┬───┘────────────┘
-                │
-                ▼
-         ┌─────────────┐
-         │  4. Merge   │  (all variables
-         │  (SetVar)   │   now available)
-         └──────┬──────┘
-                ▼
-         ┌─────────────┐
-         │     End     │
-         └─────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Get Post                │  GET /posts/1
+  │     (HTTP)                  │
+  │                             │  Extracts: postTitle ← $.title
+  │                             │           postUserId ← $.userId
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │  2. Fork    │  ← splits execution into 2 parallel branches
+  └─────┬───┬──┘
+        │        │
+        ▼        ▼
+  ┌───────────┐  ┌─────────────┐
+  │ 3a. Get  │  │ 3b. Get     │
+  │   Users  │  │   Comments  │
+  │ (HTTP GET) │  │ (HTTP GET) │
+  │ /users   │  │ /posts/1/  │
+  │          │  │ comments   │
+  └─────┬─────┘  └──────┬──────┘
+        │                │
+        └───────┬────────┘
+               ▼
+  ┌─────────────┐
+  │  4. Join   │  ← waits for both branches to complete
+  └─────┬──────┘
+        ▼
+  ┌─────────────────────────────┐
+  │  5. Post Summary            │  POST /posts
+  │     (HTTP)                  │
+  │  Body references all        │  Body uses: {{firstUserName}},
+  │  extracted variables        │  {{firstCommentName}},
+  │                             │  {{postTitle}}, etc.
+  └─────────────────────────────┘
 </div>
 
 <p>
-  <strong>7 nodes, 6 edges</strong> — a fan-out/fan-in pattern. The Start node connects
-  to three parallel HTTP nodes. Each node fetches data independently. The Merge node
-  waits for all three to complete before the workflow continues to End.
+  <strong>7 nodes, 6 edges</strong> — Start → Get Post → Fork → [Get Users | Get Comments] → Join → Post Summary.
+  The Fork node explicitly splits execution; the Join node waits for both branches before continuing.
 </p>
 
 <div class="callout">
-  <strong>📘 How Parallel Execution Works</strong>
-  When a node has multiple outgoing edges, the workflow engine starts all target nodes
-  simultaneously. The merge node (any node with multiple incoming edges) waits for
-  <strong>all</strong> incoming branches to complete before executing. This is an
-  implicit fork/join — no special configuration required.
+  <strong>📘 Fork &amp; Join Nodes</strong>
+  RedfireForge uses explicit <strong>Fork</strong> and <strong>Join</strong> nodes to
+  manage parallel execution. Fork splits one path into multiple concurrent branches.
+  Join waits for all incoming branches to complete before allowing the workflow to continue.
+  This explicit model makes parallelism visible and debuggable in the workflow editor.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -212,32 +224,37 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. Fans out to three parallel HTTP nodes.</td>
+    <td>Entry point. No input variables needed.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> GET Users</td>
+    <td><span class="step-num">1</span> Get Post</td>
     <td>HTTP</td>
-    <td>GET <code>jsonplaceholder.typicode.com/users?_limit=3</code>. Extracts <code>usersData</code> (full body). Fetches the first 3 users.</td>
+    <td>GET <code>jsonplaceholder.typicode.com/posts/1</code>. Extracts <code>postTitle</code> (<code>$.title</code>) and <code>postUserId</code> (<code>$.userId</code>). Runs before the Fork.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> GET Posts</td>
+    <td><span class="step-num">2</span> Parallel Fork</td>
+    <td>Fork</td>
+    <td>Splits execution into two concurrent branches. Both <em>Get Users</em> and <em>Get Comments</em> start simultaneously.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3a</span> Get Users</td>
     <td>HTTP</td>
-    <td>GET <code>jsonplaceholder.typicode.com/posts?_limit=3</code>. Extracts <code>postsData</code> (full body). Fetches the first 3 posts.</td>
+    <td>GET <code>jsonplaceholder.typicode.com/users</code>. Extracts <code>firstUserName</code> (<code>$[0].name</code>) and <code>firstUserEmail</code> (<code>$[0].email</code>).</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> GET Todos</td>
+    <td><span class="step-num">3b</span> Get Comments</td>
     <td>HTTP</td>
-    <td>GET <code>jsonplaceholder.typicode.com/todos?_limit=3</code>. Extracts <code>todosData</code> (full body). Fetches the first 3 todos.</td>
+    <td>GET <code>jsonplaceholder.typicode.com/posts/1/comments</code>. Extracts <code>firstCommentName</code> (<code>$[0].name</code>) and <code>firstCommentEmail</code> (<code>$[0].email</code>).</td>
   </tr>
   <tr>
-    <td><span class="step-num">4</span> Merge</td>
-    <td>SetVariable</td>
-    <td>Merge/sync point. Waits for all three branches. Sets <code>totalEndpoints</code> = <code>3</code> to confirm all sources returned.</td>
+    <td><span class="step-num">4</span> Join</td>
+    <td>Join</td>
+    <td>Waits for both parallel branches to complete. All extracted variables are now available to the next node.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
-    <td>End</td>
-    <td>Workflow complete. Variables <code>usersData</code>, <code>postsData</code>, <code>todosData</code>, and <code>totalEndpoints</code> are all available.</td>
+    <td><span class="step-num">5</span> Post Summary</td>
+    <td>HTTP</td>
+    <td>POST <code>jsonplaceholder.typicode.com/posts</code>. Body combines all extracted variables: <code>{{firstUserName}}</code>, <code>{{firstUserEmail}}</code>, <code>{{firstCommentName}}</code>, <code>{{firstCommentEmail}}</code>.</td>
   </tr>
 </table>
 
@@ -256,43 +273,64 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Parallel API Calls"</strong>
-    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <strong>Import from Gallery.</strong><br>
+    In the Workflow Designer, open <em>Gallery</em> → search for
+    <strong>"Sample: Parallel API Calls"</strong> and click <em>Import</em>.
+    The 7-node workflow loads ready to run.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
     <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Parallel API Calls".
+    Click <em>+ New Workflow</em>. Name it "Parallel API Calls".
   </li>
   <li>
-    <strong>Add three HTTP nodes.</strong><br>
-    Drag three HTTP nodes onto the canvas. Configure each:
+    <strong>Add the initial HTTP GET node (node 1).</strong><br>
+    Drag an HTTP node. Configure:
     <ul>
-      <li><strong>GET Users</strong>: URL <code>https://jsonplaceholder.typicode.com/users?_limit=3</code>, extraction <code>usersData</code> ← body <code>$</code></li>
-      <li><strong>GET Posts</strong>: URL <code>https://jsonplaceholder.typicode.com/posts?_limit=3</code>, extraction <code>postsData</code> ← body <code>$</code></li>
-      <li><strong>GET Todos</strong>: URL <code>https://jsonplaceholder.typicode.com/todos?_limit=3</code>, extraction <code>todosData</code> ← body <code>$</code></li>
+      <li><em>Label</em>: <code>1. Get Post</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts/1</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: <code>postTitle</code> ← body <code>$.title</code></li>
+      <li><em>Extractions</em>: <code>postUserId</code> ← body <code>$.userId</code></li>
     </ul>
+    Connect Start → Get Post.
   </li>
   <li>
-    <strong>Connect Start to all three.</strong><br>
-    Draw edges from Start → GET Users, Start → GET Posts, Start → GET Todos.
-    This creates the parallel fan-out.
+    <strong>Add the Fork node (node 2).</strong><br>
+    Drag a Fork node. Label it <code>2. Parallel Fork</code>.
+    Connect Get Post → Fork. This is the split point.
   </li>
   <li>
-    <strong>Add the Merge node.</strong><br>
-    Drag a SetVariable node. Set <code>totalEndpoints</code> = <code>3</code>.
-    Connect all three HTTP nodes → Merge. This creates the fan-in.
+    <strong>Add the two parallel HTTP nodes (nodes 3a and 3b).</strong><br>
+    Drag two HTTP nodes:
+    <ul>
+      <li><strong>Get Users</strong>: URL <code>https://jsonplaceholder.typicode.com/users</code>, extractions <code>firstUserName</code> ← <code>$[0].name</code>, <code>firstUserEmail</code> ← <code>$[0].email</code></li>
+      <li><strong>Get Comments</strong>: URL <code>https://jsonplaceholder.typicode.com/posts/1/comments</code>, extractions <code>firstCommentName</code> ← <code>$[0].name</code>, <code>firstCommentEmail</code> ← <code>$[0].email</code></li>
+    </ul>
+    Connect Fork → Get Users and Fork → Get Comments.
   </li>
   <li>
-    <strong>Connect Merge → End.</strong><br>
-    Draw the final edge.
+    <strong>Add the Join node (node 4).</strong><br>
+    Drag a Join node. Label it <code>4. Join</code>.
+    Connect Get Users → Join and Get Comments → Join.
+    The Join waits for both branches before continuing.
+  </li>
+  <li>
+    <strong>Add the POST HTTP node (node 5).</strong><br>
+    Drag an HTTP node. Configure:
+    <ul>
+      <li><em>Label</em>: <code>5. Post Summary</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Body</em>: <code>{"title":"Workflow Summary","body":"First user: {{firstUserName}} ({{firstUserEmail}}), First commenter: {{firstCommentName}} ({{firstCommentEmail}})","userId":1}</code></li>
+    </ul>
+    Connect Join → Post Summary.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. Observe that all three HTTP nodes execute simultaneously
-    and the total time is roughly equal to the slowest single call.
+    Click <em>Quick Test</em>. Get Post fetches post 1, Fork splits to run Get Users and
+    Get Comments simultaneously, Join waits for both, then Post Summary assembles the results.
   </li>
 </ol>
 
@@ -305,24 +343,28 @@
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. GET Users</td><td>✅ Pass</td><td>HTTP 200, 3 users returned</td></tr>
-  <tr><td>2. GET Posts</td><td>✅ Pass</td><td>HTTP 200, 3 posts returned</td></tr>
-  <tr><td>3. GET Todos</td><td>✅ Pass</td><td>HTTP 200, 3 todos returned</td></tr>
-  <tr><td>4. Merge</td><td>✅ Pass</td><td>totalEndpoints = 3</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Get Post</td><td>✅ Pass</td><td>HTTP 200 · postTitle="sunt aut facere..." · postUserId=1</td></tr>
+  <tr><td>2. Parallel Fork</td><td>✅ Pass</td><td>Splits to Get Users and Get Comments simultaneously</td></tr>
+  <tr><td>3a. Get Users</td><td>✅ Pass</td><td>HTTP 200 · firstUserName="Leanne Graham" · firstUserEmail="Sincere@april.biz"</td></tr>
+  <tr><td>3b. Get Comments</td><td>✅ Pass</td><td>HTTP 200 · firstCommentName="id labore ex et quam laborum" · firstCommentEmail="Eliseo@gardner.biz"</td></tr>
+  <tr><td>4. Join</td><td>✅ Pass</td><td>Both branches complete — all 6 variables available</td></tr>
+  <tr><td>5. Post Summary</td><td>✅ Pass</td><td>HTTP 201 · summary POST with all variables interpolated</td></tr>
 </table>
+
+<h3>Sample Variable Values after Join</h3>
+<pre>
+postTitle:          "sunt aut facere repellat provident occaecati excepturi optio reprehenderit"
+postUserId:         1
+firstUserName:      "Leanne Graham"
+firstUserEmail:     "Sincere@april.biz"
+firstCommentName:   "id labore ex et quam laborum"
+firstCommentEmail:  "Eliseo@gardner.biz"</pre>
 
 <h3>Execution Timing (approximate)</h3>
 <pre>
-Sequential (theoretical):  ~600ms  (200ms × 3)
-Parallel   (actual):       ~220ms  (slowest call + overhead)
-Speedup:                   ~2.7×</pre>
-
-<h3>Sample Variable Values</h3>
-<pre>
-usersData:  [{"id":1,"name":"Leanne Graham",...}, {"id":2,...}, {"id":3,...}]
-postsData:  [{"id":1,"title":"sunt aut facere...",...}, {"id":2,...}, {"id":3,...}]
-todosData:  [{"id":1,"title":"delectus aut autem","completed":false}, ...]</pre>
+Node 1 (Get Post):               ~200ms
+Nodes 3a+3b (parallel):          ~200ms  (both run simultaneously)
+Total:                           ~500ms  vs ~600ms sequential</pre>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -333,12 +375,13 @@ todosData:  [{"id":1,"title":"delectus aut autem","completed":false}, ...]</pre>
 <h3>Exercise 1: Add a Fourth Parallel Branch</h3>
 <p>
   Add a fourth HTTP node that fetches <code>/comments?_limit=3</code> in parallel
-  with the other three. Update the Merge node to set <code>totalEndpoints</code> = <code>4</code>.
+  Add a fourth parallel branch: GET <code>/posts/1/todos</code> (note: JSONPlaceholder doesn't have this endpoint; use <code>/albums/1/photos?_limit=3</code> instead).
+  Connect Fork → new node → Join.
 </p>
 
 <h3>Exercise 2: Add a Summary Script</h3>
 <p>
-  Replace the Merge SetVariable node with a Script node that counts the total items
+  Replace the HTTP Post Summary node with a Script node that computes a summary count and logs it.
   across all three responses (users + posts + todos) and outputs a
   <code>totalItems</code> variable.
 </p>
@@ -352,7 +395,7 @@ todosData:  [{"id":1,"title":"delectus aut autem","completed":false}, ...]</pre>
 
 <h3>Exercise 4: Parameterize the Limit</h3>
 <p>
-  Add a <code>limit</code> input variable to the Start node. Update all three HTTP URLs
+  Add a <code>userId</code> input variable to the Start node. Update the Get Post URL to use <code>/posts?userId={{userId}}</code>.
   to use <code>?_limit={{limit}}</code>. Run with different limits (1, 5, 10) and
   observe the varying response sizes.
 </p>
