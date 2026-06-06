@@ -124,7 +124,7 @@
   └────────┬────────┘    └──────────┬────────────┘
            ▼                        ▼
   ┌─────────────────┐    ┌──────────────────────┐
-  │ Tag Card        │    │ Set Loyalty ID        │
+  │ Tag Card        │    │ Tag Loyalty Payment ID        │
   │ Payment ID      │    │ (SetVariable)         │
   │ (SetVariable)   │    │ loyaltyPaymentId=     │
   │ cardPaymentId=  │    │  loyalty-{{id}}       │
@@ -222,12 +222,12 @@
     <td>POST <code>{{paymentBase}}/posts</code>. Body includes <code>loyaltyPointsToUse</code>, <code>loyaltyAmount</code>. Extracts <code>loyaltyPaymentId ← $.id</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3b</span> Set Loyalty ID</td>
+    <td><span class="step-num">3b</span> Tag Loyalty Payment ID</td>
     <td>SetVariable</td>
     <td>Prefixes: <code>loyaltyPaymentId = "loyalty-{{loyaltyPaymentId}}"</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">4b</span> Wait for Loyalty Payment</td>
+    <td><span class="step-num">4b</span> Wait for Loyalty Deduction</td>
     <td>CorrelationWait</td>
     <td>Waits for a callback matching <code>loyaltyPaymentId</code>. Extracts <code>loyaltyStatus ← $.status</code>, <code>loyaltyDeductionId ← $.transactionId</code>, <code>remainingPoints ← $.remainingPoints</code>.</td>
   </tr>
@@ -279,7 +279,7 @@
 </p>
 
 <table>
-  <tr><th>Attribute</th><th>Wait for Card Payment</th><th>Wait for Loyalty Payment</th></tr>
+  <tr><th>Attribute</th><th>Wait for Card Payment</th><th>Wait for Loyalty Deduction</th></tr>
   <tr><td>Correlation Key Variable</td><td><code>cardPaymentId</code></td><td><code>loyaltyPaymentId</code></td></tr>
   <tr><td>Extracted Variables</td><td>cardStatus, cardTransactionId, cardAuthCode</td><td>loyaltyStatus, loyaltyDeductionId, remainingPoints</td></tr>
   <tr><td>Timeout</td><td>Default</td><td>Default</td></tr>
@@ -319,8 +319,8 @@
   <tr><td>Tag Card Payment ID</td><td>✅ Pass</td><td>cardPaymentId="card-101"</td></tr>
   <tr><td>Wait for Card Payment</td><td>⏸️ Waiting</td><td>Paused until callback with key "card-101"</td></tr>
   <tr><td>Submit Loyalty Deduction</td><td>✅ Pass</td><td>HTTP 201 · loyaltyPaymentId=101</td></tr>
-  <tr><td>Set Loyalty ID</td><td>✅ Pass</td><td>loyaltyPaymentId="loyalty-101"</td></tr>
-  <tr><td>Wait for Loyalty Payment</td><td>⏸️ Waiting</td><td>Paused until callback with key "loyalty-101"</td></tr>
+  <tr><td>Tag Loyalty Payment ID</td><td>✅ Pass</td><td>loyaltyPaymentId="loyalty-101"</td></tr>
+  <tr><td>Wait for Loyalty Deduction</td><td>⏸️ Waiting</td><td>Paused until callback with key "loyalty-101"</td></tr>
   <tr><td>Join Payments</td><td>✅ Pass (after simulator)</td><td>Both branches joined</td></tr>
   <tr><td>Aggregate Payment Results</td><td>✅ Pass</td><td>paymentSummary assembled</td></tr>
   <tr><td>Both Payments OK?</td><td>✅ Pass (true)</td><td>cardStatus == "approved"</td></tr>
