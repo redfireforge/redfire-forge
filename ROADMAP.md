@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-21 (v0.5.10-alpha.1 on `develop`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 542+ Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete, **constant arrival rate** (open model, Rust arrival executor), **streaming percentiles** (Rust HDR Histogram), and comprehensive code quality audit (19,112 unit tests, 660 E2E tests, 542+ Rust tests, >90% coverage all files)).
+> Last re-evaluated: 2026-06-03 (v0.5.10-alpha.1 on `feature/kafka-integration`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 656+ Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete, **constant arrival rate** (open model, Rust arrival executor), **streaming percentiles** (Rust HDR Histogram), **Kafka Integration** (phases 1–9: settings UX, workflow nodes, runner, load policy, results publishing, native rdkafka Tauri transport), and comprehensive code quality audit (21,974 unit tests, 660 E2E tests, 656+ Rust tests, 99.46% coverage)).
 
 ### Identity
 
@@ -594,6 +594,23 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
+### Phase 23.8 — Kafka Integration ✅ (on `feature/kafka-integration`)
+
+> Full Kafka support across server transport, UI settings, workflow nodes (produce/consume/trigger/wait), runner scenarios, load policy, results publishing, and native Tauri transport (rdkafka). Phases 1–9 complete; Phase 10 (Schema Registry) is optional and activation-gated.
+
+- [x] **Core Transport (Phase 1)** — `kafkajs` server transport, produce/consumeOnce/subscribe routes, plaintext Docker bootstrap, topic seed scripts
+- [x] **Client Transport + App State (Phase 2)** — `kafkaClient.ts` dispatcher, `useKafkaState` hook, bounded status refresh, UI-safe error classification
+- [x] **Kafka Settings UX (Phase 3)** — Cluster list/create/edit/delete; SASL/SCRAM/TLS auth fields; topic browser; AppHeader connection indicator; 6 connection presets; secure Redpanda Docker profile (21/21 smoke PASS)
+- [x] **Workflow Kafka Nodes (Phase 4)** — `kafkaProduce` + `kafkaConsume` node types; config panel editors; executor branches with dependency-injected `KafkaNodeOperations`; output binding extraction; classified execution logs
+- [x] **Kafka Trigger + KafkaWait (Phase 5)** — Subscription-based workflow start; backpressure pause/resume; `kafkaWait` correlation-store pause/resume; idempotency (`kafka:topic:partition:offset` key); `ServerCorrelationBridge`; activation/deactivation routes; 187 tests
+- [x] **Runner Kafka Scenarios (Phase 6)** — `actionType` + `transportType` on Scenario/RequestResult; `kafkaExecution.ts`; `kafkaField` assertions; transport-aware result rendering in all result surfaces; `.method-kafka` CSS badge; parameterized row interpolation
+- [x] **Load-mode Policy (Phase 7)** — `kafkaLoadPolicy.ts` compatibility matrix; `runGraphLoad` pre-run guard; `WorkflowRunner` load banners; 208 tests with repeated-run variance checks
+- [x] **Results Publishing to Kafka (Phase 8)** — `KafkaRunSummaryEnvelope` (schema v1.0); `kafkaResultsPublisher.ts` (3 retries, fire-and-forget); publish at all save sites; 41/41 broker scenarios PASS (plaintext + secure)
+- [x] **Tauri-native Transport (Phase 9)** — Rust `src-tauri/src/kafka/` module; 10 Tauri commands with rdkafka; `kafkaNativeTauriTransport.ts`; `CommandSpec.paramKey` Tauri v2 wrapping; transport selected via `isTauri()`; 82/82 golden-fixture parity tests; 656 Rust unit tests; 8/8 E2E tests
+- [x] **Coverage sweep** — 98.6% → 99.46% total (21,974 unit tests, 0 failures)
+
+---
+
 ## Upcoming Phases
 
 ### Phase 25 — Run Comparison & Trends
@@ -703,11 +720,12 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 | 23 | Correlation Wait Runner & Webhook Load | 5 | 5 |
 | 23.5 | Catalog ↔ Harness Integration | 13 | 13 |
 | 23.7 | Trash Box (Soft Delete & Recovery) | 13 | 13 |
+| 23.8 | Kafka Integration (Phases 1–9) | 9 | 9 |
 | 24 | CI/CD Pipeline | 8 | 2 |
 | 25 | Run Comparison & Trends | 5 | 0 |
 | 26 | Open-Source Launch | 14 | 0 |
 | 27 | Future (Engine → Excellent + Server) | 15 | 5 |
-| **Total** | | **328** | **292** |
+| **Total** | | **337** | **301** |
 
 ### Feature Maturity Assessment
 
@@ -730,6 +748,7 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Constant Arrival Rate      — open-model RPS with Rust arrival executor (Phase 11.6)
   ✅ Streaming Percentiles      — Rust HDR Histogram for P50/P95/P99/P99.9 at scale (Phase 11.6)
   ✅ Trash Box                  — soft delete, undo toast, smart restoration, configurable purge (Phase 23.7)
+  ✅ Kafka Integration          — settings UX, workflow nodes (produce/consume/trigger/wait), runner, load policy, results publishing, native rdkafka Tauri transport (Phase 23.8)
 
 PARTIALLY COMPLETE (functional, needs polish):
   🟡 CI/CD Pipeline            — Pre-commit hooks + Actions CI exist, full pipeline pending (Phase 24)
@@ -767,9 +786,9 @@ FUTURE: Excellent (Enterprise) (10,000-50,000+ RPS)
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (CI partially done, no demo) | 1,000–2,500 | CLI done, 19K+ unit tests + 542+ Rust tests, Actions CI exists, Rust executor + constant arrival + streaming percentiles, all features complete through Phase 23.7 |
+| Launch now (CI partially done, no demo) | 1,000–2,500 | CLI done, 19K+ unit tests + 656+ Rust tests, Actions CI exists, Rust executor + constant arrival + streaming percentiles, all features complete through Phase 23.8 |
 | Launch with full CI pipeline + live demo | 2,500–5,000 | Phase 24 complete |
-| Launch with Rust executor + demo + branding | 5,000–10,000 | Phases 10–23.7 ✅ + Phase 26 (Rust executor + open model is a strong differentiator) |
+| Launch with Rust executor + demo + branding | 5,000–10,000 | Phases 10–23.8 ✅ + Phase 26 (Rust executor + open model is a strong differentiator) |
 | Viral launch (HN front page, YouTube) | 10,000–25,000+ | All of above + great branding + community momentum + "visual JMeter killer" narrative |
 
 ### Critical Path to Open-Source
@@ -783,7 +802,7 @@ REMAINING BLOCKERS:
        ↓
   Launch on Hacker News / Reddit / Dev.to
 
-ALREADY COMPLETE (Phases 1–23.7):
+ALREADY COMPLETE (Phases 1–23.8):
   ✅ Phase 4    (CLI)           — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
   ✅ Phase 5    (Tests)         — 19,112 unit tests, 660 E2E tests, 542+ Rust tests, >90% code coverage
   ✅ Phase 6    (Requests)      — Full ad-hoc API testing with collections/auth/cURL
@@ -813,4 +832,4 @@ Phase 25 (Run Comparison)  →  Phase 27 (Distributed Execution)
 
 ---
 
-_Last updated: 2026-05-21 (v0.5.10-alpha.1 — on `develop` branch; 292/328 items done (89.0%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); >90% code coverage all files; 19,112 unit tests, 660 E2E tests, 542+ Rust tests; 759 JS test files + 15 Rust test files; 192 training manuals; 93 gallery entries)_
+_Last updated: 2026-06-03 (v0.5.10-alpha.1 — on `feature/kafka-integration` branch; 301/337 items done (89.3%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); 99.46% code coverage; 21,974 unit tests, 660 E2E tests, 656+ Rust tests; Kafka integration phases 1–9 complete on feature branch pending merge)_

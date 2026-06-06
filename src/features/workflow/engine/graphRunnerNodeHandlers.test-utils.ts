@@ -61,6 +61,7 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
   initialVariables?: Record<string, string>;
   traceOptions?: { captureFullTrace?: boolean; alwaysCaptureFailures?: boolean; maxResponseBodySize?: number };
   capturedHttpDetails?: Map<string, unknown>;
+  capturedKafkaDetails?: Map<string, unknown>;
 } = {}): NodeHandlerContext {
   const initialVars = overrides.initialVariables ?? {};
   const ctx = overrides.ctx ?? makeCtx(initialVars);

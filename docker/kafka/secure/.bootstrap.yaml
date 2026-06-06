@@ -1,0 +1,13 @@
+# Redpanda bootstrap cluster properties.
+# This file is processed at first broker startup (before the Kafka API is ready).
+# It sets CLUSTER-level properties — this is the correct way to enable SASL and
+# define the initial superuser list so that the init container can authenticate
+# as 'admin' to create topics and ACLs.
+#
+# IMPORTANT: 'enable_sasl' is a cluster-level property (NOT a node-level one).
+# Setting it in redpanda.yaml has no effect; it must be set here.
+#
+# Reference: https://docs.redpanda.com/current/manage/cluster-maintenance/cluster-property-configuration/
+enable_sasl: true
+superusers:
+  - admin

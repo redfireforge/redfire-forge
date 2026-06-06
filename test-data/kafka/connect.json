@@ -1,0 +1,62 @@
+{
+  "operation": "connect",
+  "description": "Plaintext connection to local Redpanda broker via parity-test-cluster",
+  "request": {
+    "connection": {
+      "clusterId": "parity-test-cluster",
+      "clientId": "redfireforge-parity",
+      "brokers": ["localhost:19092"]
+    }
+  },
+  "expectedDispatch": {
+    "op": "connect",
+    "method": "POST",
+    "path": "/api/kafka/connect",
+    "query": {},
+    "body": {
+      "connection": {
+        "clusterId": "parity-test-cluster",
+        "clientId": "redfireforge-parity",
+        "brokers": ["localhost:19092"]
+      }
+    }
+  },
+  "expectedInvokeCommand": "kafka_connect",
+  "expectedInvokeArgs": {
+    "connection": {
+      "clusterId": "parity-test-cluster",
+      "clientId": "redfireforge-parity",
+      "brokers": ["localhost:19092"]
+    }
+  },
+  "expectedHttpBody": {
+    "connection": {
+      "clusterId": "parity-test-cluster",
+      "clientId": "redfireforge-parity",
+      "brokers": ["localhost:19092"]
+    }
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "connect",
+    "data": {
+      "status": {
+        "state": "connected",
+        "clusterId": "parity-test-cluster",
+        "connectedAt": "2026-06-01T00:00:00.000Z",
+        "subscriptionCount": 0
+      },
+      "reusedExistingConnection": false
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 120
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_CONNECT_FAILED",
+    "message": "Connection refused: localhost:19092",
+    "retryable": true
+  },
+  "expectedErrorKind": "network"
+}

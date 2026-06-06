@@ -32,6 +32,8 @@ import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
+import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
+import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -56,6 +58,7 @@ import {
   writeTabToUrl,
 } from './utils/appTabUtils';
 import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
+import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
@@ -95,6 +98,7 @@ export default function App() {
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
+  const kafkaState = useKafkaState();
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
     wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
@@ -109,6 +113,8 @@ export default function App() {
   });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
+  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
+  const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
 
@@ -116,6 +122,23 @@ export default function App() {
     setResultsRunTypeFilter(runType);
     setActiveTab('results');
   };
+
+  const handleNavigateToKafkaSettings = useCallback(() => {
+    setActiveTab('kafka-settings');
+  }, []);
+
+  const handleUseAsWorkflowInput = useCallback((
+    payload: string,
+    meta: { topic: string; partition: number; offset: string },
+  ) => {
+    setWorkflowRunnerInitialVariables({
+      kafka_message: payload,
+      kafka_topic: meta.topic,
+      kafka_partition: String(meta.partition),
+      kafka_offset: meta.offset,
+    });
+    setActiveTab('workflow-runner');
+  }, []);
 
   const handleRunInHarness = (workflowId: string) => {
     setWorkflowRunnerInitialId(workflowId);
@@ -325,6 +348,10 @@ export default function App() {
         THEMES={THEMES}
         THEME_ICONS={THEME_ICONS}
         setShowCustomizer={setShowCustomizer}
+        kafkaConnection={kafkaState.connection}
+        kafkaClusterName={kafkaState.selectedCluster?.name ?? null}
+        kafkaHasClusters={kafkaState.clusters.length > 0}
+        onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
       />
       {showCustomizer && (
         <ThemeCustomizer
@@ -342,7 +369,7 @@ export default function App() {
       <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -435,12 +462,12 @@ export default function App() {
               onCreateFolder={wfFolders.create}
               onRenameFolder={wfFolders.rename}
               onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
-              onMoveWorkflowToFolder={(wfId, folderId) => {
-                wfHook.update(wfId, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              onMoveWorkflowToFolder={(wfId, folderId, order) => {
+                wfHook.reorder(wfId, folderId, order);
               }}
-              onMoveWorkflowsToFolder={(wfIds, folderId) => {
-                wfIds.forEach((id) => {
-                  wfHook.update(id, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              onMoveWorkflowsToFolder={(wfIds, folderId, startOrder) => {
+                wfIds.forEach((id, i) => {
+                  wfHook.reorder(id, folderId, startOrder + i);
                 });
               }}
               onMoveFolder={wfFolders.move}
@@ -464,14 +491,14 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
@@ -529,6 +556,9 @@ export default function App() {
                 onComplete={handleCompleteToResults}
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+                initialWorkflowVariables={workflowRunnerInitialVariables}
+                onClearInitialWorkflowVariables={() => setWorkflowRunnerInitialVariables(null)}
+                onWorkflowOutputAvailable={setLastWorkflowOutput}
                 resolvedBaseUrl={resolvedBaseUrl}
                 microservices={microservices}
                 globalAuthProfiles={appGlobalAuthProfiles}
@@ -583,6 +613,22 @@ export default function App() {
               confirm={confirm}
             />
           )}
+
+          {activeTab === 'kafka-settings' && (
+            <KafkaSettingsPage kafkaState={kafkaState} />
+          )}
+
+          {activeTab === 'kafka-message-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <KafkaMessageStudioPage
+                kafkaState={kafkaState}
+                onNavigateToKafkaSettings={handleNavigateToKafkaSettings}
+                onUseAsWorkflowInput={handleUseAsWorkflowInput}
+                lastWorkflowOutput={lastWorkflowOutput}
+              />
+            </div>
+          )}
+
 
           {activeTab === 'scenarios' && (
             <ScenarioBuilder

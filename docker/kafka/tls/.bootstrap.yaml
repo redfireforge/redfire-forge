@@ -1,0 +1,5 @@
+# Redpanda bootstrap cluster properties for TLS profile.
+# Enables SASL so TLS+SASL combination can be tested.
+enable_sasl: true
+superusers:
+  - admin

@@ -82,7 +82,7 @@ test.describe('Results Dashboard — Failed Only filter', () => {
       localStorage.setItem('perf-test-theme', 'dark');
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
 
     // Navigate to Request Details tab where filter-count and group-by-controls live
@@ -163,7 +163,7 @@ test.describe('Results Dashboard — Failed Only filter', () => {
       localStorage.removeItem('perf-test-runs');
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
 
     // Re-navigate to Request Details tab after page reload

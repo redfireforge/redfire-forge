@@ -1,6 +1,7 @@
 import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 import { formatFailureDetails } from '../src/shared/utils/helpers';
+import { percentile } from '../src/shared/utils/percentiles';
 import type { RunComparison } from '../src/features/results/utils/runBaselines';
 
 // ── JSON report ─────────────────────────────────────────────
@@ -10,7 +11,7 @@ export interface DataRowSummaryReport {
   totalRows: number;
   passedRows: number;
   failedRows: number;
-  failedRowDetails: { row: string; label: string; status: number; error: string }[];
+  failedRowDetails: { row: string; label: string; status: number | string; error: string }[];
 }
 
 export function buildDataRowSummary(results: RequestResult[]): DataRowSummaryReport[] {
@@ -36,11 +37,11 @@ export function buildDataRowSummary(results: RequestResult[]): DataRowSummaryRep
       failedRowDetails: failed.map(r => ({
         row: r.dataRowId ?? '?',
         label: r.dataRowLabel ?? '?',
-        status: r.httpStatus,
+        status: (r.transportType ?? 'http') === 'http' ? r.httpStatus : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME',
         error: r.errorMessage
           || (r.failureDetails.length > 0
             ? formatFailureDetails(r.failureDetails)
-            : `HTTP ${r.httpStatus}`),
+            : (r.transportType ?? 'http') === 'http' ? `HTTP ${r.httpStatus}` : `KAFKA (${r.transportType === 'kafkaProduce' ? 'produce' : 'consume'})`),
       })),
     });
   }
@@ -88,11 +89,20 @@ export function buildJunitXml(
     const tagAttr = r.scenarioTags?.length
       ? ` tags="${escapeXml(r.scenarioTags.join(','))}"`
       : '';
-    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]${rowSuffix}" time="${time}"${tagAttr}>`);
+    // For Kafka scenarios the URL is often empty; prefer the topic as the location identifier.
+    const testcaseLocation = (r.transportType ?? 'http') !== 'http'
+      ? (r.kafkaResultMeta?.topic ?? (r.url || 'kafka'))
+      : r.url;
+    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(testcaseLocation)}]${rowSuffix}" time="${time}"${tagAttr}>`);
     if (!r.passed) {
       const msg = r.errorMessage ?? formatFailureDetails(r.failureDetails);
-      lines.push(`      <failure message="${escapeXml(msg)}" type="${r.httpStatus >= 400 || r.httpStatus === 0 ? 'HttpError' : 'ValidationFailure'}">`);
-      lines.push(`HTTP ${r.httpStatus} ${r.method} ${escapeXml(r.url)}`);
+      const isKafka = (r.transportType ?? 'http') !== 'http';
+      const failureType = isKafka ? 'KafkaError' : (r.httpStatus >= 400 || r.httpStatus === 0 ? 'HttpError' : 'ValidationFailure');
+      const failureBody = isKafka
+        ? `KAFKA ${r.method} ${escapeXml(r.kafkaResultMeta?.topic ?? (r.url || 'kafka'))}`
+        : `HTTP ${r.httpStatus} ${r.method} ${escapeXml(r.url)}`;
+      lines.push(`      <failure message="${escapeXml(msg)}" type="${failureType}">`);
+      lines.push(failureBody);
       for (const f of r.failureDetails) {
         lines.push(`  ${f.path}: expected=${f.expected} actual=${f.actual}`);
       }
@@ -280,7 +290,6 @@ function computePerStepStats(results: RequestResult[]): PerStepStats[] {
     const passed = nodeResults.filter(r => r.passed).length;
     const first = nodeResults[0];
     const label = (first && first.scenarioName) ? first.scenarioName : nodeId;
-    const p95Idx = Math.floor(times.length * 0.95);
     stats.push({
       nodeId,
       label,
@@ -290,7 +299,7 @@ function computePerStepStats(results: RequestResult[]): PerStepStats[] {
       avgMs: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
       minMs: times[0],
       maxMs: times[times.length - 1],
-      p95Ms: times[p95Idx],
+      p95Ms: percentile(times, 0.95),
     });
   }
 
@@ -335,7 +344,9 @@ function formatRowLabel(r: RequestResult): string {
 function formatRowError(r: RequestResult): string {
   if (r.errorMessage) return r.errorMessage;
   if (r.failureDetails.length > 0) return `${r.failureDetails.length} validation failure(s)`;
-  return `HTTP ${r.httpStatus}`;
+  return (r.transportType ?? 'http') === 'http'
+    ? `HTTP ${r.httpStatus}`
+    : `KAFKA (${r.transportType === 'kafkaProduce' ? 'produce' : 'consume'})`;
 }
 
 function printDataRowConsole(results: RequestResult[], bar: string): void {
@@ -389,7 +400,7 @@ function appendDataRowSummaryMd(lines: string[], results: RequestResult[]): void
   lines.push('| Row | Status | Error |');
   lines.push('|---|---|---|');
   for (const r of failedRows) {
-    lines.push(`| ${formatRowLabel(r)} | ${r.httpStatus} | ${formatRowError(r)} |`);
+    lines.push(`| ${formatRowLabel(r)} | ${(r.transportType ?? 'http') === 'http' ? r.httpStatus : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'} | ${formatRowError(r)} |`);
   }
   lines.push('');
 }
@@ -498,10 +509,18 @@ export function buildWorkflowJunitXml(
     if (!iter.passed) {
       const iterResults = results.filter(r => r.iterationIndex === iter.index);
       const failedSteps = iterResults.filter(r => !r.passed);
-      const msg = failedSteps.map(r => `${r.scenarioName}: ${r.errorMessage || `HTTP ${r.httpStatus}`}`).join('; ');
+      const msg = failedSteps.map(r => {
+        const fallback = (r.transportType ?? 'http') === 'http'
+          ? `HTTP ${r.httpStatus}`
+          : `KAFKA (${r.transportType === 'kafkaProduce' ? 'produce' : 'consume'})`;
+        return `${r.scenarioName}: ${r.errorMessage || fallback}`;
+      }).join('; ');
       lines.push(`      <failure message="${escapeXml(msg)}" type="WorkflowIterationFailure">`);
       for (const r of failedSteps) {
-        lines.push(`  ${r.scenarioName}: HTTP ${r.httpStatus} ${r.method} ${escapeXml(r.url)}`);
+        const stepDetail = (r.transportType ?? 'http') === 'http'
+          ? `HTTP ${r.httpStatus} ${r.method} ${escapeXml(r.url)}`
+          : `KAFKA ${r.method} ${escapeXml(r.kafkaResultMeta?.topic ?? (r.url || 'kafka'))}`;
+        lines.push(`  ${r.scenarioName}: ${stepDetail}`);
       }
       lines.push(`      </failure>`);
     }

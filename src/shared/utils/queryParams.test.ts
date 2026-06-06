@@ -63,6 +63,13 @@ describe('parseQueryParamsPreserveTemplates', () => {
   it('returns empty array for bare ?', () => {
     expect(parseQueryParamsPreserveTemplates('http://example.com/api?')).toEqual([]);
   });
+
+  it('returns key with empty value for param without equals sign', () => {
+    expect(parseQueryParamsPreserveTemplates('http://example.com?flag&key=val')).toEqual([
+      { key: 'flag', value: '' },
+      { key: 'key', value: 'val' },
+    ]);
+  });
 });
 
 describe('rebuildUrl', () => {

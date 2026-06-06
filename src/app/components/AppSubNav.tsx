@@ -1,4 +1,4 @@
-import { type Tab, domainOf } from '../utils/appTabUtils';
+import { type Domain, type Tab, domainOf } from '../utils/appTabUtils';
 import MigrationBanner from '../../features/test-runner/components/MigrationBanner';
 import ServerStatusIndicator from '../../features/workflow/components/panels/ServerStatusIndicator';
 
@@ -7,46 +7,92 @@ interface AppSubNavProps {
   setActiveTab: (tab: Tab) => void;
 }
 
+interface SubNavItem {
+  tab: Tab;
+  label: string;
+}
+
+const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
+  api: [
+    { tab: 'requests', label: 'Requests' },
+    { tab: 'catalog', label: 'Catalog' },
+  ],
+  workflow: [
+    { tab: 'workflow', label: 'Designer' },
+    { tab: 'workflow-executions', label: 'Executions' },
+    { tab: 'webhook-deliveries', label: 'Webhooks' },
+  ],
+  testing: [
+    { tab: 'scenarios', label: 'Feature Groups' },
+    { tab: 'runner', label: 'Test Runner' },
+    { tab: 'param-runner', label: 'Parameterized Runner' },
+    { tab: 'workflow-runner', label: 'Workflow Runner' },
+    { tab: 'results', label: 'Results' },
+  ],
+  gallery: [
+    { tab: 'gallery', label: 'Samples' },
+    { tab: 'training', label: 'Training Tracks' },
+  ],
+  settings: [
+    { tab: 'environments', label: 'Environments' },
+    { tab: 'preferences', label: 'Preferences' },
+    { tab: 'kafka-settings', label: 'Kafka' },
+  ],
+  protocols: [
+    { tab: 'kafka-message-studio', label: 'Kafka' },
+  ],
+};
+
+function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab) => void) {
+  return items.map(({ tab, label }) => (
+    <button
+      key={tab}
+      className={`sub-nav-tab ${activeTab === tab ? 'active' : ''}`}
+      onClick={() => setActiveTab(tab)}
+    >
+      {label}
+    </button>
+  ));
+}
+
 export default function AppSubNav({ activeTab, setActiveTab }: AppSubNavProps) {
+  const domain = domainOf(activeTab);
+
   return (
     <div className="sub-nav">
-      {domainOf(activeTab) === 'api' && (
+      {domain === 'api' && (
         <div className="sub-nav-tabs">
-          <button className={`sub-nav-tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
-          <button className={`sub-nav-tab ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
+          {renderTabs(DOMAIN_ITEMS.api, activeTab, setActiveTab)}
         </div>
       )}
-      {domainOf(activeTab) === 'workflow' && (
+      {domain === 'workflow' && (
         <div className="sub-nav-tabs">
-          <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
-          <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
-          <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
+          {renderTabs(DOMAIN_ITEMS.workflow, activeTab, setActiveTab)}
           <div className="sub-nav-spacer" />
           <ServerStatusIndicator />
         </div>
       )}
-      {domainOf(activeTab) === 'testing' && (
+      {domain === 'testing' && (
         <>
           <div className="sub-nav-tabs">
-            <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-            <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-            <button className={`sub-nav-tab ${activeTab === 'param-runner' ? 'active' : ''}`} onClick={() => setActiveTab('param-runner')}>Parameterized Runner</button>
-            <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
-            <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+            {renderTabs(DOMAIN_ITEMS.testing, activeTab, setActiveTab)}
           </div>
           <MigrationBanner onNavigateToParamRunner={() => setActiveTab('param-runner')} />
         </>
       )}
-      {domainOf(activeTab) === 'gallery' && (
+      {domain === 'gallery' && (
         <div className="sub-nav-tabs">
-          <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Samples</button>
-          <button className={`sub-nav-tab ${activeTab === 'training' ? 'active' : ''}`} onClick={() => setActiveTab('training')}>Training Tracks</button>
+          {renderTabs(DOMAIN_ITEMS.gallery, activeTab, setActiveTab)}
         </div>
       )}
-      {domainOf(activeTab) === 'settings' && (
+      {domain === 'settings' && (
         <div className="sub-nav-tabs">
-          <button className={`sub-nav-tab ${activeTab === 'environments' ? 'active' : ''}`} onClick={() => setActiveTab('environments')}>Environments</button>
-          <button className={`sub-nav-tab ${activeTab === 'preferences' ? 'active' : ''}`} onClick={() => setActiveTab('preferences')}>Preferences</button>
+          {renderTabs(DOMAIN_ITEMS.settings, activeTab, setActiveTab)}
+        </div>
+      )}
+      {domain === 'protocols' && (
+        <div className="sub-nav-tabs">
+          {renderTabs(DOMAIN_ITEMS.protocols, activeTab, setActiveTab)}
         </div>
       )}
     </div>

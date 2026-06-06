@@ -1,0 +1,64 @@
+{
+  "id": "kafka-runner-auto-resume-load",
+  "name": "Runner — Auto-Resume Load",
+  "description": "Workflow for load testing: kafkaProduce sends real messages, kafkaConsume uses auto-resume mode (skips consume in load tests). Used for deterministic multi-iteration load tests.",
+  "variables": {
+    "testTopic": "runner.load.test"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 100, "y": 200 },
+      "data": { "label": "Start" }
+    },
+    {
+      "id": "produce-1",
+      "type": "kafkaProduce",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "label": "Produce Load Event",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "keyTemplate": "load-{{$iteration}}",
+        "bodyTemplate": "{\"type\":\"load-test\",\"iteration\":\"{{$iteration}}\",\"ts\":\"{{$timestamp}}\"}",
+        "headers": [
+          { "id": "h1", "key": "Content-Type", "value": "application/json", "enabled": true },
+          { "id": "h2", "key": "X-Test-Type", "value": "load-test", "enabled": true }
+        ],
+        "ackMode": "leader",
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "id": "consume-auto",
+      "type": "kafkaConsume",
+      "position": { "x": 650, "y": 200 },
+      "data": {
+        "label": "Consume (auto-resume)",
+        "clusterId": "local-plaintext",
+        "topic": "{{testTopic}}",
+        "timeoutMs": 5000,
+        "maxMessages": 1,
+        "startPosition": "earliest",
+        "loadTestBehavior": {
+          "mode": "auto-resume"
+        }
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 900, "y": 200 },
+      "data": { "label": "End" }
+    }
+  ],
+  "edges": [
+    { "id": "e-start-produce", "source": "start-1", "target": "produce-1" },
+    { "id": "e-produce-consume", "source": "produce-1", "target": "consume-auto" },
+    { "id": "e-consume-end", "source": "consume-auto", "target": "end-1" }
+  ],
+  "schemaVersion": 11,
+  "createdAt": 1749200000000,
+  "updatedAt": 1749200000000
+}

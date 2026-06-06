@@ -7,6 +7,7 @@ import { sharedDiffer } from '../../../shared/utils/jsonDiffKit';
 import { useVersionDiffPanel } from '../hooks/useVersionDiffPanel';
 import VersionDiffModal from './version-shared/VersionDiffModal';
 import VersionListItem from './version-shared/VersionListItem';
+import VersionDuplicateConfirm from './version-shared/VersionDuplicateConfirm';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 
@@ -246,11 +247,12 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
       {expanded && (
         <>
           {showDuplicateConfirm && (
-            <div className="version-duplicate-confirm">
-              <span>This is identical to <strong>{duplicateOfLabel}</strong>. Save anyway?</span>
-              <button type="button" className="btn btn-xs btn-accent" onClick={() => { onSaveVersion(); setShowDuplicateConfirm(false); }}>Save Anyway</button>
-              <button type="button" className="btn btn-xs" onClick={() => setShowDuplicateConfirm(false)}>Cancel</button>
-            </div>
+            <VersionDuplicateConfirm
+              show={showDuplicateConfirm}
+              duplicateOfLabel={duplicateOfLabel ?? ''}
+              onSaveAnyway={() => { onSaveVersion(); setShowDuplicateConfirm(false); }}
+              onCancel={() => setShowDuplicateConfirm(false)}
+            />
           )}
 
           <div className="version-list">

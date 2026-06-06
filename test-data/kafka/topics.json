@@ -1,0 +1,45 @@
+{
+  "operation": "topics",
+  "description": "List topics including internal for parity-test-cluster",
+  "request": {
+    "clusterId": "parity-test-cluster",
+    "includeInternal": true
+  },
+  "expectedDispatch": {
+    "op": "topics",
+    "method": "GET",
+    "path": "/api/kafka/topics",
+    "query": {
+      "clusterId": "parity-test-cluster",
+      "includeInternal": "true"
+    }
+  },
+  "expectedInvokeCommand": "kafka_topics",
+  "expectedInvokeArgs": {
+    "clusterId": "parity-test-cluster",
+    "includeInternal": true
+  },
+  "expectedHttpQuery": "clusterId=parity-test-cluster&includeInternal=true",
+  "expectedResponse": {
+    "ok": true,
+    "op": "topics",
+    "data": {
+      "clusterId": "parity-test-cluster",
+      "topics": [
+        { "name": "__consumer_offsets", "partitions": 50, "isInternal": true },
+        { "name": "orders.created", "partitions": 3, "isInternal": false },
+        { "name": "payments.authorized", "partitions": 2, "isInternal": false }
+      ]
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 50
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_NOT_CONNECTED",
+    "message": "Kafka service is not connected",
+    "retryable": false
+  },
+  "expectedErrorKind": "cluster"
+}

@@ -267,6 +267,52 @@ export default function TargetTreeNode({
     getDraggedRemapId,
   };
 
+  // Shared operator controls rendered in both the expression and non-expression mapping branches.
+  const mappingOperatorControls = showOperators && mapping ? (
+    <>
+      {mapping.negate && (
+        <button
+          type="button"
+          className="dm-negate-badge"
+          title="Negated — click to remove NOT"
+          onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping.id); }}
+          aria-label="Remove negation"
+        >NOT</button>
+      )}
+      <button
+        ref={operatorPillRef}
+        type="button"
+        className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
+        title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
+        onClick={toggleOperatorPicker}
+        onDoubleClick={(e) => e.stopPropagation()}
+        aria-label={`Change operator from ${currentOpMeta.label}`}
+        aria-expanded={showOperatorPicker}
+        aria-haspopup="listbox"
+      >
+        <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
+      </button>
+      <OperatorValueEditor
+        mapping={mapping}
+        currentOp={currentOp}
+        currentOpMeta={currentOpMeta}
+        isRangeOperator={isRangeOperator}
+        editingOperatorValue={editingOperatorValue}
+        localOperatorValue={localOperatorValue}
+        operatorValueRef={operatorValueRef}
+        rangeSecondRef={rangeSecondRef}
+        typeSelectRef={typeSelectRef}
+        setLocalOperatorValue={setLocalOperatorValue}
+        setEditingOperatorValue={setEditingOperatorValue}
+        handleTypeSelectChange={handleTypeSelectChange}
+        handleOperatorValueCommit={handleOperatorValueCommit}
+        handleOperatorValueKeyDown={handleOperatorValueKeyDown}
+        handleRangeCommit={handleRangeCommit}
+        startEditOperatorValue={startEditOperatorValue}
+      />
+    </>
+  ) : null;
+
   return (
     <div className="dm-tree-node-group">
       <div
@@ -337,99 +383,13 @@ export default function TargetTreeNode({
             {mapping.expression ? (
               <>
                 <span className="dm-mapped-fx-pill">fx</span>
-                {showOperators && mapping.negate && (
-                  <button
-                    type="button"
-                    className="dm-negate-badge"
-                    title="Negated — click to remove NOT"
-                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping.id); }}
-                    aria-label="Remove negation"
-                  >NOT</button>
-                )}
-                {showOperators && (
-                  <button
-                    ref={operatorPillRef}
-                    type="button"
-                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
-                    title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
-                    onClick={toggleOperatorPicker}
-                    onDoubleClick={(e) => e.stopPropagation()}
-                    aria-label={`Change operator from ${currentOpMeta.label}`}
-                    aria-expanded={showOperatorPicker}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
-                  </button>
-                )}
-                {showOperators && (
-                  <OperatorValueEditor
-                    mapping={mapping}
-                    currentOp={currentOp}
-                    currentOpMeta={currentOpMeta}
-                    isRangeOperator={isRangeOperator}
-                    editingOperatorValue={editingOperatorValue}
-                    localOperatorValue={localOperatorValue}
-                    operatorValueRef={operatorValueRef}
-                    rangeSecondRef={rangeSecondRef}
-                    typeSelectRef={typeSelectRef}
-                    setLocalOperatorValue={setLocalOperatorValue}
-                    setEditingOperatorValue={setEditingOperatorValue}
-                    handleTypeSelectChange={handleTypeSelectChange}
-                    handleOperatorValueCommit={handleOperatorValueCommit}
-                    handleOperatorValueKeyDown={handleOperatorValueKeyDown}
-                    handleRangeCommit={handleRangeCommit}
-                    startEditOperatorValue={startEditOperatorValue}
-                  />
-                )}
+                {mappingOperatorControls}
                 <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
               </>
             ) : (
               <>
                 <span className="dm-mapped-arrow">←</span>
-                {showOperators && mapping.negate && (
-                  <button
-                    type="button"
-                    className="dm-negate-badge"
-                    title="Negated — click to remove NOT"
-                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping.id); }}
-                    aria-label="Remove negation"
-                  >NOT</button>
-                )}
-                {showOperators && (
-                  <button
-                    ref={operatorPillRef}
-                    type="button"
-                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
-                    title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
-                    onClick={toggleOperatorPicker}
-                    onDoubleClick={(e) => e.stopPropagation()}
-                    aria-label={`Change operator from ${currentOpMeta.label}`}
-                    aria-expanded={showOperatorPicker}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
-                  </button>
-                )}
-                {showOperators && (
-                  <OperatorValueEditor
-                    mapping={mapping}
-                    currentOp={currentOp}
-                    currentOpMeta={currentOpMeta}
-                    isRangeOperator={isRangeOperator}
-                    editingOperatorValue={editingOperatorValue}
-                    localOperatorValue={localOperatorValue}
-                    operatorValueRef={operatorValueRef}
-                    rangeSecondRef={rangeSecondRef}
-                    typeSelectRef={typeSelectRef}
-                    setLocalOperatorValue={setLocalOperatorValue}
-                    setEditingOperatorValue={setEditingOperatorValue}
-                    handleTypeSelectChange={handleTypeSelectChange}
-                    handleOperatorValueCommit={handleOperatorValueCommit}
-                    handleOperatorValueKeyDown={handleOperatorValueKeyDown}
-                    handleRangeCommit={handleRangeCommit}
-                    startEditOperatorValue={startEditOperatorValue}
-                  />
-                )}
+                {mappingOperatorControls}
                 {!showOperators ? (
                   <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
                 ) : null}

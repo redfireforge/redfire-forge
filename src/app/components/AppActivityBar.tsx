@@ -6,6 +6,7 @@ import {
   isHarnessTab,
   isGalleryTab,
   isSettingsTab,
+  isProtocolsTab,
 } from '../utils/appTabUtils';
 
 interface AppActivityBarProps {
@@ -65,9 +66,9 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
       >
         <span className="ab-icon">
           <ActivityBarIcon>
-            <path d="M6 9l6 6 6-6" />
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-            <path d="M9 14h6" />
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+            <rect x="9" y="3" width="6" height="4" rx="1" />
+            <path d="M9 12l2 2 4-4" />
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Harness</span>
@@ -86,6 +87,22 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Gallery</span>
+      </button>
+      <button
+        className={`ab-btn ${domainOf(activeTab) === 'protocols' ? 'active' : ''}`}
+        onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab('kafka-message-studio'); }}
+        title="Protocols"
+      >
+        <span className="ab-icon">
+          <ActivityBarIcon>
+            <path d="M5 12h14" />
+            <path d="M5 8h14" />
+            <path d="M5 16h14" />
+            <path d="M17 6l4 2-4 2" />
+            <path d="M17 14l4 2-4 2" />
+          </ActivityBarIcon>
+        </span>
+        <span className="ab-label">Protocols</span>
       </button>
       <div className="ab-spacer" />
       <button

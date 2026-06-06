@@ -1,6 +1,6 @@
 import type { ExpressionFunction } from './types';
 import { n, s } from './helpers';
-import { isLambda, applyLambda, type LambdaValue } from '../lambdaUtils';
+import { isLambda, applyLambda, getNestedValue, type LambdaValue } from '../lambdaUtils';
 
 function asArray(v: unknown): unknown[] {
   if (Array.isArray(v)) return v;
@@ -12,32 +12,6 @@ function asArray(v: unknown): unknown[] {
     } catch { /* fall through */ }
   }
   return [v];
-}
-
-function getNestedValue(obj: unknown, path: string): unknown {
-  if (obj == null || !path) return obj;
-  const parts = path.split('.');
-  let current: unknown = obj;
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined;
-    const bracketIdx = part.indexOf('[');
-    if (bracketIdx >= 0) {
-      const key = part.slice(0, bracketIdx);
-      if (key) current = (current as Record<string, unknown>)[key];
-      let rest = part.slice(bracketIdx);
-      while (rest.startsWith('[')) {
-        const closeIdx = rest.indexOf(']');
-        if (closeIdx < 0) break;
-        const idxStr = rest.slice(1, closeIdx);
-        if (current == null) return undefined;
-        current = (current as unknown[])[parseInt(idxStr, 10)];
-        rest = rest.slice(closeIdx + 1);
-      }
-    } else {
-      current = (current as Record<string, unknown>)[part];
-    }
-  }
-  return current;
 }
 
 function stringify(v: unknown): string {

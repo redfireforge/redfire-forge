@@ -574,4 +574,55 @@ export const workflowPaths: TrainingPath[] = [
       },
     ],
   },
+
+  /* ── Workflow: Kafka Event-Driven ── */
+  {
+    id: 'wf-kafka-event-driven',
+    name: 'Workflow: Kafka Event-Driven',
+    icon: '⚡',
+    description:
+      'Build event-driven workflows with Kafka triggers, producers, consumers, and async correlation using KafkaTrigger, KafkaProduce, KafkaConsume, and KafkaWait nodes.',
+    phases: [
+      {
+        id: 1,
+        name: 'Publishing & Triggering',
+        manuals: [
+          {
+            title: 'Kafka: Publish Order Event',
+            description: 'Publish structured event messages to Kafka topics from inside a workflow using KafkaProduce.',
+            difficulty: 'easy',
+            sampleId: 'sample-kafka-produce',
+            manualPath: 'workflow/event-driven/kafka-produce-easy.html',
+          },
+          {
+            title: 'Kafka: Event-Triggered Processor',
+            description: 'Subscribe to a Kafka topic and react to every incoming message using KafkaTrigger.',
+            difficulty: 'easy',
+            sampleId: 'sample-kafka-trigger',
+            manualPath: 'workflow/event-driven/kafka-trigger-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Full Pipelines',
+        manuals: [
+          {
+            title: 'Kafka: Full Event Pipeline',
+            description: 'End-to-end pipeline: trigger → validate → produce result → consume confirmation. All three Kafka nodes.',
+            difficulty: 'medium',
+            sampleId: 'sample-kafka-event-pipeline',
+            manualPath: 'workflow/event-driven/kafka-event-pipeline-medium.html',
+          },
+          {
+            title: 'Kafka: Async Request–Reply',
+            description: 'Publish a request message then wait for a correlated reply using KafkaWait and correlation ID matching.',
+            difficulty: 'advanced',
+            sampleId: 'sample-kafka-async-correlation',
+            manualPath: 'workflow/event-driven/kafka-async-correlation-advanced.html',
+          },
+        ],
+      },
+    ],
+  },
 ];

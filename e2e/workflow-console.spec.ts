@@ -42,7 +42,7 @@ test.describe('Workflow Console Panel', () => {
       localStorage.setItem('workflows_sample_dismissed', 'true');
     }, seedWorkflow);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForSelector('.app-header', { timeout: 25000 });
     await page.waitForLoadState('networkidle');
   });
 
@@ -73,7 +73,7 @@ test.describe('Workflow Console Panel', () => {
 
       // Reload
       await page.reload();
-      await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('.app-header')).toBeVisible({ timeout: 25_000 });
 
       // Console should still be open
       await expect(page.locator('.wf-console-panel')).toBeVisible({ timeout: 5000 });

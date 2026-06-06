@@ -1,0 +1,48 @@
+{
+  "operation": "unsubscribe",
+  "description": "Cancel active subscription sub-parity-001",
+  "request": {
+    "clusterId": "parity-test-cluster",
+    "subscriptionId": "sub-parity-001"
+  },
+  "expectedDispatch": {
+    "op": "unsubscribe",
+    "method": "POST",
+    "path": "/api/kafka/unsubscribe",
+    "query": {},
+    "body": {
+      "clusterId": "parity-test-cluster",
+      "subscriptionId": "sub-parity-001"
+    }
+  },
+  "expectedInvokeCommand": "kafka_unsubscribe",
+  "expectedInvokeArgs": {
+    "request": {
+      "clusterId": "parity-test-cluster",
+      "subscriptionId": "sub-parity-001"
+    }
+  },
+  "expectedHttpBody": {
+    "clusterId": "parity-test-cluster",
+    "subscriptionId": "sub-parity-001"
+  },
+  "expectedResponse": {
+    "ok": true,
+    "op": "unsubscribe",
+    "data": {
+      "clusterId": "parity-test-cluster",
+      "subscriptionId": "sub-parity-001",
+      "unsubscribed": true
+    },
+    "meta": {
+      "timestamp": "2026-06-01T00:00:00.000Z",
+      "durationMs": 15
+    }
+  },
+  "expectedErrorShape": {
+    "code": "KAFKA_SUBSCRIPTION_NOT_FOUND",
+    "message": "Subscription 'sub-parity-001' does not exist",
+    "retryable": false
+  },
+  "expectedErrorKind": "server"
+}

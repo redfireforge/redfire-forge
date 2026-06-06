@@ -182,6 +182,34 @@ vi.mock('../configs/CorrelationWaitConfig', () => ({
   )),
 }));
 
+vi.mock('../configs/KafkaProduceConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+    variableHints?: WorkflowVariableHint[];
+  }) => (
+    <div data-testid="kafka-produce-config" data-hints={String(props.variableHints?.length ?? 0)}>
+      KafkaProduceConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched Kafka Produce' })}>patch-kafka-produce</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/KafkaConsumeConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+    variableHints?: WorkflowVariableHint[];
+  }) => (
+    <div data-testid="kafka-consume-config" data-hints={String(props.variableHints?.length ?? 0)}>
+      KafkaConsumeConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched Kafka Consume' })}>patch-kafka-consume</button>
+    </div>
+  )),
+}));
+
 vi.mock('./WorkflowVariableInsertModal', () => ({
   __esModule: true,
   default: vi.fn().mockImplementation((props: { open: boolean; initialSearch: string }) => (
@@ -487,6 +515,58 @@ describe('WorkflowNodeConfigModal', () => {
     fireEvent.click(screen.getByText('patch-correlation'));
     fireEvent.click(screen.getByText('Save'));
     expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ timeoutMs: 1234 }));
+  });
+
+  it('renders KafkaProduceConfig for kafkaProduce node', () => {
+    const node = makeNode('kafkaProduce', { clusterId: 'cluster-a', topic: 'orders' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={node}
+        conditionVariableHints={[{ ref: 'token', label: 'token' }]}
+      />,
+    );
+    expect(screen.getByTestId('kafka-produce-config')).toBeTruthy();
+    fireEvent.click(screen.getByText('patch-kafka-produce'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Patched Kafka Produce' }));
+  });
+
+  it('renders KafkaConsumeConfig for kafkaConsume node', () => {
+    const node = makeNode('kafkaConsume', { clusterId: 'cluster-a', topic: 'orders' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={node}
+        conditionVariableHints={[{ ref: 'token', label: 'token' }]}
+      />,
+    );
+    expect(screen.getByTestId('kafka-consume-config')).toBeTruthy();
+    fireEvent.click(screen.getByText('patch-kafka-consume'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Patched Kafka Consume' }));
+  });
+
+  it('renders full KafkaTriggerConfig panel for kafkaTrigger node', () => {
+    const node = makeNode('kafkaTrigger', { clusterId: 'test-cluster', topic: 'orders.created', label: 'My Trigger' });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('kafka-trigger-config')).toBeTruthy();
+    expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
+    expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
+    expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
+    expect(screen.getByText('Max Concurrent Runs')).toBeTruthy();
+    expect(screen.getByText('Extract Variables')).toBeTruthy();
+  });
+
+  it('renders full KafkaWaitConfig panel for kafkaWait node', () => {
+    const node = makeNode('kafkaWait', { clusterId: 'test-cluster', topic: 'payments.done', correlationIdExpression: '{{orderId}}', correlationSource: 'body', timeoutMs: 60000, label: 'My Wait' });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByTestId('kafka-wait-config')).toBeTruthy();
+    expect(screen.getByDisplayValue('My Wait')).toBeTruthy();
+    expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
+    expect(screen.getByDisplayValue('payments.done')).toBeTruthy();
+    expect(screen.getByText('Correlation Matching')).toBeTruthy();
+    expect(screen.getByText('Correlation Source')).toBeTruthy();
   });
 
   // ── Draft / base URL / HTTP callbacks ──

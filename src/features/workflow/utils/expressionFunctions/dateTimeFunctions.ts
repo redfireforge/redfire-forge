@@ -63,7 +63,10 @@ const $diffMs: ExpressionFunction = {
       const d1 = new Date(isNaN(Number(a)) ? s(a) : Number(a)).getTime();
       const d2 = new Date(isNaN(Number(b)) ? s(b) : Number(b)).getTime();
       return d1 - d2;
-    } catch { return 0; }
+    } catch {
+      /* c8 ignore next */
+      return 0;
+    }
   },
 };
 
@@ -122,7 +125,15 @@ const $epoch: ExpressionFunction = {
   args: [{ name: 'date', type: 'string', required: true, description: 'Date string to convert' }],
   returnType: 'number',
   examples: [{ input: '$epoch("2024-01-15T10:30:00Z")', output: '1705314600000' }],
-  evaluate: (v) => { try { const t = new Date(s(v)).getTime(); return isNaN(t) ? 0 : t; } catch { return 0; } },
+  evaluate: (v) => {
+    try {
+      const t = new Date(s(v)).getTime();
+      return isNaN(t) ? 0 : t;
+    } catch {
+      /* c8 ignore next */
+      return 0;
+    }
+  },
 };
 
 export const dateTimeFunctions: ExpressionFunction[] = [
