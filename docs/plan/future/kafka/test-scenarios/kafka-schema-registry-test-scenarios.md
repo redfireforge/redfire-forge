@@ -256,7 +256,7 @@ Open http://localhost:5173 in your browser.
 
 **Expected:**
 - ☐ Below the **"Schema Registry"** title, a subtitle shows **"{n} of {total} subjects"**
-- ☐ When no filter is active, `n` equals `total` (e.g., "2 of 2 subjects")
+- ☐ When no filter is active, `n` equals `total` (e.g., "5 of 5 subjects" with the full smoke-test seed)
 - ☐ When a filter is active, `n` reflects the filtered count (see SR-07)
 
 ---
@@ -271,7 +271,7 @@ Open http://localhost:5173 in your browser.
 
 **Expected:**
 - ☐ Only subjects containing "batch" (case-insensitive) appear in the table
-- ☐ The subtitle updates to show **"1 of 2 subjects"** (or appropriate counts)
+- ☐ The subtitle updates to show **"1 of 5 subjects"** (or appropriate counts depending on how many subjects are registered)
 - ☐ Clearing the filter input restores all subjects
 
 ---

@@ -112,14 +112,11 @@ location.reload();
 
 **Expected:**
 - ☐ Page heading (above the two-panel area): **"Kafka Cluster Studio"**
-- ☐ Subtitle below that heading: *"Configure broker profiles, manage connections, and browse live topics from one place."*
-- ☐ Left panel heading **"Clusters"**, subtitle *"Multiple saved profiles · fast switch · live health"*, and a **Disconnected** badge pill in the top-right corner
+- ☐ Subtitle below that heading: *"Configure broker profiles and manage connections."*
+- ☐ Left panel heading **"Clusters"**, subtitle *"Saved profiles · fast switch · live health"*, and a **Disconnected** badge pill in the top-right corner
 - ☐ Body: paragraph **"No clusters configured yet"**, helper text *"Add your first Kafka cluster to enable topic browsing and workflow integration."*, and a blue **"Create First Cluster"** button
-- ☐ Below the empty-state card: a "Disconnected" status label, and five action buttons — **Test Connection / Connect / Disconnect / Refresh Status / Clear Error** — all **disabled** (greyed out)
-- ☐ **Auto-connect** checkbox *"Auto-connect the selected cluster on startup"* is visible (unchecked by default)
 - ☐ Right panel heading: **"Create Cluster"**, placeholder text (italic): *"Select a saved cluster and click Edit, or click New Cluster to start configuring one."*
-- ☐ The overall Clusters panel badge changes to **disconnected** (once status can be checked)
-- ☐ Topic Explorer placeholder (when cluster selected but not connected): *"Connect the selected cluster to browse topics and verify startup restoration behavior."*
+- ☐ **Note:** The action buttons (Test Connection / Connect / Disconnect / Refresh Status / Clear Error) and the Auto-connect checkbox are **not visible** in the empty state — they appear only after at least one cluster has been saved and selected
 - ☐ AppHeader does **not** show a "Kafka" pill (indicator is hidden when no clusters are configured)
 
 ---
@@ -273,37 +270,40 @@ location.reload();
 
 ## SC-10 — Topic Browser Populates After Connect
 
+> **Note:** The topic browser is located in **Protocols → Kafka → Topics** tab, not in the Settings page. After connecting in Settings, navigate to **Protocols** in the left activity bar, then click the **Topics** tab to see topics.
+
 **Steps:**
-1. After connecting (SC-08), scroll down to **Topic Explorer**
-2. Observe the topic list
+1. After connecting (SC-08), click **Protocols** in the left activity bar
+2. The **Kafka** domain tab is auto-shown; click the **Topics** tab
+3. Observe the topic list
 
 **Expected:**
-- ☐ Topic Explorer heading shows `Kafka / Topics` and the selected cluster name
-- ☐ Topics table shows columns: **Topic**, **Partitions**, **Type**
-- ☐ At minimum, the topic `redfireforge.results.summary` appears with type **App** and **1** partition
-- ☐ A status line shows `1 of 1 topic shown` and `Internal topics hidden`
-- ☐ Domain filter chips appear: **"All Topics"** and **"redfireforge"**
-- ☐ **"Include internal topics"** checkbox is enabled and unchecked by default
-- ☐ Checking **"Include internal topics"** immediately adds `__consumer_offsets` to the list (type **Internal**, **3** partitions) — status line changes to `2 of 2 topics shown` and `Including internal topics`
-- ☐ Unchecking it again hides `__consumer_offsets` and restores the original count
+- ☐ Topics table shows columns: **TOPIC**, **PARTS**, **REPL**, **TRAFFIC**, **CGS**, **HEALTH**
+- ☐ With the seeded data set, at least 37 topics are visible
+- ☐ Domain filter chips appear at the top: **All**, plus chips per namespace prefix (e.g. **orders**, **redfireforge**, **users**, etc.)
+- ☐ Filter dropdowns: **Health** (All/Healthy/Warning/Unknown), **Parts** (Any/1–4/5–12/12+), **Retention** (Any/< 1 day/1–7 days/> 7 days)
+- ☐ **Internal** toggle chip is visible; clicking it adds `__consumer_offsets` and other internal topics
+- ☐ **Recently Active** and **Lagging Consumers** special chips appear (disabled until a topic is selected and detail loaded)
 
 ---
 
 ## SC-11 — Search / Filter Topics
 
-**Prerequisites:** SC-10 complete (topics visible)
+> **Note:** Search and filtering are in **Protocols → Kafka → Topics** tab.
+
+**Prerequisites:** SC-10 complete (topics visible in Protocols → Kafka → Topics)
 
 **Steps:**
-1. In the Topic Explorer search box (placeholder: "Search topics, prefixes, domains, tags"), type `debug`
+1. In the topic search box (placeholder: "Search topics…"), type `redfireforge`
 2. Observe the list
 3. Clear the search box
-4. If domain chips are visible (e.g., "all", "redfireforge"), click a non-"all" chip
+4. Click a domain chip (e.g., **orders**)
 
 **Expected:**
-- ☐ Typing `results` (or `redfireforge`) filters the list to show only matching topics
+- ☐ Typing `redfireforge` filters the list to show only topics with that prefix
 - ☐ Clearing the search restores the full list
-- ☐ Clicking the **"redfireforge"** domain chip filters to only topics with the `redfireforge` prefix (e.g., `redfireforge.results.summary`)
-- ☐ Clicking **"All Topics"** restores all topics
+- ☐ Clicking the **orders** domain chip filters to only `orders.*` topics
+- ☐ Clicking **All** restores all topics
 - ☐ Domain chip filtering and text search can be combined
 
 ---
@@ -318,8 +318,7 @@ location.reload();
 - ☐ The cluster card label returns to **Idle**
 - ☐ Status text changes back to **"Disconnected"**
 - ☐ **Connect** button becomes enabled again; **Disconnect** becomes disabled
-- ☐ Topic Explorer search box goes back to disabled, **Refresh Topics** disabled
-- ☐ Topic list is replaced by the placeholder: *"Connect the selected cluster to browse topics and verify startup restoration behavior."*
+- ☐ In **Protocols → Kafka → Topics**, the topic list shows a guard/placeholder when not connected
 
 ---
 
@@ -456,13 +455,12 @@ cd docker/kafka/plaintext && docker compose stop
 - ☐ Both clusters are listed in the left panel in creation order
 - ☐ After saving, the new cluster is **automatically selected** ("Selected: Production Mirror")
 - ☐ The new cluster's card shows **Idle** badge (not Connected) and broker address `prod-kafka:9092`
-- ☐ The Topic Explorer breadcrumb immediately changes to "Cluster: Production Mirror" and shows the placeholder: *"Connect the selected cluster to browse topics..."* (not connected)
+- ☐ After switching to Production Mirror, navigating to **Protocols → Kafka → Topics** shows a guard/placeholder (Production Mirror is not connected)
 - ☐ Clicking the **Local Dev (Redpanda)** card:
   - Switches selection: "Selected: Local Dev (Redpanda)"
-  - Topic Explorer breadcrumb changes to "Cluster: Local Dev (Redpanda)"
-  - If Local Dev was previously connected, topics re-appear (the backend connection persists in-session)
+  - If Local Dev was previously connected, navigating to Protocols → Kafka → Topics shows topics again (the backend connection persists in-session)
 - ☐ Clicking **Production Mirror** again:
-  - Switches selection back; Topic Explorer shows placeholder (Production Mirror is not connected)
+  - Switches selection back; Protocols → Kafka → Topics shows guard (Production Mirror is not connected)
 - ☐ Switching clusters does **not** auto-disconnect the previously connected cluster — its backend connection persists until you click Disconnect explicitly
 
 ---
@@ -502,7 +500,7 @@ cd docker/kafka/plaintext && docker compose stop
 - ☐ The **previously selected cluster is automatically restored** ("Selected: Local Dev (Redpanda)")
 - ☐ A connection attempt fires automatically: status badge briefly shows **testing** state → then **Connected** (if Docker and server are running)
 - ☐ Status text shows **"Connected to local-dev"** without manually clicking Connect
-- ☐ Topics load automatically in the Topic Explorer
+- ☐ Navigate to **Protocols → Kafka → Topics** — topics load automatically (they are available since auto-connect connected on load)
 - ☐ The "Auto-connect" checkbox persists across reloads (saved to localStorage)
 
 > **Note:** Auto-connect fires once when the Kafka settings tab first loads during a session — it does not re-fire on tab switches within the same session.

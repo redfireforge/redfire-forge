@@ -1,10 +1,11 @@
 # Kafka Test Scenarios Plan
 
-> **Purpose:** Master plan for all remaining Kafka visual test-scenarios MD files.
+> **Purpose:** Master plan for all Kafka visual test-scenarios MD files.
 > **Created:** 2026-06-04
 > **Updated:** 2026-06-05
-> **Completed:** `kafka-settings-test-scenarios.md` (24), `kafka-message-studio-test-scenarios.md` (39), `kafka-topic-explorer-test-scenarios.md` (26), `kafka-schema-registry-test-scenarios.md` (28), `kafka-workflow-nodes-test-scenarios.md` (48)
-> **Remaining:** 2 files, ~55 scenarios total
+> **Completed:** `kafka-settings-test-scenarios.md` (24), `kafka-message-studio-test-scenarios.md` (39), `kafka-topic-explorer-test-scenarios.md` (26), `kafka-schema-registry-test-scenarios.md` (37), `kafka-workflow-nodes-test-scenarios.md` (48), `kafka-secure-tls-stream-test-scenarios.md` (17), `kafka-runner-test-scenarios.md` (20) — **Total: 211 scenarios across 7 files**
+> **In Progress:** None — all files complete except Tauri transport
+> **Remaining:** 1 file (`kafka-tauri-transport-test-scenarios.md`, ~18 scenarios)
 >
 > **Source documents referenced:**
 > - `integration-plan.md` — Phase definitions and scope (Phases 1–9 + optional Phase 10)
@@ -30,10 +31,11 @@
 | ✅ | `kafka-settings-test-scenarios.md` | Integration Phases 1–3 + Phase 9 settings Tauri (SC-21) + SASL/SCRAM e2e (SC-23, SC-24) | Scenarios 1–4 | 24 | **Done** |
 | ✅ | `kafka-message-studio-test-scenarios.md` | Message Studio Phases 1–3 (Publish, Consume, Templates, Streaming, Workflow) | — (MS Plan Phases 1–3) | 39 | **Done** |
 | ✅ | `kafka-topic-explorer-test-scenarios.md` | Message Studio Phase 4 (Topic Explorer standalone page) | Scenario 4 (extended) | 26 | **Done** |
-| ✅ | `kafka-schema-registry-test-scenarios.md` | Message Studio Phase 5 + Integration Phase 10 (Registry Browser + schema-aware produce/consume) | Scenarios 15–15I | 28 | **Done** |
+| ✅ | `kafka-schema-registry-test-scenarios.md` | Message Studio Phase 5 + Integration Phase 10 (Registry Browser + schema-aware produce/consume + E2E workflow Avro round-trip) | Scenarios 15–15I | 37 | **Done** |
 | ✅ | `kafka-workflow-nodes-test-scenarios.md` | Integration Phases 4–5 (Workflow Kafka nodes, Trigger, Wait) | Scenarios 5–9I | 48 | **Done** |
-| 5 | `kafka-runner-test-scenarios.md` | Integration Phases 6–8 (Runner, Load Policy, Results Publishing) | Scenarios 10–13G | ~35 | Pending |
-| 6 | `kafka-tauri-transport-test-scenarios.md` | Integration Phase 9 (Tauri-native transport parity, beyond settings) | Scenarios 14–14H | ~20 | Pending |
+| ✅ | `kafka-secure-tls-stream-test-scenarios.md` | SASL/SCRAM workflows, TLS-encrypted workflows, Kafka Studio Stream mode | — (cross-cutting) | 17 | **Done** |
+| ✅ | `kafka-runner-test-scenarios.md` | Integration Phases 6–8 (Runner, Load Policy, Results Publishing) | Scenarios 10–13G | 20 | **Done** — 20/20 validated, 3 design gaps fixed |
+| 7 | `kafka-tauri-transport-test-scenarios.md` | Integration Phase 9 (Tauri-native transport parity, beyond settings) | Scenarios 14–14H | ~18 | Pending |
 
 ---
 
@@ -562,12 +564,13 @@ See `docker/kafka/e2e/README.md` for full documentation.
 Recommended order for writing and validating these files:
 
 ```
-1. kafka-message-studio-test-scenarios.md    (MS-01 → MS-35)   ✅ Done — 39 scenarios
-2. kafka-topic-explorer-test-scenarios.md    (TE-01 → TE-26)   ✅ Done — 26 scenarios
-3. kafka-schema-registry-test-scenarios.md   (SR-01 → SR-28)   ✅ Done — 28 scenarios
-4. kafka-workflow-nodes-test-scenarios.md     (WN-01 → WN-48)   ✅ Done — 48 scenarios
-5. kafka-runner-test-scenarios.md            (KR-01 → KR-38)
-6. kafka-tauri-transport-test-scenarios.md   (TT-01 → TT-18)   ← Requires Tauri build
+1. kafka-message-studio-test-scenarios.md       (MS-01 → MS-35)   ✅ Done — 39 scenarios
+2. kafka-topic-explorer-test-scenarios.md       (TE-01 → TE-26)   ✅ Done — 26 scenarios
+3. kafka-schema-registry-test-scenarios.md      (SR-01 → SR-28 + SR-E2E-01 → SR-E2E-09) ✅ Done — 37 scenarios
+4. kafka-workflow-nodes-test-scenarios.md        (WN-01 → WN-48)   ✅ Done — 48 scenarios
+5. kafka-secure-tls-stream-test-scenarios.md    (SW/TW/SM scenarios) ✅ Done — 17 scenarios
+6. kafka-runner-test-scenarios.md               (KR-01 → KR-20)   ✅ Done — 20/20 validated
+7. kafka-tauri-transport-test-scenarios.md      (TT-01 → TT-18)   ← Requires Tauri build
 ```
 
 Each file should be completed end-to-end before moving to the next:
@@ -582,9 +585,10 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | `kafka-settings-test-scenarios.md` | Phases 1–3 + Phase 9 settings (SC-21) + SASL/SCRAM e2e | — | Scenarios 1–4 | ✅ Done |
 | `kafka-message-studio-test-scenarios.md` | Phase 1 (APIs) | MS Phases 1–3 | — (MS Plan-driven) | ✅ Done |
 | `kafka-topic-explorer-test-scenarios.md` | Phase 3D (basic topics) | MS Phase 4 | Scenario 4 (extended) | ✅ Done |
-| `kafka-schema-registry-test-scenarios.md` | Phase 10 (registry + schema produce/consume) | MS Phase 5 | Scenarios 15–15I | ✅ Done |
+| `kafka-schema-registry-test-scenarios.md` | Phase 10 (registry + schema produce/consume + E2E Avro workflow) | MS Phase 5 | Scenarios 15–15I | ✅ Done |
 | `kafka-workflow-nodes-test-scenarios.md` | Phases 4–5 | MS Phase 3C/3D (bridge) | Scenarios 5–9I | ✅ Done |
-| `kafka-runner-test-scenarios.md` | Phases 6–8 | — | Scenarios 10–13G | Pending |
+| `kafka-secure-tls-stream-test-scenarios.md` | Cross-cutting (SASL/TLS workflows + Studio Stream) | MS Phase 3B (stream) | — (security + stream) | ✅ Done |
+| `kafka-runner-test-scenarios.md` | Phases 6–8 | — | Scenarios 10–13G | ✅ Done |
 | `kafka-tauri-transport-test-scenarios.md` | Phase 9 (full transport parity) | — | Scenarios 14–14H | Pending |
 
 ---

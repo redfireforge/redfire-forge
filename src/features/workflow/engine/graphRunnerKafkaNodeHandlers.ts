@@ -4,9 +4,10 @@
  */
 import type { WorkflowNode, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag, KafkaConsumedMessage } from './graphRunnerNodeHandlerContext';
-import type { KafkaFailureClass, CapturedKafkaNodeDetails } from '../../../shared/types';
+import type { RequestResult, KafkaFailureClass, KafkaResultMeta, CapturedKafkaNodeDetails } from '../../../shared/types';
 import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
 import { waitWithAbort } from './correlationWaitHelpers';
+import { nextResultId } from '../../../engine/requestExecution';
 
 // ── Bounded defaults ────────────────────────────────────────
 
@@ -147,6 +148,38 @@ function captureKafkaDetails(
   hCtx.capturedKafkaDetails?.set(nodeId, details);
 }
 
+// ── RequestResult builder for Kafka node operations ─────────
+
+function buildKafkaResult(
+  nodeId: string,
+  label: string,
+  transportType: 'kafkaProduce' | 'kafkaConsume',
+  topic: string,
+  durationMs: number,
+  passed: boolean,
+  kafkaResultMeta?: KafkaResultMeta,
+  errorMessage?: string,
+): RequestResult {
+  return {
+    id: nextResultId(),
+    scenarioId: nodeId,
+    scenarioName: label,
+    url: `kafka://${topic}`,
+    method: transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME',
+    httpStatus: passed ? 200 : 0,
+    responseTimeMs: durationMs,
+    responseBody: '',
+    timestamp: Date.now(),
+    passed,
+    validationMode: 'none',
+    failureDetails: [],
+    workflowNodeId: nodeId,
+    transportType,
+    kafkaResultMeta,
+    errorMessage,
+  };
+}
+
 // ── Kafka Produce Handler ───────────────────────────────────
 
 export async function handleKafkaProduceNode(
@@ -222,6 +255,15 @@ export async function handleKafkaProduceNode(
       bodyPreview: resolvedBody ? truncate(resolvedBody, MAX_BODY_PREVIEW) : undefined,
     });
 
+    const kafkaResultMeta: KafkaResultMeta = {
+      topic: resolvedTopic,
+      partition: result.partition,
+      offset: Number(result.offset) || 0,
+      key: resolvedKey,
+      headers: hdrEntries.length > 0 ? resolvedHeaders : undefined,
+    };
+    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaProduce', resolvedTopic, durationMs, true, kafkaResultMeta));
+
     // ── Result details ──
     hCtx.log({ prefix: '✓', text: `[${label}] Produced — ${durationMs}ms` });
     hCtx.log({ prefix: '✓', text: `[${label}]   partition: ${result.partition}, offset: ${result.offset}` });
@@ -241,6 +283,8 @@ export async function handleKafkaProduceNode(
       durationMs,
       failureClass,
     });
+
+    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaProduce', resolvedTopic, durationMs, false, undefined, msg));
 
     hCtx.log({ prefix: '!', text: `[${label}] Produce failed [${failureClass}] — ${durationMs}ms` });
     hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });
@@ -389,6 +433,16 @@ export async function handleKafkaConsumeNode(
       bodyPreview: firstMsg?.value ? truncate(firstMsg.value, MAX_BODY_PREVIEW) : undefined,
     });
 
+    const kafkaResultMeta: KafkaResultMeta = {
+      topic: resolvedTopic,
+      partition: firstMsg?.partition ?? 0,
+      offset: Number(firstMsg?.offset) || 0,
+      key: firstMsg?.key,
+      headers: firstMsg?.headers,
+      matchedMessages: messages.length,
+    };
+    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaConsume', resolvedTopic, durationMs, true, kafkaResultMeta));
+
     // ── Result details ──
     if (messages.length === 0) {
       hCtx.log({ prefix: '~', text: `[${label}] No messages received (timeout, ${durationMs}ms)` });
@@ -423,6 +477,8 @@ export async function handleKafkaConsumeNode(
       failureClass,
       matchedMessages: 0,
     });
+
+    hCtx.results.push(buildKafkaResult(nodeId, label, 'kafkaConsume', resolvedTopic, durationMs, false, undefined, msg));
 
     hCtx.log({ prefix: '!', text: `[${label}] Consume failed [${failureClass}] — ${durationMs}ms` });
     hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });

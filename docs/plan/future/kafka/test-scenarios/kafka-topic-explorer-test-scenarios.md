@@ -197,7 +197,7 @@ location.reload();
 **Expected:**
 - ☐ The page has `data-testid="topic-explorer-page"`
 - ☐ A **two-column layout** renders:
-  - **Left column:** topic list card with header "Topics" and a count like *"14 of 14"* (filtered count / total count)
+  - **Left column:** topic list card with header "Topics" and a count like *"37 of 37"* (filtered count / total count — depends on seed; the full smoke-test seed creates 37 topics)
   - **Right column:** currently empty — no detail panel visible until a topic is clicked
 - ☐ The sub-navigation bar shows four tabs: **Publish**, **Consume**, **Topics** (active/highlighted), **Schema Registry**
 - ☐ There is also a **"Kafka"** domain label button above the sub-nav tabs
@@ -257,7 +257,7 @@ location.reload();
 **Expected:**
 - ☐ By default, internal topics (like `__consumer_offsets`) are **hidden** — the "Internal" checkbox is unchecked
 - ☐ Checking "Internal" includes any topics flagged as `isInternal` in the list. Each internal topic shows an **"Internal"** badge next to its name
-- ☐ The header count may increase (e.g., from *"14 of 14"* to *"15 of 15"*)
+- ☐ The header count may increase (e.g., from *"37 of 37"* to *"38 of 37"*) — depends on whether Redpanda exposes internal topics
 - ☐ Unchecking "Internal" hides internal topics again
 
 > **Note — Redpanda:** When testing with Redpanda, `__consumer_offsets` may not appear in the topic list because Redpanda's admin API typically does not expose internal topics through `fetchTopicMetadata`. This behavior differs from Apache Kafka, where internal topics like `__consumer_offsets` and `__transaction_state` are returned with `isInternal: true`. With Redpanda, checking "Internal" may not change the visible count — this is expected.
@@ -272,9 +272,10 @@ location.reload();
 
 **Expected:**
 - ☐ The chip bar shows: **"All"** (default active, highlighted) followed by dynamic prefix chips derived from topic names
-- ☐ Expected chips (based on seeded topics): `All`, `inventory`, `notifications`, `orders`, `payments`, `redfireforge`
-  - Topic prefixes are derived from the first segment before the first `.` (e.g., `orders.created` → `orders`). Topics without a `.` (e.g., `test-topic`) do not generate a chip.
-  - Plus two special chips at the end: **"Recently Active"** and **"Lagging Consumers"**
+- ☐ Expected chips (based on full smoke-test seed): `All`, `audit`, `headers`, `inventory`, `notifications`, `orders`, `payments`, `redfireforge`, `runner`, `shipping`, `tauri`, `test`, `users`
+  - Topic prefixes are derived from the first segment before the first `.` (e.g., `orders.created` → `orders`). Topics without a `.` do not generate a chip.
+  - Chips are dynamic — actual list depends on which topics exist in the broker
+  - Plus two special chips at the end: **"Recently Active"** and **"Lagging Consumers"** (greyed out until a topic detail is loaded)
 - ☐ Clicking **"orders"** filters to only topics with the `orders.` prefix (e.g., `orders.created`, `orders.updated`, `orders.failed`)
 - ☐ The header count updates accordingly
 - ☐ Clicking **"All"** restores all topics
@@ -456,6 +457,7 @@ location.reload();
   - **JSONPath** — text input, placeholder *"$.store.name"* (`data-testid="detail-jsonpath"`)
   - **JSONPath Expected** — text input, placeholder *"expected value"* (`data-testid="detail-jsonpath-expected"`)
   - **Max Messages** — text input, default `50`
+  - **Sort Order** — dropdown: *"Oldest First"* (default), *"Newest First"* — controls display order of the results table
 - ☐ **"Consume Once"** button (primary, enabled)
 
 **Expected (after consuming):**

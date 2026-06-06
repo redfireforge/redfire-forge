@@ -331,8 +331,8 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
         : onProgress;
 
       let testResult;
-      // Build Kafka operations for workflow-mode execution (Kafka nodes need the server bridge).
-      const kafkaOps = workflow ? buildKafkaNodeOperations() : undefined;
+      // Build Kafka operations for both workflow-mode and harness-mode Kafka scenarios.
+      const kafkaOps = buildKafkaNodeOperations();
       if (useRust) {
         testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {

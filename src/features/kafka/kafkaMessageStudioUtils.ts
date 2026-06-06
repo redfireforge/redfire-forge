@@ -4,7 +4,7 @@
  */
 
 import { saveJsonFile } from '../../shared/utils/fileSaver';
-import type { KafkaConsumeDraft, KafkaConsumeResultRow, KafkaHeaderRow, KafkaPublishDraft } from './types';
+import type { KafkaConsumeCursor, KafkaConsumeDraft, KafkaConsumeResultRow, KafkaHeaderRow, KafkaPublishDraft } from './types';
 
 // ── JSON helpers ───────────────────────────────────────────────────────────
 
@@ -120,6 +120,7 @@ export function buildPublishRequest(
 export function buildConsumeRequest(
   draft: KafkaConsumeDraft,
   clusterId: string,
+  seekOffsets?: KafkaConsumeCursor[],
 ): Record<string, unknown> {
   const timeoutMsRaw = parseInt(draft.timeoutMs, 10);
   const maxMessagesRaw = parseInt(draft.maxMessages, 10);
@@ -138,6 +139,11 @@ export function buildConsumeRequest(
   if (filter) req.filter = filter;
 
   if (draft.schemaConfig) req.schemaConfig = draft.schemaConfig;
+
+  const sortOrder = draft.sortOrder ?? 'asc';
+  if (sortOrder !== 'asc') req.sortOrder = sortOrder;
+
+  if (seekOffsets && seekOffsets.length > 0) req.seekOffsets = seekOffsets;
 
   return req;
 }

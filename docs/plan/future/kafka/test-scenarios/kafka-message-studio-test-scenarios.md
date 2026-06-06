@@ -3,7 +3,7 @@
 > **Covers:** Message Studio Phases 1–3 — Core Publish/Consume, Templates, and Streaming
 > **Created:** 2026-06-04
 > **Purpose:** Step-by-step manual guide for verifying the Kafka Message Studio page:
-> Publish Studio (send messages), Consume Studio (fetch / stream messages), Templates (save/load/delete),
+> Publish tab (send messages), Consume tab (fetch / stream messages), Templates (save/load/delete),
 > Stream mode (live subscription), and Workflow integration (Use as Workflow Input / Map from Workflow).
 >
 > Work through each scenario top-to-bottom. Check the box ☐ when the expected result is confirmed.
@@ -170,7 +170,7 @@ location.reload();
 - ☐ Below the title: *"Add a Kafka cluster in settings to get started."*
 - ☐ A button labeled **"→ Add a cluster"** is visible
 - ☐ Clicking the button navigates to **Settings → Kafka**
-- ☐ No tab strip (Publish Studio / Consume Studio) is visible — the guard replaces the entire page
+- ☐ No tab strip (Publish / Consume / Topics / Schema Registry) is visible — the guard replaces the entire page
 
 ---
 
@@ -202,7 +202,7 @@ location.reload();
 - ☐ Guard panel briefly shows: **"Connecting to cluster…"**
 - ☐ A **spinner** (animated circle) is visible above the text
 - ☐ **No button** is shown during the connecting state (no "Open Kafka Settings" link)
-- ☐ Once connection succeeds, the guard disappears and the tab strip (Publish Studio / Consume Studio) appears
+- ☐ Once connection succeeds, the guard disappears and the tab strip (Publish / Consume / Topics / Schema Registry) appears
 
 ---
 
@@ -375,9 +375,8 @@ location.reload();
 - ☐ Button text changes to **"Sending…"** while the request is in progress
 - ☐ After success, a green result block appears with `data-testid="pub-result"`:
   - **"✓ Sent 1 message to orders.events"** (bold topic name)
-  - Below: **"partition X, offset Y"** (X is 0–2 for a 3-partition topic; Y is an incrementing integer)
-  - Optionally: timestamp if the broker returns one
-- ☐ If schema encoding was used, an **"Encoding: plain"** line appears (or `base64-avro` for Avro)
+  - Below: **"partition X, offset Y, ts Z"** (X is 0–2 for a 3-partition topic; Y is an incrementing integer; Z is the broker timestamp — may be `-1` if the broker does not return one, which is normal for Redpanda)
+- ☐ If schema registry encoding was used, a `valueEncoding` line also appears (e.g., `base64-avro`); it does **not** appear for plain JSON publishes
 - ☐ The **"Clear"** button appears in the action row
 - ☐ The previous result is **replaced** on re-send (never appended)
 
@@ -438,12 +437,12 @@ location.reload();
 
 ---
 
-## MS-15 — Consume Studio: All Fields Render
+## MS-15 — Consume: All Fields Render
 
-**Prerequisites:** Connected, switch to **Consume Studio** tab
+**Prerequisites:** Connected, switch to **Consume** tab
 
 **Steps:**
-1. Click the **Consume Studio** tab
+1. Click the **Consume** tab
 2. Observe the panel layout
 
 **Expected:**
@@ -455,6 +454,7 @@ location.reload();
   - **Start Position** — dropdown: *"Latest"* (default), *"Earliest"*, `id="kms-con-pos"`
   - **Timeout (ms)** — text input, pre-filled `10000`, `id="kms-con-timeout"`
   - **Max Messages** — text input, pre-filled `50`, `id="kms-con-max"`
+  - **Sort Order** — dropdown: *"Oldest First"* (default), *"Newest First"*, `id="kms-con-sort"` — controls the display order of the results table (does not affect which messages are fetched)
 - ☐ **Filters** section:
   - **Key Equals** — text input, placeholder *"exact key match"*, `id="kms-con-key"`
   - **Header Match** — text input, placeholder *"key=value"*, `id="kms-con-header"`
@@ -503,7 +503,7 @@ location.reload();
 **Expected:**
 - ☐ Button shows **"Consuming…"** briefly while fetching
 - ☐ A results zone appears with `data-testid="con-results-zone"`
-- ☐ Results header shows message count: **"3 messages"** (or however many are in the topic)
+- ☐ Results header shows message count: **"4 messages"** (full smoke-test seed: 2 messages in partition 0, 1 in partition 1, 1 in partition 2)
 - ☐ A results table appears with columns: **#** | **Offset** | **Partition** | **Key** | **Value**
 - ☐ Each row shows:
   - `#` column: sequential number starting from 1
@@ -913,7 +913,7 @@ location.reload();
 
 ## MS-38 — Workflow: "Use as Workflow Input" Button
 
-**Prerequisites:** Connected, Consume Studio, a message selected in the detail pane (either Consume Once or Stream mode)
+**Prerequisites:** Connected, Consume tab, a message selected in the detail pane (either Consume Once or Stream mode)
 
 **Steps:**
 1. Consume or stream messages from `orders.events`
