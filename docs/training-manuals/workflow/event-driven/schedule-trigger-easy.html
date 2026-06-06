@@ -158,7 +158,7 @@
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
   ┌─────────────────────────────────┐
-  │  Daily Report                   │  Schedule: cron 0 9 * * * (every day 9 AM)
+  │  Daily 9 AM Trigger                   │  Schedule: cron 0 9 * * * (every day 9 AM)
   │  (Schedule)                     │  No input variables
   └──────────────┬──────────────────┘
                  ▼
@@ -173,7 +173,7 @@
   └──────────────┬──────────────────┘
                  ▼
   ┌─────────────────────────────────┐
-  │  Parallel Delivery              │  (Fork — fans out to two branches)
+  │  3. Parallel Delivery           │  (Fork — fans out to two branches)
   └──────┬──────────────────┬───────┘
          │                  │
          ▼                  ▼
@@ -208,7 +208,7 @@
 <table>
   <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
   <tr>
-    <td><span class="step-num">T</span> Daily Report</td>
+    <td><span class="step-num">T</span> Daily 9 AM Trigger</td>
     <td>Schedule</td>
     <td>Cron expression <code>0 9 * * *</code> — fires every day at 09:00 AM. Replaces the Start node as the entry point.</td>
   </tr>
@@ -223,27 +223,27 @@
     <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — submits a report document. Extracts <code>reportId</code> ← <code>$.id</code> for reference in delivery steps.</td>
   </tr>
   <tr>
-    <td><span class="step-num">⑂</span> Parallel Delivery</td>
+    <td><span class="step-num">⑂</span> 3. Parallel Delivery</td>
     <td>Fork</td>
     <td>Splits execution into two simultaneous branches: <em>Email Report</em> and <em>Archive Report</em>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3a</span> Email Report</td>
+    <td><span class="step-num">4a</span> Email Report</td>
     <td>HTTP POST</td>
     <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — simulates emailing the report. Body includes <code>reportId</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3b</span> Archive Report</td>
+    <td><span class="step-num">4b</span> Archive Report</td>
     <td>HTTP POST</td>
     <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> — simulates archiving the report. Body includes <code>reportId</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">⊕</span> Wait for Completion</td>
+    <td><span class="step-num">⊕</span> 5. Wait for Completion</td>
     <td>Join</td>
     <td>Waits for both the Email and Archive branches to finish before allowing execution to continue.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
+    <td><span class="step-num">E</span> Report Complete</td>
     <td>End</td>
     <td>Workflow complete after all parallel delivery branches have finished.</td>
   </tr>
@@ -280,7 +280,7 @@
   </li>
   <li>
     <strong>Add a Schedule node</strong> (instead of a Start node).<br>
-    Set cron to <code>0 9 * * *</code>, label it <em>Daily Report</em>.
+    Set cron to <code>0 9 * * *</code>, label it <em>Daily 9 AM Trigger</em>.
   </li>
   <li>
     <strong>Add 1. Fetch Sales Data (HTTP GET).</strong><br>
@@ -321,14 +321,14 @@
 <h3>Node States</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Daily Report</td><td>✅ Pass</td><td>Cron fired · execution started</td></tr>
+  <tr><td>Daily 9 AM Trigger</td><td>✅ Pass</td><td>Cron fired · execution started</td></tr>
   <tr><td>1. Fetch Sales Data</td><td>✅ Pass</td><td>HTTP 200 · salesData = 10 (length of array)</td></tr>
   <tr><td>2. Generate Report</td><td>✅ Pass</td><td>HTTP 201 · reportId = 101</td></tr>
-  <tr><td>Parallel Delivery</td><td>✅ Pass</td><td>Forked into 2 parallel branches</td></tr>
+  <tr><td>3. Parallel Delivery</td><td>✅ Pass</td><td>Forked into 2 parallel branches</td></tr>
   <tr><td>3a. Email Report</td><td>✅ Pass</td><td>HTTP 201 · email branch complete</td></tr>
   <tr><td>3b. Archive Report</td><td>✅ Pass</td><td>HTTP 201 · archive branch complete</td></tr>
-  <tr><td>Wait for Completion</td><td>✅ Pass</td><td>Both branches joined</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>5. Wait for Completion</td><td>✅ Pass</td><td>Both branches joined</td></tr>
+  <tr><td>Report Complete</td><td>✅ Pass</td><td>—</td></tr>
 </table>
 
 <!-- ════════════════════════════════════════════ -->
