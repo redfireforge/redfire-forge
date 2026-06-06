@@ -94,8 +94,8 @@
     pattern for all event-driven integrations.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.4</strong><br>
-    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 4 &nbsp;|&nbsp; Category: Event-Driven<br>
+    <strong>RedfireForge v0.6.0</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Event-Driven<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -139,16 +139,18 @@
   <li>Receiving form submissions from a frontend application</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Configuring a <strong>WebhookTrigger</strong> node to listen on a specific endpoint path</li>
-  <li>Extracting fields from the <strong>incoming HTTP payload</strong> (headers, body, query params)</li>
-  <li>Using a <strong>Log</strong> node to record the received event for debugging</li>
-  <li>Returning an <strong>HTTP response</strong> to the caller with a status code and body</li>
-  <li>Understanding <strong>synchronous webhook handling</strong> — process and respond in one flow</li>
+  <li>Using a <strong>Webhook node</strong> as a trigger — replacing the Start node</li>
+  <li>Configuring the webhook <strong>path</strong> and <strong>method</strong></li>
+  <li>Extracting variables from the <strong>incoming HTTP payload</strong> via JSONPath</li>
+  <li>Using extracted variables (<code>orderId</code>, <code>customerId</code>) in downstream nodes</li>
+  <li>Branching on a <strong>Condition node</strong> based on inventory level</li>
+  <li>Processing orders vs. sending out-of-stock alerts on separate branches</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -157,39 +159,41 @@
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
   ┌──────────────────────────────┐
-  │  WebhookTrigger              │  Listens on: /webhook
-  │  (WebhookTrigger)            │  Method: POST
-  │                              │
-  │  Extracts: eventType         │  ← body $.eventType
-  │            payload           │  ← body $.data
-  └──────────┬───────────────────┘
-             ▼
+  │  Order Webhook               │  POST /api/orders/incoming
+  │  (Webhook)                   │  Extracts: orderId  ← $.orderId
+  │                              │            customerId ← $.customerId
+  │                              │            totalAmount ← $.totalAmount
+  └──────┬───────────────────────┘
+         ▼
   ┌──────────────────────────────┐
-  │  1. Log Payload              │  Log
-  │     (Log)                    │
-  │                              │  "Received {{eventType}}:
-  │                              │   {{payload}}"
-  └──────────┬───────────────────┘
-             ▼
+  │  1. Check Inventory          │  GET /users/1 (simulates inventory check)
+  │  (HTTP GET)                  │  Extracts: stockLevel ← $.id
+  │                              │            customerName ← $.name
+  └──────┬───────────────────────┘
+         ▼
   ┌──────────────────────────────┐
-  │  2. Process Event            │  Log
-  │     (Log)                    │
-  │                              │  "Processing event
-  │                              │   {{eventType}}..."
-  └──────────┬───────────────────┘
-             ▼
-  ┌──────────────────────────────┐
-  │  3. HTTP Response            │  HTTPResponse
-  │     (HTTPResponse)           │
-  │                              │  Status: 200
-  │                              │  Body: {"status":"received",
-  │                              │         "event":"{{eventType}}"}
-  └──────────────────────────────┘
+  │  2. In Stock?                │  Condition: {{stockLevel}} >= 1
+  │  (Condition)                 │
+  └──────┬───────────────┬───────┘
+         │ true (In Stock)│ false (Out of Stock)
+         ▼                ▼
+  ┌──────────────────────────────┐  ┌─────────────────────────────┐
+  │  3a. Process Order           │  │  3b. Out of Stock Alert     │
+  │  (HTTP POST /posts)          │  │  (HTTP POST /posts)         │
+  │  body: order details         │  │  body: alert with orderId   │
+  └──────┬───────────────────────┘  └─────────────────┬───────────┘
+         └──────────────────────────┬──────────────────┘
+                                    ▼
+                          ┌─────────────────┐
+                          │  Order Handled  │
+                          │  (End)          │
+                          └─────────────────┘
 </div>
 
 <p>
-  <strong>4 nodes, 3 edges</strong> — a linear pipeline triggered by an incoming HTTP
-  request. The WebhookTrigger replaces the Start node as the entry point.
+  <strong>6 nodes</strong> — triggered by an incoming POST to <code>/api/orders/incoming</code>.
+  The workflow checks inventory (simulated), routes via Condition, and either processes the
+  order or sends an out-of-stock alert.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -201,47 +205,51 @@
 <table>
   <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
   <tr>
-    <td><span class="step-num">T</span> WebhookTrigger</td>
-    <td>WebhookTrigger</td>
-    <td>Listens on <code>/webhook</code> for incoming POST requests. Extracts <code>eventType</code> and <code>payload</code> from the request body.</td>
+    <td><span class="step-num">T</span> Order Webhook</td>
+    <td>Webhook</td>
+    <td>Listens on <code>POST /api/orders/incoming</code>. Extracts <code>orderId</code> ← <code>$.orderId</code>, <code>customerId</code> ← <code>$.customerId</code>, <code>totalAmount</code> ← <code>$.totalAmount</code> from the JSON payload.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Log Payload</td>
-    <td>Log</td>
-    <td>Logs the received event: <code>"Received {{eventType}}: {{payload}}"</code>. Useful for debugging and audit trails.</td>
+    <td><span class="step-num">1</span> Check Inventory</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/users/1</code> — simulates fetching stock level for the ordered item. Extracts: <code>stockLevel</code> ← <code>$.id</code>, <code>customerName</code> ← <code>$.name</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Process Event</td>
-    <td>Log</td>
-    <td>Simulates event processing. In a real workflow, this would be an HTTP call, database write, or business logic node.</td>
+    <td><span class="step-num">2</span> In Stock?</td>
+    <td>Condition</td>
+    <td>Checks <code>{{stockLevel}} &gt;= 1</code>. true → Process Order. false → Out of Stock Alert.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> HTTP Response</td>
-    <td>HTTPResponse</td>
-    <td>Returns HTTP 200 with a JSON body <code>{"status":"received","event":"{{eventType}}"}</code> to acknowledge the webhook.</td>
+    <td><span class="step-num">3a</span> Process Order</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code>. Body includes <code>orderId</code>, <code>customerId</code>, <code>totalAmount</code>. Simulates order fulfillment.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3b</span> Out of Stock Alert</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code>. Body: alert message with <code>orderId</code> and <code>customerName</code>. Simulates notifying the customer.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> Order Handled</td>
+    <td>End</td>
+    <td>Workflow complete. Both branches converge here.</td>
   </tr>
 </table>
 
-<h3>WebhookTrigger Configuration</h3>
+<h3>Webhook Configuration</h3>
 <table>
-  <tr><td><strong>Endpoint Path</strong></td><td><code>/webhook</code></td></tr>
+  <tr><td><strong>Endpoint Path</strong></td><td><code>/api/orders/incoming</code></td></tr>
   <tr><td><strong>HTTP Method</strong></td><td>POST</td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>eventType</code> ← body <code>$.eventType</code><br><code>payload</code> ← body <code>$.data</code></td></tr>
+  <tr><td><strong>Sample Payload</strong></td><td><code>{ "orderId": "ORD-12345", "customerId": "1", ... }</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>orderId</code> ← <code>$.orderId</code><br><code>customerId</code> ← <code>$.customerId</code><br><code>totalAmount</code> ← <code>$.totalAmount</code></td></tr>
 </table>
 
-<h3>HTTP Response Configuration</h3>
-<table>
-  <tr><td><strong>Status Code</strong></td><td><code>200</code></td></tr>
-  <tr><td><strong>Content-Type</strong></td><td><code>application/json</code></td></tr>
-  <tr><td><strong>Body</strong></td><td><code>{"status":"received","event":"{{eventType}}"}</code></td></tr>
-</table>
-
-<div class="callout">
-  <strong>📘 WebhookTrigger vs. Start Node</strong>
-  A <code>WebhookTrigger</code> replaces the standard Start node. It automatically
-  registers an HTTP endpoint and begins the workflow when a matching request arrives.
-  The trigger node extracts data from the request, making it available to downstream
-  nodes via variables.
+<div class="callout callout-tip">
+  <strong>💡 Webhook vs. Start Node</strong>
+  A Webhook node replaces the standard Start node as the workflow entry point.
+  It registers an HTTP endpoint automatically when the workflow is started.
+  Variables extracted from the payload are available to all downstream nodes.
+  Use the <em>Sample Payload</em> field to define the expected JSON shape for documentation.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -252,51 +260,38 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"⚡ Webhook Trigger"</strong>
-    in the <em>Event-Driven</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Webhook Trigger"</strong>
+    in the <em>Event-Driven</em> category. Click <em>Import</em>.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Webhook Trigger".
+    <strong>Add a Webhook node</strong> (instead of a Start node).<br>
+    Path: <code>/api/orders/incoming</code>. Method: POST.<br>
+    Add 3 extractions from the body: <code>orderId ← $.orderId</code>, <code>customerId ← $.customerId</code>, <code>totalAmount ← $.totalAmount</code>.
   </li>
   <li>
-    <strong>Add the WebhookTrigger node.</strong><br>
-    Drag a WebhookTrigger node onto the canvas. Configure:
-    <ul>
-      <li><em>Endpoint Path</em>: <code>/webhook</code></li>
-      <li><em>Method</em>: POST</li>
-      <li><em>Extractions</em>: Add <code>eventType</code> ← body <code>$.eventType</code> and <code>payload</code> ← body <code>$.data</code></li>
-    </ul>
+    <strong>Add 1. Check Inventory (HTTP GET).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/users/1</code>. Method: GET.<br>
+    Extractions: <code>stockLevel ← $.id</code>, <code>customerName ← $.name</code>.
+    Connect Webhook → Check Inventory.
   </li>
   <li>
-    <strong>Add the Log Payload node.</strong><br>
-    Drag a Log node. Set message to <code>"Received {{eventType}}: {{payload}}"</code>.
-    Connect WebhookTrigger → Log Payload.
+    <strong>Add 2. In Stock? (Condition).</strong><br>
+    Left: <code>{{stockLevel}}</code>, Operator: <code>&gt;=</code>, Right: <code>1</code>.
+    Connect Check Inventory → In Stock?
   </li>
   <li>
-    <strong>Add the Process Event node.</strong><br>
-    Drag another Log node. Set message to <code>"Processing event {{eventType}}..."</code>.
-    Connect Log Payload → Process Event.
-  </li>
-  <li>
-    <strong>Add the HTTP Response node.</strong><br>
-    Drag an HTTPResponse node. Configure:
-    <ul>
-      <li><em>Status</em>: <code>200</code></li>
-      <li><em>Body</em>: <code>{"status":"received","event":"{{eventType}}"}</code></li>
-    </ul>
-    Connect Process Event → HTTP Response.
+    <strong>Add the two HTTP POST branches.</strong><br>
+    3a Process Order: POST /posts with order details body.<br>
+    3b Out of Stock Alert: POST /posts with alert body.<br>
+    Connect true → Process Order, false → Out of Stock Alert. Both → End.
   </li>
   <li>
     <strong>Test the webhook.</strong><br>
-    Click <em>Quick Test</em>. RedfireForge will simulate an incoming POST request.
-    Alternatively, use <code>curl</code>:
-    <pre>curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"eventType":"order.created","data":{"orderId":"ORD-123"}}'</pre>
+    Start the workflow. Copy the generated webhook URL from the Webhook node.
+    Use <em>Quick Test</em> or send a POST request with a JSON body matching the sample payload.
   </li>
 </ol>
 
@@ -305,45 +300,16 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States</h3>
+<h3>Node States (item in stock)</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>WebhookTrigger</td><td>✅ Pass</td><td>Received POST /webhook, extracted eventType = "order.created"</td></tr>
-  <tr><td>1. Log Payload</td><td>✅ Pass</td><td>"Received order.created: {"orderId":"ORD-123"}"</td></tr>
-  <tr><td>2. Process Event</td><td>✅ Pass</td><td>"Processing event order.created..."</td></tr>
-  <tr><td>3. HTTP Response</td><td>✅ Pass</td><td>Returned HTTP 200 with JSON acknowledgment</td></tr>
+  <tr><td>Order Webhook</td><td>✅ Pass</td><td>Received POST · orderId="ORD-12345" extracted</td></tr>
+  <tr><td>1. Check Inventory</td><td>✅ Pass</td><td>HTTP 200 · stockLevel=1 · customerName="Leanne Graham"</td></tr>
+  <tr><td>2. In Stock?</td><td>✅ Pass (true)</td><td>1 &gt;= 1</td></tr>
+  <tr><td>3a. Process Order</td><td>✅ Pass</td><td>HTTP 201 · order processed</td></tr>
+  <tr><td>3b. Out of Stock Alert</td><td>⏭️ Skipped</td><td>false branch not taken</td></tr>
+  <tr><td>Order Handled</td><td>✅ Pass</td><td>—</td></tr>
 </table>
-
-<h3>Incoming Request (Simulated)</h3>
-<pre>
-POST /webhook HTTP/1.1
-Content-Type: application/json
-
-{
-  "eventType": "order.created",
-  "data": {
-    "orderId": "ORD-123",
-    "amount": 49.99,
-    "currency": "USD"
-  }
-}</pre>
-
-<h3>HTTP Response (Node 3)</h3>
-<pre>
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "status": "received",
-  "event": "order.created"
-}</pre>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Webhook Security</strong>
-  In production, always validate incoming webhooks using a shared secret or signature
-  header (e.g., <code>X-Webhook-Signature</code>). This sample omits signature
-  verification for simplicity.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -351,42 +317,25 @@ Content-Type: application/json
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add Payload Validation</h3>
+<h3>Exercise 1: Extract Item SKU</h3>
 <p>
-  Insert a Condition node after the Log Payload step. Check if <code>{{eventType}}</code>
-  is not empty. If empty, return HTTP 400 with <code>{"error":"Missing eventType"}</code>.
-  If valid, continue with processing.
+  Add a fourth extraction to the Webhook node: <code>itemSku ← $.items[0].sku</code>.
+  Include the SKU in the Process Order request body.
 </p>
 
-<h3>Exercise 2: Route by Event Type</h3>
+<h3>Exercise 2: Add Webhook Auth</h3>
 <p>
-  Replace the Process Event log with a Switch node that routes based on
-  <code>{{eventType}}</code>. Add cases for <code>order.created</code>,
-  <code>order.cancelled</code>, and a default. Each case should log a different message.
+  Add a webhook secret header (<code>X-Webhook-Secret: my-secret-123</code>) to the
+  Webhook configuration. The workflow validates this header before processing.
 </p>
 
-<h3>Exercise 3: Forward to an External API</h3>
+<h3>Exercise 3: Return a Webhook Response</h3>
 <p>
-  Instead of logging, add an HTTP POST node that forwards the received payload to
-  a downstream service (e.g., <code>https://httpbin.org/post</code>). Extract and log
-  the downstream response before returning the acknowledgment.
+  Add an <strong>HTTP Response node</strong> at the end of each branch that returns
+  a JSON acknowledgement: <code>{"status":"accepted","orderId":"{{orderId}}"}</code>
+  to the caller of the webhook.
 </p>
 
-<h3>Exercise 4: Add Idempotency</h3>
-<p>
-  Extract a unique <code>eventId</code> from the payload. Use a Condition node to check
-  if this event was already processed (simulated via a variable). Skip processing for
-  duplicate events.
-</p>
-
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  Once you're comfortable with webhook triggers, try the
-  <a href="schedule-trigger-easy.html">Schedule Trigger</a> sample to learn
-  cron-based workflow execution.
-</div>
-
-<footer>RedfireForge Training Manual — Webhook Trigger · April 2026</footer>
+<footer>RedfireForge Training Manual — Webhook Trigger · v0.6.0</footer>
 
 </body>
-</html>

@@ -50,7 +50,7 @@
     publish a result event → consume to confirm delivery. Uses all three Kafka workflow nodes.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.10</strong><br>
+    <strong>RedfireForge v0.6.0</strong><br>
     Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Event-Driven / Kafka<br>
     Requires: Kafka broker on <code>localhost:19092</code>
   </div>
@@ -115,7 +115,7 @@
 <div class="flow-diagram">KafkaTrigger: orders.created
   │  extractVars: orderId, customerId, amount, status
   ▼
-① HTTP: Validate Order   →  GET /posts/{{orderId}}
+① HTTP: Validate Order   →  GET /posts/1
   │  extracts: validationStatus (HTTP status code)
   ▼
 ② Condition: status == 200?
@@ -142,7 +142,7 @@ End</div>
   <thead><tr><th>Node</th><th>Type</th><th>Key Config</th></tr></thead>
   <tbody>
     <tr><td>New Order Trigger</td><td>KafkaTrigger</td><td>orders.created, extracts orderId/customerId/amount/status</td></tr>
-    <tr><td>Validate Order</td><td>HTTP</td><td>GET jsonplaceholder/posts/{{orderId}}, extracts validationStatus</td></tr>
+    <tr><td>Validate Order</td><td>HTTP</td><td>GET jsonplaceholder/posts/1, extracts validationStatus</td></tr>
     <tr><td>Validation Passed?</td><td>Condition</td><td>validationStatus == 200</td></tr>
     <tr><td>Mark Validated / Mark Rejected</td><td>SetVariable</td><td>processedStatus = VALIDATED or REJECTED</td></tr>
     <tr><td>Publish Result Event</td><td>KafkaProduce</td><td>orders.processed, key={{orderId}}, outputBindings: resultOffset</td></tr>
@@ -249,6 +249,6 @@ End</div>
   <li><strong>Add schema validation</strong>: open KafkaProduce and enable Schema Registry with your local schema registry URL. Produce an Avro-encoded message.</li>
 </ol>
 
-<footer>RedfireForge v0.5.10 &nbsp;|&nbsp; Kafka: Full Event Pipeline (Medium) &nbsp;|&nbsp; Category: Event-Driven</footer>
+<footer>RedfireForge v0.6.0 &nbsp;|&nbsp; Kafka: Full Event Pipeline (Medium) &nbsp;|&nbsp; Category: Event-Driven</footer>
 </body>
 </html>
