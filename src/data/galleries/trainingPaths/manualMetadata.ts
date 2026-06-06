@@ -309,6 +309,7 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'workflow/runner/workflow-runner-variables-medium.html', addedAt: date('2026-05-09') },
   { manualPath: 'workflow/runner/workflow-runner-iterations-medium.html', addedAt: date('2026-05-09') },
   { manualPath: 'workflow/runner/workflow-runner-results-medium.html', addedAt: date('2026-05-09') },
+  { manualPath: 'workflow/runner/workflow-sla-end-to-end-easy.html', addedAt: date('2026-06-06') },
 
   // ============================================================================
   // Data Mapper
@@ -322,6 +323,9 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'data-mapper/data-mapper-debugger-advanced.html', addedAt: date('2026-05-11'), updatedAt: date('2026-05-14'), changeNote: 'Added keyboard navigation, hover-highlight, mapping profiles, and Code vs Rules distinction' },
   { manualPath: 'data-mapper/data-mapper-operators-dsl-advanced.html', addedAt: date('2026-05-14') },
   { manualPath: 'data-mapper/data-mapper-custom-assertions-advanced.html', addedAt: date('2026-05-14') },
+  { manualPath: 'data-mapper/data-mapper-operators-products-medium.html', addedAt: date('2026-05-14') },
+  { manualPath: 'data-mapper/data-mapper-users-validation-medium.html', addedAt: date('2026-05-14') },
+  { manualPath: 'data-mapper/data-mapper-array-assertions-advanced.html', addedAt: date('2026-05-14') },
 
   // ============================================================================
   // Workflow: Kafka Event-Driven (workflowPaths)
