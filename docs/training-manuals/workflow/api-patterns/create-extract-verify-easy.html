@@ -98,7 +98,7 @@
   </p>
   <div class="meta">
     <strong>RedfireForge v0.6.0</strong><br>
-    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: API Patterns<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -149,8 +149,9 @@
 <ul>
   <li>Sending <strong>HTTP POST</strong> requests with a JSON body</li>
   <li>Extracting values from API responses using <strong>JSONPath</strong></li>
-  <li>Using <strong>SetVariable</strong> to store extracted data for downstream nodes</li>
-  <li>Building dynamic URLs with <strong>variable interpolation</strong> (<code>{{variable}}</code>)</li>
+  <li>Extracting response fields directly in the <strong>HTTP node</strong> using JSONPath</li>
+  <li>Using a <strong>Condition node</strong> to gate execution on HTTP status codes</li>
+  <li>Adding a <strong>Delay node</strong> to simulate processing time between steps</li>
   <li>The <strong>create-then-verify</strong> pattern for data integrity checks</li>
   <li>Chaining HTTP requests where output of one becomes input of the next</li>
 </ul>
@@ -168,34 +169,46 @@
   │  1. Create Post             │  POST https://jsonplaceholder
   │     (HTTP)                  │       .typicode.com/posts
   │                             │
-  │  Body: { title, body,       │  → responseBody (full body $)
-  │          userId }           │
+  │  Body: { title, body,       │  Extracts: postId ← $.id
+  │          userId: 1 }        │           httpStatus ← status
   └──────┬──────────────────────┘
          ▼
   ┌─────────────────────────────┐
-  │  2. Extract ID              │  SetVariable
-  │     (SetVariable)           │
-  │                             │  postId ← $.id from
-  │  Extracts the generated     │     responseBody
-  │  post ID from response      │
+  │  2. Was it Created?         │  Condition
+  │     (Condition)             │
+  │                             │  {{httpStatus}} == 201
+  │  true ──────────────────────┼──→ (continue)
+  │  false: workflow stops      │
+  └──────┬──────────────────────┘
+         ▼ (true path)
+  ┌─────────────────────────────┐
+  │  3. Wait for Processing     │  Delay
+  │     (Delay)                 │
+  │                             │  1000ms fixed delay
   └──────┬──────────────────────┘
          ▼
   ┌─────────────────────────────┐
-  │  3. Verify Post             │  GET https://jsonplaceholder
-  │     (HTTP)                  │      .typicode.com/posts/{{postId}}
+  │  4. Get Post Details        │  GET https://jsonplaceholder
+  │     (HTTP)                  │      .typicode.com/posts/1
   │                             │
-  │  Uses postId in URL         │  → verifyStatus (status code)
+  │  Validates the resource     │  Extracts: postTitle ← $.title
+  │  is accessible              │           postUserId ← $.userId
   └──────┬──────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌─────────────────────────────┐
+  │  5. Has Valid User?         │  Condition
+  │     (Condition)             │
+  │                             │  {{postUserId}} == 1
+  │  true: expected result      │
+  │  false: unexpected result   │
+  └─────────────────────────────┘
 </div>
 
 <p>
-  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The POST creates the resource,
-  SetVariable captures the ID, and the GET verifies the resource exists at the
-  expected endpoint.
+  <strong>6 nodes, 5 edges</strong> — a pipeline with status-gating and a post-creation delay.
+  The POST creates the resource and extracts the status code. A Condition node ensures the
+  creation succeeded (201) before continuing. After a short delay, a GET fetches the resource
+  details and a second Condition validates the owner.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -214,44 +227,63 @@
   <tr>
     <td><span class="step-num">1</span> Create Post</td>
     <td>HTTP</td>
-    <td>Sends a POST request to <code>jsonplaceholder.typicode.com/posts</code> with a JSON body containing <code>title</code>, <code>body</code>, and <code>userId</code>. Extracts the full response body into <code>responseBody</code>.</td>
+    <td>Sends a POST request to <code>jsonplaceholder.typicode.com/posts</code> with a JSON body. Directly extracts <code>postId</code> from <code>$.id</code> and <code>httpStatus</code> from the response status code.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Extract ID</td>
-    <td>SetVariable</td>
-    <td>Parses <code>responseBody</code> and extracts <code>$.id</code> into the <code>postId</code> variable. This is the server-generated ID for the newly created post.</td>
+    <td><span class="step-num">2</span> Was it Created?</td>
+    <td>Condition</td>
+    <td>Evaluates <code>{{httpStatus}} == 201</code>. The <em>true</em> branch continues to the Delay node. If false (unexpected status), the workflow stops at this node.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Verify Post</td>
+    <td><span class="step-num">3</span> Wait for Processing</td>
+    <td>Delay</td>
+    <td>Pauses execution for 1000ms (fixed delay). Simulates the time a real backend might need to commit the resource before it's accessible via GET.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Get Post Details</td>
     <td>HTTP</td>
-    <td>Sends a GET request to <code>/posts/{{postId}}</code> using the extracted ID. Confirms the post exists by checking the response status code.</td>
+    <td>Sends a GET request to <code>jsonplaceholder.typicode.com/posts/1</code>. Extracts <code>postTitle</code> from <code>$.title</code> and <code>postUserId</code> from <code>$.userId</code> to validate the resource.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
-    <td>End</td>
-    <td>Marks workflow completion. Both <code>postId</code> and <code>verifyStatus</code> are available in the workflow context.</td>
+    <td><span class="step-num">5</span> Has Valid User?</td>
+    <td>Condition</td>
+    <td>Evaluates <code>{{postUserId}} == 1</code>. Confirms the post belongs to user 1 as expected. <em>True</em> = validation passed.</td>
   </tr>
 </table>
 
-<h3>HTTP POST Configuration</h3>
+<h3>Node 1 — HTTP POST Configuration</h3>
 <table>
   <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
   <tr><td><strong>Method</strong></td><td>POST</td></tr>
   <tr><td><strong>Headers</strong></td><td><code>Content-Type: application/json</code></td></tr>
   <tr><td><strong>Body</strong></td><td><pre>{
-  "title": "RedfireForge Test Post",
-  "body": "Created by Create-Extract-Verify workflow",
+  "title": "Sample Post",
+  "body": "This is a test post created by the workflow.",
   "userId": 1
 }</pre></td></tr>
-  <tr><td><strong>Extractions</strong></td><td><code>responseBody</code> ← body <code>$</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>postId</code> ← body <code>$.id</code><br><code>httpStatus</code> ← status code</td></tr>
+</table>
+
+<h3>Node 2 — Condition Configuration</h3>
+<table>
+  <tr><td><strong>Left</strong></td><td><code>{{httpStatus}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>==</code></td></tr>
+  <tr><td><strong>Right</strong></td><td><code>201</code></td></tr>
+</table>
+
+<h3>Node 4 — HTTP GET Configuration</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>postTitle</code> ← body <code>$.title</code><br><code>postUserId</code> ← body <code>$.userId</code></td></tr>
 </table>
 
 <div class="callout">
-  <strong>📘 Why Use SetVariable Instead of Direct Extraction?</strong>
-  While the HTTP node can extract <code>$.id</code> directly, using a SetVariable node
-  makes the extraction step explicit and visible in the flow diagram. This improves
-  readability and makes debugging easier — you can inspect the intermediate value
-  at the SetVariable node.
+  <strong>📘 Direct Extraction in HTTP Nodes</strong>
+  RedfireForge HTTP nodes support inline extractions — you don't need a separate
+  SetVariable node. Add extraction rules in the node's <em>Extractions</em> tab:
+  name the variable, choose source (body/status/header), and enter a JSONPath expression.
+  The variable becomes available to all downstream nodes immediately.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -262,51 +294,79 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Create → Extract → Verify"</strong>
-    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <strong>Import from Gallery.</strong><br>
+    In the Workflow Designer, open <em>Gallery</em> → search for
+    <strong>"Sample: Create → Extract → Verify"</strong> and click <em>Import</em>.
+    The 6-node workflow loads ready to run.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
     <strong>Create a new workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Create-Extract-Verify".
+    Click <em>+ New Workflow</em>. Name it "Create → Extract → Verify".
   </li>
   <li>
-    <strong>Add the POST HTTP node.</strong><br>
+    <strong>Add the POST HTTP node (node 1).</strong><br>
     Drag an HTTP node onto the canvas. Configure:
     <ul>
+      <li><em>Label</em>: <code>1. Create Post</code></li>
       <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts</code></li>
       <li><em>Method</em>: POST</li>
       <li><em>Headers</em>: Add <code>Content-Type: application/json</code></li>
-      <li><em>Body</em>: Paste the JSON body above</li>
-      <li><em>Extractions</em>: Add <code>responseBody</code> ← body <code>$</code></li>
+      <li><em>Body</em>: <code>{"title":"Sample Post","body":"This is a test post created by the workflow.","userId":1}</code></li>
+      <li><em>Extractions</em>: Add <code>postId</code> ← body <code>$.id</code></li>
+      <li><em>Extractions</em>: Add <code>httpStatus</code> ← status code</li>
     </ul>
     Connect Start → Create Post.
   </li>
   <li>
-    <strong>Add the SetVariable node.</strong><br>
-    Drag a SetVariable node. Configure:
+    <strong>Add the Condition node (node 2).</strong><br>
+    Drag a Condition node. Configure:
     <ul>
-      <li><em>Variable Name</em>: <code>postId</code></li>
-      <li><em>Value</em>: <code>{{responseBody.id}}</code></li>
+      <li><em>Label</em>: <code>2. Was it Created?</code></li>
+      <li><em>Left</em>: <code>{{httpStatus}}</code></li>
+      <li><em>Operator</em>: <code>==</code></li>
+      <li><em>Right</em>: <code>201</code></li>
     </ul>
-    Connect Create Post → Extract ID.
+    Connect Create Post → Was it Created?. Only wire the <em>true</em> output to continue.
   </li>
   <li>
-    <strong>Add the GET HTTP node.</strong><br>
+    <strong>Add the Delay node (node 3).</strong><br>
+    Drag a Delay node. Configure:
+    <ul>
+      <li><em>Label</em>: <code>3. Wait for Processing</code></li>
+      <li><em>Delay</em>: <code>1000</code> ms, mode: Fixed</li>
+    </ul>
+    Connect Was it Created? (true) → Wait for Processing.
+  </li>
+  <li>
+    <strong>Add the GET HTTP node (node 4).</strong><br>
     Drag another HTTP node. Configure:
     <ul>
-      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts/{{postId}}</code></li>
+      <li><em>Label</em>: <code>4. Get Post Details</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts/1</code></li>
       <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: Add <code>verifyStatus</code> ← status code</li>
+      <li><em>Extractions</em>: Add <code>postTitle</code> ← body <code>$.title</code></li>
+      <li><em>Extractions</em>: Add <code>postUserId</code> ← body <code>$.userId</code></li>
     </ul>
-    Connect Extract ID → Verify Post → End.
+    Connect Wait for Processing → Get Post Details.
+  </li>
+  <li>
+    <strong>Add the final Condition node (node 5).</strong><br>
+    Drag a Condition node. Configure:
+    <ul>
+      <li><em>Label</em>: <code>5. Has Valid User?</code></li>
+      <li><em>Left</em>: <code>{{postUserId}}</code></li>
+      <li><em>Operator</em>: <code>==</code></li>
+      <li><em>Right</em>: <code>1</code></li>
+    </ul>
+    Connect Get Post Details → Has Valid User?.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. Verify the POST returns a 201, the ID is extracted,
-    and the GET returns a 200 confirming the resource exists.
+    Click <em>Quick Test</em>. The POST creates a post (httpStatus=201), the Condition
+    passes, the Delay fires, the GET fetches post details, and the final Condition
+    validates postUserId == 1.
   </li>
 </ol>
 
@@ -319,35 +379,37 @@
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Create Post</td><td>✅ Pass</td><td>HTTP 201 Created, body extracted</td></tr>
-  <tr><td>2. Extract ID</td><td>✅ Pass</td><td>postId = 101</td></tr>
-  <tr><td>3. Verify Post</td><td>✅ Pass</td><td>HTTP 200 OK</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Create Post</td><td>✅ Pass</td><td>HTTP 201 Created · postId=101 · httpStatus=201</td></tr>
+  <tr><td>2. Was it Created?</td><td>✅ Pass</td><td>httpStatus==201 → true → Delay</td></tr>
+  <tr><td>3. Wait for Processing</td><td>✅ Pass</td><td>Delayed 1000ms</td></tr>
+  <tr><td>4. Get Post Details</td><td>✅ Pass</td><td>HTTP 200 · postTitle="sunt aut facere..." · postUserId=1</td></tr>
+  <tr><td>5. Has Valid User?</td><td>✅ Pass</td><td>postUserId==1 → true</td></tr>
 </table>
 
 <h3>POST Response (Node 1)</h3>
 <pre>
 {
-  "title": "RedfireForge Test Post",
-  "body": "Created by Create-Extract-Verify workflow",
+  "title": "Sample Post",
+  "body": "This is a test post created by the workflow.",
   "userId": 1,
   "id": 101
 }</pre>
 
-<h3>GET Response (Node 3)</h3>
+<h3>GET Response (Node 4)</h3>
 <pre>
 {
-  "title": "RedfireForge Test Post",
-  "body": "Created by Create-Extract-Verify workflow",
   "userId": 1,
-  "id": 101
+  "id": 1,
+  "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
+  "body": "quia et suscipit\nsuscipit recusandae consequuntur expedita..."
 }</pre>
 
 <div class="callout callout-warn">
   <strong>⚠️ JSONPlaceholder Note</strong>
-  JSONPlaceholder is a fake API — the POST doesn't actually persist data on the server.
-  The created post always receives <code>id: 101</code>. In a real API, the ID would be
-  dynamically generated and the GET would return the actual persisted data.
+  JSONPlaceholder is a fake API — the POST doesn't actually persist data. The created
+  post always receives <code>id: 101</code>. The GET in node 4 fetches the real post #1
+  (hardcoded), not the newly created post. In a real API you would use the extracted
+  <code>postId</code> in the GET URL: <code>/posts/{{postId}}</code>.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
