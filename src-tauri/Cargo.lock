@@ -4658,7 +4658,7 @@ dependencies = [
 
 [[package]]
 name = "redfireforge"
-version = "0.6.0-beta.1"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "clap",
