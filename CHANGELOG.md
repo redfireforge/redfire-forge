@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+---
+
+## [0.6.0-beta.1] — 2026-06-06
+
 ### Added
 - **Kafka Gallery Samples** — 4 ready-to-use workflow templates in the Gallery:
   - *Kafka: Publish Order Event* (easy) — HTTP create order → KafkaProduce to `orders.created`
