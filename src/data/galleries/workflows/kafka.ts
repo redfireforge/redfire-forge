@@ -297,7 +297,7 @@ export function createKafkaEventPipelineWorkflow(): Workflow {
           scenario: {
             id: 'kep-s1',
             name: 'Validate Order',
-            url: 'https://jsonplaceholder.typicode.com/posts/{{orderId}}',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
             method: 'GET',
             headers: [],
             body: '',
