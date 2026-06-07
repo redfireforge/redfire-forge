@@ -1,4 +1,18 @@
 import type { Workflow } from '../../../features/workflow/types/workflow';
+import {
+  makeStartNode,
+  makeEndNode,
+  makeGetNode,
+  makePostNode,
+  makeSetVariableNode,
+  makeLogDebugNode,
+  makeConditionNode,
+  makeForkNode,
+  makeJoinNode,
+  makeEdge,
+  jsonBody,
+  bodyExtraction,
+} from './nodeFactories';
 
 /**
  * Sample workflow demonstrating conditional branching with Yes/No paths.
@@ -12,92 +26,35 @@ export function createConditionalBranchWorkflow(): Workflow {
     description: 'Demonstrates If/Else branching with different API paths based on conditions.',
     variables: {},
     nodes: [
-      {
-        id: 'sb-start',
-        type: 'start',
-        position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
-      {
-        id: 'sb-check',
-        type: 'http',
-        position: { x: 200, y: 100 },
-        data: {
-          label: '1. Get User',
-          scenario: {
-            id: 'sb-s1',
-            name: 'Get User',
-            url: 'https://jsonplaceholder.typicode.com/users/1',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'userName', source: 'body', expression: '$.name' },
-              { name: 'httpStatus', source: 'status', expression: '' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'sb-cond',
-        type: 'condition',
-        position: { x: 240, y: 250 },
-        data: {
-          label: '2. User Found?',
-          left: '{{httpStatus}}',
-          operator: '==',
-          right: '200',
-        },
-      },
-      {
-        id: 'sb-profile',
-        type: 'http',
-        position: { x: 50, y: 380 },
-        data: {
-          label: '3a. Get User Posts',
-          scenario: {
-            id: 'sb-s2',
-            name: 'Get User Posts',
-            url: 'https://jsonplaceholder.typicode.com/users/1/posts',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'firstPostTitle', source: 'body', expression: '$[0].title' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'sb-create',
-        type: 'http',
-        position: { x: 350, y: 380 },
-        data: {
-          label: '3b. Create User',
-          scenario: {
-            id: 'sb-s3',
-            name: 'Create User',
-            url: 'https://jsonplaceholder.typicode.com/users',
-            method: 'POST',
-            headers: [
-              { key: 'Content-Type', value: 'application/json' },
-            ],
-            body: JSON.stringify({ name: 'New User', username: 'newuser', email: 'new@example.com' }, null, 2),
-            bodyType: 'json',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [],
-          },
-        },
-      },
+      makeStartNode('sb-start', {}, { x: 250, y: 0 }),
+      makeGetNode('sb-check', '1. Get User', 'https://jsonplaceholder.typicode.com/users/1', {
+        x: 200,
+        y: 100,
+        extractions: [
+          bodyExtraction('userName', '$.name'),
+          { name: 'httpStatus', source: 'status', expression: '' },
+        ],
+      }),
+      makeConditionNode('sb-cond', '2. User Found?', '{{httpStatus}}', '200', {
+        x: 240,
+        y: 250,
+      }),
+      makeGetNode('sb-profile', '3a. Get User Posts', 'https://jsonplaceholder.typicode.com/users/1/posts', {
+        x: 50,
+        y: 380,
+        extractions: [bodyExtraction('firstPostTitle', '$[0].title')],
+      }),
+      makePostNode(
+        'sb-create',
+        '3b. Create User',
+        'https://jsonplaceholder.typicode.com/users',
+        jsonBody({ name: 'New User', username: 'newuser', email: 'new@example.com' }),
+        { x: 350, y: 380 },
+      ),
     ],
     edges: [
-      { id: 'sb-e0', source: 'sb-start', target: 'sb-check' },
-      { id: 'sb-e1', source: 'sb-check', target: 'sb-cond' },
+      makeEdge('sb-e0', 'sb-start', 'sb-check'),
+      makeEdge('sb-e1', 'sb-check', 'sb-cond'),
       { id: 'sb-e2', source: 'sb-cond', target: 'sb-profile', sourceHandle: 'true', label: 'Yes' },
       { id: 'sb-e3', source: 'sb-cond', target: 'sb-create', sourceHandle: 'false', label: 'No' },
     ],
@@ -117,7 +74,7 @@ export function createSwitchRoutingWorkflow(): Workflow {
     description: 'Routes orders through different processing paths based on order type using a Switch node.',
     variables: {},
     nodes: [
-      { id: 'sw-start', type: 'start', position: { x: 300, y: 0 }, data: { label: 'Start', inputVariables: {} } },
+      makeStartNode('sw-start'),
       {
         id: 'sw-fetch', type: 'http', position: { x: 250, y: 120 },
         data: {
@@ -125,8 +82,8 @@ export function createSwitchRoutingWorkflow(): Workflow {
             id: 'sw-s1', name: 'Fetch Order', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET',
             headers: [], body: '', bodyType: 'none', auth: { type: 'none' }, validation: { mode: 'none' },
             extractions: [
-              { name: 'orderType', source: 'body', expression: '$.userId' },
-              { name: 'orderTitle', source: 'body', expression: '$.title' },
+              bodyExtraction('orderType', '$.userId'),
+              bodyExtraction('orderTitle', '$.title'),
             ],
           },
         },
@@ -142,63 +99,23 @@ export function createSwitchRoutingWorkflow(): Workflow {
           ],
         },
       },
-      {
-        id: 'sw-standard', type: 'http', position: { x: 50, y: 450 },
-        data: {
-          label: 'Standard Processing', scenario: {
-            id: 'sw-s2', name: 'Standard', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"type":"standard","order":"{{orderTitle}}"}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      {
-        id: 'sw-express', type: 'http', position: { x: 280, y: 450 },
-        data: {
-          label: 'Express Processing', scenario: {
-            id: 'sw-s3', name: 'Express', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"type":"express","priority":"high","order":"{{orderTitle}}"}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      {
-        id: 'sw-gift', type: 'http', position: { x: 510, y: 450 },
-        data: {
-          label: 'Gift Processing', scenario: {
-            id: 'sw-s4', name: 'Gift', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"type":"gift","wrapping":true,"order":"{{orderTitle}}"}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      {
-        id: 'sw-default', type: 'http', position: { x: 740, y: 450 },
-        data: {
-          label: 'Default Handler', scenario: {
-            id: 'sw-s5', name: 'Default', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"type":"unknown","order":"{{orderTitle}}"}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      { id: 'sw-end', type: 'end', position: { x: 350, y: 620 }, data: { label: 'Done' } },
+      makePostNode('sw-standard', 'Standard Processing', 'https://jsonplaceholder.typicode.com/posts', '{"type":"standard","order":"{{orderTitle}}"}', { x: 50, y: 450 }),
+      makePostNode('sw-express', 'Express Processing', 'https://jsonplaceholder.typicode.com/posts', '{"type":"express","priority":"high","order":"{{orderTitle}}"}', { x: 280, y: 450 }),
+      makePostNode('sw-gift', 'Gift Processing', 'https://jsonplaceholder.typicode.com/posts', '{"type":"gift","wrapping":true,"order":"{{orderTitle}}"}', { x: 510, y: 450 }),
+      makePostNode('sw-default', 'Default Handler', 'https://jsonplaceholder.typicode.com/posts', '{"type":"unknown","order":"{{orderTitle}}"}', { x: 740, y: 450 }),
+      makeEndNode('sw-end', 'Done', { x: 350, y: 620 }),
     ],
     edges: [
-      { id: 'sw-e1', source: 'sw-start', target: 'sw-fetch' },
-      { id: 'sw-e2', source: 'sw-fetch', target: 'sw-switch' },
+      makeEdge('sw-e1', 'sw-start', 'sw-fetch'),
+      makeEdge('sw-e2', 'sw-fetch', 'sw-switch'),
       { id: 'sw-e3', source: 'sw-switch', target: 'sw-standard', sourceHandle: 'case-c1' },
       { id: 'sw-e4', source: 'sw-switch', target: 'sw-express', sourceHandle: 'case-c2' },
       { id: 'sw-e5', source: 'sw-switch', target: 'sw-gift', sourceHandle: 'case-c3' },
       { id: 'sw-e6', source: 'sw-switch', target: 'sw-default', sourceHandle: 'default' },
-      { id: 'sw-e7', source: 'sw-standard', target: 'sw-end' },
-      { id: 'sw-e8', source: 'sw-express', target: 'sw-end' },
-      { id: 'sw-e9', source: 'sw-gift', target: 'sw-end' },
-      { id: 'sw-e10', source: 'sw-default', target: 'sw-end' },
+      makeEdge('sw-e7', 'sw-standard', 'sw-end'),
+      makeEdge('sw-e8', 'sw-express', 'sw-end'),
+      makeEdge('sw-e9', 'sw-gift', 'sw-end'),
+      makeEdge('sw-e10', 'sw-default', 'sw-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -217,19 +134,13 @@ export function createLoopAggregateWorkflow(): Workflow {
     description: 'Fetches pages of data in a while-loop, aggregates results with concat/sum/count, then checks totals.',
     variables: {},
     nodes: [
-      { id: 'la-start', type: 'start', position: { x: 300, y: 0 }, data: { label: 'Start', inputVariables: {} } },
-      {
-        id: 'la-init', type: 'setVariable', position: { x: 260, y: 120 },
-        data: {
-          label: 'Init Variables',
-          assignments: [
-            { id: 'a1', name: 'page', expression: '1' },
-            { id: 'a2', name: 'hasMore', expression: 'true' },
-            { id: 'a3', name: 'allItems', expression: '[]' },
-            { id: 'a4', name: 'totalCount', expression: '0' },
-          ],
-        },
-      },
+      makeStartNode('la-start'),
+      makeSetVariableNode('la-init', 'Init Variables', [
+        { id: 'a1', name: 'page', expression: '1' },
+        { id: 'a2', name: 'hasMore', expression: 'true' },
+        { id: 'a3', name: 'allItems', expression: '[]' },
+        { id: 'a4', name: 'totalCount', expression: '0' },
+      ], { x: 260, y: 120 }),
       {
         id: 'la-loop', type: 'loop', position: { x: 280, y: 260 },
         data: {
@@ -245,8 +156,8 @@ export function createLoopAggregateWorkflow(): Workflow {
             id: 'la-s1', name: 'Fetch Page', url: 'https://jsonplaceholder.typicode.com/posts?_page=1&_limit=10', method: 'GET',
             headers: [], body: '', bodyType: 'none', auth: { type: 'none' }, validation: { mode: 'none' },
             extractions: [
-              { name: 'pageItems', source: 'body', expression: '$' },
-              { name: 'itemCount', source: 'body', expression: '$.length' },
+              bodyExtraction('pageItems', '$'),
+              bodyExtraction('itemCount', '$.length'),
             ],
           },
         },
@@ -261,43 +172,24 @@ export function createLoopAggregateWorkflow(): Workflow {
           ],
         },
       },
-      {
-        id: 'la-next', type: 'setVariable', position: { x: 240, y: 700 },
-        data: {
-          label: 'Next Page',
-          assignments: [
-            { id: 'a1', name: 'page', expression: '{{page}}' },
-            { id: 'a2', name: 'hasMore', expression: '{{itemCount}}' },
-          ],
-        },
-      },
-      {
-        id: 'la-check', type: 'condition', position: { x: 260, y: 880 },
-        data: { label: 'Many Items?', left: '{{totalCount}}', operator: '>' as const, right: '50' },
-      },
-      {
-        id: 'la-alert', type: 'http', position: { x: 60, y: 1030 },
-        data: {
-          label: 'Send Alert', scenario: {
-            id: 'la-s2', name: 'Alert', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"alert":"Large dataset: {{totalCount}} items fetched"}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      { id: 'la-end', type: 'end', position: { x: 300, y: 1180 }, data: { label: 'Complete' } },
+      makeSetVariableNode('la-next', 'Next Page', [
+        { id: 'a1', name: 'page', expression: '{{page}}' },
+        { id: 'a2', name: 'hasMore', expression: '{{itemCount}}' },
+      ], { x: 240, y: 700 }),
+      makeConditionNode('la-check', 'Many Items?', '{{totalCount}}', '50', { operator: '>', x: 260, y: 880 }),
+      makePostNode('la-alert', 'Send Alert', 'https://jsonplaceholder.typicode.com/posts', '{"alert":"Large dataset: {{totalCount}} items fetched"}', { x: 60, y: 1030 }),
+      makeEndNode('la-end', 'Complete', { x: 300, y: 1180 }),
     ],
     edges: [
-      { id: 'la-e1', source: 'la-start', target: 'la-init' },
-      { id: 'la-e2', source: 'la-init', target: 'la-loop' },
+      makeEdge('la-e1', 'la-start', 'la-init'),
+      makeEdge('la-e2', 'la-init', 'la-loop'),
       { id: 'la-e3', source: 'la-loop', target: 'la-fetch', sourceHandle: 'body' },
-      { id: 'la-e4', source: 'la-fetch', target: 'la-agg' },
-      { id: 'la-e5', source: 'la-agg', target: 'la-next' },
+      makeEdge('la-e4', 'la-fetch', 'la-agg'),
+      makeEdge('la-e5', 'la-agg', 'la-next'),
       { id: 'la-e6', source: 'la-loop', target: 'la-check', sourceHandle: 'done' },
       { id: 'la-e7', source: 'la-check', target: 'la-alert', sourceHandle: 'true' },
       { id: 'la-e8', source: 'la-check', target: 'la-end', sourceHandle: 'false' },
-      { id: 'la-e9', source: 'la-alert', target: 'la-end' },
+      makeEdge('la-e9', 'la-alert', 'la-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -316,26 +208,14 @@ export function createBatchProvisioningWorkflow(): Workflow {
     description: 'Creates users from a list, tracks successes/failures with aggregation, then routes the result via Switch.',
     variables: {},
     nodes: [
-      {
-        id: 'bp-start', type: 'start', position: { x: 300, y: 0 },
-        data: {
-          label: 'Start',
-          inputVariables: {
-            users: '[{"title":"Alice task","body":"Provision Alice","userId":1},{"title":"Bob task","body":"Provision Bob","userId":2},{"title":"Carol task","body":"Provision Carol","userId":3}]',
-          },
-        },
-      },
-      {
-        id: 'bp-init', type: 'setVariable', position: { x: 260, y: 130 },
-        data: {
-          label: 'Init Trackers',
-          assignments: [
-            { id: 'a1', name: 'successCount', expression: '0' },
-            { id: 'a2', name: 'failCount', expression: '0' },
-            { id: 'a3', name: 'createdIds', expression: '[]' },
-          ],
-        },
-      },
+      makeStartNode('bp-start', {
+        users: '[{"title":"Alice task","body":"Provision Alice","userId":1},{"title":"Bob task","body":"Provision Bob","userId":2},{"title":"Carol task","body":"Provision Carol","userId":3}]',
+      }),
+      makeSetVariableNode('bp-init', 'Init Trackers', [
+        { id: 'a1', name: 'successCount', expression: '0' },
+        { id: 'a2', name: 'failCount', expression: '0' },
+        { id: 'a3', name: 'createdIds', expression: '[]' },
+      ], { x: 260, y: 130 }),
       {
         id: 'bp-loop', type: 'loop', position: { x: 280, y: 270 },
         data: {
@@ -344,24 +224,15 @@ export function createBatchProvisioningWorkflow(): Workflow {
           maxIterations: 50,
         },
       },
-      {
-        id: 'bp-create', type: 'http', position: { x: 240, y: 410 },
-        data: {
-          label: 'Create User', scenario: {
-            id: 'bp-s1', name: 'Create User', url: 'https://jsonplaceholder.typicode.com/users', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{{user}}', bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [
-              { name: 'createStatus', source: 'status', expression: '' },
-              { name: 'userId', source: 'body', expression: '$.id' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'bp-check', type: 'condition', position: { x: 260, y: 570 },
-        data: { label: 'Created?', left: '{{createStatus}}', operator: '==' as const, right: '201' },
-      },
+      makePostNode('bp-create', 'Create User', 'https://jsonplaceholder.typicode.com/users', '{{user}}', {
+        x: 240,
+        y: 410,
+        extractions: [
+          { name: 'createStatus', source: 'status', expression: '' },
+          bodyExtraction('userId', '$.id'),
+        ],
+      }),
+      makeConditionNode('bp-check', 'Created?', '{{createStatus}}', '201', { x: 260, y: 570 }),
       {
         id: 'bp-agg-ok', type: 'aggregate', position: { x: 80, y: 720 },
         data: {
@@ -381,16 +252,10 @@ export function createBatchProvisioningWorkflow(): Workflow {
           ],
         },
       },
-      {
-        id: 'bp-summary', type: 'setVariable', position: { x: 240, y: 920 },
-        data: {
-          label: 'Build Summary',
-          assignments: [
-            { id: 'a1', name: 'resultType', expression: '{{failCount}}' },
-            { id: 'a2', name: 'summary', expression: 'Created {{successCount}} users ({{failCount}} failed)' },
-          ],
-        },
-      },
+      makeSetVariableNode('bp-summary', 'Build Summary', [
+        { id: 'a1', name: 'resultType', expression: '{{failCount}}' },
+        { id: 'a2', name: 'summary', expression: 'Created {{successCount}} users ({{failCount}} failed)' },
+      ], { x: 240, y: 920 }),
       {
         id: 'bp-switch', type: 'switch', position: { x: 260, y: 1060 },
         data: {
@@ -400,43 +265,23 @@ export function createBatchProvisioningWorkflow(): Workflow {
           ],
         },
       },
-      {
-        id: 'bp-report-ok', type: 'http', position: { x: 80, y: 1230 },
-        data: {
-          label: 'Success Report', scenario: {
-            id: 'bp-s2', name: 'Report OK', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"title":"Batch Report","body":"{{summary}}","userId":1}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      {
-        id: 'bp-report-partial', type: 'http', position: { x: 440, y: 1230 },
-        data: {
-          label: 'Partial Report', scenario: {
-            id: 'bp-s3', name: 'Report Partial', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"title":"Batch Report (Partial)","body":"{{summary}}","userId":1}', bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
-          },
-        },
-      },
-      { id: 'bp-end', type: 'end', position: { x: 280, y: 1400 }, data: { label: 'Done' } },
+      makePostNode('bp-report-ok', 'Success Report', 'https://jsonplaceholder.typicode.com/posts', '{"title":"Batch Report","body":"{{summary}}","userId":1}', { x: 80, y: 1230 }),
+      makePostNode('bp-report-partial', 'Partial Report', 'https://jsonplaceholder.typicode.com/posts', '{"title":"Batch Report (Partial)","body":"{{summary}}","userId":1}', { x: 440, y: 1230 }),
+      makeEndNode('bp-end', 'Done', { x: 280, y: 1400 }),
     ],
     edges: [
-      { id: 'bp-e1', source: 'bp-start', target: 'bp-init' },
-      { id: 'bp-e2', source: 'bp-init', target: 'bp-loop' },
+      makeEdge('bp-e1', 'bp-start', 'bp-init'),
+      makeEdge('bp-e2', 'bp-init', 'bp-loop'),
       { id: 'bp-e3', source: 'bp-loop', target: 'bp-create', sourceHandle: 'body' },
-      { id: 'bp-e4', source: 'bp-create', target: 'bp-check' },
+      makeEdge('bp-e4', 'bp-create', 'bp-check'),
       { id: 'bp-e5', source: 'bp-check', target: 'bp-agg-ok', sourceHandle: 'true' },
       { id: 'bp-e6', source: 'bp-check', target: 'bp-agg-fail', sourceHandle: 'false' },
       { id: 'bp-e7', source: 'bp-loop', target: 'bp-summary', sourceHandle: 'done' },
-      { id: 'bp-e8', source: 'bp-summary', target: 'bp-switch' },
+      makeEdge('bp-e8', 'bp-summary', 'bp-switch'),
       { id: 'bp-e9', source: 'bp-switch', target: 'bp-report-ok', sourceHandle: 'case-rc1' },
       { id: 'bp-e10', source: 'bp-switch', target: 'bp-report-partial', sourceHandle: 'default' },
-      { id: 'bp-e11', source: 'bp-report-ok', target: 'bp-end' },
-      { id: 'bp-e12', source: 'bp-report-partial', target: 'bp-end' },
+      makeEdge('bp-e11', 'bp-report-ok', 'bp-end'),
+      makeEdge('bp-e12', 'bp-report-partial', 'bp-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -454,58 +299,33 @@ export function createErrorHandlerWorkflow(): Workflow {
     description: 'Demonstrates Error Handler with retry, Log/Debug for diagnostics, and conditional outcome.',
     variables: {},
     nodes: [
-      { id: 'eh-start', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Start', inputVariables: { apiKey: 'demo-key' } } },
-      {
-        id: 'eh-log-begin', type: 'logDebug', position: { x: 200, y: 100 },
-        data: { label: 'Log: Begin', message: 'Starting resilient API call with key={{apiKey}}', logLevel: 'info', snapshotVariables: false },
-      },
+      makeStartNode('eh-start', { apiKey: 'demo-key' }, { x: 250, y: 0 }),
+      makeLogDebugNode('eh-log-begin', 'Log: Begin', 'Starting resilient API call with key={{apiKey}}', 'info', { x: 200, y: 100 }),
       {
         id: 'eh-guard', type: 'errorHandler', position: { x: 200, y: 240 },
         data: { label: 'API Guard', errorFilter: 'all', maxRetries: 2, retryBackoffStrategy: 'fixed', retryDelayMs: 500, failWorkflowOnError: false },
       },
-      {
-        id: 'eh-post', type: 'http', position: { x: 50, y: 400 },
-        data: {
-          label: 'Create Post',
-          scenario: {
-            id: 'eh-s1', name: 'Create Post',
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            method: 'POST',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: JSON.stringify({ title: 'Resilient Post', body: 'Created with error handling', userId: 1 }, null, 2),
-            bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'postId', source: 'body', expression: '$.id' }, { name: 'httpStatus', source: 'status', expression: '' }],
-          },
-        },
-      },
-      {
-        id: 'eh-log-error', type: 'logDebug', position: { x: 400, y: 400 },
-        data: { label: 'Log: Error', message: 'API call failed — will retry. Status={{httpStatus}}', logLevel: 'error', snapshotVariables: true },
-      },
-      {
-        id: 'eh-check', type: 'condition', position: { x: 240, y: 560 },
-        data: { label: 'Created OK?', left: '{{httpStatus}}', operator: '==', right: '201' },
-      },
-      {
-        id: 'eh-log-ok', type: 'logDebug', position: { x: 100, y: 700 },
-        data: { label: 'Log: Success', message: 'Post {{postId}} created successfully', logLevel: 'info', snapshotVariables: false },
-      },
-      {
-        id: 'eh-log-fail', type: 'logDebug', position: { x: 400, y: 700 },
-        data: { label: 'Log: Failure', message: 'Post creation failed with status={{httpStatus}}', logLevel: 'warn', snapshotVariables: true },
-      },
-      { id: 'eh-end', type: 'end', position: { x: 250, y: 850 }, data: { label: 'End' } },
+      makePostNode('eh-post', 'Create Post', 'https://jsonplaceholder.typicode.com/posts', jsonBody({ title: 'Resilient Post', body: 'Created with error handling', userId: 1 }), {
+        x: 50,
+        y: 400,
+        extractions: [bodyExtraction('postId', '$.id'), { name: 'httpStatus', source: 'status', expression: '' }],
+      }),
+      makeLogDebugNode('eh-log-error', 'Log: Error', 'API call failed — will retry. Status={{httpStatus}}', 'error', { x: 400, y: 400, snapshotVariables: true }),
+      makeConditionNode('eh-check', 'Created OK?', '{{httpStatus}}', '201', { x: 240, y: 560 }),
+      makeLogDebugNode('eh-log-ok', 'Log: Success', 'Post {{postId}} created successfully', 'info', { x: 100, y: 700 }),
+      makeLogDebugNode('eh-log-fail', 'Log: Failure', 'Post creation failed with status={{httpStatus}}', 'warn', { x: 400, y: 700, snapshotVariables: true }),
+      makeEndNode('eh-end', 'End', { x: 250, y: 850 }),
     ],
     edges: [
-      { id: 'eh-e1', source: 'eh-start', target: 'eh-log-begin' },
-      { id: 'eh-e2', source: 'eh-log-begin', target: 'eh-guard' },
+      makeEdge('eh-e1', 'eh-start', 'eh-log-begin'),
+      makeEdge('eh-e2', 'eh-log-begin', 'eh-guard'),
       { id: 'eh-e3', source: 'eh-guard', target: 'eh-post', sourceHandle: 'body' },
       { id: 'eh-e4', source: 'eh-guard', target: 'eh-log-error', sourceHandle: 'catch' },
       { id: 'eh-e5', source: 'eh-guard', target: 'eh-check', sourceHandle: 'done' },
       { id: 'eh-e6', source: 'eh-check', target: 'eh-log-ok', sourceHandle: 'true' },
       { id: 'eh-e7', source: 'eh-check', target: 'eh-log-fail', sourceHandle: 'false' },
-      { id: 'eh-e8', source: 'eh-log-ok', target: 'eh-end' },
-      { id: 'eh-e9', source: 'eh-log-fail', target: 'eh-end' },
+      makeEdge('eh-e8', 'eh-log-ok', 'eh-end'),
+      makeEdge('eh-e9', 'eh-log-fail', 'eh-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -538,10 +358,7 @@ export function createWorkflowErrorHandlerSample(): Workflow {
     },
     nodes: [
       // ── Main flow ──
-      {
-        id: 'weh-start', type: 'start', position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: { userId: '1' } },
-      },
+      makeStartNode('weh-start', { userId: '1' }, { x: 250, y: 0 }),
       {
         id: 'weh-fetch', type: 'http', position: { x: 200, y: 120 },
         data: {
@@ -552,16 +369,11 @@ export function createWorkflowErrorHandlerSample(): Workflow {
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '', auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [
-              { name: 'userName', source: 'body', expression: '$.name' },
-            ],
+            extractions: [bodyExtraction('userName', '$.name')],
           },
         },
       },
-      {
-        id: 'weh-log-ok', type: 'logDebug', position: { x: 200, y: 260 },
-        data: { label: '2. Log Success', message: 'Fetched user: {{userName}}', logLevel: 'info', snapshotVariables: false },
-      },
+      makeLogDebugNode('weh-log-ok', '2. Log Success', 'Fetched user: {{userName}}', 'info', { x: 200, y: 260 }),
       {
         id: 'weh-bad', type: 'http', position: { x: 200, y: 380 },
         data: {
@@ -577,24 +389,17 @@ export function createWorkflowErrorHandlerSample(): Workflow {
           },
         },
       },
-      {
-        id: 'weh-never', type: 'logDebug', position: { x: 200, y: 500 },
-        data: { label: '4. This Never Runs', message: 'You should not see this — the workflow stopped at step 3.', logLevel: 'info', snapshotVariables: false },
-      },
-      {
-        id: 'weh-end', type: 'end', position: { x: 250, y: 620 },
-        data: { label: 'End' },
-      },
+      makeLogDebugNode('weh-never', '4. This Never Runs', 'You should not see this — the workflow stopped at step 3.', 'info', { x: 200, y: 500 }),
+      makeEndNode('weh-end', 'End', { x: 250, y: 620 }),
 
       // ── Error handler subgraph (disconnected from main flow) ──
-      {
-        id: 'weh-log-err', type: 'logDebug', position: { x: 620, y: 120 },
-        data: {
-          label: '⚠ Error Caught',
-          message: '🔴 Workflow-level error handler triggered!\n  Error: {{error.message}}\n  Status Code: {{error.statusCode}}\n  Failed Nodes: {{error.failedCount}}',
-          logLevel: 'error', snapshotVariables: true,
-        },
-      },
+      makeLogDebugNode(
+        'weh-log-err',
+        '⚠ Error Caught',
+        '🔴 Workflow-level error handler triggered!\n  Error: {{error.message}}\n  Status Code: {{error.statusCode}}\n  Failed Nodes: {{error.failedCount}}',
+        'error',
+        { x: 620, y: 120, snapshotVariables: true },
+      ),
       {
         id: 'weh-notify', type: 'http', position: { x: 620, y: 280 },
         data: {
@@ -604,34 +409,27 @@ export function createWorkflowErrorHandlerSample(): Workflow {
             url: '{{notifyUrl}}',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: JSON.stringify({
+            body: jsonBody({
               channel: '#alerts',
               text: 'Workflow failed! Error: {{error.message}} | Status: {{error.statusCode}} | Failed: {{error.failedCount}} node(s)',
-            }, null, 2),
+            }),
             bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'notificationId', source: 'body', expression: '$.id' }],
+            extractions: [bodyExtraction('notificationId', '$.id')],
           },
         },
       },
-      {
-        id: 'weh-log-sent', type: 'logDebug', position: { x: 620, y: 440 },
-        data: {
-          label: '✅ Notification Sent',
-          message: 'Error notification posted (id={{notificationId}}). Recovery complete.',
-          logLevel: 'info', snapshotVariables: false,
-        },
-      },
+      makeLogDebugNode('weh-log-sent', '✅ Notification Sent', 'Error notification posted (id={{notificationId}}). Recovery complete.', 'info', { x: 620, y: 440 }),
     ],
     edges: [
       // Main flow edges
-      { id: 'weh-e1', source: 'weh-start', target: 'weh-fetch' },
-      { id: 'weh-e2', source: 'weh-fetch', target: 'weh-log-ok' },
-      { id: 'weh-e3', source: 'weh-log-ok', target: 'weh-bad' },
-      { id: 'weh-e4', source: 'weh-bad', target: 'weh-never' },
-      { id: 'weh-e5', source: 'weh-never', target: 'weh-end' },
+      makeEdge('weh-e1', 'weh-start', 'weh-fetch'),
+      makeEdge('weh-e2', 'weh-fetch', 'weh-log-ok'),
+      makeEdge('weh-e3', 'weh-log-ok', 'weh-bad'),
+      makeEdge('weh-e4', 'weh-bad', 'weh-never'),
+      makeEdge('weh-e5', 'weh-never', 'weh-end'),
       // Error subgraph edges (no connection to main flow)
-      { id: 'weh-e6', source: 'weh-log-err', target: 'weh-notify' },
-      { id: 'weh-e7', source: 'weh-notify', target: 'weh-log-sent' },
+      makeEdge('weh-e6', 'weh-log-err', 'weh-notify'),
+      makeEdge('weh-e7', 'weh-notify', 'weh-log-sent'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -655,18 +453,8 @@ export function createScriptMediumWorkflow(): Workflow {
     description: 'Fetch user and their posts in parallel, validate data consistency with a Script node, ErrorHandler catches failures.',
     variables: {},
     nodes: [
-      {
-        id: 'sm-start',
-        type: 'start',
-        position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { userId: '1' } },
-      },
-      {
-        id: 'sm-fork',
-        type: 'fork',
-        position: { x: 300, y: 120 },
-        data: { label: '1. Parallel Fetch' },
-      },
+      makeStartNode('sm-start', { userId: '1' }),
+      makeForkNode('sm-fork', '1. Parallel Fetch', { x: 300, y: 120 }),
       {
         id: 'sm-get-user',
         type: 'http',
@@ -682,10 +470,7 @@ export function createScriptMediumWorkflow(): Workflow {
             body: '',
             auth: { type: 'none' },
             validation: { mode: 'none' },
-            extractions: [
-              { name: 'userJson', source: 'body', expression: '$' },
-              { name: 'userName', source: 'body', expression: '$.name' },
-            ],
+            extractions: [bodyExtraction('userJson', '$'), bodyExtraction('userName', '$.name')],
           },
         },
       },
@@ -704,18 +489,11 @@ export function createScriptMediumWorkflow(): Workflow {
             body: '',
             auth: { type: 'none' },
             validation: { mode: 'none' },
-            extractions: [
-              { name: 'postsJson', source: 'body', expression: '$' },
-            ],
+            extractions: [bodyExtraction('postsJson', '$')],
           },
         },
       },
-      {
-        id: 'sm-join',
-        type: 'join',
-        position: { x: 300, y: 390 },
-        data: { label: '3. Merge Results' },
-      },
+      makeJoinNode('sm-join', '3. Merge Results', { x: 300, y: 390 }),
       {
         id: 'sm-error-handler',
         type: 'errorHandler',
@@ -764,46 +542,21 @@ export function createScriptMediumWorkflow(): Workflow {
           captureConsole: true,
         },
       },
-      {
-        id: 'sm-catch',
-        type: 'logDebug',
-        position: { x: 450, y: 620 },
-        data: {
-          label: '4b. Log Failure',
-          message: 'Validation failed: {{mismatchCount}} mismatches in {{postCount}} posts for user {{userName}}',
-          logLevel: 'error',
-          snapshotVariables: true,
-        },
-      },
-      {
-        id: 'sm-log-success',
-        type: 'logDebug',
-        position: { x: 300, y: 770 },
-        data: {
-          label: '5. Log Result',
-          message: 'User {{userName}}: {{postCount}} posts validated, {{mismatchCount}} mismatches',
-          logLevel: 'info',
-          snapshotVariables: false,
-        },
-      },
-      {
-        id: 'sm-end',
-        type: 'end',
-        position: { x: 300, y: 900 },
-        data: { label: 'Done' },
-      },
+      makeLogDebugNode('sm-catch', '4b. Log Failure', 'Validation failed: {{mismatchCount}} mismatches in {{postCount}} posts for user {{userName}}', 'error', { x: 450, y: 620, snapshotVariables: true }),
+      makeLogDebugNode('sm-log-success', '5. Log Result', 'User {{userName}}: {{postCount}} posts validated, {{mismatchCount}} mismatches', 'info', { x: 300, y: 770 }),
+      makeEndNode('sm-end', 'Done', { x: 300, y: 900 }),
     ],
     edges: [
-      { id: 'sm-e1', source: 'sm-start', target: 'sm-fork' },
-      { id: 'sm-e2', source: 'sm-fork', target: 'sm-get-user' },
-      { id: 'sm-e3', source: 'sm-fork', target: 'sm-get-posts' },
-      { id: 'sm-e4', source: 'sm-get-user', target: 'sm-join' },
-      { id: 'sm-e5', source: 'sm-get-posts', target: 'sm-join' },
-      { id: 'sm-e6', source: 'sm-join', target: 'sm-error-handler' },
+      makeEdge('sm-e1', 'sm-start', 'sm-fork'),
+      makeEdge('sm-e2', 'sm-fork', 'sm-get-user'),
+      makeEdge('sm-e3', 'sm-fork', 'sm-get-posts'),
+      makeEdge('sm-e4', 'sm-get-user', 'sm-join'),
+      makeEdge('sm-e5', 'sm-get-posts', 'sm-join'),
+      makeEdge('sm-e6', 'sm-join', 'sm-error-handler'),
       { id: 'sm-e7', source: 'sm-error-handler', target: 'sm-script-validate', sourceHandle: 'body' },
       { id: 'sm-e8', source: 'sm-error-handler', target: 'sm-catch', sourceHandle: 'catch' },
       { id: 'sm-e9', source: 'sm-error-handler', target: 'sm-log-success', sourceHandle: 'done' },
-      { id: 'sm-e10', source: 'sm-log-success', target: 'sm-end' },
+      makeEdge('sm-e10', 'sm-log-success', 'sm-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),

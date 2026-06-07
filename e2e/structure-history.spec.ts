@@ -450,11 +450,10 @@ test.describe('V-Phase 6: Structure Change History', () => {
       // Click Export on FG
       const fgCard = page.locator('.feature-group-card', { hasText: 'Feature Group A' });
       await fgCard.locator('.feature-group-actions button', { hasText: 'Export' }).click();
-      await page.waitForTimeout(500);
 
       // Check if popover appeared
       const popover = page.locator('.export-opts-popover');
-      if (await popover.isVisible()) {
+      if (await popover.isVisible({ timeout: 3000 }).catch(() => false)) {
         // Should have Structure History checkbox
         await expect(popover.locator('.export-opts-check', { hasText: 'Structure History' })).toBeVisible();
       }

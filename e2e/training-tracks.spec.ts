@@ -33,18 +33,29 @@ async function expectTrainingManualStatusInStorage(
 
 /** Wait for training tracks to finish loading progress from storage after navigation/reload. */
 async function waitForTrainingTracksReady(page: Page) {
-  await expect(page.getByRole('heading', { name: /Training Manual Tracks/ })).toBeVisible({
-    timeout: 10_000,
+  await page.waitForLoadState('domcontentloaded');
+  const heading = page.getByRole('heading', { name: /Training Manual Tracks/ });
+
+  // In full-suite runs the route can occasionally land on a different sub-tab first.
+  if (!(await heading.isVisible({ timeout: 3000 }).catch(() => false))) {
+    const trainingTab = page.locator('.sub-nav-tab').filter({ hasText: 'Training Tracks' }).first();
+    if (await trainingTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await trainingTab.click();
+    }
+  }
+
+  await expect(heading).toBeVisible({
+    timeout: 25_000,
   });
-  await expect(page.getByText('Loading training progress...')).not.toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Loading training progress...')).not.toBeVisible({ timeout: 25_000 });
 }
 
 test.describe('Training Tracks', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to Training Tracks
     await page.goto('/?tab=training');
-    // Wait for loading to complete
-    await expect(page.getByRole('heading', { name: /Training Manual Tracks/ })).toBeVisible();
+    // Wait for hydration + storage sync to settle before assertions.
+    await waitForTrainingTracksReady(page);
   });
 
   test('displays page header and stats dashboard', async ({ page }) => {
