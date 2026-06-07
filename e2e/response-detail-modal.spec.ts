@@ -68,8 +68,8 @@ test.describe('Response Detail Modal', () => {
       localStorage.setItem('perf-test-theme', 'dark');
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
     // Navigate to the Request Details tab where clickable rows live
     await page.getByRole('tab', { name: 'Request Details' }).click();

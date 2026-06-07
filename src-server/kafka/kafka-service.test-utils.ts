@@ -12,7 +12,36 @@ import type {
   KafkaRuntimeAdapter,
   KafkaTopicMetadata,
 } from './kafka-adapter.js';
-import type { KafkaConnectionConfig } from './contracts.js';
+import type { KafkaConnectionConfig, KafkaRouteEnvelope } from './contracts.js';
+
+// ── Assertion helpers ─────────────────────────────────────────────────────
+
+/**
+ * Asserts a KafkaRouteEnvelope is a success and returns the data payload.
+ */
+export function expectSuccess<T>(envelope: KafkaRouteEnvelope<T>): T {
+  if (!envelope.ok) {
+    throw new Error(`Expected success but got error: ${envelope.error.code} — ${envelope.error.message}`);
+  }
+  return envelope.data;
+}
+
+/**
+ * Asserts a KafkaRouteEnvelope is an error and returns the error details.
+ * Optionally checks the error code matches `expectedCode`.
+ */
+export function expectError(
+  envelope: KafkaRouteEnvelope<unknown>,
+  expectedCode?: string,
+): { code: string; message: string } {
+  if (envelope.ok) {
+    throw new Error(`Expected error${expectedCode ? ` (${expectedCode})` : ''} but got success`);
+  }
+  if (expectedCode && envelope.error.code !== expectedCode) {
+    throw new Error(`Expected error code '${expectedCode}' but got '${envelope.error.code}'`);
+  }
+  return envelope.error;
+}
 
 export interface MockAdminState {
   topics: string[];

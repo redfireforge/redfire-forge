@@ -153,9 +153,8 @@ async function seedAndOpenResultsExplorer(page: Page, testRun: ReturnType<typeof
   const seeded = await seedTestRunsViaIDB(page, [testRun]);
   expect(seeded).toBe('ok');
 
-  await page.reload();
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForSelector('.app-header', { timeout: 25000 });
+  await page.goto('/?tab=results', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
   await openResultsExplorer(page, { retryHarness: true });
 

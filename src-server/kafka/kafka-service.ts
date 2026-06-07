@@ -2,7 +2,6 @@ import {
   createKafkaErrorEnvelope,
   createKafkaSuccessEnvelope,
   type KafkaConsumeOnceRequest,
-  type KafkaConsumeRecord,
   type KafkaConnectionConfig,
   type KafkaConnectResult,
   type KafkaConnectRequest,
@@ -30,24 +29,17 @@ import {
 } from './contracts.js';
 import { createKafkaRuntimeAdapter, type KafkaAdminAdapter, type KafkaRuntimeAdapter } from './kafka-adapter.js';
 import {
-  matchesKafkaConsumeFilter,
+  checkClusterMismatch,
   validateConnectionConfig,
-  validateKafkaProduceRequest,
 } from './kafka-service-utils.js';
-import {
-  encodeValue,
-  SchemaRegistryError,
-  SCHEMA_ERROR_CODES,
-} from './schema-registry-client.js';
-import { randomUUID } from 'node:crypto';
+import { executeProduce } from './kafka-produce.js';
+import { executeSubscribe } from './kafka-subscribe.js';
 import {
   DEFAULT_CLEANUP_TIMEOUT_MS,
   isAuthError,
   isTimeoutError,
   resolveConnectTimeout,
   resolveRequestTimeout,
-  safeDisconnectProducer,
-  safeStopAndDisconnectConsumer,
   toKafkaMessage,
   withTimeout,
 } from './kafka-service-helpers.js';
@@ -183,12 +175,8 @@ export class KafkaService {
 
     const currentClusterId = this.snapshot.connection?.clusterId ?? this.snapshot.status.clusterId;
 
-    if (request?.clusterId && currentClusterId && request.clusterId !== currentClusterId) {
-      return createKafkaErrorEnvelope('disconnect', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Disconnect request cluster '${request.clusterId}' does not match active cluster '${currentClusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch('disconnect', request?.clusterId, currentClusterId);
+    if (mismatch) return mismatch;
 
     const pendingConnect = this.connectPromise;
     if (pendingConnect) {
@@ -279,12 +267,8 @@ export class KafkaService {
     request: KafkaTopicDetailRequest,
   ): Promise<KafkaRouteEnvelope<KafkaTopicDetail>> {
     const clusterId = this.snapshot.connection?.clusterId;
-    if (request.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('topic-detail', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch('topic-detail', request.clusterId, clusterId);
+    if (mismatch) return mismatch;
 
     if (!this.admin) {
       return createKafkaErrorEnvelope('topic-detail', {
@@ -315,87 +299,7 @@ export class KafkaService {
     const connResult = this.requireReadyConnection('produce', request.clusterId);
     if (!connResult.ok) return connResult.envelope;
 
-    const validationError = validateKafkaProduceRequest(request);
-    if (validationError) {
-      return createKafkaErrorEnvelope('produce', validationError);
-    }
-
-    const { connection } = connResult;
-
-    const producer = this.runtimeAdapter.createProducer(connection);
-    try {
-      await withTimeout(producer.connect(), resolveRequestTimeout(connection), 'produce-connect');
-
-      // Phase 10B — Schema encode when schemaConfig is present.
-      // When absent, messages are passed through unchanged (no behavioral change).
-      let messagesToSend = request.messages;
-      let valueEncoding: KafkaProduceResult['valueEncoding'];
-
-      if (request.schemaConfig) {
-        // Encode each message value using the registry client.
-        // encodeValue() returns a raw Confluent wire-format Buffer.  We assign it
-        // directly into KafkaProducerMessage.value (string | Buffer) and KafkaJS
-        // sends the bytes verbatim — no base64 encoding.  The consumer reads the
-        // same raw bytes via rawValue and passes them to decodeValue().
-        const schemaConfig = request.schemaConfig;
-        const encodedMessages = await Promise.all(
-          request.messages.map(async (msg) => {
-            let parsedValue: unknown;
-            try {
-              parsedValue = JSON.parse(msg.value);
-            } catch {
-              parsedValue = msg.value;
-            }
-            const encodedBuffer = await encodeValue(schemaConfig, request.topic, parsedValue);
-            // Send raw Confluent wire-format bytes; KafkaJS accepts Buffer values.
-            // The consumer's rawValue path reads these bytes directly for decode.
-            return { ...msg, value: encodedBuffer };
-          }),
-        );
-        messagesToSend = encodedMessages;
-        switch (schemaConfig.format) {
-          case 'protobuf':    valueEncoding = 'protobuf';    break;
-          case 'json-schema': valueEncoding = 'json-schema'; break;
-          default:            valueEncoding = 'avro';        break;
-        }
-      }
-
-      const records = await withTimeout(
-        producer.send({
-          topic: request.topic,
-          acks: request.acks,
-          timeout: request.timeoutMs,
-          messages: messagesToSend,
-        }),
-        resolveRequestTimeout(connection),
-        'produce-send',
-      );
-
-      return createKafkaSuccessEnvelope('produce', {
-        clusterId: connection.clusterId,
-        topic: request.topic,
-        sentCount: request.messages.length,
-        records,
-        ...(valueEncoding ? { valueEncoding } : {}),
-      });
-    } catch (error) {
-      // Phase 10B — schema errors surface as dedicated codes, not KAFKA_PRODUCE_FAILED.
-      if (error instanceof SchemaRegistryError) {
-        return createKafkaErrorEnvelope('produce', {
-          code: error.code,
-          message: error.message,
-          retryable: error.code === SCHEMA_ERROR_CODES.REGISTRY_UNREACHABLE,
-        });
-      }
-      const authFail = isAuthError(error);
-      return createKafkaErrorEnvelope('produce', {
-        code: authFail ? 'KAFKA_AUTH_FAILED' : 'KAFKA_PRODUCE_FAILED',
-        message: toKafkaMessage(error),
-        retryable: !authFail,
-      });
-    } finally {
-      await safeDisconnectProducer(producer);
-    }
+    return executeProduce(this.runtimeAdapter, connResult.connection, request);
   }
 
   async consumeOnce(request: KafkaConsumeOnceRequest): Promise<KafkaRouteEnvelope<KafkaConsumeResult>> {
@@ -415,75 +319,15 @@ export class KafkaService {
     const connResult = this.requireReadyConnection('subscribe', request.clusterId);
     if (!connResult.ok) return connResult.envelope;
 
-    if (!request.topic?.trim()) {
-      return createKafkaErrorEnvelope('subscribe', {
-        code: 'KAFKA_INVALID_SUBSCRIBE',
-        message: 'topic is required',
-      });
-    }
-
-    const { connection } = connResult;
-
-    const subscriptionId = randomUUID();
-    const groupId = request.groupId ?? `redfireforge-sub-${connection.clusterId}-${subscriptionId.slice(0, 8)}`;
-    const consumer = this.runtimeAdapter.createConsumer(connection, groupId);
-    const maxInMemoryMessages = Math.max(request.maxInMemoryMessages ?? 100, 1);
-    const ringBuffer: KafkaConsumeRecord[] = [];
-
-    try {
-      await withTimeout(consumer.connect(), resolveRequestTimeout(connection), 'subscribe-connect');
-      await withTimeout(
-        consumer.subscribe(request.topic, request.fromBeginning ?? false),
-        resolveRequestTimeout(connection),
-        'subscribe-subscribe',
-      );
-
-      void consumer.run(async (record) => {
-        if (!matchesKafkaConsumeFilter(record, request.filter)) {
-          return;
-        }
-        ringBuffer.push(record);
-        if (ringBuffer.length > maxInMemoryMessages) {
-          ringBuffer.shift();
-        }
-        const entry = this.subscriptionStore.get(subscriptionId);
-        if (entry) {
-          entry.cursor++;
-        }
-      }).catch(async () => {
-        this.subscriptionStore.delete(subscriptionId);
-        this.updateSubscriptionCount();
-        await safeStopAndDisconnectConsumer(consumer);
-      });
-
-      const info: KafkaSubscribeInfo = {
-        subscriptionId,
-        topic: request.topic,
-        groupId,
-        createdAt: new Date().toISOString(),
-      };
-
-      this.subscriptionStore.set(subscriptionId, {
-        info,
-        cleanup: async () => { await safeStopAndDisconnectConsumer(consumer); },
-        ringBuffer,
-        maxInMemoryMessages,
-        cursor: 0,
-      });
-      this.updateSubscriptionCount();
-
-      return createKafkaSuccessEnvelope('subscribe', {
-        clusterId: connection.clusterId,
-        subscription: info,
-      });
-    } catch (error) {
-      await safeStopAndDisconnectConsumer(consumer);
-      return createKafkaErrorEnvelope('subscribe', {
-        code: 'KAFKA_SUBSCRIBE_FAILED',
-        message: toKafkaMessage(error),
-        retryable: true,
-      });
-    }
+    const result = await executeSubscribe(
+      this.runtimeAdapter,
+      connResult.connection,
+      request,
+      this.subscriptionStore,
+      () => this.updateSubscriptionCount(),
+    );
+    this.updateSubscriptionCount();
+    return result;
   }
 
   registerSubscription(
@@ -656,12 +500,8 @@ export class KafkaService {
     }
 
     const clusterId = this.snapshot.connection?.clusterId;
-    if (requestClusterId && clusterId && requestClusterId !== clusterId) {
-      return createKafkaErrorEnvelope(op, {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Request cluster '${requestClusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch(op, requestClusterId, clusterId);
+    if (mismatch) return mismatch;
 
     return { ok: true };
   }
