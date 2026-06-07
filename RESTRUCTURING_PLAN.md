@@ -1,6 +1,6 @@
 # Source Code Restructuring Plan
 
-> **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to 895 lines via 8 extracted hooks + 2 utility modules. ScenarioBuilder.tsx reduced from 984 to 702 lines via useScenarioMutations. **Kafka Service modularization** completed (2026-06-07) — KafkaService reduced from 660+ to 464 lines via extracted `kafka-produce.ts`, `kafka-subscribe.ts`, and `kafka-service-utils.ts`. Gallery workflow factories consolidated via shared `nodeFactories.ts` (~1,500 lines of duplication removed). The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
+> **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to **23 lines** (fully decomposed into 10+ modules including `useWorkflowDesignerController`, `WorkflowDesignerMainLayout`, and extracted hooks). ScenarioBuilder.tsx reduced from 984 to 702 lines via useScenarioMutations. **Kafka Service modularization** completed (2026-06-07) — KafkaService reduced from 660+ to 464 lines via extracted `kafka-produce.ts`, `kafka-subscribe.ts`, and `kafka-service-utils.ts`. Gallery workflow factories consolidated via shared `nodeFactories.ts` (~1,500 lines of duplication removed). The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
 >
 > _Last updated: 2026-06-07_
 
@@ -26,7 +26,7 @@ Reorganize the codebase from flat dumping-ground directories into **functional d
 | `src/components/workflow/` bloat | 62 production files flat — configs, nodes, panels, modals all mixed |
 | Monolithic pages | ~~WorkflowDesigner (2059 LOC)~~, ~~ScenarioBuilder (1045)~~, App (884) |
 
-> **Note**: WorkflowDesigner.tsx already refactored to 895 LOC (Phase 10 completed ahead of schedule, with Round 4 extracting `workflowDesignerUtils.ts` and `workflowEdgeGeometry.ts`). ScenarioBuilder.tsx refactored to 702 LOC (useScenarioMutations extracted). App.tsx now at 884 LOC with useTheme + useWorkflowImportExport extracted.
+> **Note**: WorkflowDesigner.tsx now fully decomposed to **23 lines** (a thin wrapper component); all logic extracted into 10+ modules under `src/features/workflow/hooks/` and `src/features/workflow/components/`. ScenarioBuilder.tsx refactored to 702 LOC (useScenarioMutations extracted). App.tsx now at 884 LOC with useTheme + useWorkflowImportExport extracted.
 
 ---
 
@@ -226,7 +226,7 @@ Break the ~~2059~~-line god component into custom hooks:
 - [x] Write/update tests for each extracted hook — 53 new hook tests
 - [x] `npx tsc --noEmit` ✓
 
-**Result**: WorkflowDesigner.tsx reduced from 1432 to **893 lines** (6 hooks extracted). Tests: 4613 passing, 0 tsc errors.
+**Result**: WorkflowDesigner.tsx reduced from 1432 to **23 lines** (fully decomposed into 10+ modules). Tests: 23,000+ passing, 0 tsc errors.
 
 ---
 
