@@ -15,8 +15,9 @@ test.describe('Trash Box', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppDataWithTest(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
+    await expect(page.locator('.feature-group-card').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('Trash button is visible in the header', async ({ page }) => {
@@ -51,11 +52,6 @@ test.describe('Trash Box', () => {
     const toast = page.locator('.trash-toast-container');
     await expect(toast).toBeVisible({ timeout: 5000 });
 
-    const dismissBtn = page.locator('.trash-toast-dismiss');
-    if (await dismissBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismissBtn.click();
-    }
-
     const trashBtn = page.locator('button:has-text("Trash")');
     await trashBtn.click();
 
@@ -66,13 +62,6 @@ test.describe('Trash Box', () => {
 
   test('Trash panel allows restoring items', async ({ page }) => {
     await createAndDeleteFeatureGroup(page);
-
-    await page.waitForTimeout(500);
-
-    const dismissBtn = page.locator('.trash-toast-dismiss');
-    if (await dismissBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismissBtn.click();
-    }
 
     await page.locator('button:has-text("Trash")').click();
 
@@ -91,8 +80,6 @@ test.describe('Trash Box', () => {
 
   test('Trash badge shows count of deleted items', async ({ page }) => {
     await createAndDeleteFeatureGroup(page);
-
-    await page.waitForTimeout(500);
 
     const trashBtn = page.locator('button:has-text("Trash")');
     const badge = trashBtn.locator('.count-badge');

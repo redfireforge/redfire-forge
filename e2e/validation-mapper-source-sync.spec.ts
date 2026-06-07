@@ -56,8 +56,8 @@ async function seedWithExistingValidationRules(page: Page) {
 
 async function openTestEditor(page: Page): Promise<void> {
   await page.goto('/?tab=scenarios');
-  await page.waitForSelector('.app-header', { timeout: 25000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
+  await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
   // Expand feature group
   const fgCard = page.locator('.feature-group-card', { hasText: 'Validation FG' });
@@ -70,7 +70,9 @@ async function openTestEditor(page: Page): Promise<void> {
 
   // Click Edit on the test
   await expect(page.locator('.test-card')).toBeVisible({ timeout: 5000 });
-  await page.locator('.test-card button:has-text("Edit")').click();
+  const editBtn = page.locator('.test-card button:has-text("Edit")').first();
+  await expect(editBtn).toBeVisible({ timeout: 10000 });
+  await editBtn.click();
   await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 5000 });
   await page.locator('.builder-tab:has-text("Validation")').click();
 }
@@ -151,8 +153,8 @@ test.describe('Validation Data Mapper — source panel sync', () => {
   test('Verify All populates source panel when target has sample data', async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
     // Create a new test and set up validation via Fetch Response (which stores sampleJson)
     await page.click('button:has-text("+ Add Feature Group")');
@@ -196,8 +198,8 @@ test.describe('Validation Data Mapper — source panel sync', () => {
   test('fresh Fetch Response then Data Mapper opens with source populated', async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
     await page.click('button:has-text("+ Add Feature Group")');
     await page.locator('input[placeholder="Feature group name (e.g. Onboarding)"]').fill('Fresh-FG');

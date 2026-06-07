@@ -54,8 +54,8 @@ test.describe('Phase 25 run comparison and trends', () => {
       }
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
   });
 
   test('imports the performance regression baseline sample and exposes analysis controls', async ({ page }) => {
