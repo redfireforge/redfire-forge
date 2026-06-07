@@ -8,6 +8,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Changed
+- **Kafka Service Modularization** — Extracted `kafka-produce.ts` and `kafka-subscribe.ts` from monolithic `KafkaService` class (was 660+ lines, now 464 lines). Produce and subscribe logic are now standalone modules with dedicated test files.
+- **Kafka Utility Extraction** — Extracted `checkClusterMismatch()` into `kafka-service-utils.ts` for reuse and independent testing.
+- **Gallery Node Factory Extraction** — Extracted shared `nodeFactories.ts` (386 lines) from 6 workflow gallery files, eliminating ~1,500 lines of duplicated node-creation boilerplate across `apiPatterns.ts`, `asyncCorrelation.ts`, `flowControl.ts`, `kafka.ts`, `orchestration.ts`, and `performance.ts`.
+- **Kafka Test Helper Refactoring** — Refactored `kafka-produce.test.ts` and `kafka-subscribe.test.ts` to use shared `expectSuccess()` / `expectError()` helpers from `kafka-service.test-utils.ts`, eliminating ~40 lines of duplicated `result.ok` assertion boilerplate.
+
+### Added
+- **Cron Scheduler Tests** — `cron-scheduler.test.ts` with 15 tests covering all exports (`initScheduler`, `reloadSchedules`, `stopScheduler`, `getSchedulerStatus`) — 100% coverage.
+- **Kafka Produce Tests** — `kafka-produce.test.ts` with 16 tests covering message production, validation, schema encoding, error paths.
+- **Kafka Subscribe Tests** — `kafka-subscribe.test.ts` with 16 tests covering subscription lifecycle, ring buffer, filter matching, error paths.
+- **Node Factory Tests** — `nodeFactories.test.ts` with 337 lines of tests for all factory helpers.
+- **Kafka Utils Tests** — `kafka-service-utils.test.ts` with 48 lines testing `checkClusterMismatch`.
+
+### Fixed
+- **Coverage Gap** — `kafka-service.test-utils.ts` improved from 83.3% → 93.75% line coverage.
+- **ESLint Errors** — Removed 4 unused-var imports across kafka modules.
+- **E2E Test Fixes** — Fixed bugs across 10 E2E spec files (`response-detail-modal`, `results-console`, `run-comparison`, `run-in-harness`, `structure-history`, `sub-workflow-drilldown`, `training-tracks`, `trash-box`, `validation-dsl-roundtrip`, `validation-mapper-source-sync`).
+
+### Metrics (as of 2026-06-07)
+- **99.51% overall line coverage** (830 files)
+- **0 files under 90% coverage**
+- **0 monolithic classes** (largest: `KafkaService` at 464 lines)
+- **719 E2E tests passing**
+- **0 TypeScript errors, 0 ESLint errors**
+
 ---
 
 ## [0.6.0-beta.1] — 2026-06-06
