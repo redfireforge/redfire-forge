@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-06-03 (v0.5.10-alpha.1 on `feature/kafka-integration`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 656+ Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete, **constant arrival rate** (open model, Rust arrival executor), **streaming percentiles** (Rust HDR Histogram), **Kafka Integration** (phases 1–9: settings UX, workflow nodes, runner, load policy, results publishing, native rdkafka Tauri transport), and comprehensive code quality audit (21,974 unit tests, 660 E2E tests, 656+ Rust tests, 99.46% coverage)).
+> Last re-evaluated: 2026-06-07 (v0.6.0 on `develop`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 656+ Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete, **constant arrival rate** (open model, Rust arrival executor), **streaming percentiles** (Rust HDR Histogram), **Kafka Integration** (phases 1–10: settings UX, workflow nodes, runner, load policy, results publishing, native rdkafka Tauri transport, schema registry), **Kafka modularization** (KafkaService refactored from 660+ → 464 lines, gallery node factories extracted), and comprehensive code quality audit (23,000+ unit tests, 719 E2E tests, 656+ Rust tests, 99.51% coverage)).
 
 ### Identity
 
@@ -60,7 +60,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 19,112 unit tests + 542+ Rust tests (>90% coverage all files), 660 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 23,000+ unit tests + 656+ Rust tests (99.51% coverage all files), 719 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
 | ~~No request chaining~~ | **RESOLVED** | 19 node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
@@ -607,7 +607,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Load-mode Policy (Phase 7)** — `kafkaLoadPolicy.ts` compatibility matrix; `runGraphLoad` pre-run guard; `WorkflowRunner` load banners; 208 tests with repeated-run variance checks
 - [x] **Results Publishing to Kafka (Phase 8)** — `KafkaRunSummaryEnvelope` (schema v1.0); `kafkaResultsPublisher.ts` (3 retries, fire-and-forget); publish at all save sites; 41/41 broker scenarios PASS (plaintext + secure)
 - [x] **Tauri-native Transport (Phase 9)** — Rust `src-tauri/src/kafka/` module; 10 Tauri commands with rdkafka; `kafkaNativeTauriTransport.ts`; `CommandSpec.paramKey` Tauri v2 wrapping; transport selected via `isTauri()`; 82/82 golden-fixture parity tests; 656 Rust unit tests; 8/8 E2E tests
-- [x] **Coverage sweep** — 98.6% → 99.46% total (21,974 unit tests, 0 failures)
+- [x] **Coverage sweep** — 98.6% → 99.51% total (23,000+ unit tests, 719 E2E, 0 failures)
+- [x] **Kafka Service Modularization** — KafkaService refactored from 660+ → 464 lines; `kafka-produce.ts`, `kafka-subscribe.ts`, `kafka-service-utils.ts` extracted; gallery `nodeFactories.ts` extracted (~1,500 lines deduped); `cron-scheduler.test.ts` added (15 tests, 100% coverage); all files above 90% coverage
 
 ---
 
@@ -804,7 +805,7 @@ REMAINING BLOCKERS:
 
 ALREADY COMPLETE (Phases 1–23.8):
   ✅ Phase 4    (CLI)           — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
-  ✅ Phase 5    (Tests)         — 19,112 unit tests, 660 E2E tests, 542+ Rust tests, >90% code coverage
+  ✅ Phase 5    (Tests)         — 23,000+ unit tests, 719 E2E tests, 656+ Rust tests, 99.51% code coverage
   ✅ Phase 6    (Requests)      — Full ad-hoc API testing with collections/auth/cURL
   ✅ Phase 7    (API Catalog)   — OpenAPI/Swagger browser with versioning
   ✅ Phase 10   (Workflow)      — Visual workflow designer (19 node types) + graph execution engine
@@ -832,4 +833,4 @@ Phase 25 (Run Comparison)  →  Phase 27 (Distributed Execution)
 
 ---
 
-_Last updated: 2026-06-03 (v0.5.10-alpha.1 — on `feature/kafka-integration` branch; 301/337 items done (89.3%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); 99.46% code coverage; 21,974 unit tests, 660 E2E tests, 656+ Rust tests; Kafka integration phases 1–9 complete on feature branch pending merge)_
+_Last updated: 2026-06-07 (v0.6.0 on `develop`; 301/337 items done (89.3%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); 99.51% code coverage; 23,000+ unit tests, 719 E2E tests, 656+ Rust tests; Kafka integration phases 1–10 merged; KafkaService modularized (660+ → 464 lines); gallery node factories extracted)_
