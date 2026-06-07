@@ -612,17 +612,19 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
-## Upcoming Phases
+## Completed Phases (Recent)
 
-### Phase 25 — Run Comparison & Trends
+### Phase 25 — Run Comparison & Trends ✅ COMPLETE
 
 Analytics to detect regressions and compare performance over time.
 
-- [ ] **Run Comparison** — Compare two runs side-by-side (TPS, P95, P99 delta with green/red indicators)
-- [ ] **Overlaid Histograms** — Response time distribution overlay between two runs
-- [ ] **Baseline Runs** — Mark a run as "baseline" and compare future runs against it
-- [ ] **Regression Detection** — Automatic alert when P95 increases by X% vs baseline
-- [ ] **Trend Analysis** — P95 trend across last N runs for the same test suite
+- [x] **Run Comparison** — ✅ Compare two runs side-by-side (TPS, P95, P99 delta with green/red indicators) — `RunComparisonPanel.tsx`, delta badges, colour-coded indicators, E2E tests, training manual
+- [x] **Overlaid Histograms** — ✅ Response time distribution overlay between two runs — `ResponseTimeOverlayHistogram` in RunComparisonPanel
+- [x] **Baseline Runs** — ✅ Mark a run as "baseline" and compare future runs against it — `runBaselines.ts` with `BaselineMark`, `markAsBaseline()`, `isBaseline()`, CLI `baselineStorage.ts`
+- [x] **Regression Detection** — ✅ Automatic alert when P95 increases by X% vs baseline — `RegressionAlert` type, severity banner (warning/critical), configurable threshold
+- [x] **Trend Analysis** — ✅ P95 trend across last N runs for the same test suite — `TrendChart` component, `TrendPoint` type, scope filter, metric selector, E2E tests
+
+## Upcoming Phases
 
 ### Phase 24 — CI/CD Pipeline
 
@@ -684,7 +686,7 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 - [x] **JSON Schema Validation** — ✅ `jsonSchema` assertion type with Ajv + ajv-formats, allErrors mode, inline validation errors (completed in Phase P6 — see `docs/plan/validation-operator-gap-analysis.md`)
 
 #### Extensibility & Organization
-- [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
+- [x] **Test Tagging** — ✅ Label tests with `smoke`, `regression`, `critical` and run by tag — `useScenarioTags.ts`, tag pills in Scenario Builder, tag filter in Test/Parameterized Runner, CLI `--scenario-tags` flag, E2E tests
 - [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 19,112 unit tests, 660 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
@@ -723,10 +725,10 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 | 23.7 | Trash Box (Soft Delete & Recovery) | 13 | 13 |
 | 23.8 | Kafka Integration (Phases 1–9) | 9 | 9 |
 | 24 | CI/CD Pipeline | 8 | 2 |
-| 25 | Run Comparison & Trends | 5 | 0 |
+| 25 | Run Comparison & Trends | 5 | 5 |
 | 26 | Open-Source Launch | 14 | 0 |
-| 27 | Future (Engine → Excellent + Server) | 15 | 5 |
-| **Total** | | **337** | **301** |
+| 27 | Future (Engine → Excellent + Server) | 15 | 6 |
+| **Total** | | **337** | **307** |
 
 ### Feature Maturity Assessment
 
@@ -750,12 +752,13 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Streaming Percentiles      — Rust HDR Histogram for P50/P95/P99/P99.9 at scale (Phase 11.6)
   ✅ Trash Box                  — soft delete, undo toast, smart restoration, configurable purge (Phase 23.7)
   ✅ Kafka Integration          — settings UX, workflow nodes (produce/consume/trigger/wait), runner, load policy, results publishing, native rdkafka Tauri transport (Phase 23.8)
+  ✅ Run Comparison & Trends    — side-by-side run comparison, overlaid histograms, baseline runs, regression detection, trend analysis (Phase 25)
+  ✅ Test Tagging               — scenario tags with UI pills, tag filters in runners, CLI --scenario-tags flag (Phase 27)
 
 PARTIALLY COMPLETE (functional, needs polish):
   🟡 CI/CD Pipeline            — Pre-commit hooks + Actions CI exist, full pipeline pending (Phase 24)
 
 NOT STARTED (post-launch):
-  ⬜ Run Comparison & Trends    (Phase 25)
   ⬜ Open-Source Launch          (Phase 26)
   ⬜ Distributed execution       (Phase 27)
 ```
