@@ -54,7 +54,7 @@
 | R-0.9.1-2 | **Constant Request Rate Mode** — Open model: N RPS regardless of response time | `DONE` | Completed Phase 11.6 — `arrival_executor.rs` with interval-based dispatch, configurable `maxInFlight`, ramp-up, backpressure, cancellation; `droppedRequests`/`peakRps`/`targetRps` on `TestSummary`. |
 | R-0.9.1-3 | **Graceful Drain** — Wait for in-flight requests on abort/profile end | `BACKLOG` | Low effort, medium value |
 
-### 1.4 Phase 0.11.0 — Run Comparison & Trends (5 items, 0 done)
+### 1.4 Phase 0.11.0 — Run Comparison & Trends (5 items, 5 done) ✅
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|

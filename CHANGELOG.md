@@ -13,6 +13,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Kafka Utility Extraction** — Extracted `checkClusterMismatch()` into `kafka-service-utils.ts` for reuse and independent testing.
 - **Gallery Node Factory Extraction** — Extracted shared `nodeFactories.ts` (386 lines) from 6 workflow gallery files, eliminating ~1,500 lines of duplicated node-creation boilerplate across `apiPatterns.ts`, `asyncCorrelation.ts`, `flowControl.ts`, `kafka.ts`, `orchestration.ts`, and `performance.ts`.
 - **Kafka Test Helper Refactoring** — Refactored `kafka-produce.test.ts` and `kafka-subscribe.test.ts` to use shared `expectSuccess()` / `expectError()` helpers from `kafka-service.test-utils.ts`, eliminating ~40 lines of duplicated `result.ok` assertion boilerplate.
+- **ROADMAP Comprehensive Audit** — Thorough codebase audit identified 6 features previously marked as unchecked but fully implemented: Run Comparison, Overlaid Histograms, Baseline Runs, Regression Detection, Trend Analysis (Phase 25), and Test Tagging (Phase 27). All checked off with evidence. Phase 25 now 5/5 complete, total ROADMAP progress updated from 301 → 307/337.
+- **Documentation Accuracy Pass** — Updated REFACTORING_PLAN.md (success criteria all checked, metrics updated to actuals), RESTRUCTURING_PLAN.md (WorkflowDesigner 895→23 lines), ROADMAP.md (Feature Maturity Assessment updated).
 
 ### Added
 - **Cron Scheduler Tests** — `cron-scheduler.test.ts` with 15 tests covering all exports (`initScheduler`, `reloadSchedules`, `stopScheduler`, `getSchedulerStatus`) — 100% coverage.
