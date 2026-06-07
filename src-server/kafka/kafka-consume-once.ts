@@ -279,13 +279,13 @@ export async function executeConsumeOnce(
           });
         }
       }).catch((error) => {
-        if (!settled) {
-          settled = true;
-          if (timeoutHandle) {
-            clearTimeout(timeoutHandle);
-          }
-          reject(error);
+        if (settled) return;
+        settled = true;
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (!stopPromise) {
+          stopPromise = consumer.stop().catch(() => {});
         }
+        reject(error);
       });
     });
 
