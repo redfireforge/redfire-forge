@@ -1,14 +1,22 @@
 # Workflow Feature Branch - Refactoring & Test Coverage Plan
 
 ## Current Status
-- Overall Coverage: >90% lines ✅ (target met)
-- Tests: 257 test files, 5717 tests passing ✅
-- E2E Tests: 372 tests passing (0 skipped) ✅
-- Branch: `feature/versioning-training-manual` → merged to `develop` and `release/0.5.6`
-- Version: 0.5.6-beta.1
-- Last updated: 2026-05-02
+- Overall Coverage: 99.51% lines ✅ (target: >90%)
+- Tests: 830 coverage files, 23,000+ tests passing ✅
+- E2E Tests: 719 tests passing (0 skipped) ✅
+- Branch: `feature/refactor-modularize` → merged to `develop`
+- Version: 0.6.0
+- Last updated: 2026-06-07
 
 ## Completed ✅
+
+### 0. Kafka Service & Gallery Modularization ✅ (2026-06-07)
+- **KafkaService class**: Reduced from 660+ → 464 lines by extracting `kafka-produce.ts`, `kafka-subscribe.ts`, and `kafka-service-utils.ts`
+- **Gallery node factories**: Extracted shared `nodeFactories.ts` (386 lines), eliminating ~1,500 lines of duplicated boilerplate across 6 gallery files
+- **Test helpers**: Extracted `expectSuccess()` / `expectError()` helpers in `kafka-service.test-utils.ts`
+- **New tests**: `cron-scheduler.test.ts` (15), `kafka-produce.test.ts` (16), `kafka-subscribe.test.ts` (16), `nodeFactories.test.ts`, `kafka-service-utils.test.ts`
+- **Coverage**: All files above 90%, overall 99.51%
+- **No monolithic classes**: Largest class is 464 lines (KafkaService)
 
 ### 1. Coverage Above 90% ✅
 All coverage targets met after adding 192 new unit tests across 7 files.
