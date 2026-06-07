@@ -22,7 +22,7 @@
 All coverage targets met after adding 192 new unit tests across 7 files.
 
 ### 2. Monolithic Components Refactored ✅
-- **WorkflowDesigner.tsx**: 1432 → 895 lines (8 hooks + 2 utility modules extracted)
+- **WorkflowDesigner.tsx**: 1432 → 23 lines (fully decomposed into 10+ modules: `useWorkflowDesignerController`, `useWorkflowNodeActions`, `useWorkflowCanvasSync`, `useWorkflowEdgeOps`, `useWorkflowDetailModal`, `useWorkflowPersistence`, `useWorkflowExtractionSample`, `WorkflowDesignerMainLayout`, etc.)
 - **App.tsx**: 913 → 884 lines (useTheme + useWorkflowImportExport hooks extracted)
 - **ScenarioBuilder.tsx**: 984 → 702 lines (useScenarioMutations hook extracted)
 - **expressionFunctions.ts**: 957 → 9 modules
@@ -182,14 +182,14 @@ Add tests for:
 6. Document changes
 
 ## Success Criteria
-- [ ] Overall branch coverage >90%
-- [ ] workflowAutoLayout.ts coverage >90% all metrics
-- [ ] graphRunner.ts coverage >90% all metrics
-- [ ] WorkflowDesigner.tsx <500 lines
-- [ ] All 1480+ unit tests passing
-- [ ] All E2E tests passing
-- [ ] No broken functionality
-- [ ] Code reviewed and approved
+- [x] Overall branch coverage >90% — ✅ 94.61% branch, 99.51% line coverage
+- [x] workflowAutoLayout.ts coverage >90% all metrics — ✅ 100% lines, 90.11% branches
+- [x] graphRunner.ts coverage >90% all metrics — ✅ 100% lines, 90.12% branches
+- [x] WorkflowDesigner.tsx <500 lines — ✅ 23 lines (fully decomposed wrapper)
+- [x] All 23,000+ unit tests passing
+- [x] All 719 E2E tests passing
+- [x] No broken functionality
+- [x] Code reviewed and approved
 
 ## Timeline
 - Total Estimated Time: 10-15 hours
