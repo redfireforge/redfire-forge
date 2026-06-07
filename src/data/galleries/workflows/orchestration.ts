@@ -1,4 +1,8 @@
 import type { Workflow } from '../../../features/workflow/types/workflow';
+import {
+  makeStartNode, makeEndNode, makePostNode, makeSetVariableNode,
+  makeLogDebugNode, makeForkNode, makeJoinNode, makeEdge, bodyExtraction,
+} from './nodeFactories';
 
 /**
  * Sample workflow demonstrating Sub-Workflow orchestration with input/output mappings.
@@ -14,13 +18,7 @@ export function createSubWorkflowOrchestrator(): Workflow {
     description: 'Demonstrates Sub-Workflow nodes with input/output mappings, multi-instance forEach, retry, and on-failure continue.',
     variables: {},
     nodes: [
-      {
-        id: 'swf-start', type: 'start', position: { x: 300, y: 0 },
-        data: {
-          label: 'Start',
-          inputVariables: { apiBase: 'https://jsonplaceholder.typicode.com' },
-        },
-      },
+      makeStartNode('swf-start', { apiBase: 'https://jsonplaceholder.typicode.com' }),
       {
         id: 'swf-fetch-users', type: 'http', position: { x: 250, y: 120 },
         data: {
@@ -31,40 +29,26 @@ export function createSubWorkflowOrchestrator(): Workflow {
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' }, validation: { mode: 'none' },
             extractions: [
-              { name: 'usersJson', source: 'body', expression: '' },
-              { name: 'userCount', source: 'body', expression: '$.length' },
+              bodyExtraction('usersJson', ''),
+              bodyExtraction('userCount', '$.length'),
             ],
           },
         },
       },
-      {
-        id: 'swf-set-ids', type: 'setVariable', position: { x: 250, y: 280 },
-        data: {
-          label: '2. Extract User IDs',
-          assignments: [
-            { id: 'a1', name: 'userIds', expression: '[1,2,3]' },
-            { id: 'a2', name: 'processedCount', expression: '0' },
-          ],
-        },
-      },
+      makeSetVariableNode('swf-set-ids', '2. Extract User IDs', [
+        { id: 'a1', name: 'userIds', expression: '[1,2,3]' },
+        { id: 'a2', name: 'processedCount', expression: '0' },
+      ], { x: 250, y: 280 }),
       {
         id: 'swf-sub', type: 'subWorkflow', position: { x: 250, y: 440 },
         data: {
           label: '3. Process Each User',
           workflowId: CHILD_ID,
           workflowName: 'User Processor',
-          inputMappings: [
-            { sourceExpression: '{{apiBase}}', targetVariable: 'apiBase' },
-          ],
-          outputMappings: [
-            { sourceVariable: 'userStatus', targetVariable: 'lastUserStatus' },
-          ],
+          inputMappings: [{ sourceExpression: '{{apiBase}}', targetVariable: 'apiBase' }],
+          outputMappings: [{ sourceVariable: 'userStatus', targetVariable: 'lastUserStatus' }],
           propagateAllOutputs: false,
-          multiInstance: {
-            collection: '{{userIds}}',
-            elementVariable: 'userId',
-            mode: 'sequential',
-          },
+          multiInstance: { collection: '{{userIds}}', elementVariable: 'userId', mode: 'sequential' },
           maxDepth: 5,
           timeoutMs: 30000,
           retryCount: 1,
@@ -74,45 +58,29 @@ export function createSubWorkflowOrchestrator(): Workflow {
       },
       {
         id: 'swf-log', type: 'logDebug', position: { x: 250, y: 600 },
-        data: {
-          label: '4. Log Results',
-          logLevel: 'info',
-          message: 'Sub-workflow completed. Last status: {{lastUserStatus}}',
-          snapshotVariables: true,
-        },
+        data: { label: '4. Log Results', logLevel: 'info', message: 'Sub-workflow completed. Last status: {{lastUserStatus}}', snapshotVariables: true },
       },
       {
         id: 'swf-cond', type: 'condition', position: { x: 300, y: 740 },
-        data: {
-          label: '5. All Succeeded?',
-          left: '{{__subWorkflowFailed}}',
-          operator: '!=',
-          right: 'true',
-        },
+        data: { label: '5. All Succeeded?', left: '{{__subWorkflowFailed}}', operator: '!=', right: 'true' },
       },
-      {
-        id: 'swf-log-ok', type: 'logDebug', position: { x: 100, y: 880 },
-        data: { label: 'All Good', logLevel: 'info', message: 'All users processed successfully', snapshotVariables: false },
-      },
+      makeLogDebugNode('swf-log-ok', 'All Good', 'All users processed successfully', 'info', { x: 100, y: 880 }),
       {
         id: 'swf-log-fail', type: 'logDebug', position: { x: 480, y: 880 },
         data: { label: 'Partial Failure', logLevel: 'warn', message: 'Some user processing failed. Check __subWorkflowResults.', snapshotVariables: true },
       },
-      {
-        id: 'swf-end', type: 'end', position: { x: 300, y: 1020 },
-        data: { label: 'End' },
-      },
+      makeEndNode('swf-end', 'End', { x: 300, y: 1020 }),
     ],
     edges: [
-      { id: 'swf-e1', source: 'swf-start', target: 'swf-fetch-users' },
-      { id: 'swf-e2', source: 'swf-fetch-users', target: 'swf-set-ids' },
-      { id: 'swf-e3', source: 'swf-set-ids', target: 'swf-sub' },
-      { id: 'swf-e4', source: 'swf-sub', target: 'swf-log' },
-      { id: 'swf-e5', source: 'swf-log', target: 'swf-cond' },
+      makeEdge('swf-e1', 'swf-start', 'swf-fetch-users'),
+      makeEdge('swf-e2', 'swf-fetch-users', 'swf-set-ids'),
+      makeEdge('swf-e3', 'swf-set-ids', 'swf-sub'),
+      makeEdge('swf-e4', 'swf-sub', 'swf-log'),
+      makeEdge('swf-e5', 'swf-log', 'swf-cond'),
       { id: 'swf-e6', source: 'swf-cond', target: 'swf-log-ok', sourceHandle: 'true', label: 'Yes' },
       { id: 'swf-e7', source: 'swf-cond', target: 'swf-log-fail', sourceHandle: 'false', label: 'No' },
-      { id: 'swf-e8', source: 'swf-log-ok', target: 'swf-end' },
-      { id: 'swf-e9', source: 'swf-log-fail', target: 'swf-end' },
+      makeEdge('swf-e8', 'swf-log-ok', 'swf-end'),
+      makeEdge('swf-e9', 'swf-log-fail', 'swf-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -130,13 +98,7 @@ export function createSubWorkflowChild(): Workflow {
     description: 'Child workflow that fetches a single user and returns a status. Called by Sub-Workflow Orchestrator.',
     variables: {},
     nodes: [
-      {
-        id: 'child-start', type: 'start', position: { x: 300, y: 0 },
-        data: {
-          label: 'Start',
-          inputVariables: { apiBase: 'https://jsonplaceholder.typicode.com', userId: '1' },
-        },
-      },
+      makeStartNode('child-start', { apiBase: 'https://jsonplaceholder.typicode.com', userId: '1' }),
       {
         id: 'child-fetch', type: 'http', position: { x: 250, y: 120 },
         data: {
@@ -146,31 +108,17 @@ export function createSubWorkflowChild(): Workflow {
             url: '{{apiBase}}/users/{{userId}}',
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [
-              { name: 'userName', source: 'body', expression: '$.name' },
-              { name: 'userEmail', source: 'body', expression: '$.email' },
-            ],
+            extractions: [bodyExtraction('userName', '$.name'), bodyExtraction('userEmail', '$.email')],
           },
         },
       },
-      {
-        id: 'child-set', type: 'setVariable', position: { x: 250, y: 280 },
-        data: {
-          label: 'Build Status',
-          assignments: [
-            { id: 'c1', name: 'userStatus', expression: 'processed:{{userName}}' },
-          ],
-        },
-      },
-      {
-        id: 'child-end', type: 'end', position: { x: 300, y: 400 },
-        data: { label: 'End' },
-      },
+      makeSetVariableNode('child-set', 'Build Status', [{ id: 'c1', name: 'userStatus', expression: 'processed:{{userName}}' }], { x: 250, y: 280 }),
+      makeEndNode('child-end', 'End', { x: 300, y: 400 }),
     ],
     edges: [
-      { id: 'child-e1', source: 'child-start', target: 'child-fetch' },
-      { id: 'child-e2', source: 'child-fetch', target: 'child-set' },
-      { id: 'child-e3', source: 'child-set', target: 'child-end' },
+      makeEdge('child-e1', 'child-start', 'child-fetch'),
+      makeEdge('child-e2', 'child-fetch', 'child-set'),
+      makeEdge('child-e3', 'child-set', 'child-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -190,10 +138,7 @@ export function createOrderPipelineWorkflow(): Workflow {
     description: 'Demonstrates conditional branching into different sub-workflows for express vs standard shipping.',
     variables: {},
     nodes: [
-      {
-        id: 'op-start', type: 'start', position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { orderId: '12345', shippingType: 'express' } },
-      },
+      makeStartNode('op-start', { orderId: '12345', shippingType: 'express' }),
       {
         id: 'op-fetch', type: 'http', position: { x: 250, y: 120 },
         data: {
@@ -203,10 +148,7 @@ export function createOrderPipelineWorkflow(): Workflow {
             url: 'https://jsonplaceholder.typicode.com/posts/{{orderId}}',
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [
-              { name: 'orderTitle', source: 'body', expression: '$.title' },
-              { name: 'orderBody', source: 'body', expression: '$.body' },
-            ],
+            extractions: [bodyExtraction('orderTitle', '$.title'), bodyExtraction('orderBody', '$.body')],
           },
         },
       },
@@ -224,9 +166,7 @@ export function createOrderPipelineWorkflow(): Workflow {
             { sourceExpression: '{{orderId}}', targetVariable: 'orderId' },
             { sourceExpression: 'express', targetVariable: 'tier' },
           ],
-          outputMappings: [
-            { sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' },
-          ],
+          outputMappings: [{ sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' }],
           timeoutMs: 15000,
           retryCount: 2,
           retryDelayMs: 1000,
@@ -243,39 +183,28 @@ export function createOrderPipelineWorkflow(): Workflow {
             { sourceExpression: '{{orderId}}', targetVariable: 'orderId' },
             { sourceExpression: 'standard', targetVariable: 'tier' },
           ],
-          outputMappings: [
-            { sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' },
-          ],
+          outputMappings: [{ sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' }],
           timeoutMs: 30000,
         },
       },
-      {
-        id: 'op-confirm', type: 'setVariable', position: { x: 250, y: 600 },
-        data: {
-          label: '4. Build Confirmation',
-          assignments: [
-            { id: 'a1', name: 'confirmation', expression: 'Order {{orderId}} shipped via {{shippingType}}. Tracking: {{trackingNumber}}' },
-          ],
-        },
-      },
+      makeSetVariableNode('op-confirm', '4. Build Confirmation', [
+        { id: 'a1', name: 'confirmation', expression: 'Order {{orderId}} shipped via {{shippingType}}. Tracking: {{trackingNumber}}' },
+      ], { x: 250, y: 600 }),
       {
         id: 'op-log', type: 'logDebug', position: { x: 250, y: 740 },
         data: { label: '5. Log', logLevel: 'info', message: '{{confirmation}}', snapshotVariables: true },
       },
-      {
-        id: 'op-end', type: 'end', position: { x: 300, y: 860 },
-        data: { label: 'End' },
-      },
+      makeEndNode('op-end', 'End', { x: 300, y: 860 }),
     ],
     edges: [
-      { id: 'op-e1', source: 'op-start', target: 'op-fetch' },
-      { id: 'op-e2', source: 'op-fetch', target: 'op-cond' },
+      makeEdge('op-e1', 'op-start', 'op-fetch'),
+      makeEdge('op-e2', 'op-fetch', 'op-cond'),
       { id: 'op-e3', source: 'op-cond', target: 'op-sub-express', sourceHandle: 'true', label: 'Express' },
       { id: 'op-e4', source: 'op-cond', target: 'op-sub-standard', sourceHandle: 'false', label: 'Standard' },
-      { id: 'op-e5', source: 'op-sub-express', target: 'op-confirm' },
-      { id: 'op-e6', source: 'op-sub-standard', target: 'op-confirm' },
-      { id: 'op-e7', source: 'op-confirm', target: 'op-log' },
-      { id: 'op-e8', source: 'op-log', target: 'op-end' },
+      makeEdge('op-e5', 'op-sub-express', 'op-confirm'),
+      makeEdge('op-e6', 'op-sub-standard', 'op-confirm'),
+      makeEdge('op-e7', 'op-confirm', 'op-log'),
+      makeEdge('op-e8', 'op-log', 'op-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -290,43 +219,19 @@ export function createShippingChildWorkflow(): Workflow {
     description: 'Child workflow that simulates shipping an order and returns a tracking number.',
     variables: {},
     nodes: [
-      {
-        id: 'ship-start', type: 'start', position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { orderId: '1', tier: 'standard' } },
-      },
-      {
-        id: 'ship-http', type: 'http', position: { x: 250, y: 120 },
-        data: {
-          label: 'Ship Order',
-          scenario: {
-            id: 'ship-s1', name: 'Create Shipment',
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"orderId": "{{orderId}}", "tier": "{{tier}}"}',
-            bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'shipmentId', source: 'body', expression: '$.id' }],
-          },
-        },
-      },
-      {
-        id: 'ship-set', type: 'setVariable', position: { x: 250, y: 280 },
-        data: {
-          label: 'Build Tracking',
-          assignments: [
-            { id: 's1', name: 'trackingNumber', expression: 'TRK-{{tier}}-{{shipmentId}}' },
-          ],
-        },
-      },
-      {
-        id: 'ship-end', type: 'end', position: { x: 300, y: 400 },
-        data: { label: 'End' },
-      },
+      makeStartNode('ship-start', { orderId: '1', tier: 'standard' }),
+      makePostNode('ship-http', 'Ship Order', 'https://jsonplaceholder.typicode.com/posts',
+        '{"orderId": "{{orderId}}", "tier": "{{tier}}"}',
+        { x: 250, y: 120, extractions: [bodyExtraction('shipmentId', '$.id')] }),
+      makeSetVariableNode('ship-set', 'Build Tracking', [
+        { id: 's1', name: 'trackingNumber', expression: 'TRK-{{tier}}-{{shipmentId}}' },
+      ], { x: 250, y: 280 }),
+      makeEndNode('ship-end', 'End', { x: 300, y: 400 }),
     ],
     edges: [
-      { id: 'ship-e1', source: 'ship-start', target: 'ship-http' },
-      { id: 'ship-e2', source: 'ship-http', target: 'ship-set' },
-      { id: 'ship-e3', source: 'ship-set', target: 'ship-end' },
+      makeEdge('ship-e1', 'ship-start', 'ship-http'),
+      makeEdge('ship-e2', 'ship-http', 'ship-set'),
+      makeEdge('ship-e3', 'ship-set', 'ship-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -348,18 +253,12 @@ export function createDeployOrchestratorWorkflow(): Workflow {
     description: 'Deployment pipeline with Fork/Join pre-checks, multi-instance parallel deploy via sub-workflow, and dynamic rollback sub-workflow.',
     variables: {},
     nodes: [
-      {
-        id: 'dep-start', type: 'start', position: { x: 300, y: 0 },
-        data: {
-          label: 'Start',
-          inputVariables: {
-            version: 'v2.5.0',
-            regions: '["us-east-1","eu-west-1","ap-southeast-1"]',
-            rollbackWorkflowId: 'sample-rollback-child',
-            successThreshold: '80',
-          },
-        },
-      },
+      makeStartNode('dep-start', {
+        version: 'v2.5.0',
+        regions: '["us-east-1","eu-west-1","ap-southeast-1"]',
+        rollbackWorkflowId: 'sample-rollback-child',
+        successThreshold: '80',
+      }),
       {
         id: 'dep-validate', type: 'http', position: { x: 250, y: 120 },
         data: {
@@ -370,16 +269,11 @@ export function createDeployOrchestratorWorkflow(): Workflow {
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' },
             validation: { mode: 'none', assertions: [{ type: 'status', expected: '200' }] },
-            extractions: [
-              { name: 'buildTitle', source: 'body', expression: '$.title' },
-            ],
+            extractions: [bodyExtraction('buildTitle', '$.title')],
           },
         },
       },
-      {
-        id: 'dep-fork', type: 'fork', position: { x: 300, y: 280 },
-        data: { label: '2. Pre-Check Fork' },
-      },
+      makeForkNode('dep-fork', '2. Pre-Check Fork', { x: 300, y: 280 }),
       {
         id: 'dep-smoke', type: 'http', position: { x: 100, y: 400 },
         data: {
@@ -389,7 +283,7 @@ export function createDeployOrchestratorWorkflow(): Workflow {
             url: 'https://jsonplaceholder.typicode.com/posts/2',
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'smokeResult', source: 'body', expression: '$.title' }],
+            extractions: [bodyExtraction('smokeResult', '$.title')],
           },
         },
       },
@@ -402,14 +296,11 @@ export function createDeployOrchestratorWorkflow(): Workflow {
             url: 'https://jsonplaceholder.typicode.com/posts/3',
             method: 'GET', headers: [], body: '', bodyType: 'none',
             auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'flagsResult', source: 'body', expression: '$.title' }],
+            extractions: [bodyExtraction('flagsResult', '$.title')],
           },
         },
       },
-      {
-        id: 'dep-join', type: 'join', position: { x: 300, y: 540 },
-        data: { label: '2c. Pre-Check Join' },
-      },
+      makeJoinNode('dep-join', '2c. Pre-Check Join', { x: 300, y: 540 }),
       {
         id: 'dep-deploy', type: 'subWorkflow', position: { x: 250, y: 680 },
         data: {
@@ -422,11 +313,7 @@ export function createDeployOrchestratorWorkflow(): Workflow {
           ],
           outputMappings: [],
           propagateAllOutputs: false,
-          multiInstance: {
-            collection: '{{regions}}',
-            elementVariable: 'region',
-            mode: 'parallel',
-          },
+          multiInstance: { collection: '{{regions}}', elementVariable: 'region', mode: 'parallel' },
           maxDepth: 5,
           timeoutMs: 60000,
           retryCount: 1,
@@ -434,28 +321,14 @@ export function createDeployOrchestratorWorkflow(): Workflow {
           onChildFailure: 'continue',
         },
       },
-      {
-        id: 'dep-analyze', type: 'setVariable', position: { x: 250, y: 840 },
-        data: {
-          label: '4. Analyze Results',
-          assignments: [
-            { id: 'a1', name: 'deployStatus', expression: '{{__subWorkflowFailed}}' },
-          ],
-        },
-      },
+      makeSetVariableNode('dep-analyze', '4. Analyze Results', [
+        { id: 'a1', name: 'deployStatus', expression: '{{__subWorkflowFailed}}' },
+      ], { x: 250, y: 840 }),
       {
         id: 'dep-cond', type: 'condition', position: { x: 300, y: 960 },
-        data: {
-          label: '5. All Succeeded?',
-          left: '{{deployStatus}}',
-          operator: '!=',
-          right: 'true',
-        },
+        data: { label: '5. All Succeeded?', left: '{{deployStatus}}', operator: '!=', right: 'true' },
       },
-      {
-        id: 'dep-log-ok', type: 'logDebug', position: { x: 80, y: 1100 },
-        data: { label: 'Deploy Success', logLevel: 'info', message: '✅ {{version}} deployed to all regions', snapshotVariables: true },
-      },
+      makeLogDebugNode('dep-log-ok', 'Deploy Success', '✅ {{version}} deployed to all regions', 'info', { x: 80, y: 1100, snapshotVariables: true }),
       {
         id: 'dep-rollback', type: 'subWorkflow', position: { x: 480, y: 1100 },
         data: {
@@ -466,9 +339,7 @@ export function createDeployOrchestratorWorkflow(): Workflow {
             { sourceExpression: '{{version}}', targetVariable: 'version' },
             { sourceExpression: '{{regions}}', targetVariable: 'regions' },
           ],
-          outputMappings: [
-            { sourceVariable: 'rollbackStatus', targetVariable: 'rollbackStatus' },
-          ],
+          outputMappings: [{ sourceVariable: 'rollbackStatus', targetVariable: 'rollbackStatus' }],
           maxDepth: 5,
           timeoutMs: 120000,
           retryCount: 2,
@@ -476,25 +347,22 @@ export function createDeployOrchestratorWorkflow(): Workflow {
           onChildFailure: 'continue',
         },
       },
-      {
-        id: 'dep-end', type: 'end', position: { x: 300, y: 1260 },
-        data: { label: 'End' },
-      },
+      makeEndNode('dep-end', 'End', { x: 300, y: 1260 }),
     ],
     edges: [
-      { id: 'dep-e1', source: 'dep-start', target: 'dep-validate' },
-      { id: 'dep-e2', source: 'dep-validate', target: 'dep-fork' },
-      { id: 'dep-e3', source: 'dep-fork', target: 'dep-smoke' },
-      { id: 'dep-e4', source: 'dep-fork', target: 'dep-flags' },
-      { id: 'dep-e5', source: 'dep-smoke', target: 'dep-join' },
-      { id: 'dep-e6', source: 'dep-flags', target: 'dep-join' },
-      { id: 'dep-e7', source: 'dep-join', target: 'dep-deploy' },
-      { id: 'dep-e8', source: 'dep-deploy', target: 'dep-analyze' },
-      { id: 'dep-e9', source: 'dep-analyze', target: 'dep-cond' },
+      makeEdge('dep-e1', 'dep-start', 'dep-validate'),
+      makeEdge('dep-e2', 'dep-validate', 'dep-fork'),
+      makeEdge('dep-e3', 'dep-fork', 'dep-smoke'),
+      makeEdge('dep-e4', 'dep-fork', 'dep-flags'),
+      makeEdge('dep-e5', 'dep-smoke', 'dep-join'),
+      makeEdge('dep-e6', 'dep-flags', 'dep-join'),
+      makeEdge('dep-e7', 'dep-join', 'dep-deploy'),
+      makeEdge('dep-e8', 'dep-deploy', 'dep-analyze'),
+      makeEdge('dep-e9', 'dep-analyze', 'dep-cond'),
       { id: 'dep-e10', source: 'dep-cond', target: 'dep-log-ok', sourceHandle: 'true', label: 'All OK' },
       { id: 'dep-e11', source: 'dep-cond', target: 'dep-rollback', sourceHandle: 'false', label: 'Failed' },
-      { id: 'dep-e12', source: 'dep-log-ok', target: 'dep-end' },
-      { id: 'dep-e13', source: 'dep-rollback', target: 'dep-end' },
+      makeEdge('dep-e12', 'dep-log-ok', 'dep-end'),
+      makeEdge('dep-e13', 'dep-rollback', 'dep-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -509,43 +377,19 @@ export function createRegionDeployChildWorkflow(): Workflow {
     description: 'Child workflow that simulates deploying to a single region.',
     variables: {},
     nodes: [
-      {
-        id: 'rd-start', type: 'start', position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { region: 'us-east-1', version: 'v1.0', buildInfo: '' } },
-      },
-      {
-        id: 'rd-deploy', type: 'http', position: { x: 250, y: 120 },
-        data: {
-          label: 'Deploy to {{region}}',
-          scenario: {
-            id: 'rd-s1', name: 'Deploy',
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"region": "{{region}}", "version": "{{version}}"}',
-            bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'deployId', source: 'body', expression: '$.id' }],
-          },
-        },
-      },
-      {
-        id: 'rd-set', type: 'setVariable', position: { x: 250, y: 280 },
-        data: {
-          label: 'Set Status',
-          assignments: [
-            { id: 'r1', name: 'regionStatus', expression: '{{region}}:deployed:{{deployId}}' },
-          ],
-        },
-      },
-      {
-        id: 'rd-end', type: 'end', position: { x: 300, y: 400 },
-        data: { label: 'End' },
-      },
+      makeStartNode('rd-start', { region: 'us-east-1', version: 'v1.0', buildInfo: '' }),
+      makePostNode('rd-deploy', 'Deploy to {{region}}', 'https://jsonplaceholder.typicode.com/posts',
+        '{"region": "{{region}}", "version": "{{version}}"}',
+        { x: 250, y: 120, extractions: [bodyExtraction('deployId', '$.id')] }),
+      makeSetVariableNode('rd-set', 'Set Status', [
+        { id: 'r1', name: 'regionStatus', expression: '{{region}}:deployed:{{deployId}}' },
+      ], { x: 250, y: 280 }),
+      makeEndNode('rd-end', 'End', { x: 300, y: 400 }),
     ],
     edges: [
-      { id: 'rd-e1', source: 'rd-start', target: 'rd-deploy' },
-      { id: 'rd-e2', source: 'rd-deploy', target: 'rd-set' },
-      { id: 'rd-e3', source: 'rd-set', target: 'rd-end' },
+      makeEdge('rd-e1', 'rd-start', 'rd-deploy'),
+      makeEdge('rd-e2', 'rd-deploy', 'rd-set'),
+      makeEdge('rd-e3', 'rd-set', 'rd-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -560,46 +404,21 @@ export function createRollbackChildWorkflow(): Workflow {
     description: 'Child workflow that rolls back a deployment. Referenced dynamically via {{rollbackWorkflowId}}.',
     variables: {},
     nodes: [
-      {
-        id: 'rb-start', type: 'start', position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { version: 'v1.0', regions: '[]' } },
-      },
-      {
-        id: 'rb-log', type: 'logDebug', position: { x: 250, y: 120 },
-        data: { label: 'Log Rollback', logLevel: 'warn', message: '⚠ Rolling back {{version}} across regions: {{regions}}', snapshotVariables: true },
-      },
-      {
-        id: 'rb-http', type: 'http', position: { x: 250, y: 260 },
-        data: {
-          label: 'Execute Rollback',
-          scenario: {
-            id: 'rb-s1', name: 'Rollback',
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"action": "rollback", "version": "{{version}}"}',
-            bodyType: 'json',
-            auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'rollbackId', source: 'body', expression: '$.id' }],
-          },
-        },
-      },
-      {
-        id: 'rb-set', type: 'setVariable', position: { x: 250, y: 400 },
-        data: {
-          label: 'Set Status',
-          assignments: [{ id: 'rb1', name: 'rollbackStatus', expression: 'rolled-back:{{rollbackId}}' }],
-        },
-      },
-      {
-        id: 'rb-end', type: 'end', position: { x: 300, y: 520 },
-        data: { label: 'End' },
-      },
+      makeStartNode('rb-start', { version: 'v1.0', regions: '[]' }),
+      makeLogDebugNode('rb-log', 'Log Rollback', '⚠ Rolling back {{version}} across regions: {{regions}}', 'warn', { x: 250, y: 120, snapshotVariables: true }),
+      makePostNode('rb-http', 'Execute Rollback', 'https://jsonplaceholder.typicode.com/posts',
+        '{"action": "rollback", "version": "{{version}}"}',
+        { x: 250, y: 260, extractions: [bodyExtraction('rollbackId', '$.id')] }),
+      makeSetVariableNode('rb-set', 'Set Status', [
+        { id: 'rb1', name: 'rollbackStatus', expression: 'rolled-back:{{rollbackId}}' },
+      ], { x: 250, y: 400 }),
+      makeEndNode('rb-end', 'End', { x: 300, y: 520 }),
     ],
     edges: [
-      { id: 'rb-e1', source: 'rb-start', target: 'rb-log' },
-      { id: 'rb-e2', source: 'rb-log', target: 'rb-http' },
-      { id: 'rb-e3', source: 'rb-http', target: 'rb-set' },
-      { id: 'rb-e4', source: 'rb-set', target: 'rb-end' },
+      makeEdge('rb-e1', 'rb-start', 'rb-log'),
+      makeEdge('rb-e2', 'rb-log', 'rb-http'),
+      makeEdge('rb-e3', 'rb-http', 'rb-set'),
+      makeEdge('rb-e4', 'rb-set', 'rb-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -628,25 +447,12 @@ export function createScriptAdvancedWorkflow(): Workflow {
     description: 'Loop over paginated API, Script transforms each page, Aggregate collects, Script generates a summary report.',
     variables: {},
     nodes: [
-      {
-        id: 'sa-start',
-        type: 'start',
-        position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: { pageSize: '3', totalPages: '3' } },
-      },
-      {
-        id: 'sa-init',
-        type: 'setVariable',
-        position: { x: 300, y: 120 },
-        data: {
-          label: '1. Init Counters',
-          assignments: [
-            { id: 'a1', name: 'pageIndex', expression: '0' },
-            { id: 'a2', name: 'allTitles', expression: '[]' },
-            { id: 'a3', name: 'totalWordCount', expression: '0' },
-          ],
-        },
-      },
+      makeStartNode('sa-start', { pageSize: '3', totalPages: '3' }),
+      makeSetVariableNode('sa-init', '1. Init Counters', [
+        { id: 'a1', name: 'pageIndex', expression: '0' },
+        { id: 'a2', name: 'allTitles', expression: '[]' },
+        { id: 'a3', name: 'totalWordCount', expression: '0' },
+      ], { x: 300, y: 120 }),
       {
         id: 'sa-loop',
         type: 'loop',
@@ -673,9 +479,7 @@ export function createScriptAdvancedWorkflow(): Workflow {
             body: '',
             auth: { type: 'none' },
             validation: { mode: 'none' },
-            extractions: [
-              { name: 'pageJson', source: 'body', expression: '$' },
-            ],
+            extractions: [bodyExtraction('pageJson', '$')],
           },
         },
       },
@@ -777,56 +581,22 @@ export function createScriptAdvancedWorkflow(): Workflow {
           right: '100',
         },
       },
-      {
-        id: 'sa-publish',
-        type: 'http',
-        position: { x: 350, y: 720 },
-        data: {
-          label: '5a. Publish Report',
-          scenario: {
-            id: 'sa-s2',
-            name: 'Publish Report',
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            method: 'POST',
-            headers: [
-              { key: 'Content-Type', value: 'application/json' },
-            ],
-            body: '{{reportJson}}',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-          },
-        },
-      },
-      {
-        id: 'sa-skip-log',
-        type: 'logDebug',
-        position: { x: 650, y: 720 },
-        data: {
-          label: '5b. Skip — Too Short',
-          message: 'Report has only {{wordCount}} words (threshold: 100). Skipping publish.',
-          logLevel: 'warn',
-          snapshotVariables: false,
-        },
-      },
-      {
-        id: 'sa-end',
-        type: 'end',
-        position: { x: 500, y: 870 },
-        data: { label: 'Done' },
-      },
+      makePostNode('sa-publish', '5a. Publish Report', 'https://jsonplaceholder.typicode.com/posts', '{{reportJson}}', { x: 350, y: 720 }),
+      makeLogDebugNode('sa-skip-log', '5b. Skip — Too Short', 'Report has only {{wordCount}} words (threshold: 100). Skipping publish.', 'warn', { x: 650, y: 720 }),
+      makeEndNode('sa-end', 'Done', { x: 500, y: 870 }),
     ],
     edges: [
-      { id: 'sa-e1', source: 'sa-start', target: 'sa-init' },
-      { id: 'sa-e2', source: 'sa-init', target: 'sa-loop' },
+      makeEdge('sa-e1', 'sa-start', 'sa-init'),
+      makeEdge('sa-e2', 'sa-init', 'sa-loop'),
       { id: 'sa-e3', source: 'sa-loop', target: 'sa-get-page', sourceHandle: 'body' },
-      { id: 'sa-e4', source: 'sa-get-page', target: 'sa-script-transform' },
-      { id: 'sa-e5', source: 'sa-script-transform', target: 'sa-aggregate' },
+      makeEdge('sa-e4', 'sa-get-page', 'sa-script-transform'),
+      makeEdge('sa-e5', 'sa-script-transform', 'sa-aggregate'),
       { id: 'sa-e6', source: 'sa-loop', target: 'sa-script-report', sourceHandle: 'done' },
-      { id: 'sa-e7', source: 'sa-script-report', target: 'sa-check-threshold' },
+      makeEdge('sa-e7', 'sa-script-report', 'sa-check-threshold'),
       { id: 'sa-e8', source: 'sa-check-threshold', target: 'sa-publish', sourceHandle: 'true' },
       { id: 'sa-e9', source: 'sa-check-threshold', target: 'sa-skip-log', sourceHandle: 'false' },
-      { id: 'sa-e10', source: 'sa-publish', target: 'sa-end' },
-      { id: 'sa-e11', source: 'sa-skip-log', target: 'sa-end' },
+      makeEdge('sa-e10', 'sa-publish', 'sa-end'),
+      makeEdge('sa-e11', 'sa-skip-log', 'sa-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),

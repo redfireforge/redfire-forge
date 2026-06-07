@@ -5,6 +5,7 @@ import {
   validateKafkaConsumeRequest,
   readKafkaJsonPath,
   matchesKafkaConsumeFilter,
+  checkClusterMismatch,
 } from './kafka-service-utils.js';
 
 // ── minimal helpers ────────────────────────────────────────────────────────
@@ -374,5 +375,52 @@ describe('matchesKafkaConsumeFilter', () => {
       jsonEquals: 'shipped', // wrong value
     };
     expect(matchesKafkaConsumeFilter(record(), filter)).toBe(false);
+  });
+});
+
+// ── checkClusterMismatch ───────────────────────────────────────────────────
+
+describe('checkClusterMismatch', () => {
+  it('returns null when requestClusterId is undefined', () => {
+    expect(checkClusterMismatch('produce', undefined, 'active-1')).toBeNull();
+  });
+
+  it('returns null when activeClusterId is undefined', () => {
+    expect(checkClusterMismatch('produce', 'req-1', undefined)).toBeNull();
+  });
+
+  it('returns null when both are undefined', () => {
+    expect(checkClusterMismatch('produce', undefined, undefined)).toBeNull();
+  });
+
+  it('returns null when clusters match', () => {
+    expect(checkClusterMismatch('produce', 'cluster-1', 'cluster-1')).toBeNull();
+  });
+
+  it('returns error envelope when clusters differ', () => {
+    const result = checkClusterMismatch('produce', 'req-cluster', 'active-cluster');
+    expect(result).not.toBeNull();
+    expect(result!.ok).toBe(false);
+    if (!result!.ok) {
+      expect(result!.error.code).toBe('KAFKA_CLUSTER_MISMATCH');
+      expect(result!.error.message).toContain('req-cluster');
+      expect(result!.error.message).toContain('active-cluster');
+    }
+  });
+
+  it('preserves the operation name in the envelope', () => {
+    const result = checkClusterMismatch('consume-once', 'a', 'b');
+    expect(result).not.toBeNull();
+    if (result && !result.ok) {
+      expect(result.op).toBe('consume-once');
+    }
+  });
+
+  it('returns null when requestClusterId is empty string', () => {
+    expect(checkClusterMismatch('topics', '', 'active-1')).toBeNull();
+  });
+
+  it('returns null when activeClusterId is empty string', () => {
+    expect(checkClusterMismatch('topics', 'req-1', '')).toBeNull();
   });
 });

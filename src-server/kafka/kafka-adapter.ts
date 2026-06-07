@@ -395,7 +395,11 @@ class KafkaJsConsumerAdapter implements KafkaConsumerAdapter {
             if (value == null) {
               continue;
             }
-            headers[key] = Buffer.isBuffer(value) ? value.toString('utf8') : String(value);
+            if (Array.isArray(value)) {
+              headers[key] = value.map((v) => (Buffer.isBuffer(v) ? v.toString('utf8') : String(v))).join(',');
+            } else {
+              headers[key] = Buffer.isBuffer(value) ? value.toString('utf8') : String(value);
+            }
           }
         }
 
