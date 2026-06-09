@@ -18,6 +18,13 @@ import {
   type WsBackoffMultiplier,
 } from '../../shared/websocket/types';
 import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import {
+  listenWsMessage,
+  listenWsConnectionClosed,
+  type WsMessagePayload,
+  type WsConnectionClosedPayload,
+} from '../../shared/websocket/websocketNativeTauriTransport';
+import { isTauri } from '../../shared/utils/platform';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { detectProtocol, detectFromMessage, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
@@ -27,67 +34,18 @@ import {
   buildGqlWsInitAction,
   type SioServerParams,
 } from './wsProtocolHelpers';
+import {
+  DEFAULT_MAX_MESSAGES,
+  PROXY_POLL_INTERVAL_MS,
+  DEFAULT_RECONNECT_INTERVAL_MS,
+  DEFAULT_MAX_RECONNECT_ATTEMPTS,
+  formatCloseFrame,
+  type WsDirectionFilter,
+  type WsTransportMode,
+  type UseWebSocketStudioReturn,
+} from './useWebSocketStudioTypes';
 
-const DEFAULT_MAX_MESSAGES = 1000;
-const PROXY_POLL_INTERVAL_MS = 200;
-const DEFAULT_RECONNECT_INTERVAL_MS = 3000;
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
-
-function formatCloseFrame(direction: 'SENT' | 'ACK', code: number, reason?: string): string {
-  const label = getCloseCodeLabel(code);
-  const reasonPart = reason ? ` reason: "${reason}"` : '';
-  return `CLOSE ${direction} — code: ${code} (${label})${reasonPart}`;
-}
-
-export type WsDirectionFilter = 'all' | 'sent' | 'received';
-export type WsTransportMode = 'direct' | 'proxy';
-
-export interface UseWebSocketStudioReturn {
-  draft: WsConnectionDraft;
-  setDraft: (patch: Partial<WsConnectionDraft>) => void;
-  connection: WsConnectionSnapshot;
-  connect: () => void;
-  disconnect: (detail?: WsCloseDetail) => void;
-  send: (data: string, format?: 'text' | 'json' | 'binary') => void;
-  sendPing: () => void;
-
-  messages: WsFrame[];
-  filteredMessages: WsFrame[];
-  maxMessages: number;
-  setMaxMessages: (n: number) => void;
-  isMaxReached: boolean;
-  searchText: string;
-  setSearchText: (v: string) => void;
-  directionFilter: WsDirectionFilter;
-  setDirectionFilter: (v: WsDirectionFilter) => void;
-  clearMessages: () => void;
-
-  sentCount: number;
-  receivedCount: number;
-  uptime: number | null;
-  transportMode: WsTransportMode;
-
-  autoReconnect: boolean;
-  setAutoReconnect: (enabled: boolean) => void;
-  reconnectState: WsReconnectState;
-  cancelReconnect: () => void;
-  reconnectIntervalMs: number;
-  setReconnectIntervalMs: (ms: number) => void;
-  maxReconnectAttempts: number;
-  setMaxReconnectAttempts: (n: number) => void;
-  backoffMultiplier: WsBackoffMultiplier;
-  setBackoffMultiplier: (v: WsBackoffMultiplier) => void;
-  retryNow: () => void;
-
-  protocolMode: WsProtocolMode;
-  setProtocolMode: (mode: WsProtocolMode) => void;
-  detectedProtocol: WsProtocolDetectionResult | null;
-
-  tlsConfig: WsTlsConfig;
-  setTlsConfig: (patch: Partial<WsTlsConfig>) => void;
-
-  sioServerParams: SioServerParams | null;
-}
+export type { WsDirectionFilter, WsTransportMode, UseWebSocketStudioReturn };
 
 export function useWebSocketStudio(): UseWebSocketStudioReturn {
   const [draft, setDraftState] = useState<WsConnectionDraft>(createDefaultDraft);
@@ -133,6 +91,8 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   const detectedProtocolRef = useRef(detectedProtocol);
   const messageDetectionDoneRef = useRef(false);
   const tlsConfigRef = useRef(tlsConfig);
+  const unlistenMessageRef = useRef<(() => void) | null>(null);
+  const unlistenClosedRef = useRef<(() => void) | null>(null);
 
   maxMessagesRef.current = maxMessages;
   protocolModeRef.current = protocolMode;
@@ -207,6 +167,17 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     if (proxyPollTimerRef.current !== null) {
       clearInterval(proxyPollTimerRef.current);
       proxyPollTimerRef.current = null;
+    }
+  }, []);
+
+  const stopNativeListeners = useCallback(() => {
+    if (unlistenMessageRef.current) {
+      unlistenMessageRef.current();
+      unlistenMessageRef.current = null;
+    }
+    if (unlistenClosedRef.current) {
+      unlistenClosedRef.current();
+      unlistenClosedRef.current = null;
     }
   }, []);
 
@@ -298,6 +269,72 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     }, PROXY_POLL_INTERVAL_MS);
   }, [stopProxyPolling, appendMessages, resetConnectionTiming, updateDetectedProtocol]);
 
+  const startNativeListeners = useCallback(async (connectionId: string) => {
+    stopNativeListeners();
+
+    const unlistenMsg = await listenWsMessage((payload: WsMessagePayload) => {
+      if (!mountedRef.current) return;
+      if (payload.connectionId !== connectionId) return;
+
+      const frameType = payload.messageType === 'binary' ? 'binary' : 'text';
+      const frame = createFrame('received', frameType, payload.data);
+
+      if (protocolModeRef.current === 'auto' && !messageDetectionDoneRef.current) {
+        messageDetectionDoneRef.current = true;
+        if (frameType !== 'binary') {
+          const msgResult = detectFromMessage(payload.data);
+          if (msgResult) updateDetectedProtocol(msgResult);
+        }
+      }
+
+      if (frameType !== 'binary') {
+        const autoResp = checkAutoRespond(frame, payload.data, protocolModeRef.current, detectedProtocolRef.current);
+        if (autoResp) {
+          appendMessage(frame);
+          dispatchWsOperation('send', { connectionId, data: autoResp.replyData, type: 'text' }).catch(() => {});
+          appendMessage(autoResp.replyFrame);
+          setReceivedCount((c) => c + 1);
+          setSentCount((c) => c + 1);
+          if (autoResp.sioServerParams) setSioServerParams(autoResp.sioServerParams);
+          return;
+        }
+      }
+
+      appendMessage(frame);
+      setReceivedCount((c) => c + 1);
+    });
+    unlistenMessageRef.current = unlistenMsg;
+
+    const unlistenClosed = await listenWsConnectionClosed((payload: WsConnectionClosedPayload) => {
+      if (!mountedRef.current) return;
+      if (payload.connectionId !== connectionId) return;
+
+      stopNativeListeners();
+      resetConnectionTiming();
+      proxyConnectionIdRef.current = null;
+
+      const code = payload.code ?? 1006;
+      const reason = payload.reason;
+      const ackMsg = formatCloseFrame('ACK', code, reason);
+      appendMessage(createFrame('received', 'close', ackMsg));
+
+      setConnection((prev) => ({
+        ...prev,
+        state: 'disconnected',
+        closedAt: new Date().toISOString(),
+        closeCode: code,
+        closeReason: reason,
+      }));
+
+      if (!manualDisconnectRef.current && code !== 1000) {
+        lastReconnectErrorRef.current = `Connection closed — code: ${code} (${getCloseCodeLabel(code)})`;
+        scheduleReconnectRef.current();
+      }
+      manualDisconnectRef.current = false;
+    });
+    unlistenClosedRef.current = unlistenClosed;
+  }, [stopNativeListeners, appendMessage, resetConnectionTiming, updateDetectedProtocol]);
+
   const cancelReconnect = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
       clearTimeout(reconnectTimerRef.current);
@@ -337,6 +374,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     }
 
     stopProxyPolling();
+    stopNativeListeners();
     resetConnectionTiming();
   };
 
@@ -493,7 +531,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
-    setTransportMode('proxy');
+    setTransportMode(isTauri() ? 'native' : 'proxy');
     messageDetectionDoneRef.current = false;
 
     const headersMap: Record<string, string> = {};
@@ -550,7 +588,11 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
         });
         setUptime(0);
         startUptimeTimer();
-        startProxyPolling(env.data.connectionId);
+        if (isTauri()) {
+          await startNativeListeners(env.data.connectionId);
+        } else {
+          startProxyPolling(env.data.connectionId);
+        }
 
         const proxySysFrame = createFrame('received', 'text', `Connected to ${effectiveUrl} (protocol: ${proto || 'none'})`);
         (proxySysFrame as WsFrame & { isSystem?: boolean }).isSystem = true;
@@ -572,7 +614,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
         scheduleReconnectRef.current();
       }
     }
-  }, [startUptimeTimer, startProxyPolling, appendMessage, updateDetectedProtocol]);
+  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol]);
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -588,13 +630,17 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     }
     cleanupRef.current();
 
-    const effectiveUrlForProxy = buildEffectiveUrl(draftRef.current).toLowerCase();
-    const needsProxy = hasCustomHeaders(draftRef.current) ||
-      (effectiveUrlForProxy.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
-    if (needsProxy) {
+    if (isTauri()) {
       connectProxy();
     } else {
-      connectDirect();
+      const effectiveUrlForProxy = buildEffectiveUrl(draftRef.current).toLowerCase();
+      const needsProxy = hasCustomHeaders(draftRef.current) ||
+        (effectiveUrlForProxy.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
+      if (needsProxy) {
+        connectProxy();
+      } else {
+        connectDirect();
+      }
     }
   }, [connectDirect, connectProxy, updateDetectedProtocol]);
 
@@ -614,6 +660,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
       const connId = proxyConnectionIdRef.current;
       proxyConnectionIdRef.current = null;
       stopProxyPolling();
+      stopNativeListeners();
 
       dispatchWsOperation('disconnect', { connectionId: connId, code, reason })
         .then(() => {
@@ -639,7 +686,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     } else if (wsRef.current) {
       wsRef.current.close(code, reason);
     }
-  }, [stopProxyPolling, resetConnectionTiming, cancelReconnect, appendMessage]);
+  }, [stopProxyPolling, stopNativeListeners, resetConnectionTiming, cancelReconnect, appendMessage]);
 
   const send = useCallback(
     (data: string, format?: 'text' | 'json' | 'binary') => {

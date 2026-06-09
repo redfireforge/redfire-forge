@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig, ScenarioActionType } from '../../../shared/types';
 import { isWsActionType } from '../../../shared/types';
+import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import {
@@ -298,14 +299,19 @@ export default function TestEditorModal({
     } else {
       patch.method = 'KAFKA';
     }
+    if (isWsActionType(actionType) && cur.extractions?.some(e => e.source !== 'body')) {
+      patch.extractions = cur.extractions.filter(e => e.source === 'body');
+    }
     onDraftChange({ ...cur, ...patch });
-    // Reset input mode to builder for non-HTTP transports
     if (actionType !== 'http' && inputMode !== 'builder') {
       onInputModeChange('builder');
     }
-    // Switch away from HTTP-only tabs
-    const httpOnlyTabs: TestEditorTab[] = ['params', 'body', 'auth', 'headers', 'extract'];
+    // Switch away from HTTP-only tabs (extract is shared by HTTP and WS)
+    const httpOnlyTabs: TestEditorTab[] = ['params', 'body', 'auth', 'headers'];
     if (actionType !== 'http' && httpOnlyTabs.includes(activeTab)) {
+      onActiveTabChange('validation');
+    }
+    if (!isWsActionType(actionType) && actionType !== 'http' && activeTab === 'extract') {
       onActiveTabChange('validation');
     }
   }, [onDraftChange, inputMode, onInputModeChange, activeTab, onActiveTabChange]);
@@ -316,7 +322,12 @@ export default function TestEditorModal({
     if (isWs) {
       if (effectiveTransport === 'wsConnect') return !!(draft.wsConnectAction?.url?.trim());
       if (effectiveTransport === 'wsSend') return !!(draft.wsSendAction?.connectionRef?.trim());
-      if (effectiveTransport === 'wsReceive') return !!(draft.wsReceiveAction?.connectionRef?.trim());
+      if (effectiveTransport === 'wsReceive') {
+        if (!draft.wsReceiveAction?.connectionRef?.trim()) return false;
+        const mc = draft.wsReceiveAction?.matchCriteria;
+        if (mc?.jsonPathValue !== undefined && !mc?.jsonPathMatch) return false;
+        return true;
+      }
       return true;
     }
     return true;
@@ -347,11 +358,16 @@ export default function TestEditorModal({
       pickJsonFile((raw) => {
         const data = unwrapImport(raw);
         const t = data as Scenario;
-        if (!t.name || !t.url || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name, url, and method.'); return; }
+        if (!t.name || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name and method.'); return; }
+        const requiresUrl = !t.actionType || t.actionType === 'http';
+        if (requiresUrl && !t.url?.trim()) { toast.show('error', 'Invalid file', 'HTTP tests require a url.'); return; }
+        const wsWarnings = validateWsActionConfig(t);
+        if (wsWarnings.length > 0) { toast.show('warning', 'WS Config Issues', wsWarnings.join('; ')); }
         const cur = draftRef.current;
         onDraftChange({ ...t, id: cur.id });
         syncParamsFromUrl(t.url || '');
         if (inputMode !== 'builder') onInputModeChange('builder');
+        if (isWsActionType(t.actionType)) onActiveTabChange('validation');
       });
     } else if (choice === 'data-rows') {
       // Trigger file picker for CSV/JSON data rows
@@ -415,7 +431,7 @@ export default function TestEditorModal({
       };
       input.click();
     }
-  }, [onDraftChange, onInputModeChange, inputMode, syncParamsFromUrl, toast]);
+  }, [onDraftChange, onInputModeChange, onActiveTabChange, inputMode, syncParamsFromUrl, toast]);
 
   const handleExportChoice = useCallback((choice: ExportChoice) => {
     setExportDropdownOpen(false);
@@ -699,7 +715,7 @@ export default function TestEditorModal({
                   Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
                 </button>
               )}
-              {isHttp && !(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
+              {(isHttp || isWs) && !(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
                 <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
                   Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
                 </button>
@@ -810,6 +826,20 @@ export default function TestEditorModal({
                     },
                   }}
                   contextScope={draft.id}
+                />
+              )}
+
+              {activeTab === 'extract' && isWs && (
+                <ExtractionEditor
+                  extractions={draft.extractions ?? []}
+                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
+                  sampleResponseBody={
+                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
+                      ? draft.validation.sampleJson
+                      : validationResult?.responseJson
+                  }
+                  contextScope={draft.id}
+                  transportType="ws"
                 />
               )}
 

@@ -213,6 +213,7 @@ export function WebSocketStudioPage() {
             onProtocolModeChange={studio.setProtocolMode}
             detectedProtocol={studio.detectedProtocol}
             sioServerParams={studio.sioServerParams}
+            transportMode={studio.transportMode}
           />
           <WebSocketTlsPanel
             tlsConfig={studio.tlsConfig}

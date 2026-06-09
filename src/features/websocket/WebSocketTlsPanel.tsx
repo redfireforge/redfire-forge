@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { WsTlsConfig } from '../../shared/websocket/types';
+import { isTauri } from '../../shared/utils/platform';
 
 export interface WebSocketTlsPanelProps {
   tlsConfig: WsTlsConfig;
@@ -35,7 +36,7 @@ export function WebSocketTlsPanel({
 
       {expanded && (
         <div className="ws-tls-body" data-testid="tls-body">
-          {!isProxyMode && (
+          {!isProxyMode && !isTauri() && (
             <div className="ws-tls-info-banner" data-testid="tls-proxy-notice">
               TLS options only apply when using the proxy transport (connections with custom headers).
               Direct browser connections use built-in TLS handling.

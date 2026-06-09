@@ -1634,6 +1634,29 @@
   white-space: nowrap;
 }
 
+.ws-transport-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ws-transport-native {
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+}
+
+.ws-transport-proxy {
+  background: rgba(249, 226, 175, 0.15);
+  color: #f9e2af;
+}
+
+.ws-transport-direct {
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+}
+
 /* ── Socket.IO Compose Fields ──────────────────────────────────────── */
 
 .ws-sio-compose-fields {
