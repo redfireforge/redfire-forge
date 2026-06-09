@@ -14,6 +14,20 @@ describe('formatNodeTypeConsole', () => {
     expect(formatNodeTypeConsole('myCustomNode')).toBe('myCustomNode');
   });
 
+  it('returns labels for WS node types', () => {
+    expect(formatNodeTypeConsole('wsConnect')).toBe('WS Connect');
+    expect(formatNodeTypeConsole('wsSend')).toBe('WS Send');
+    expect(formatNodeTypeConsole('wsReceive')).toBe('WS Receive');
+    expect(formatNodeTypeConsole('wsTrigger')).toBe('WS Trigger');
+  });
+
+  it('returns labels for Kafka node types', () => {
+    expect(formatNodeTypeConsole('kafkaProduce')).toBe('Kafka Produce');
+    expect(formatNodeTypeConsole('kafkaConsume')).toBe('Kafka Consume');
+    expect(formatNodeTypeConsole('kafkaTrigger')).toBe('Kafka Trigger');
+    expect(formatNodeTypeConsole('kafkaWait')).toBe('Kafka Wait');
+  });
+
   it('covers all standard workflow node types', () => {
     const types = [
       'http', 'condition', 'delay', 'fork', 'join', 'loop',
@@ -44,5 +58,19 @@ describe('formatNodeTypeExplorer', () => {
 
   it('handles single-word unknown type', () => {
     expect(formatNodeTypeExplorer('zigzag')).toBe('ZIGZAG');
+  });
+
+  it('returns UPPERCASE for WS node types', () => {
+    expect(formatNodeTypeExplorer('wsConnect')).toBe('WS CONNECT');
+    expect(formatNodeTypeExplorer('wsSend')).toBe('WS SEND');
+    expect(formatNodeTypeExplorer('wsReceive')).toBe('WS RECEIVE');
+    expect(formatNodeTypeExplorer('wsTrigger')).toBe('WS TRIGGER');
+  });
+
+  it('returns UPPERCASE for Kafka node types', () => {
+    expect(formatNodeTypeExplorer('kafkaProduce')).toBe('KAFKA PRODUCE');
+    expect(formatNodeTypeExplorer('kafkaConsume')).toBe('KAFKA CONSUME');
+    expect(formatNodeTypeExplorer('kafkaTrigger')).toBe('KAFKA TRIGGER');
+    expect(formatNodeTypeExplorer('kafkaWait')).toBe('KAFKA WAIT');
   });
 });

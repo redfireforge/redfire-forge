@@ -116,7 +116,8 @@ describe('executionWorker', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
+      expect.any(Object),
+      expect.any(Object),
     );
     await vi.waitFor(() =>
       expect(workerHarness.postMessage).toHaveBeenCalledWith(

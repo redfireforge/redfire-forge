@@ -3554,6 +3554,7 @@
 .wf-waitcond-body > div:has(.wf-node-label),
 .wf-webhook-body > div:has(.wf-node-label),
 .wf-kafka-body > div:has(.wf-node-label),
+.wf-ws-body > div:has(.wf-node-label),
 .wf-correlation-body > div:has(.wf-node-label),
 .wf-subworkflow-body > div:has(.wf-node-label),
 .wf-script-body > div:has(.wf-node-label) {
@@ -8531,12 +8532,67 @@
   margin-top: 2px; font-size: 0.68rem; color: var(--text-muted);
 }
 
+/* ── WebSocket Integration Nodes ── */
+.wf-node-wsConnect,
+.wf-node-wsSend,
+.wf-node-wsReceive {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(135deg, var(--cat-integration-bg) 0%, var(--surface) 60%);
+}
+.wf-node-wsTrigger {
+  min-width: 200px; border-color: var(--cat-trigger);
+  background: linear-gradient(135deg, var(--cat-trigger-bg) 0%, var(--surface) 60%);
+}
+.wf-ws-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-ws-details {
+  padding: 4px 16px 6px; font-size: 0.72rem; color: var(--text-muted);
+}
+.wf-ws-url {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+}
+.wf-ws-url strong,
+.wf-ws-connid strong,
+.wf-ws-match strong,
+.wf-ws-msg strong {
+  color: var(--cat-integration); font-weight: 600; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.wf-node-wsTrigger .wf-ws-url strong,
+.wf-node-wsTrigger .wf-ws-connid strong {
+  color: var(--cat-trigger);
+}
+.wf-ws-connid {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  margin-top: 2px;
+}
+.wf-ws-match,
+.wf-ws-msg {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  margin-top: 2px;
+}
+.wf-ws-meta {
+  margin-top: 2px; font-size: 0.68rem; color: var(--text-muted);
+}
+
 /* ── Kafka Config Sections ── */
 .wf-kafka-section {
   margin-top: 10px; padding: 10px 12px; border-radius: 8px;
   background: rgba(50, 208, 165, 0.04); border: 1px solid rgba(50, 208, 165, 0.12);
 }
 .wf-kafka-section-title {
+  font-size: 0.78rem; font-weight: 700; color: var(--cat-integration);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+/* ── WebSocket Config Sections ── */
+.wf-ws-section {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: rgba(50, 208, 165, 0.04); border: 1px solid rgba(50, 208, 165, 0.12);
+}
+.wf-ws-section-title {
   font-size: 0.78rem; font-weight: 700; color: var(--cat-integration);
   margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }

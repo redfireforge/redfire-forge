@@ -288,4 +288,319 @@ describe('AssertionRowEditor', () => {
       expect(screen.getByText('DATE⁺')).toBeInTheDocument();
     });
   });
+
+  describe('wsField assertion', () => {
+    const wsFieldAssertion: Assertion = { type: 'wsField', target: 'ws.body', operator: 'contains', value: 'hello' };
+
+    it('renders wsField assertion with badge', () => {
+      render(<AssertionRowEditor assertion={wsFieldAssertion} {...baseProps} />);
+      expect(screen.getByText('WS')).toBeInTheDocument();
+      expect(screen.getByLabelText('WS target')).toHaveValue('ws.body');
+    });
+
+    it('shows value input for non-exists operator', () => {
+      render(<AssertionRowEditor assertion={wsFieldAssertion} {...baseProps} />);
+      expect(screen.getByDisplayValue('hello')).toBeInTheDocument();
+    });
+
+    it('hides value input for exists operator', () => {
+      const existsAssertion: Assertion = { type: 'wsField', target: 'ws.type', operator: 'exists' };
+      render(<AssertionRowEditor assertion={existsAssertion} {...baseProps} />);
+      expect(screen.queryByPlaceholderText('Expected value')).not.toBeInTheDocument();
+    });
+
+    it('shows JSONPath input for ws.$.path targets', () => {
+      const jsonPathAssertion: Assertion = { type: 'wsField', target: 'ws.$.data.status', operator: 'equals', value: 'active' };
+      render(<AssertionRowEditor assertion={jsonPathAssertion} {...baseProps} />);
+      expect(screen.getByLabelText('JSONPath within WS body')).toHaveValue('data.status');
+    });
+
+    it('shows header name input for ws.header.* targets', () => {
+      const headerAssertion: Assertion = { type: 'wsField', target: 'ws.header.Sec-WebSocket-Protocol', operator: 'equals', value: 'graphql-ws' };
+      render(<AssertionRowEditor assertion={headerAssertion} {...baseProps} />);
+      expect(screen.getByLabelText('WS header name')).toHaveValue('Sec-WebSocket-Protocol');
+    });
+
+    it('calls onUpdate when target changes', () => {
+      render(<AssertionRowEditor assertion={wsFieldAssertion} {...baseProps} />);
+      fireEvent.change(screen.getByLabelText('WS target'), { target: { value: 'ws.type' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'ws.type' });
+    });
+  });
+
+  describe('wsNumericField assertion', () => {
+    const wsNumAssertion: Assertion = { type: 'wsNumericField', target: 'ws.latencyMs', operator: '<', value: 500 };
+
+    it('renders wsNumericField assertion with badge', () => {
+      render(<AssertionRowEditor assertion={wsNumAssertion} {...baseProps} />);
+      expect(screen.getByText('WS#')).toBeInTheDocument();
+      expect(screen.getByLabelText('WS numeric target')).toHaveValue('ws.latencyMs');
+    });
+
+    it('renders numeric value input', () => {
+      render(<AssertionRowEditor assertion={wsNumAssertion} {...baseProps} />);
+      expect(screen.getByDisplayValue('500')).toBeInTheDocument();
+    });
+
+    it('calls onUpdate when value changes', () => {
+      render(<AssertionRowEditor assertion={wsNumAssertion} {...baseProps} />);
+      fireEvent.change(screen.getByDisplayValue('500'), { target: { value: '1000' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 1000 });
+    });
+  });
+
+  describe('kafkaField assertion', () => {
+    const kafkaAssertion: Assertion = { type: 'kafkaField', target: 'kafka.body', operator: 'contains', value: 'test' };
+
+    it('renders kafkaField assertion with badge', () => {
+      render(<AssertionRowEditor assertion={kafkaAssertion} {...baseProps} />);
+      expect(screen.getByText('KAFKA')).toBeInTheDocument();
+      expect(screen.getByLabelText('Kafka target')).toHaveValue('kafka.body');
+    });
+
+    it('shows header name input for kafka.header.* targets', () => {
+      const headerAssertion: Assertion = { type: 'kafkaField', target: 'kafka.header.X-Request-Id', operator: 'equals', value: '123' };
+      render(<AssertionRowEditor assertion={headerAssertion} {...baseProps} />);
+      expect(screen.getByLabelText('Kafka header name')).toHaveValue('X-Request-Id');
+    });
+
+    it('calls onUpdate when operator changes', () => {
+      render(<AssertionRowEditor assertion={kafkaAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const operatorSelect = selects.find(s => (s as HTMLSelectElement).value === 'contains');
+      expect(operatorSelect).toBeTruthy();
+      fireEvent.change(operatorSelect!, { target: { value: 'equals' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'equals' });
+    });
+  });
+
+  // ── jsonSchema toolbar ────────────────────────────────────────────────────────
+
+  describe('jsonSchema toolbar', () => {
+    const schemaAssertion: Assertion = { type: 'jsonSchema', schema: '{"type":"object"}' };
+
+    it('pretty formats schema', () => {
+      render(<AssertionRowEditor assertion={schemaAssertion} {...baseProps} />);
+      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({ schema: expect.stringContaining('{\n') }));
+    });
+
+    it('minifies schema', () => {
+      const prettySchema: Assertion = { type: 'jsonSchema', schema: '{\n  "type": "object"\n}' };
+      render(<AssertionRowEditor assertion={prettySchema} {...baseProps} />);
+      fireEvent.click(screen.getByTitle('Minify JSON (remove whitespace)'));
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { schema: '{"type":"object"}' });
+    });
+
+    it('ignores minify on invalid JSON', () => {
+      const badSchema: Assertion = { type: 'jsonSchema', schema: 'not-json' };
+      render(<AssertionRowEditor assertion={badSchema} {...baseProps} />);
+      fireEvent.click(screen.getByTitle('Minify JSON (remove whitespace)'));
+      expect(mockOnUpdate).not.toHaveBeenCalled();
+    });
+
+    it('generates schema from sample response', () => {
+      const props = { ...baseProps, sampleJson: '{"id":1,"name":"test"}' };
+      render(<AssertionRowEditor assertion={schemaAssertion} index={0} {...props} />);
+      fireEvent.click(screen.getByText('Generate from Response'));
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({ schema: expect.stringContaining('"type"') }));
+    });
+
+    it('shows error for invalid schema JSON', () => {
+      const badSchema: Assertion = { type: 'jsonSchema', schema: '{bad' };
+      render(<AssertionRowEditor assertion={badSchema} {...baseProps} />);
+      expect(screen.getByText(/Expected property name|Unexpected/i)).toBeInTheDocument();
+    });
+
+    it('updates schema from textarea', () => {
+      render(<AssertionRowEditor assertion={schemaAssertion} {...baseProps} />);
+      const textarea = screen.getByRole('textbox');
+      fireEvent.change(textarea, { target: { value: '{"type":"array"}' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { schema: '{"type":"array"}' });
+    });
+  });
+
+  // ── date assertion interactions ───────────────────────────────────────────────
+
+  describe('date assertion interactions', () => {
+    const dateAssertion: Assertion = {
+      type: 'date',
+      jsonPath: '$.expiresAt',
+      operator: '>',
+      reference: { kind: 'today', timezone: 'utc' },
+    };
+
+    it('switches reference kind to fixed', () => {
+      render(<AssertionRowEditor assertion={dateAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const kindSelect = selects.find(s => (s as HTMLSelectElement).value === 'today');
+      expect(kindSelect).toBeTruthy();
+      fireEvent.change(kindSelect!, { target: { value: 'fixed' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({
+        reference: expect.objectContaining({ kind: 'fixed' }),
+      }));
+    });
+
+    it('switches reference kind from fixed to today', () => {
+      const fixedAssertion: Assertion = {
+        type: 'date',
+        jsonPath: '$.expiresAt',
+        operator: '>',
+        reference: { kind: 'fixed', iso: '2024-01-01' },
+      };
+      render(<AssertionRowEditor assertion={fixedAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const kindSelect = selects.find(s => (s as HTMLSelectElement).value === 'fixed');
+      fireEvent.change(kindSelect!, { target: { value: 'today' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({
+        reference: expect.objectContaining({ kind: 'today', timezone: 'utc' }),
+      }));
+    });
+
+    it('updates fixed date value', () => {
+      const fixedAssertion: Assertion = {
+        type: 'date',
+        jsonPath: '$.expiresAt',
+        operator: '>',
+        reference: { kind: 'fixed', iso: '2024-01-01' },
+      };
+      render(<AssertionRowEditor assertion={fixedAssertion} {...baseProps} />);
+      const dateInput = screen.getByDisplayValue('2024-01-01');
+      fireEvent.change(dateInput, { target: { value: '2025-06-15' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, {
+        reference: { kind: 'fixed', iso: '2025-06-15' },
+      });
+    });
+
+    it('updates timezone for today reference', () => {
+      render(<AssertionRowEditor assertion={dateAssertion} {...baseProps} />);
+      const tzSelect = screen.getByDisplayValue('UTC');
+      fireEvent.change(tzSelect, { target: { value: 'local' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, {
+        reference: { kind: 'today', timezone: 'local' },
+      });
+    });
+  });
+
+  // ── bodySize interactions ─────────────────────────────────────────────────────
+
+  describe('bodySize interactions', () => {
+    const bodySizeAssertion: Assertion = { type: 'bodySize', operator: '<', value: 1024, unit: 'bytes' };
+
+    it('updates unit', () => {
+      render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
+      const unitSelect = screen.getByDisplayValue('Bytes');
+      fireEvent.change(unitSelect, { target: { value: 'kb' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { unit: 'kb' });
+    });
+
+    it('updates value', () => {
+      render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
+      const input = screen.getByDisplayValue('1024');
+      fireEvent.change(input, { target: { value: '2048' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 2048 });
+    });
+
+    it('updates operator', () => {
+      render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
+      const opSelect = screen.getByDisplayValue('less than');
+      fireEvent.change(opSelect, { target: { value: '>=' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>=' });
+    });
+  });
+
+  // ── custom assertion interactions ─────────────────────────────────────────────
+
+  describe('custom assertion interactions', () => {
+    const customAssertion: Assertion = { type: 'custom', expression: 'response.status === 200' };
+
+    it('updates expression', () => {
+      render(<AssertionRowEditor assertion={customAssertion} {...baseProps} />);
+      const textarea = screen.getByDisplayValue('response.status === 200');
+      fireEvent.change(textarea, { target: { value: 'response.body.ok' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { expression: 'response.body.ok' });
+    });
+  });
+
+  // ── wsField interactions ──────────────────────────────────────────────────────
+
+  describe('wsField interactions', () => {
+    const wsAssertion: Assertion = { type: 'wsField', target: 'ws.body', operator: 'contains', value: 'test' };
+
+    it('updates value for non-exists operator', () => {
+      render(<AssertionRowEditor assertion={wsAssertion} {...baseProps} />);
+      const input = screen.getByDisplayValue('test');
+      fireEvent.change(input, { target: { value: 'new-value' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 'new-value' });
+    });
+
+    it('updates ws target', () => {
+      render(<AssertionRowEditor assertion={wsAssertion} {...baseProps} />);
+      const select = screen.getByLabelText('WS target');
+      fireEvent.change(select, { target: { value: 'ws.type' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'ws.type' });
+    });
+  });
+
+  // ── wsNumericField interactions ───────────────────────────────────────────────
+
+  describe('wsNumericField interactions', () => {
+    const wsNumericAssertion: Assertion = { type: 'wsNumericField', target: 'ws.messageSize', operator: '<', value: 1024 };
+
+    it('updates operator', () => {
+      render(<AssertionRowEditor assertion={wsNumericAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const opSelect = selects.find(s => (s as HTMLSelectElement).value === '<');
+      fireEvent.change(opSelect!, { target: { value: '>=' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>=' });
+    });
+  });
+
+  // ── each assertion interactions ───────────────────────────────────────────────
+
+  describe('each assertion interactions', () => {
+    const eachAssertion: Assertion = { type: 'each', jsonPath: '$.items', fieldPath: 'name', operator: 'equals', value: 'test' };
+
+    it('updates fieldPath', () => {
+      render(<AssertionRowEditor assertion={eachAssertion} {...baseProps} />);
+      const input = screen.getByDisplayValue('name');
+      fireEvent.change(input, { target: { value: 'title' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { fieldPath: 'title' });
+    });
+
+    it('updates operator to no-value type', () => {
+      render(<AssertionRowEditor assertion={eachAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const opSelect = selects.find(s => (s as HTMLSelectElement).value === 'equals');
+      fireEvent.change(opSelect!, { target: { value: 'is_true' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'is_true' });
+    });
+  });
+
+  // ── arrayContains interactions ────────────────────────────────────────────────
+
+  describe('arrayContains interactions', () => {
+    const arrayAssertion: Assertion = { type: 'arrayContains', jsonPath: '$.items', mode: 'any', value: '"test"' };
+
+    it('updates mode', () => {
+      render(<AssertionRowEditor assertion={arrayAssertion} {...baseProps} />);
+      const selects = screen.getAllByRole('combobox');
+      const modeSelect = selects.find(s => (s as HTMLSelectElement).value === 'any');
+      fireEvent.change(modeSelect!, { target: { value: 'all' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { mode: 'all' });
+    });
+  });
+
+  // ── containsSubset interactions ───────────────────────────────────────────────
+
+  describe('containsSubset interactions', () => {
+    const subsetAssertion: Assertion = { type: 'containsSubset', jsonPath: '$', expected: '{"status":"ok"}' };
+
+    it('updates expected', () => {
+      render(<AssertionRowEditor assertion={subsetAssertion} {...baseProps} />);
+      const textarea = screen.getByDisplayValue('{"status":"ok"}');
+      fireEvent.change(textarea, { target: { value: '{"key":"val"}' } });
+      expect(mockOnUpdate).toHaveBeenCalledWith(0, { expected: '{"key":"val"}' });
+    });
+  });
 });

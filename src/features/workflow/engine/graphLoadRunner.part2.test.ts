@@ -98,6 +98,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -134,6 +135,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -166,6 +168,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -218,6 +221,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -385,6 +389,7 @@ describe('graphLoadRunner', () => {
         traceOpts, // traceOptions passed through
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -495,6 +500,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -527,6 +533,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
   });

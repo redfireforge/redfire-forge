@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind, SlaTarget } from '../../../shared/types';
 import type { TestDefinitionVersion } from '../../../shared/types';
+import { isWsActionType } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
@@ -308,7 +309,9 @@ export function useScenarioMutations({
   };
 
   const saveTest = () => {
-    if (!editingTest || !draft.name.trim() || !draft.url.trim()) return;
+    if (!editingTest || !draft.name.trim()) return;
+    const isNonHttp = isWsActionType(draft.actionType) || draft.actionType === 'kafkaProduce' || draft.actionType === 'kafkaConsume';
+    if (!isNonHttp && !draft.url.trim()) return;
     const { featureId, scenarioId, testId } = editingTest;
 
     const parentFg = allFgs.find(f => f.id === featureId);

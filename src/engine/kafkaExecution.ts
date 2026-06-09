@@ -99,6 +99,7 @@ async function executeKafkaProduce(
     validation: scenario.validation,
     assertions: scenario.validation.assertions ?? [],
     kafkaContext,
+    transportType: 'kafkaProduce',
   });
 
   return {
@@ -210,6 +211,7 @@ async function executeKafkaConsume(
     validation: scenario.validation,
     assertions: scenario.validation.assertions ?? [],
     kafkaContext,
+    transportType: 'kafkaConsume',
   });
 
   return {

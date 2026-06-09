@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConfigVariableInsertHints, collectAncestorNodeIds, collectConditionVariableHints, formatNodeScopedRef, guessConditionLeftMode, guessValueType, buildWorkflowOnlyHints, httpStepDisplayLabel, isHttpWorkflowNode, mergeHttpVariableHintsWithStepInitialVars, parseNonGeneratorRefs, parseSingleVariableRef, validateConditionLeftRefs } from './workflowVariableHints';
+import { buildConfigVariableInsertHints, collectAncestorNodeIds, collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints, formatNodeScopedRef, guessConditionLeftMode, guessValueType, buildWorkflowOnlyHints, httpStepDisplayLabel, isHttpWorkflowNode, mergeHttpVariableHintsWithStepInitialVars, parseNonGeneratorRefs, parseSingleVariableRef, validateConditionLeftRefs } from './workflowVariableHints';
 import { HttpNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 describe('collectAncestorNodeIds', () => {
@@ -389,5 +389,104 @@ describe('buildConfigVariableInsertHints', () => {
     });
 
     expect(hints.map((hint) => hint.ref)).toEqual(['alpha', 'beta']);
+  });
+});
+
+// ── collectDescendantNodeIds ──
+
+describe('collectDescendantNodeIds', () => {
+  it('collects direct descendants', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'A', target: 'B' },
+      { id: 'e2', source: 'A', target: 'C' },
+    ];
+    const result = collectDescendantNodeIds(edges, 'A');
+    expect(result).toEqual(new Set(['B', 'C']));
+  });
+
+  it('collects transitive descendants', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'A', target: 'B' },
+      { id: 'e2', source: 'B', target: 'C' },
+      { id: 'e3', source: 'C', target: 'D' },
+    ];
+    const result = collectDescendantNodeIds(edges, 'A');
+    expect(result).toEqual(new Set(['B', 'C', 'D']));
+  });
+
+  it('handles cycles without infinite loop', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'A', target: 'B' },
+      { id: 'e2', source: 'B', target: 'C' },
+      { id: 'e3', source: 'C', target: 'A' },
+    ];
+    const result = collectDescendantNodeIds(edges, 'A');
+    expect(result).toEqual(new Set(['B', 'C']));
+  });
+
+  it('filters by sourceHandle when provided', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'A', target: 'B', sourceHandle: 'body' },
+      { id: 'e2', source: 'A', target: 'C', sourceHandle: 'out' },
+    ];
+    const result = collectDescendantNodeIds(edges, 'A', 'body');
+    expect(result).toEqual(new Set(['B']));
+  });
+
+  it('returns empty set when node has no outgoing edges', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'X', target: 'Y' },
+    ];
+    const result = collectDescendantNodeIds(edges, 'A');
+    expect(result).toEqual(new Set());
+  });
+});
+
+// ── collectWaitForConditionVariableHints ──
+
+describe('collectWaitForConditionVariableHints', () => {
+  it('includes built-in wait variables', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+    ];
+    const edges: WorkflowEdge[] = [];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'wait-1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('wait.attempts');
+    expect(refs).toContain('wait.elapsed');
+    expect(refs).toContain('wait.conditionMet');
+  });
+
+  it('includes HTTP step extractions from poll-body subgraph', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+      {
+        id: 'http-1', type: 'http', position: { x: 0, y: 100 },
+        data: {
+          label: 'Check Status', method: 'GET', url: 'https://api.test/status', scenario: {
+            extractions: [{ name: 'status', source: 'body', path: '$.status' }],
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
+      },
+    ];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'wait-1', target: 'http-1', sourceHandle: 'body' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'wait-1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('status');
+    expect(refs).toContain('wait.attempts');
+  });
+
+  it('includes workflow variables', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, [], 'wait-1', { baseUrl: 'https://api.test' });
+    expect(hints.map(h => h.ref)).toContain('baseUrl');
   });
 });

@@ -673,4 +673,58 @@ describe('runTest', () => {
     const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(1);
   });
+
+  it('throws error for Kafka action without kafkaOperations', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'kafkaProduce' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
+    ).rejects.toThrow('Kafka operations not available');
+  });
+
+  it('throws error for WS action without wsOperations', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'wsConnect' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const kafkaOps = {} as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').KafkaNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, kafkaOps),
+    ).rejects.toThrow('WS operations not available');
+  });
+
+  it('throws error for unknown non-HTTP action type', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'unknownThing' as never });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
+    ).rejects.toThrow('Unknown non-HTTP action type');
+  });
+
+  it('calls wsOperations.disconnectAll in finally block', async () => {
+    const disconnectAll = vi.fn().mockResolvedValue(undefined);
+    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const s = makeScenario({ id: 's1' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    await runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps);
+    expect(disconnectAll).toHaveBeenCalled();
+  });
+
+  it('swallows wsOperations.disconnectAll errors in finally block', async () => {
+    const disconnectAll = vi.fn().mockRejectedValue(new Error('cleanup fail'));
+    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const s = makeScenario({ id: 's1' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    // Should not throw even though disconnectAll rejects
+    await expect(runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps)).resolves.toBeTruthy();
+  });
+
+  it('form-data content type overwrites existing Content-Type', () => {
+    const scenario = makeScenario({
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+      bodyType: 'form-data',
+    });
+    const headers = buildHeaders(scenario, undefined, 'multipart/form-data; boundary=---xyz');
+    expect(headers['Content-Type']).toBe('multipart/form-data; boundary=---xyz');
+  });
 });

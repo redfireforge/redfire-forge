@@ -725,11 +725,9 @@ describe('RegressionAlert fields', () => {
     expect(alert!.actual).toBeCloseTo(3, 1); // 3pp actual delta
   });
 
-  describe('Kafka results are not counted as HTTP errors', () => {
-    it('failed Kafka produce results (httpStatus=0) are excluded from per-scenario error count', () => {
-      // Baseline: 1 HTTP scenario with 0 errors
+  describe('non-HTTP transport error counting', () => {
+    it('failed Kafka produce results (passed=false) are counted as errors', () => {
       const baseline = makeRun('b', { errorRate: 0 }, [makeResult('http-get', 100, 200)]);
-      // Current: same HTTP scenario + Kafka scenario that failed (httpStatus=0)
       const kafkaFailedResult: TestRun['results'][0] = {
         id: crypto.randomUUID(),
         scenarioId: 'k1',
@@ -750,7 +748,31 @@ describe('RegressionAlert fields', () => {
       const current = makeRun('c', { errorRate: 0 }, [makeResult('http-get', 100, 200), kafkaFailedResult]);
       const comparison = compareRuns(baseline, current);
 
-      // The 'kafka-produce' scenario should have 0% errorRate (not 100%)
+      const kafkaDelta = comparison.scenarioDeltas.find(d => d.scenarioName === 'kafka-produce');
+      expect(kafkaDelta?.currentErrorRate).toBe(100);
+    });
+
+    it('passed Kafka results (httpStatus=0, passed=true) are NOT counted as errors', () => {
+      const baseline = makeRun('b', { errorRate: 0 }, [makeResult('http-get', 100, 200)]);
+      const kafkaPassedResult: TestRun['results'][0] = {
+        id: crypto.randomUUID(),
+        scenarioId: 'k1',
+        scenarioName: 'kafka-produce',
+        url: '',
+        method: 'KAFKA' as TestRun['results'][0]['method'],
+        transportType: 'kafkaProduce',
+        httpStatus: 0,
+        responseTimeMs: 50,
+        responseBody: '',
+        timestamp: Date.now(),
+        passed: true,
+        validationMode: 'none' as const,
+        failureDetails: [],
+        kafkaResultMeta: { topic: 'orders', partition: 0, offset: 0 },
+      };
+      const current = makeRun('c', { errorRate: 0 }, [makeResult('http-get', 100, 200), kafkaPassedResult]);
+      const comparison = compareRuns(baseline, current);
+
       const kafkaDelta = comparison.scenarioDeltas.find(d => d.scenarioName === 'kafka-produce');
       expect(kafkaDelta?.currentErrorRate).toBe(0);
     });

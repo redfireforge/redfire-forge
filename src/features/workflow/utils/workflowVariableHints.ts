@@ -1,4 +1,4 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
@@ -33,6 +33,10 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   kafkaConsume:      { icon: '⇠',  category: 'Integrations' },
   kafkaTrigger:      { icon: '⚡', category: 'Triggers' },
   kafkaWait:         { icon: '⏸', category: 'Integrations' },
+  wsConnect:         { icon: '⇌',  category: 'Integrations' },
+  wsSend:            { icon: '⇢',  category: 'Integrations' },
+  wsReceive:         { icon: '⇠',  category: 'Integrations' },
+  wsTrigger:         { icon: '⚡', category: 'Triggers' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
@@ -88,6 +92,7 @@ const NON_HTTP_TYPES = new Set([
   'switch', 'loop', 'setVariable', 'script', 'aggregate', 'logDebug',
   'waitForCondition', 'correlationWait', 'errorHandler', 'subWorkflow', 'end',
   'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
+  'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
@@ -136,10 +141,6 @@ function aggregateStrategyType(s: string): string {
   }
 }
 
-/**
- * Variable names safe to reference for conditions and HTTP config (insert picker):
- * this step's Initial variables (HTTP), workflow defaults, upstream HTTP extractions / initial vars (scoped),
- * and `status` / `node:"Step name".status`.
 /**
  * Build picker hints from workflow-level default variables.
  * Used by WorkflowConfigPanel and WorkflowNodeConfigModal to provide Insert Variable hints.
@@ -396,6 +397,63 @@ export function collectConditionVariableHints(
         const nm = ev.name?.trim();
         if (nm) {
           push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from Kafka wait message via JSONPath "${ev.jsonPath}"`, 'string', waitSource);
+        }
+      }
+    } else if (n.type === 'wsConnect') {
+      const data = n.data as WsConnectNodeData;
+      const label = data.label?.trim() || 'WS Connect';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsConnect', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.variableName?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket connection metadata (${b.field}) from "${label}"`, 'string', wsSource);
+        }
+      }
+    } else if (n.type === 'wsSend') {
+      const data = n.data as WsSendNodeData;
+      const label = data.label?.trim() || 'WS Send';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsSend', category: 'Integrations' };
+      if (data.waitForResponse) {
+        for (const b of data.outputBindings ?? []) {
+          const nm = b.variableName?.trim();
+          if (nm && b.enabled) {
+            push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket send metadata (${b.field}) from "${label}"`, 'string', wsSource);
+          }
+        }
+      }
+    } else if (n.type === 'wsReceive') {
+      const data = n.data as WsReceiveNodeData;
+      const label = data.label?.trim() || 'WS Receive';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsReceive', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.variableName?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket received message metadata (${b.field}) from "${label}"`, 'string', wsSource);
+        }
+      }
+      for (const er of data.extractionRules ?? []) {
+        const nm = er.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from WebSocket message via JSONPath "${er.jsonPath}"`, 'string', wsSource);
+        }
+      }
+    } else if (n.type === 'wsTrigger') {
+      const data = n.data as WsTriggerNodeData;
+      const label = data.label?.trim() || 'WS Trigger';
+      const triggerSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsTrigger', category: 'Triggers' };
+      const triggerKeys = [
+        { ref: 'ws.trigger.message',      desc: 'Full message body of the triggering WebSocket frame' },
+        { ref: 'ws.trigger.messageType',  desc: 'Frame type of the triggering message (text or binary)' },
+        { ref: 'ws.trigger.url',          desc: 'WebSocket URL the trigger is listening on' },
+        { ref: 'ws.trigger.connectionId', desc: 'Connection ID from the triggering WebSocket message' },
+      ];
+      for (const { ref, desc } of triggerKeys) {
+        push(ref, `${ref} ← "${label}"`, desc, 'string', triggerSource);
+      }
+      for (const er of data.extractionRules ?? []) {
+        const nm = er.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from WebSocket trigger message via JSONPath "${er.jsonPath}"`, 'string', triggerSource);
         }
       }
     }

@@ -194,6 +194,42 @@ function emitDetails(
     lines.push({ prefix: '<', text: `Webhook received: ${method} ${path}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
   }
 
+  if (d.kafkaDetails) {
+    const kd = d.kafkaDetails;
+    const topicLine = kd.topic ? `topic: ${kd.topic}` : '';
+    const partLine = kd.partition !== undefined ? `, partition: ${kd.partition}` : '';
+    lines.push({ prefix: '>', text: `kafka://${topicLine}${partLine}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
+    if (kd.durationMs !== undefined) {
+      lines.push({ prefix: '<', text: `${kd.durationMs}ms`, ts: ts + (event.durationMs ?? 0), nodeId: event.nodeId, nodeLabel: label, depth });
+    }
+  }
+
+  if (d.kafkaTriggerDetails) {
+    const kt = d.kafkaTriggerDetails;
+    lines.push({ prefix: '<', text: `Kafka trigger: topic=${kt.topic}${kt.key ? `, key=${kt.key}` : ''}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
+  }
+
+  if (d.wsDetails) {
+    const ws = d.wsDetails;
+    if (ws.url) {
+      lines.push({ prefix: '>', text: `${ws.url} (${ws.connectionId})`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
+    } else {
+      lines.push({ prefix: '>', text: `connectionId: ${ws.connectionId}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
+    }
+    if (ws.bodyPreview) {
+      const dir = event.nodeType === 'wsReceive' ? '<' : '>';
+      lines.push({ prefix: dir, text: `${ws.messageType ?? 'text'}: ${truncateBody(ws.bodyPreview)}`, ts: ts + (event.durationMs ?? 0), nodeId: event.nodeId, nodeLabel: label, depth });
+    }
+    if (ws.durationMs !== undefined) {
+      lines.push({ prefix: '<', text: `${ws.durationMs}ms`, ts: ts + (event.durationMs ?? 0), nodeId: event.nodeId, nodeLabel: label, depth });
+    }
+  }
+
+  if (d.wsTriggerDetails) {
+    const wt = d.wsTriggerDetails;
+    lines.push({ prefix: '<', text: `WS trigger: ${wt.url} (${wt.connectionId})${wt.messageType ? `, type=${wt.messageType}` : ''}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
+  }
+
   if (d.waitDurationMs !== undefined) {
     lines.push({ prefix: '*', text: `Waited ${d.waitDurationMs}ms for event`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
   }

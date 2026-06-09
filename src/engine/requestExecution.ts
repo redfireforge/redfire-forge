@@ -18,7 +18,7 @@ export function nextResultId(): string { return `${_resultIdPrefix}-${++_resultI
 
 export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: string): RequestResult {
   const msg = toErrorMessage(err);
-  return {
+  const result: RequestResult = {
     id: nextResultId(),
     scenarioId: scenario.id,
     scenarioName: scenario.name,
@@ -38,6 +38,12 @@ export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: str
     requestLog: { headers: {}, body: reqBody },
     scenarioTags: scenario.scenarioTags,
   };
+  if (scenario.dataRowId) result.dataRowId = scenario.dataRowId;
+  if (scenario.dataRowLabel) result.dataRowLabel = scenario.dataRowLabel;
+  if (scenario.actionType && scenario.actionType !== 'http') {
+    result.transportType = scenario.actionType as RequestResult['transportType'];
+  }
+  return result;
 }
 
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {

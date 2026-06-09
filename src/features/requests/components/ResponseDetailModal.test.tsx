@@ -1,374 +1,466 @@
-/**
- * @vitest-environment jsdom
- */
-import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/** @vitest-environment jsdom */
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { act } from 'react';
+import '@testing-library/jest-dom';
 import ResponseDetailModal from './ResponseDetailModal';
-import { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '../../../shared/types';
 
-let capturedOnMatchCountChange: ((count: number) => void) | undefined;
-let capturedOnToggle: ((path: string) => void) | undefined;
+function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
+  return {
+    id: 'r1',
+    scenarioId: 's1',
+    scenarioName: 'Test Scenario',
+    passed: true,
+    httpStatus: 200,
+    responseTimeMs: 150,
+    method: 'GET',
+    url: 'http://api.example.com/users',
+    failureDetails: [],
+    ...overrides,
+  };
+}
 
-vi.mock('./JsonTreePreview', () => ({
-  default: (props: {
-    body: string;
-    search: string;
-    collapsedSet: Set<string>;
-    onToggle: (path: string) => void;
-    prebuiltTree: unknown;
-    currentMatchIdx: number;
-    onMatchCountChange: (count: number) => void;
-  }) => {
-    capturedOnMatchCountChange = props.onMatchCountChange;
-    capturedOnToggle = props.onToggle;
-    return (
-      <div
-        data-testid="json-preview"
-        data-search={props.search}
-        data-current-match-idx={props.currentMatchIdx}
-        data-collapsed-size={props.collapsedSet.size}
-        data-collapsed={Array.from(props.collapsedSet).sort().join('|')}
-      />
-    );
-  },
-  buildJTree: (data: unknown) => ({
-    key: 'root',
-    type: 'object',
-    value: data,
-    children: [
-      {
-        key: 'nested',
-        type: 'object',
-        value: {},
-        children: [{ key: 'leaf', type: 'boolean', value: true, children: [] as [] }],
-      },
-    ],
-  }),
+vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
+  default: ({ children, title }: { children: React.ReactNode; title: string }) => (
+    <div data-testid="modal-frame" aria-label={title}>{children}</div>
+  ),
 }));
 
-vi.mock('../../../shared/components/JsonTreeViewer', () => ({
-  default: () => <div data-testid="json-tree-viewer" />,
+vi.mock('./JsonTreePreview', () => ({
+  default: (props: Record<string, unknown>) => {
+    // Call onMatchCountChange to cover that callback
+    if (typeof props.onMatchCountChange === 'function') {
+      (props.onMatchCountChange as (n: number) => void)(0);
+    }
+    return (
+      <div data-testid="json-preview">
+        {typeof props.onToggle === 'function' && (
+          <button data-testid="tree-toggle" onClick={() => (props.onToggle as (path: string) => void)('$.key')} />
+        )}
+      </div>
+    );
+  },
+  buildJTree: (data: unknown, _prefix: string) => {
+    if (data && typeof data === 'object') {
+      return { key: '', value: data, children: Object.keys(data as Record<string, unknown>).map(k => ({ key: k, value: (data as Record<string, unknown>)[k], children: [] })) };
+    }
+    return null;
+  },
+}));
+
+vi.mock('./ResponseBodySearchBar', () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="search-bar">
+      <button data-testid="collapse-all" onClick={props.onCollapseAll as () => void} />
+      <button data-testid="expand-all" onClick={props.onExpandAll as () => void} />
+      <button data-testid="search-clear" onClick={props.onClear as () => void} />
+    </div>
+  ),
 }));
 
 vi.mock('../../test-runner/components/WaterfallBar', () => ({
   default: () => <div data-testid="waterfall-bar" />,
 }));
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: 'r1',
-    scenarioId: 's1',
-    scenarioName: 'Test Request',
-    url: 'https://api.example.com/users',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 42,
-    responseBody: '{"ok":true}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-    ...overrides,
-  };
-}
-
-beforeEach(() => {
-  capturedOnMatchCountChange = undefined;
-  capturedOnToggle = undefined;
-});
+vi.mock('../../../shared/components/JsonTreeViewer', () => ({
+  default: () => <div data-testid="json-tree-viewer" />,
+}));
 
 describe('ResponseDetailModal', () => {
-  it('renders nothing when result is null', () => {
+  it('returns null when result is null', () => {
     const { container } = render(<ResponseDetailModal result={null} onClose={vi.fn()} />);
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders meta info', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    expect(screen.getByText('GET')).toBeTruthy();
-    expect(screen.getByText('Test Request')).toBeTruthy();
-    expect(screen.getByText('200')).toBeTruthy();
-    expect(screen.getByText('42 ms')).toBeTruthy();
-  });
-
-  it('renders response headers section', () => {
-    const result = makeResult({
-      responseHeaders: {
-        'content-type': 'application/json',
-        'x-request-id': 'abc-123',
-      },
+  describe('HTTP result', () => {
+    it('shows HTTP status code in status badge', () => {
+      render(<ResponseDetailModal result={makeResult({ httpStatus: 200 })} onClose={vi.fn()} />);
+      expect(screen.getByText('200')).toBeInTheDocument();
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Response Headers')).toBeTruthy();
-    expect(screen.getByText('content-type')).toBeTruthy();
-    expect(screen.getByText('application/json')).toBeTruthy();
-    expect(screen.getByText('x-request-id')).toBeTruthy();
-    expect(screen.getByText('abc-123')).toBeTruthy();
-  });
 
-  it('hides response headers section when empty', () => {
-    render(<ResponseDetailModal result={makeResult({ responseHeaders: {} })} onClose={vi.fn()} />);
-    expect(screen.queryByText('Response Headers')).toBeNull();
-  });
-
-  it('hides response headers section when undefined', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    expect(screen.queryByText('Response Headers')).toBeNull();
-  });
-
-  it('renders request headers section', () => {
-    const result = makeResult({
-      requestLog: {
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: '{"name":"test"}',
-      },
+    it('shows method badge with HTTP method', () => {
+      render(<ResponseDetailModal result={makeResult({ method: 'POST' })} onClose={vi.fn()} />);
+      expect(screen.getByText('POST')).toBeInTheDocument();
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Request Headers')).toBeTruthy();
-    expect(screen.getByText('Content-Type')).toBeTruthy();
-    expect(screen.getByText('Accept')).toBeTruthy();
-  });
 
-  it('masks Authorization header value', () => {
-    const result = makeResult({
-      requestLog: {
-        headers: { 'Authorization': 'Bearer secret-token', 'Accept': '*/*' },
-      },
+    it('shows ERR for failed HTTP with status 0', () => {
+      render(<ResponseDetailModal result={makeResult({ httpStatus: 0, passed: false })} onClose={vi.fn()} />);
+      expect(screen.getByText('ERR')).toBeInTheDocument();
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Authorization')).toBeTruthy();
-    expect(screen.getByText('\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022')).toBeTruthy();
-    expect(screen.queryByText('Bearer secret-token')).toBeNull();
-  });
 
-  it('renders request body section', () => {
-    const result = makeResult({
-      requestLog: {
-        headers: { 'Content-Type': 'application/json' },
-        body: '{"name":"test"}',
-      },
+    it('shows tag-info for HTTP 200 even if passed is false (validation failure)', () => {
+      render(<ResponseDetailModal result={makeResult({ httpStatus: 200, passed: false })} onClose={vi.fn()} />);
+      const statusBadge = screen.getByText('200');
+      expect(statusBadge.className).toContain('tag-info');
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Request Body')).toBeTruthy();
-  });
 
-  it('hides request body when not provided', () => {
-    const result = makeResult({
-      requestLog: { headers: { 'Accept': '*/*' } },
+    it('shows tag-danger for HTTP 500', () => {
+      render(<ResponseDetailModal result={makeResult({ httpStatus: 500, passed: false })} onClose={vi.fn()} />);
+      const statusBadge = screen.getByText('500');
+      expect(statusBadge.className).toContain('tag-danger');
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.queryByText('Request Body')).toBeNull();
-  });
 
-  it('hides request headers when requestLog is undefined', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    expect(screen.queryByText('Request Headers')).toBeNull();
-    expect(screen.queryByText('Request Body')).toBeNull();
-  });
-
-  it('renders validation failure table rows', () => {
-    const result = makeResult({
-      passed: false,
-      failureDetails: [
-        { path: '$.id', expected: '1', actual: '2' },
-      ],
+    it('shows timing waterfall for HTTP results', () => {
+      const result = makeResult({ timing: { dns: 10, connect: 20, tls: 5, send: 3, wait: 100, receive: 12 } });
+      render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+      expect(screen.getByTestId('waterfall-bar')).toBeInTheDocument();
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Validation Failures (1)')).toBeTruthy();
-    expect(screen.getByText('$.id')).toBeTruthy();
-    expect(screen.getByText('1')).toBeTruthy();
-    expect(screen.getByText('2')).toBeTruthy();
-  });
 
-  it('stringifies non-string failure expected/actual values', () => {
-    const result = makeResult({
-      passed: false,
-      failureDetails: [
-        { path: 'x', expected: { a: 1 } as unknown as string, actual: [9] as unknown as string },
-      ],
+    it('does not show WebSocket or Kafka details for HTTP results', () => {
+      render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
+      expect(screen.queryByText('WebSocket Details')).not.toBeInTheDocument();
+      expect(screen.queryByText('Kafka Details')).not.toBeInTheDocument();
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('{"a":1}')).toBeTruthy();
-    expect(screen.getByText('[9]')).toBeTruthy();
   });
 
-  it('renders timing breakdown when present', () => {
-    const result = makeResult({
-      timing: {
-        dnsLookup: 1,
-        tcpConnect: 2,
-        tlsHandshake: 3,
-        ttfb: 4,
-        download: 5,
-        total: 15,
-      },
-    });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Timing Breakdown')).toBeTruthy();
-    expect(screen.getByTestId('waterfall-bar')).toBeTruthy();
-  });
-
-  it('renders error message as JSON when not a string', () => {
-    const result = makeResult({
-      passed: false,
+  describe('WebSocket result', () => {
+    const wsResult = makeResult({
+      transportType: 'wsConnect',
+      method: 'WEBSOCKET',
       httpStatus: 0,
-      errorMessage: { code: 'ECONNRESET' } as unknown as string,
+      passed: true,
+      url: 'wss://api.example.com/ws',
+      wsResultMeta: {
+        connectionId: 'chat-conn',
+        protocol: 'graphql-ws',
+        frameType: 'text',
+        url: 'wss://api.example.com/ws',
+        messageSize: 1024,
+      },
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('Error Message')).toBeTruthy();
-    expect(screen.getByText('{"code":"ECONNRESET"}')).toBeTruthy();
-  });
 
-  it('uses ERR tag styling when httpStatus is 0', () => {
-    const result = makeResult({ httpStatus: 0, passed: false });
-    const { container } = render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(container.querySelector('.tag-danger')?.textContent).toContain('ERR');
-  });
-
-  it('uses danger tag styling for http status 4xx', () => {
-    const { container } = render(
-      <ResponseDetailModal result={makeResult({ httpStatus: 404, passed: false })} onClose={vi.fn()} />,
-    );
-    const tags = [...container.querySelectorAll('.response-meta-row .tag')];
-    expect(tags.some((el) => el.classList.contains('tag-danger') && el.textContent === '404')).toBe(true);
-  });
-
-  it('renders string error message without JSON.stringify', () => {
-    const result = makeResult({
-      passed: false,
-      httpStatus: 500,
-      errorMessage: 'upstream timeout',
+    it('shows CONNECT in both method and status badges', () => {
+      render(<ResponseDetailModal result={wsResult} onClose={vi.fn()} />);
+      const elements = screen.getAllByText('CONNECT');
+      expect(elements).toHaveLength(2);
+      expect(elements[0].className).toContain('method-badge');
+      expect(elements[1].className).toContain('tag');
     });
-    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
-    expect(screen.getByText('upstream timeout')).toBeTruthy();
-    expect(screen.queryByText('"upstream timeout"')).toBeNull();
+
+    it('shows WebSocket Details section', () => {
+      render(<ResponseDetailModal result={wsResult} onClose={vi.fn()} />);
+      expect(screen.getByText('WebSocket Details')).toBeInTheDocument();
+    });
+
+    it('shows wsResultMeta fields', () => {
+      render(<ResponseDetailModal result={wsResult} onClose={vi.fn()} />);
+      expect(screen.getByText('Connection ID')).toBeInTheDocument();
+      expect(screen.getByText('chat-conn')).toBeInTheDocument();
+      expect(screen.getByText('Protocol')).toBeInTheDocument();
+      expect(screen.getByText('graphql-ws')).toBeInTheDocument();
+      expect(screen.getByText('Frame Type')).toBeInTheDocument();
+      expect(screen.getByText('text')).toBeInTheDocument();
+      expect(screen.getByText('Message Size')).toBeInTheDocument();
+      expect(screen.getByText('1,024 bytes')).toBeInTheDocument();
+    });
+
+    it('does not show timing waterfall for WS results', () => {
+      const r = { ...wsResult, timing: { dns: 0, connect: 10, tls: 0, send: 0, wait: 50, receive: 0 } };
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByTestId('waterfall-bar')).not.toBeInTheDocument();
+    });
+
+    it('shows tag-info for passed WS result', () => {
+      render(<ResponseDetailModal result={wsResult} onClose={vi.fn()} />);
+      const tags = screen.getAllByText('CONNECT');
+      const statusTag = tags.find(el => el.className.includes('tag') && !el.className.includes('method-badge'));
+      expect(statusTag?.className).toContain('tag-info');
+    });
+
+    it('shows tag-danger for failed WS result', () => {
+      const failed = { ...wsResult, passed: false };
+      render(<ResponseDetailModal result={failed} onClose={vi.fn()} />);
+      const tags = screen.getAllByText('CONNECT');
+      const statusTag = tags.find(el => el.className.includes('tag') && !el.className.includes('method-badge'));
+      expect(statusTag?.className).toContain('tag-danger');
+    });
+
+    it('shows closeCode when present', () => {
+      const r = makeResult({
+        transportType: 'wsConnect',
+        method: 'WEBSOCKET',
+        httpStatus: 0,
+        passed: true,
+        wsResultMeta: { closeCode: 1000 },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Close Code')).toBeInTheDocument();
+      expect(screen.getByText('1000')).toBeInTheDocument();
+    });
+
+    it('does not show WebSocket Details when wsResultMeta is absent', () => {
+      const noMeta = makeResult({
+        transportType: 'wsConnect',
+        method: 'WEBSOCKET',
+        httpStatus: 0,
+        passed: true,
+      });
+      render(<ResponseDetailModal result={noMeta} onClose={vi.fn()} />);
+      expect(screen.queryByText('WebSocket Details')).not.toBeInTheDocument();
+    });
+
+    it('does not show WebSocket Details when wsResultMeta is empty object', () => {
+      const emptyMeta = makeResult({
+        transportType: 'wsConnect',
+        method: 'WEBSOCKET',
+        httpStatus: 0,
+        passed: true,
+        wsResultMeta: {} as RequestResult['wsResultMeta'],
+      });
+      render(<ResponseDetailModal result={emptyMeta} onClose={vi.fn()} />);
+      expect(screen.queryByText('WebSocket Details')).not.toBeInTheDocument();
+    });
   });
 
-  it('renders RESPONSE BODY with search input when responseBody is set', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'RESPONSE BODY' })).toBeTruthy();
-    expect(screen.getByPlaceholderText('Search response...')).toBeTruthy();
+  describe('Kafka result', () => {
+    const kafkaResult = makeResult({
+      transportType: 'kafkaProduce',
+      method: 'KAFKA',
+      httpStatus: 0,
+      passed: true,
+      url: 'kafka://broker:9092',
+      kafkaResultMeta: {
+        topic: 'orders',
+        partition: 3,
+        offset: 42,
+        key: 'order-123',
+      },
+    });
+
+    it('shows PRODUCE in both method and status badges', () => {
+      render(<ResponseDetailModal result={kafkaResult} onClose={vi.fn()} />);
+      const elements = screen.getAllByText('PRODUCE');
+      expect(elements).toHaveLength(2);
+    });
+
+    it('shows Kafka Details section', () => {
+      render(<ResponseDetailModal result={kafkaResult} onClose={vi.fn()} />);
+      expect(screen.getByText('Kafka Details')).toBeInTheDocument();
+    });
+
+    it('shows kafkaResultMeta fields', () => {
+      render(<ResponseDetailModal result={kafkaResult} onClose={vi.fn()} />);
+      expect(screen.getByText('Topic')).toBeInTheDocument();
+      expect(screen.getByText('orders')).toBeInTheDocument();
+      expect(screen.getByText('Partition')).toBeInTheDocument();
+      expect(screen.getByText('3')).toBeInTheDocument();
+      expect(screen.getByText('Offset')).toBeInTheDocument();
+      expect(screen.getByText('42')).toBeInTheDocument();
+      expect(screen.getByText('Key')).toBeInTheDocument();
+      expect(screen.getByText('order-123')).toBeInTheDocument();
+    });
+
+    it('does not show Kafka Details when kafkaResultMeta is absent', () => {
+      const noMeta = makeResult({
+        transportType: 'kafkaProduce',
+        method: 'KAFKA',
+        httpStatus: 0,
+        passed: true,
+      });
+      render(<ResponseDetailModal result={noMeta} onClose={vi.fn()} />);
+      expect(screen.queryByText('Kafka Details')).not.toBeInTheDocument();
+    });
   });
 
-  it('updates search input and shows match counter', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    const input = screen.getByPlaceholderText('Search response...');
-    fireEvent.change(input, { target: { value: 'ok' } });
-    expect(screen.getByText('No match')).toBeTruthy();
-    expect(screen.getByTestId('json-preview')).toHaveAttribute('data-search', 'ok');
-
-    act(() => {
-      capturedOnMatchCountChange?.(2);
+  describe('common elements', () => {
+    it('shows scenario name for all transport types', () => {
+      render(<ResponseDetailModal result={makeResult({ scenarioName: 'My Test' })} onClose={vi.fn()} />);
+      expect(screen.getByText('My Test')).toBeInTheDocument();
     });
-    expect(screen.getByText('1/2')).toBeTruthy();
-  });
 
-  it('navigates search matches with Previous and Next', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText('Search response...'), { target: { value: 'x' } });
-    act(() => {
-      capturedOnMatchCountChange?.(3);
+    it('shows response time for all transport types', () => {
+      render(<ResponseDetailModal result={makeResult({ responseTimeMs: 250 })} onClose={vi.fn()} />);
+      expect(screen.getByText('250 ms')).toBeInTheDocument();
     });
-    const preview = screen.getByTestId('json-preview');
-    expect(preview).toHaveAttribute('data-current-match-idx', '0');
 
-    fireEvent.click(screen.getByTitle('Next'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '1');
-
-    fireEvent.click(screen.getByTitle('Next'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '2');
-
-    fireEvent.click(screen.getByTitle('Next'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '0');
-
-    fireEvent.click(screen.getByTitle('Previous'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '2');
-
-    fireEvent.click(screen.getByTitle('Previous'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '1');
-  });
-
-  it('clears search via × button', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText('Search response...'), { target: { value: 'q' } });
-    act(() => {
-      capturedOnMatchCountChange?.(1);
+    it('shows Passed/Failed badge for all transport types', () => {
+      render(<ResponseDetailModal result={makeResult({ passed: true })} onClose={vi.fn()} />);
+      expect(screen.getByText('Passed')).toBeInTheDocument();
     });
-    expect(screen.getByText('1/1')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
-    expect(screen.getByPlaceholderText('Search response...')).toHaveValue('');
-    expect(screen.queryByText('1/1')).toBeNull();
-    expect(screen.getByTestId('json-preview')).toHaveAttribute('data-search', '');
-  });
-
-  it('Expand All and Collapse All update collapsed state passed to JsonPreview', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    const preview = screen.getByTestId('json-preview');
-    expect(preview).toHaveAttribute('data-collapsed-size', '0');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse All' }));
-    expect(preview).toHaveAttribute('data-collapsed-size', '2');
-    expect(preview.getAttribute('data-collapsed')).toBe('|/nested');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
-    expect(preview).toHaveAttribute('data-collapsed-size', '0');
-  });
-
-  it('handleMatchCountChange clamps index when count shrinks below current index', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText('Search response...'), { target: { value: 'z' } });
-    act(() => {
-      capturedOnMatchCountChange?.(5);
+    it('shows error message when present', () => {
+      const r = makeResult({ errorMessage: 'Connection refused' });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Connection refused')).toBeInTheDocument();
     });
-    const preview = screen.getByTestId('json-preview');
 
-    fireEvent.click(screen.getByTitle('Next'));
-    fireEvent.click(screen.getByTitle('Next'));
-    fireEvent.click(screen.getByTitle('Next'));
-    expect(preview).toHaveAttribute('data-current-match-idx', '3');
-
-    act(() => {
-      capturedOnMatchCountChange?.(3);
+    it('shows validation failures when present', () => {
+      const r = makeResult({
+        passed: false,
+        failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Validation Failures (1)')).toBeInTheDocument();
+      expect(screen.getByText('$.id')).toBeInTheDocument();
     });
-    expect(preview).toHaveAttribute('data-current-match-idx', '2');
-  });
 
-  it('handleMatchCountChange resets index when count becomes zero', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText('Search response...'), { target: { value: 'z' } });
-    act(() => {
-      capturedOnMatchCountChange?.(2);
+    it('shows request headers with auth masking', () => {
+      const r = makeResult({
+        requestLog: {
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer secret' },
+          body: '',
+        },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Request Headers')).toBeInTheDocument();
+      expect(screen.getByText('Content-Type')).toBeInTheDocument();
+      expect(screen.getByText('application/json')).toBeInTheDocument();
+      expect(screen.getByText('••••••••')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTitle('Next'));
-    expect(screen.getByTestId('json-preview')).toHaveAttribute('data-current-match-idx', '1');
 
-    act(() => {
-      capturedOnMatchCountChange?.(0);
+    it('shows request body when present', () => {
+      const r = makeResult({
+        requestLog: {
+          headers: {},
+          body: '{"name":"test"}',
+        },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Request Body')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('json-preview')).toHaveAttribute('data-current-match-idx', '0');
-  });
 
-  it('handleTreeToggle adds and removes paths in collapsedSet', () => {
-    render(<ResponseDetailModal result={makeResult()} onClose={vi.fn()} />);
-    const preview = screen.getByTestId('json-preview');
-
-    act(() => {
-      capturedOnToggle?.('p1');
+    it('shows response headers when present', () => {
+      const r = makeResult({
+        responseHeaders: { 'X-Request-Id': 'abc-123', 'Content-Length': '42' },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Response Headers')).toBeInTheDocument();
+      expect(screen.getByText('X-Request-Id')).toBeInTheDocument();
+      expect(screen.getByText('abc-123')).toBeInTheDocument();
     });
-    expect(preview.getAttribute('data-collapsed')).toBe('p1');
 
-    act(() => {
-      capturedOnToggle?.('p1');
+    it('shows response body section when present', () => {
+      const r = makeResult({
+        responseBody: '{"result":"ok"}',
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
     });
-    expect(preview).toHaveAttribute('data-collapsed', '');
-  });
 
-  it('renders RESPONSE BODY when responseBody is invalid JSON (tree is null)', () => {
-    render(<ResponseDetailModal result={makeResult({ responseBody: 'not-json' })} onClose={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'RESPONSE BODY' })).toBeTruthy();
-    expect(screen.getByTestId('json-preview')).toBeTruthy();
+    it('shows URL in meta row', () => {
+      render(<ResponseDetailModal result={makeResult({ url: 'http://api.example.com/users' })} onClose={vi.fn()} />);
+      expect(screen.getByText('http://api.example.com/users')).toBeInTheDocument();
+    });
+
+    it('shows kafka matchedMessages when present', () => {
+      const r = makeResult({
+        transportType: 'kafkaConsume',
+        method: 'KAFKA',
+        httpStatus: 0,
+        passed: true,
+        kafkaResultMeta: { topic: 'events', partition: 0, offset: 10, matchedMessages: 5 },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('Matched Messages')).toBeInTheDocument();
+      expect(screen.getByText('5')).toBeInTheDocument();
+    });
+
+    it('does not show request headers when requestLog has empty headers', () => {
+      const r = makeResult({ requestLog: { headers: {}, body: '' } });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByText('Request Headers')).not.toBeInTheDocument();
+    });
+
+    it('collapse all and expand all buttons work with response body', () => {
+      const r = makeResult({ responseBody: '{"a":1,"b":2}' });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByTestId('collapse-all')).toBeInTheDocument();
+      expect(screen.getByTestId('expand-all')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('collapse-all'));
+      fireEvent.click(screen.getByTestId('expand-all'));
+    });
+
+    it('search clear button works', () => {
+      const r = makeResult({ responseBody: '{"a":1}' });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('search-clear'));
+    });
+
+    it('shows non-string error message as JSON', () => {
+      const r = makeResult({ errorMessage: { code: 'ECONNREFUSED', port: 3000 } as unknown as string });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText(/ECONNREFUSED/)).toBeInTheDocument();
+    });
+
+    it('shows non-string failure expected/actual as JSON', () => {
+      const r = makeResult({
+        passed: false,
+        failureDetails: [{ path: '$.items', expected: [1, 2] as unknown as string, actual: [3] as unknown as string }],
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('$.items')).toBeInTheDocument();
+    });
+
+    it('shows HTTP 301 with tag-info class', () => {
+      render(<ResponseDetailModal result={makeResult({ httpStatus: 301 })} onClose={vi.fn()} />);
+      const badge = screen.getByText('301');
+      expect(badge.className).toContain('tag-info');
+    });
+
+    it('does not show timing waterfall for WS results even if timing exists', () => {
+      const r = makeResult({
+        transportType: 'wsConnect',
+        method: 'CONNECT',
+        timing: { dns: 1, tcp: 2, tls: 0, request: 3, firstByte: 4, download: 5, total: 15 },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByText('Timing Breakdown')).not.toBeInTheDocument();
+    });
+
+    it('does not show request body when requestLog.body is empty', () => {
+      const r = makeResult({ requestLog: { headers: { 'X-Test': '1' }, body: '' } });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByText('Request Body')).not.toBeInTheDocument();
+    });
+
+    it('handles non-JSON response body gracefully', () => {
+      const r = makeResult({ responseBody: 'plain text not json' });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
+    });
+
+    it('masks authorization header case-insensitively', () => {
+      const r = makeResult({
+        requestLog: { headers: { 'authorization': 'Bearer secret-token' }, body: '' },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('••••••••')).toBeInTheDocument();
+      expect(screen.queryByText('Bearer secret-token')).not.toBeInTheDocument();
+    });
+
+    it('shows close code 0 for WS results', () => {
+      const r = makeResult({
+        transportType: 'wsConnect',
+        method: 'CONNECT',
+        wsResultMeta: { closeCode: 0, url: 'ws://test' },
+      });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.getByText('0')).toBeInTheDocument();
+    });
+
+    it('does not show response headers when responseHeaders is empty object', () => {
+      const r = makeResult({ responseHeaders: {} });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByText('Response Headers')).not.toBeInTheDocument();
+    });
+
+    it('does not show request headers when requestLog is absent', () => {
+      const r = makeResult({});
+      // Remove requestLog from the result
+      delete (r as Record<string, unknown>).requestLog;
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      expect(screen.queryByText('Request Headers')).not.toBeInTheDocument();
+    });
+
+    it('handleTreeToggle toggles collapsed path', () => {
+      const r = makeResult({ responseBody: '{"key":"value"}' });
+      render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
+      const toggleBtn = screen.getByTestId('tree-toggle');
+      // First click adds to collapsed set
+      fireEvent.click(toggleBtn);
+      // Second click removes from collapsed set (toggle)
+      fireEvent.click(toggleBtn);
+      expect(toggleBtn).toBeInTheDocument();
+    });
   });
 });

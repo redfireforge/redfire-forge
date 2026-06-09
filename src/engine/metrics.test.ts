@@ -256,4 +256,51 @@ describe('computeMetrics', () => {
     expect(summary.failedRequests).toBe(0);
     expect(summary.errorRate).toBe(0);
   });
+
+  it('does not count WS results with httpStatus 0 as HTTP failures', () => {
+    const results = [
+      makeResult({ id: '1', transportType: 'wsConnect', httpStatus: 0, passed: true }),
+      makeResult({ id: '2', transportType: 'wsSend', httpStatus: 0, passed: true }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.failedRequests).toBe(0);
+    expect(summary.errorRate).toBe(0);
+    expect(summary.errorsByStatus).toEqual({});
+  });
+
+  it('does not count Kafka results with httpStatus 0 as HTTP failures', () => {
+    const results = [
+      makeResult({ id: '1', transportType: 'kafkaProduce', httpStatus: 0, passed: true }),
+      makeResult({ id: '2', transportType: 'kafkaConsume', httpStatus: 0, passed: true }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.failedRequests).toBe(0);
+    expect(summary.errorRate).toBe(0);
+    expect(summary.errorsByStatus).toEqual({});
+  });
+
+  it('counts failed WS results via passed flag (not httpStatus)', () => {
+    const results = [
+      makeResult({ id: '1', transportType: 'wsConnect', httpStatus: 0, passed: true }),
+      makeResult({ id: '2', transportType: 'wsSend', httpStatus: 0, passed: false }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.failedRequests).toBe(1);
+    expect(summary.errorRate).toBe(50);
+    expect(summary.errorsByStatus).toEqual({});
+  });
+
+  it('counts mixed HTTP and WS results correctly', () => {
+    const results = [
+      makeResult({ id: '1', httpStatus: 200, passed: true }),
+      makeResult({ id: '2', httpStatus: 500, passed: false }),
+      makeResult({ id: '3', transportType: 'wsConnect', httpStatus: 0, passed: true }),
+      makeResult({ id: '4', transportType: 'wsSend', httpStatus: 0, passed: false }),
+    ];
+    const summary = computeMetrics(results, 2000);
+    expect(summary.failedRequests).toBe(2);
+    expect(summary.successfulRequests).toBe(2);
+    expect(summary.errorRate).toBe(50);
+    expect(summary.errorsByStatus).toEqual({ 500: 1 });
+  });
 });
