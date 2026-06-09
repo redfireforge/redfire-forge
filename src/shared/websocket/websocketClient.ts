@@ -10,6 +10,14 @@ interface WsOperationSpec {
   queryKeys?: string[];
 }
 
+export interface WsDispatchRequest {
+  op: WsProxyOperation;
+  method: WsMethod;
+  path: string;
+  query: Record<string, string>;
+  body?: Record<string, unknown>;
+}
+
 export interface WsEnvelope<T = unknown> {
   ok: boolean;
   op: WsProxyOperation | string;
@@ -43,6 +51,24 @@ export class WsClientError extends Error {
   }
 }
 
+export type WsClientTransport = (request: WsDispatchRequest) => Promise<WsEnvelope>;
+
+/**
+ * Throw a WsClientError if the envelope indicates a failure.
+ * Shared by both the HTTP and Tauri transports.
+ */
+export function throwIfWsEnvelopeNotOk(op: WsProxyOperation, envelope: WsEnvelope): void {
+  if (!envelope.ok) {
+    const code = envelope.error?.code?.trim();
+    const message = envelope.error?.message?.trim();
+    const fallback = code ? `WebSocket ${op} failed (${code})` : `WebSocket ${op} failed`;
+    throw new WsClientError(op, message && message.length > 0 ? message : fallback, {
+      code: code && code.length > 0 ? code : 'WS_OPERATION_FAILED',
+      retryable: envelope.error?.retryable ?? true,
+    });
+  }
+}
+
 const OPERATION_MAP: Record<WsProxyOperation, WsOperationSpec> = {
   connect: { method: 'POST', path: '/api/ws/connect' },
   disconnect: { method: 'POST', path: '/api/ws/disconnect' },
@@ -51,6 +77,12 @@ const OPERATION_MAP: Record<WsProxyOperation, WsOperationSpec> = {
   messages: { method: 'GET', path: '/api/ws/messages', queryKeys: ['connectionId', 'sinceCursor'] },
   status: { method: 'GET', path: '/api/ws/status', queryKeys: ['connectionId'] },
 };
+
+let transportOverride: WsClientTransport | null = null;
+
+export function setWsClientTransport(transport: WsClientTransport | null): void {
+  transportOverride = transport;
+}
 
 function toQueryValue(value: unknown): string | null {
   if (value == null) return null;
@@ -109,14 +141,22 @@ function parseEnvelope(op: WsProxyOperation, response: HttpResponse): WsEnvelope
   }
 
   const envelope = parsed as WsEnvelope;
-  if (!envelope.ok) {
-    throw new WsClientError(op, envelope.error?.message ?? `WebSocket ${op} failed`, {
-      code: envelope.error?.code ?? 'WS_OPERATION_FAILED',
-      retryable: envelope.error?.retryable ?? true,
-    });
+  throwIfWsEnvelopeNotOk(op, envelope);
+  return envelope;
+}
+
+export async function defaultWsTransport(request: WsDispatchRequest): Promise<WsEnvelope> {
+  const url = withQuery(request.path, request.query);
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  let bodyText: string | undefined;
+
+  if (request.method !== 'GET') {
+    headers['Content-Type'] = 'application/json';
+    bodyText = JSON.stringify(request.body ?? {});
   }
 
-  return envelope;
+  const response = await httpFetch(url, request.method, headers, bodyText);
+  return parseEnvelope(request.op, response);
 }
 
 export async function dispatchWsOperation<T = unknown>(
@@ -125,15 +165,15 @@ export async function dispatchWsOperation<T = unknown>(
 ): Promise<WsEnvelope<T>> {
   const spec = OPERATION_MAP[op];
   const query = buildQuery(request, spec.queryKeys);
-  const url = withQuery(spec.path, query);
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  let bodyText: string | undefined;
 
-  if (spec.method !== 'GET') {
-    headers['Content-Type'] = 'application/json';
-    bodyText = JSON.stringify(request ?? {});
-  }
+  const dispatchRequest: WsDispatchRequest = {
+    op,
+    method: spec.method,
+    path: spec.path,
+    query,
+    body: spec.method === 'GET' ? undefined : request,
+  };
 
-  const response = await httpFetch(url, spec.method, headers, bodyText);
-  return parseEnvelope(op, response) as WsEnvelope<T>;
+  const transport = transportOverride ?? defaultWsTransport;
+  return transport(dispatchRequest) as Promise<WsEnvelope<T>>;
 }

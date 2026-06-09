@@ -187,6 +187,30 @@ describe('generateReport', () => {
       const html = generateReport(makeRun(), { format: 'xml' } as unknown as Partial<ReportOptions>);
       expect(html).toContain('<!DOCTYPE html>');
     });
+
+    it('excludes cancelled results from stats and failed rows', () => {
+      const run = makeRun({
+        results: [
+          makeResult({ id: 'r1', passed: true }),
+          makeResult({ id: 'r2', passed: false, cancelled: true, errorMessage: 'Cancelled' }),
+          makeResult({ id: 'r3', passed: false, httpStatus: 500, errorMessage: 'Server Error' }),
+        ],
+      });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('Server Error');
+      expect(html).not.toContain('Cancelled');
+    });
+
+    it('excludes cancelled results from parameterized data row count', () => {
+      const run = makeRun({
+        results: [
+          makeResult({ dataRowId: 'r1', dataRowLabel: 'Row 1', passed: true }),
+          makeResult({ dataRowId: 'r2', dataRowLabel: 'Row 2', passed: false, cancelled: true }),
+        ],
+      });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('1 data rows');
+    });
   });
 
   describe('JSON format', () => {
@@ -259,6 +283,19 @@ describe('generateReport', () => {
       const json = generateReport(run, { format: 'json' });
       const parsed = JSON.parse(json);
       expect(parsed.parameterized).toBeUndefined();
+    });
+
+    it('excludes cancelled results from JSON report', () => {
+      const run = makeRun({
+        results: [
+          makeResult({ id: 'r1', passed: true }),
+          makeResult({ id: 'r2', passed: false, cancelled: true, errorMessage: 'Cancelled' }),
+        ],
+      });
+      const json = generateReport(run, { format: 'json' });
+      const parsed = JSON.parse(json);
+      expect(parsed.results).toHaveLength(1);
+      expect(parsed.results[0].id).toBe('r1');
     });
   });
 

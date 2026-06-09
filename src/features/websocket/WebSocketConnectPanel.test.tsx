@@ -626,4 +626,41 @@ describe('WebSocketConnectPanel', () => {
       expect(badge.textContent).toBe('STOMP');
     });
   });
+
+  describe('transport badge', () => {
+    it('shows Native badge when connected in native mode', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'ws://test' },
+        connection: { state: 'connected' },
+      })} transportMode="native" />);
+      const badge = screen.getByTestId('transport-badge');
+      expect(badge.textContent).toBe('Native');
+      expect(badge.className).toContain('ws-transport-native');
+    });
+
+    it('shows Proxy badge when connected in proxy mode', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'ws://test' },
+        connection: { state: 'connected' },
+      })} transportMode="proxy" />);
+      const badge = screen.getByTestId('transport-badge');
+      expect(badge.textContent).toBe('Proxy');
+      expect(badge.className).toContain('ws-transport-proxy');
+    });
+
+    it('shows Direct badge when connected in direct mode', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'ws://test' },
+        connection: { state: 'connected' },
+      })} transportMode="direct" />);
+      const badge = screen.getByTestId('transport-badge');
+      expect(badge.textContent).toBe('Direct');
+      expect(badge.className).toContain('ws-transport-direct');
+    });
+
+    it('hides transport badge when disconnected', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} transportMode="native" />);
+      expect(screen.queryByTestId('transport-badge')).toBeNull();
+    });
+  });
 });

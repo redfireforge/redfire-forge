@@ -955,6 +955,11 @@ describe('WebSocketMessageLog', () => {
       render(<WebSocketMessageLog {...defaultProps({ isConnected: true, transportMode: 'proxy' })} />);
       expect((screen.getByTestId('ping-btn') as HTMLButtonElement).disabled).toBe(false);
     });
+
+    it('is enabled when connected in native mode', () => {
+      render(<WebSocketMessageLog {...defaultProps({ isConnected: true, transportMode: 'native' })} />);
+      expect((screen.getByTestId('ping-btn') as HTMLButtonElement).disabled).toBe(false);
+    });
   });
 
   describe('export button', () => {

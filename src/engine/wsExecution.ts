@@ -287,13 +287,19 @@ function buildWsResult(
     transportType: wsActionType,
   });
 
+  const resolvedUrl = wsResultMeta?.url
+    ?? scenario.wsConnectAction?.url
+    ?? scenario.wsSendAction?.url
+    ?? scenario.wsReceiveAction?.url
+    ?? scenario.url;
+
   return {
     id,
     scenarioId: scenario.id,
     scenarioName: scenario.name,
     featureGroupName: scenario.featureGroupName,
     groupName: scenario.groupName,
-    url: scenario.url,
+    url: resolvedUrl,
     method: scenario.method,
     httpStatus,
     responseTimeMs,

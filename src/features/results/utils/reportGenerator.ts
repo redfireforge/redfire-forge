@@ -31,9 +31,10 @@ interface RowStats {
 }
 
 function computeRowStats(results: RequestResult[]): RowStats {
-  const times = results.map(r => r.responseTimeMs).sort((a, b) => a - b);
-  const total = results.length;
-  const passed = results.filter(r => r.passed).length;
+  const active = results.filter(r => !r.cancelled);
+  const times = active.map(r => r.responseTimeMs).sort((a, b) => a - b);
+  const total = active.length;
+  const passed = active.filter(r => r.passed).length;
   return {
     total,
     passed,
@@ -51,9 +52,10 @@ function computeRowStats(results: RequestResult[]): RowStats {
 function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const s = run.summary;
   const stats = computeRowStats(run.results);
-  const failed = run.results.filter(r => !r.passed);
-  const passed = run.results.filter(r => r.passed);
-  const hasDataRows = run.results.some(r => r.dataRowId);
+  const active = run.results.filter(r => !r.cancelled);
+  const failed = active.filter(r => !r.passed);
+  const passed = active.filter(r => r.passed);
+  const hasDataRows = active.some(r => r.dataRowId);
   const title = opts.title || `${run.projectName || 'Test'} Report`;
 
   const failedRowsHtml = failed.map(r => `
@@ -111,7 +113,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
       Date: ${new Date(run.timestamp).toLocaleString()}<br>
       ${run.envName ? `Environment: ${esc(run.envName)}` : ''}${run.svcName ? ` / ${esc(run.svcName)}` : ''}<br>
       Duration: ${(s.totalDurationMs / 1000).toFixed(2)}s · Concurrency: ${run.config.concurrency} · Mode: ${run.config.executionMode || 'batch'}
-      ${hasDataRows ? `<br>Parameterized: ${run.results.filter(r => r.dataRowId).length} data rows` : ''}
+      ${hasDataRows ? `<br>Parameterized: ${active.filter(r => r.dataRowId).length} data rows` : ''}
     </div>
   </div>
 
@@ -158,8 +160,10 @@ function esc(s: string): string {
 // ─── JSON Report ───────────────────────────────────────────
 
 function generateJsonReport(run: TestRun, opts: ReportOptions): string {
-  const hasDataRows = run.results.some(r => r.dataRowId);
-  const failed = run.results.filter(r => !r.passed);
+  const active = run.results.filter(r => !r.cancelled);
+  const stats = computeRowStats(run.results);
+  const hasDataRows = active.some(r => r.dataRowId);
+  const failed = active.filter(r => !r.passed);
 
   const report = {
     title: opts.title || `${run.projectName || 'Test'} Report`,
@@ -173,15 +177,14 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
     },
     summary: {
       ...run.summary,
-      passRate: run.summary.totalRequests > 0
-        ? Math.round((run.summary.successfulRequests / run.summary.totalRequests) * 100)
-        : 0,
+      activeRequests: stats.total,
+      passRate: stats.passRate,
     },
     ...(hasDataRows ? {
       parameterized: {
-        totalRows: run.results.filter(r => r.dataRowId).length,
-        passedRows: run.results.filter(r => r.dataRowId && r.passed).length,
-        failedRows: run.results.filter(r => r.dataRowId && !r.passed).length,
+        totalRows: active.filter(r => r.dataRowId).length,
+        passedRows: active.filter(r => r.dataRowId && r.passed).length,
+        failedRows: active.filter(r => r.dataRowId && !r.passed).length,
         failedRowDetails: failed.filter(r => r.dataRowId).map(r => ({
           rowId: r.dataRowId,
           label: r.dataRowLabel,
@@ -193,8 +196,8 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
       },
     } : {}),
     results: opts.includeResponseBodies
-      ? run.results
-      : run.results.map(r => {
+      ? active
+      : active.map(r => {
           const { responseBody, ...rest } = r;
           return rest;
         }),
@@ -207,7 +210,8 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
 function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
   const s = run.summary;
   const stats = computeRowStats(run.results);
-  const failed = run.results.filter(r => !r.passed);
+  const active = run.results.filter(r => !r.cancelled);
+  const failed = active.filter(r => !r.passed);
   const title = opts.title || `${run.projectName || 'Test'} Report`;
 
   let md = `# ${title}\n\n`;

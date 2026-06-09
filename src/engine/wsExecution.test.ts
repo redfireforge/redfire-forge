@@ -211,6 +211,19 @@ describe('executeWsAction — wsConnect', () => {
     expect(result.dataRowId).toBe('row-42');
     expect(result.dataRowLabel).toBe('Row 42: url=ws://test');
   });
+
+  it('resolves result.url from wsConnectAction.url when scenario.url is empty', async () => {
+    const wsOps = makeWsOps();
+    const scenario = makeScenario({
+      url: '',
+      actionType: 'wsConnect',
+      wsConnectAction: connectCfg({ url: 'wss://api.example.com/ws' }),
+    });
+
+    const result = await executeWsAction(scenario, wsOps);
+
+    expect(result.url).toBe('wss://api.example.com/ws');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -261,12 +261,12 @@ describe('validateWsActionConfig', () => {
     expect(errors).toHaveLength(1);
   });
 
-  it('returns error for wsSend with neither connectionRef nor url', () => {
+  it('returns error for wsSend without connectionRef', () => {
     const errors = validateWsActionConfig(makeTest('t1', {
       actionType: 'wsSend',
       wsSendAction: { message: 'hello' },
     }));
-    expect(errors).toContain('wsSendAction requires either connectionRef or url');
+    expect(errors).toContain("wsSendAction requires connectionRef (reference a wsConnect test's Connection ID)");
   });
 
   it('returns [] for wsSend with connectionRef', () => {
@@ -276,11 +276,13 @@ describe('validateWsActionConfig', () => {
     }))).toEqual([]);
   });
 
-  it('returns [] for wsSend with url (standalone)', () => {
-    expect(validateWsActionConfig(makeTest('t1', {
+  it('returns error for wsSend with url-only (standalone not implemented)', () => {
+    const errors = validateWsActionConfig(makeTest('t1', {
       actionType: 'wsSend',
       wsSendAction: { message: 'hello', url: 'ws://localhost:8080' },
-    }))).toEqual([]);
+    }));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('connectionRef');
   });
 
   it('returns [] for wsSend with empty message (allowed for ping frames)', () => {
@@ -298,12 +300,12 @@ describe('validateWsActionConfig', () => {
     expect(errors).toHaveLength(1);
   });
 
-  it('returns error for wsReceive with neither connectionRef nor url', () => {
+  it('returns error for wsReceive without connectionRef', () => {
     const errors = validateWsActionConfig(makeTest('t1', {
       actionType: 'wsReceive',
       wsReceiveAction: { timeoutMs: 5000 },
     }));
-    expect(errors).toContain('wsReceiveAction requires either connectionRef or url');
+    expect(errors).toContain("wsReceiveAction requires connectionRef (reference a wsConnect test's Connection ID)");
   });
 
   it('returns [] for wsReceive with connectionRef', () => {
@@ -313,11 +315,13 @@ describe('validateWsActionConfig', () => {
     }))).toEqual([]);
   });
 
-  it('returns [] for wsReceive with url (standalone)', () => {
-    expect(validateWsActionConfig(makeTest('t1', {
+  it('returns error for wsReceive with url-only (standalone not implemented)', () => {
+    const errors = validateWsActionConfig(makeTest('t1', {
       actionType: 'wsReceive',
       wsReceiveAction: { url: 'ws://localhost:8080' },
-    }))).toEqual([]);
+    }));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('connectionRef');
   });
 
   it('returns error when matchCriteria.jsonPathValue is set without jsonPathMatch', () => {
