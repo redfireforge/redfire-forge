@@ -32,7 +32,7 @@ interface WebSocketMessageLogProps {
   onLoadTemplate: (id: string) => { body: string; format: WsMessageFormat } | null;
   effectiveProtocol?: Exclude<WsProtocolMode, 'auto'>;
   allMessages?: WsFrame[];
-  transportMode?: 'direct' | 'proxy';
+  transportMode?: 'direct' | 'proxy' | 'native';
   showStatusBar?: boolean;
   connectionUrl?: string;
   uptime?: number | null;
@@ -553,8 +553,8 @@ export function WebSocketMessageLog({
         <button
           className="ws-compose-ping-btn"
           onClick={onPing}
-          disabled={!isConnected || transportMode !== 'proxy'}
-          title={transportMode === 'proxy' ? 'Send WebSocket ping frame' : 'Ping requires proxy transport (add a custom header to enable)'}
+          disabled={!isConnected || transportMode === 'direct'}
+          title={transportMode !== 'direct' ? 'Send WebSocket ping frame' : 'Ping requires proxy or native transport'}
           data-testid="ping-btn"
         >
           Ping

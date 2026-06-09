@@ -47,6 +47,7 @@ interface WebSocketConnectPanelProps {
   onProtocolModeChange?: (mode: WsProtocolMode) => void;
   detectedProtocol?: WsProtocolDetectionResult | null;
   sioServerParams?: SioServerParams | null;
+  transportMode?: 'direct' | 'proxy' | 'native';
 }
 
 const STATE_LABELS: Record<string, { label: string; className: string }> = {
@@ -107,6 +108,7 @@ export function WebSocketConnectPanel({
   onProtocolModeChange,
   detectedProtocol = null,
   sioServerParams = null,
+  transportMode = 'direct',
 }: WebSocketConnectPanelProps) {
   const stateInfo = STATE_LABELS[connection.state] ?? STATE_LABELS.disconnected;
   const isConnected = connection.state === 'connected';
@@ -553,6 +555,14 @@ export function WebSocketConnectPanel({
         {isConnected && (
           <span className="ws-protocol-badge" data-testid="protocol-badge">
             {getProtocolInfo(resolveEffectiveProtocol(protocolMode, detectedProtocol)).label}
+          </span>
+        )}
+        {isConnected && (
+          <span
+            className={`ws-transport-badge ws-transport-${transportMode}`}
+            data-testid="transport-badge"
+          >
+            {transportMode === 'native' ? 'Native' : transportMode === 'proxy' ? 'Proxy' : 'Direct'}
           </span>
         )}
         {isConnected && sioServerParams && (

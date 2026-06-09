@@ -272,6 +272,9 @@ export function resolveScenarioFromDataRow(
               value: substituteVariables(qp.value, bodyVars),
             }))
           : undefined,
+        subprotocols: base.wsConnectAction.subprotocols !== undefined
+          ? substituteVariables(base.wsConnectAction.subprotocols, bodyVars)
+          : undefined,
       }
     : base.wsConnectAction;
 
@@ -350,14 +353,20 @@ export function resolveScenarioFromDataRow(
     validation = { ...validation, unorderedArrays: true };
   }
 
-  // Substitute variables in kafkaField/wsField assertion values so parameterized rows
-  // can template expected values (e.g. kafka.key equals "{{orderId}}", ws.body contains "{{expected}}").
-  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField' || a.type === 'wsField')) {
+  // Substitute variables in kafkaField/wsField/wsNumericField assertion values so parameterized
+  // rows can template expected values (e.g. kafka.key equals "{{orderId}}", ws.size < "{{maxBytes}}").
+  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField' || a.type === 'wsField' || a.type === 'wsNumericField')) {
     validation = {
       ...validation,
       assertions: validation.assertions!.map(a => {
         if ((a.type === 'kafkaField' || a.type === 'wsField') && a.value !== undefined) {
           return { ...a, value: substituteVariables(a.value, bodyVars) };
+        }
+        if (a.type === 'wsNumericField' && a.value !== undefined) {
+          const substituted = substituteVariables(String(a.value), bodyVars);
+          if (!substituted.trim()) return a;
+          const parsed = Number(substituted);
+          return { ...a, value: Number.isNaN(parsed) ? a.value : parsed };
         }
         return a;
       }),

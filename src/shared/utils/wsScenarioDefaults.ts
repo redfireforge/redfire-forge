@@ -98,8 +98,8 @@ export function validateWsActionConfig(scenario: Scenario): string[] {
       return ['wsSendAction is required when actionType is "wsSend"'];
     }
     const errors: string[] = [];
-    if (!scenario.wsSendAction.connectionRef && !scenario.wsSendAction.url?.trim()) {
-      errors.push('wsSendAction requires either connectionRef or url');
+    if (!scenario.wsSendAction.connectionRef?.trim()) {
+      errors.push('wsSendAction requires connectionRef (reference a wsConnect test\'s Connection ID)');
     }
     return errors;
   }
@@ -109,8 +109,8 @@ export function validateWsActionConfig(scenario: Scenario): string[] {
       return ['wsReceiveAction is required when actionType is "wsReceive"'];
     }
     const errors: string[] = [];
-    if (!scenario.wsReceiveAction.connectionRef && !scenario.wsReceiveAction.url?.trim()) {
-      errors.push('wsReceiveAction requires either connectionRef or url');
+    if (!scenario.wsReceiveAction.connectionRef?.trim()) {
+      errors.push('wsReceiveAction requires connectionRef (reference a wsConnect test\'s Connection ID)');
     }
     const mc = scenario.wsReceiveAction.matchCriteria;
     if (mc?.jsonPathValue !== undefined && !mc?.jsonPathMatch) {

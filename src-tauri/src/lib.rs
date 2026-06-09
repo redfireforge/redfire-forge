@@ -2,6 +2,7 @@ pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
 mod kafka;
+mod websocket;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
@@ -54,6 +55,7 @@ mod validation_types_test;
 
 use commands::ExecutorState;
 use kafka::state::KafkaState;
+use websocket::state::WsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -65,6 +67,7 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .manage(ExecutorState::new())
     .manage(KafkaState::new())
+    .manage(WsState::new())
     .invoke_handler(tauri::generate_handler![
       commands::start_load_test,
       commands::abort_load_test,
@@ -78,6 +81,12 @@ pub fn run() {
       kafka::operations::kafka_subscribe,
       kafka::operations::kafka_unsubscribe,
       kafka::operations::kafka_subscriptions,
+      websocket::lifecycle::ws_connect,
+      websocket::lifecycle::ws_disconnect,
+      websocket::lifecycle::ws_status,
+      websocket::operations::ws_send,
+      websocket::operations::ws_ping,
+      websocket::operations::ws_receive_next,
     ]);
 
   #[cfg(debug_assertions)]

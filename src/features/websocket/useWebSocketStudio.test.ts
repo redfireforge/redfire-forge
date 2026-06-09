@@ -10,8 +10,22 @@ vi.mock('../../shared/websocket/websocketClient', () => ({
   dispatchWsOperation: vi.fn(),
 }));
 
+vi.mock('../../shared/websocket/websocketNativeTauriTransport', () => ({
+  listenWsMessage: vi.fn(),
+  listenWsConnectionClosed: vi.fn(),
+}));
+
+vi.mock('../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
+
 import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import { listenWsMessage, listenWsConnectionClosed } from '../../shared/websocket/websocketNativeTauriTransport';
+import { isTauri } from '../../shared/utils/platform';
 const mockDispatch = vi.mocked(dispatchWsOperation);
+const mockIsTauri = vi.mocked(isTauri);
+const mockListenWsMessage = vi.mocked(listenWsMessage);
+const mockListenWsConnectionClosed = vi.mocked(listenWsConnectionClosed);
 
 // ── Mock WebSocket ──────────────────────────────────────────────────────────
 
@@ -85,6 +99,9 @@ beforeEach(() => {
   resetFrameIdCounter();
   mockDispatch.mockReset();
   mockDispatch.mockResolvedValue({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+  mockIsTauri.mockReturnValue(false);
+  mockListenWsMessage.mockReset();
+  mockListenWsConnectionClosed.mockReset();
   (globalThis as Record<string, unknown>).WebSocket = MockWebSocket as unknown as typeof WebSocket;
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -96,6 +113,45 @@ afterEach(() => {
 
 function lastMockWs(): MockWebSocketInstance {
   return mockInstances[mockInstances.length - 1];
+}
+
+// ── Shared Test Helpers ─────────────────────────────────────────────────────
+
+/** Factory for proxy connect response — avoids duplicating the shape in every describe block. */
+function makeConnectResult(connectionId = 'conn-123', latencyMs = 5) {
+  return {
+    ok: true, op: 'connect',
+    data: { connectionId, protocol: '', extensions: '', latencyMs },
+    meta: { timestamp: '' },
+  };
+}
+
+/** Connect via proxy: sets draft with headers (forces proxy route) and resolves connect. */
+async function connectViaProxy(
+  result: { current: ReturnType<typeof useWebSocketStudio> },
+  url = 'ws://localhost:8765',
+  connectionId = 'conn-123',
+) {
+  act(() => result.current.setDraft({
+    url,
+    headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+  }));
+  mockDispatch.mockResolvedValueOnce(makeConnectResult(connectionId));
+  await act(async () => { result.current.connect(); });
+}
+
+/** Mock dispatchWsOperation to return empty messages for proxy polling. */
+function mockEmptyPoll() {
+  mockDispatch.mockImplementation((op: string) => {
+    if (op === 'messages') {
+      return Promise.resolve({
+        ok: true, op: 'messages',
+        data: { messages: [], cursor: 0 },
+        meta: { timestamp: '' },
+      });
+    }
+    return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+  });
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -1480,25 +1536,10 @@ describe('useWebSocketStudio', () => {
   });
 
   describe('proxy transport — polling error handling', () => {
-    function setupProxyConnect() {
-      return {
-        ok: true, op: 'connect',
-        data: { connectionId: 'conn-123', protocol: '', extensions: '', latencyMs: 5 },
-        meta: { timestamp: '' },
-      };
-    }
-
     it('transitions to disconnected when proxy poll fails and status shows disconnected', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
-
-      // Connect via proxy
-      mockDispatch.mockResolvedValueOnce(setupProxyConnect());
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // First poll: messages call rejects
       mockDispatch.mockRejectedValueOnce(new Error('Network error'));
@@ -1517,14 +1558,9 @@ describe('useWebSocketStudio', () => {
     it('transitions to error when proxy poll fails and status shows error', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
       act(() => result.current.setAutoReconnect(false));
 
-      mockDispatch.mockResolvedValueOnce(setupProxyConnect());
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // Use implementation to differentiate ops
       let pollCallCount = 0;
@@ -1552,13 +1588,7 @@ describe('useWebSocketStudio', () => {
     it('handles double fault (both poll and status check fail)', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
-
-      mockDispatch.mockResolvedValueOnce(setupProxyConnect());
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // Both poll and status fail
       mockDispatch.mockRejectedValueOnce(new Error('Poll error'));
@@ -1571,31 +1601,13 @@ describe('useWebSocketStudio', () => {
   });
 
   describe('proxy transport — sendPing', () => {
-    function setupProxyConnect() {
-      return {
-        ok: true, op: 'connect',
-        data: { connectionId: 'conn-123', protocol: '', extensions: '', latencyMs: 5 },
-        meta: { timestamp: '' },
-      };
-    }
-
     it('sends ping via proxy and appends frame', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
-
-      mockDispatch.mockResolvedValueOnce(setupProxyConnect());
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // Make the poll return empty messages so it doesn't interfere
-      mockDispatch.mockResolvedValue({
-        ok: true, op: 'messages',
-        data: { messages: [], cursor: 0 },
-        meta: { timestamp: '' },
-      });
+      mockEmptyPoll();
 
       await act(async () => { vi.advanceTimersByTime(10); });
 
@@ -1616,20 +1628,10 @@ describe('useWebSocketStudio', () => {
     it('sets lastError when proxy ping fails', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
-
-      mockDispatch.mockResolvedValueOnce(setupProxyConnect());
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // Make the poll return empty
-      mockDispatch.mockResolvedValue({
-        ok: true, op: 'messages',
-        data: { messages: [], cursor: 0 },
-        meta: { timestamp: '' },
-      });
+      mockEmptyPoll();
       await act(async () => { vi.advanceTimersByTime(10); });
 
       // Ping fails
@@ -1725,17 +1727,7 @@ describe('useWebSocketStudio', () => {
     it('transitions to disconnected even when proxy disconnect call fails', async () => {
       const { result } = renderHook(() => useWebSocketStudio());
 
-      act(() => result.current.setDraft({
-        url: 'ws://localhost:8765',
-        headers: [{ key: 'Auth', value: 'test', enabled: true }],
-      }));
-
-      mockDispatch.mockResolvedValueOnce({
-        ok: true, op: 'connect',
-        data: { connectionId: 'conn-123', protocol: '', extensions: '', latencyMs: 5 },
-        meta: { timestamp: '' },
-      });
-      await act(async () => { result.current.connect(); });
+      await connectViaProxy(result);
 
       // Disconnect call will fail
       mockDispatch.mockRejectedValueOnce(new Error('Disconnect failed'));
@@ -1744,6 +1736,554 @@ describe('useWebSocketStudio', () => {
       await act(async () => { vi.advanceTimersByTime(10); });
 
       expect(result.current.connection.state).toBe('disconnected');
+    });
+  });
+
+  describe('proxy transport — message receipt', () => {
+    it('receives messages from proxy polling and appends to log', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9000', 'conn-proxy-1');
+
+      // Poll returns messages
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          // Only return messages on first poll call
+          const response = {
+            ok: true, op: 'messages',
+            data: {
+              messages: [
+                { data: 'hello', type: 'text', receivedAt: new Date().toISOString(), size: 5 },
+                { data: 'world', type: 'text', receivedAt: new Date().toISOString(), size: 5 },
+              ],
+              cursor: 2,
+            },
+            meta: { timestamp: '' },
+          };
+          // After first call, return empty
+          mockDispatch.mockImplementation((op2: string) => {
+            if (op2 === 'messages') {
+              return Promise.resolve({
+                ok: true, op: 'messages',
+                data: { messages: [], cursor: 2 },
+                meta: { timestamp: '' },
+              });
+            }
+            return Promise.resolve({ ok: true, op: op2, data: {}, meta: { timestamp: '' } });
+          });
+          return Promise.resolve(response);
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      // Should have system connect message + 2 received messages
+      const received = result.current.messages.filter(m => m.direction === 'received' && !('isSystem' in m));
+      expect(received.length).toBeGreaterThanOrEqual(2);
+      expect(result.current.receivedCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('detects protocol from first proxy message in auto mode', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9000', 'conn-proxy-1');
+
+      // Poll returns Socket.IO-like open message
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          const response = {
+            ok: true, op: 'messages',
+            data: {
+              messages: [
+                { data: '0{"sid":"abc","upgrades":[],"pingInterval":25000,"pingTimeout":5000}', type: 'text', receivedAt: new Date().toISOString(), size: 60 },
+              ],
+              cursor: 1,
+            },
+            meta: { timestamp: '' },
+          };
+          mockDispatch.mockImplementation((op2: string) => {
+            if (op2 === 'messages') {
+              return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 1 }, meta: { timestamp: '' } });
+            }
+            return Promise.resolve({ ok: true, op: op2, data: {}, meta: { timestamp: '' } });
+          });
+          return Promise.resolve(response);
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      expect(result.current.detectedProtocol).not.toBeNull();
+    });
+
+    it('handles binary messages in proxy poll without protocol detection', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9000', 'conn-proxy-1');
+
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          const response = {
+            ok: true, op: 'messages',
+            data: {
+              messages: [
+                { data: 'AQID', type: 'binary', receivedAt: new Date().toISOString(), size: 3 },
+              ],
+              cursor: 1,
+            },
+            meta: { timestamp: '' },
+          };
+          mockDispatch.mockImplementation((op2: string) => {
+            if (op2 === 'messages') {
+              return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 1 }, meta: { timestamp: '' } });
+            }
+            return Promise.resolve({ ok: true, op: op2, data: {}, meta: { timestamp: '' } });
+          });
+          return Promise.resolve(response);
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      const binaryFrames = result.current.messages.filter(m => m.type === 'binary');
+      expect(binaryFrames.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('auto-responds to Socket.IO PING via proxy', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('socket-io'));
+      await connectViaProxy(result, 'ws://localhost:9000', 'conn-proxy-1');
+
+      // Poll returns Engine.IO PING (char code 2)
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          const response = {
+            ok: true, op: 'messages',
+            data: {
+              messages: [
+                { data: '2', type: 'text', receivedAt: new Date().toISOString(), size: 1 },
+              ],
+              cursor: 1,
+            },
+            meta: { timestamp: '' },
+          };
+          mockDispatch.mockImplementation((op2: string) => {
+            if (op2 === 'messages') {
+              return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 1 }, meta: { timestamp: '' } });
+            }
+            return Promise.resolve({ ok: true, op: op2, data: {}, meta: { timestamp: '' } });
+          });
+          return Promise.resolve(response);
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      // Should have sent auto-response (PONG)
+      const sendCalls = mockDispatch.mock.calls.filter(c => c[0] === 'send');
+      expect(sendCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('proxy poll with status still connected does not disconnect', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9000', 'conn-proxy-1');
+
+      // First poll fails, status shows still connected
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.reject(new Error('Timeout'));
+        }
+        if (op === 'status') {
+          return Promise.resolve({
+            ok: true, op: 'status',
+            data: { state: 'connected' },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      // Should still be connected since status said so
+      expect(result.current.connection.state).toBe('connected');
+    });
+  });
+
+  describe('proxy transport — send', () => {
+    it('sends text via proxy and appends to log', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9001', 'conn-send-1');
+
+      // Make poll return empty
+      mockEmptyPoll();
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Send via proxy
+      mockDispatch.mockResolvedValueOnce({ ok: true, op: 'send', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.send('proxy hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      const sentFrames = result.current.messages.filter(m => m.direction === 'sent' && m.type === 'text');
+      expect(sentFrames.length).toBeGreaterThanOrEqual(1);
+      expect(result.current.sentCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('sets lastError when proxy send fails', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9001', 'conn-send-1');
+
+      // Make poll return empty, send fails
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 0 }, meta: { timestamp: '' } });
+        }
+        if (op === 'send') {
+          return Promise.reject(new Error('Send failed'));
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      await act(async () => { result.current.send('will fail'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.lastError).toContain('Send failed');
+    });
+
+    it('sends binary via proxy', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9001', 'conn-send-1');
+
+      mockEmptyPoll();
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      mockDispatch.mockResolvedValueOnce({ ok: true, op: 'send', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.send('AQID', 'binary'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      const binaryFrames = result.current.messages.filter(m => m.direction === 'sent' && m.type === 'binary');
+      expect(binaryFrames.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('proxy transport — disconnect with close detail', () => {
+    it('sends close frame and disconnects via proxy with custom code/reason', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:9002', 'conn-dc-1');
+
+      mockEmptyPoll();
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      mockDispatch.mockResolvedValueOnce({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.disconnect({ code: 4000, reason: 'Custom close' }); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.state).toBe('disconnected');
+      const closeFrames = result.current.messages.filter(m => m.type === 'close');
+      expect(closeFrames.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Tauri native transport', () => {
+    let messageCallback: ((payload: { connectionId: string; data: string; messageType: string }) => void) | null = null;
+    let closedCallback: ((payload: { connectionId: string; code?: number; reason?: string }) => void) | null = null;
+    const mockUnlistenMsg = vi.fn();
+    const mockUnlistenClosed = vi.fn();
+
+    function setupTauriMocks() {
+      mockIsTauri.mockReturnValue(true);
+      mockListenWsMessage.mockImplementation(async (cb) => {
+        messageCallback = cb as typeof messageCallback;
+        return mockUnlistenMsg;
+      });
+      mockListenWsConnectionClosed.mockImplementation(async (cb) => {
+        closedCallback = cb as typeof closedCallback;
+        return mockUnlistenClosed;
+      });
+    }
+
+    beforeEach(() => {
+      messageCallback = null;
+      closedCallback = null;
+      mockUnlistenMsg.mockClear();
+      mockUnlistenClosed.mockClear();
+    });
+
+    it('connects via native transport in Tauri mode', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.state).toBe('connected');
+      expect(result.current.transportMode).toBe('native');
+      expect(mockListenWsMessage).toHaveBeenCalled();
+      expect(mockListenWsConnectionClosed).toHaveBeenCalled();
+    });
+
+    it('receives messages via native listeners', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Simulate message via native listener
+      await act(async () => {
+        messageCallback?.({ connectionId: 'tauri-conn-1', data: 'native hello', messageType: 'text' });
+      });
+
+      const received = result.current.messages.filter(m => m.direction === 'received' && m.data === 'native hello');
+      expect(received.length).toBe(1);
+      expect(result.current.receivedCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('ignores messages from different connection ID', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      const msgsBefore = result.current.messages.length;
+      await act(async () => {
+        messageCallback?.({ connectionId: 'other-conn', data: 'wrong conn', messageType: 'text' });
+      });
+
+      // Messages count should not change (ignores different connectionId)
+      expect(result.current.messages.length).toBe(msgsBefore);
+    });
+
+    it('handles native connection closed event', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+      act(() => result.current.setAutoReconnect(false));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.state).toBe('connected');
+
+      // Simulate close via native listener
+      await act(async () => {
+        closedCallback?.({ connectionId: 'tauri-conn-1', code: 1000, reason: 'Normal' });
+      });
+
+      expect(result.current.connection.state).toBe('disconnected');
+      expect(result.current.connection.closeCode).toBe(1000);
+    });
+
+    it('triggers reconnect on abnormal native close', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+      act(() => result.current.setAutoReconnect(true));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Simulate abnormal close (code != 1000)
+      await act(async () => {
+        closedCallback?.({ connectionId: 'tauri-conn-1', code: 1006, reason: 'Abnormal' });
+      });
+
+      expect(result.current.connection.state).toBe('disconnected');
+      expect(result.current.reconnectState.active).toBe(true);
+    });
+
+    it('ignores close event from different connection ID', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Close from different connection should be ignored
+      await act(async () => {
+        closedCallback?.({ connectionId: 'other-conn', code: 1000 });
+      });
+
+      expect(result.current.connection.state).toBe('connected');
+    });
+
+    it('cleans up native listeners on disconnect', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      mockDispatch.mockResolvedValueOnce({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.disconnect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(mockUnlistenMsg).toHaveBeenCalled();
+      expect(mockUnlistenClosed).toHaveBeenCalled();
+    });
+
+    it('detects protocol from first native message in auto mode', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Simulate Socket.IO OPEN message
+      await act(async () => {
+        messageCallback?.({
+          connectionId: 'tauri-conn-1',
+          data: '0{"sid":"abc","upgrades":[],"pingInterval":25000,"pingTimeout":5000}',
+          messageType: 'text',
+        });
+      });
+
+      expect(result.current.detectedProtocol).not.toBeNull();
+    });
+
+    it('auto-responds to heartbeat via native transport', async () => {
+      setupTauriMocks();
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('socket-io'));
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-conn-1', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Simulate Engine.IO PING
+      mockDispatch.mockResolvedValue({ ok: true, op: 'send', data: {}, meta: { timestamp: '' } });
+      await act(async () => {
+        messageCallback?.({ connectionId: 'tauri-conn-1', data: '2', messageType: 'text' });
+      });
+
+      // Should have sent auto-response via proxy
+      const sendCalls = mockDispatch.mock.calls.filter(c => c[0] === 'send');
+      expect(sendCalls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('proxy connect — GraphQL-WS auto-init', () => {
+    it('auto-sends connection_init after proxy connect in graphql-ws mode', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('graphql-ws'));
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:9003',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+
+      mockDispatch.mockResolvedValueOnce({
+        ok: true, op: 'connect',
+        data: { connectionId: 'conn-gql-1', protocol: 'graphql-transport-ws', extensions: '', latencyMs: 2 },
+        meta: { timestamp: '' },
+      });
+      await act(async () => { result.current.connect(); });
+
+      // Should have sent connection_init
+      const sendCalls = mockDispatch.mock.calls.filter(c => c[0] === 'send');
+      expect(sendCalls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('proxy connect — TLS config', () => {
+    it('passes TLS config when connecting to wss:// via proxy', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({
+        url: 'wss://secure.example.com',
+        headers: [{ key: 'Auth', value: 'token', enabled: true }],
+      }));
+      act(() => result.current.setTlsConfig({ rejectUnauthorized: false }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('conn-tls-1'));
+      await act(async () => { result.current.connect(); });
+
+      const connectCall = mockDispatch.mock.calls.find(c => c[0] === 'connect');
+      expect(connectCall).toBeDefined();
+      expect((connectCall![1] as Record<string, unknown>).tls).toBeDefined();
+    });
+  });
+
+  describe('proxy connect — error handling', () => {
+    it('sets error state and schedules reconnect when proxy connect fails', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:9004',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+      act(() => result.current.setAutoReconnect(true));
+
+      mockDispatch.mockRejectedValueOnce(new Error('Connection refused'));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.state).toBe('error');
+      expect(result.current.connection.lastError).toContain('Connection refused');
+      expect(result.current.reconnectState.active).toBe(true);
+    });
+
+    it('sets error state with non-Error thrown value', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:9004',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+      act(() => result.current.setAutoReconnect(false));
+
+      mockDispatch.mockRejectedValueOnce('string error');
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      expect(result.current.connection.state).toBe('error');
+      expect(result.current.connection.lastError).toContain('string error');
+    });
+  });
+
+  describe('connect routing — Tauri vs browser', () => {
+    it('routes to proxy in Tauri mode even without custom headers', async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockListenWsMessage.mockResolvedValue(vi.fn());
+      mockListenWsConnectionClosed.mockResolvedValue(vi.fn());
+
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:8080' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-direct', 1));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Should use proxy (not direct WebSocket) in Tauri
+      expect(result.current.connection.state).toBe('connected');
+      expect(result.current.transportMode).toBe('native');
+      expect(mockInstances.length).toBe(0); // No direct WebSocket created
+    });
+
+    it('uses proxy for wss:// with TLS overrides', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'wss://secure.example.com' }));
+      act(() => result.current.setTlsConfig({ rejectUnauthorized: false }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('proxy-tls', 3));
+      await act(async () => { result.current.connect(); });
+
+      expect(result.current.transportMode).toBe('proxy');
+      expect(mockInstances.length).toBe(0); // No direct WebSocket
     });
   });
 });

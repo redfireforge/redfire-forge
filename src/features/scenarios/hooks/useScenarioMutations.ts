@@ -305,13 +305,24 @@ export function useScenarioMutations({
     });
     setEditingTest({ featureId, scenarioId, testId: test.id, parameterized: !!test.dataSource });
     setInputMode('builder');
-    setActiveTab('params');
+    const defaultTab = isWsActionType(test.actionType) ? 'validation' : 'params';
+    setActiveTab(defaultTab);
   };
 
   const saveTest = () => {
     if (!editingTest || !draft.name.trim()) return;
     const isNonHttp = isWsActionType(draft.actionType) || draft.actionType === 'kafkaProduce' || draft.actionType === 'kafkaConsume';
     if (!isNonHttp && !draft.url.trim()) return;
+    if (isWsActionType(draft.actionType)) {
+      const at = draft.actionType!;
+      if (at === 'wsConnect' && !draft.wsConnectAction?.url?.trim()) return;
+      if (at === 'wsSend' && !draft.wsSendAction?.connectionRef?.trim()) return;
+      if (at === 'wsReceive') {
+        if (!draft.wsReceiveAction?.connectionRef?.trim()) return;
+        const mc = draft.wsReceiveAction?.matchCriteria;
+        if (mc?.jsonPathValue !== undefined && !mc?.jsonPathMatch) return;
+      }
+    }
     const { featureId, scenarioId, testId } = editingTest;
 
     const parentFg = allFgs.find(f => f.id === featureId);
@@ -374,6 +385,12 @@ export function useScenarioMutations({
       bodyForm: version.snapshot.bodyForm,
       auth: version.snapshot.auth,
       extractions: version.snapshot.extractions,
+      actionType: version.snapshot.actionType === 'http' ? undefined : version.snapshot.actionType,
+      wsConnectAction: version.snapshot.wsConnectAction,
+      wsSendAction: version.snapshot.wsSendAction,
+      wsReceiveAction: version.snapshot.wsReceiveAction,
+      kafkaProduceAction: version.snapshot.kafkaProduceAction,
+      kafkaConsumeAction: version.snapshot.kafkaConsumeAction,
     }));
   }, []);
 

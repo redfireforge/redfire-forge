@@ -207,6 +207,12 @@ export interface TestDefinitionSnapshot {
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   extractions?: Extraction[];
+  actionType?: ScenarioActionType;
+  wsConnectAction?: WsConnectActionConfig;
+  wsSendAction?: WsSendActionConfig;
+  wsReceiveAction?: WsReceiveActionConfig;
+  kafkaProduceAction?: KafkaProduceActionConfig;
+  kafkaConsumeAction?: KafkaConsumeActionConfig;
 }
 
 export interface TestDefinitionVersion {

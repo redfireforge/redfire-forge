@@ -4660,6 +4660,7 @@ dependencies = [
 name = "redfireforge"
 version = "0.6.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "clap",
  "futures",
@@ -4670,6 +4671,9 @@ dependencies = [
  "rdkafka",
  "regex",
  "reqwest 0.13.2",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "tauri",
@@ -4682,6 +4686,7 @@ dependencies = [
  "tauri-plugin-mcp-bridge",
  "tauri-plugin-shell",
  "tokio",
+ "tokio-tungstenite 0.28.0",
  "tokio-util",
  "uuid",
 ]
@@ -5015,6 +5020,15 @@ dependencies = [
  "rustls-pki-types",
  "schannel",
  "security-framework",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]
@@ -6405,7 +6419,11 @@ checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite 0.28.0",
 ]
 
@@ -6677,6 +6695,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.3",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",
  "utf-8",
