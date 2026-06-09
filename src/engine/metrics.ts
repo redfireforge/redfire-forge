@@ -36,9 +36,12 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
   let failedValidations = 0;
 
   for (const r of activeResults) {
-    if (r.httpStatus >= 400 || r.httpStatus === 0) {
+    const isHttp = (r.transportType ?? 'http') === 'http';
+    if (isHttp && (r.httpStatus >= 400 || r.httpStatus === 0)) {
       failedRequests++;
       errorsByStatus[r.httpStatus] = (errorsByStatus[r.httpStatus] || 0) + 1;
+    } else if (!isHttp && !r.passed) {
+      failedRequests++;
     }
     if (!r.passed && r.failureDetails.length > 0) {
       failedValidations++;

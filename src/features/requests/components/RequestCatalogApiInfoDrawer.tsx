@@ -11,6 +11,10 @@ export default function RequestCatalogApiInfoDrawer({
   catalogMeta: cm,
   onClose,
 }: RequestCatalogApiInfoDrawerProps) {
+  const tags = cm.tags ?? [];
+  const parameters = cm.parameters ?? [];
+  const expectedResponses = cm.expectedResponses ?? [];
+
   return (
     <div className="req-info-drawer">
       <div className="req-info-drawer-header">
@@ -22,7 +26,7 @@ export default function RequestCatalogApiInfoDrawer({
           <h4 className="req-docs-heading">Endpoint</h4>
           <div className="req-docs-meta-grid">
             {cm.operationId && <><span className="req-docs-label">Operation ID</span><code className="req-docs-value">{cm.operationId}</code></>}
-            <span className="req-docs-label">Path</span><span className="req-docs-value">{method} {cm.originalPath}</span>
+            <span className="req-docs-label">Path</span><span className="req-docs-value">{method} {cm.originalPath ?? '—'}</span>
             {cm.sourceSpec && <><span className="req-docs-label">Source</span><span className="req-docs-value">{cm.sourceSpec}</span></>}
             {cm.catalogVersion && <><span className="req-docs-label">Spec Version</span><code className="req-docs-value">{cm.catalogVersion}</code></>}
             {cm.catalogEntryId && <><span className="req-docs-label">Entry ID</span><code className="req-docs-value req-docs-mono">{cm.catalogEntryId}</code></>}
@@ -38,20 +42,20 @@ export default function RequestCatalogApiInfoDrawer({
           </div>
         )}
 
-        {cm.tags.length > 0 && (
+        {tags.length > 0 && (
           <div className="req-docs-section">
             <h4 className="req-docs-heading">Tags</h4>
-            <div className="req-catalog-tags">{cm.tags.map(t => <span key={t} className="req-catalog-tag">{t}</span>)}</div>
+            <div className="req-catalog-tags">{tags.map(t => <span key={t} className="req-catalog-tag">{t}</span>)}</div>
           </div>
         )}
 
-        {cm.parameters && cm.parameters.length > 0 && (
+        {parameters.length > 0 && (
           <div className="req-docs-section">
             <h4 className="req-docs-heading">Parameters</h4>
             <table className="req-docs-param-table">
               <thead><tr><th>Name</th><th>In</th><th>Type</th><th>Req</th><th>Description</th></tr></thead>
               <tbody>
-                {cm.parameters.map(p => (
+                {parameters.map(p => (
                   <tr key={`${p.in}-${p.name}`} className={p.required ? 'required' : ''}>
                     <td><code>{p.name}</code></td>
                     <td>{p.in}</td>
@@ -65,13 +69,13 @@ export default function RequestCatalogApiInfoDrawer({
           </div>
         )}
 
-        {cm.expectedResponses && cm.expectedResponses.length > 0 && (
+        {expectedResponses.length > 0 && (
           <div className="req-docs-section">
             <h4 className="req-docs-heading">Responses</h4>
             <table className="req-docs-param-table">
               <thead><tr><th>Status</th><th>Description</th></tr></thead>
               <tbody>
-                {cm.expectedResponses.map(r => (
+                {expectedResponses.map(r => (
                   <tr key={r.statusCode}>
                     <td><code className={`req-docs-status ${r.statusCode.startsWith('2') ? 'success' : r.statusCode.startsWith('4') ? 'warn' : r.statusCode.startsWith('5') ? 'error' : ''}`}>{r.statusCode}</code></td>
                     <td>{r.description}</td>

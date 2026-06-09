@@ -1,0 +1,2356 @@
+/* ── WebSocket Studio ─────────────────────────────────────────────────────── */
+
+.ws-studio-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ws-studio-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.ws-studio-tab {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ws-studio-tab:hover {
+  color: var(--text-primary, #ccc);
+}
+
+.ws-studio-tab.active {
+  color: var(--text-primary, #e0e0e0);
+  border-bottom-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-studio-tab-badge {
+  font-size: 11px;
+  background: var(--accent-color, #4fc3f7);
+  color: #000;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.ws-studio-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Guard ────────────────────────────────────────────────────────────────── */
+
+.ws-guard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ws-guard-inner {
+  text-align: center;
+  padding: 32px;
+}
+
+.ws-guard-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  margin: 0 0 8px;
+}
+
+.ws-guard-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  margin: 0;
+}
+
+/* ── Connect Panel ────────────────────────────────────────────────────────── */
+
+.ws-connect-panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-connect-url-row {
+  margin-bottom: 8px;
+}
+
+.ws-connect-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.ws-connect-url-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.ws-connect-url-input {
+  flex: 1;
+  padding: 6px 28px 6px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.ws-connect-url-input:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-connect-url-input:disabled {
+  opacity: 0.6;
+}
+
+.ws-connect-clear-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.ws-connect-clear-btn:hover {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-connect-url-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--error-color, #f44336);
+  margin-top: 4px;
+}
+
+/* ── Key-Value Lists (Headers / Query Parameters) ────────────────────────── */
+
+.ws-connect-kv-section {
+  margin-bottom: 8px;
+}
+
+.ws-connect-kv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.ws-connect-kv-add-btn {
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ws-connect-kv-add-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-connect-kv-add-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-connect-kv-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.ws-connect-kv-checkbox {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-connect-kv-input {
+  padding: 4px 6px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+}
+
+.ws-connect-kv-input:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-connect-kv-input:disabled {
+  opacity: 0.6;
+}
+
+.ws-connect-kv-key {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-connect-kv-value {
+  flex: 2;
+  min-width: 0;
+}
+
+.ws-connect-kv-remove-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #666);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.ws-connect-kv-remove-btn:hover:not(:disabled) {
+  color: var(--error-color, #f44336);
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.ws-connect-kv-remove-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-connect-field-row {
+  margin-bottom: 8px;
+}
+
+.ws-connect-subprotocols {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  outline: none;
+}
+
+.ws-connect-subprotocols:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-connect-subprotocols:disabled {
+  opacity: 0.6;
+}
+
+.ws-connect-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ws-connect-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.ws-connect-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-connect-btn-primary {
+  background: var(--accent-color, #4fc3f7);
+  color: #000;
+  border-color: var(--accent-color, #4fc3f7);
+  font-weight: 600;
+}
+
+.ws-connect-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.ws-connect-btn-secondary {
+  background: transparent;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-connect-btn-secondary:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+}
+
+/* ── Status Bar ───────────────────────────────────────────────────────────── */
+
+.ws-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.ws-status-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ws-status-badge.state-connected {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.ws-status-badge.state-connecting,
+.ws-status-badge.state-closing {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.ws-status-badge.state-disconnected {
+  background: rgba(158, 158, 158, 0.2);
+  color: #9e9e9e;
+}
+
+.ws-status-badge.state-error {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+.ws-status-metric {
+  color: var(--text-secondary, #999);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+.ws-connect-error {
+  padding: 6px 10px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 4px;
+  color: #f44336;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ── Compose Bar ──────────────────────────────────────────────────────────── */
+
+.ws-compose-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-compose-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 32px;
+  max-height: 150px;
+  outline: none;
+}
+
+.ws-compose-input:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-compose-input:disabled {
+  opacity: 0.5;
+}
+
+.ws-compose-send-btn {
+  padding: 6px 16px;
+  background: var(--accent-color, #4fc3f7);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.ws-compose-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-compose-send-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* ── Message Log ──────────────────────────────────────────────────────────── */
+
+.ws-message-log-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ws-message-log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-message-search {
+  flex: 1;
+  max-width: 280px;
+  padding: 4px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+}
+
+.ws-message-search:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-message-direction-filter {
+  padding: 4px 6px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+}
+
+.ws-message-clear-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ws-message-clear-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-message-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-message-export-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ws-message-export-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-message-export-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-control-frame-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ws-control-frame-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.ws-compose-ping-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ws-compose-ping-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-compose-ping-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-message-max-reached {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+/* ── Message List ─────────────────────────────────────────────────────────── */
+
+.ws-message-list {
+  flex: 1;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.ws-message-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-secondary, #999);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.ws-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.ws-message-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ws-message-row.direction-sent .ws-message-direction {
+  color: #42a5f5;
+}
+
+.ws-message-row.direction-received .ws-message-direction {
+  color: #66bb6a;
+}
+
+.ws-message-direction {
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.ws-message-timestamp {
+  width: 90px;
+  color: var(--text-secondary, #666);
+  flex-shrink: 0;
+}
+
+.ws-message-type {
+  width: 44px;
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ws-message-content {
+  flex: 1;
+  color: var(--text-primary, #e0e0e0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-message-size {
+  width: 52px;
+  text-align: right;
+  color: var(--text-secondary, #666);
+  flex-shrink: 0;
+}
+
+/* ── Expanded Message ─────────────────────────────────────────────────────── */
+
+.ws-message-expanded {
+  padding: 8px 12px 8px 36px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.ws-message-expanded-body {
+  margin: 0;
+  padding: 8px;
+  background: var(--input-bg, #1a1a1a);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ws-message-copy-btn {
+  margin-top: 6px;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ws-message-copy-btn:hover {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+/* ── Config Lock Banner ──────────────────────────────────────────────── */
+
+.ws-config-lock-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 193, 7, 0.08);
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Saved Connections Tab ───────────────────────────────────────────── */
+
+.ws-studio-tab-badge-muted {
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #999);
+}
+
+.ws-saved-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ws-saved-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-saved-header .ws-saved-title {
+  margin-right: 4px;
+}
+
+.ws-saved-header .ws-message-search {
+  flex: 1;
+  max-width: none;
+}
+
+.ws-saved-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+}
+
+.ws-saved-success {
+  padding: 6px 12px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 4px;
+  color: #4caf50;
+  font-size: 12px;
+  margin: 8px 12px 0;
+}
+
+.ws-saved-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.ws-saved-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+
+.ws-saved-card:hover {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-saved-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-saved-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-saved-card-url {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-secondary, #999);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.ws-saved-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ws-saved-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #bbb);
+}
+
+.ws-saved-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ws-saved-action-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.ws-saved-action-btn:hover {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-saved-action-delete:hover {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border-color: rgba(244, 67, 54, 0.3);
+}
+
+.ws-saved-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+/* ── Paste Import ──────────────────────────────────────────────────── */
+
+.ws-paste-import-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.ws-paste-import-textarea {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.ws-paste-import-textarea:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+.ws-paste-import-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+/* ── Profile Editor Modal ────────────────────────────────────────────── */
+
+.ws-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ws-editor-modal {
+  width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #252525);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ws-editor-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.ws-editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.ws-editor-field {
+  margin-bottom: 10px;
+}
+
+.ws-editor-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.ws-editor-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.ws-editor-input:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-editor-input-sm {
+  width: 120px;
+}
+
+.ws-editor-mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.ws-editor-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.ws-editor-textarea:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-editor-error {
+  display: block;
+  font-size: 11px;
+  color: var(--error-color, #f44336);
+  margin-top: 2px;
+}
+
+.ws-editor-row {
+  margin-bottom: 10px;
+}
+
+.ws-editor-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+}
+
+.ws-editor-inline-fields {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ws-editor-inline-field {
+  flex: 1;
+}
+
+.ws-editor-kv-section {
+  margin-bottom: 10px;
+}
+
+.ws-editor-kv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.ws-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 2B — Format Selector + Templates + Message Detail
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Compose bar enhancements ── */
+
+.ws-compose-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-compose-hint {
+  font-size: 11px;
+  color: var(--error-color, #f44336);
+  margin-top: 2px;
+  padding-left: 4px;
+}
+
+.ws-compose-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ws-compose-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace !important;
+}
+
+.ws-format-select {
+  padding: 4px 6px;
+  font-size: 12px;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+  cursor: pointer;
+  height: 28px;
+}
+
+.ws-beautify-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text-secondary, #aaa);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  height: 28px;
+}
+
+.ws-beautify-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #2a2d2e);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-beautify-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Template dropdown ── */
+
+.ws-template-wrapper {
+  position: relative;
+}
+
+.ws-template-trigger {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text-secondary, #aaa);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  height: 28px;
+}
+
+.ws-template-trigger:hover {
+  background: var(--hover-bg, #2a2d2e);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-template-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  width: 320px;
+  max-height: 300px;
+  background: var(--panel-bg, #252526);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  margin-bottom: 4px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-template-empty {
+  padding: 16px;
+  color: var(--text-secondary, #888);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ws-template-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.ws-template-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+}
+
+.ws-template-item:last-child {
+  border-bottom: none;
+}
+
+.ws-template-item-load {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ws-template-item-load:hover {
+  background: var(--hover-bg, #2a2d2e);
+}
+
+.ws-template-item-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ws-template-item-preview {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-template-item-format {
+  font-size: 10px;
+  color: var(--text-tertiary, #666);
+  text-transform: uppercase;
+}
+
+.ws-template-item-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border-color, #2a2a2a);
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ws-template-item-delete:hover {
+  color: var(--error-color, #f44336);
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.ws-template-save-row {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.ws-template-save-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 4px;
+}
+
+.ws-template-save-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--accent-color, #0e639c);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ws-template-save-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-template-save-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #1177bb);
+}
+
+/* ── Message row selected state ── */
+
+.ws-message-row.selected {
+  background: var(--selection-bg, #264f78) !important;
+  border-color: var(--accent-color, #0e639c);
+}
+
+/* ── Message Detail Panel ── */
+
+.ws-detail-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-color, #333);
+  background: var(--panel-bg, #1e1e1e);
+  min-height: 100px;
+  flex-shrink: 0;
+}
+
+.ws-detail-resize {
+  height: 4px;
+  cursor: ns-resize;
+  background: var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-detail-resize:hover {
+  background: var(--accent-color, #0e639c);
+}
+
+.ws-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+  flex-shrink: 0;
+}
+
+.ws-detail-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  flex-shrink: 0;
+}
+
+.ws-detail-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.ws-detail-tab {
+  padding: 3px 8px;
+  font-size: 11px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+}
+
+.ws-detail-tab:hover {
+  background: var(--hover-bg, #2a2d2e);
+}
+
+.ws-detail-tab.active {
+  background: var(--input-bg, #252526);
+  border-color: var(--border-color, #444);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-detail-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ws-detail-action-btn {
+  padding: 2px 6px;
+  font-size: 11px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+}
+
+.ws-detail-action-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #2a2d2e);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-detail-action-btn.active {
+  background: var(--input-bg, #252526);
+  border-color: var(--border-color, #444);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-detail-action-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.ws-detail-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  margin: 0;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary, #d4d4d4);
+  white-space: pre;
+  background: transparent;
+}
+
+.ws-detail-body.wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ws-detail-hex {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ── JSON syntax highlighting ── */
+
+.ws-json-key {
+  color: #9cdcfe;
+}
+
+.ws-json-string {
+  color: #ce9178;
+}
+
+.ws-json-number {
+  color: #b5cea8;
+}
+
+.ws-json-bool {
+  color: #569cd6;
+}
+
+.ws-json-null {
+  color: #569cd6;
+  font-style: italic;
+}
+
+/* ── Phase 2C: Auto-Reconnect ──────────────────────────────────────── */
+
+.ws-reconnect-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.ws-reconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-warning-bg, #3d3000);
+  border: 1px solid var(--color-warning-border, #665200);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.ws-reconnect-text {
+  color: var(--color-warning-text, #ffcc00);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.ws-reconnect-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--color-warning-border, #665200);
+  color: var(--color-warning-text, #ffcc00);
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.ws-reconnect-cancel-btn:hover {
+  background: rgba(255, 204, 0, 0.1);
+}
+
+.ws-reconnect-failed {
+  padding: 8px 12px;
+  background: var(--color-error-bg, #3d0000);
+  border: 1px solid var(--color-error-border, #660000);
+  border-radius: 4px;
+  color: var(--color-error-text, #ff6666);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+/* ── Phase 2C: Close with Code Dropdown ────────────────────────────── */
+
+.ws-disconnect-group {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
+.ws-disconnect-group .ws-connect-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ws-disconnect-caret {
+  background: var(--color-btn-secondary-bg, #333);
+  color: var(--color-text-primary, #e0e0e0);
+  border: 1px solid var(--color-border, #444);
+  border-left: none;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  padding: 0 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.ws-disconnect-caret:hover:not(:disabled) {
+  background: var(--color-btn-secondary-hover, #444);
+}
+
+.ws-disconnect-caret:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ws-close-code-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 340px;
+  background: var(--color-surface, #252526);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 4px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ws-close-code-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #e0e0e0);
+  margin-bottom: 10px;
+}
+
+.ws-close-code-field {
+  margin-bottom: 8px;
+}
+
+.ws-close-code-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #999);
+  margin-bottom: 3px;
+}
+
+.ws-close-code-input {
+  width: 100px;
+  padding: 4px 8px;
+  background: var(--color-input-bg, #1e1e1e);
+  color: var(--color-text-primary, #e0e0e0);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 3px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.ws-close-code-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.ws-close-preset-btn {
+  background: var(--color-btn-secondary-bg, #333);
+  color: var(--color-text-secondary, #999);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.ws-close-preset-btn:hover {
+  background: var(--color-btn-secondary-hover, #444);
+  color: var(--color-text-primary, #e0e0e0);
+}
+
+.ws-close-preset-btn.active {
+  background: var(--color-accent, #0078d4);
+  color: #fff;
+  border-color: var(--color-accent, #0078d4);
+}
+
+.ws-close-reason-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--color-input-bg, #1e1e1e);
+  color: var(--color-text-primary, #e0e0e0);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 3px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.ws-close-reason-counter {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #999);
+  margin-top: 2px;
+}
+
+.ws-close-reason-counter.over {
+  color: var(--color-error-text, #ff6666);
+}
+
+.ws-close-code-error {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-error-text, #ff6666);
+  margin-bottom: 6px;
+}
+
+.ws-close-code-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Close/system frame styling in message log */
+.ws-message-row.ws-message-system {
+  background: var(--color-warning-bg, rgba(61, 48, 0, 0.3));
+  border-left: 2px solid var(--color-warning-text, #ffcc00);
+}
+
+.ws-message-row.ws-message-system .ws-message-direction {
+  color: var(--color-warning-text, #ffcc00);
+}
+
+.ws-message-row.ws-message-system .ws-message-content {
+  color: var(--color-warning-text, #ffcc00);
+  font-style: italic;
+}
+
+.ws-message-row .ws-message-type[data-type="close"] {
+  color: var(--color-warning-text, #ffcc00);
+}
+
+/* ── Protocol Selector ─────────────────────────────────────────────── */
+
+.ws-protocol-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-protocol-select {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ws-protocol-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ws-protocol-select option:disabled {
+  color: var(--text-tertiary, #6c7086);
+}
+
+.ws-protocol-detected-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+  white-space: nowrap;
+}
+
+.ws-protocol-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+  white-space: nowrap;
+}
+
+/* ── Socket.IO Compose Fields ──────────────────────────────────────── */
+
+.ws-sio-compose-fields {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 0;
+}
+
+.ws-sio-event-input {
+  flex: 2;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.ws-sio-event-input:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+.ws-sio-namespace-input {
+  flex: 1;
+  max-width: 120px;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-tertiary, #6c7086);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.ws-sio-namespace-input:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  color: var(--text-primary, #cdd6f4);
+  outline: none;
+}
+
+.ws-sio-mode-badge {
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+  white-space: nowrap;
+}
+
+/* ── Protocol-aware Message Rows ───────────────────────────────────── */
+
+.ws-message-row.ws-message-protocol.ws-message-system {
+  opacity: 0.55;
+  font-size: 11px;
+}
+
+.ws-message-type-protocol {
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ws-message-type-protocol[data-type="EVENT"] {
+  color: #a6e3a1;
+}
+
+.ws-message-type-protocol[data-type="ACK"] {
+  color: #f9e2af;
+}
+
+.ws-message-type-protocol[data-type="CONNECT"] {
+  color: #89b4fa;
+}
+
+.ws-message-type-protocol[data-type="DISCONNECT"] {
+  color: #f38ba8;
+}
+
+.ws-message-type-protocol[data-type="CONNECT_ERROR"] {
+  color: #f38ba8;
+}
+
+.ws-message-type-protocol[data-type="PING"],
+.ws-message-type-protocol[data-type="PONG"],
+.ws-message-type-protocol[data-type="OPEN"],
+.ws-message-type-protocol[data-type="NOOP"],
+.ws-message-type-protocol[data-type="HEARTBEAT"] {
+  color: var(--text-tertiary, #6c7086);
+}
+
+/* STOMP-specific message types */
+.ws-message-type-protocol[data-type="MESSAGE"] {
+  color: #a6e3a1;
+}
+
+.ws-message-type-protocol[data-type="SEND"] {
+  color: #89dceb;
+}
+
+.ws-message-type-protocol[data-type="SUBSCRIBE"] {
+  color: #cba6f7;
+}
+
+.ws-message-type-protocol[data-type="UNSUBSCRIBE"] {
+  color: #f9e2af;
+}
+
+.ws-message-type-protocol[data-type="RECEIPT"] {
+  color: #94e2d5;
+}
+
+.ws-message-type-protocol[data-type="ERROR"] {
+  color: #f38ba8;
+}
+
+.ws-message-type-protocol[data-type="CONNECTED"] {
+  color: #89b4fa;
+}
+
+.ws-message-type-protocol[data-type="NACK"] {
+  color: #fab387;
+}
+
+/* ── STOMP Compose Fields ──────────────────────────────────────────── */
+
+.ws-stomp-compose-fields {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 0;
+}
+
+.ws-stomp-command-select {
+  width: 130px;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  cursor: pointer;
+}
+
+.ws-stomp-command-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ws-stomp-destination-input {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.ws-stomp-destination-input:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+.ws-stomp-mode-badge {
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+  white-space: nowrap;
+}
+
+/* ── TLS Panel ─────────────────────────────────────────────────────── */
+
+.ws-tls-panel {
+  margin-top: 8px;
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ws-tls-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-surface, #1e1e2e);
+  border: none;
+  color: var(--text-secondary, #a6adc8);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.ws-tls-toggle:hover {
+  background: var(--bg-hover, #313244);
+}
+
+.ws-tls-toggle-icon {
+  font-size: 10px;
+  width: 12px;
+}
+
+.ws-tls-toggle-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.ws-tls-indicator {
+  color: #f9e2af;
+  font-size: 8px;
+}
+
+.ws-tls-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border-primary, #45475a);
+}
+
+.ws-tls-info-banner {
+  padding: 8px 10px;
+  background: rgba(137, 180, 250, 0.08);
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 4px;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.ws-tls-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #a6adc8);
+  cursor: pointer;
+}
+
+.ws-tls-checkbox-row input[type="checkbox"] {
+  accent-color: #f38ba8;
+}
+
+.ws-tls-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ws-tls-field-label {
+  font-size: 11px;
+  color: var(--text-tertiary, #6c7086);
+  font-weight: 500;
+}
+
+.ws-tls-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  resize: vertical;
+}
+
+.ws-tls-textarea:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+/* ── GraphQL-WS message types ──────────────────────────────────────── */
+
+.ws-message-type-protocol[data-type="connection_init"],
+.ws-message-type-protocol[data-type="connection_ack"] {
+  color: #89b4fa;
+}
+
+.ws-message-type-protocol[data-type="subscribe"] {
+  color: #a6e3a1;
+}
+
+.ws-message-type-protocol[data-type="next"] {
+  color: #94e2d5;
+}
+
+.ws-message-type-protocol[data-type="error"] {
+  color: #f38ba8;
+}
+
+.ws-message-type-protocol[data-type="complete"] {
+  color: #f9e2af;
+}
+
+.ws-message-type-protocol[data-type="ping"],
+.ws-message-type-protocol[data-type="pong"] {
+  color: var(--text-tertiary, #6c7086);
+}
+
+/* ── GraphQL Compose Fields ────────────────────────────────────────── */
+
+.ws-gql-compose-fields {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ws-gql-operation-name-input {
+  width: 180px;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.ws-gql-operation-name-input:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+.ws-gql-variables-input {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--bg-input, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  resize: vertical;
+  min-height: 32px;
+}
+
+.ws-gql-variables-input:focus {
+  border-color: var(--accent-primary, #89b4fa);
+  outline: none;
+}
+
+.ws-gql-op-id {
+  font-size: 11px;
+  color: var(--text-tertiary, #6c7086);
+  white-space: nowrap;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.ws-gql-mode-badge {
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+  white-space: nowrap;
+}
+
+/* ── Phase 2A–2C mockup alignment ─────────────────────────────────── */
+
+.ws-connect-env-preview {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-style: italic;
+  margin-top: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.ws-reconnect-settings {
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.ws-reconnect-settings-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #252525);
+}
+
+.ws-reconnect-settings-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-reconnect-settings-subtitle {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+}
+
+.ws-reconnect-settings-body {
+  padding: 10px 12px;
+}
+
+.ws-reconnect-label-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.ws-reconnect-settings-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ws-reconnect-settings-field {
+  min-width: 0;
+}
+
+.ws-reconnect-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ffc107;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ws-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ws-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ws-reconnect-countdown {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.ws-reconnect-progress {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ws-reconnect-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #444);
+}
+
+.ws-reconnect-dot.done {
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.ws-reconnect-dot.current {
+  background: #ffc107;
+  border-color: #ffc107;
+  animation: ws-reconnect-pulse 1s infinite;
+}
+
+.ws-reconnect-dot.pending {
+  background: var(--bg-tertiary, #333);
+  border-color: var(--border-color, #444);
+}
+
+@keyframes ws-reconnect-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.ws-reconnect-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(244, 67, 54, 0.08);
+  border: 1px solid rgba(244, 67, 54, 0.25);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.ws-reconnect-failed-title {
+  font-size: 13px;
+  color: #f44336;
+  font-weight: 600;
+}
+
+.ws-reconnect-failed-error {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  margin-top: 2px;
+}
+
+.ws-reconnect-failed-content {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ws-reconnect-failed-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ws-reconnect-progress-failed .ws-reconnect-dot.done {
+  background: #f44336;
+  border-color: #f44336;
+}
+
+.ws-connect-btn-danger {
+  background: #c62828;
+  color: #fff;
+  border-color: #c62828;
+  font-weight: 600;
+}
+
+.ws-connect-btn-danger:hover:not(:disabled) {
+  background: #d32f2f;
+  filter: none;
+}
+
+.ws-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ws-status-dot.connected {
+  background: #4caf50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+}
+
+.ws-status-dot.disconnected {
+  background: #9e9e9e;
+}
+
+.ws-status-url {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-config-lock-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ws-config-lock-disconnect {
+  background: none;
+  border: none;
+  color: #ffc107;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0 2px;
+}
+
+.ws-config-lock-disconnect:hover {
+  color: #ffca28;
+}
+
+.ws-saved-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.ws-saved-card.selected {
+  border-color: var(--accent-color, #4fc3f7);
+  background: rgba(79, 195, 247, 0.08);
+}
+
+.ws-saved-count {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  align-self: center;
+}
+
+.ws-editor-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.ws-editor-reconnect-row {
+  margin-bottom: 10px;
+}
+
+.ws-messages-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #252525);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.ws-messages-status-label {
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-messages-status-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+}
+
+.ws-messages-status-metric {
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ws-messages-status-hints {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+}
+
+.ws-message-row.ws-message-sent {
+  background: rgba(66, 165, 245, 0.06);
+}
+
+.ws-message-row.ws-message-received {
+  background: rgba(102, 187, 106, 0.06);
+}
+
+.ws-message-row.ws-msg-selected {
+  border-left: 3px solid var(--accent-color, #4fc3f7);
+}
+
+.ws-message-row.ws-message-close-sent {
+  background: rgba(79, 195, 247, 0.08);
+  border-left: 3px solid #42a5f5;
+}
+
+.ws-message-row.ws-message-close-ack {
+  background: rgba(102, 187, 106, 0.08);
+  border-left: 3px solid #66bb6a;
+}
+
+.ws-compose-footer {
+  width: 100%;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  padding-top: 4px;
+}
+
+.ws-format-label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  white-space: nowrap;
+}
+
+.ws-template-dropdown-header {
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.hex-offset {
+  color: var(--text-secondary, #666);
+}
+
+.hex-bytes {
+  color: #4fc3f7;
+}
+
+.hex-ascii {
+  color: #ce9178;
+}
+
+.ws-hex-line {
+  display: block;
+}
+
+.ws-compose-bar {
+  flex-direction: column;
+  border-top: 1px solid var(--border-color, #333);
+  border-bottom: none;
+}
+

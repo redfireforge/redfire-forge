@@ -12,6 +12,12 @@
 export type KafkaActionType = 'http' | 'kafkaProduce' | 'kafkaConsume';
 
 /**
+ * Broader transport type union that includes both Kafka and WebSocket transports.
+ * Used on `RequestResult.transportType` where any transport may appear.
+ */
+export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger';
+
+/**
  * Kafka message assertion target selector paths.
  * Use with `Assertion` type `'kafkaField'`.
  * - `kafka.body` — the message value / payload

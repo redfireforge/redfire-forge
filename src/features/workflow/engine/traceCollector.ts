@@ -36,7 +36,8 @@ export class TraceCollector {
     const startTime = this.nodeStartTimes.get(nodeId) ?? Date.now();
     
     const nodeType = node.type;
-    const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow';
+    const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow'
+      || nodeType === 'wsConnect' || nodeType === 'wsSend' || nodeType === 'wsReceive';
     
     let durationMs: number | undefined;
     if (hasOwnTiming) {

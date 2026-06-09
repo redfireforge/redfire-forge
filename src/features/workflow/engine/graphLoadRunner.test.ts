@@ -234,6 +234,7 @@ describe('graphLoadRunner', () => {
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
         undefined,          // kafkaOperations
+        undefined,          // wsOperations
       );
     });
 
@@ -808,6 +809,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
       );
     });
 
@@ -845,7 +847,38 @@ describe('graphLoadRunner', () => {
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
         kafkaOperations,    // kafkaOperations ← must be threaded through
+        undefined,          // wsOperations
       );
+    });
+
+    it('creates per-iteration wsOperations when opts.wsOperations is provided', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const wsOperations = {
+        connect: vi.fn(),
+        send: vi.fn(),
+        waitForMessage: vi.fn(),
+        disconnect: vi.fn(),
+        disconnectAll: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        wsOperations: wsOperations as never,
+      });
+
+      const callArgs = mockRunGraph.mock.calls[0];
+      const passedWsOps = callArgs[callArgs.length - 1];
+      expect(passedWsOps).toBeDefined();
+      expect(passedWsOps).not.toBe(wsOperations);
+      expect(passedWsOps).toHaveProperty('connect');
+      expect(passedWsOps).toHaveProperty('send');
+      expect(passedWsOps).toHaveProperty('snapshotCursor');
+      expect(passedWsOps).toHaveProperty('waitForMessage');
+      expect(passedWsOps).toHaveProperty('disconnect');
+      expect(passedWsOps).toHaveProperty('disconnectAll');
     });
 
     describe('Kafka load policy guard (Phase 7B)', () => {

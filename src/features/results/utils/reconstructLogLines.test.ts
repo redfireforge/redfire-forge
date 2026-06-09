@@ -826,4 +826,108 @@ describe('reconstructLogLines', () => {
     expect(rawAtDepth!.nodeId).toBe('c-depth');
     expect(rawAtDepth!.nodeLabel).toBe('Child Raw');
   });
+
+  // ── WebSocket log line tests ──
+
+  it('emits wsDetails lines for WS Connect (URL + connectionId + timing)', () => {
+    const event = makeEvent({
+      nodeType: 'wsConnect',
+      nodeLabel: 'WS Connect',
+      details: {
+        wsDetails: {
+          url: 'wss://example.com/ws',
+          connectionId: 'ws-main',
+          durationMs: 42,
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    expect(lines.some(l => l.text.includes('wss://example.com/ws') && l.text.includes('ws-main'))).toBe(true);
+    expect(lines.some(l => l.text === '42ms')).toBe(true);
+  });
+
+  it('emits wsDetails lines for WS Send (connectionId + body preview)', () => {
+    const event = makeEvent({
+      nodeType: 'wsSend',
+      nodeLabel: 'WS Send',
+      details: {
+        wsDetails: {
+          connectionId: 'ws-1',
+          durationMs: 15,
+          messageType: 'text',
+          bodyPreview: '{"action":"ping"}',
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    expect(lines.some(l => l.text.includes('connectionId: ws-1'))).toBe(true);
+    expect(lines.some(l => l.prefix === '>' && l.text.includes('{"action":"ping"}'))).toBe(true);
+  });
+
+  it('emits wsDetails lines for WS Receive (inbound direction)', () => {
+    const event = makeEvent({
+      nodeType: 'wsReceive',
+      nodeLabel: 'WS Receive',
+      details: {
+        wsDetails: {
+          connectionId: 'ws-1',
+          durationMs: 200,
+          messageType: 'text',
+          bodyPreview: '{"event":"pong"}',
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    const bodyLine = lines.find(l => l.text.includes('{"event":"pong"}'));
+    expect(bodyLine).toBeDefined();
+    expect(bodyLine!.prefix).toBe('<');
+  });
+
+  it('emits wsTriggerDetails lines', () => {
+    const event = makeEvent({
+      nodeType: 'wsTrigger',
+      nodeLabel: 'WS Trigger',
+      details: {
+        wsTriggerDetails: {
+          url: 'wss://trigger.example.com',
+          connectionId: 'ws-trig-1',
+          messageType: 'text',
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    expect(lines.some(l => l.text.includes('WS trigger') && l.text.includes('wss://trigger.example.com'))).toBe(true);
+  });
+
+  it('emits kafkaDetails lines', () => {
+    const event = makeEvent({
+      nodeType: 'kafkaProduce',
+      nodeLabel: 'Kafka Produce',
+      details: {
+        kafkaDetails: {
+          topic: 'orders',
+          partition: 0,
+          durationMs: 30,
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    expect(lines.some(l => l.text.includes('kafka://') && l.text.includes('orders'))).toBe(true);
+    expect(lines.some(l => l.text === '30ms')).toBe(true);
+  });
+
+  it('emits kafkaTriggerDetails lines', () => {
+    const event = makeEvent({
+      nodeType: 'kafkaTrigger',
+      nodeLabel: 'Kafka Trigger',
+      details: {
+        kafkaTriggerDetails: {
+          topic: 'events',
+          key: 'user-123',
+        },
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+    expect(lines.some(l => l.text.includes('Kafka trigger') && l.text.includes('events') && l.text.includes('user-123'))).toBe(true);
+  });
 });

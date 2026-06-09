@@ -232,6 +232,43 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
       </>
     ),
   },
+  wsConnect: {
+    category: 'integration',
+    svg: (
+      <>
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+  },
+  wsSend: {
+    category: 'integration',
+    svg: (
+      <>
+        <path d="M22 2L11 13" />
+        <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+      </>
+    ),
+  },
+  wsReceive: {
+    category: 'integration',
+    svg: (
+      <>
+        <polyline points="22 12 16 12 14 15 10 9 8 12 2 12" />
+        <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+      </>
+    ),
+  },
+  wsTrigger: {
+    category: 'trigger',
+    svg: (
+      <>
+        <path d="M13 2L4.5 13H11L10 22L19.5 11H13L13 2Z" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {

@@ -520,3 +520,131 @@ describe('Kafka results rendering', () => {
     expect(html).not.toContain('<td>200</td>');
   });
 });
+
+describe('WebSocket results rendering', () => {
+  it('HTML report shows CONNECT label for WS connect failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'WEBSOCKET',
+          transportType: 'wsConnect',
+          httpStatus: 0,
+          errorMessage: 'Connection timeout',
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html' });
+    expect(html).toContain('CONNECT');
+    expect(html).toContain('Connection timeout');
+  });
+
+  it('HTML report shows SEND label for WS send failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'WEBSOCKET',
+          transportType: 'wsSend',
+          httpStatus: 0,
+          errorMessage: 'Send failed',
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html' });
+    expect(html).toContain('SEND');
+  });
+
+  it('HTML report shows RECEIVE label for WS receive failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'WEBSOCKET',
+          transportType: 'wsReceive',
+          httpStatus: 0,
+          errorMessage: 'Receive timeout',
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html' });
+    expect(html).toContain('RECEIVE');
+  });
+
+  it('Markdown report shows WS labels', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'WEBSOCKET',
+          transportType: 'wsConnect',
+          httpStatus: 0,
+          errorMessage: 'Refused',
+        }),
+      ],
+    });
+    const md = generateReport(run, { format: 'markdown' });
+    expect(md).toContain('| CONNECT |');
+    expect(md).not.toContain('| 0 |');
+  });
+
+  it('HTML passed-rows section shows CONNECT label for passed WS results', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: true,
+          method: 'WEBSOCKET',
+          transportType: 'wsConnect',
+          httpStatus: 0,
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html', includePassedRows: true });
+    expect(html).toContain('CONNECT');
+  });
+});
+
+describe('JSON report transport fields', () => {
+  it('includes transportType and transportStatus in failedRowDetails', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'WEBSOCKET',
+          transportType: 'wsConnect',
+          httpStatus: 0,
+          dataRowId: 'row-1',
+          dataRowLabel: 'Row 1',
+          errorMessage: 'Connection refused',
+        }),
+      ],
+    });
+    const json = generateReport(run, { format: 'json' });
+    const report = JSON.parse(json);
+    const detail = report.parameterized.failedRowDetails[0];
+    expect(detail.transportType).toBe('wsConnect');
+    expect(detail.transportStatus).toBe('CONNECT');
+    expect(detail.httpStatus).toBe(0);
+  });
+
+  it('includes transportType for Kafka in failedRowDetails', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaProduce',
+          httpStatus: 0,
+          dataRowId: 'row-2',
+          dataRowLabel: 'Row 2',
+          errorMessage: 'Produce failed',
+        }),
+      ],
+    });
+    const json = generateReport(run, { format: 'json' });
+    const report = JSON.parse(json);
+    const detail = report.parameterized.failedRowDetails[0];
+    expect(detail.transportType).toBe('kafkaProduce');
+    expect(detail.transportStatus).toBe('PRODUCE');
+  });
+});
