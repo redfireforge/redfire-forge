@@ -240,10 +240,10 @@ describe('printConsoleSummary', () => {
     printConsoleSummary(summary, config, results);
 
     const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('KAFKA (produce)');
+    expect(output).toContain('PRODUCE');
   });
 
-  it('prints KAFKA (consume) in failed data row details for Kafka consume results', () => {
+  it('prints CONSUME in failed data row details for Kafka consume results', () => {
     const summary = makeSummary({ failedRequests: 1 });
     const config = makeConfig();
     const results = [
@@ -261,6 +261,6 @@ describe('printConsoleSummary', () => {
     printConsoleSummary(summary, config, results);
 
     const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('KAFKA (consume)');
+    expect(output).toContain('CONSUME');
   });
 });

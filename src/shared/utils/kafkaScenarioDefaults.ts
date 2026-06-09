@@ -1,7 +1,7 @@
 import type {
-  KafkaActionType,
   KafkaConsumeActionConfig,
   KafkaProduceActionConfig,
+  ScenarioActionType,
   Scenario,
 } from '../types';
 
@@ -56,7 +56,7 @@ export function isKafkaScenario(scenario: Scenario): boolean {
  * Resolves the effective action type for a scenario.
  * Absent `actionType` returns `'http'` for backward compatibility.
  */
-export function resolveKafkaActionType(scenario: Scenario): KafkaActionType {
+export function resolveKafkaActionType(scenario: Scenario): ScenarioActionType {
   return scenario.actionType ?? 'http';
 }
 

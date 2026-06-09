@@ -93,6 +93,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Wo
     traceOptions,     // traceOptions for trace capture
     undefined,        // httpTimeoutMs
     kafkaOperations,  // KafkaNodeOperations — wire from server-side KafkaService when available
+    undefined,        // WsNodeOperations — wire from server-side WsService when available
   );
 
   const totalDuration = Date.now() - startTime;

@@ -1,6 +1,7 @@
 import type { TestRun, RequestResult } from '../../../shared/types';
 import { getResultErrorMessage } from '../../../shared/utils/helpers';
 import { percentile } from '../../../shared/utils/percentiles';
+import { formatTransportStatus } from './transportStatus';
 // import { escapeCsv } from '../../../shared/utils/export';
 
 export interface ReportOptions {
@@ -58,7 +59,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const failedRowsHtml = failed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
+      <td>${formatTransportStatus(r)}</td>
       <td>${r.responseTimeMs}ms</td>
       <td>${esc(getResultErrorMessage(r))}</td>
     </tr>`).join('');
@@ -66,7 +67,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const passedRowsHtml = opts.includePassedRows ? passed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${(r.transportType ?? 'http') === 'http' ? r.httpStatus : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
+      <td>${formatTransportStatus(r)}</td>
       <td>${r.responseTimeMs}ms</td>
       <td></td>
     </tr>`).join('') : '';
@@ -185,6 +186,8 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
           rowId: r.dataRowId,
           label: r.dataRowLabel,
           httpStatus: r.httpStatus,
+          transportType: r.transportType,
+          transportStatus: formatTransportStatus(r),
           error: getResultErrorMessage(r),
         })),
       },
@@ -231,7 +234,7 @@ function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
     for (const r of failed) {
       const label = r.dataRowLabel || r.scenarioName;
       const err = getResultErrorMessage(r);
-      md += `| ${label} | ${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'} | ${r.responseTimeMs}ms | ${err} |\n`;
+      md += `| ${label} | ${formatTransportStatus(r)} | ${r.responseTimeMs}ms | ${err} |\n`;
     }
     md += '\n';
   }

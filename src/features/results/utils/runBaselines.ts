@@ -303,6 +303,7 @@ interface ScenarioGroup {
 function groupByScenario(results: TestRun['results']): Map<string, ScenarioGroup> {
   const map = new Map<string, ScenarioGroup>();
   for (const r of results) {
+    if (r.cancelled) continue;
     let g = map.get(r.scenarioName);
     if (!g) {
       g = { times: [], count: 0, errorCount: 0, errorRate: 0, featureGroupName: r.featureGroupName };
@@ -310,7 +311,9 @@ function groupByScenario(results: TestRun['results']): Map<string, ScenarioGroup
     }
     g.times.push(r.responseTimeMs);
     g.count++;
-    if ((r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)) g.errorCount++;
+    const isHttp = (r.transportType ?? 'http') === 'http';
+    if (isHttp && (r.httpStatus >= 400 || r.httpStatus === 0)) g.errorCount++;
+    else if (!isHttp && !r.passed) g.errorCount++;
   }
   for (const g of map.values()) {
     g.errorRate = g.count > 0 ? (g.errorCount / g.count) * 100 : 0;
@@ -485,6 +488,7 @@ export function computePerScenarioTrend(
   const scenarioCounts = new Map<string, number>();
   for (const run of filtered) {
     for (const result of run.results) {
+      if (result.cancelled) continue;
       scenarioCounts.set(result.scenarioName, (scenarioCounts.get(result.scenarioName) ?? 0) + 1);
     }
   }

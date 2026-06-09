@@ -15,6 +15,7 @@ import { runGraph, type GraphRunCallbacks, type SubWorkflowRunSummary } from '..
 import { DebugController } from '../engine/debugController';
 import { RemoteCorrelationStore } from '../engine/remoteCorrelationStore';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
@@ -284,6 +285,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       { traceLevel: 'debug' as const, captureFullTrace: true },
       undefined, // httpTimeoutMs
       buildKafkaNodeOperations(),
+      buildWsNodeOperations(),
     ).catch(() => {
       // If the user already stopped the run, don't override with 'fail'
       if (abortRef.current?.signal.aborted) return;

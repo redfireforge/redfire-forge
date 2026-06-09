@@ -123,6 +123,7 @@ export default function RequestEditor({
       setInputMode('builder');
       setCurlText('');
       setGeneratedCurl('');
+      setShowApiInfo(false);
     }
   }, [request.id, setResponseSearch]);
 
