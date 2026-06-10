@@ -125,4 +125,33 @@ describe('WebSocketFilterBar', () => {
     fireEvent.click(screen.getByTestId('save-preset-btn'));
     expect(onSave).toHaveBeenCalled();
   });
+
+  it('toggle callback inverts previous state', () => {
+    const setOpen = vi.fn();
+    render(<WebSocketFilterBar {...defaultProps} setPresetDropdownOpen={setOpen} />);
+    fireEvent.click(screen.getByTestId('presets-btn'));
+    // The component passes (v) => !v to setPresetDropdownOpen
+    const toggleFn = setOpen.mock.calls[0][0];
+    expect(typeof toggleFn).toBe('function');
+    expect(toggleFn(false)).toBe(true);
+    expect(toggleFn(true)).toBe(false);
+  });
+
+  it('preset apply button shows search mode and query in title', () => {
+    const presets = [
+      { id: 'fp-1', name: 'P1', searchMode: 'regex' as const, searchQuery: '\\d+', createdAt: '' },
+    ];
+    render(<WebSocketFilterBar {...defaultProps} presetDropdownOpen={true} filterPresets={presets} />);
+    const applyBtn = screen.getByTestId('preset-apply-fp-1');
+    expect(applyBtn.getAttribute('title')).toBe('regex: \\d+');
+  });
+
+  it('preset apply button shows (empty) when no searchQuery', () => {
+    const presets = [
+      { id: 'fp-1', name: 'P1', searchMode: 'text' as const, searchQuery: '', createdAt: '' },
+    ];
+    render(<WebSocketFilterBar {...defaultProps} presetDropdownOpen={true} filterPresets={presets} />);
+    const applyBtn = screen.getByTestId('preset-apply-fp-1');
+    expect(applyBtn.getAttribute('title')).toBe('text: (empty)');
+  });
 });

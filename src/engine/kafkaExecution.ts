@@ -12,7 +12,8 @@ import type { Scenario, RequestResult, KafkaResultMeta } from '../shared/types';
 import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage } from '../shared/utils/helpers';
+import { toErrorMessage, parseJsonSafe } from '../shared/utils/helpers';
+import { round2 as roundMs } from '../shared/utils/percentiles';
 import { resolveKafkaActionType } from '../shared/utils/kafkaScenarioDefaults';
 import { classifyKafkaFailure } from '../features/workflow/engine/graphRunnerKafkaNodeHandlers';
 
@@ -242,19 +243,6 @@ async function executeKafkaConsume(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function parseJsonSafe(value: string): unknown {
-  if (!value) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function roundMs(ms: number): number {
-  return Math.round(ms * 100) / 100;
-}
 
 function toKafkaContext(meta: KafkaResultMeta): { key?: string; offset?: number; partition?: number; topic?: string } {
   return {

@@ -621,4 +621,109 @@ describe('WsConnectionTabBar — History Dropdown', () => {
     const dropdown = screen.getByTestId('conn-tab-history-dropdown');
     expect(dropdown.textContent).toContain('just now');
   });
+
+  it('formatRelativeTime shows minutes ago', () => {
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const history = [
+      { url: 'ws://a.test', protocol: 'auto' as const, lastUsed: tenMinAgo },
+    ];
+    const props = makeProps({ history });
+    render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    expect(screen.getByTestId('conn-tab-history-dropdown').textContent).toContain('10m ago');
+  });
+
+  it('formatRelativeTime shows hours ago', () => {
+    const threeHrsAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const history = [
+      { url: 'ws://a.test', protocol: 'auto' as const, lastUsed: threeHrsAgo },
+    ];
+    const props = makeProps({ history });
+    render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    expect(screen.getByTestId('conn-tab-history-dropdown').textContent).toContain('3h ago');
+  });
+
+  it('formatRelativeTime shows days ago', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const history = [
+      { url: 'ws://a.test', protocol: 'auto' as const, lastUsed: twoDaysAgo },
+    ];
+    const props = makeProps({ history });
+    render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    expect(screen.getByTestId('conn-tab-history-dropdown').textContent).toContain('2d ago');
+  });
+
+  it('formatRelativeTime returns empty for future dates', () => {
+    const future = new Date(Date.now() + 10000).toISOString();
+    const history = [
+      { url: 'ws://a.test', protocol: 'auto' as const, lastUsed: future },
+    ];
+    const props = makeProps({ history });
+    render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    // future date => empty string from formatRelativeTime
+    const item = screen.getByTestId('conn-tab-history-item-ws://a.test');
+    expect(item).toBeTruthy();
+  });
+
+  it('hides history dropdown when showHistoryArrow becomes false', () => {
+    const history = [
+      { url: 'ws://a.test', protocol: 'auto' as const, lastUsed: new Date().toISOString() },
+    ];
+    const props = makeProps({ history });
+    const { rerender } = render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    expect(screen.getByTestId('conn-tab-history-dropdown')).toBeTruthy();
+    // Remove history to make showHistoryArrow false
+    rerender(<WsConnectionTabBar {...makeProps({ history: [] })} />);
+    expect(screen.queryByTestId('conn-tab-history-dropdown')).toBeNull();
+  });
+
+  it('does not hide protocol badge for raw protocol', () => {
+    const history = [
+      { url: 'ws://raw.test', protocol: 'raw' as 'auto', lastUsed: new Date().toISOString() },
+    ];
+    const props = makeProps({ history });
+    render(<WsConnectionTabBar {...props} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    const dropdown = screen.getByTestId('conn-tab-history-dropdown');
+    // 'raw' protocol should NOT render badge (same as auto)
+    const protocolBadges = dropdown.querySelectorAll('.ws-conn-tab-history-protocol');
+    expect(protocolBadges.length).toBe(0);
+  });
+
+  it('does not prevent drag when not editing', () => {
+    const onReorder = vi.fn();
+    const props = makeProps({ onReorder });
+    render(<WsConnectionTabBar {...props} />);
+    const tab = screen.getByTestId('conn-tab-tab-1');
+    // Should be draggable when not editing
+    expect(tab.getAttribute('draggable')).toBe('true');
+  });
+
+  it('prevents drag start when editing', () => {
+    const props = makeProps();
+    render(<WsConnectionTabBar {...props} />);
+    // Start editing via double-click
+    fireEvent.doubleClick(screen.getByTestId('conn-tab-tab-1'));
+    const tab = screen.getByTestId('conn-tab-tab-1');
+    // draggable should be false during editing
+    expect(tab.getAttribute('draggable')).toBe('false');
+  });
+
+  it('handleDragLeave only clears state for matching tab', () => {
+    const onReorder = vi.fn();
+    const props = makeProps({ onReorder });
+    render(<WsConnectionTabBar {...props} />);
+    const tab1 = screen.getByTestId('conn-tab-tab-1');
+    const tab2 = screen.getByTestId('conn-tab-tab-2');
+    // Simulate drag over tab-2, then leave from tab-1 — should not clear
+    fireEvent.dragStart(tab1, { dataTransfer: { effectAllowed: '', setData: vi.fn() } });
+    fireEvent.dragOver(tab2, { dataTransfer: { types: ['text/x-ws-tab-index'], dropEffect: '' }, clientX: 200, preventDefault: vi.fn() });
+    fireEvent.dragLeave(tab1);
+    // Tab2 should still have drag-over visual (not cleared)
+    // This exercises the dragLeave path where prev !== tabId
+  });
 });

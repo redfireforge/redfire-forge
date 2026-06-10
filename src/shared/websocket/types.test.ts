@@ -102,8 +102,8 @@ describe('formatBytes', () => {
   });
 
   it('formats megabytes', () => {
-    expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
-    expect(formatBytes(1024 * 1024 * 2.5)).toBe('2.5 MB');
+    expect(formatBytes(1024 * 1024)).toBe('1.00 MB');
+    expect(formatBytes(1024 * 1024 * 2.5)).toBe('2.50 MB');
   });
 });
 

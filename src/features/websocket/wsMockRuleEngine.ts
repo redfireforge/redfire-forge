@@ -3,23 +3,13 @@
  * Shared between frontend (test preview) and server (runtime evaluation).
  */
 import type { WsMockRule, WsMockMatch, WsMockResponse, WsMockFallbackMode } from '../../shared/websocket/types';
+import { tryParseJson } from '../../shared/utils/helpers';
 
 export interface RuleMatchResult {
   matched: boolean;
   rule?: WsMockRule;
   response?: WsMockResponse;
   fallback?: boolean;
-}
-
-/**
- * Try parsing a string as JSON; returns undefined on failure.
- */
-function tryParseJson(s: string): unknown | undefined {
-  try {
-    return JSON.parse(s) as unknown;
-  } catch {
-    return undefined;
-  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { WsProtocolMode } from './protocols/protocolTypes';
 export type { WsProtocolMode } from './protocols/protocolTypes';
+export { formatBytes } from '../utils/helpers';
 
 export type WsConnectionState = 'disconnected' | 'connecting' | 'connected' | 'closing' | 'error';
 
@@ -119,12 +120,6 @@ export function createFrame(
 
 export function resetFrameIdCounter(): void {
   frameIdCounter = 0;
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // ── Saved Connection Profile ─────────────────────────────────────────
