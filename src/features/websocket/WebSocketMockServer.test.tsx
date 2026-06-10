@@ -581,4 +581,120 @@ describe('WebSocketMockServer', () => {
     rerender(<WebSocketMockServer mock={mockEmpty} />);
     expect(screen.queryByTestId('rule-editor-r1')).toBeNull();
   });
+
+  it('renders pattern input for non-any match types', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Exact Rule', enabled: true, match: { type: 'exact', pattern: 'ping' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('Exact Rule'));
+    expect(screen.getByTestId('rule-match-pattern-r1')).toBeTruthy();
+    expect((screen.getByTestId('rule-match-pattern-r1') as HTMLInputElement).value).toBe('ping');
+  });
+
+  it('renders pattern input with regex placeholder', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Regex Rule', enabled: true, match: { type: 'regex', pattern: '.*' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('Regex Rule'));
+    const input = screen.getByTestId('rule-match-pattern-r1') as HTMLInputElement;
+    expect(input.placeholder).toContain('hello');
+  });
+
+  it('renders pattern input with jsonpath placeholder', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'JP Rule', enabled: true, match: { type: 'jsonpath', pattern: '$.type' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('JP Rule'));
+    const input = screen.getByTestId('rule-match-pattern-r1') as HTMLInputElement;
+    expect(input.placeholder).toContain('$.type');
+  });
+
+  it('renders textarea for static response type', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Static', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'static', data: 'pong' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('Static'));
+    expect(screen.getByTestId('rule-response-data-r1')).toBeTruthy();
+    expect((screen.getByTestId('rule-response-data-r1') as HTMLTextAreaElement).value).toBe('pong');
+  });
+
+  it('renders textarea for template response type', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Tpl', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'template', data: '{{message}}' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('Tpl'));
+    const textarea = screen.getByTestId('rule-response-data-r1') as HTMLTextAreaElement;
+    expect(textarea.placeholder).toContain('{{timestamp}}');
+  });
+
+  it('renders close code and reason inputs for close response type', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'CloseRule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'close', closeCode: 1001, closeReason: 'bye' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('CloseRule'));
+    expect(screen.getByTestId('rule-close-code-r1')).toBeTruthy();
+    expect((screen.getByTestId('rule-close-code-r1') as HTMLInputElement).value).toBe('1001');
+    expect(screen.getByTestId('rule-close-reason-r1')).toBeTruthy();
+    expect((screen.getByTestId('rule-close-reason-r1') as HTMLInputElement).value).toBe('bye');
+  });
+
+  it('updates pattern via onChange', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'PatRule', enabled: true, match: { type: 'exact', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('PatRule'));
+    fireEvent.change(screen.getByTestId('rule-match-pattern-r1'), { target: { value: 'new-pattern' } });
+    expect(setRules).toHaveBeenCalled();
+  });
+
+  it('updates response data via onChange on textarea', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'DataRule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'static', data: '' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('DataRule'));
+    fireEvent.change(screen.getByTestId('rule-response-data-r1'), { target: { value: 'new-data' } });
+    expect(setRules).toHaveBeenCalled();
+  });
+
+  it('updates close code via onChange', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'CC', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'close', closeCode: 1000 } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('CC'));
+    fireEvent.change(screen.getByTestId('rule-close-code-r1'), { target: { value: '3000' } });
+    expect(setRules).toHaveBeenCalled();
+  });
+
+  it('updates close reason via onChange', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'CR', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'close', closeReason: '' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('CR'));
+    fireEvent.change(screen.getByTestId('rule-close-reason-r1'), { target: { value: 'goodbye' } });
+    expect(setRules).toHaveBeenCalled();
+  });
 });

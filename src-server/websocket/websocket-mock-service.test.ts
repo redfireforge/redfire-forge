@@ -295,4 +295,163 @@ describe('WebSocketMockService', () => {
     await closePromise;
     expect(closeCode).toBe(1000);
   });
+
+  it('template response with null data sends nothing', async () => {
+    service = new WebSocketMockService();
+    const rules: WsMockRule[] = [
+      makeRule({
+        match: { type: 'any', pattern: '' },
+        response: { type: 'template', data: undefined as unknown as string },
+      }),
+    ];
+    await service.start({ port, rules, fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    let received = false;
+    client.on('message', () => { received = true; });
+    client.send('test');
+    await waitMs(100);
+    expect(received).toBe(false);
+
+    client.close();
+    await waitMs(50);
+  });
+
+  it('static response with null data sends nothing', async () => {
+    service = new WebSocketMockService();
+    const rules: WsMockRule[] = [
+      makeRule({
+        match: { type: 'any', pattern: '' },
+        response: { type: 'static', data: undefined as unknown as string },
+      }),
+    ];
+    await service.start({ port, rules, fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    let received = false;
+    client.on('message', () => { received = true; });
+    client.send('test');
+    await waitMs(100);
+    expect(received).toBe(false);
+
+    client.close();
+    await waitMs(50);
+  });
+
+  it('close response uses valid custom close codes', async () => {
+    service = new WebSocketMockService();
+    const rules: WsMockRule[] = [
+      makeRule({
+        match: { type: 'any', pattern: '' },
+        response: { type: 'close', closeCode: 3000, closeReason: 'custom' },
+      }),
+    ];
+    await service.start({ port, rules, fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    let closeCode = 0;
+    const closePromise = new Promise<void>((resolve) => {
+      client.on('close', (code) => { closeCode = code; resolve(); });
+    });
+    client.send('test');
+    await closePromise;
+    expect(closeCode).toBe(3000);
+  });
+
+  it('close response defaults closeCode to 1000 and closeReason to empty', async () => {
+    service = new WebSocketMockService();
+    const rules: WsMockRule[] = [
+      makeRule({
+        match: { type: 'any', pattern: '' },
+        response: { type: 'close' },
+      }),
+    ];
+    await service.start({ port, rules, fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    let closeCode = 0;
+    const closePromise = new Promise<void>((resolve) => {
+      client.on('close', (code) => { closeCode = code; resolve(); });
+    });
+    client.send('test');
+    await closePromise;
+    expect(closeCode).toBe(1000);
+  });
+
+  it('delayed response is cancelled on destroy', async () => {
+    service = new WebSocketMockService();
+    const rules: WsMockRule[] = [
+      makeRule({
+        match: { type: 'any', pattern: '' },
+        response: { type: 'static', data: 'delayed', delay: 5000 },
+      }),
+    ];
+    await service.start({ port, rules, fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    client.send('test');
+    await waitMs(50);
+
+    // Destroy before delay fires — should not throw
+    service.destroy();
+    await waitMs(50);
+
+    // Client should be disconnected
+    expect(client.readyState).not.toBe(WebSocket.OPEN);
+  });
+
+  it('handles restart (stop then start)', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'echo' });
+    const status1 = service.getStatus();
+    expect(status1.running).toBe(true);
+
+    // Calling start again restarts (stops first)
+    const status2 = await service.start({ port, rules: [], fallback: 'ignore' });
+    expect(status2.running).toBe(true);
+  });
+
+  it('updateRules also updates fallback when provided', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'echo' });
+
+    const client = await connectClient(port);
+
+    // Initially echo mode
+    const msg1Promise = waitForMessage(client);
+    client.send('hello');
+    expect(await msg1Promise).toBe('hello');
+
+    // Switch to ignore mode
+    service.updateRules([], 'ignore');
+    let received = false;
+    client.on('message', () => { received = true; });
+    client.send('hello2');
+    await waitMs(100);
+    expect(received).toBe(false);
+
+    client.close();
+    await waitMs(50);
+  });
+
+  it('truncates long message data in logs', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'echo' });
+
+    const client = await connectClient(port);
+    const longMsg = 'x'.repeat(600);
+    const msgPromise = waitForMessage(client);
+    client.send(longMsg);
+    await msgPromise;
+    await waitMs(50);
+
+    const logs = service.getLogs();
+    const msgIn = logs.find((l) => l.event === 'message-in');
+    expect(msgIn).toBeDefined();
+    expect(msgIn!.data!.length).toBeLessThanOrEqual(501);
+    expect(msgIn!.data!.endsWith('\u2026')).toBe(true);
+
+    client.close();
+    await waitMs(50);
+  });
 });

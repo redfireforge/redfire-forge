@@ -3,6 +3,9 @@
  * Extracted from WebSocketMessageDetail.tsx to satisfy react-refresh/only-export-components.
  */
 
+// Re-export shared JSON helpers so existing imports from wsMessageUtils don't break
+export { isValidJson, prettyJson } from '../../shared/utils/helpers';
+
 /** Check if a WebSocket URL starts with ws:// or wss:// (allows {{var}} templates) */
 export function isValidWsUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -144,23 +147,6 @@ export function isValidBase64(s: string): boolean {
     return true;
   } catch {
     return false;
-  }
-}
-
-export function isValidJson(s: string): boolean {
-  try {
-    JSON.parse(s);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function prettyJson(s: string): string {
-  try {
-    return JSON.stringify(JSON.parse(s), null, 2);
-  } catch {
-    return s;
   }
 }
 
