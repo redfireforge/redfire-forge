@@ -248,7 +248,7 @@ describe('WsConnectionTabContent', () => {
     rerender(
       <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
     );
-    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected');
+    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
   });
 
   it('maps closing state to connected hint', () => {
@@ -549,7 +549,7 @@ describe('WsConnectionTabContent', () => {
     mockStudio = makeStudioReturn({ connection: { state: 'closing' as 'connected' } });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     rerender(<WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />);
-    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected');
+    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
   });
 
   // ── handleSwitchToConnect from saved tab ──────────────────────

@@ -131,11 +131,13 @@ export function useSseConnection(
 
       if (!response.ok) {
         updateState('error', `HTTP ${response.status} ${response.statusText}`);
+        maybeReconnect();
         return;
       }
 
       if (!response.body) {
         updateState('error', 'Response has no body stream');
+        maybeReconnect();
         return;
       }
 
@@ -194,13 +196,13 @@ export function useSseConnection(
       return;
     }
     reconnectAttemptRef.current++;
-    updateState('disconnected');
+    setConnection((prev) => ({ ...prev, reconnectAttempt: reconnectAttemptRef.current }));
     reconnectTimerRef.current = setTimeout(() => {
       if (mountedRef.current && stateRef.current !== 'connected') {
         doConnect();
       }
     }, retryMsRef.current);
-  }, [doConnect, updateState]);
+  }, [doConnect]);
 
   const connect = useCallback(() => {
     if (stateRef.current === 'connecting' || stateRef.current === 'connected') return;

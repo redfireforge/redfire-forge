@@ -2,7 +2,7 @@
 
 > Branch: `feature/websocket-studio`
 > Created: 2026-06-07
-> Status: **✅ Phases 1–19 Complete** — All 19 phases implemented (1261 WS + 47 SSE tests, 0 type errors)
+> Status: **✅ Phases 1–19 Complete** — All 19 phases implemented (1782 WS + 137 SSE tests, 0 type errors)
 > Next: All planned phases complete (see [Deferred & Future Items](#deferred--future-items) for sub-phase roadmap)
 
 ---
@@ -22,11 +22,22 @@
 11. [Phase 7 — Environment Variable Interpolation](#phase-7--environment-variable-interpolation)
 12. [Phase 8 — Virtualized Message Log](#phase-8--virtualized-message-log)
 13. [Phase 9 — Multiple Concurrent Connections](#phase-9--multiple-concurrent-connections)
-14. [Phases 10–13 (Completed)](#phases-1013-completed)
-15. [Future Phases (14–19)](#future-phases-1419)
-16. [File Map](#file-map)
-17. [Manual Testing Guide](#manual-testing-guide)
-18. [Deferred & Future Items](#deferred--future-items)
+14. [Phases 10–13 — Post-Foundation UX](#phases-1013--post-foundation-ux)
+    - [Phase 10 — Tab Persistence & Connection History](#phase-10--tab-persistence--connection-history)
+    - [Phase 11 — Message Bookmarks & Session Recording](#phase-11--message-bookmarks--session-recording)
+    - [Phase 12 — Connection Stats Dashboard](#phase-12--connection-stats-dashboard)
+    - [Phase 13 — Tab Drag-and-Drop Reorder + Keyboard Navigation](#phase-13--tab-drag-and-drop-reorder--keyboard-navigation)
+15. [Phases 14–19 — Advanced Features](#phases-1419--advanced-features)
+    - [Phase 14 — Advanced Message Filtering & JSONPath Query](#phase-14--advanced-message-filtering--jsonpath-query)
+    - [Phase 15 — Message Comparison & Diff](#phase-15--message-comparison--diff)
+    - [Phase 16 — WebSocket Mock Server](#phase-16--websocket-mock-server)
+    - [Phase 17 — Load & Stress Testing](#phase-17--load--stress-testing)
+    - [Phase 18 — SSE (Server-Sent Events) Support](#phase-18--sse-server-sent-events-support)
+    - [Phase 19 — Message Schema Validation](#phase-19--message-schema-validation)
+16. [Phase Dependency Map](#phase-dependency-map)
+17. [File Map](#file-map)
+18. [Manual Testing Guide](#manual-testing-guide)
+19. [Deferred & Future Items](#deferred--future-items)
 
 ---
 
@@ -115,13 +126,13 @@ Protocols sub-nav:
 
 ### 2. Connection-centric page with message log
 
-Single page with three tabs: **Connect** | **Messages** | **Saved Connections**. WebSocket is bidirectional — splitting send/receive into separate panels (like Kafka) would be unnatural. A unified view with compose bar + message log matches how developers think about WebSocket conversations.
+Single page with four view tabs: **Connect** | **Messages** | **Saved Connections** | **Mock**. WebSocket is bidirectional — splitting send/receive into separate panels (like Kafka) would be unnatural. A unified view with compose bar + message log matches how developers think about WebSocket conversations.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Connection tabs:  [● localhost:8765 ×] [○ staging:443 ×] [+]  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [Connect]  [Messages]  [Saved Connections]                     │
+│  [Connect]  [Messages]  [Saved Connections]  [Mock]             │
 ├─────────────────────────────────────────────────────────────────┤
 │  URL: [ws://localhost:8765_____________]   Status: ● Connected  │
 │  Headers: [+ Add Header]                  Latency: 42ms        │
@@ -146,7 +157,7 @@ Default cap: 10,000 messages (configurable: 100 / 500 / 1,000 / 10,000 / 50,000)
 
 ### 5. Ping/Pong visibility
 
-Hidden by default. "System Frames" toggle reveals ping, pong, close, and protocol keepalive frames with muted styling.
+Hidden by default. Content-type filter set to "Control" reveals ping, pong, close, and protocol keepalive frames with muted styling. (Originally a "System Frames" toggle, replaced by the content-type filter in Phase 14.)
 
 ---
 
@@ -188,7 +199,7 @@ Hidden by default. "System Frames" toggle reveals ping, pong, close, and protoco
 - Subprotocol negotiation field
 - Compose bar: text message input + Send button + Ctrl/Cmd+Enter shortcut
 - Real-time message log with direction arrows (↑/↓), timestamps, auto-scroll
-- Text search with Cmd+F, match counter, and prev/next navigation
+- Text search with match counter (filter model — non-matching messages hidden; expanded to regex/JSONPath in Phase 14)
 - Message direction filter (All / Sent / Received)
 - Server proxy for custom headers (`/api/ws/*` Express routes) — browser `WebSocket` cannot set handshake headers
 - Direct browser WebSocket optimization when no custom headers needed
@@ -538,7 +549,7 @@ TypeScript (useWebSocketStudio):
 ├──────────────────────────────────────────────────────────────┤
 │  ┌─ WsConnectionTabContent key="tab-1" (display: flex) ─────┐│
 │  │  useWebSocketStudio()  ← own connection, messages, state  ││
-│  │  View tabs: [Connect] [Messages] [Saved]                  ││
+│  │  View tabs: [Connect] [Messages] [Saved] [Mock]            ││
 │  └───────────────────────────────────────────────────────────┘│
 │  ┌─ WsConnectionTabContent key="tab-2" (display: none) ──────┐│
 │  │  useWebSocketStudio()  ← independent, stays connected     ││
@@ -570,7 +581,7 @@ TypeScript (useWebSocketStudio):
 
 ---
 
-## Phases 10–13 (Completed)
+## Phases 10–13 — Post-Foundation UX
 
 > Post-foundation phases that built on the Phase 1–9 core. All four are complete.
 
@@ -794,7 +805,7 @@ Developers debugging WebSocket-heavy applications need visibility into connectio
 #### Architecture Decisions
 
 1. **No latency tracking** — WebSocket is full-duplex; there's no reliable request/response correlation. A heuristic "time between send and next receive" would produce misleading numbers. Focus on what we CAN measure: throughput, bytes, frame types, errors.
-2. **Stats panel placement** — Collapsible panel at the bottom of the Messages view (between the message list and compose bar), toggled via a "Stats" button in the toolbar. NOT a 4th view tab — users need to see messages AND stats simultaneously.
+2. **Stats panel placement** — Collapsible panel at the bottom of the Messages view (between the message list and compose bar), toggled via a "Stats" button in the toolbar. NOT a separate view tab — users need to see messages AND stats simultaneously.
 3. **Sparklines** — Minimal inline SVG `<polyline>` rendering (~20 lines). No chart library dependency.
 4. **Metrics hook is standalone** — `useWebSocketMetrics` is a pure hook called in `WsConnectionTabContent`. It observes `studio.messages` to derive metrics. No changes needed to `useWebSocketStudio.ts`.
 
@@ -908,25 +919,11 @@ Developers debugging WebSocket-heavy applications need visibility into connectio
 
 ---
 
-### Phase Dependency Map (completed)
-
-```
-Phase 10 (Tab Persistence & History) ← builds on Phase 9 (tabs)          ✅ Done
-     ↓
-Phase 11 (Bookmarks & Recording) ← independent, after 10                 ✅ Done
-     ↓
-Phase 12 (Connection Stats) ← independent, after 10                      ✅ Done
-     ↓
-Phase 13 (Drag Reorder + Keyboard) ← requires Phase 10 (persistence)    ✅ Done
-```
-
-All four post-foundation phases are complete.
-
 ---
 
-## Future Phases (14–19)
+## Phases 14–19 — Advanced Features
 
-> Research-driven phases based on competitive analysis (Postman, Bowire, Pulse, Mockd, WS-Strike, WSHawk, Swell, FintX) and industry trends (2026). Ordered by user impact.
+> Research-driven phases based on competitive analysis (Postman, Bowire, Pulse, Mockd, WS-Strike, WSHawk, Swell, FintX) and industry trends (2026). Ordered by user impact. All six phases are complete.
 
 ### Phase 14 — Advanced Message Filtering & JSONPath Query
 
@@ -1159,7 +1156,7 @@ Frontend developers and QA engineers often need to test WebSocket client code wi
 
 #### 16.3 — Recording Replay as Mock *(deferred to Phase 16C)*
 
-Deferred to keep Phase 16 focused. Will be implemented after core mock + rules are stable.
+Deferred to Phase 16C (see [Deferred & Future Items](#deferred--future-items)).
 
 **Files:**
 | File | Change |
@@ -1481,39 +1478,41 @@ When developing against a WebSocket API, message formats can drift without notic
 
 ---
 
-### Future Phase Dependency Map (14–19)
+---
+
+## Phase Dependency Map
+
+All 19 phases are complete. The dependency graph below shows the implementation order and relationships.
 
 ```
-Phase 14 (Filtering) ← enhances Phase 1 search                    ✅ Done
+Phase 1 (Core Connect)
      ↓
-Phase 15 (Message Diff) ← independent, after 14                   ✅ Done
+Phase 2 (Profiles, Templates, Reconnect)
      ↓
-Phase 16 (Mock Server) ← leverages Phase 11 recordings            ✅ Done
-     ↓
-Phase 17 (Load Testing) ← leverages Phase 12 stats                ✅ Done
+Phase 3 (Protocols: SIO, STOMP, GQL-WS, TLS)
+     ├─→ Phase 4 (Workflow Integration)
+     │        ↓
+     │   Phase 5 (Runner & Assertions)
+     │
+     ├─→ Phase 6 (Tauri Native Transport)
+     ├─→ Phase 7 (Env Variable Interpolation)
+     └─→ Phase 8 (Virtualized Message Log)
+              ↓
+         Phase 9 (Multiple Concurrent Connections)
+              ↓
+         Phase 10 (Tab Persistence & History)
+              ├─→ Phase 11 (Bookmarks & Recording)
+              ├─→ Phase 12 (Connection Stats)
+              └─→ Phase 13 (Drag Reorder + Keyboard)
 
-Phase 18 (SSE Support) ← independent, reuses infra                ✅ Done
+Phase 14 (Filtering) ← enhances Phase 1 search
+     ├─→ Phase 15 (Message Diff)
+     └─→ Phase 19 (Schema Validation)
 
-Phase 19 (Schema Validation) ← independent, after 14              ✅ Done
+Phase 16 (Mock Server) ← leverages Phase 11 recordings
+Phase 17 (Load Testing) ← leverages Phase 12 stats
+Phase 18 (SSE Support) ← independent, reuses infra
 ```
-
-- **Phase 14 first** — highest impact, moderate effort, unlocks filtering for Phases 15/19
-- **Phase 15 and 16** are independent — can be done in either order after 14
-- **Phase 17** benefits from Phase 12 stats but is otherwise independent
-- **Phase 18** is fully independent — new protocol page, reuses existing infrastructure
-- **Phase 19** benefits from Phase 14's JSONPath engine
-
-### Estimated Effort Summary (14–19)
-
-| Phase | Effort | Priority | New Files | Modified Files |
-|---|---|---|---|---|
-| Phase 14 — Advanced Filtering | 2–3 days | ★★★ High | 0 | ~5 |
-| Phase 15 — Message Diff | 2–3 days | ★★☆ Medium-High | ~2 | ~3 |
-| Phase 16 — Mock Server | 4–5 days | ★★☆ Medium-High | ~4 | ~3 |
-| Phase 17 — Load Testing | 3–4 days | ★★☆ Medium | ~3 | ~2 |
-| Phase 18 — SSE Support | 3–4 days | ★☆☆ Medium-Low | ~4 | ~2 |
-| Phase 19 — Schema Validation | 2–3 days | ★☆☆ Low | ~3 | ~4 |
-| **Total** | **16–22 days** | | **~16** | **~19** |
 
 ---
 

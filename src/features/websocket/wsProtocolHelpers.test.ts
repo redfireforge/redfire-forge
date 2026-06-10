@@ -141,7 +141,7 @@ describe('checkAutoRespond', () => {
 
   it('uses auto-detected protocol from detectedProtocol', () => {
     const frame = createFrame('received', 'text', '2');
-    const action = checkAutoRespond(frame, '2', 'auto', { protocol: 'socket-io', confidence: 'high', source: 'url' });
+    const action = checkAutoRespond(frame, '2', 'auto', { protocol: 'socket-io', confidence: 'high', reason: 'URL path contains /socket.io/' });
     expect(action).toBeDefined();
     expect(action!.replyData).toBe('3');
   });

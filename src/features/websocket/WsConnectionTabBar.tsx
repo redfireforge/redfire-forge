@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import type { WsConnectionHistoryEntry } from '../../shared/websocket/types';
+import type { WsConnectionHistoryEntry, WsProtocolMode } from '../../shared/websocket/types';
 
 export interface WsConnectionTabInfo {
   id: string;
@@ -16,7 +16,7 @@ export interface WsConnectionTabBarProps {
   connectionStates: Record<string, ConnectionStateHint>;
   onSelect: (id: string) => void;
   onAdd: () => void;
-  onAddWithUrl?: (url: string) => void;
+  onAddWithUrl?: (url: string, protocol?: WsProtocolMode) => void;
   onClose: (id: string) => void;
   onRename: (id: string, newLabel: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
@@ -126,9 +126,9 @@ export function WsConnectionTabBar({
   );
 
   const handleHistorySelect = useCallback(
-    (url: string) => {
+    (entry: WsConnectionHistoryEntry) => {
       setHistoryDropdownOpen(false);
-      onAddWithUrl?.(url);
+      onAddWithUrl?.(entry.url, entry.protocol);
     },
     [onAddWithUrl],
   );
@@ -402,7 +402,7 @@ export function WsConnectionTabBar({
                   key={entry.url}
                   type="button"
                   className="ws-conn-tab-history-item"
-                  onClick={() => handleHistorySelect(entry.url)}
+                  onClick={() => handleHistorySelect(entry)}
                   title={entry.url}
                   data-testid={`conn-tab-history-item-${entry.url}`}
                 >

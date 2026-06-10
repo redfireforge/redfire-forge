@@ -78,6 +78,7 @@ function decodeStompHeaderValue(value: string): string {
       const next = value[i + 1];
       if (next === '\\') { result += '\\'; i++; }
       else if (next === 'n') { result += '\n'; i++; }
+      else if (next === 'r') { result += '\r'; i++; }
       else if (next === 'c') { result += ':'; i++; }
       else { result += value[i]; }
     } else {
@@ -94,6 +95,7 @@ function decodeStompHeaderValue(value: string): string {
 function encodeStompHeaderValue(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\r')
     .replace(/\n/g, '\\n')
     .replace(/:/g, '\\c');
 }
