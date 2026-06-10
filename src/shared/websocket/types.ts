@@ -1,3 +1,6 @@
+import type { WsProtocolMode } from './protocols/protocolTypes';
+export type { WsProtocolMode } from './protocols/protocolTypes';
+
 export type WsConnectionState = 'disconnected' | 'connecting' | 'connected' | 'closing' | 'error';
 
 export interface WsConnectionSnapshot {
@@ -94,12 +97,22 @@ export function createFrame(
   data: string,
 ): WsFrame {
   frameIdCounter += 1;
+  let size: number;
+  if (type === 'binary') {
+    try {
+      size = atob(data).length;
+    } catch {
+      size = textEncoder.encode(data).byteLength;
+    }
+  } else {
+    size = textEncoder.encode(data).byteLength;
+  }
   return {
     id: `ws-frame-${Date.now()}-${frameIdCounter}`,
     direction,
     type,
     data,
-    size: textEncoder.encode(data).byteLength,
+    size,
     timestamp: new Date().toISOString(),
   };
 }
@@ -115,9 +128,6 @@ export function formatBytes(bytes: number): string {
 }
 
 // ── Saved Connection Profile ─────────────────────────────────────────
-
-import type { WsProtocolMode } from './protocols/protocolTypes';
-export type { WsProtocolMode } from './protocols/protocolTypes';
 
 export interface WsConnectionProfile {
   id: string;
@@ -205,7 +215,7 @@ export function getCloseCodeLabel(code: number): string {
 
 export type WsBackoffMultiplier = 1 | 1.5 | 2;
 
-export const DEFAULT_BACKOFF_MULTIPLIER: WsBackoffMultiplier = 1.5;
+export const DEFAULT_BACKOFF_MULTIPLIER: WsBackoffMultiplier = 2;
 
 export function resolveBackoffMultiplier(
   value?: WsBackoffMultiplier | null,
@@ -235,6 +245,72 @@ export function createDefaultReconnectState(
   };
 }
 
+// ── Tab Persistence ──────────────────────────────────────────────────
+
+export type WsViewTab = 'connect' | 'messages' | 'saved' | 'mock';
+
+export interface WsPersistedTab {
+  id: string;
+  label: string;
+  url: string;
+  viewTab: WsViewTab;
+}
+
+export interface WsPersistedTabState {
+  tabs: WsPersistedTab[];
+  activeTabId: string;
+  renamedTabIds: string[];
+}
+
+// ── Connection History ───────────────────────────────────────────────
+
+export interface WsConnectionHistoryEntry {
+  url: string;
+  protocol: WsProtocolMode;
+  lastUsed: string;
+  connectCount: number;
+}
+
+// ── Session Recording ────────────────────────────────────────────────
+
+export interface WsRecordingMessageEvent {
+  type: 'message';
+  relativeMs: number;
+  frame: WsFrame;
+}
+
+export interface WsRecordingStateEvent {
+  type: 'state-change';
+  relativeMs: number;
+  state: string;
+  url?: string;
+}
+
+export type WsRecordingEvent = WsRecordingMessageEvent | WsRecordingStateEvent;
+
+export interface WsRecordingMetadata {
+  url: string;
+  protocol: string;
+  startedAt: string;
+  durationMs: number;
+  messageCount: number;
+}
+
+export interface WsRecording {
+  _format: 'ws-recording-v1';
+  metadata: WsRecordingMetadata;
+  events: WsRecordingEvent[];
+}
+
+export type WsReplaySpeed = 1 | 2 | 5 | 10 | 0;
+
+export interface WsReplayProgress {
+  current: number;
+  total: number;
+  elapsedMs: number;
+  durationMs: number;
+}
+
 export function formatUptime(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -244,4 +320,128 @@ export function formatUptime(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
+}
+
+// ── Filter Presets ────────────────────────────────────────────────────────────
+
+export interface WsFilterPreset {
+  id: string;
+  name: string;
+  searchMode: 'text' | 'regex' | 'jsonpath';
+  searchQuery: string;
+  sizeFilter: 'all' | 'lt1k' | '1k-10k' | 'gt10k';
+  timeFilter: 'all' | 'last30s' | 'last5m' | 'last30m';
+  contentTypeFilter: 'all' | 'json' | 'text' | 'binary' | 'control';
+  createdAt: string;
+}
+
+// ── Mock Server ──────────────────────────────────────────────────────────────
+
+export type WsMockMatchType = 'exact' | 'contains' | 'regex' | 'jsonpath' | 'any';
+export type WsMockResponseType = 'static' | 'echo' | 'template' | 'close';
+export type WsMockFallbackMode = 'echo' | 'ignore' | 'close';
+
+export interface WsMockMatch {
+  type: WsMockMatchType;
+  pattern: string;
+}
+
+export interface WsMockResponse {
+  type: WsMockResponseType;
+  data?: string;
+  delay?: number;
+  closeCode?: number;
+  closeReason?: string;
+}
+
+export interface WsMockRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  match: WsMockMatch;
+  response: WsMockResponse;
+}
+
+export interface WsMockServerConfig {
+  port: number;
+  fallback: WsMockFallbackMode;
+  rules: WsMockRule[];
+}
+
+export type WsMockLogEventType = 'client-connect' | 'client-disconnect' | 'message-in' | 'response-out' | 'server-start' | 'server-stop' | 'error';
+
+export interface WsMockLogEntry {
+  id: number;
+  ts: string;
+  event: WsMockLogEventType;
+  clientId?: string;
+  data?: string;
+  ruleName?: string;
+}
+
+export interface WsMockClientInfo {
+  id: string;
+  connectedAt: string;
+  messageCount: number;
+  remoteAddress?: string;
+}
+
+export interface WsMockStatus {
+  running: boolean;
+  port: number;
+  clientCount: number;
+  clients: WsMockClientInfo[];
+  error?: string;
+}
+
+// ── Load Testing ──────────────────────────────────────────────────────
+
+export type WsLoadProfile = 'constant' | 'ramp' | 'burst';
+export type WsLoadTestState = 'idle' | 'running' | 'stopping' | 'done';
+
+export interface WsLoadTestConfig {
+  profile: WsLoadProfile;
+  messageTemplate: string;
+  /** Messages per second for constant profile, or start rate for ramp */
+  rate: number;
+  /** End rate for ramp profile (ignored for constant/burst) */
+  rateEnd: number;
+  /** Duration in seconds (ignored for burst) */
+  durationSec: number;
+  /** Total messages for burst profile (ignored for constant/ramp) */
+  burstCount: number;
+}
+
+export interface WsLoadTestProgress {
+  elapsedMs: number;
+  totalSent: number;
+  totalReceived: number;
+  targetRate: number;
+  actualRate: number;
+  errorCount: number;
+}
+
+export interface WsLoadTestResult {
+  config: WsLoadTestConfig;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  totalSent: number;
+  totalReceived: number;
+  errorCount: number;
+  bytesSent: number;
+  bytesReceived: number;
+  avgSendRate: number;
+  avgReceiveRate: number;
+  latency: {
+    min: number;
+    max: number;
+    mean: number;
+    p50: number;
+    p95: number;
+    p99: number;
+    samples: number;
+  };
+  throughputHistory: { ts: number; sent: number; received: number }[];
+  latencyHistogram: { bucket: string; count: number }[];
 }

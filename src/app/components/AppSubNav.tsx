@@ -41,6 +41,7 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
   protocols: [
     { tab: 'kafka-message-studio', label: 'Kafka' },
     { tab: 'websocket-studio', label: 'WebSocket' },
+    { tab: 'sse-studio', label: 'SSE' },
   ],
 };
 

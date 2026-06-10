@@ -19,6 +19,77 @@ export function resolveEnvVars(text: string, env: Record<string, string>): strin
   });
 }
 
+/** Returns true if text still contains unresolved {{…}} placeholders */
+export function hasUnresolvedVars(text: string): boolean {
+  return /\{\{[^}]+\}\}/.test(text);
+}
+
+/** Convert an HTTP base URL to a WebSocket URL (https→wss, http→ws) */
+function httpToWsUrl(baseUrl: string): string {
+  if (baseUrl.startsWith('https://')) return 'wss://' + baseUrl.slice(8);
+  if (baseUrl.startsWith('http://')) return 'ws://' + baseUrl.slice(7);
+  return baseUrl;
+}
+
+/** Extract hostname + port from a URL string; returns empty string on failure */
+function extractHost(baseUrl: string): string {
+  try {
+    const u = new URL(baseUrl);
+    return u.host;
+  } catch {
+    const noProto = baseUrl.replace(/^https?:\/\//, '');
+    const slashIdx = noProto.indexOf('/');
+    return slashIdx >= 0 ? noProto.slice(0, slashIdx) : noProto;
+  }
+}
+
+/**
+ * Build an env var map from the app's selected environment/microservice context.
+ * Empty values are omitted so unresolved placeholders remain visible in the URL.
+ */
+export function buildWsEnvVarMap(
+  resolvedBaseUrl?: string,
+  envName?: string,
+  svcName?: string,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  const base = resolvedBaseUrl?.trim();
+  if (base) {
+    map.baseUrl = base;
+    map.wsBaseUrl = httpToWsUrl(base);
+    const host = extractHost(base);
+    if (host) map.host = host;
+  }
+  if (envName?.trim()) map.envName = envName.trim();
+  if (svcName?.trim()) map.svcName = svcName.trim();
+  return map;
+}
+
+/**
+ * Build a fully resolved effective URL from a draft + env var map.
+ * Resolves env vars in URL, query param keys, and query param values
+ * BEFORE URL-encoding — so `{{token}}` in a query param is resolved
+ * to its value before `encodeURIComponent` runs.
+ */
+export function buildResolvedEffectiveUrl(
+  draft: { url: string; queryParams: { enabled: boolean; key: string; value: string }[] },
+  envVarMap: Record<string, string>,
+): string {
+  const base = resolveEnvVars(draft.url.trim(), envVarMap);
+  const enabledParams = draft.queryParams.filter((p) => p.enabled && p.key.trim().length > 0);
+  if (enabledParams.length === 0) return base;
+
+  const separator = base.includes('?') ? '&' : '?';
+  const queryString = enabledParams
+    .map((p) => {
+      const key = resolveEnvVars(p.key.trim(), envVarMap);
+      const value = resolveEnvVars(p.value, envVarMap);
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+  return `${base}${separator}${queryString}`;
+}
+
 /** Human-readable relative time for profile "Updated X ago" tags */
 export function formatTimeAgo(isoDate: string): string {
   const then = new Date(isoDate).getTime();
@@ -31,7 +102,9 @@ export function formatTimeAgo(isoDate: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (days < 30) return `${weeks}w ago`;
   return new Date(isoDate).toLocaleDateString();
 }
 
@@ -124,9 +197,21 @@ export interface HexDumpLine {
   ascii: string;
 }
 
-export function buildHexDumpLines(data: string): HexDumpLine[] {
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(data);
+export function buildHexDumpLines(data: string, isBinary = false): HexDumpLine[] {
+  let bytes: Uint8Array;
+  if (isBinary) {
+    try {
+      const binaryStr = atob(data);
+      bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+    } catch {
+      bytes = new TextEncoder().encode(data);
+    }
+  } else {
+    bytes = new TextEncoder().encode(data);
+  }
   const lines: HexDumpLine[] = [];
 
   for (let offset = 0; offset < bytes.length; offset += 16) {
@@ -155,8 +240,8 @@ export function buildHexDumpLines(data: string): HexDumpLine[] {
   return lines;
 }
 
-export function buildHexDump(data: string): string {
-  const lines = buildHexDumpLines(data);
+export function buildHexDump(data: string, isBinary = false): string {
+  const lines = buildHexDumpLines(data, isBinary);
   if (lines.length === 0) return '(empty)';
   return lines
     .map((line) => `${line.offset}  ${line.hexLeft}  ${line.hexRight}  |${line.ascii}|`)

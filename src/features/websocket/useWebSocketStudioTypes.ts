@@ -17,7 +17,7 @@ import type { SioServerParams } from './wsProtocolHelpers';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-export const DEFAULT_MAX_MESSAGES = 1000;
+export const DEFAULT_MAX_MESSAGES = 10000;
 export const PROXY_POLL_INTERVAL_MS = 200;
 export const DEFAULT_RECONNECT_INTERVAL_MS = 3000;
 export const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
@@ -32,8 +32,14 @@ export function formatCloseFrame(direction: 'SENT' | 'ACK', code: number, reason
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
-export type WsDirectionFilter = 'all' | 'sent' | 'received';
+export type WsDirectionFilter = 'all' | 'sent' | 'received' | 'bookmarked';
+export type WsSearchMode = 'text' | 'regex' | 'jsonpath';
+export type WsSizeFilter = 'all' | 'lt1k' | '1k-10k' | 'gt10k';
+export type WsTimeFilter = 'all' | 'last30s' | 'last5m' | 'last30m';
+export type WsContentTypeFilter = 'all' | 'json' | 'text' | 'binary' | 'control';
 export type WsTransportMode = 'direct' | 'proxy' | 'native';
+
+export const FILTER_TICK_INTERVAL_MS = 5000;
 
 export interface UseWebSocketStudioReturn {
   draft: WsConnectionDraft;
@@ -51,9 +57,22 @@ export interface UseWebSocketStudioReturn {
   isMaxReached: boolean;
   searchText: string;
   setSearchText: (v: string) => void;
+  searchMode: WsSearchMode;
+  setSearchMode: (v: WsSearchMode) => void;
   directionFilter: WsDirectionFilter;
   setDirectionFilter: (v: WsDirectionFilter) => void;
+  sizeFilter: WsSizeFilter;
+  setSizeFilter: (v: WsSizeFilter) => void;
+  timeFilter: WsTimeFilter;
+  setTimeFilter: (v: WsTimeFilter) => void;
+  contentTypeFilter: WsContentTypeFilter;
+  setContentTypeFilter: (v: WsContentTypeFilter) => void;
   clearMessages: () => void;
+  appendReplayFrame: (frame: WsFrame) => void;
+
+  bookmarkedIds: ReadonlySet<string>;
+  bookmarkedMessages: WsFrame[];
+  toggleBookmark: (id: string) => void;
 
   sentCount: number;
   receivedCount: number;

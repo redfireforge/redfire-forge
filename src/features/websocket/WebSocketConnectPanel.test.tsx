@@ -663,4 +663,143 @@ describe('WebSocketConnectPanel', () => {
       expect(screen.queryByTestId('transport-badge')).toBeNull();
     });
   });
+
+  describe('env variable warnings', () => {
+    it('shows no-env warning when URL has templates but no env selected', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'wss://{{host}}/ws' },
+      })} />);
+      expect(screen.getByTestId('env-no-env-warning')).toBeTruthy();
+      expect(screen.queryByTestId('env-unresolved-warning')).toBeNull();
+    });
+
+    it('shows unresolved warning when env is available but var not found', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'wss://{{unknown}}/ws' },
+      })} resolvedUrl="wss://{{unknown}}/ws" envVarMap={{ host: 'api.example.com' }} />);
+      expect(screen.getByTestId('env-unresolved-warning')).toBeTruthy();
+      expect(screen.queryByTestId('env-no-env-warning')).toBeNull();
+    });
+
+    it('shows env preview when env vars are resolved', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'wss://{{host}}/ws' },
+      })} resolvedUrl="wss://api.example.com/ws" envVarMap={{ host: 'api.example.com' }} />);
+      expect(screen.getByTestId('env-preview')).toBeTruthy();
+      expect(screen.getByTestId('env-preview').textContent).toContain('wss://api.example.com/ws');
+      expect(screen.queryByTestId('env-unresolved-warning')).toBeNull();
+    });
+
+    it('enables Connect for {{wsBaseUrl}}/ws when resolved URL is valid', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: '{{wsBaseUrl}}/ws' },
+      })} resolvedUrl="wss://api.example.com/ws" envVarMap={{ wsBaseUrl: 'wss://api.example.com' }} />);
+      const btn = screen.getByTestId('connect-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('no warnings when URL has no templates', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'wss://localhost/ws' },
+      })} />);
+      expect(screen.queryByTestId('env-no-env-warning')).toBeNull();
+      expect(screen.queryByTestId('env-unresolved-warning')).toBeNull();
+    });
+
+    it('detects templates in headers for no-env warning', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: {
+          url: 'wss://localhost/ws',
+          headers: [{ enabled: true, key: 'Authorization', value: 'Bearer {{token}}' }],
+        },
+      })} />);
+      expect(screen.getByTestId('env-no-env-warning')).toBeTruthy();
+    });
+
+    it('detects templates in query params for no-env warning', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: {
+          url: 'wss://localhost/ws',
+          queryParams: [{ enabled: true, key: 'auth', value: '{{token}}' }],
+        },
+      })} />);
+      expect(screen.getByTestId('env-no-env-warning')).toBeTruthy();
+    });
+
+    it('does not show unresolved warning when header vars are resolvable', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: {
+          url: 'wss://localhost/ws',
+          headers: [{ enabled: true, key: 'X-Base', value: '{{baseUrl}}' }],
+        },
+      })} resolvedUrl="wss://localhost/ws" envVarMap={{ baseUrl: 'https://api.example.com' }} />);
+      expect(screen.queryByTestId('env-unresolved-warning')).toBeNull();
+      expect(screen.queryByTestId('env-no-env-warning')).toBeNull();
+    });
+
+    it('shows unresolved warning for unresolvable header vars with env', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: {
+          url: 'wss://localhost/ws',
+          headers: [{ enabled: true, key: 'Authorization', value: 'Bearer {{unknown}}' }],
+        },
+      })} resolvedUrl="wss://localhost/ws" envVarMap={{ baseUrl: 'https://api.example.com' }} />);
+      expect(screen.getByTestId('env-unresolved-warning')).toBeTruthy();
+    });
+
+    it('shows unresolved warning for unresolvable query param vars with env', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: {
+          url: 'wss://localhost/ws',
+          queryParams: [{ enabled: true, key: 'auth', value: '{{missingVar}}' }],
+        },
+      })} resolvedUrl="wss://localhost/ws" envVarMap={{ baseUrl: 'https://api.example.com' }} />);
+      expect(screen.getByTestId('env-unresolved-warning')).toBeTruthy();
+    });
+
+    it('never shows both warnings simultaneously', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: 'wss://{{host}}/ws' },
+      })} resolvedUrl="wss://{{host}}/ws" envVarMap={{ baseUrl: 'https://api.example.com' }} />);
+      const unresolved = screen.queryByTestId('env-unresolved-warning');
+      const noEnv = screen.queryByTestId('env-no-env-warning');
+      expect(unresolved).toBeTruthy();
+      expect(noEnv).toBeNull();
+    });
+  });
+
+  describe('connection history', () => {
+    const historyEntries = [
+      { url: 'ws://localhost:8765', protocol: 'raw' as const, lastUsed: '2024-01-01T00:00:00Z', connectCount: 3 },
+      { url: 'wss://api.example.com/ws', protocol: 'auto' as const, lastUsed: '2024-01-02T00:00:00Z', connectCount: 1 },
+    ];
+
+    it('shows history trigger when history has entries', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} history={historyEntries} />);
+      expect(screen.getByTestId('url-history-trigger')).toBeTruthy();
+    });
+
+    it('shows Clear History button in dropdown', () => {
+      const onClear = vi.fn();
+      render(<WebSocketConnectPanel {...defaultProps()} history={historyEntries} onClearHistory={onClear} />);
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      expect(screen.getByTestId('url-history-clear-btn')).toBeTruthy();
+      expect(screen.getByTestId('url-history-clear-btn').textContent).toBe('Clear History');
+    });
+
+    it('calls onClearHistory and closes dropdown on click', () => {
+      const onClear = vi.fn();
+      render(<WebSocketConnectPanel {...defaultProps()} history={historyEntries} onClearHistory={onClear} />);
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      fireEvent.click(screen.getByTestId('url-history-clear-btn'));
+      expect(onClear).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('url-history-dropdown')).toBeNull();
+    });
+
+    it('does not show Clear History button when onClearHistory is not provided', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} history={historyEntries} />);
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      expect(screen.queryByTestId('url-history-clear-btn')).toBeNull();
+    });
+  });
 });

@@ -99,7 +99,7 @@ function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel 
       maxReconnectAttempts: Math.min(50, Math.max(1, maxAttempts)),
       reconnectIntervalMs: Math.min(60000, Math.max(500, retryInterval)),
       backoffMultiplier,
-      maxMessages: Math.min(10000, Math.max(100, maxMsgs)),
+      maxMessages: Math.min(50000, Math.max(100, maxMsgs)),
       notes: notes.trim() || undefined,
     });
   };
@@ -113,7 +113,7 @@ function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel 
   };
 
   return (
-    <div className="ws-editor-overlay" onKeyDown={handleKeyDown} data-testid="profile-editor-modal">
+    <div className="ws-editor-overlay" onKeyDown={handleKeyDown} onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }} data-testid="profile-editor-modal">
       <div className="ws-editor-modal">
         <div className="ws-editor-header">
           <span className="ws-editor-title">{initial ? 'Edit Profile' : 'New Profile'}</span>
@@ -220,9 +220,9 @@ function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel 
                     type="number"
                     className="ws-editor-input ws-editor-input-sm"
                     value={maxMsgs}
-                    onChange={(e) => setMaxMsgs(Number(e.target.value) || 1000)}
+                    onChange={(e) => setMaxMsgs(Number(e.target.value) || 10000)}
                     min={100}
-                    max={10000}
+                    max={50000}
                   />
                 </div>
               </div>
@@ -247,9 +247,9 @@ function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel 
                 type="number"
                 className="ws-editor-input ws-editor-input-sm"
                 value={maxMsgs}
-                onChange={(e) => setMaxMsgs(Number(e.target.value) || 1000)}
+                onChange={(e) => setMaxMsgs(Number(e.target.value) || 10000)}
                 min={100}
-                max={10000}
+                max={50000}
               />
             </div>
           )}
@@ -304,7 +304,8 @@ export interface WebSocketSavedConnectionsProps {
 
 function profileHasEnvVars(profile: WsConnectionProfile): boolean {
   if (profile.url.includes('{{')) return true;
-  return profile.headers.some((h) => h.value.includes('{{') || h.key.includes('{{'));
+  if (profile.headers.some((h) => h.value.includes('{{') || h.key.includes('{{'))) return true;
+  return profile.queryParams.some((p) => p.value.includes('{{') || p.key.includes('{{'));
 }
 
 function profileHasMtls(profile: WsConnectionProfile): boolean {
@@ -536,7 +537,6 @@ export function WebSocketSavedConnections({
                 <div className="ws-saved-card-name">{profile.name}</div>
                 <div className="ws-saved-card-url">{profile.url}</div>
                 <div className="ws-saved-card-tags">
-                  <span className="ws-saved-tag">Updated {formatTimeAgo(profile.updatedAt)}</span>
                   {hCount > 0 && (
                     <span className="ws-saved-tag">{hCount} header{hCount > 1 ? 's' : ''}</span>
                   )}
@@ -558,6 +558,7 @@ export function WebSocketSavedConnections({
                   {profile.subprotocols && (
                     <span className="ws-saved-tag">{profile.subprotocols}</span>
                   )}
+                  <span className="ws-saved-card-updated">Updated {formatTimeAgo(profile.updatedAt)}</span>
                 </div>
               </div>
               <div className="ws-saved-card-actions" onClick={(e) => e.stopPropagation()}>

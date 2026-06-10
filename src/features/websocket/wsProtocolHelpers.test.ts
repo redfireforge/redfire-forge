@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFrame } from '../../shared/websocket/types';
+import { createFrame, type WsFrame } from '../../shared/websocket/types';
 import {
   buildSioMeta,
   buildStompMeta,
@@ -197,6 +197,18 @@ describe('buildGqlWsInitAction', () => {
 // ── applyFilters ──────────────────────────────────────────────────────────────
 
 describe('applyFilters', () => {
+  const defaultOpts = {
+    searchText: '',
+    searchMode: 'text' as const,
+    directionFilter: 'all' as const,
+    sizeFilter: 'all' as const,
+    timeFilter: 'all' as const,
+    contentTypeFilter: 'all' as const,
+    nowMs: Date.now(),
+  };
+  const filter = (msgs: WsFrame[], overrides: Partial<typeof defaultOpts> & { bookmarkedMessages?: WsFrame[] } = {}) =>
+    applyFilters(msgs, { ...defaultOpts, ...overrides });
+
   const messages = [
     { ...createFrame('sent', 'text', 'hello world'), protocolMeta: undefined },
     { ...createFrame('received', 'text', 'goodbye'), protocolMeta: undefined },
@@ -204,35 +216,257 @@ describe('applyFilters', () => {
   ];
 
   it('returns all when no filters active', () => {
-    expect(applyFilters(messages, '', 'all')).toHaveLength(3);
+    expect(filter(messages)).toHaveLength(3);
   });
 
   it('filters by direction — sent', () => {
-    expect(applyFilters(messages, '', 'sent')).toHaveLength(2);
+    expect(filter(messages, { directionFilter: 'sent' })).toHaveLength(2);
   });
 
   it('filters by direction — received', () => {
-    expect(applyFilters(messages, '', 'received')).toHaveLength(1);
+    expect(filter(messages, { directionFilter: 'received' })).toHaveLength(1);
   });
 
   it('filters by search text in data', () => {
-    expect(applyFilters(messages, 'hello', 'all')).toHaveLength(1);
+    expect(filter(messages, { searchText: 'hello' })).toHaveLength(1);
   });
 
   it('filters by search text in protocolMeta.summary', () => {
-    expect(applyFilters(messages, 'summary', 'all')).toHaveLength(1);
+    expect(filter(messages, { searchText: 'summary' })).toHaveLength(1);
   });
 
   it('combines direction and search filters', () => {
-    expect(applyFilters(messages, 'hello', 'sent')).toHaveLength(1);
-    expect(applyFilters(messages, 'hello', 'received')).toHaveLength(0);
+    expect(filter(messages, { searchText: 'hello', directionFilter: 'sent' })).toHaveLength(1);
+    expect(filter(messages, { searchText: 'hello', directionFilter: 'received' })).toHaveLength(0);
   });
 
   it('search is case-insensitive', () => {
-    expect(applyFilters(messages, 'HELLO', 'all')).toHaveLength(1);
+    expect(filter(messages, { searchText: 'HELLO' })).toHaveLength(1);
   });
 
   it('ignores whitespace-only search text', () => {
-    expect(applyFilters(messages, '   ', 'all')).toHaveLength(3);
+    expect(filter(messages, { searchText: '   ' })).toHaveLength(3);
+  });
+
+  it('returns bookmarkedMessages when direction is bookmarked', () => {
+    const bookmarks = [messages[1]];
+    const result = filter(messages, { directionFilter: 'bookmarked', bookmarkedMessages: bookmarks });
+    expect(result).toHaveLength(1);
+    expect(result[0].data).toBe('goodbye');
+  });
+
+  it('returns empty array when direction is bookmarked and no bookmarks provided', () => {
+    expect(filter(messages, { directionFilter: 'bookmarked' })).toHaveLength(0);
+  });
+
+  it('applies search to bookmarked messages', () => {
+    const bookmarks = [messages[0], messages[1]];
+    expect(filter(messages, { searchText: 'hello', directionFilter: 'bookmarked', bookmarkedMessages: bookmarks })).toHaveLength(1);
+  });
+
+  // ── Phase 14: Regex search ──────────────────────────────────────────────────
+
+  it('regex search matches pattern', () => {
+    expect(filter(messages, { searchText: 'hel+o', searchMode: 'regex' })).toHaveLength(1);
+  });
+
+  it('regex search is case-insensitive', () => {
+    expect(filter(messages, { searchText: 'HELLO', searchMode: 'regex' })).toHaveLength(1);
+  });
+
+  it('invalid regex returns unfiltered by search', () => {
+    expect(filter(messages, { searchText: '[invalid', searchMode: 'regex' })).toHaveLength(3);
+  });
+
+  it('regex matches protocolMeta.summary', () => {
+    expect(filter(messages, { searchText: 'test.*sum', searchMode: 'regex' })).toHaveLength(1);
+  });
+
+  // ── Phase 14: JSONPath search ───────────────────────────────────────────────
+
+  it('jsonpath existence check — matches messages with path', () => {
+    const jsonMsgs = [
+      { ...createFrame('sent', 'text', '{"type":"error","code":500}'), protocolMeta: undefined },
+      { ...createFrame('received', 'text', '{"type":"ok"}'), protocolMeta: undefined },
+      { ...createFrame('sent', 'text', 'not json'), protocolMeta: undefined },
+    ];
+    expect(filter(jsonMsgs, { searchText: '$.type', searchMode: 'jsonpath' })).toHaveLength(2);
+  });
+
+  it('jsonpath value match — $.type=error', () => {
+    const jsonMsgs = [
+      { ...createFrame('sent', 'text', '{"type":"error","code":500}'), protocolMeta: undefined },
+      { ...createFrame('received', 'text', '{"type":"ok"}'), protocolMeta: undefined },
+    ];
+    expect(filter(jsonMsgs, { searchText: '$.type=error', searchMode: 'jsonpath' })).toHaveLength(1);
+    expect(filter(jsonMsgs, { searchText: '$.type=Error', searchMode: 'jsonpath' })).toHaveLength(1);
+  });
+
+  it('jsonpath excludes non-JSON messages', () => {
+    const mixedMsgs = [
+      { ...createFrame('sent', 'text', '{"name":"test"}'), protocolMeta: undefined },
+      { ...createFrame('sent', 'text', 'plain text'), protocolMeta: undefined },
+      { ...createFrame('sent', 'binary', 'AAAA'), protocolMeta: undefined },
+    ];
+    expect(filter(mixedMsgs, { searchText: '$.name', searchMode: 'jsonpath' })).toHaveLength(1);
+  });
+
+  it('jsonpath handles missing path gracefully', () => {
+    const jsonMsgs = [
+      { ...createFrame('sent', 'text', '{"type":"ok"}'), protocolMeta: undefined },
+    ];
+    expect(filter(jsonMsgs, { searchText: '$.nonexistent', searchMode: 'jsonpath' })).toHaveLength(0);
+  });
+
+  // ── Phase 14: Size filter ───────────────────────────────────────────────────
+
+  it('size filter — lt1k', () => {
+    const small = { ...createFrame('sent', 'text', 'hi'), protocolMeta: undefined };
+    const big = { ...createFrame('sent', 'text', 'x'.repeat(2000)), protocolMeta: undefined };
+    expect(filter([small, big], { sizeFilter: 'lt1k' })).toHaveLength(1);
+  });
+
+  it('size filter — 1k-10k', () => {
+    const small = { ...createFrame('sent', 'text', 'hi'), protocolMeta: undefined };
+    const mid = { ...createFrame('sent', 'text', 'x'.repeat(5000)), protocolMeta: undefined };
+    const huge = { ...createFrame('sent', 'text', 'x'.repeat(11000)), protocolMeta: undefined };
+    expect(filter([small, mid, huge], { sizeFilter: '1k-10k' })).toHaveLength(1);
+    expect(filter([small, mid, huge], { sizeFilter: '1k-10k' })[0]).toBe(mid);
+  });
+
+  it('size filter — gt10k', () => {
+    const small = { ...createFrame('sent', 'text', 'hi'), protocolMeta: undefined };
+    const huge = { ...createFrame('sent', 'text', 'x'.repeat(11000)), protocolMeta: undefined };
+    expect(filter([small, huge], { sizeFilter: 'gt10k' })).toHaveLength(1);
+    expect(filter([small, huge], { sizeFilter: 'gt10k' })[0].data.length).toBeGreaterThan(10000);
+  });
+
+  // ── Phase 14: Time filter ───────────────────────────────────────────────────
+
+  it('time filter — last30s', () => {
+    const now = Date.now();
+    const recent = { ...createFrame('sent', 'text', 'recent'), protocolMeta: undefined };
+    recent.timestamp = new Date(now - 10_000).toISOString();
+    const old = { ...createFrame('sent', 'text', 'old'), protocolMeta: undefined };
+    old.timestamp = new Date(now - 60_000).toISOString();
+    expect(filter([recent, old], { timeFilter: 'last30s', nowMs: now })).toHaveLength(1);
+    expect(filter([recent, old], { timeFilter: 'last30s', nowMs: now })[0].data).toBe('recent');
+  });
+
+  it('time filter — last5m', () => {
+    const now = Date.now();
+    const recent = { ...createFrame('sent', 'text', 'recent'), protocolMeta: undefined };
+    recent.timestamp = new Date(now - 60_000).toISOString();
+    const old = { ...createFrame('sent', 'text', 'old'), protocolMeta: undefined };
+    old.timestamp = new Date(now - 600_000).toISOString();
+    expect(filter([recent, old], { timeFilter: 'last5m', nowMs: now })).toHaveLength(1);
+    expect(filter([recent, old], { timeFilter: 'last5m', nowMs: now })[0].data).toBe('recent');
+  });
+
+  it('time filter — last30m', () => {
+    const now = Date.now();
+    const recent = { ...createFrame('sent', 'text', 'recent'), protocolMeta: undefined };
+    recent.timestamp = new Date(now - 600_000).toISOString();
+    const old = { ...createFrame('sent', 'text', 'old'), protocolMeta: undefined };
+    old.timestamp = new Date(now - 3_600_000).toISOString();
+    expect(filter([recent, old], { timeFilter: 'last30m', nowMs: now })).toHaveLength(1);
+    expect(filter([recent, old], { timeFilter: 'last30m', nowMs: now })[0].data).toBe('recent');
+  });
+
+  // ── Phase 14: Content type filter ───────────────────────────────────────────
+
+  it('content type filter — json', () => {
+    const jsonMsg = { ...createFrame('sent', 'text', '{"key":"val"}'), protocolMeta: undefined };
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    expect(filter([jsonMsg, textMsg], { contentTypeFilter: 'json' })).toHaveLength(1);
+  });
+
+  it('content type filter — text (non-JSON only)', () => {
+    const jsonMsg = { ...createFrame('sent', 'text', '{"key":"val"}'), protocolMeta: undefined };
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    const binMsg = { ...createFrame('sent', 'binary', 'AAAA'), protocolMeta: undefined };
+    expect(filter([jsonMsg, textMsg, binMsg], { contentTypeFilter: 'text' })).toHaveLength(1);
+    expect(filter([jsonMsg, textMsg, binMsg], { contentTypeFilter: 'text' })[0].data).toBe('hello');
+  });
+
+  it('content type filter — control', () => {
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    const pingMsg = { ...createFrame('sent', 'ping', ''), protocolMeta: undefined };
+    expect(filter([textMsg, pingMsg], { contentTypeFilter: 'control' })).toHaveLength(1);
+  });
+
+  it('content type filter — binary', () => {
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    const binMsg = { ...createFrame('sent', 'binary', 'AAAA'), protocolMeta: undefined };
+    expect(filter([textMsg, binMsg], { contentTypeFilter: 'binary' })).toHaveLength(1);
+  });
+
+  it('content type filter — text excludes system packets', () => {
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    const sioPing: WsFrame = {
+      ...createFrame('sent', 'text', '2'),
+      protocolMeta: { protocol: 'socket-io', packetType: 'PING', summary: 'PING', isSystemPacket: true },
+    };
+    expect(filter([textMsg, sioPing], { contentTypeFilter: 'text' })).toHaveLength(1);
+    expect(filter([textMsg, sioPing], { contentTypeFilter: 'control' })).toHaveLength(1);
+    expect(filter([textMsg, sioPing], { contentTypeFilter: 'control' })[0].data).toBe('2');
+  });
+
+  it('content type filter — control detects legacy isSystem frames', () => {
+    const sysFrame = { ...createFrame('received', 'text', 'Connected to ws://localhost'), protocolMeta: undefined } as WsFrame & { isSystem?: boolean };
+    sysFrame.isSystem = true;
+    const textMsg = { ...createFrame('sent', 'text', 'hello'), protocolMeta: undefined };
+    expect(filter([sysFrame as WsFrame, textMsg], { contentTypeFilter: 'text' })).toHaveLength(1);
+    expect(filter([sysFrame as WsFrame, textMsg], { contentTypeFilter: 'text' })[0].data).toBe('hello');
+    expect(filter([sysFrame as WsFrame, textMsg], { contentTypeFilter: 'control' })).toHaveLength(1);
+    expect(filter([sysFrame as WsFrame, textMsg], { contentTypeFilter: 'control' })[0].data).toContain('Connected');
+  });
+
+  it('regex search also matches namespace', () => {
+    const msg: WsFrame = {
+      ...createFrame('sent', 'text', 'data'),
+      protocolMeta: { protocol: 'socket-io', packetType: 'EVENT', summary: 'EVENT: test', namespace: '/admin' },
+    };
+    expect(filter([msg], { searchText: 'admin', searchMode: 'regex' })).toHaveLength(1);
+    expect(filter([msg], { searchText: 'xyz', searchMode: 'regex' })).toHaveLength(0);
+  });
+
+  // ── Phase 14: Performance ────────────────────────────────────────────────────
+
+  it('filters 10,000 messages in under 100ms (text search)', () => {
+    const largeMsgs: WsFrame[] = Array.from({ length: 10_000 }, (_, i) => ({
+      ...createFrame(i % 2 === 0 ? 'sent' : 'received', 'text', `message-${i}-data-${i % 100 === 0 ? 'special' : 'normal'}`),
+      protocolMeta: undefined,
+    }));
+    const start = performance.now();
+    const result = filter(largeMsgs, { searchText: 'special' });
+    const elapsed = performance.now() - start;
+    expect(result.length).toBe(100);
+    expect(elapsed).toBeLessThan(100);
+  });
+
+  it('filters 10,000 messages in under 100ms (jsonpath)', () => {
+    const largeMsgs: WsFrame[] = Array.from({ length: 10_000 }, (_, i) => ({
+      ...createFrame('sent', 'text', JSON.stringify({ idx: i, type: i % 50 === 0 ? 'error' : 'ok' })),
+      protocolMeta: undefined,
+    }));
+    const start = performance.now();
+    const result = filter(largeMsgs, { searchText: '$.type=error', searchMode: 'jsonpath' });
+    const elapsed = performance.now() - start;
+    expect(result.length).toBe(200);
+    expect(elapsed).toBeLessThan(100);
+  });
+
+  // ── Phase 14: Composed filters ──────────────────────────────────────────────
+
+  it('composes direction + content type + search', () => {
+    const msgs = [
+      { ...createFrame('sent', 'text', '{"type":"error"}'), protocolMeta: undefined },
+      { ...createFrame('received', 'text', '{"type":"error"}'), protocolMeta: undefined },
+      { ...createFrame('sent', 'text', 'plain'), protocolMeta: undefined },
+    ];
+    const result = filter(msgs, { directionFilter: 'sent', contentTypeFilter: 'json', searchText: 'error' });
+    expect(result).toHaveLength(1);
+    expect(result[0].direction).toBe('sent');
   });
 });

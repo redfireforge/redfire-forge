@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp } from './wsMessageUtils';
+import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp, hasUnresolvedVars, buildWsEnvVarMap, buildResolvedEffectiveUrl } from './wsMessageUtils';
 
 describe('isValidJson', () => {
   it('returns true for valid JSON object', () => {
@@ -179,6 +179,150 @@ describe('resolveEnvVars', () => {
   });
 });
 
+describe('hasUnresolvedVars', () => {
+  it('returns true when text contains {{var}}', () => {
+    expect(hasUnresolvedVars('wss://{{host}}/ws')).toBe(true);
+  });
+
+  it('returns false when text has no placeholders', () => {
+    expect(hasUnresolvedVars('wss://localhost/ws')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(hasUnresolvedVars('')).toBe(false);
+  });
+
+  it('returns false for empty braces', () => {
+    expect(hasUnresolvedVars('{{}}')).toBe(false);
+  });
+
+  it('returns true when some vars remain after partial resolution', () => {
+    expect(hasUnresolvedVars('wss://api.example.com/{{path}}')).toBe(true);
+  });
+});
+
+describe('buildWsEnvVarMap', () => {
+  it('builds map from HTTPS base URL', () => {
+    const map = buildWsEnvVarMap('https://api.example.com', 'Staging', 'UserSvc');
+    expect(map.baseUrl).toBe('https://api.example.com');
+    expect(map.wsBaseUrl).toBe('wss://api.example.com');
+    expect(map.host).toBe('api.example.com');
+    expect(map.envName).toBe('Staging');
+    expect(map.svcName).toBe('UserSvc');
+  });
+
+  it('builds map from HTTP base URL', () => {
+    const map = buildWsEnvVarMap('http://localhost:8080', 'Dev', 'Gateway');
+    expect(map.baseUrl).toBe('http://localhost:8080');
+    expect(map.wsBaseUrl).toBe('ws://localhost:8080');
+    expect(map.host).toBe('localhost:8080');
+  });
+
+  it('omits empty values', () => {
+    const map = buildWsEnvVarMap('', '', '');
+    expect(Object.keys(map)).toHaveLength(0);
+  });
+
+  it('omits undefined values', () => {
+    const map = buildWsEnvVarMap(undefined, undefined, undefined);
+    expect(Object.keys(map)).toHaveLength(0);
+  });
+
+  it('handles base URL without protocol gracefully', () => {
+    const map = buildWsEnvVarMap('api.example.com', 'Prod', '');
+    expect(map.baseUrl).toBe('api.example.com');
+    expect(map.wsBaseUrl).toBe('api.example.com');
+    expect(map.host).toBe('api.example.com');
+    expect(map.envName).toBe('Prod');
+    expect(map.svcName).toBeUndefined();
+  });
+
+  it('handles base URL with trailing slash', () => {
+    const map = buildWsEnvVarMap('https://api.example.com/', 'Staging', '');
+    expect(map.host).toBe('api.example.com');
+  });
+
+  it('handles base URL with path', () => {
+    const map = buildWsEnvVarMap('https://api.example.com/v1', 'Staging', '');
+    expect(map.host).toBe('api.example.com');
+    expect(map.wsBaseUrl).toBe('wss://api.example.com/v1');
+  });
+
+  it('trims whitespace from values', () => {
+    const map = buildWsEnvVarMap('  https://api.example.com  ', '  Staging  ', '  Svc  ');
+    expect(map.baseUrl).toBe('https://api.example.com');
+    expect(map.envName).toBe('Staging');
+    expect(map.svcName).toBe('Svc');
+  });
+});
+
+describe('buildResolvedEffectiveUrl', () => {
+  const env = { host: 'api.example.com', token: 'abc123' };
+
+  it('resolves env vars in URL', () => {
+    const draft = { url: 'wss://{{host}}/ws', queryParams: [] };
+    expect(buildResolvedEffectiveUrl(draft, env)).toBe('wss://api.example.com/ws');
+  });
+
+  it('resolves env vars in query param values before encoding', () => {
+    const draft = {
+      url: 'wss://api.example.com/ws',
+      queryParams: [{ enabled: true, key: 'auth', value: '{{token}}' }],
+    };
+    const result = buildResolvedEffectiveUrl(draft, env);
+    expect(result).toBe('wss://api.example.com/ws?auth=abc123');
+    expect(result).not.toContain('%7B');
+  });
+
+  it('resolves env vars in query param keys', () => {
+    const draft = {
+      url: 'wss://api.example.com/ws',
+      queryParams: [{ enabled: true, key: '{{token}}', value: 'val' }],
+    };
+    expect(buildResolvedEffectiveUrl(draft, {})).toContain('%7B%7Btoken%7D%7D=val');
+    expect(buildResolvedEffectiveUrl(draft, env)).toBe('wss://api.example.com/ws?abc123=val');
+  });
+
+  it('URL-encodes resolved values with special chars', () => {
+    const draft = {
+      url: 'wss://api.example.com/ws',
+      queryParams: [{ enabled: true, key: 'q', value: '{{token}}' }],
+    };
+    const envSpecial = { token: 'a b&c=d' };
+    expect(buildResolvedEffectiveUrl(draft, envSpecial)).toBe(
+      'wss://api.example.com/ws?q=a%20b%26c%3Dd',
+    );
+  });
+
+  it('skips disabled params', () => {
+    const draft = {
+      url: 'wss://api.example.com/ws',
+      queryParams: [{ enabled: false, key: 'auth', value: '{{token}}' }],
+    };
+    expect(buildResolvedEffectiveUrl(draft, env)).toBe('wss://api.example.com/ws');
+  });
+
+  it('leaves unresolved vars in URL as-is', () => {
+    const draft = { url: 'wss://{{unknown}}/ws', queryParams: [] };
+    expect(buildResolvedEffectiveUrl(draft, env)).toBe('wss://{{unknown}}/ws');
+  });
+
+  it('returns just URL when no query params', () => {
+    const draft = { url: 'wss://localhost/ws', queryParams: [] };
+    expect(buildResolvedEffectiveUrl(draft, {})).toBe('wss://localhost/ws');
+  });
+
+  it('uses & separator when URL already has query string', () => {
+    const draft = {
+      url: 'wss://{{host}}/ws?existing=1',
+      queryParams: [{ enabled: true, key: 'auth', value: '{{token}}' }],
+    };
+    expect(buildResolvedEffectiveUrl(draft, env)).toBe(
+      'wss://api.example.com/ws?existing=1&auth=abc123',
+    );
+  });
+});
+
 describe('formatTimeAgo', () => {
   it('returns "just now" for timestamps < 60 seconds ago', () => {
     const now = new Date().toISOString();
@@ -195,9 +339,16 @@ describe('formatTimeAgo', () => {
     expect(formatTimeAgo(twoHoursAgo)).toBe('2h ago');
   });
 
-  it('returns days for timestamps 1-29 days ago', () => {
+  it('returns days for timestamps 1-6 days ago', () => {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     expect(formatTimeAgo(threeDaysAgo)).toBe('3d ago');
+  });
+
+  it('returns weeks for timestamps 7-29 days ago', () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    expect(formatTimeAgo(tenDaysAgo)).toBe('1w ago');
+    const twentyDaysAgo = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString();
+    expect(formatTimeAgo(twentyDaysAgo)).toBe('2w ago');
   });
 
   it('returns locale date string for timestamps >= 30 days ago', () => {
