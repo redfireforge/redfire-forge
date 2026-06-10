@@ -77,4 +77,29 @@ describe('processReceivedMessage', () => {
     expect(result.detectionNowDone).toBe(true);
     expect(onDetect).not.toHaveBeenCalled();
   });
+
+  it('auto-responds to Socket.IO OPEN on first message when detection happens from that same message', () => {
+    const onDetect = vi.fn();
+    const sioOpen = '0{"sid":"test123","upgrades":[],"pingTimeout":25000,"pingInterval":25000}';
+    const result = processReceivedMessage(sioOpen, false, 'auto', null, false, onDetect);
+    expect(result.detectionNowDone).toBe(true);
+    expect(onDetect).toHaveBeenCalled();
+    expect(result.autoRespond).not.toBeNull();
+    expect(result.autoRespond?.replyData).toBe('40');
+  });
+
+  it('auto-responds to STOMP heartbeat on first message when detection happens from URL-based prior detection', () => {
+    const detected = { protocol: 'stomp' as const, confidence: 'high' as const, reason: 'URL path contains /stomp' };
+    const result = processReceivedMessage('\n', false, 'auto', detected, true, noop);
+    expect(result.autoRespond).not.toBeNull();
+    expect(result.autoRespond?.replyData).toBe('\n');
+  });
+
+  it('auto-responds to graphql-ws ping when protocol is detected', () => {
+    const pingStr = JSON.stringify({ type: 'ping' });
+    const detected = { protocol: 'graphql-ws' as const, confidence: 'high' as const, reason: 'Subprotocol matches graphql-ws' };
+    const result = processReceivedMessage(pingStr, false, 'auto', detected, true, noop);
+    expect(result.autoRespond).not.toBeNull();
+    expect(JSON.parse(result.autoRespond!.replyData).type).toBe('pong');
+  });
 });

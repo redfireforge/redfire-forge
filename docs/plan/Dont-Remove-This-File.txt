@@ -18,7 +18,7 @@ Make sure to follow the mockup design as your reference.
 
 
 Any existing code coverage / bug should also fixed. 
-And as I mentioned, any code with monorithic or under 90% code coverage should be fixed. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 
+And as I mentioned, any code with monorithic or under 90% code coverage should be fixed. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. And finally run E2E tests and fix any issues.
 
 
 
@@ -58,3 +58,10 @@ Please thoroughly evaluate Phase 4A and if you find any issue or bug, please fix
 Pease thoroughly re-evaluate all of Phase 6C implemenations and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 
 
 please thoroughly re-evaluate Phase 6C plan and if you find any missing or issue, please update the plan. Then implmenet it. Then thoroughly re-evaluate the implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 
+
+
+
+
+Can you fix the following two issues? 
+All 40 tests pass. The act() warning is just informational (async template save)
+Any preexisting issues

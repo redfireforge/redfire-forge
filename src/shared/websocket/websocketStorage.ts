@@ -28,17 +28,33 @@ function isValidProfile(entry: unknown): entry is WsConnectionProfile {
   );
 }
 
+const VALID_PROTOCOL_MODES = new Set(['auto', 'raw', 'socket-io', 'stomp', 'graphql-ws']);
+const VALID_BACKOFF_MULTIPLIERS = new Set([1, 1.5, 2]);
+const VALID_TEMPLATE_FORMATS = new Set(['text', 'json', 'binary']);
+
+function clampInt(val: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(val)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(val)));
+}
+
 function normalizeProfile(p: WsConnectionProfile): WsConnectionProfile {
+  const rawBackoff = (p as unknown as Record<string, unknown>).backoffMultiplier;
   return {
     ...p,
     headers: Array.isArray(p.headers) ? p.headers : [],
     queryParams: Array.isArray(p.queryParams) ? p.queryParams : [],
     subprotocols: typeof p.subprotocols === 'string' ? p.subprotocols : '',
-    protocolMode: typeof p.protocolMode === 'string' ? p.protocolMode : 'auto',
+    protocolMode: typeof p.protocolMode === 'string' && VALID_PROTOCOL_MODES.has(p.protocolMode)
+      ? p.protocolMode : 'auto',
     autoReconnect: typeof p.autoReconnect === 'boolean' ? p.autoReconnect : false,
-    maxReconnectAttempts: typeof p.maxReconnectAttempts === 'number' ? p.maxReconnectAttempts : 5,
-    reconnectIntervalMs: typeof p.reconnectIntervalMs === 'number' ? p.reconnectIntervalMs : 3000,
-    maxMessages: typeof p.maxMessages === 'number' ? p.maxMessages : 1000,
+    maxReconnectAttempts: typeof p.maxReconnectAttempts === 'number'
+      ? clampInt(p.maxReconnectAttempts, 1, 50, 5) : 5,
+    reconnectIntervalMs: typeof p.reconnectIntervalMs === 'number'
+      ? clampInt(p.reconnectIntervalMs, 500, 60000, 3000) : 3000,
+    backoffMultiplier: typeof rawBackoff === 'number' && VALID_BACKOFF_MULTIPLIERS.has(rawBackoff)
+      ? rawBackoff as WsConnectionProfile['backoffMultiplier'] : undefined,
+    maxMessages: typeof p.maxMessages === 'number'
+      ? clampInt(p.maxMessages, 100, 50000, 1000) : 1000,
     notes: typeof p.notes === 'string' ? p.notes : '',
     createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
     updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : new Date().toISOString(),
@@ -53,6 +69,16 @@ function isValidTemplate(entry: unknown): entry is WsMessageTemplate {
     typeof e.name === 'string' &&
     typeof e.body === 'string'
   );
+}
+
+function normalizeTemplate(t: WsMessageTemplate): WsMessageTemplate {
+  return {
+    ...t,
+    format: typeof t.format === 'string' && VALID_TEMPLATE_FORMATS.has(t.format)
+      ? t.format : 'text',
+    createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
+    updatedAt: typeof t.updatedAt === 'string' ? t.updatedAt : new Date().toISOString(),
+  };
 }
 
 function parseArray<T>(raw: string, validator: (v: unknown) => v is T): T[] {
@@ -78,7 +104,7 @@ export async function saveWsProfiles(profiles: WsConnectionProfile[]): Promise<v
 export async function loadWsTemplates(): Promise<WsMessageTemplate[]> {
   const raw = await readKey(WS_TEMPLATES_KEY);
   if (!raw) return [];
-  return parseArray(raw, isValidTemplate);
+  return parseArray(raw, isValidTemplate).map(normalizeTemplate);
 }
 
 export async function saveWsTemplates(templates: WsMessageTemplate[]): Promise<void> {

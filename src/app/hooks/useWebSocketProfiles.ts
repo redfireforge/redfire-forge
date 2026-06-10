@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WsConnectionDraft, WsConnectionProfile, WsProtocolMode, WsBackoffMultiplier } from '../../shared/websocket/types';
+import type { WsConnectionDraft, WsConnectionProfile, WsProtocolMode, WsBackoffMultiplier, WsTlsConfig } from '../../shared/websocket/types';
 import { profileToDraft, resolveBackoffMultiplier } from '../../shared/websocket/types';
 import { loadWsProfiles, saveWsProfiles } from '../../shared/websocket/websocketStorage';
 
@@ -9,6 +9,21 @@ const VALID_PROTOCOL_MODES: ReadonlySet<string> = new Set<WsProtocolMode>([
 
 function isValidProtocolMode(value: unknown): value is WsProtocolMode {
   return typeof value === 'string' && VALID_PROTOCOL_MODES.has(value);
+}
+
+const VALID_BACKOFF_VALUES = new Set<number>([1, 1.5, 2]);
+
+function clamp(val: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(val)));
+}
+
+function sanitizeTlsConfig(raw: unknown): WsTlsConfig | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const obj = raw as Record<string, unknown>;
+  const tls: WsTlsConfig = {};
+  if (typeof obj.rejectUnauthorized === 'boolean') tls.rejectUnauthorized = obj.rejectUnauthorized;
+  if (typeof obj.caCert === 'string' && obj.caCert.length > 0) tls.caCert = obj.caCert;
+  return Object.keys(tls).length > 0 ? tls : undefined;
 }
 
 export interface UseWebSocketProfilesReturn {
@@ -123,6 +138,7 @@ export function useWebSocketProfiles(): UseWebSocketProfilesReturn {
         name: `${source.name} (copy)`,
         headers: source.headers.map((h) => ({ ...h })),
         queryParams: source.queryParams.map((p) => ({ ...p })),
+        tlsConfig: source.tlsConfig ? { ...source.tlsConfig } : undefined,
         createdAt: now,
         updatedAt: now,
       };
@@ -157,6 +173,7 @@ export function useWebSocketProfiles(): UseWebSocketProfilesReturn {
           errors.push(`Item ${i}: missing name or url`);
           continue;
         }
+        const rawBackoff = typeof obj.backoffMultiplier === 'number' ? obj.backoffMultiplier : undefined;
         valid.push({
           id: generateProfileId(),
           name: String(obj.name),
@@ -166,12 +183,13 @@ export function useWebSocketProfiles(): UseWebSocketProfilesReturn {
           subprotocols: typeof obj.subprotocols === 'string' ? obj.subprotocols : '',
           protocolMode: isValidProtocolMode(obj.protocolMode) ? obj.protocolMode : 'auto',
           autoReconnect: typeof obj.autoReconnect === 'boolean' ? obj.autoReconnect : false,
-          maxReconnectAttempts: typeof obj.maxReconnectAttempts === 'number' ? obj.maxReconnectAttempts : 5,
-          reconnectIntervalMs: typeof obj.reconnectIntervalMs === 'number' ? obj.reconnectIntervalMs : 3000,
-          backoffMultiplier: typeof obj.backoffMultiplier === 'number'
-            ? resolveBackoffMultiplier(obj.backoffMultiplier as WsBackoffMultiplier)
+          maxReconnectAttempts: typeof obj.maxReconnectAttempts === 'number' ? clamp(obj.maxReconnectAttempts, 1, 50) : 5,
+          reconnectIntervalMs: typeof obj.reconnectIntervalMs === 'number' ? clamp(obj.reconnectIntervalMs, 500, 60000) : 3000,
+          backoffMultiplier: rawBackoff !== undefined && VALID_BACKOFF_VALUES.has(rawBackoff)
+            ? resolveBackoffMultiplier(rawBackoff as WsBackoffMultiplier)
             : undefined,
-          maxMessages: typeof obj.maxMessages === 'number' ? obj.maxMessages : 1000,
+          maxMessages: typeof obj.maxMessages === 'number' ? clamp(obj.maxMessages, 100, 50000) : 1000,
+          tlsConfig: sanitizeTlsConfig(obj.tlsConfig),
           notes: typeof obj.notes === 'string' ? obj.notes : undefined,
           createdAt: now,
           updatedAt: now,

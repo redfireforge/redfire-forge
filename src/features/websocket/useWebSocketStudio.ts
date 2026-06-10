@@ -4,17 +4,13 @@ import {
   type WsConnectionDraft,
   type WsConnectionSnapshot,
   type WsFrame,
-  type WsReconnectState,
   type WsTlsConfig,
   createDefaultDraft,
-  createDefaultReconnectState,
   createDefaultTlsConfig,
   createFrame,
   hasCustomHeaders,
   hasTlsOverrides,
   getCloseCodeLabel,
-  DEFAULT_BACKOFF_MULTIPLIER,
-  type WsBackoffMultiplier,
 } from '../../shared/websocket/types';
 import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
 import {
@@ -24,7 +20,8 @@ import {
   type WsConnectionClosedPayload,
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
-import { resolveEnvVars, buildResolvedEffectiveUrl } from './wsMessageUtils';
+import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict } from './wsMessageUtils';
+import { toErrorMessage } from '../../shared/utils/helpers';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { detectProtocol, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
@@ -36,11 +33,10 @@ import {
 import { processReceivedMessage } from './wsMessageProcessing';
 import { useWebSocketBookmarks } from './useWebSocketBookmarks';
 import { useWebSocketUptime } from './useWebSocketUptime';
+import { useWebSocketReconnect } from './useWebSocketReconnect';
 import {
   DEFAULT_MAX_MESSAGES,
   PROXY_POLL_INTERVAL_MS,
-  DEFAULT_RECONNECT_INTERVAL_MS,
-  DEFAULT_MAX_RECONNECT_ATTEMPTS,
   FILTER_TICK_INTERVAL_MS,
   formatCloseFrame,
   type WsDirectionFilter,
@@ -70,13 +66,8 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   const [sentCount, setSentCount] = useState(0);
   const [receivedCount, setReceivedCount] = useState(0);
   const [transportMode, setTransportMode] = useState<WsTransportMode>('direct');
-  const [autoReconnect, setAutoReconnect] = useState(false);
-  const [reconnectState, setReconnectState] = useState<WsReconnectState>(createDefaultReconnectState);
 
   const { uptime, connectedAtRef, startUptimeTimer, resetConnectionTiming } = useWebSocketUptime();
-  const [reconnectIntervalMs, setReconnectIntervalMs] = useState(DEFAULT_RECONNECT_INTERVAL_MS);
-  const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(DEFAULT_MAX_RECONNECT_ATTEMPTS);
-  const [backoffMultiplier, setBackoffMultiplier] = useState<WsBackoffMultiplier>(DEFAULT_BACKOFF_MULTIPLIER);
   const [protocolMode, setProtocolMode] = useState<WsProtocolMode>('auto');
   const [detectedProtocol, setDetectedProtocol] = useState<WsProtocolDetectionResult | null>(null);
   const [tlsConfig, setTlsConfigFull] = useState<WsTlsConfig>(createDefaultTlsConfig);
@@ -94,15 +85,18 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   const proxyCursorRef = useRef(0);
   const mountedRef = useRef(true);
   const manualDisconnectRef = useRef(false);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoReconnectRef = useRef(autoReconnect);
-  const reconnectIntervalMsRef = useRef(reconnectIntervalMs);
-  const maxReconnectAttemptsRef = useRef(maxReconnectAttempts);
-  const backoffMultiplierRef = useRef(backoffMultiplier);
-  const reconnectAttemptRef = useRef(0);
-  const reconnectLostAtRef = useRef<number | undefined>(undefined);
-  const lastReconnectErrorRef = useRef<string | undefined>(undefined);
-  const reconnectingRef = useRef(false);
+  const connectFnRef = useRef<() => void>(() => {});
+
+  const {
+    autoReconnect, setAutoReconnect,
+    reconnectState,
+    reconnectIntervalMs, setReconnectIntervalMs,
+    maxReconnectAttempts, setMaxReconnectAttempts,
+    backoffMultiplier, setBackoffMultiplier,
+    cancelReconnect, retryNow,
+    scheduleReconnectRef, reconnectingRef, lastReconnectErrorRef,
+  } = useWebSocketReconnect(connectFnRef, mountedRef);
+
   const protocolModeRef = useRef(protocolMode);
   const detectedProtocolRef = useRef(detectedProtocol);
   const messageDetectionDoneRef = useRef(false);
@@ -123,10 +117,6 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     setDetectedProtocol(value);
   }, []);
   draftRef.current = draft;
-  autoReconnectRef.current = autoReconnect;
-  reconnectIntervalMsRef.current = reconnectIntervalMs;
-  maxReconnectAttemptsRef.current = maxReconnectAttempts;
-  backoffMultiplierRef.current = backoffMultiplier;
 
   const setDraft = useCallback((patch: Partial<WsConnectionDraft>) => {
     setDraftState((prev) => ({ ...prev, ...patch }));
@@ -256,7 +246,7 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
         }
       }
     }, PROXY_POLL_INTERVAL_MS);
-  }, [stopProxyPolling, appendMessages, resetConnectionTiming, updateDetectedProtocol]);
+  }, [stopProxyPolling, appendMessages, resetConnectionTiming, updateDetectedProtocol, scheduleReconnectRef]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {
     stopNativeListeners();
@@ -317,26 +307,16 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
       manualDisconnectRef.current = false;
     });
     unlistenClosedRef.current = unlistenClosed;
-  }, [stopNativeListeners, appendMessage, resetConnectionTiming, updateDetectedProtocol]);
-
-  const cancelReconnect = useCallback(() => {
-    if (reconnectTimerRef.current !== null) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    reconnectAttemptRef.current = 0;
-    reconnectLostAtRef.current = undefined;
-    lastReconnectErrorRef.current = undefined;
-    setReconnectState(createDefaultReconnectState(maxReconnectAttemptsRef.current));
-  }, []);
+  }, [stopNativeListeners, appendMessage, resetConnectionTiming, updateDetectedProtocol, lastReconnectErrorRef, scheduleReconnectRef]);
 
   // ── Cleanup ─────────────────────────────────────────────────────────────────
 
   const cleanupRef = useRef(() => {});
   cleanupRef.current = () => {
-    if (reconnectTimerRef.current !== null) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
+    // Only fully cancel reconnect on cleanup if NOT in a reconnect cycle
+    // (during reconnect, the reconnect hook manages its own timer)
+    if (!reconnectingRef.current) {
+      cancelReconnect();
     }
 
     if (wsRef.current) {
@@ -361,10 +341,6 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     stopNativeListeners();
     resetConnectionTiming();
   };
-
-  // ── Auto-Reconnect Scheduling ───────────────────────────────────────────────
-
-  const scheduleReconnectRef = useRef<() => void>(() => {});
 
   // ── Direct Transport ────────────────────────────────────────────────────────
 
@@ -394,20 +370,17 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     try {
       ws = protocols.length > 0 ? new WebSocket(effectiveUrl, protocols) : new WebSocket(effectiveUrl);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setConnection({ state: 'error', url: effectiveUrl, lastError: message });
+      setConnection({ state: 'error', url: effectiveUrl, lastError: toErrorMessage(err) });
       return;
     }
 
     wsRef.current = ws;
+    ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       const latencyMs = Date.now() - connectStart;
       connectedAtRef.current = Date.now();
-      reconnectAttemptRef.current = 0;
-      reconnectLostAtRef.current = undefined;
-      lastReconnectErrorRef.current = undefined;
-      setReconnectState(createDefaultReconnectState(maxReconnectAttemptsRef.current));
+      cancelReconnect();
       const proto = ws.protocol || 'none';
       setConnection({
         state: 'connected',
@@ -434,9 +407,23 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      const data = typeof event.data === 'string' ? event.data : String(event.data);
+      let data: string;
+      let isBinary = false;
+      if (typeof event.data === 'string') {
+        data = event.data;
+      } else if (event.data instanceof ArrayBuffer) {
+        isBinary = true;
+        const bytes = new Uint8Array(event.data);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        data = btoa(binary);
+      } else {
+        data = String(event.data);
+      }
       const result = processReceivedMessage(
-        data, false,
+        data, isBinary,
         protocolModeRef.current, detectedProtocolRef.current,
         messageDetectionDoneRef.current,
         (r) => { updateDetectedProtocol(r); },
@@ -501,7 +488,7 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
         manualDisconnectRef.current = false;
       }
     };
-  }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol, connectedAtRef]);
+  }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
 
   // ── Proxy Transport ─────────────────────────────────────────────────────────
 
@@ -543,13 +530,12 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
         tls: tlsPayload,
       });
 
+      if (!mountedRef.current) return;
+
       if (env.data) {
         proxyConnectionIdRef.current = env.data.connectionId;
         connectedAtRef.current = Date.now();
-        reconnectAttemptRef.current = 0;
-        reconnectLostAtRef.current = undefined;
-        lastReconnectErrorRef.current = undefined;
-        setReconnectState(createDefaultReconnectState(maxReconnectAttemptsRef.current));
+        cancelReconnect();
 
         if (protocolModeRef.current === 'auto') {
           const earlyResult = detectProtocol(effectiveUrl, subprotocols);
@@ -586,16 +572,18 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
           appendMessage(init.replyFrame);
           setSentCount((c) => c + 1);
         }
+      } else {
+        setConnection({ state: 'error', url: effectiveUrl, lastError: 'Server returned no connection data' });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       lastReconnectErrorRef.current = message;
       setConnection({ state: 'error', url: effectiveUrl, lastError: message });
       if (!manualDisconnectRef.current) {
         scheduleReconnectRef.current();
       }
     }
-  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol, connectedAtRef]);
+  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -606,7 +594,7 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
 
     manualDisconnectRef.current = false;
     if (!reconnectingRef.current) {
-      reconnectAttemptRef.current = 0;
+      cancelReconnect();
       updateDetectedProtocol(null);
       setSioServerParams(null);
     }
@@ -623,7 +611,7 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
         connectDirect();
       }
     }
-  }, [connectDirect, connectProxy, updateDetectedProtocol]);
+  }, [connectDirect, connectProxy, updateDetectedProtocol, cancelReconnect, reconnectingRef]);
 
   const disconnect = useCallback((detail?: WsCloseDetail) => {
     manualDisconnectRef.current = true;
@@ -666,6 +654,11 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
       wsRef.current.close(code, reason);
     } else if (wsRef.current) {
       wsRef.current.close(code, reason);
+      resetConnectionTiming();
+      setConnection((prev) => ({ ...prev, state: 'disconnected' }));
+    } else {
+      resetConnectionTiming();
+      setConnection((prev) => prev.state === 'disconnected' ? prev : { ...prev, state: 'disconnected' });
     }
   }, [stopProxyPolling, stopNativeListeners, resetConnectionTiming, cancelReconnect, appendMessage]);
 
@@ -690,22 +683,20 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
           })
           .catch((err) => {
             if (!mountedRef.current) return;
-            const errMsg = err instanceof Error ? err.message : String(err);
             setConnection((prev) => ({
               ...prev,
-              lastError: `Send failed: ${errMsg}`,
+              lastError: `Send failed: ${toErrorMessage(err)}`,
             }));
           });
       } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         if (isBinary) {
           try {
-            const binaryStr = atob(data);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let i = 0; i < binaryStr.length; i++) {
-              bytes[i] = binaryStr.charCodeAt(i);
-            }
-            wsRef.current.send(bytes);
-          } catch {
+            wsRef.current.send(decodeBase64ToBytesStrict(data) as Uint8Array<ArrayBuffer>);
+          } catch (err) {
+            setConnection((prev) => ({
+              ...prev,
+              lastError: `Binary send failed: ${toErrorMessage(err)}`,
+            }));
             return;
           }
         } else {
@@ -730,10 +721,9 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
       })
       .catch((err) => {
         if (!mountedRef.current) return;
-        const errMsg = err instanceof Error ? err.message : String(err);
         setConnection((prev) => ({
           ...prev,
-          lastError: `Ping failed: ${errMsg}`,
+          lastError: `Ping failed: ${toErrorMessage(err)}`,
         }));
       });
   }, [appendMessage]);
@@ -744,63 +734,8 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     setReceivedCount(0);
   }, []);
 
-  // Reconnect scheduling — uses ref to avoid stale closures over connect
-  scheduleReconnectRef.current = () => {
-    if (!autoReconnectRef.current || !mountedRef.current) return;
-
-    const attempt = reconnectAttemptRef.current + 1;
-    const max = maxReconnectAttemptsRef.current;
-
-    if (attempt > max) {
-      setReconnectState({
-        active: false,
-        attempt: max,
-        maxAttempts: max,
-        nextRetryAt: null,
-        lastError: lastReconnectErrorRef.current,
-        lostAt: reconnectLostAtRef.current,
-      });
-      return;
-    }
-
-    if (attempt === 1) {
-      reconnectLostAtRef.current = Date.now();
-    }
-
-    reconnectAttemptRef.current = attempt;
-    const multiplier = backoffMultiplierRef.current;
-    const delay = Math.round(reconnectIntervalMsRef.current * Math.pow(multiplier, attempt - 1));
-    const nextRetryAt = Date.now() + delay;
-
-    setReconnectState({
-      active: true,
-      attempt,
-      maxAttempts: max,
-      nextRetryAt,
-      lastError: lastReconnectErrorRef.current,
-      lostAt: reconnectLostAtRef.current,
-    });
-
-    reconnectTimerRef.current = setTimeout(() => {
-      if (!mountedRef.current) return;
-      reconnectTimerRef.current = null;
-      reconnectingRef.current = true;
-      connect();
-      reconnectingRef.current = false;
-    }, delay);
-  };
-
-  const retryNow = useCallback(() => {
-    if (reconnectTimerRef.current !== null) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    reconnectAttemptRef.current = 0;
-    reconnectLostAtRef.current = undefined;
-    manualDisconnectRef.current = false;
-    setReconnectState(createDefaultReconnectState(maxReconnectAttemptsRef.current));
-    connect();
-  }, [connect]);
+  // Wire connectFnRef so the reconnect hook can call connect()
+  connectFnRef.current = connect;
 
   useEffect(() => {
     return () => {

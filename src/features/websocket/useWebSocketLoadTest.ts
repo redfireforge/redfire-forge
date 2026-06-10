@@ -20,6 +20,7 @@ import {
   type LatencyTracker,
   type ThroughputSampler,
 } from './wsLoadTestMetrics';
+import { byteLength } from './wsMessageUtils';
 
 const MAX_RATE = 1000;
 const MAX_DURATION_SEC = 60;
@@ -143,7 +144,7 @@ export function useWebSocketLoadTest(
       const lastSeenIdx = lastSeenMsgIdRef.current
         ? msgs.findIndex((m) => m.id === lastSeenMsgIdRef.current)
         : -1;
-      const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : Math.max(0, len - 1);
+      const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
       if (startIdx < len) {
         processReceivedFrames(msgs.slice(startIdx));
       }
@@ -213,7 +214,7 @@ export function useWebSocketLoadTest(
     try {
       sendFnRef.current(withNonce);
       sentRef.current++;
-      bytesSentRef.current += withNonce.length;
+      bytesSentRef.current += byteLength(withNonce);
       return true;
     } catch {
       errorRef.current++;

@@ -1,5 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp, hasUnresolvedVars, buildWsEnvVarMap, buildResolvedEffectiveUrl } from './wsMessageUtils';
+import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp, hasUnresolvedVars, buildWsEnvVarMap, buildResolvedEffectiveUrl, decodeBase64ToBytes, decodeBase64ToBytesStrict } from './wsMessageUtils';
+
+describe('decodeBase64ToBytes', () => {
+  it('decodes valid base64 to Uint8Array', () => {
+    const bytes = decodeBase64ToBytes(btoa('hello'));
+    expect(Array.from(bytes)).toEqual(Array.from(new TextEncoder().encode('hello')));
+  });
+
+  it('falls back to UTF-8 encoding on invalid base64', () => {
+    const bytes = decodeBase64ToBytes('!!!not-base64!!!');
+    expect(Array.from(bytes)).toEqual(Array.from(new TextEncoder().encode('!!!not-base64!!!')));
+  });
+
+  it('handles empty string', () => {
+    const bytes = decodeBase64ToBytes(btoa(''));
+    expect(bytes.length).toBe(0);
+  });
+});
+
+describe('decodeBase64ToBytesStrict', () => {
+  it('decodes valid base64 to Uint8Array', () => {
+    const bytes = decodeBase64ToBytesStrict(btoa('world'));
+    expect(Array.from(bytes)).toEqual(Array.from(new TextEncoder().encode('world')));
+  });
+
+  it('throws on invalid base64', () => {
+    expect(() => decodeBase64ToBytesStrict('!!!not-base64!!!')).toThrow();
+  });
+
+  it('handles binary data round-trip', () => {
+    const original = [0, 128, 255, 1, 127];
+    let binary = '';
+    for (let i = 0; i < original.length; i++) {
+      binary += String.fromCharCode(original[i]);
+    }
+    const b64 = btoa(binary);
+    const decoded = decodeBase64ToBytesStrict(b64);
+    expect(Array.from(decoded)).toEqual(original);
+  });
+});
 
 describe('isValidJson', () => {
   it('returns true for valid JSON object', () => {

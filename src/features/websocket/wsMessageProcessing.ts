@@ -29,6 +29,7 @@ export function processReceivedMessage(
   const frameType = isBinary ? 'binary' : 'text';
   const frame = createFrame('received', frameType, data);
   let detectionNowDone = messageDetectionDone;
+  let effectiveDetected = detectedProtocol;
 
   // Protocol auto-detection on first message
   if (protocolMode === 'auto' && !messageDetectionDone && !isBinary) {
@@ -36,12 +37,13 @@ export function processReceivedMessage(
     const msgResult = detectFromMessage(data);
     if (msgResult) {
       onUpdateDetectedProtocol(msgResult);
+      effectiveDetected = msgResult;
     }
   }
 
   // Auto-respond (e.g. Socket.IO heartbeat, STOMP connected ACK)
   if (!isBinary) {
-    const autoResp = checkAutoRespond(frame, data, protocolMode, detectedProtocol);
+    const autoResp = checkAutoRespond(frame, data, protocolMode, effectiveDetected);
     if (autoResp) {
       return {
         frame,

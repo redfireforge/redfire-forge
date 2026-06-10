@@ -270,7 +270,7 @@ function matchesContentType(m: WsFrame, filter: WsContentTypeFilter): boolean {
 
 function textSearchMatch(m: WsFrame, needle: string): boolean {
   if (m.data.toLowerCase().includes(needle)) return true;
-  if (m.protocolMeta?.summary.toLowerCase().includes(needle)) return true;
+  if (m.protocolMeta?.summary?.toLowerCase().includes(needle)) return true;
   if (m.protocolMeta?.eventName?.toLowerCase().includes(needle)) return true;
   if (m.protocolMeta?.namespace?.toLowerCase().includes(needle)) return true;
   return false;

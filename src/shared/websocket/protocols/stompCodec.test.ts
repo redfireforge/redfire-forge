@@ -105,6 +105,12 @@ describe('stompCodec', () => {
       expect(frame.headers['path']).toBe('C\\nope');
     });
 
+    it('decodes \\r escape as carriage return (STOMP v1.2)', () => {
+      const raw = 'MESSAGE\nvalue:line1\\rline2\n\n\0';
+      const frame = decodeStompFrame(raw);
+      expect(frame.headers['value']).toBe('line1\rline2');
+    });
+
     it('decodes command case-insensitively (normalizes to uppercase)', () => {
       const raw = 'connected\nversion:1.2\n\n\0';
       const frame = decodeStompFrame(raw);
@@ -134,6 +140,11 @@ describe('stompCodec', () => {
     it('escapes header values', () => {
       const result = encodeStompFrame('SEND', { 'key:special': 'val\nnewline' });
       expect(result).toContain('key\\cspecial:val\\nnewline');
+    });
+
+    it('escapes carriage return in header values (STOMP v1.2)', () => {
+      const result = encodeStompFrame('SEND', { key: 'val\rwith\rcr' });
+      expect(result).toContain('key:val\\rwith\\rcr');
     });
 
     it('encodes multiple headers', () => {

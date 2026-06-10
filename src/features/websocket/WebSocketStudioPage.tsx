@@ -12,7 +12,7 @@ import {
   type WsConnectionTabContentHandle,
 } from './WsConnectionTabContent';
 import { buildWsEnvVarMap } from './wsMessageUtils';
-import type { WsPersistedTabState, WsViewTab } from '../../shared/websocket/types';
+import type { WsPersistedTabState, WsProtocolMode, WsViewTab } from '../../shared/websocket/types';
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import '../../styles/websocket-studio.css';
 
@@ -47,6 +47,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
   const tabUrls = useRef<Record<string, string>>({});
   const tabViewTabs = useRef<Record<string, WsViewTab>>({});
   const initialUrlsRef = useRef<Record<string, string>>({});
+  const initialProtocolsRef = useRef<Record<string, WsProtocolMode>>({});
   const initialViewTabsRef = useRef<Record<string, WsViewTab>>({});
   const [loaded, setLoaded] = useState(false);
 
@@ -172,21 +173,34 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
 
   const handleAddTab = useCallback(() => {
     const id = generateTabId();
-    setTabs((prev) => [...prev, { id, label: 'New Connection' }]);
+    let added = false;
+    setTabs((prev) => {
+      if (prev.length >= MAX_TABS) return prev;
+      added = true;
+      return [...prev, { id, label: 'New Connection' }];
+    });
+    if (!added) return;
     setActiveTabId(id);
     setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
     debouncedSave();
   }, [debouncedSave]);
 
   const handleAddTabWithUrl = useCallback(
-    (url: string) => {
+    (url: string, protocol?: WsProtocolMode) => {
       const id = generateTabId();
       const label = deriveTabLabel(url) ?? 'New Connection';
-      setTabs((prev) => [...prev, { id, label, url }]);
+      let added = false;
+      setTabs((prev) => {
+        if (prev.length >= MAX_TABS) return prev;
+        added = true;
+        return [...prev, { id, label, url }];
+      });
+      if (!added) return;
       setActiveTabId(id);
       setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
       tabUrls.current[id] = url;
       initialUrlsRef.current[id] = url;
+      if (protocol) initialProtocolsRef.current[id] = protocol;
       debouncedSave();
     },
     [debouncedSave],
@@ -201,7 +215,10 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
         if (!window.confirm('This connection is active. Close and disconnect?')) return;
       }
 
+      let removed = false;
       setTabs((prev) => {
+        if (prev.length <= 1) return prev;
+        removed = true;
         const filtered = prev.filter((t) => t.id !== id);
         if (activeTabId === id && filtered.length > 0) {
           const oldIdx = prev.findIndex((t) => t.id === id);
@@ -210,6 +227,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
         }
         return filtered;
       });
+      if (!removed) return;
       setConnectionStates((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -220,6 +238,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
       delete tabUrls.current[id];
       delete tabViewTabs.current[id];
       delete initialUrlsRef.current[id];
+      delete initialProtocolsRef.current[id];
       delete initialViewTabsRef.current[id];
       debouncedSave();
     },
@@ -256,12 +275,12 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
   );
 
   const addHistoryEntry = historyHook.addEntry;
-  const handleConnectionStateChange = useCallback((tabId: string, state: ConnectionStateHint) => {
+  const handleConnectionStateChange = useCallback((tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => {
     setConnectionStates((prev) => ({ ...prev, [tabId]: state }));
     if (state === 'connected') {
       const url = tabUrls.current[tabId];
       if (url) {
-        addHistoryEntry(url, 'auto');
+        addHistoryEntry(url, protocolMode ?? 'auto');
       }
     }
   }, [addHistoryEntry]);
@@ -323,6 +342,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
             onUrlChange={handleUrlChange}
             onViewTabChange={handleViewTabChange}
             initialUrl={initialUrlsRef.current[tab.id]}
+            initialProtocol={initialProtocolsRef.current[tab.id]}
             initialViewTab={initialViewTabsRef.current[tab.id]}
             history={historyHook.history}
             onClearHistory={historyHook.clearHistory}

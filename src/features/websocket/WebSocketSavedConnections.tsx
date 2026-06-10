@@ -188,71 +188,57 @@ function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel 
               </span>
             </label>
           </div>
-          {autoReconnect && (
-            <>
-              <div className="ws-reconnect-settings-row ws-editor-reconnect-row">
-                <div className="ws-editor-inline-field">
-                  <label className="ws-editor-field-label">Max Attempts</label>
-                  <input
-                    type="number"
-                    className="ws-editor-input ws-editor-input-sm"
-                    value={maxAttempts}
-                    onChange={(e) => setMaxAttempts(Number(e.target.value) || 5)}
-                    min={1}
-                    max={50}
-                  />
-                </div>
-                <div className="ws-editor-inline-field">
-                  <label className="ws-editor-field-label">Retry Interval (ms)</label>
-                  <input
-                    type="number"
-                    className="ws-editor-input ws-editor-input-sm"
-                    value={retryInterval}
-                    onChange={(e) => setRetryInterval(Number(e.target.value) || 3000)}
-                    min={500}
-                    max={60000}
-                    step={500}
-                  />
-                </div>
-                <div className="ws-editor-inline-field">
-                  <label className="ws-editor-field-label">Max Messages</label>
-                  <input
-                    type="number"
-                    className="ws-editor-input ws-editor-input-sm"
-                    value={maxMsgs}
-                    onChange={(e) => setMaxMsgs(Number(e.target.value) || 10000)}
-                    min={100}
-                    max={50000}
-                  />
-                </div>
-              </div>
-              <div className="ws-editor-field">
-                <label className="ws-editor-field-label">Backoff Multiplier</label>
-                <select
-                  className="ws-editor-input ws-editor-input-sm"
-                  value={backoffMultiplier}
-                  onChange={(e) => setBackoffMultiplier(Number(e.target.value) as WsBackoffMultiplier)}
-                >
-                  <option value={1}>None (fixed interval)</option>
-                  <option value={1.5}>1.5× (recommended)</option>
-                  <option value={2}>2× (exponential)</option>
-                </select>
-              </div>
-            </>
-          )}
-          {!autoReconnect && (
-            <div className="ws-editor-field">
-              <label className="ws-editor-field-label">Max Messages</label>
+          <div className={`ws-reconnect-settings-row ws-editor-reconnect-row${autoReconnect ? '' : ' ws-reconnect-settings-disabled'}`}>
+            <div className="ws-editor-inline-field">
+              <label className="ws-editor-field-label">Max Attempts</label>
               <input
                 type="number"
                 className="ws-editor-input ws-editor-input-sm"
-                value={maxMsgs}
-                onChange={(e) => setMaxMsgs(Number(e.target.value) || 10000)}
-                min={100}
-                max={50000}
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(Number(e.target.value) || 5)}
+                min={1}
+                max={50}
+                disabled={!autoReconnect}
               />
             </div>
-          )}
+            <div className="ws-editor-inline-field">
+              <label className="ws-editor-field-label">Retry Interval (ms)</label>
+              <input
+                type="number"
+                className="ws-editor-input ws-editor-input-sm"
+                value={retryInterval}
+                onChange={(e) => setRetryInterval(Number(e.target.value) || 3000)}
+                min={500}
+                max={60000}
+                step={500}
+                disabled={!autoReconnect}
+              />
+            </div>
+            <div className="ws-editor-inline-field">
+              <label className="ws-editor-field-label">Backoff Multiplier</label>
+              <select
+                className="ws-editor-input ws-editor-input-sm"
+                value={backoffMultiplier}
+                onChange={(e) => setBackoffMultiplier(Number(e.target.value) as WsBackoffMultiplier)}
+                disabled={!autoReconnect}
+              >
+                <option value={1}>None (fixed interval)</option>
+                <option value={1.5}>1.5×</option>
+                <option value={2}>2× (recommended)</option>
+              </select>
+            </div>
+          </div>
+          <div className="ws-editor-field">
+            <label className="ws-editor-field-label">Max Messages</label>
+            <input
+              type="number"
+              className="ws-editor-input ws-editor-input-sm"
+              value={maxMsgs}
+              onChange={(e) => setMaxMsgs(Number(e.target.value) || PROFILE_DEFAULTS.maxMessages)}
+              min={100}
+              max={50000}
+            />
+          </div>
           <div className="ws-editor-field">
             <label className="ws-editor-field-label">Notes</label>
             <textarea

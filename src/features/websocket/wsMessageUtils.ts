@@ -6,6 +6,25 @@
 // Re-export shared JSON helpers so existing imports from wsMessageUtils don't break
 export { isValidJson, prettyJson } from '../../shared/utils/helpers';
 
+/** Decode a base64 string to Uint8Array. Falls back to UTF-8 encoding on decode error. */
+export function decodeBase64ToBytes(data: string): Uint8Array {
+  try {
+    return decodeBase64ToBytesStrict(data);
+  } catch {
+    return new TextEncoder().encode(data);
+  }
+}
+
+/** Decode a base64 string to Uint8Array. Throws on invalid base64. */
+export function decodeBase64ToBytesStrict(data: string): Uint8Array {
+  const binaryStr = atob(data);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
 /** Check if a WebSocket URL starts with ws:// or wss:// (allows {{var}} templates) */
 export function isValidWsUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -113,16 +132,7 @@ export function formatTimeAgo(isoDate: string): string {
 
 /** Binary row preview: [N bytes] 0x.. 0x.. ... */
 export function buildBinaryPreview(data: string, byteCount: number): string {
-  let bytes: Uint8Array;
-  try {
-    const binaryStr = atob(data);
-    bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
-  } catch {
-    bytes = new TextEncoder().encode(data);
-  }
+  const bytes = decodeBase64ToBytes(data);
 
   const count = byteCount > 0 ? byteCount : bytes.length;
   const maxShow = 8;
@@ -186,15 +196,7 @@ export interface HexDumpLine {
 export function buildHexDumpLines(data: string, isBinary = false): HexDumpLine[] {
   let bytes: Uint8Array;
   if (isBinary) {
-    try {
-      const binaryStr = atob(data);
-      bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-    } catch {
-      bytes = new TextEncoder().encode(data);
-    }
+    bytes = decodeBase64ToBytes(data);
   } else {
     bytes = new TextEncoder().encode(data);
   }

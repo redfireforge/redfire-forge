@@ -573,7 +573,7 @@ describe('WsConnectionTabBar — History Dropdown', () => {
     render(<WsConnectionTabBar {...props} />);
     fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
     fireEvent.click(screen.getByTestId('conn-tab-history-item-ws://echo.example.com'));
-    expect(onAddWithUrl).toHaveBeenCalledWith('ws://echo.example.com');
+    expect(onAddWithUrl).toHaveBeenCalledWith('ws://echo.example.com', 'auto');
   });
 
   it('closes dropdown after selecting history item', () => {
