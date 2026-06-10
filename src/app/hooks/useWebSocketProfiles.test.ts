@@ -334,4 +334,165 @@ describe('useWebSocketProfiles', () => {
     expect(stompProfile?.protocolMode).toBe('stomp');
     expect(gqlProfile?.protocolMode).toBe('graphql-ws');
   });
+
+  it('handles load error gracefully', async () => {
+    mockLoad.mockRejectedValue(new Error('disk full'));
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe('disk full');
+    expect(result.current.profiles).toEqual([]);
+  });
+
+  it('handles save error during persist', async () => {
+    mockLoad.mockResolvedValue([]);
+    mockSave.mockRejectedValue(new Error('write failed'));
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.saveProfile({
+        name: 'Fail',
+        url: 'wss://fail.com',
+        headers: [],
+        queryParams: [],
+        subprotocols: '',
+        autoReconnect: false,
+        maxReconnectAttempts: 5,
+        reconnectIntervalMs: 3000,
+        maxMessages: 1000,
+      });
+    });
+
+    expect(result.current.error).toBe('write failed');
+  });
+
+  it('importProfiles clamps numeric fields within valid range', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const json = JSON.stringify([{
+      name: 'Clamped',
+      url: 'wss://clamp.com',
+      maxReconnectAttempts: 999,
+      reconnectIntervalMs: 1,
+      maxMessages: 0,
+    }]);
+
+    let importResult: { imported: number; errors: string[] } = { imported: 0, errors: [] };
+    await act(async () => {
+      importResult = await result.current.importProfiles(json);
+    });
+
+    expect(importResult.imported).toBe(1);
+    const p = result.current.profiles[0];
+    expect(p.maxReconnectAttempts).toBe(50);
+    expect(p.reconnectIntervalMs).toBe(500);
+    expect(p.maxMessages).toBe(100);
+  });
+
+  it('importProfiles handles tlsConfig sanitization', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const json = JSON.stringify([{
+      name: 'TLS Profile',
+      url: 'wss://tls.com',
+      tlsConfig: {
+        rejectUnauthorized: false,
+        caCert: 'my-ca-cert',
+        extraField: 'ignored',
+      },
+    }]);
+
+    let importResult: { imported: number; errors: string[] } = { imported: 0, errors: [] };
+    await act(async () => {
+      importResult = await result.current.importProfiles(json);
+    });
+
+    expect(importResult.imported).toBe(1);
+    const p = result.current.profiles[0];
+    expect(p.tlsConfig).toEqual({ rejectUnauthorized: false, caCert: 'my-ca-cert' });
+  });
+
+  it('importProfiles returns undefined tlsConfig for empty/invalid input', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const json = JSON.stringify([
+      { name: 'No TLS', url: 'wss://a.com', tlsConfig: null },
+      { name: 'Empty TLS', url: 'wss://b.com', tlsConfig: {} },
+    ]);
+
+    let importResult: { imported: number; errors: string[] } = { imported: 0, errors: [] };
+    await act(async () => {
+      importResult = await result.current.importProfiles(json);
+    });
+
+    expect(importResult.imported).toBe(2);
+    expect(result.current.profiles[0].tlsConfig).toBeUndefined();
+    expect(result.current.profiles[1].tlsConfig).toBeUndefined();
+  });
+
+  it('exportProfiles strips sensitive TLS fields', async () => {
+    mockLoad.mockResolvedValue([makeProfile({
+      id: 'tls1',
+      name: 'TLS Export',
+      url: 'wss://tls.com',
+      tlsConfig: {
+        rejectUnauthorized: false,
+        caCert: 'ca-cert-data',
+        clientKey: 'secret-key',
+        clientCert: 'cert-data',
+      },
+    })]);
+
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const exported = JSON.parse(result.current.exportProfiles());
+    expect(exported).toHaveLength(1);
+    expect(exported[0].tlsConfig).toEqual({ rejectUnauthorized: false, caCert: 'ca-cert-data' });
+    expect(exported[0].tlsConfig.clientKey).toBeUndefined();
+    expect(exported[0].tlsConfig.clientCert).toBeUndefined();
+  });
+
+  it('exportProfiles omits tlsConfig when only sensitive fields exist', async () => {
+    mockLoad.mockResolvedValue([makeProfile({
+      id: 'tls2',
+      name: 'Only Secret',
+      url: 'wss://x.com',
+      tlsConfig: {
+        clientKey: 'secret',
+        clientCert: 'cert',
+      },
+    })]);
+
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const exported = JSON.parse(result.current.exportProfiles());
+    expect(exported[0].tlsConfig).toBeUndefined();
+  });
+
+  it('importProfiles handles valid backoffMultiplier values', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const json = JSON.stringify([
+      { name: 'Backoff2', url: 'wss://a.com', backoffMultiplier: 2 },
+      { name: 'Backoff1.5', url: 'wss://b.com', backoffMultiplier: 1.5 },
+      { name: 'BadBackoff', url: 'wss://c.com', backoffMultiplier: 3 },
+    ]);
+
+    await act(async () => {
+      await result.current.importProfiles(json);
+    });
+
+    const profiles = result.current.profiles;
+    expect(profiles[0].backoffMultiplier).toBe(2);
+    expect(profiles[1].backoffMultiplier).toBe(1.5);
+    expect(profiles[2].backoffMultiplier).toBeUndefined();
+  });
 });

@@ -231,4 +231,46 @@ describe('useWebSocketMetrics', () => {
     expect(result.current.sentPerSec).toBe(0);
     expect(result.current.receivedPerSec).toBe(0);
   });
+
+  it('continues counting when cap eviction truncates array from front', () => {
+    const m1 = makeFrame({ id: 'a1', direction: 'sent', size: 10 });
+    const m2 = makeFrame({ id: 'a2', direction: 'received', size: 20 });
+    const m3 = makeFrame({ id: 'a3', direction: 'sent', size: 30 });
+
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2, m3], state: 'connected' } },
+    );
+    expect(result.current.totalBytesOut).toBe(40);
+    expect(result.current.totalBytesIn).toBe(20);
+    expect(result.current.textFrames).toBe(3);
+
+    const m4 = makeFrame({ id: 'a4', direction: 'received', size: 50 });
+    rerender({ msgs: [m2, m3, m4], state: 'connected' });
+
+    expect(result.current.totalBytesOut).toBe(40);
+    expect(result.current.totalBytesIn).toBe(70);
+    expect(result.current.textFrames).toBe(4);
+  });
+
+  it('accumulates rates correctly at cap after eviction', () => {
+    const m1 = makeFrame({ id: 'b1', direction: 'sent', size: 10 });
+    const m2 = makeFrame({ id: 'b2', direction: 'received', size: 20 });
+
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2], state: 'connected' } },
+    );
+
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.msgPerSec).toBe(2);
+
+    const m3 = makeFrame({ id: 'b3', direction: 'received', size: 30 });
+    rerender({ msgs: [m2, m3], state: 'connected' });
+
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.msgPerSec).toBe(1);
+    expect(result.current.receivedPerSec).toBe(1);
+    expect(result.current.bytesInPerSec).toBe(30);
+  });
 });

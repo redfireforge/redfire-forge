@@ -142,7 +142,7 @@ export function WebSocketConnectPanel({
   const resolvedUrlValid = resolvedUrl ? isValidWsUrl(resolvedUrl) : false;
   const urlIsValid = rawUrlValid || resolvedUrlValid;
   const canConnect = draft.url.trim().length > 0 && urlIsValid && !isBusy && !isReconnecting;
-  const canDisconnect = isConnected;
+  const canDisconnect = isConnected || isConnecting;
   const urlError = draft.url.trim().length > 0 && !urlIsValid;
   const canSaveAsProfile = draft.url.trim().length > 0 && rawUrlValid;
   const countdownSec = useReconnectCountdown(isReconnecting ? reconnectState?.nextRetryAt : null);
@@ -230,7 +230,11 @@ export function WebSocketConnectPanel({
     [setDraft],
   );
 
-  const statusDotClass = isConnected ? 'connected' : 'disconnected';
+  const statusDotClass = connection.state === 'connected' ? 'connected'
+    : connection.state === 'connecting' ? 'connecting'
+    : connection.state === 'closing' ? 'closing'
+    : connection.state === 'error' ? 'error'
+    : 'disconnected';
 
   return (
     <div className="ws-connect-panel">

@@ -44,7 +44,7 @@ export function useWebSocketMetrics(
 ): WsMetricsSnapshot {
   const [snapshot, setSnapshot] = useState<WsMetricsSnapshot>(createEmptySnapshot);
 
-  const prevCountRef = useRef(0);
+  const lastProcessedIdRef = useRef<string | null>(null);
   const historyRef = useRef<number[]>([]);
   const accSentRef = useRef(0);
   const accReceivedRef = useRef(0);
@@ -87,7 +87,7 @@ export function useWebSocketMetrics(
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      if (connectionState === 'disconnected') {
+      if (connectionState === 'disconnected' || connectionState === 'error') {
         historyRef.current = [];
         accSentRef.current = 0;
         accReceivedRef.current = 0;
@@ -122,12 +122,28 @@ export function useWebSocketMetrics(
 
   useEffect(() => {
     const len = messages.length;
-    if (len <= prevCountRef.current) {
-      if (len === 0 && prevCountRef.current > 0) {
-        prevCountRef.current = 0;
+    if (len === 0) {
+      if (lastProcessedIdRef.current !== null) {
+        lastProcessedIdRef.current = null;
         historyRef.current = [];
         setSnapshot(createEmptySnapshot());
       }
+      return;
+    }
+
+    const currentLastId = messages[len - 1].id;
+    if (currentLastId === lastProcessedIdRef.current) return;
+
+    let startIdx: number;
+    if (lastProcessedIdRef.current === null) {
+      startIdx = 0;
+    } else {
+      const foundIdx = messages.findIndex((m) => m.id === lastProcessedIdRef.current);
+      startIdx = foundIdx >= 0 ? foundIdx + 1 : 0;
+    }
+
+    if (startIdx >= len) {
+      lastProcessedIdRef.current = currentLastId;
       return;
     }
 
@@ -140,7 +156,7 @@ export function useWebSocketMetrics(
     let controlFrames = 0;
     let errorCount = 0;
 
-    for (let i = prevCountRef.current; i < len; i++) {
+    for (let i = startIdx; i < len; i++) {
       const frame = messages[i];
       if (frame.direction === 'sent') {
         newSent++;
@@ -157,7 +173,8 @@ export function useWebSocketMetrics(
         textFrames++;
       }
       if (frame.type === 'close') {
-        errorCount++;
+        const isNormalClose = /code:\s*100[01]\b/.test(frame.data);
+        if (!isNormalClose) errorCount++;
       }
     }
 
@@ -166,7 +183,7 @@ export function useWebSocketMetrics(
     accBytesInRef.current += newBytesIn;
     accBytesOutRef.current += newBytesOut;
 
-    prevCountRef.current = len;
+    lastProcessedIdRef.current = currentLastId;
 
     setSnapshot((prev) => ({
       ...prev,

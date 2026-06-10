@@ -51,16 +51,20 @@ export function useWebSocketFilterPresets(deps: FilterPresetDeps): FilterPresetA
       contentTypeFilter,
       createdAt: new Date().toISOString(),
     };
-    const next = [preset, ...filterPresets].slice(0, 20);
-    setFilterPresets(next);
-    saveWsFilterPresets(next).catch(() => {});
-  }, [searchMode, searchText, sizeFilter, timeFilter, contentTypeFilter, filterPresets]);
+    setFilterPresets((prev) => {
+      const next = [preset, ...prev].slice(0, 20);
+      saveWsFilterPresets(next).catch(() => {});
+      return next;
+    });
+  }, [searchMode, searchText, sizeFilter, timeFilter, contentTypeFilter]);
 
   const handleDeletePreset = useCallback((id: string) => {
-    const next = filterPresets.filter((p) => p.id !== id);
-    setFilterPresets(next);
-    saveWsFilterPresets(next).catch(() => {});
-  }, [filterPresets]);
+    setFilterPresets((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      saveWsFilterPresets(next).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const handleApplyPreset = useCallback((preset: WsFilterPreset) => {
     setSearchMode(preset.searchMode || 'text');

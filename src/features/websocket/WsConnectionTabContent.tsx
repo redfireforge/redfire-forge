@@ -45,10 +45,11 @@ export interface WsConnectionTabContentProps {
   envVarMap: Record<string, string>;
   profilesHook: UseWebSocketProfilesReturn;
   templatesHook: UseWebSocketTemplatesReturn;
-  onConnectionStateChange: (tabId: string, state: ConnectionStateHint) => void;
+  onConnectionStateChange: (tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => void;
   onUrlChange: (tabId: string, url: string) => void;
   onViewTabChange?: (tabId: string, viewTab: WsViewTab) => void;
   initialUrl?: string;
+  initialProtocol?: WsProtocolMode;
   initialViewTab?: WsViewTab;
   history?: WsConnectionHistoryEntry[];
   onClearHistory?: () => void;
@@ -61,7 +62,7 @@ export const WsConnectionTabContent = forwardRef<
   {
     tabId, envVarMap, profilesHook, templatesHook,
     onConnectionStateChange, onUrlChange, onViewTabChange,
-    initialUrl, initialViewTab,
+    initialUrl, initialProtocol, initialViewTab,
     history,
     onClearHistory,
   },
@@ -112,7 +113,7 @@ export const WsConnectionTabContent = forwardRef<
       const lastSeenIdx = lastSeenMsgIdRef.current
         ? msgs.findIndex((m) => m.id === lastSeenMsgIdRef.current)
         : -1;
-      const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : msgs.length - 1;
+      const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
       for (let i = startIdx; i < msgs.length; i++) {
         recordMessage(msgs[i]);
       }
@@ -138,6 +139,7 @@ export const WsConnectionTabContent = forwardRef<
     if (initialUrl && !initialUrlApplied.current) {
       initialUrlApplied.current = true;
       studio.setDraft({ url: initialUrl });
+      if (initialProtocol) studio.setProtocolMode(initialProtocol);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -156,9 +158,9 @@ export const WsConnectionTabContent = forwardRef<
       prevConnStateRef.current = studio.connection.state;
       const hint: ConnectionStateHint =
         studio.connection.state === 'closing' ? 'connected' : studio.connection.state;
-      onConnectionStateChange(tabId, hint);
+      onConnectionStateChange(tabId, hint, studio.protocolMode);
     }
-  }, [studio.connection.state, tabId, onConnectionStateChange]);
+  }, [studio.connection.state, tabId, onConnectionStateChange, studio.protocolMode]);
 
   const prevUrlRef = useRef(studio.draft.url);
   useEffect(() => {
@@ -280,6 +282,11 @@ export const WsConnectionTabContent = forwardRef<
     recStartReplay(studio.appendReplayFrame);
   }, [studio, recStartReplay]);
 
+  const handleStopReplay = useCallback(() => {
+    recording.stopReplay();
+    studio.clearMessages();
+  }, [recording, studio]);
+
   const handleSwitchToConnect = useCallback(() => {
     changeViewTab('connect');
   }, [changeViewTab]);
@@ -332,7 +339,7 @@ export const WsConnectionTabContent = forwardRef<
     onStartReplay: handleStartReplay,
     onPauseReplay: recording.pauseReplay,
     onResumeReplay: recording.resumeReplay,
-    onStopReplay: recording.stopReplay,
+    onStopReplay: handleStopReplay,
     replaySpeed: recording.replaySpeed,
     onSetReplaySpeed: recording.setReplaySpeed,
     replayProgress: recording.replayProgress,

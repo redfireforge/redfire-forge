@@ -45,11 +45,16 @@ export function WebSocketMessageDetail({
   const resizingRef = useRef(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const tab: DetailTab = jsonAvailable ? 'json' : isBinary ? 'hex' : 'raw';
     setActiveTab(tab);
   }, [frame.id, jsonAvailable, isBinary]);
+
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true });
+  }, [frame.id]);
 
   useEffect(() => {
     if (activeTab === 'validation' && !hasValidation) {
@@ -174,6 +179,7 @@ export function WebSocketMessageDetail({
 
   return (
     <div
+      ref={panelRef}
       className="ws-detail-panel"
       style={{ height: panelHeight }}
       onKeyDown={handleKeyDown}

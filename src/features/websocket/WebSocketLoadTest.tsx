@@ -77,13 +77,15 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
   const expectedTotal = useMemo(() => computeExpectedTotal(config), [config]);
 
   const handleStart = useCallback(() => {
-    if (config.rate > 100 && config.profile !== 'burst' && !confirmStart) {
+    const highRate = config.rate > 100
+      || (config.profile === 'ramp' && (config.rateEnd ?? 0) > 100);
+    if (highRate && config.profile !== 'burst' && !confirmStart) {
       setConfirmStart(true);
       return;
     }
     setConfirmStart(false);
     loadTest.start();
-  }, [loadTest, config.rate, config.profile, confirmStart]);
+  }, [loadTest, config.rate, config.rateEnd, config.profile, confirmStart]);
 
   const handleConfirm = useCallback(() => {
     setConfirmStart(false);
@@ -243,7 +245,7 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
           <div className="ws-lt-summary" data-testid="lt-summary">
             Expected: ~{expectedTotal.toLocaleString()} messages
             {config.profile !== 'burst' && ` over ${config.durationSec}s`}
-            {config.rate > 100 && config.profile !== 'burst' && (
+            {(config.rate > 100 || (config.profile === 'ramp' && (config.rateEnd ?? 0) > 100)) && config.profile !== 'burst' && (
               <span className="ws-lt-warning"> (high rate — may impact UI responsiveness)</span>
             )}
           </div>
@@ -252,7 +254,9 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
           <div className="ws-lt-actions">
             {confirmStart ? (
               <div className="ws-lt-confirm" data-testid="lt-confirm">
-                <span>Send at {config.rate} msg/s for {config.durationSec}s?</span>
+                <span>{config.profile === 'ramp'
+                  ? `Ramp from ${config.rate} to ${config.rateEnd} msg/s over ${config.durationSec}s?`
+                  : `Send at ${config.rate} msg/s for ${config.durationSec}s?`}</span>
                 <button className="ws-lt-btn ws-lt-btn-primary" onClick={handleConfirm} data-testid="lt-confirm-yes">
                   Confirm
                 </button>

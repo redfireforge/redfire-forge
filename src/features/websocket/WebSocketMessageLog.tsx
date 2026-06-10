@@ -185,6 +185,10 @@ export function WebSocketMessageLog({
   const listRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
   const recordingFileInputRef = useRef<HTMLInputElement>(null);
+  const allMessagesRef = useRef(allMessages);
+  allMessagesRef.current = allMessages;
+  const compareModeRef = useRef(compareMode);
+  compareModeRef.current = compareMode;
 
   const isReplaying = recordingState === 'replaying' || recordingState === 'paused';
 
@@ -215,6 +219,13 @@ export function WebSocketMessageLog({
     validationCacheRef.current.clear();
     prevSchemasRef.current = schemas;
     prevValidationEnabledRef.current = validationEnabled;
+  }
+  const cache = validationCacheRef.current;
+  if (cache.size > messages.length + 50) {
+    const liveIds = new Set(messages.map((m) => m.id));
+    for (const k of cache.keys()) {
+      if (!liveIds.has(k)) cache.delete(k);
+    }
   }
 
   const getCachedValidation = useCallback(
@@ -259,8 +270,8 @@ export function WebSocketMessageLog({
   }, []);
 
   const handleRowClick = useCallback((id: string) => {
-    if (compareMode) {
-      const frame = allMessages.find((m) => m.id === id);
+    if (compareModeRef.current) {
+      const frame = allMessagesRef.current.find((m) => m.id === id);
       if (frame && frame.type !== 'text') return;
       setCompareIds((prev) => {
         if (prev[0] === id) return [null, prev[1]];
@@ -272,7 +283,7 @@ export function WebSocketMessageLog({
       return;
     }
     setSelectedMessageId((prev) => (prev === id ? null : id));
-  }, [compareMode, allMessages]);
+  }, []);
 
   useEffect(() => {
     if (!compareMode) return;

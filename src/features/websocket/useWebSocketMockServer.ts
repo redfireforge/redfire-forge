@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toErrorMessage } from '../../shared/utils/helpers';
 import type {
   WsMockRule,
   WsMockFallbackMode,
@@ -161,8 +162,7 @@ export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerR
       setLogs([]);
       pollLogs();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setStatus((prev) => ({ ...prev, running: false, error: msg }));
+      setStatus((prev) => ({ ...prev, running: false, error: toErrorMessage(err) }));
       throw err;
     } finally {
       setStarting(false);
