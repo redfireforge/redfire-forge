@@ -3,6 +3,7 @@
  * Compiles schemas once and caches ValidateFunction instances.
  */
 import Ajv from 'ajv';
+import { tryParseJson } from '../../shared/utils/helpers';
 import addFormats from 'ajv-formats';
 import type { ValidateFunction } from 'ajv';
 import type { WsSchemaDefinition, WsValidationError, WsValidationResult } from './wsSchemaTypes';
@@ -48,14 +49,6 @@ export function clearCompiledSchemas(): void {
 function directionMatches(schemaDir: WsSchemaDefinition['direction'], frameDir: WsFrameDirection): boolean {
   if (schemaDir === 'both') return true;
   return schemaDir === frameDir;
-}
-
-function tryParseJson(data: string): unknown | undefined {
-  try {
-    return JSON.parse(data);
-  } catch {
-    return undefined;
-  }
 }
 
 export function validateMessage(

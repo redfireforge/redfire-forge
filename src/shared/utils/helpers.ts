@@ -16,6 +16,19 @@ export function parseJsonOrRaw(text: string): unknown {
   catch { return text; }
 }
 
+/** Parse JSON safely: returns null for empty/falsy input, the parsed value on success, or the raw string on failure. */
+export function parseJsonSafe(value: string): unknown {
+  if (!value) return null;
+  try { return JSON.parse(value); }
+  catch { return value; }
+}
+
+/** Parse JSON, returning undefined if parsing fails. */
+export function tryParseJson(text: string): unknown | undefined {
+  try { return JSON.parse(text); }
+  catch { return undefined; }
+}
+
 /** Check if a string is valid JSON. */
 export function isValidJson(text: string): boolean {
   try { JSON.parse(text); return true; }

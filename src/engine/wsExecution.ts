@@ -12,7 +12,8 @@ import type { Scenario, RequestResult, WsResultMeta, WsActionType } from '../sha
 import type { WsNodeOperations, WsMessageMatchCriteria } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage } from '../shared/utils/helpers';
+import { toErrorMessage, parseJsonSafe } from '../shared/utils/helpers';
+import { round2 as roundMs } from '../shared/utils/percentiles';
 import { isWsActionType } from '../shared/types';
 import { classifyWsFailure } from '../features/workflow/engine/graphRunnerWsNodeHandlers';
 
@@ -321,19 +322,6 @@ function buildWsResult(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function parseJsonSafe(value: string): unknown {
-  if (!value) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function roundMs(ms: number): number {
-  return Math.round(ms * 100) / 100;
-}
 
 function kvToRecord(kv?: Array<{ key: string; value: string }>): Record<string, string> {
   if (!kv || kv.length === 0) return {};

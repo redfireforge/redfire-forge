@@ -3,6 +3,7 @@
  * auto-reconnect with Last-Event-ID, and event collection.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { resolveEnvVars } from '../websocket/wsMessageUtils';
 import type {
   SseConnectionConfig,
   SseConnectionSnapshot,
@@ -27,10 +28,6 @@ export interface UseSseConnectionReturn {
   clearEvents: () => void;
   toggleBookmark: (id: string) => void;
   bookmarkedIds: ReadonlySet<string>;
-}
-
-function interpolateEnvVars(value: string, envVarMap: Record<string, string>): string {
-  return value.replace(/\{\{(\w+)\}\}/g, (_, key) => envVarMap[key] ?? `{{${key}}}`);
 }
 
 export function useSseConnection(
@@ -101,7 +98,7 @@ export function useSseConnection(
   const doConnect = useCallback(async () => {
     const cfg = configRef.current;
     const map = envVarMapRef.current;
-    const url = interpolateEnvVars(cfg.url, map);
+    const url = resolveEnvVars(cfg.url, map);
 
     if (!url) {
       updateState('error', 'URL is required');
@@ -118,7 +115,7 @@ export function useSseConnection(
     };
     for (const h of cfg.headers) {
       if (h.key.trim()) {
-        headers[interpolateEnvVars(h.key, map)] = interpolateEnvVars(h.value, map);
+        headers[resolveEnvVars(h.key, map)] = resolveEnvVars(h.value, map);
       }
     }
     if (lastEventIdRef.current) {

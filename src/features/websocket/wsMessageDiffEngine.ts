@@ -1,6 +1,7 @@
 /**
  * JSON structural diff + LCS-based line diff engine for WebSocket message comparison.
  */
+import { tryParseJson } from '../../shared/utils/helpers';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -140,17 +141,9 @@ export function diffLines(a: string, b: string): DiffLine[] {
 
 // ── Composite Diff ─────────────────────────────────────────────────────────────
 
-function tryParseSafe(s: string): unknown | undefined {
-  try {
-    return JSON.parse(s) as unknown;
-  } catch {
-    return undefined;
-  }
-}
-
 export function computeDiff(leftData: string, rightData: string): DiffResult {
-  const leftObj = tryParseSafe(leftData);
-  const rightObj = tryParseSafe(rightData);
+  const leftObj = tryParseJson(leftData);
+  const rightObj = tryParseJson(rightData);
   const isJsonDiff = leftObj !== undefined && rightObj !== undefined;
 
   const leftText = isJsonDiff ? JSON.stringify(leftObj, null, 2) : leftData;
