@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   WsBackoffMultiplier,
   WsCloseDetail,
   WsConnectionDraft,
+  WsConnectionHistoryEntry,
   WsConnectionSnapshot,
   WsKeyValueEntry,
   WsReconnectState,
@@ -13,7 +14,7 @@ import type { SioServerParams } from './wsProtocolHelpers';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
-import { isValidWsUrl, byteLength } from './wsMessageUtils';
+import { isValidWsUrl, byteLength, hasUnresolvedVars, resolveEnvVars } from './wsMessageUtils';
 import { useDropdownClose } from './useDropdownClose';
 import { KeyValueEditor } from './KeyValueEditor';
 
@@ -48,6 +49,10 @@ interface WebSocketConnectPanelProps {
   detectedProtocol?: WsProtocolDetectionResult | null;
   sioServerParams?: SioServerParams | null;
   transportMode?: 'direct' | 'proxy' | 'native';
+  envVarMap?: Record<string, string>;
+  history?: WsConnectionHistoryEntry[];
+  onHistorySelect?: (url: string, protocol: string) => void;
+  onClearHistory?: () => void;
 }
 
 const STATE_LABELS: Record<string, { label: string; className: string }> = {
@@ -97,7 +102,7 @@ export function WebSocketConnectPanel({
   onCancelReconnect,
   maxReconnectAttempts = 5,
   reconnectIntervalMs = 3000,
-  backoffMultiplier = 1.5,
+  backoffMultiplier = 2,
   onMaxReconnectAttemptsChange,
   onReconnectIntervalMsChange,
   onBackoffMultiplierChange,
@@ -109,6 +114,10 @@ export function WebSocketConnectPanel({
   detectedProtocol = null,
   sioServerParams = null,
   transportMode = 'direct',
+  envVarMap,
+  history,
+  onHistorySelect,
+  onClearHistory,
 }: WebSocketConnectPanelProps) {
   const stateInfo = STATE_LABELS[connection.state] ?? STATE_LABELS.disconnected;
   const isConnected = connection.state === 'connected';
@@ -120,13 +129,53 @@ export function WebSocketConnectPanel({
     reconnectState != null &&
     reconnectState.attempt > 0 &&
     reconnectState.attempt >= reconnectState.maxAttempts;
+  const [downtimeLabel, setDowntimeLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (reconnectFailed && reconnectState?.lostAt) {
+      setDowntimeLabel(formatUptime(Date.now() - reconnectState.lostAt));
+    } else {
+      setDowntimeLabel(null);
+    }
+  }, [reconnectFailed, reconnectState?.lostAt]);
   const inputsDisabled = isBusy || configLocked || isReconnecting;
-  const canConnect = draft.url.trim().length > 0 && isValidWsUrl(draft.url) && !isBusy && !isReconnecting;
+  const rawUrlValid = isValidWsUrl(draft.url);
+  const resolvedUrlValid = resolvedUrl ? isValidWsUrl(resolvedUrl) : false;
+  const urlIsValid = rawUrlValid || resolvedUrlValid;
+  const canConnect = draft.url.trim().length > 0 && urlIsValid && !isBusy && !isReconnecting;
   const canDisconnect = isConnected;
-  const urlError = draft.url.trim().length > 0 && !isValidWsUrl(draft.url);
-  const canSaveAsProfile = draft.url.trim().length > 0 && isValidWsUrl(draft.url);
+  const urlError = draft.url.trim().length > 0 && !urlIsValid;
+  const canSaveAsProfile = draft.url.trim().length > 0 && rawUrlValid;
   const countdownSec = useReconnectCountdown(isReconnecting ? reconnectState?.nextRetryAt : null);
   const showEnvPreview = resolvedUrl && resolvedUrl !== draft.url.trim();
+  const hasEnvVars = Object.keys(envVarMap ?? {}).length > 0;
+  const urlHasUnresolved = resolvedUrl ? hasUnresolvedVars(resolvedUrl) : false;
+  const evm = envVarMap ?? {};
+  const headersHaveUnresolved = draft.headers.some(
+    (h) => h.enabled && h.key.trim().length > 0 &&
+      (hasUnresolvedVars(resolveEnvVars(h.key.trim(), evm)) || hasUnresolvedVars(resolveEnvVars(h.value, evm))),
+  );
+  const queryParamsHaveUnresolved = draft.queryParams.some(
+    (p) => p.enabled && p.key.trim().length > 0 &&
+      (hasUnresolvedVars(resolveEnvVars(p.key.trim(), evm)) || hasUnresolvedVars(resolveEnvVars(p.value, evm))),
+  );
+  const anyUnresolved = urlHasUnresolved || headersHaveUnresolved || queryParamsHaveUnresolved;
+  const draftHasTemplates = draft.url.includes('{{') ||
+    draft.headers.some((h) => h.value.includes('{{') || h.key.includes('{{')) ||
+    draft.queryParams.some((p) => p.value.includes('{{') || p.key.includes('{{'));
+
+  const [urlHistoryOpen, setUrlHistoryOpen] = useState(false);
+  const urlHistoryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!urlHistoryOpen) return;
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      if (urlHistoryRef.current && !urlHistoryRef.current.contains(e.target as Node)) {
+        setUrlHistoryOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [urlHistoryOpen]);
 
   const [closeDropdownOpen, setCloseDropdownOpen] = useState(false);
   const [closeCode, setCloseCode] = useState(1000);
@@ -212,10 +261,69 @@ export function WebSocketConnectPanel({
               ×
             </button>
           )}
+          {history && history.length > 0 && !inputsDisabled && (
+            <div className="ws-url-history-wrapper" ref={urlHistoryRef}>
+              <button
+                type="button"
+                className="ws-url-history-trigger"
+                onClick={() => setUrlHistoryOpen((p) => !p)}
+                aria-label="Recent connections"
+                data-testid="url-history-trigger"
+                title="Recent connections"
+              >
+                ▾
+              </button>
+              {urlHistoryOpen && (
+                <div className="ws-url-history-dropdown" data-testid="url-history-dropdown">
+                  {history.map((entry) => (
+                    <button
+                      key={entry.url}
+                      type="button"
+                      className="ws-url-history-item"
+                      onClick={() => {
+                        setUrlHistoryOpen(false);
+                        onHistorySelect?.(entry.url, entry.protocol);
+                      }}
+                      title={entry.url}
+                      data-testid={`url-history-item`}
+                    >
+                      <span className="ws-url-history-item-url">{entry.url}</span>
+                      {entry.protocol !== 'auto' && entry.protocol !== 'raw' && (
+                        <span className="ws-url-history-item-protocol">{entry.protocol}</span>
+                      )}
+                    </button>
+                  ))}
+                  {onClearHistory && (
+                    <button
+                      type="button"
+                      className="ws-url-history-clear"
+                      onClick={() => {
+                        onClearHistory();
+                        setUrlHistoryOpen(false);
+                      }}
+                      data-testid="url-history-clear-btn"
+                    >
+                      Clear History
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {showEnvPreview && (
           <div className="ws-connect-env-preview" data-testid="env-preview">
             → Resolved: {resolvedUrl}
+          </div>
+        )}
+        {anyUnresolved && hasEnvVars && (
+          <div className="ws-connect-env-warning" data-testid="env-unresolved-warning">
+            ⚠ Unresolved variables — check variable names match your environment
+          </div>
+        )}
+        {!hasEnvVars && draftHasTemplates && (
+          <div className="ws-connect-env-warning" data-testid="env-no-env-warning">
+            No environment selected — variables will not be resolved
           </div>
         )}
         {urlError && (
@@ -292,54 +400,57 @@ export function WebSocketConnectPanel({
             </span>
           </label>
 
-          {autoReconnect && (
-            <div className="ws-reconnect-settings-row">
-              <div className="ws-reconnect-settings-field">
-                <label className="ws-connect-label" htmlFor="ws-max-attempts">Max Attempts</label>
-                <input
-                  id="ws-max-attempts"
-                  type="number"
-                  className="ws-connect-subprotocols"
-                  value={maxReconnectAttempts}
-                  onChange={(e) => onMaxReconnectAttemptsChange?.(Number(e.target.value) || 5)}
-                  min={1}
-                  max={50}
-                  disabled={inputsDisabled}
-                  data-testid="max-reconnect-attempts"
-                />
-              </div>
-              <div className="ws-reconnect-settings-field">
-                <label className="ws-connect-label" htmlFor="ws-retry-interval">Retry Interval (ms)</label>
-                <input
-                  id="ws-retry-interval"
-                  type="number"
-                  className="ws-connect-subprotocols"
-                  value={reconnectIntervalMs}
-                  onChange={(e) => onReconnectIntervalMsChange?.(Number(e.target.value) || 3000)}
-                  min={500}
-                  max={60000}
-                  step={500}
-                  disabled={inputsDisabled}
-                  data-testid="reconnect-interval-ms"
-                />
-              </div>
-              <div className="ws-reconnect-settings-field">
-                <label className="ws-connect-label" htmlFor="ws-backoff-multiplier">Backoff Multiplier</label>
-                <select
-                  id="ws-backoff-multiplier"
-                  className="ws-connect-subprotocols"
-                  value={backoffMultiplier}
-                  onChange={(e) => onBackoffMultiplierChange?.(Number(e.target.value) as WsBackoffMultiplier)}
-                  disabled={inputsDisabled}
-                  data-testid="backoff-multiplier"
-                >
-                  <option value={1}>None (fixed interval)</option>
-                  <option value={1.5}>1.5× (recommended)</option>
-                  <option value={2}>2× (exponential)</option>
-                </select>
-              </div>
+          <div
+            className={`ws-reconnect-settings-row${autoReconnect ? '' : ' ws-reconnect-settings-disabled'}`}
+          >
+            <div className="ws-reconnect-settings-field">
+              <label className="ws-connect-label" htmlFor="ws-max-attempts">Max Attempts</label>
+              <input
+                id="ws-max-attempts"
+                type="number"
+                className="ws-connect-subprotocols"
+                value={maxReconnectAttempts}
+                onChange={(e) => onMaxReconnectAttemptsChange?.(Number(e.target.value) || 5)}
+                min={1}
+                max={50}
+                disabled={inputsDisabled || !autoReconnect}
+                data-testid="max-reconnect-attempts"
+              />
+              <span className="ws-reconnect-field-hint">Stop retrying after this many failures</span>
             </div>
-          )}
+            <div className="ws-reconnect-settings-field">
+              <label className="ws-connect-label" htmlFor="ws-retry-interval">Retry Interval (ms)</label>
+              <input
+                id="ws-retry-interval"
+                type="number"
+                className="ws-connect-subprotocols"
+                value={reconnectIntervalMs}
+                onChange={(e) => onReconnectIntervalMsChange?.(Number(e.target.value) || 3000)}
+                min={500}
+                max={60000}
+                step={500}
+                disabled={inputsDisabled || !autoReconnect}
+                data-testid="reconnect-interval-ms"
+              />
+              <span className="ws-reconnect-field-hint">Wait time between retry attempts</span>
+            </div>
+            <div className="ws-reconnect-settings-field">
+              <label className="ws-connect-label" htmlFor="ws-backoff-multiplier">Backoff Multiplier</label>
+              <select
+                id="ws-backoff-multiplier"
+                className="ws-connect-subprotocols"
+                value={backoffMultiplier}
+                onChange={(e) => onBackoffMultiplierChange?.(Number(e.target.value) as WsBackoffMultiplier)}
+                disabled={inputsDisabled || !autoReconnect}
+                data-testid="backoff-multiplier"
+              >
+                <option value={1}>None (fixed interval)</option>
+                <option value={1.5}>1.5×</option>
+                <option value={2}>2× (recommended)</option>
+              </select>
+              <span className="ws-reconnect-field-hint">Multiply interval after each failure</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -348,15 +459,20 @@ export function WebSocketConnectPanel({
         <div className="ws-reconnect-banner" data-testid="reconnect-banner">
           <span className="ws-reconnect-spinner" aria-hidden="true" />
           <div className="ws-reconnect-text">
-            <span>
+            <strong>
               Reconnecting (attempt {reconnectState.attempt}/{reconnectState.maxAttempts})…
+            </strong>
+            <span className="ws-reconnect-countdown">
+              {reconnectState.lostAt && (
+                <>Connection lost at {new Date(reconnectState.lostAt).toLocaleTimeString()}. </>
+              )}
+              {countdownSec != null && (
+                <>
+                  Next retry in {countdownSec.toFixed(countdownSec < 10 ? 1 : 0)}s
+                  {backoffMultiplier !== 1 ? ` (backoff: ${backoffMultiplier}×)` : ''}
+                </>
+              )}
             </span>
-            {countdownSec != null && (
-              <span className="ws-reconnect-countdown">
-                Next retry in {countdownSec.toFixed(countdownSec < 10 ? 1 : 0)}s
-                {backoffMultiplier !== 1 ? ` (backoff: ${backoffMultiplier}×)` : ''}
-              </span>
-            )}
           </div>
           <div className="ws-reconnect-progress" data-testid="reconnect-progress">
             {Array.from({ length: reconnectState.maxAttempts }, (_, i) => {
@@ -380,13 +496,17 @@ export function WebSocketConnectPanel({
       {/* Reconnect failed indicator */}
       {reconnectFailed && reconnectState && (
         <div className="ws-reconnect-failed" data-testid="reconnect-failed">
+          <span className="ws-reconnect-failed-icon" aria-hidden="true">⚠</span>
           <div className="ws-reconnect-failed-content">
             <div className="ws-reconnect-failed-title">
               Auto-reconnect failed after {reconnectState.maxAttempts} attempts
             </div>
-            {reconnectState.lastError && (
-              <div className="ws-reconnect-failed-error">Last error: {reconnectState.lastError}</div>
-            )}
+            <div className="ws-reconnect-failed-error">
+              {reconnectState.lastError && <>Last error: {reconnectState.lastError}. </>}
+              {reconnectState.lostAt && downtimeLabel && (
+                <>Total downtime: {downtimeLabel}</>
+              )}
+            </div>
           </div>
           <div className="ws-reconnect-failed-actions">
             {onRetryNow && (
@@ -482,7 +602,7 @@ export function WebSocketConnectPanel({
                   value={closeReason}
                   onChange={(e) => setCloseReason(e.target.value)}
                   placeholder="Optional close reason..."
-                  maxLength={200}
+                  maxLength={123}
                   data-testid="close-reason-input"
                 />
                 <span className={`ws-close-reason-counter ${!isReasonValid ? 'over' : ''}`}>
@@ -500,7 +620,7 @@ export function WebSocketConnectPanel({
                   Cancel
                 </button>
                 <button
-                  className="ws-connect-btn ws-connect-btn-primary"
+                  className="ws-connect-btn ws-connect-btn-danger"
                   onClick={handleCloseWithCode}
                   disabled={!canCloseWithCode}
                   data-testid="close-with-code-btn"
