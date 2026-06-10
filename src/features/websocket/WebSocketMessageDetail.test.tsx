@@ -281,4 +281,90 @@ describe('WebSocketMessageDetail — additional coverage', () => {
     const rawTab = screen.getByTestId('tab-raw');
     expect(rawTab.className).toContain('active');
   });
+
+  it('renders validation tab when validationResults provided', () => {
+    const frame = makeFrame({ data: '{"key":"value"}' });
+    const validationResults = [
+      {
+        schemaId: 'schema-1',
+        schemaName: 'Test Schema',
+        valid: false,
+        errors: [{ path: '/key', keyword: 'type', message: 'expected number' }],
+      },
+    ];
+    render(<WebSocketMessageDetail {...defaultProps({ frame, validationResults })} />);
+    expect(screen.getByTestId('tab-validation')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('tab-validation'));
+    expect(screen.getByTestId('detail-validation')).toBeTruthy();
+    expect(screen.getByTestId('detail-validation').textContent).toContain('expected number');
+  });
+
+  it('shows valid indicator in validation tab', () => {
+    const frame = makeFrame({ data: '{"key":"value"}' });
+    const validationResults = [
+      { schemaId: 'schema-1', schemaName: 'Test Schema', valid: true, errors: [] },
+    ];
+    render(<WebSocketMessageDetail {...defaultProps({ frame, validationResults })} />);
+    expect(screen.getByTestId('tab-validation').textContent).toContain('✓');
+  });
+
+  it('auto-switches from validation tab when results become unavailable', () => {
+    const frame = makeFrame({ data: '{"key":"value"}' });
+    const validationResults = [
+      { schemaId: 'schema-1', schemaName: 'Test Schema', valid: true, errors: [] },
+    ];
+    const { rerender } = render(
+      <WebSocketMessageDetail {...defaultProps({ frame, validationResults })} />,
+    );
+    fireEvent.click(screen.getByTestId('tab-validation'));
+    expect(screen.getByTestId('detail-validation')).toBeTruthy();
+    // Remove validation results
+    rerender(<WebSocketMessageDetail {...defaultProps({ frame, validationResults: null })} />);
+    expect(screen.queryByTestId('detail-validation')).toBeNull();
+    // Should switch to JSON tab since data is JSON
+    expect(screen.getByTestId('tab-json').className).toContain('active');
+  });
+
+  it('renders diff prev button when onDiffPrev provided', () => {
+    const onDiffPrev = vi.fn();
+    render(<WebSocketMessageDetail {...defaultProps({ onDiffPrev })} />);
+    expect(screen.getByTestId('detail-diff-prev')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('detail-diff-prev'));
+    expect(onDiffPrev).toHaveBeenCalledOnce();
+  });
+
+  it('renders diff next button when onDiffNext provided', () => {
+    const onDiffNext = vi.fn();
+    render(<WebSocketMessageDetail {...defaultProps({ onDiffNext })} />);
+    expect(screen.getByTestId('detail-diff-next')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('detail-diff-next'));
+    expect(onDiffNext).toHaveBeenCalledOnce();
+  });
+
+  it('hides diff buttons when not provided', () => {
+    render(<WebSocketMessageDetail {...defaultProps()} />);
+    expect(screen.queryByTestId('detail-diff-prev')).toBeNull();
+    expect(screen.queryByTestId('detail-diff-next')).toBeNull();
+  });
+
+  it('copy button calls clipboard API', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<WebSocketMessageDetail {...defaultProps()} />);
+    fireEvent.click(screen.getByTestId('detail-copy'));
+    expect(writeText).toHaveBeenCalled();
+  });
+
+  it('resize handle triggers resize on mousedown + mousemove', () => {
+    render(<WebSocketMessageDetail {...defaultProps()} />);
+    const handle = screen.getByTestId('detail-resize');
+    fireEvent.mouseDown(handle, { clientY: 500 });
+    // Simulate mousemove
+    const moveEvent = new MouseEvent('mousemove', { clientY: 400 });
+    document.dispatchEvent(moveEvent);
+    const upEvent = new MouseEvent('mouseup');
+    document.dispatchEvent(upEvent);
+    // Panel should still be rendered (no crash)
+    expect(screen.getByTestId('detail-panel')).toBeTruthy();
+  });
 });

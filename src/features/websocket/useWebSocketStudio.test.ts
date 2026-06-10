@@ -2286,4 +2286,74 @@ describe('useWebSocketStudio', () => {
       expect(mockInstances.length).toBe(0); // No direct WebSocket
     });
   });
+
+  describe('bookmarks', () => {
+    it('starts with empty bookmarks', () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      expect(result.current.bookmarkedIds.size).toBe(0);
+      expect(result.current.bookmarkedMessages.length).toBe(0);
+    });
+
+    it('toggleBookmark adds and removes bookmark', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+
+      act(() => result.current.setDraft({ url: 'ws://localhost:8080' }));
+      act(() => result.current.connect());
+      const ws = mockInstances[mockInstances.length - 1];
+      await act(async () => { ws.simulateOpen(); });
+
+      act(() => result.current.send('hello'));
+
+      const frameId = result.current.messages[result.current.messages.length - 1].id;
+
+      act(() => result.current.toggleBookmark(frameId));
+      expect(result.current.bookmarkedIds.has(frameId)).toBe(true);
+      expect(result.current.bookmarkedMessages.length).toBe(1);
+      expect(result.current.bookmarkedMessages[0].id).toBe(frameId);
+
+      act(() => result.current.toggleBookmark(frameId));
+      expect(result.current.bookmarkedIds.has(frameId)).toBe(false);
+      expect(result.current.bookmarkedMessages.length).toBe(0);
+    });
+
+    it('clearMessages preserves bookmarks', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+
+      act(() => result.current.setDraft({ url: 'ws://localhost:8080' }));
+      act(() => result.current.connect());
+      const ws = mockInstances[mockInstances.length - 1];
+      await act(async () => { ws.simulateOpen(); });
+
+      act(() => result.current.send('hello'));
+      const frameId = result.current.messages[result.current.messages.length - 1].id;
+      act(() => result.current.toggleBookmark(frameId));
+      expect(result.current.bookmarkedMessages.length).toBe(1);
+
+      act(() => result.current.clearMessages());
+      expect(result.current.messages.length).toBe(0);
+      expect(result.current.bookmarkedIds.has(frameId)).toBe(true);
+      expect(result.current.bookmarkedMessages.length).toBe(1);
+    });
+
+    it('filteredMessages returns bookmarkedMessages when directionFilter is bookmarked', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+
+      act(() => result.current.setDraft({ url: 'ws://localhost:8080' }));
+      act(() => result.current.connect());
+      const ws = mockInstances[mockInstances.length - 1];
+      await act(async () => { ws.simulateOpen(); });
+
+      act(() => result.current.send('msg1'));
+      act(() => result.current.send('msg2'));
+
+      const firstId = result.current.messages.find((m) => m.data === 'msg1')?.id;
+      expect(firstId).toBeDefined();
+
+      act(() => result.current.toggleBookmark(firstId!));
+      act(() => result.current.setDirectionFilter('bookmarked'));
+
+      expect(result.current.filteredMessages.length).toBe(1);
+      expect(result.current.filteredMessages[0].id).toBe(firstId);
+    });
+  });
 });

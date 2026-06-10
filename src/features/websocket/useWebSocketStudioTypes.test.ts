@@ -10,7 +10,7 @@ import {
 describe('useWebSocketStudioTypes', () => {
   describe('constants', () => {
     it('exports expected default values', () => {
-      expect(DEFAULT_MAX_MESSAGES).toBe(1000);
+      expect(DEFAULT_MAX_MESSAGES).toBe(10000);
       expect(PROXY_POLL_INTERVAL_MS).toBe(200);
       expect(DEFAULT_RECONNECT_INTERVAL_MS).toBe(3000);
       expect(DEFAULT_MAX_RECONNECT_ATTEMPTS).toBe(5);

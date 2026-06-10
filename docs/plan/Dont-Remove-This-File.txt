@@ -34,3 +34,27 @@ Please do commit including Dont-Remove-This-File.txt file. Don't delete this fil
 
 
 595 E2E tests passed. Some E2E tests were flaky/skipped but none failed. Let me do a final comprehensive check of all assertions:
+
+
+Please thoroughly re-evaluate Phase 4 implementations and if you find missing steps, please add them. Go ahead to implement Phase 3. Then revisit your implementation to verify everything is fine. Then manaully and visually validate them with Docker. Finally update md file. Make sure you should add professional UI/UX if we need them. 
+
+
+
+
+websocket-phase2a-saved-connections.html
+websocket-phase2b-templates-format.html
+websocket-phase2c-reconnect-close.html
+
+We hava mockup files for each phase. Please compare what we have and what is in the mockup files. If there are any differences or gaps, please update your implementation to match the mockup files. And update md file.
+
+- Please re-evaluate what we implmeneted based on the above and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue.
+
+
+
+Please thoroughly evaluate Phase 4A and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue.
+
+
+
+Pease thoroughly re-evaluate all of Phase 6C implemenations and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 
+
+please thoroughly re-evaluate Phase 6C plan and if you find any missing or issue, please update the plan. Then implmenet it. Then thoroughly re-evaluate the implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 

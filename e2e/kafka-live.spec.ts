@@ -22,6 +22,19 @@
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
 
+// ── Skip entire suite when backend / Docker infra is not running ──────────────
+
+async function isBackendReachable(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:3001/health', { signal: AbortSignal.timeout(2000) });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+const backendUp = isBackendReachable();
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const BROKER = '127.0.0.1:19092';
@@ -97,6 +110,7 @@ async function runQuickTestAndAssertPassed(
 
 test.describe('Kafka Message Studio — Live Docker', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
     await seedKafkaCluster(page);
     await page.goto('/?tab=kafka-message-studio', { waitUntil: 'domcontentloaded' });
@@ -226,6 +240,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 
 test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
     await seedKafkaCluster(page);
   });

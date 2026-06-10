@@ -116,4 +116,26 @@ describe('WebSocketTlsPanel', () => {
     expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).value).toBe('cert-content');
     expect((screen.getByTestId('tls-client-key') as HTMLTextAreaElement).value).toBe('key-content');
   });
+
+  it('disables all inputs when disabled prop is true', () => {
+    render(<WebSocketTlsPanel {...defaultProps({ disabled: true })} />);
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+
+    const checkbox = screen.getByTestId('tls-reject-unauthorized').querySelector('input')!;
+    expect(checkbox.disabled).toBe(true);
+    expect((screen.getByTestId('tls-ca-cert') as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByTestId('tls-client-key') as HTMLTextAreaElement).disabled).toBe(true);
+  });
+
+  it('enables all inputs when disabled prop is false', () => {
+    render(<WebSocketTlsPanel {...defaultProps({ disabled: false })} />);
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+
+    const checkbox = screen.getByTestId('tls-reject-unauthorized').querySelector('input')!;
+    expect(checkbox.disabled).toBe(false);
+    expect((screen.getByTestId('tls-ca-cert') as HTMLTextAreaElement).disabled).toBe(false);
+    expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).disabled).toBe(false);
+    expect((screen.getByTestId('tls-client-key') as HTMLTextAreaElement).disabled).toBe(false);
+  });
 });

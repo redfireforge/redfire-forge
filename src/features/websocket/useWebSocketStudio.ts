@@ -12,7 +12,6 @@ import {
   createFrame,
   hasCustomHeaders,
   hasTlsOverrides,
-  buildEffectiveUrl,
   getCloseCodeLabel,
   DEFAULT_BACKOFF_MULTIPLIER,
   type WsBackoffMultiplier,
@@ -25,41 +24,56 @@ import {
   type WsConnectionClosedPayload,
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
+import { resolveEnvVars, buildResolvedEffectiveUrl } from './wsMessageUtils';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { detectProtocol, detectFromMessage, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+import { detectProtocol, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
   applyFilters,
-  checkAutoRespond,
   annotateSentFrame,
   buildGqlWsInitAction,
   type SioServerParams,
 } from './wsProtocolHelpers';
+import { processReceivedMessage } from './wsMessageProcessing';
+import { useWebSocketBookmarks } from './useWebSocketBookmarks';
+import { useWebSocketUptime } from './useWebSocketUptime';
 import {
   DEFAULT_MAX_MESSAGES,
   PROXY_POLL_INTERVAL_MS,
   DEFAULT_RECONNECT_INTERVAL_MS,
   DEFAULT_MAX_RECONNECT_ATTEMPTS,
+  FILTER_TICK_INTERVAL_MS,
   formatCloseFrame,
   type WsDirectionFilter,
+  type WsSearchMode,
+  type WsSizeFilter,
+  type WsTimeFilter,
+  type WsContentTypeFilter,
   type WsTransportMode,
   type UseWebSocketStudioReturn,
 } from './useWebSocketStudioTypes';
 
-export type { WsDirectionFilter, WsTransportMode, UseWebSocketStudioReturn };
+export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
-export function useWebSocketStudio(): UseWebSocketStudioReturn {
+export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSocketStudioReturn {
   const [draft, setDraftState] = useState<WsConnectionDraft>(createDefaultDraft);
   const [connection, setConnection] = useState<WsConnectionSnapshot>({ state: 'disconnected' });
   const [messages, setMessages] = useState<WsFrame[]>([]);
   const [maxMessages, setMaxMessages] = useState(DEFAULT_MAX_MESSAGES);
   const [searchText, setSearchText] = useState('');
+  const [searchMode, setSearchMode] = useState<WsSearchMode>('text');
   const [directionFilter, setDirectionFilter] = useState<WsDirectionFilter>('all');
+  const [sizeFilter, setSizeFilter] = useState<WsSizeFilter>('all');
+  const [timeFilter, setTimeFilter] = useState<WsTimeFilter>('all');
+  const [contentTypeFilter, setContentTypeFilter] = useState<WsContentTypeFilter>('all');
+  const filterTickRef = useRef(0);
+  const [filterTick, setFilterTick] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const [receivedCount, setReceivedCount] = useState(0);
-  const [uptime, setUptime] = useState<number | null>(null);
   const [transportMode, setTransportMode] = useState<WsTransportMode>('direct');
   const [autoReconnect, setAutoReconnect] = useState(false);
   const [reconnectState, setReconnectState] = useState<WsReconnectState>(createDefaultReconnectState);
+
+  const { uptime, connectedAtRef, startUptimeTimer, resetConnectionTiming } = useWebSocketUptime();
   const [reconnectIntervalMs, setReconnectIntervalMs] = useState(DEFAULT_RECONNECT_INTERVAL_MS);
   const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(DEFAULT_MAX_RECONNECT_ATTEMPTS);
   const [backoffMultiplier, setBackoffMultiplier] = useState<WsBackoffMultiplier>(DEFAULT_BACKOFF_MULTIPLIER);
@@ -69,10 +83,12 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   const [sioServerParams, setSioServerParams] = useState<SioServerParams | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const connectedAtRef = useRef<number | null>(null);
-  const uptimeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxMessagesRef = useRef(maxMessages);
+  const messagesRef = useRef(messages);
   const draftRef = useRef(draft);
+
+  const { bookmarkedIds, bookmarkedMessages, toggleBookmark } = useWebSocketBookmarks(messagesRef);
+
   const proxyConnectionIdRef = useRef<string | null>(null);
   const proxyPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const proxyCursorRef = useRef(0);
@@ -93,8 +109,11 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   const tlsConfigRef = useRef(tlsConfig);
   const unlistenMessageRef = useRef<(() => void) | null>(null);
   const unlistenClosedRef = useRef<(() => void) | null>(null);
+  const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
 
   maxMessagesRef.current = maxMessages;
+  messagesRef.current = messages;
+  envVarMapRef.current = envVarMap ?? {};
   protocolModeRef.current = protocolMode;
   detectedProtocolRef.current = detectedProtocol;
   tlsConfigRef.current = tlsConfig;
@@ -116,29 +135,6 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   const setTlsConfig = useCallback((patch: Partial<WsTlsConfig>) => {
     setTlsConfigFull((prev) => ({ ...prev, ...patch }));
   }, []);
-
-  const stopUptimeTimer = useCallback(() => {
-    if (uptimeTimerRef.current !== null) {
-      clearInterval(uptimeTimerRef.current);
-      uptimeTimerRef.current = null;
-    }
-  }, []);
-
-  /** Stop uptime timer, clear connectedAt ref, and null out uptime state. */
-  const resetConnectionTiming = useCallback(() => {
-    stopUptimeTimer();
-    connectedAtRef.current = null;
-    setUptime(null);
-  }, [stopUptimeTimer]);
-
-  const startUptimeTimer = useCallback(() => {
-    stopUptimeTimer();
-    uptimeTimerRef.current = setInterval(() => {
-      if (connectedAtRef.current !== null) {
-        setUptime(Date.now() - connectedAtRef.current);
-      }
-    }, 1000);
-  }, [stopUptimeTimer]);
 
   const appendMessage = useCallback((frame: WsFrame) => {
     setMessages((prev) => {
@@ -198,35 +194,28 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
 
         if (!mountedRef.current) return;
         if (env.data && env.data.messages.length > 0) {
-          if (protocolModeRef.current === 'auto' && !messageDetectionDoneRef.current) {
-            messageDetectionDoneRef.current = true;
-            const firstMsg = env.data.messages[0];
-            if (firstMsg.type !== 'binary') {
-              const msgResult = detectFromMessage(firstMsg.data);
-              if (msgResult) {
-                updateDetectedProtocol(msgResult);
-              }
-            }
-          }
-
           const allFrames: WsFrame[] = [];
 
           for (const m of env.data.messages) {
-            const frame = createFrame('received', m.type === 'binary' ? 'binary' : 'text', m.data);
+            const isBinary = m.type === 'binary';
+            const result = processReceivedMessage(
+              m.data, isBinary,
+              protocolModeRef.current, detectedProtocolRef.current,
+              messageDetectionDoneRef.current,
+              (r) => { updateDetectedProtocol(r); },
+            );
+            messageDetectionDoneRef.current = result.detectionNowDone;
 
-            if (m.type !== 'binary') {
-              const autoResp = checkAutoRespond(frame, m.data, protocolModeRef.current, detectedProtocolRef.current);
-              if (autoResp) {
-                allFrames.push(frame);
-                dispatchWsOperation('send', { connectionId, data: autoResp.replyData, type: 'text' }).catch(() => {});
-                allFrames.push(autoResp.replyFrame);
-                setSentCount((c) => c + 1);
-                if (autoResp.sioServerParams) setSioServerParams(autoResp.sioServerParams);
-                continue;
-              }
+            if (result.autoRespond) {
+              allFrames.push(result.frame);
+              dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
+              allFrames.push(result.autoRespond.replyFrame);
+              setSentCount((c) => c + 1);
+              if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
+              continue;
             }
 
-            allFrames.push(frame);
+            allFrames.push(result.frame);
           }
 
           appendMessages(allFrames);
@@ -276,31 +265,26 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
       if (!mountedRef.current) return;
       if (payload.connectionId !== connectionId) return;
 
-      const frameType = payload.messageType === 'binary' ? 'binary' : 'text';
-      const frame = createFrame('received', frameType, payload.data);
+      const isBinary = payload.messageType === 'binary';
+      const result = processReceivedMessage(
+        payload.data, isBinary,
+        protocolModeRef.current, detectedProtocolRef.current,
+        messageDetectionDoneRef.current,
+        (r) => { updateDetectedProtocol(r); },
+      );
+      messageDetectionDoneRef.current = result.detectionNowDone;
 
-      if (protocolModeRef.current === 'auto' && !messageDetectionDoneRef.current) {
-        messageDetectionDoneRef.current = true;
-        if (frameType !== 'binary') {
-          const msgResult = detectFromMessage(payload.data);
-          if (msgResult) updateDetectedProtocol(msgResult);
-        }
+      if (result.autoRespond) {
+        appendMessage(result.frame);
+        dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
+        appendMessage(result.autoRespond.replyFrame);
+        setReceivedCount((c) => c + 1);
+        setSentCount((c) => c + 1);
+        if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
+        return;
       }
 
-      if (frameType !== 'binary') {
-        const autoResp = checkAutoRespond(frame, payload.data, protocolModeRef.current, detectedProtocolRef.current);
-        if (autoResp) {
-          appendMessage(frame);
-          dispatchWsOperation('send', { connectionId, data: autoResp.replyData, type: 'text' }).catch(() => {});
-          appendMessage(autoResp.replyFrame);
-          setReceivedCount((c) => c + 1);
-          setSentCount((c) => c + 1);
-          if (autoResp.sioServerParams) setSioServerParams(autoResp.sioServerParams);
-          return;
-        }
-      }
-
-      appendMessage(frame);
+      appendMessage(result.frame);
       setReceivedCount((c) => c + 1);
     });
     unlistenMessageRef.current = unlistenMsg;
@@ -385,7 +369,7 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   // ── Direct Transport ────────────────────────────────────────────────────────
 
   const connectDirect = useCallback(() => {
-    const effectiveUrl = buildEffectiveUrl(draftRef.current);
+    const effectiveUrl = buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current);
     if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
@@ -433,7 +417,6 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
         extensions: ws.extensions || undefined,
         latencyMs,
       });
-      setUptime(0);
       startUptimeTimer();
 
       const sysProto = proto || 'none';
@@ -452,28 +435,25 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
 
     ws.onmessage = (event: MessageEvent) => {
       const data = typeof event.data === 'string' ? event.data : String(event.data);
-      const frame = createFrame('received', 'text', data);
+      const result = processReceivedMessage(
+        data, false,
+        protocolModeRef.current, detectedProtocolRef.current,
+        messageDetectionDoneRef.current,
+        (r) => { updateDetectedProtocol(r); },
+      );
+      messageDetectionDoneRef.current = result.detectionNowDone;
 
-      if (protocolModeRef.current === 'auto' && !messageDetectionDoneRef.current) {
-        messageDetectionDoneRef.current = true;
-        const msgResult = detectFromMessage(data);
-        if (msgResult) {
-          updateDetectedProtocol(msgResult);
-        }
-      }
-
-      const autoResp = checkAutoRespond(frame, data, protocolModeRef.current, detectedProtocolRef.current);
-      if (autoResp) {
-        try { ws.send(autoResp.replyData); } catch { /* connection may have closed */ }
-        appendMessage(frame);
-        appendMessage(autoResp.replyFrame);
+      if (result.autoRespond) {
+        try { ws.send(result.autoRespond.replyData); } catch { /* connection may have closed */ }
+        appendMessage(result.frame);
+        appendMessage(result.autoRespond.replyFrame);
         setReceivedCount((c) => c + 1);
         setSentCount((c) => c + 1);
-        if (autoResp.sioServerParams) setSioServerParams(autoResp.sioServerParams);
+        if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
         return;
       }
 
-      appendMessage(frame);
+      appendMessage(result.frame);
       setReceivedCount((c) => c + 1);
     };
 
@@ -521,13 +501,14 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
         manualDisconnectRef.current = false;
       }
     };
-  }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol]);
+  }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol, connectedAtRef]);
 
   // ── Proxy Transport ─────────────────────────────────────────────────────────
 
   const connectProxy = useCallback(async () => {
     const currentDraft = draftRef.current;
-    const effectiveUrl = buildEffectiveUrl(currentDraft);
+    const evm = envVarMapRef.current;
+    const effectiveUrl = buildResolvedEffectiveUrl(currentDraft, evm);
     if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
@@ -537,7 +518,8 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     const headersMap: Record<string, string> = {};
     for (const h of currentDraft.headers) {
       if (h.enabled && h.key.trim().length > 0) {
-        headersMap[h.key.trim()] = h.value;
+        const resolvedKey = resolveEnvVars(h.key.trim(), evm);
+        headersMap[resolvedKey] = resolveEnvVars(h.value, evm);
       }
     }
 
@@ -586,7 +568,6 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
           extensions: env.data.extensions || undefined,
           latencyMs: env.data.latencyMs,
         });
-        setUptime(0);
         startUptimeTimer();
         if (isTauri()) {
           await startNativeListeners(env.data.connectionId);
@@ -614,13 +595,14 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
         scheduleReconnectRef.current();
       }
     }
-  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol]);
+  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol, connectedAtRef]);
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
   const connect = useCallback(() => {
-    const url = draftRef.current.url.trim().toLowerCase();
-    if (!url || (!url.startsWith('ws://') && !url.startsWith('wss://'))) return;
+    const evm = envVarMapRef.current;
+    const resolvedEffective = buildResolvedEffectiveUrl(draftRef.current, evm).toLowerCase();
+    if (!resolvedEffective || (!resolvedEffective.startsWith('ws://') && !resolvedEffective.startsWith('wss://'))) return;
 
     manualDisconnectRef.current = false;
     if (!reconnectingRef.current) {
@@ -633,9 +615,8 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     if (isTauri()) {
       connectProxy();
     } else {
-      const effectiveUrlForProxy = buildEffectiveUrl(draftRef.current).toLowerCase();
       const needsProxy = hasCustomHeaders(draftRef.current) ||
-        (effectiveUrlForProxy.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
+        (resolvedEffective.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
       if (needsProxy) {
         connectProxy();
       } else {
@@ -764,7 +745,6 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
   }, []);
 
   // Reconnect scheduling — uses ref to avoid stale closures over connect
-  // eslint-disable-next-line react-hooks/immutability -- intentional ref.current reassignment to break circular dependency with connect()
   scheduleReconnectRef.current = () => {
     if (!autoReconnectRef.current || !mountedRef.current) return;
 
@@ -829,9 +809,28 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     };
   }, []);
 
+  useEffect(() => {
+    if (timeFilter === 'all') return;
+    const id = setInterval(() => {
+      filterTickRef.current += 1;
+      setFilterTick(filterTickRef.current);
+    }, FILTER_TICK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [timeFilter]);
+
   const filteredMessages = useMemo(
-    () => applyFilters(messages, searchText, directionFilter),
-    [messages, searchText, directionFilter],
+    () => applyFilters(messages, {
+      searchText,
+      searchMode,
+      directionFilter,
+      sizeFilter,
+      timeFilter,
+      contentTypeFilter,
+      nowMs: Date.now(),
+      bookmarkedMessages,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, searchText, searchMode, directionFilter, sizeFilter, timeFilter, contentTypeFilter, bookmarkedMessages, filterTick],
   );
   const isMaxReached = messages.length >= maxMessages;
 
@@ -850,9 +849,21 @@ export function useWebSocketStudio(): UseWebSocketStudioReturn {
     isMaxReached,
     searchText,
     setSearchText,
+    searchMode,
+    setSearchMode,
     directionFilter,
     setDirectionFilter,
+    sizeFilter,
+    setSizeFilter,
+    timeFilter,
+    setTimeFilter,
+    contentTypeFilter,
+    setContentTypeFilter,
     clearMessages,
+    appendReplayFrame: appendMessage,
+    bookmarkedIds,
+    bookmarkedMessages,
+    toggleBookmark,
     sentCount,
     receivedCount,
     uptime,

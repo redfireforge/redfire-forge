@@ -7,6 +7,7 @@ export interface WebSocketTlsPanelProps {
   onTlsChange: (patch: Partial<WsTlsConfig>) => void;
   isWss: boolean;
   isProxyMode: boolean;
+  disabled?: boolean;
 }
 
 export function WebSocketTlsPanel({
@@ -14,6 +15,7 @@ export function WebSocketTlsPanel({
   onTlsChange,
   isWss,
   isProxyMode,
+  disabled = false,
 }: WebSocketTlsPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -48,6 +50,7 @@ export function WebSocketTlsPanel({
               type="checkbox"
               checked={tlsConfig.rejectUnauthorized === false}
               onChange={(e) => onTlsChange({ rejectUnauthorized: !e.target.checked })}
+              disabled={disabled}
             />
             <span>Skip certificate validation (insecure — for dev/staging only)</span>
           </label>
@@ -60,6 +63,7 @@ export function WebSocketTlsPanel({
               onChange={(e) => onTlsChange({ caCert: e.target.value || undefined })}
               placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
               rows={4}
+              disabled={disabled}
               data-testid="tls-ca-cert"
             />
           </div>
@@ -72,6 +76,7 @@ export function WebSocketTlsPanel({
               onChange={(e) => onTlsChange({ clientCert: e.target.value || undefined })}
               placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
               rows={4}
+              disabled={disabled}
               data-testid="tls-client-cert"
             />
           </div>
@@ -84,6 +89,7 @@ export function WebSocketTlsPanel({
               onChange={(e) => onTlsChange({ clientKey: e.target.value || undefined })}
               placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
               rows={4}
+              disabled={disabled}
               data-testid="tls-client-key"
             />
           </div>

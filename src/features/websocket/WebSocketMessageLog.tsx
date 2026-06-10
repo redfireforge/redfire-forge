@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
-import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
-import { formatBytes, formatUptime } from '../../shared/websocket/types';
-import type { WsDirectionFilter } from './useWebSocketStudio';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type { WsFrame, WsReplaySpeed, WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
+import { formatUptime } from '../../shared/websocket/types';
+import type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
-import { isValidJson, prettyJson, isValidBase64, tokenizeJson, buildBinaryPreview, formatWsTimestamp } from './wsMessageUtils';
 import { useDropdownClose } from './useDropdownClose';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
-import { encodeSioEvent } from '../../shared/websocket/protocols/socketIoCodec';
-import { encodeStompFrame } from '../../shared/websocket/protocols/stompCodec';
-import { encodeGqlWsSubscribe } from '../../shared/websocket/protocols/graphqlWsCodec';
+import { useWebSocketCompose } from './useWebSocketCompose';
+import { saveJsonFile } from '../../shared/utils/fileSaver';
+import type { WsMetricsSnapshot } from './useWebSocketMetrics';
+import { WebSocketStatsPanel } from './WebSocketStatsPanel';
+import { WebSocketMessageDiff } from './WebSocketMessageDiff';
+import type { WsValidationResult, WsValidationFilter, WsSchemaDefinition, WsSchemaDirection } from './wsSchemaTypes';
+import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
+import { MessageRow } from './WebSocketMessageRow';
+import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
+import { WebSocketFilterBar } from './WebSocketFilterBar';
 
-const CONTROL_FRAME_TYPES = new Set(['ping', 'pong', 'close']);
+const ROW_HEIGHT = 26;
+const VIRTUALIZER_OVERSCAN = 15;
 
 interface WebSocketMessageLogProps {
   messages: WsFrame[];
@@ -20,8 +27,16 @@ interface WebSocketMessageLogProps {
   isMaxReached: boolean;
   searchText: string;
   setSearchText: (v: string) => void;
+  searchMode: WsSearchMode;
+  setSearchMode: (v: WsSearchMode) => void;
   directionFilter: WsDirectionFilter;
   setDirectionFilter: (v: WsDirectionFilter) => void;
+  sizeFilter: WsSizeFilter;
+  setSizeFilter: (v: WsSizeFilter) => void;
+  timeFilter: WsTimeFilter;
+  setTimeFilter: (v: WsTimeFilter) => void;
+  contentTypeFilter: WsContentTypeFilter;
+  setContentTypeFilter: (v: WsContentTypeFilter) => void;
   onClear: () => void;
   onSend: (data: string, format?: WsMessageFormat) => void;
   onPing?: () => void;
@@ -38,14 +53,39 @@ interface WebSocketMessageLogProps {
   uptime?: number | null;
   sentCount?: number;
   receivedCount?: number;
-}
-
-function renderInlineJson(json: string): React.ReactNode {
-  const tokens = tokenizeJson(prettyJson(json));
-  return tokens.map((t, i) => {
-    const cls = t.type === 'punct' ? undefined : `ws-json-${t.type}`;
-    return cls ? <span key={i} className={cls}>{t.text}</span> : t.text;
-  });
+  bookmarkedIds?: ReadonlySet<string>;
+  onToggleBookmark?: (id: string) => void;
+  bookmarkCount?: number;
+  recordingState?: 'idle' | 'recording' | 'replaying' | 'paused';
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
+  onLoadRecordingFile?: (file: File) => Promise<boolean>;
+  onStartReplay?: () => void;
+  onPauseReplay?: () => void;
+  onResumeReplay?: () => void;
+  onStopReplay?: () => void;
+  replaySpeed?: WsReplaySpeed;
+  onSetReplaySpeed?: (speed: WsReplaySpeed) => void;
+  replayProgress?: { current: number; total: number; elapsedMs: number; durationMs: number } | null;
+  hasLoadedRecording?: boolean;
+  metrics?: WsMetricsSnapshot;
+  onToggleLoadTest?: () => void;
+  loadTestActive?: boolean;
+  // Schema validation (Phase 19)
+  getValidation?: (frame: WsFrame) => WsValidationResult[] | null;
+  validationFilter?: WsValidationFilter;
+  setValidationFilter?: (filter: WsValidationFilter) => void;
+  validationEnabled?: boolean;
+  setValidationEnabled?: (enabled: boolean) => void;
+  schemas?: WsSchemaDefinition[];
+  onAddSchema?: (name: string, schema: string, direction: WsSchemaDirection) => { ok: boolean; error?: string };
+  onUpdateSchema?: (id: string, patch: Partial<Pick<WsSchemaDefinition, 'name' | 'schema' | 'direction' | 'enabled'>>) => { ok: boolean; error?: string };
+  onRemoveSchema?: (id: string) => void;
+  onToggleSchema?: (id: string) => void;
+  onGenerateSchema?: (messages: WsFrame[], direction: WsSchemaDirection) => string | null;
+  schemasVisible?: boolean;
+  onToggleSchemasVisible?: () => void;
+  hasEnabledSchemas?: boolean;
 }
 
 
@@ -58,8 +98,16 @@ export function WebSocketMessageLog({
   isMaxReached,
   searchText,
   setSearchText,
+  searchMode,
+  setSearchMode,
   directionFilter,
   setDirectionFilter,
+  sizeFilter,
+  setSizeFilter,
+  timeFilter,
+  setTimeFilter,
+  contentTypeFilter,
+  setContentTypeFilter,
   onClear,
   onSend,
   onPing,
@@ -76,124 +124,132 @@ export function WebSocketMessageLog({
   uptime = null,
   sentCount = 0,
   receivedCount = 0,
+  bookmarkedIds,
+  onToggleBookmark,
+  bookmarkCount = 0,
+  recordingState = 'idle',
+  onStartRecording,
+  onStopRecording,
+  onLoadRecordingFile,
+  onStartReplay,
+  onPauseReplay,
+  onResumeReplay,
+  onStopReplay,
+  replaySpeed = 1,
+  onSetReplaySpeed,
+  replayProgress = null,
+  hasLoadedRecording = false,
+  metrics,
+  onToggleLoadTest,
+  loadTestActive = false,
+  getValidation,
+  validationFilter = 'all',
+  setValidationFilter,
+  validationEnabled = false,
+  setValidationEnabled,
+  schemas = [],
+  onAddSchema,
+  onUpdateSchema,
+  onRemoveSchema,
+  onToggleSchema,
+  onGenerateSchema,
+  schemasVisible = false,
+  onToggleSchemasVisible,
+  hasEnabledSchemas = false,
 }: WebSocketMessageLogProps) {
-  const [composeText, setComposeText] = useState('');
-  const [composeFormat, setComposeFormat] = useState<WsMessageFormat>('text');
-  const [sioEventName, setSioEventName] = useState('');
-  const [sioNamespace, setSioNamespace] = useState('/');
-  const [stompCommand, setStompCommand] = useState('SEND');
-  const [stompDestination, setStompDestination] = useState('');
-  const [gqlVariables, setGqlVariables] = useState('');
-  const [gqlOperationName, setGqlOperationName] = useState('');
-  const [gqlOperationId, setGqlOperationId] = useState(1);
-  const isSioMode = effectiveProtocol === 'socket-io';
-  const isStompMode = effectiveProtocol === 'stomp';
-  const isGqlMode = effectiveProtocol === 'graphql-ws';
+  const { composeBar } = useWebSocketCompose({
+    isConnected,
+    effectiveProtocol,
+    onSend,
+    onPing,
+    templates,
+    onSaveTemplate,
+    onDeleteTemplate,
+    onLoadTemplate,
+    transportMode,
+    totalCount,
+    maxMessages,
+  });
+
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
-  const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
-  const [templateSaveName, setTemplateSaveName] = useState('');
-  const [showControlFrames, setShowControlFrames] = useState(true);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const [showStats, setShowStats] = useState(false);
+  const [showFilterBar, setShowFilterBar] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
+  const [diffPair, setDiffPair] = useState<[WsFrame, WsFrame] | null>(null);
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+  const presetDropdownRef = useDropdownClose(
+    presetDropdownOpen,
+    useCallback(() => setPresetDropdownOpen(false), []),
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
-  const templateDropdownRef = useDropdownClose(
-    templateDropdownOpen,
-    useCallback(() => setTemplateDropdownOpen(false), []),
+  const recordingFileInputRef = useRef<HTMLInputElement>(null);
+
+  const isReplaying = recordingState === 'replaying' || recordingState === 'paused';
+
+  const { filterPresets, handleSavePreset, handleDeletePreset, handleApplyPreset } = useWebSocketFilterPresets({
+    searchMode, searchText, sizeFilter, timeFilter, contentTypeFilter,
+    setSearchMode, setSearchText, setSizeFilter, setTimeFilter, setContentTypeFilter,
+    setShowFilterBar, setPresetDropdownOpen,
+  });
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (sizeFilter !== 'all') count++;
+    if (timeFilter !== 'all') count++;
+    if (contentTypeFilter !== 'all') count++;
+    return count;
+  }, [sizeFilter, timeFilter, contentTypeFilter]);
+
+  const handleClearFilters = useCallback(() => {
+    setSizeFilter('all');
+    setTimeFilter('all');
+    setContentTypeFilter('all');
+  }, [setSizeFilter, setTimeFilter, setContentTypeFilter]);
+
+  const validationCacheRef = useRef(new Map<string, WsValidationResult[]>());
+  const prevSchemasRef = useRef(schemas);
+  const prevValidationEnabledRef = useRef(validationEnabled);
+  if (prevSchemasRef.current !== schemas || prevValidationEnabledRef.current !== validationEnabled) {
+    validationCacheRef.current.clear();
+    prevSchemasRef.current = schemas;
+    prevValidationEnabledRef.current = validationEnabled;
+  }
+
+  const getCachedValidation = useCallback(
+    (frame: WsFrame): WsValidationResult[] | null => {
+      if (!getValidation) return null;
+      const cached = validationCacheRef.current.get(frame.id);
+      if (cached !== undefined) return cached;
+      const result = getValidation(frame);
+      if (result !== null) validationCacheRef.current.set(frame.id, result);
+      return result;
+    },
+    // schemas + validationEnabled trigger function recreation to invalidate displayMessages memo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getValidation, schemas, validationEnabled],
   );
 
-  const canSend = useMemo(() => {
-    if (!isConnected) return false;
-    if (isSioMode) {
-      return sioEventName.trim().length > 0;
-    }
-    if (isStompMode) {
-      const needsInput = stompCommand === 'SEND' || stompCommand === 'SUBSCRIBE'
-        || stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK';
-      if (needsInput && stompDestination.trim().length === 0) return false;
+  const displayMessages = useMemo(() => {
+    if (validationFilter === 'all' || !validationEnabled || !hasEnabledSchemas) return messages;
+    return messages.filter((msg) => {
+      const results = getCachedValidation(msg);
+      if (!results || results.length === 0) return false;
+      const allValid = results.every((r) => r.valid);
+      return validationFilter === 'valid' ? allValid : !allValid;
+    });
+  }, [messages, validationFilter, validationEnabled, hasEnabledSchemas, getCachedValidation]);
+
+  const isRegexInvalid = useMemo(() => {
+    if (searchMode !== 'regex' || searchText.trim().length === 0) return false;
+    try {
+      new RegExp(searchText.trim(), 'i');
+      return false;
+    } catch {
       return true;
     }
-    if (isGqlMode) {
-      return composeText.trim().length > 0;
-    }
-    const trimmed = composeText.trim();
-    if (trimmed.length === 0) return false;
-    if (composeFormat === 'binary' && !isValidBase64(trimmed)) return false;
-    return true;
-  }, [isConnected, composeText, composeFormat, isSioMode, sioEventName, isStompMode, stompCommand, stompDestination, isGqlMode]);
-
-  const handleSend = useCallback(() => {
-    if (!canSend) return;
-    if (isSioMode) {
-      let payload: unknown;
-      const trimmed = composeText.trim();
-      if (trimmed.length > 0) {
-        try { payload = JSON.parse(trimmed); } catch { payload = trimmed; }
-      }
-      const ns = sioNamespace.trim() || '/';
-      const encoded = encodeSioEvent(sioEventName.trim(), payload, ns);
-      onSend(encoded, 'text');
-      setComposeText('');
-      return;
-    }
-    if (isStompMode) {
-      const headers: Record<string, string> = {};
-      const input = stompDestination.trim();
-      if (stompCommand === 'CONNECT' || stompCommand === 'STOMP') {
-        headers['accept-version'] = '1.2';
-        if (input) headers['host'] = input;
-      } else if (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') {
-        if (input) headers['id'] = input;
-      } else {
-        if (input) headers['destination'] = input;
-      }
-      if (stompCommand === 'SUBSCRIBE') {
-        headers['id'] = `sub-${Date.now()}`;
-      }
-      const body = composeText.trim() || undefined;
-      if (body) headers['content-length'] = String(new TextEncoder().encode(body).length);
-      const encoded = encodeStompFrame(stompCommand, headers, body);
-      onSend(encoded, 'text');
-      setComposeText('');
-      return;
-    }
-    if (isGqlMode) {
-      const query = composeText.trim();
-      let variables: Record<string, unknown> | undefined;
-      const varsTrimmed = gqlVariables.trim();
-      if (varsTrimmed.length > 0) {
-        try { variables = JSON.parse(varsTrimmed); } catch { /* invalid JSON ignored */ }
-      }
-      const opName = gqlOperationName.trim() || undefined;
-      const id = String(gqlOperationId);
-      const encoded = encodeGqlWsSubscribe(id, query, variables, opName);
-      onSend(encoded, 'text');
-      setGqlOperationId((prev) => prev + 1);
-      setComposeText('');
-      return;
-    }
-    onSend(composeText.trim(), composeFormat);
-    setComposeText('');
-  }, [composeText, composeFormat, canSend, onSend, isSioMode, sioEventName, sioNamespace, isStompMode, stompCommand, stompDestination, isGqlMode, gqlVariables, gqlOperationName, gqlOperationId]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend],
-  );
-
-  const handleBeautify = useCallback(() => {
-    if (composeFormat !== 'json') return;
-    try {
-      const parsed = JSON.parse(composeText);
-      setComposeText(JSON.stringify(parsed, null, 2));
-    } catch {
-      // leave as-is if invalid JSON
-    }
-  }, [composeText, composeFormat]);
+  }, [searchMode, searchText]);
 
   const handleScroll = useCallback(() => {
     const el = listRef.current;
@@ -202,27 +258,113 @@ export function WebSocketMessageLog({
     userScrolledUpRef.current = !isAtBottom;
   }, []);
 
-  useEffect(() => {
-    if (!userScrolledUpRef.current && logEndRef.current && typeof logEndRef.current.scrollIntoView === 'function') {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length]);
-
   const handleRowClick = useCallback((id: string) => {
+    if (compareMode) {
+      const frame = allMessages.find((m) => m.id === id);
+      if (frame && frame.type !== 'text') return;
+      setCompareIds((prev) => {
+        if (prev[0] === id) return [null, prev[1]];
+        if (prev[1] === id) return [prev[0], null];
+        if (prev[0] === null) return [id, prev[1]];
+        if (prev[1] === null) return [prev[0], id];
+        return [id, null];
+      });
+      return;
+    }
     setSelectedMessageId((prev) => (prev === id ? null : id));
+  }, [compareMode, allMessages]);
+
+  useEffect(() => {
+    if (!compareMode) return;
+    if (!compareIds[0] || !compareIds[1]) {
+      setDiffPair(null);
+      return;
+    }
+    const a = allMessages.find((m) => m.id === compareIds[0]);
+    const b = allMessages.find((m) => m.id === compareIds[1]);
+    if (a && b) {
+      const [left, right] = new Date(a.timestamp) <= new Date(b.timestamp) ? [a, b] : [b, a];
+      setDiffPair([left, right]);
+    } else {
+      setDiffPair(null);
+    }
+  }, [compareMode, compareIds, allMessages]);
+
+  useEffect(() => {
+    if (compareMode || !diffPair) return;
+    const leftExists = allMessages.some((m) => m.id === diffPair[0].id);
+    const rightExists = allMessages.some((m) => m.id === diffPair[1].id);
+    if (!leftExists || !rightExists) setDiffPair(null);
+  }, [compareMode, diffPair, allMessages]);
+
+  const handleToggleBookmark = useCallback((id: string) => {
+    onToggleBookmark?.(id);
+  }, [onToggleBookmark]);
+
+  const handleToggleCompare = useCallback(() => {
+    setCompareMode((prev) => !prev);
+    setCompareIds([null, null]);
+    setDiffPair(null);
   }, []);
+
+  const handleCloseDiff = useCallback(() => {
+    setDiffPair(null);
+    setCompareMode(false);
+    setCompareIds([null, null]);
+  }, []);
+
+  const handleSwapDiff = useCallback(() => {
+    setDiffPair((prev) => prev ? [prev[1], prev[0]] : null);
+  }, []);
+
+  const handleQuickDiff = useCallback((frame: WsFrame, direction: 'prev' | 'next') => {
+    const idx = allMessages.findIndex((m) => m.id === frame.id);
+    if (idx < 0) return;
+    const step = direction === 'prev' ? -1 : 1;
+    for (let i = idx + step; i >= 0 && i < allMessages.length; i += step) {
+      if (allMessages[i].direction === frame.direction && allMessages[i].type === 'text') {
+        const [left, right] = direction === 'prev'
+          ? [allMessages[i], frame]
+          : [frame, allMessages[i]];
+        setDiffPair([left, right]);
+        return;
+      }
+    }
+  }, [allMessages]);
+
+  const handleRecordingFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onLoadRecordingFile) return;
+    await onLoadRecordingFile(file);
+    e.target.value = '';
+  }, [onLoadRecordingFile]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setSearchText(e.target.value),
     [setSearchText],
   );
 
-  const visibleMessages = useMemo(
-    () => showControlFrames
-      ? messages
-      : messages.filter((f) => !CONTROL_FRAME_TYPES.has(f.type) && !f.protocolMeta?.isSystemPacket && !(f as WsFrame & { isSystem?: boolean }).isSystem),
-    [messages, showControlFrames],
-  );
+  const virtualizer = useVirtualizer({
+    count: displayMessages.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: VIRTUALIZER_OVERSCAN,
+  });
+
+  const virtualizerRef = useRef(virtualizer);
+  virtualizerRef.current = virtualizer;
+
+  const lastVisibleId = displayMessages.length > 0 ? displayMessages[displayMessages.length - 1].id : '';
+
+  useEffect(() => {
+    if (displayMessages.length === 0) {
+      userScrolledUpRef.current = false;
+      return;
+    }
+    if (!userScrolledUpRef.current) {
+      virtualizerRef.current.scrollToIndex(displayMessages.length - 1, { align: 'end' });
+    }
+  }, [lastVisibleId, displayMessages.length]);
 
   const handleExportMessages = useCallback(() => {
     const exportData = allMessages.map((f) => ({
@@ -233,53 +375,21 @@ export function WebSocketMessageLog({
       size: f.size,
       timestamp: f.timestamp,
       protocolMeta: f.protocolMeta ?? undefined,
+      ...(bookmarkedIds?.has(f.id) ? { bookmarked: true as const } : {}),
     }));
-    const json = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ws-messages-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [allMessages]);
-
-  // Template dropdown handlers
-  const handleTemplateLoad = useCallback(
-    (id: string) => {
-      const tpl = onLoadTemplate(id);
-      if (tpl) {
-        setComposeText(tpl.body);
-        setComposeFormat(tpl.format);
-        setTemplateDropdownOpen(false);
-      }
-    },
-    [onLoadTemplate],
-  );
-
-  const handleTemplateSave = useCallback(async () => {
-    const name = templateSaveName.trim();
-    if (!name || !composeText.trim()) return;
-    await onSaveTemplate(name, composeText, composeFormat);
-    setTemplateSaveName('');
-  }, [templateSaveName, composeText, composeFormat, onSaveTemplate]);
-
-  const handleTemplateDelete = useCallback(
-    async (id: string) => {
-      await onDeleteTemplate(id);
-    },
-    [onDeleteTemplate],
-  );
+    const filename = `ws-messages-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    saveJsonFile(exportData, filename).catch(() => { /* save dialog cancelled or write failed */ });
+  }, [allMessages, bookmarkedIds]);
 
   // Detail panel navigation
   const selectedFrame = useMemo(
-    () => (selectedMessageId ? messages.find((m) => m.id === selectedMessageId) ?? null : null),
-    [selectedMessageId, messages],
+    () => (selectedMessageId ? displayMessages.find((m) => m.id === selectedMessageId) ?? null : null),
+    [selectedMessageId, displayMessages],
   );
 
   const selectedIndex = useMemo(
-    () => (selectedMessageId ? messages.findIndex((m) => m.id === selectedMessageId) : -1),
-    [selectedMessageId, messages],
+    () => (selectedMessageId ? displayMessages.findIndex((m) => m.id === selectedMessageId) : -1),
+    [selectedMessageId, displayMessages],
   );
 
   const handleDetailClose = useCallback(() => {
@@ -288,283 +398,86 @@ export function WebSocketMessageLog({
 
   const handleDetailPrev = useCallback(() => {
     if (selectedIndex > 0) {
-      setSelectedMessageId(messages[selectedIndex - 1].id);
+      const prevId = displayMessages[selectedIndex - 1].id;
+      setSelectedMessageId(prevId);
+      const visIdx = displayMessages.findIndex((m) => m.id === prevId);
+      if (visIdx >= 0) virtualizerRef.current.scrollToIndex(visIdx, { align: 'auto' });
     }
-  }, [selectedIndex, messages]);
+  }, [selectedIndex, displayMessages]);
 
   const handleDetailNext = useCallback(() => {
-    if (selectedIndex < messages.length - 1) {
-      setSelectedMessageId(messages[selectedIndex + 1].id);
+    if (selectedIndex < displayMessages.length - 1) {
+      const nextId = displayMessages[selectedIndex + 1].id;
+      setSelectedMessageId(nextId);
+      const visIdx = displayMessages.findIndex((m) => m.id === nextId);
+      if (visIdx >= 0) virtualizerRef.current.scrollToIndex(visIdx, { align: 'auto' });
     }
-  }, [selectedIndex, messages]);
+  }, [selectedIndex, displayMessages]);
 
-  // Keyboard navigation in the message list
+  const scrollToMessageId = useCallback((id: string) => {
+    const visIdx = displayMessages.findIndex((m) => m.id === id);
+    if (visIdx >= 0) virtualizerRef.current.scrollToIndex(visIdx, { align: 'auto' });
+  }, [displayMessages]);
+
   const handleListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (selectedIndex < messages.length - 1) {
-          setSelectedMessageId(messages[selectedIndex + 1].id);
-        } else if (selectedIndex === -1 && messages.length > 0) {
-          setSelectedMessageId(messages[0].id);
+        if (selectedIndex < displayMessages.length - 1) {
+          const nextId = displayMessages[selectedIndex + 1].id;
+          setSelectedMessageId(nextId);
+          scrollToMessageId(nextId);
+        } else if (selectedIndex === -1 && displayMessages.length > 0) {
+          const firstId = displayMessages[0].id;
+          setSelectedMessageId(firstId);
+          scrollToMessageId(firstId);
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (selectedIndex > 0) {
-          setSelectedMessageId(messages[selectedIndex - 1].id);
+          const prevId = displayMessages[selectedIndex - 1].id;
+          setSelectedMessageId(prevId);
+          scrollToMessageId(prevId);
         }
       } else if (e.key === 'Escape') {
-        setSelectedMessageId(null);
+        if (diffPair) {
+          handleCloseDiff();
+        } else if (compareMode) {
+          setCompareMode(false);
+          setCompareIds([null, null]);
+        } else {
+          setSelectedMessageId(null);
+        }
+      } else if (e.key === 'd' || e.key === 'D') {
+        if (selectedFrame && selectedFrame.type === 'text') {
+          handleQuickDiff(selectedFrame, 'prev');
+        }
       }
     },
-    [selectedIndex, messages],
+    [selectedIndex, displayMessages, scrollToMessageId, compareMode, diffPair, handleCloseDiff, selectedFrame, handleQuickDiff],
   );
 
-  const isJsonValid = composeFormat === 'json' && composeText.trim().length > 0 && isValidJson(composeText);
-  const isBase64Invalid = composeFormat === 'binary' && composeText.trim().length > 0 && !isValidBase64(composeText);
+  const hasDiffPrev = useMemo(() => {
+    if (!selectedFrame || selectedFrame.type !== 'text') return false;
+    const idx = allMessages.findIndex((m) => m.id === selectedFrame.id);
+    if (idx <= 0) return false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (allMessages[i].direction === selectedFrame.direction && allMessages[i].type === 'text') return true;
+    }
+    return false;
+  }, [selectedFrame, allMessages]);
+
+  const hasDiffNext = useMemo(() => {
+    if (!selectedFrame || selectedFrame.type !== 'text') return false;
+    const idx = allMessages.findIndex((m) => m.id === selectedFrame.id);
+    if (idx < 0 || idx >= allMessages.length - 1) return false;
+    for (let i = idx + 1; i < allMessages.length; i++) {
+      if (allMessages[i].direction === selectedFrame.direction && allMessages[i].type === 'text') return true;
+    }
+    return false;
+  }, [selectedFrame, allMessages]);
 
   const statusDotClass = isConnected ? 'connected' : 'disconnected';
-
-  const composeBar = (
-    <div className="ws-compose-bar">
-      {isSioMode && (
-        <div className="ws-sio-compose-fields" data-testid="sio-compose-fields">
-          <input
-            className="ws-sio-event-input"
-            type="text"
-            value={sioEventName}
-            onChange={(e) => setSioEventName(e.target.value)}
-            placeholder="Event name"
-            disabled={!isConnected}
-            aria-label="Socket.IO event name"
-            data-testid="sio-event-name"
-          />
-          <input
-            className="ws-sio-namespace-input"
-            type="text"
-            value={sioNamespace}
-            onChange={(e) => setSioNamespace(e.target.value)}
-            placeholder="Namespace (/)"
-            disabled={!isConnected}
-            aria-label="Socket.IO namespace"
-            data-testid="sio-namespace"
-          />
-        </div>
-      )}
-      {isStompMode && (
-        <div className="ws-stomp-compose-fields" data-testid="stomp-compose-fields">
-          <select
-            className="ws-stomp-command-select"
-            value={stompCommand}
-            onChange={(e) => setStompCommand(e.target.value)}
-            disabled={!isConnected}
-            aria-label="STOMP command"
-            data-testid="stomp-command"
-          >
-            <option value="SEND">SEND</option>
-            <option value="SUBSCRIBE">SUBSCRIBE</option>
-            <option value="UNSUBSCRIBE">UNSUBSCRIBE</option>
-            <option value="CONNECT">CONNECT</option>
-            <option value="DISCONNECT">DISCONNECT</option>
-            <option value="ACK">ACK</option>
-            <option value="NACK">NACK</option>
-          </select>
-          <input
-            className="ws-stomp-destination-input"
-            type="text"
-            value={stompDestination}
-            onChange={(e) => setStompDestination(e.target.value)}
-            placeholder={
-              stompCommand === 'CONNECT' ? 'Host (e.g. broker.local)'
-              : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'ID (e.g. sub-0 or msg-42)'
-              : 'Destination (e.g. /topic/chat)'
-            }
-            disabled={!isConnected}
-            aria-label={
-              stompCommand === 'CONNECT' ? 'STOMP host'
-              : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'STOMP ID'
-              : 'STOMP destination'
-            }
-            data-testid="stomp-destination"
-          />
-        </div>
-      )}
-      {isGqlMode && (
-        <div className="ws-gql-compose-fields" data-testid="gql-compose-fields">
-          <input
-            className="ws-gql-operation-name-input"
-            type="text"
-            value={gqlOperationName}
-            onChange={(e) => setGqlOperationName(e.target.value)}
-            placeholder="Operation name (optional)"
-            disabled={!isConnected}
-            aria-label="GraphQL operation name"
-            data-testid="gql-operation-name"
-          />
-          <textarea
-            className="ws-gql-variables-input"
-            value={gqlVariables}
-            onChange={(e) => setGqlVariables(e.target.value)}
-            placeholder='Variables (JSON) e.g. {"id": "1"}'
-            disabled={!isConnected}
-            aria-label="GraphQL variables"
-            data-testid="gql-variables"
-            rows={2}
-          />
-          <span className="ws-gql-op-id" data-testid="gql-op-id">Op #{gqlOperationId}</span>
-        </div>
-      )}
-      <div className="ws-compose-input-wrapper">
-        <textarea
-          className={`ws-compose-input ${composeFormat === 'binary' ? 'ws-compose-mono' : ''}`}
-          value={composeText}
-          onChange={(e) => setComposeText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            !isConnected
-              ? 'Connect to send messages'
-              : isSioMode
-                ? 'Event data (JSON or text)\u2026'
-                : isStompMode
-                  ? 'Message body (optional)\u2026'
-                  : isGqlMode
-                    ? 'subscription { onMessage { id text } }'
-                    : 'Type a message\u2026'
-          }
-          disabled={!isConnected}
-          rows={2}
-          aria-label="Message input"
-        />
-        {isBase64Invalid && (
-          <span className="ws-compose-hint" data-testid="base64-hint">Invalid Base64</span>
-        )}
-      </div>
-      <div className="ws-compose-controls">
-        {!isSioMode && !isStompMode && !isGqlMode && (
-          <>
-            <label className="ws-format-label" htmlFor="ws-format-select">Format:</label>
-            <select
-              id="ws-format-select"
-              className="ws-format-select"
-              value={composeFormat}
-              onChange={(e) => setComposeFormat(e.target.value as WsMessageFormat)}
-              aria-label="Message format"
-              data-testid="format-select"
-            >
-              <option value="text">Text</option>
-              <option value="json">JSON</option>
-              <option value="binary">Binary (Base64)</option>
-            </select>
-            {composeFormat === 'json' && (
-              <button
-                className="ws-beautify-btn"
-                onClick={handleBeautify}
-                disabled={!composeText.trim() || !isJsonValid}
-                title="Beautify JSON"
-                data-testid="beautify-btn"
-              >
-                {'{ } Beautify'}
-              </button>
-            )}
-          </>
-        )}
-        {isSioMode && (
-          <span className="ws-sio-mode-badge" data-testid="sio-mode-badge">Socket.IO</span>
-        )}
-        {isStompMode && (
-          <span className="ws-stomp-mode-badge" data-testid="stomp-mode-badge">STOMP</span>
-        )}
-        {isGqlMode && (
-          <span className="ws-gql-mode-badge" data-testid="gql-mode-badge">GraphQL</span>
-        )}
-        <div className="ws-template-wrapper" ref={templateDropdownRef}>
-          <button
-            className="ws-template-trigger"
-            onClick={() => setTemplateDropdownOpen((v) => !v)}
-            data-testid="template-trigger"
-          >
-            Templates ▾
-          </button>
-          {templateDropdownOpen && (
-            <div className="ws-template-dropdown" data-testid="template-dropdown">
-              <div className="ws-template-dropdown-header">Saved Templates</div>
-              {templates.length === 0 ? (
-                <div className="ws-template-empty" data-testid="template-empty">
-                  No saved templates. Type a message and save it.
-                </div>
-              ) : (
-                <div className="ws-template-list" data-testid="template-list">
-                  {templates.map((tpl) => (
-                    <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`}>
-                      <button
-                        className="ws-template-item-load"
-                        onClick={() => handleTemplateLoad(tpl.id)}
-                        title={`Load: ${tpl.name}`}
-                      >
-                        <span className="ws-template-item-name">{tpl.name}</span>
-                        <span className="ws-template-item-preview">
-                          {tpl.body.length > 60 ? tpl.body.slice(0, 60) + '\u2026' : tpl.body}
-                        </span>
-                        <span className="ws-template-item-format">{tpl.format}</span>
-                      </button>
-                      <button
-                        className="ws-template-item-delete"
-                        onClick={() => handleTemplateDelete(tpl.id)}
-                        title="Delete template"
-                        data-testid={`template-delete-${tpl.id}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="ws-template-save-row">
-                <input
-                  className="ws-template-save-input"
-                  type="text"
-                  value={templateSaveName}
-                  onChange={(e) => setTemplateSaveName(e.target.value)}
-                  placeholder="Template name..."
-                  maxLength={100}
-                  data-testid="template-save-name"
-                />
-                <button
-                  className="ws-template-save-btn"
-                  onClick={handleTemplateSave}
-                  disabled={!templateSaveName.trim() || !composeText.trim()}
-                  data-testid="template-save-btn"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        <button
-          className="ws-compose-send-btn"
-          onClick={handleSend}
-          disabled={!canSend}
-          title="Send (Cmd+Enter / Ctrl+Enter)"
-          data-testid="send-btn"
-        >
-          Send
-        </button>
-        <button
-          className="ws-compose-ping-btn"
-          onClick={onPing}
-          disabled={!isConnected || transportMode === 'direct'}
-          title={transportMode !== 'direct' ? 'Send WebSocket ping frame' : 'Ping requires proxy or native transport'}
-          data-testid="ping-btn"
-        >
-          Ping
-        </button>
-      </div>
-      <div className="ws-compose-footer" data-testid="compose-footer">
-        {totalCount} / {maxMessages} messages
-      </div>
-    </div>
-  );
 
   return (
     <div className="ws-message-log-container">
@@ -585,14 +498,34 @@ export function WebSocketMessageLog({
 
       {/* Toolbar */}
       <div className="ws-message-log-toolbar">
+        <div className="ws-search-mode-pills" data-testid="search-mode-pills">
+          {(['text', 'regex', 'jsonpath'] as const).map((mode) => (
+            <button
+              key={mode}
+              className={`ws-search-mode-pill ${searchMode === mode ? 'ws-search-mode-pill-active' : ''}`}
+              onClick={() => setSearchMode(mode)}
+              data-testid={`search-mode-${mode}`}
+              title={mode === 'text' ? 'Text search' : mode === 'regex' ? 'Regex search' : 'JSONPath query'}
+            >
+              {mode === 'text' ? 'T' : mode === 'regex' ? 'R' : 'JP'}
+            </button>
+          ))}
+        </div>
         <input
-          className="ws-message-search"
+          className={`ws-message-search ${isRegexInvalid ? 'ws-search-invalid' : ''}`}
           type="text"
           value={searchText}
           onChange={handleSearchChange}
-          placeholder="Search messages\u2026"
+          placeholder={searchMode === 'jsonpath' ? '$.path or $.path=value' : searchMode === 'regex' ? 'regex pattern\u2026' : 'Search messages\u2026'}
           aria-label="Search messages"
+          data-testid="search-input"
+          title={isRegexInvalid ? 'Invalid regex' : undefined}
         />
+        {totalCount > 0 && displayMessages.length < totalCount && (
+          <span className="ws-filter-match-counter" data-testid="match-counter">
+            {displayMessages.length} of {totalCount}
+          </span>
+        )}
         <select
           className="ws-message-direction-filter"
           value={directionFilter}
@@ -602,7 +535,50 @@ export function WebSocketMessageLog({
           <option value="all">All</option>
           <option value="sent">Sent</option>
           <option value="received">Received</option>
+          <option value="bookmarked">
+            {bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked'}
+          </option>
         </select>
+        {validationEnabled && hasEnabledSchemas && setValidationFilter && (
+          <select
+            className="ws-validation-filter"
+            value={validationFilter}
+            onChange={(e) => setValidationFilter(e.target.value as WsValidationFilter)}
+            aria-label="Validation filter"
+            data-testid="validation-filter"
+          >
+            <option value="all">Validation: All</option>
+            <option value="valid">Valid only</option>
+            <option value="invalid">Invalid only</option>
+          </select>
+        )}
+        <button
+          className={`ws-filter-toggle-btn ${showFilterBar ? 'ws-filter-toggle-active' : ''}`}
+          onClick={() => setShowFilterBar((v) => !v)}
+          data-testid="filter-toggle-btn"
+          title={showFilterBar ? 'Hide filters' : 'Show filters'}
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+        </button>
+        <button
+          className={`ws-filter-toggle-btn ${compareMode ? 'ws-filter-toggle-active' : ''}`}
+          onClick={handleToggleCompare}
+          disabled={totalCount < 2}
+          data-testid="compare-btn"
+          title={compareMode ? 'Exit compare mode' : 'Compare two messages'}
+        >
+          Compare
+        </button>
+        {onToggleSchemasVisible && (
+          <button
+            className={`ws-filter-toggle-btn ${schemasVisible ? 'ws-filter-toggle-active' : ''}`}
+            onClick={onToggleSchemasVisible}
+            data-testid="schema-toggle-btn"
+            title={schemasVisible ? 'Hide schema panel' : 'Show schema panel'}
+          >
+            Schema{hasEnabledSchemas && validationEnabled ? ' ●' : ''}
+          </button>
+        )}
         <button
           className="ws-message-clear-btn"
           onClick={onClear}
@@ -619,15 +595,76 @@ export function WebSocketMessageLog({
         >
           Export
         </button>
-        <label className="ws-control-frame-toggle" data-testid="control-frame-toggle" title="Show/hide ping, pong, close, heartbeat, and protocol system packets">
-          <input
-            type="checkbox"
-            checked={showControlFrames}
-            onChange={(e) => setShowControlFrames(e.target.checked)}
-            data-testid="control-frame-checkbox"
-          />
-          System Frames
-        </label>
+        {metrics && (
+          <button
+            className={`ws-stats-toggle-btn ${showStats ? 'ws-stats-toggle-active' : ''}`}
+            onClick={() => setShowStats((v) => !v)}
+            data-testid="stats-toggle-btn"
+            title={showStats ? 'Hide stats' : 'Show stats'}
+          >
+            Stats
+          </button>
+        )}
+        {onToggleLoadTest && (
+          <button
+            className={`ws-stats-toggle-btn ${loadTestActive ? 'ws-stats-toggle-active' : ''}`}
+            onClick={onToggleLoadTest}
+            data-testid="load-test-toggle-btn"
+            title={loadTestActive ? 'Hide load test' : 'Show load test'}
+          >
+            Load Test
+          </button>
+        )}
+        {recordingState === 'idle' && !hasLoadedRecording && (
+          <button
+            className="ws-recording-btn"
+            onClick={onStartRecording}
+            data-testid="start-recording-btn"
+            title="Start recording session"
+          >
+            ● Rec
+          </button>
+        )}
+        {recordingState === 'recording' && (
+          <button
+            className="ws-recording-btn ws-recording-active"
+            onClick={onStopRecording}
+            data-testid="stop-recording-btn"
+            title="Stop recording and save"
+          >
+            ■ Stop
+          </button>
+        )}
+        {recordingState === 'idle' && !hasLoadedRecording && (
+          <>
+            <button
+              className="ws-recording-import-btn"
+              onClick={() => recordingFileInputRef.current?.click()}
+              data-testid="import-recording-btn"
+              title="Import recording"
+            >
+              Import
+            </button>
+            <input
+              ref={recordingFileInputRef}
+              type="file"
+              accept=".json,.wsrecording.json"
+              style={{ display: 'none' }}
+              onChange={handleRecordingFileChange}
+              data-testid="recording-file-input"
+            />
+          </>
+        )}
+        {hasLoadedRecording && recordingState === 'idle' && (
+          <button
+            className="ws-replay-start-btn"
+            onClick={onStartReplay}
+            data-testid="start-replay-btn"
+            title="Start replay"
+          >
+            ▶ Play
+          </button>
+        )}
         {isMaxReached && (
           <span className="ws-message-max-reached" data-testid="max-reached">
             {totalCount}/{maxMessages} — max reached
@@ -635,7 +672,80 @@ export function WebSocketMessageLog({
         )}
       </div>
 
-      {/* Message list */}
+      {/* Filter Bar */}
+      {showFilterBar && (
+        <WebSocketFilterBar
+          sizeFilter={sizeFilter}
+          setSizeFilter={setSizeFilter}
+          timeFilter={timeFilter}
+          setTimeFilter={setTimeFilter}
+          contentTypeFilter={contentTypeFilter}
+          setContentTypeFilter={setContentTypeFilter}
+          activeFilterCount={activeFilterCount}
+          onClearFilters={handleClearFilters}
+          filterPresets={filterPresets}
+          presetDropdownOpen={presetDropdownOpen}
+          setPresetDropdownOpen={setPresetDropdownOpen}
+          presetDropdownRef={presetDropdownRef}
+          onSavePreset={handleSavePreset}
+          onApplyPreset={handleApplyPreset}
+          onDeletePreset={handleDeletePreset}
+        />
+      )}
+
+      {isReplaying && (
+        <div className="ws-replay-bar" data-testid="replay-bar">
+          <button
+            className="ws-replay-playpause"
+            onClick={recordingState === 'paused' ? onResumeReplay : onPauseReplay}
+            data-testid="replay-playpause-btn"
+          >
+            {recordingState === 'paused' ? '▶' : '⏸'}
+          </button>
+          <select
+            className="ws-replay-speed"
+            value={replaySpeed}
+            onChange={(e) => onSetReplaySpeed?.(Number(e.target.value) as WsReplaySpeed)}
+            data-testid="replay-speed-select"
+          >
+            <option value={1}>1×</option>
+            <option value={2}>2×</option>
+            <option value={5}>5×</option>
+            <option value={10}>10×</option>
+            <option value={0}>Max</option>
+          </select>
+          {replayProgress && (
+            <span className="ws-replay-progress" data-testid="replay-progress">
+              {replayProgress.current} / {replayProgress.total} events
+            </span>
+          )}
+          <button
+            className="ws-replay-exit-btn"
+            onClick={onStopReplay}
+            data-testid="replay-exit-btn"
+          >
+            ✕ Exit
+          </button>
+        </div>
+      )}
+
+      {/* Compare mode banner */}
+      {compareMode && (
+        <div className="ws-compare-banner" data-testid="compare-banner">
+          <span>
+            {compareIds[0] === null
+              ? 'Click a message to select it for comparison'
+              : compareIds[1] === null
+                ? 'Click a second message to compare'
+                : 'Comparison ready'}
+          </span>
+          <button className="ws-compare-banner-cancel" onClick={handleToggleCompare} data-testid="compare-cancel">
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Virtualized message list */}
       <div
         className="ws-message-list"
         ref={listRef}
@@ -644,69 +754,65 @@ export function WebSocketMessageLog({
         tabIndex={0}
         data-testid="message-list"
       >
-        {visibleMessages.length === 0 && (
+        {displayMessages.length === 0 && (
           <div className="ws-message-empty" data-testid="empty-state">
             {totalCount === 0 ? 'No messages yet' : 'No messages match filters'}
           </div>
         )}
-        {visibleMessages.map((frame) => {
-          const meta = frame.protocolMeta;
-          const isSystem = frame.type === 'close' || meta?.isSystemPacket || !!(frame as WsFrame & { isSystem?: boolean }).isSystem;
-          const isCloseSent = frame.data.startsWith('CLOSE SENT');
-          const isCloseAck = frame.data.startsWith('CLOSE ACK');
-          const isJson = frame.type !== 'binary' && isValidJson(frame.data);
-          const isBinary = frame.type === 'binary';
-          const typeLabel = meta ? meta.packetType : frame.type;
-
-          let contentDisplay: React.ReactNode;
-          if (meta?.summary) {
-            contentDisplay = meta.summary;
-          } else if (isBinary) {
-            contentDisplay = buildBinaryPreview(frame.data, frame.size);
-          } else if (isJson && frame.data.length <= 500) {
-            const pretty = prettyJson(frame.data);
-            const display = pretty.length > 500 ? pretty.slice(0, 500) + '\u2026' : pretty;
-            contentDisplay = renderInlineJson(display);
-          } else {
-            const preview = frame.data.length > 500 ? frame.data.slice(0, 500) + '\u2026' : frame.data;
-            contentDisplay = preview;
-          }
-
-          const rowClasses = [
-            'ws-message-row',
-            isSystem ? '' : (frame.direction === 'sent' ? 'ws-message-sent' : 'ws-message-received'),
-            isSystem ? 'ws-message-system' : '',
-            meta ? 'ws-message-protocol' : '',
-            selectedMessageId === frame.id ? 'ws-msg-selected selected' : '',
-            isCloseSent ? 'ws-message-close-sent' : '',
-            isCloseAck ? 'ws-message-close-ack' : '',
-          ].filter(Boolean).join(' ');
-
-          return (
-            <div
-              key={frame.id}
-              className={rowClasses}
-              onClick={() => handleRowClick(frame.id)}
-              role="button"
-              tabIndex={-1}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleRowClick(frame.id); }}
-              aria-label={isSystem ? 'system message' : `${frame.direction} message`}
-              data-testid={`message-row-${frame.id}`}
-            >
-              <span className="ws-message-direction">
-                {isSystem ? '◆' : frame.direction === 'sent' ? '↑' : '↓'}
-              </span>
-              <span className="ws-message-timestamp">
-                {formatWsTimestamp(frame.timestamp)}
-              </span>
-              <span className={`ws-message-type ${meta ? 'ws-message-type-protocol' : ''}`} data-type={typeLabel}>{typeLabel}</span>
-              <span className="ws-message-content">{contentDisplay}</span>
-              <span className="ws-message-size">{formatBytes(frame.size)}</span>
-            </div>
-          );
-        })}
-        <div ref={logEndRef} />
+        {displayMessages.length > 0 && (
+          <div
+            className="ws-message-list-inner"
+            style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const frame = displayMessages[virtualRow.index];
+              return (
+                <div
+                  key={frame.id}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <MessageRow
+                    frame={frame}
+                    isSelected={selectedMessageId === frame.id}
+                    isBookmarked={bookmarkedIds?.has(frame.id) ?? false}
+                    compareBadge={compareIds[0] === frame.id ? 'A' : compareIds[1] === frame.id ? 'B' : null}
+                    validationBadge={(() => {
+                      const r = getCachedValidation(frame);
+                      if (!r || r.length === 0) return null;
+                      return r.every((v) => v.valid) ? 'valid' : 'invalid';
+                    })()}
+                    onRowClick={handleRowClick}
+                    onToggleBookmark={handleToggleBookmark}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Schema panel */}
+      {schemasVisible && onAddSchema && onUpdateSchema && onRemoveSchema && onToggleSchema && onGenerateSchema && setValidationEnabled && (
+        <WebSocketSchemaPanel
+          schemas={schemas}
+          validationEnabled={validationEnabled}
+          onSetValidationEnabled={setValidationEnabled}
+          onAddSchema={onAddSchema}
+          onUpdateSchema={onUpdateSchema}
+          onRemoveSchema={onRemoveSchema}
+          onToggleSchema={onToggleSchema}
+          onGenerateSchema={onGenerateSchema}
+          messages={allMessages}
+        />
+      )}
 
       {/* Detail panel */}
       {selectedFrame && (
@@ -716,11 +822,27 @@ export function WebSocketMessageLog({
           onPrev={handleDetailPrev}
           onNext={handleDetailNext}
           hasPrev={selectedIndex > 0}
-          hasNext={selectedIndex < messages.length - 1}
+          hasNext={selectedIndex < displayMessages.length - 1}
+          onDiffPrev={hasDiffPrev ? () => handleQuickDiff(selectedFrame, 'prev') : undefined}
+          onDiffNext={hasDiffNext ? () => handleQuickDiff(selectedFrame, 'next') : undefined}
+          validationResults={getCachedValidation(selectedFrame)}
         />
       )}
 
-      {composeBar}
+      {showStats && metrics && (
+        <WebSocketStatsPanel metrics={metrics} />
+      )}
+
+      {!isReplaying && composeBar}
+
+      {diffPair && (
+        <WebSocketMessageDiff
+          left={diffPair[0]}
+          right={diffPair[1]}
+          onClose={handleCloseDiff}
+          onSwap={handleSwapDiff}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,14 @@
 
 import type { WsFrame, WsFrameProtocolMeta } from '../../shared/websocket/types';
 import { createFrame } from '../../shared/websocket/types';
+import type {
+  WsSearchMode,
+  WsSizeFilter,
+  WsTimeFilter,
+  WsContentTypeFilter,
+  WsDirectionFilter,
+} from './useWebSocketStudioTypes';
+import { getByPath } from '../../shared/utils/jsonPath';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
@@ -30,8 +38,6 @@ import {
   encodeGqlWsPong,
   isGqlWsPing,
 } from '../../shared/websocket/protocols/graphqlWsCodec';
-
-import type { WsDirectionFilter } from './useWebSocketStudio';
 
 // ── Protocol Meta Builders ────────────────────────────────────────────────────
 
@@ -217,24 +223,152 @@ export function buildGqlWsInitAction(): AutoRespondAction {
 
 // ── Message Filtering ─────────────────────────────────────────────────────────
 
+const CONTROL_TYPES = new Set(['ping', 'pong', 'close']);
+
+function looksLikeJson(data: string): boolean {
+  const ch = data.trimStart().charAt(0);
+  return ch === '{' || ch === '[';
+}
+
+function matchesSize(m: WsFrame, filter: WsSizeFilter): boolean {
+  switch (filter) {
+    case 'lt1k': return m.size < 1024;
+    case '1k-10k': return m.size >= 1024 && m.size <= 10240;
+    case 'gt10k': return m.size > 10240;
+    default: return true;
+  }
+}
+
+const TIME_THRESHOLDS: Record<string, number> = {
+  last30s: 30_000,
+  last5m: 300_000,
+  last30m: 1_800_000,
+};
+
+function matchesTime(m: WsFrame, filter: WsTimeFilter, nowMs: number): boolean {
+  if (filter === 'all') return true;
+  const msgMs = new Date(m.timestamp).getTime();
+  const thresh = TIME_THRESHOLDS[filter];
+  return thresh != null && nowMs - msgMs <= thresh;
+}
+
+function isControlFrame(m: WsFrame): boolean {
+  return CONTROL_TYPES.has(m.type)
+    || !!m.protocolMeta?.isSystemPacket
+    || !!(m as WsFrame & { isSystem?: boolean }).isSystem;
+}
+
+function matchesContentType(m: WsFrame, filter: WsContentTypeFilter): boolean {
+  switch (filter) {
+    case 'json': return m.type === 'text' && !isControlFrame(m) && looksLikeJson(m.data);
+    case 'text': return m.type === 'text' && !isControlFrame(m) && !looksLikeJson(m.data);
+    case 'binary': return m.type === 'binary';
+    case 'control': return isControlFrame(m);
+    default: return true;
+  }
+}
+
+function textSearchMatch(m: WsFrame, needle: string): boolean {
+  if (m.data.toLowerCase().includes(needle)) return true;
+  if (m.protocolMeta?.summary.toLowerCase().includes(needle)) return true;
+  if (m.protocolMeta?.eventName?.toLowerCase().includes(needle)) return true;
+  if (m.protocolMeta?.namespace?.toLowerCase().includes(needle)) return true;
+  return false;
+}
+
+function regexSearchMatch(m: WsFrame, re: RegExp): boolean {
+  if (re.test(m.data)) return true;
+  if (m.protocolMeta?.summary && re.test(m.protocolMeta.summary)) return true;
+  if (m.protocolMeta?.eventName && re.test(m.protocolMeta.eventName)) return true;
+  if (m.protocolMeta?.namespace && re.test(m.protocolMeta.namespace)) return true;
+  return false;
+}
+
+function jsonpathSearchMatch(m: WsFrame, path: string, matchValue: string | null): boolean {
+  if (m.type !== 'text' || !looksLikeJson(m.data)) return false;
+  try {
+    const obj = JSON.parse(m.data) as unknown;
+    const resolved = getByPath(obj, path);
+    if (resolved === undefined || resolved === null) return false;
+    if (matchValue === null) return true;
+    return String(resolved).toLowerCase() === matchValue;
+  } catch {
+    return false;
+  }
+}
+
+export interface WsFilterOptions {
+  searchText: string;
+  searchMode: WsSearchMode;
+  directionFilter: WsDirectionFilter;
+  sizeFilter: WsSizeFilter;
+  timeFilter: WsTimeFilter;
+  contentTypeFilter: WsContentTypeFilter;
+  nowMs: number;
+  bookmarkedMessages?: WsFrame[];
+}
+
 export function applyFilters(
   messages: WsFrame[],
-  searchText: string,
-  directionFilter: WsDirectionFilter,
+  opts: WsFilterOptions,
 ): WsFrame[] {
-  let result = messages;
-  if (directionFilter !== 'all') {
+  const {
+    searchText,
+    searchMode,
+    directionFilter,
+    sizeFilter,
+    timeFilter,
+    contentTypeFilter,
+    nowMs,
+    bookmarkedMessages,
+  } = opts;
+
+  let result = directionFilter === 'bookmarked'
+    ? (bookmarkedMessages ?? [])
+    : messages;
+
+  if (directionFilter === 'sent' || directionFilter === 'received') {
     result = result.filter((m) => m.direction === directionFilter);
   }
-  if (searchText.trim().length > 0) {
-    const needle = searchText.toLowerCase();
-    result = result.filter((m) => {
-      if (m.data.toLowerCase().includes(needle)) return true;
-      if (m.protocolMeta?.summary.toLowerCase().includes(needle)) return true;
-      if (m.protocolMeta?.eventName?.toLowerCase().includes(needle)) return true;
-      if (m.protocolMeta?.namespace?.toLowerCase().includes(needle)) return true;
-      return false;
-    });
+
+  if (sizeFilter !== 'all') {
+    result = result.filter((m) => matchesSize(m, sizeFilter));
   }
+
+  if (timeFilter !== 'all') {
+    result = result.filter((m) => matchesTime(m, timeFilter, nowMs));
+  }
+
+  if (contentTypeFilter !== 'all') {
+    result = result.filter((m) => matchesContentType(m, contentTypeFilter));
+  }
+
+  const trimmed = searchText.trim();
+  if (trimmed.length > 0) {
+    if (searchMode === 'regex') {
+      try {
+        const re = new RegExp(trimmed, 'i');
+        result = result.filter((m) => regexSearchMatch(m, re));
+      } catch {
+        // invalid regex — return unfiltered by search
+      }
+    } else if (searchMode === 'jsonpath') {
+      const eqIdx = trimmed.indexOf('=');
+      let path: string;
+      let matchValue: string | null;
+      if (eqIdx > 0) {
+        path = trimmed.slice(0, eqIdx).trim();
+        matchValue = trimmed.slice(eqIdx + 1).trim().toLowerCase();
+      } else {
+        path = trimmed;
+        matchValue = null;
+      }
+      result = result.filter((m) => jsonpathSearchMatch(m, path, matchValue));
+    } else {
+      const needle = trimmed.toLowerCase();
+      result = result.filter((m) => textSearchMatch(m, needle));
+    }
+  }
+
   return result;
 }
