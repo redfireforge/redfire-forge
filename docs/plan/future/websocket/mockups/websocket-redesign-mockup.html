@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RedfireForge — WebSocket Studio Redesign Mockup</title>
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     Theme tokens — copied verbatim from src/index.css
+     ════════════════════════════════════════════════════════════════ */
+  :root, [data-theme="default"] {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-hover: #2d3a4d;
+    --border: #3b4a60;
+    --text: #f1f5f9;
+    --text-muted: #a8b8cc;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --radius: 8px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+  }
+  [data-theme="light"] {
+    --bg: #eef2f7;
+    --surface: #ffffff;
+    --surface-hover: #f1f5f9;
+    --border: #bcc8d8;
+    --text: #111827;
+    --text-muted: #3f4f63;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warning: #d97706;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── App chrome (just for the mockup frame) ─────────────────────── */
+  .app-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .app-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .app-brand .v { font-size: 0.62rem; font-weight: 600; color: var(--text-muted);
+    background: var(--bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 10px; }
+  .app-topbar-right { display: flex; align-items: center; gap: 10px; }
+  .theme-toggle {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 6px 12px; cursor: pointer; font-size: 0.8rem;
+  }
+  .theme-toggle:hover { background: var(--surface-hover); }
+  .mock-note {
+    font-size: 0.72rem; color: var(--text-muted); padding: 6px 16px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .mock-note b { color: var(--primary); }
+
+  /* ════════════════════════════════════════════════════════════════
+     WEBSOCKET STUDIO — REDESIGN
+     ════════════════════════════════════════════════════════════════ */
+  .ws { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+  /* ── Connection tab strip (multi-connection, browser-style) ─────── */
+  .ws-conns {
+    display: flex; align-items: stretch; gap: 2px;
+    padding: 0 8px; background: var(--bg);
+    border-bottom: 1px solid var(--border); flex-shrink: 0; height: 38px;
+  }
+  .ws-conn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px; min-width: 140px; max-width: 220px; height: 100%;
+    border: none; border-bottom: 2px solid transparent; background: transparent;
+    color: var(--text-muted); font-size: 0.8rem; cursor: pointer; position: relative;
+  }
+  .ws-conn:hover { background: var(--surface); }
+  .ws-conn.active {
+    color: var(--text); background: var(--surface);
+    border-bottom-color: var(--primary);
+  }
+  .ws-conn .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.live { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent); }
+  .dot.off { background: var(--text-muted); }
+  .dot.err { background: var(--danger); }
+  .ws-conn .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
+  .ws-conn .x {
+    width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted); border-radius: 4px;
+    font-size: 1rem; cursor: pointer; opacity: 0.6;
+  }
+  .ws-conn .x:hover { background: var(--surface-hover); color: var(--text); opacity: 1; }
+  .ws-conn-add {
+    width: 32px; border: none; background: transparent; color: var(--text-muted);
+    font-size: 1.2rem; cursor: pointer;
+  }
+  .ws-conn-add:hover { color: var(--text); }
+
+  /* ── Unified URL bar (the "request line") ───────────────────────── */
+  .ws-urlbar {
+    display: flex; align-items: stretch; gap: 0;
+    background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .ws-proto {
+    display: flex; align-items: center; padding: 0 14px; font-weight: 800;
+    font-size: 0.8rem; letter-spacing: 0.5px; color: var(--warning);
+    border-right: 1px solid var(--border);
+  }
+  .ws-url-wrap { flex: 1; display: flex; align-items: center; min-width: 0; position: relative; }
+  .ws-url {
+    flex: 1; min-width: 0; border: none; background: transparent; color: var(--text);
+    font-family: var(--font-mono); font-size: 0.85rem; padding: 12px 14px; outline: none;
+  }
+  .ws-url-actions { display: flex; align-items: center; gap: 2px; padding-right: 6px; }
+  .ws-url-iconbtn {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted); border-radius: 4px;
+    cursor: pointer; font-size: 0.95rem;
+  }
+  .ws-url-iconbtn:hover { background: var(--surface-hover); color: var(--text); }
+  .ws-connect-btn {
+    border: none; color: #fff; font-weight: 700; font-size: 0.85rem;
+    padding: 6px 22px; margin: 5px 8px 5px 4px; border-radius: 6px; cursor: pointer;
+    background: var(--success); white-space: nowrap; transition: background 0.15s;
+  }
+  .ws-connect-btn:hover { filter: brightness(1.08); }
+  .ws-connect-btn.danger { background: var(--danger); }
+
+  /* ── Status strip (connection meta) ─────────────────────────────── */
+  .ws-statusstrip {
+    display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    font-size: 0.74rem;
+  }
+  .pill { font-weight: 700; padding: 3px 10px; border-radius: 5px; white-space: nowrap; font-size: 0.72rem; }
+  .pill.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+  .pill.off { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); }
+  .pill.err { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+  .stat { color: var(--text-muted); white-space: nowrap; }
+  .stat b { color: var(--text); font-weight: 600; }
+  .ws-statusstrip .spacer { flex: 1; }
+
+  /* ── Split pane ─────────────────────────────────────────────────── */
+  .ws-split { display: flex; flex: 1; overflow: hidden; }
+  .ws-left { width: 46%; min-width: 340px; display: flex; flex-direction: column;
+    border-right: 1px solid var(--border); overflow: hidden; }
+  .ws-divider { width: 5px; cursor: col-resize; background: transparent; flex-shrink: 0;
+    margin: 0 -2px; z-index: 2; }
+  .ws-divider:hover { background: color-mix(in srgb, var(--primary) 40%, transparent); }
+  .ws-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 280px; }
+
+  /* ── Pane tabs (shared style, mirrors .req-tab) ─────────────────── */
+  .tabs {
+    display: flex; gap: 0; padding: 0 12px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-muted); padding: 9px 14px; font-size: 0.78rem; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab .badge {
+    background: var(--primary); color: #fff; font-size: 0.58rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 8px; min-width: 14px; text-align: center;
+  }
+  .tab .tdot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  .pane-body { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+
+  /* ── Composer (left, "Compose" tab) ─────────────────────────────── */
+  .composer { display: flex; flex-direction: column; flex: 1; }
+  .composer-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .select, .ghost-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    border-radius: 5px; padding: 5px 10px; font-size: 0.76rem; cursor: pointer;
+  }
+  .ghost-btn:hover, .select:hover { background: var(--surface-hover); }
+  .composer-toolbar .spacer { flex: 1; }
+  .editor {
+    flex: 1; margin: 0; padding: 12px 14px; background: var(--bg); border: none; resize: none;
+    color: var(--text); font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6;
+    outline: none; white-space: pre; overflow: auto;
+  }
+  .editor .k { color: #7dd3fc; }
+  .editor .s { color: #a5d6a7; }
+  .editor .n { color: #f9a825; }
+  .composer-foot {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .composer-foot .hint { font-size: 0.72rem; color: var(--text-muted); flex: 1; }
+  .send-btn {
+    background: var(--primary); color: #fff; border: none; font-weight: 700;
+    padding: 7px 20px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .send-btn:hover { background: var(--primary-hover); }
+
+  /* ── Key-value table (Params / Headers) ─────────────────────────── */
+  .kv { padding: 10px 12px; }
+  .kv-toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .kv-toolbar .label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-right: auto;
+  }
+  .kv-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .kv-grip { color: var(--text-muted); cursor: grab; opacity: 0.5; font-size: 0.8rem; }
+  .input {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 6px; font-size: 0.8rem; outline: none; min-width: 0;
+  }
+  .input:focus { border-color: var(--primary); }
+  .input::placeholder { color: var(--text-muted); }
+  .kv-row .k { flex: 1; }
+  .kv-row .v { flex: 1.4; }
+  .kv-check { width: 15px; height: 15px; accent-color: var(--primary); flex-shrink: 0; }
+  .kv-del {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted); border-radius: 5px; cursor: pointer;
+  }
+  .kv-del:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+  /* ── Events list (right pane) ───────────────────────────────────── */
+  .ev-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    border: none; background: var(--surface); color: var(--text-muted);
+    padding: 5px 10px; font-size: 0.72rem; cursor: pointer; border-right: 1px solid var(--border);
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.active { background: var(--primary); color: #fff; }
+  .ev-search {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; outline: none; max-width: 260px;
+  }
+  .ev-search:focus { border-color: var(--primary); }
+  .ev-toolbar .spacer { flex: 1; }
+
+  .ev-colhead {
+    display: flex; align-items: center; padding: 5px 12px; flex-shrink: 0;
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .ev-colhead .c-data { flex: 1; }
+  .ev-colhead .c-time { width: 92px; text-align: right; }
+
+  .ev-list { flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.76rem; }
+  .ev {
+    display: flex; align-items: center; gap: 10px; padding: 6px 12px; cursor: pointer;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+  }
+  .ev:hover { background: var(--surface); }
+  .ev.sel { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+  .ev .ico { width: 16px; text-align: center; flex-shrink: 0; font-weight: 700; }
+  .ev.sent .ico { color: var(--primary); }
+  .ev.recv .ico { color: var(--success); }
+  .ev.sys .ico { color: var(--warning); }
+  .ev.sys.bad .ico { color: var(--danger); }
+  .ev .data { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .ev.sys .data { color: var(--text-muted); }
+  .ev .time { width: 92px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ── Frame detail (bottom of right pane) ────────────────────────── */
+  .ev-detail { border-top: 1px solid var(--border); flex-shrink: 0; max-height: 38%; display: flex; flex-direction: column; }
+  .ev-detail-head {
+    display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+    border-bottom: 1px solid var(--border); font-size: 0.74rem; color: var(--text-muted);
+  }
+  .ev-detail-head .tag { color: var(--primary); font-weight: 700; }
+  .ev-detail-head .spacer { flex: 1; }
+  .ev-detail-body {
+    margin: 0; padding: 10px 14px; overflow: auto; font-family: var(--font-mono);
+    font-size: 0.78rem; line-height: 1.65; white-space: pre; color: var(--text);
+  }
+  .ev-detail-body .k { color: #7dd3fc; }
+  .ev-detail-body .s { color: #a5d6a7; }
+  .ev-detail-body .n { color: #f9a825; }
+  .ev-detail-body .b { color: #ce93d8; }
+</style>
+</head>
+<body>
+  <!-- App chrome (mockup frame only) -->
+  <div class="app-topbar">
+    <div class="app-brand">🔥 RedfireForge <span class="v">v0.6.0</span></div>
+    <div class="app-topbar-right">
+      <button class="theme-toggle" id="themeBtn">☀️ Light theme</button>
+    </div>
+  </div>
+  <div class="mock-note">
+    <b>Design proposal</b> — WebSocket Studio reimagined as a split-pane request editor (Insomnia-style), reusing the RedfireForge <b>Requests</b> design language. Toggle the theme to verify it adapts. This is a static mockup.
+  </div>
+
+  <!-- WebSocket Studio -->
+  <div class="ws">
+
+    <!-- Multi-connection tab strip -->
+    <div class="ws-conns">
+      <button class="ws-conn active">
+        <span class="dot live"></span>
+        <span class="name">localhost:8765</span>
+        <span class="x">×</span>
+      </button>
+      <button class="ws-conn">
+        <span class="dot off"></span>
+        <span class="name">api.example.com/chat</span>
+        <span class="x">×</span>
+      </button>
+      <button class="ws-conn">
+        <span class="dot err"></span>
+        <span class="name">staging/notifications</span>
+        <span class="x">×</span>
+      </button>
+      <button class="ws-conn-add" title="New connection">+</button>
+    </div>
+
+    <!-- Unified URL bar -->
+    <div class="ws-urlbar">
+      <div class="ws-proto">WS</div>
+      <div class="ws-url-wrap">
+        <input class="ws-url" value="ws://localhost:8765" spellcheck="false" />
+        <div class="ws-url-actions">
+          <button class="ws-url-iconbtn" title="Clear">×</button>
+          <button class="ws-url-iconbtn" title="Recent URLs">▾</button>
+        </div>
+      </div>
+      <button class="ws-connect-btn danger" id="connectBtn">Disconnect</button>
+    </div>
+
+    <!-- Status strip -->
+    <div class="ws-statusstrip">
+      <span class="pill ok">101 Switching Protocols</span>
+      <span class="stat">Latency <b>7.16 ms</b></span>
+      <span class="stat">Sent <b>3</b></span>
+      <span class="stat">Recv <b>2</b></span>
+      <span class="stat">Uptime <b>00:14</b></span>
+      <span class="spacer"></span>
+      <span class="stat">Auto-reconnect <b>On</b></span>
+    </div>
+
+    <!-- Split pane -->
+    <div class="ws-split">
+
+      <!-- LEFT: request config + composer -->
+      <div class="ws-left">
+        <div class="tabs">
+          <button class="tab active">Compose</button>
+          <button class="tab">Params <span class="badge">2</span></button>
+          <button class="tab">Headers <span class="badge">1</span></button>
+          <button class="tab">Auth <span class="tdot auth"></span></button>
+          <button class="tab">Settings <span class="tdot"></span></button>
+        </div>
+        <div class="pane-body">
+          <div class="composer">
+            <div class="composer-toolbar">
+              <select class="select"><option>JSON</option><option>Text</option><option>Binary (hex)</option></select>
+              <button class="ghost-btn">Templates ▾</button>
+              <button class="ghost-btn">Beautify</button>
+              <span class="spacer"></span>
+              <button class="ghost-btn">Insert {{var}}</button>
+            </div>
+<textarea class="editor" spellcheck="false">{
+  "type": "subscribe",
+  "channel": "orders",
+  "token": "{{auth_token}}"
+}</textarea>
+            <div class="composer-foot">
+              <span class="hint">⌘↵ to send · message will be sent as <b>JSON</b></span>
+              <button class="send-btn">Send ▸</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="ws-divider"></div>
+
+      <!-- RIGHT: events / response -->
+      <div class="ws-right">
+        <div class="tabs">
+          <button class="tab active">Events <span class="badge">5</span></button>
+          <button class="tab">Stats</button>
+          <button class="tab">Console <span class="badge new">NEW</span></button>
+        </div>
+
+        <div class="ev-toolbar">
+          <div class="seg">
+            <button class="active">All</button>
+            <button>Sent</button>
+            <button>Recv</button>
+          </div>
+          <input class="ev-search" placeholder="Search events…" />
+          <span class="spacer"></span>
+          <button class="ghost-btn">Export</button>
+          <button class="ghost-btn">Clear</button>
+        </div>
+
+        <div class="ev-colhead">
+          <span class="c-data">Data</span>
+          <span class="c-time">Time</span>
+        </div>
+
+        <div class="ev-list">
+          <div class="ev sys"><span class="ico">●</span><span class="data">Connected — 101 Switching Protocols</span><span class="time">21:20:35</span></div>
+          <div class="ev sent"><span class="ico">↑</span><span class="data">{"type":"subscribe","channel":"orders"}</span><span class="time">21:20:36</span></div>
+          <div class="ev recv sel"><span class="ico">↓</span><span class="data">{"event":"subscribed","channel":"orders","ok":true}</span><span class="time">21:20:36</span></div>
+          <div class="ev sent"><span class="ico">↑</span><span class="data">{"type":"ping"}</span><span class="time">21:20:42</span></div>
+          <div class="ev recv"><span class="ico">↓</span><span class="data">{"type":"pong","ts":1718053242}</span><span class="time">21:20:42</span></div>
+          <div class="ev sys bad"><span class="ico">●</span><span class="data">Disconnected — code 1000 (normal)</span><span class="time">21:20:49</span></div>
+        </div>
+
+        <!-- Selected frame detail -->
+        <div class="ev-detail">
+          <div class="ev-detail-head">
+            <span class="tag">↓ RECEIVED</span>
+            <span>JSON · 48 B · 21:20:36.250</span>
+            <span class="spacer"></span>
+            <button class="ghost-btn">Copy</button>
+          </div>
+<pre class="ev-detail-body">{
+  <span class="k">"event"</span>: <span class="s">"subscribed"</span>,
+  <span class="k">"channel"</span>: <span class="s">"orders"</span>,
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"count"</span>: <span class="n">128</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Theme toggle
+  const btn = document.getElementById('themeBtn');
+  btn.addEventListener('click', () => {
+    const html = document.documentElement;
+    const light = html.getAttribute('data-theme') === 'light';
+    html.setAttribute('data-theme', light ? 'default' : 'light');
+    btn.textContent = light ? '☀️ Light theme' : '🌙 Dark theme';
+  });
+  // Connect button toggle (visual only)
+  const cbtn = document.getElementById('connectBtn');
+  cbtn.addEventListener('click', () => {
+    const on = cbtn.classList.toggle('danger');
+    cbtn.textContent = on ? 'Disconnect' : 'Connect';
+  });
+  // Tab + event row selection (visual only)
+  document.querySelectorAll('.tabs').forEach(group => {
+    group.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+      group.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    }));
+  });
+  document.querySelectorAll('.ev').forEach(e => e.addEventListener('click', () => {
+    document.querySelectorAll('.ev').forEach(x => x.classList.remove('sel'));
+    e.classList.add('sel');
+  }));
+</script>
+</body>
+</html>
