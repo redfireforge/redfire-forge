@@ -18,15 +18,22 @@ export function useWebSocketBookmarks(
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-        setBookmarkedMessages((bm) => bm.filter((f) => f.id !== id));
       } else {
         next.add(id);
-        const frame = messagesRef.current?.find((f) => f.id === id);
-        if (frame) {
-          setBookmarkedMessages((bm) => [...bm, frame]);
-        }
       }
       return next;
+    });
+
+    setBookmarkedMessages((bm) => {
+      const exists = bm.some((f) => f.id === id);
+      if (exists) {
+        return bm.filter((f) => f.id !== id);
+      }
+      const frame = messagesRef.current?.find((f) => f.id === id);
+      if (frame) {
+        return [...bm, frame];
+      }
+      return bm;
     });
   }, [messagesRef]);
 
