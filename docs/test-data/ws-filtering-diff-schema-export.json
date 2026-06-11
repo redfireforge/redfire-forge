@@ -1,0 +1,197 @@
+{
+  "_exportMeta": {
+    "type": "ws-test-data",
+    "version": "1.0.0",
+    "exportedAt": "2026-06-10T22:00:00.000Z",
+    "source": "ws-filtering-diff-schema-test-scenarios.md",
+    "description": "WebSocket Studio test data for filtering, diff, and schema validation scenarios (WF-01 through WF-33)"
+  },
+  "data": {
+    "filterPresets": [
+      {
+        "id": "preset-error-messages",
+        "name": "Error Messages",
+        "searchMode": "text",
+        "searchText": "error",
+        "sizeFilter": "lt1k",
+        "timeFilter": "all",
+        "contentTypeFilter": "json",
+        "description": "Filters for JSON error messages under 1KB — used for WF-12, WF-13"
+      },
+      {
+        "id": "preset-recent-json",
+        "name": "Recent JSON (5m)",
+        "searchMode": "text",
+        "searchText": "",
+        "sizeFilter": "all",
+        "timeFilter": "5m",
+        "contentTypeFilter": "json",
+        "description": "Recent JSON messages from last 5 minutes — used for WF-10"
+      },
+      {
+        "id": "preset-large-binary",
+        "name": "Large Binary",
+        "searchMode": "text",
+        "searchText": "",
+        "sizeFilter": "gt10k",
+        "timeFilter": "all",
+        "contentTypeFilter": "binary",
+        "description": "Large binary messages — for size filter testing"
+      }
+    ],
+    "searchTestCases": [
+      {
+        "scenario": "WF-02",
+        "mode": "text",
+        "query": "Hello",
+        "testMessages": [
+          { "data": "Hello WebSocket!", "shouldMatch": true },
+          { "data": "{\"msg\":\"hello world\"}", "shouldMatch": true },
+          { "data": "Goodbye", "shouldMatch": false }
+        ]
+      },
+      {
+        "scenario": "WF-03",
+        "mode": "regex",
+        "query": "\"type\":\\s*\"error\"",
+        "testMessages": [
+          { "data": "{\"type\":\"error\",\"code\":500}", "shouldMatch": true },
+          { "data": "{\"type\":\"greeting\"}", "shouldMatch": false },
+          { "data": "plain text", "shouldMatch": false }
+        ]
+      },
+      {
+        "scenario": "WF-03-invalid",
+        "mode": "regex",
+        "query": "[invalid",
+        "expectedError": "Invalid regex",
+        "description": "Invalid regex should show red border + error tooltip"
+      },
+      {
+        "scenario": "WF-04",
+        "mode": "jsonpath",
+        "query": "$.type",
+        "testMessages": [
+          { "data": "{\"type\":\"greeting\"}", "shouldMatch": true },
+          { "data": "{\"name\":\"Alice\"}", "shouldMatch": false },
+          { "data": "plain text", "shouldMatch": false }
+        ]
+      },
+      {
+        "scenario": "WF-04-value",
+        "mode": "jsonpath",
+        "query": "$.type=error",
+        "testMessages": [
+          { "data": "{\"type\":\"error\"}", "shouldMatch": true },
+          { "data": "{\"type\":\"greeting\"}", "shouldMatch": false }
+        ]
+      }
+    ],
+    "diffTestCases": [
+      {
+        "scenario": "WF-16/17/18",
+        "description": "Two JSON objects with structural differences",
+        "messageA": {
+          "data": "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\"}",
+          "direction": "sent",
+          "timestamp": "2026-06-10T18:01:00.113Z"
+        },
+        "messageB": {
+          "data": "{\"id\":2,\"name\":\"Bob\",\"role\":\"user\",\"active\":true}",
+          "direction": "sent",
+          "timestamp": "2026-06-10T18:01:13.257Z"
+        },
+        "expectedResult": {
+          "totalChanges": 4,
+          "changes": [
+            { "path": "$.id", "type": "changed", "from": "1", "to": "2" },
+            { "path": "$.name", "type": "changed", "from": "\"Alice\"", "to": "\"Bob\"" },
+            { "path": "$.role", "type": "changed", "from": "\"admin\"", "to": "\"user\"" },
+            { "path": "$.active", "type": "added", "value": "true" }
+          ]
+        }
+      },
+      {
+        "scenario": "WF-19",
+        "description": "Swapped diff — B compared to A",
+        "note": "When sides are swapped, 'added' becomes 'removed' and vice versa"
+      }
+    ],
+    "schemas": [
+      {
+        "id": "schema-greeting",
+        "name": "Greeting Schema",
+        "direction": "both",
+        "enabled": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "name": { "type": "string" },
+            "message": { "type": "string" },
+            "count": { "type": "number" }
+          },
+          "required": ["type"]
+        },
+        "testMessages": {
+          "valid": [
+            "{\"type\":\"greeting\",\"name\":\"Alice\"}",
+            "{\"type\":\"error\",\"count\":1}"
+          ],
+          "invalid": [
+            "{\"name\":\"Alice\"}",
+            "{\"count\":1}"
+          ],
+          "expectedErrors": [
+            { "path": "", "message": "must have required property 'type'" }
+          ]
+        }
+      },
+      {
+        "id": "schema-strict-user",
+        "name": "Strict User Schema",
+        "direction": "both",
+        "enabled": false,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "number" },
+            "name": { "type": "string" },
+            "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
+            "active": { "type": "boolean" }
+          },
+          "required": ["id", "name", "role"],
+          "additionalProperties": false
+        },
+        "testMessages": {
+          "valid": [
+            "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\"}",
+            "{\"id\":2,\"name\":\"Bob\",\"role\":\"user\",\"active\":true}"
+          ],
+          "invalid": [
+            "{\"id\":1,\"name\":\"Alice\",\"role\":\"superadmin\"}",
+            "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\",\"extraField\":true}"
+          ]
+        }
+      }
+    ],
+    "schemaGenerationSamples": {
+      "scenario": "WF-32/33",
+      "inputMessages": [
+        "{\"id\":1,\"name\":\"Alice\"}",
+        "{\"id\":2,\"name\":\"Bob\",\"age\":30}",
+        "{\"id\":3,\"name\":\"Carol\",\"active\":true}"
+      ],
+      "expectedInferredSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "number" },
+          "name": { "type": "string" },
+          "age": { "type": "number" },
+          "active": { "type": "boolean" }
+        },
+        "required": ["id", "name"]
+      }
+    }
+  }
+}

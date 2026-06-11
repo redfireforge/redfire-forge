@@ -3,9 +3,9 @@
 > **Purpose:** Master plan for all WebSocket Studio visual test-scenarios MD files.
 > **Created:** 2026-06-10
 > **Updated:** 2026-06-10
-> **Completed:** None yet
+> **Completed:** 7 of 7 files written + visually tested
 > **In Progress:** None
-> **Remaining:** 7 files
+> **Remaining:** 0 files
 >
 > **Source documents referenced:**
 > - `websocket-studio-plan.md` — Phase definitions and scope (Phases 1–19 + Phase 18 SSE)
@@ -25,13 +25,14 @@
 
 | # | File | Covers | WS Plan Phases | Count | Status |
 |---|---|---|---|---|---|
-| | `ws-core-connect-test-scenarios.md` | Core connect, compose, message log, saved connections, templates, auto-reconnect, env vars, virtualized log | Phases 1, 2, 7, 8 | ~30 | Pending |
-| | `ws-protocols-transport-test-scenarios.md` | Protocol codecs (Socket.IO, STOMP, GraphQL-WS), TLS/mTLS, protocol detection, Tauri native transport | Phases 3, 6 | ~20 | Pending |
-| | `ws-tabs-persistence-test-scenarios.md` | Multiple tabs, tab persistence, connection history, bookmarks, session recording/replay, stats dashboard, drag reorder, keyboard nav | Phases 9, 10, 11, 12, 13 | ~30 | Pending |
-| | `ws-filtering-diff-schema-test-scenarios.md` | Regex/JSONPath search, attribute filters, saved presets, message diff/compare, schema validation | Phases 14, 15, 19 | ~25 | Pending |
-| | `ws-mock-server-test-scenarios.md` | Mock server core, response rules engine, live rule sync, broadcast, meta-testing | Phase 16 | ~18 | Pending |
-| | `ws-load-test-scenarios.md` | Load test config (constant/ramp/burst), real-time metrics, latency histogram, results export | Phase 17 | ~15 | Pending |
-| | `sse-studio-test-scenarios.md` | SSE connection, event log, type filtering, bookmarks, auto-reconnect, stats | Phase 18 | ~15 | Pending |
+| 1 | `ws-core-connect-test-scenarios.md` | Core connect, compose, message log, saved connections, templates, auto-reconnect, env vars, virtualized log | Phases 1, 2, 7, 8 | 46 | ✅ Done |
+| 2 | `ws-protocols-transport-test-scenarios.md` | Protocol codecs (Socket.IO, STOMP, GraphQL-WS), TLS/mTLS, protocol detection, Tauri native transport | Phases 3, 6 | 23 | ✅ Done |
+| 3 | `ws-tabs-persistence-test-scenarios.md` | Multiple tabs, tab persistence, connection history, bookmarks, session recording/replay, stats dashboard, drag reorder, keyboard nav | Phases 9, 10, 11, 12, 13 | 42 | ✅ Done |
+| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Regex/JSONPath search, attribute filters, saved presets, message diff/compare, schema validation | Phases 14, 15, 19 | 33 | ✅ Done |
+| 5 | `ws-mock-server-test-scenarios.md` | Mock server core, response rules engine, live rule sync, broadcast, meta-testing | Phase 16 | 19 | ✅ Done |
+| 6 | `ws-load-test-scenarios.md` | Load test config (constant/ramp/burst), real-time metrics, latency histogram, results export | Phase 17 | 15 | ✅ Done |
+| 7 | `sse-studio-test-scenarios.md` | SSE connection, event log, type filtering, bookmarks, auto-reconnect, stats | Phase 18 | 15 | ✅ Done |
+| 8 | `ws-workflow-runner-test-scenarios.md` | Workflow WS nodes (Connect/Send/Receive/Trigger), output bindings, match criteria, harness transport selector, WS scenario editors, `wsField`/`wsNumericField` assertions, transport-aware results | Phases 4, 5 | 28 | ✅ Done |
 
 ---
 
@@ -580,13 +581,13 @@ npm run dev
 Recommended order for writing and validating these files:
 
 ```
-1. ws-core-connect-test-scenarios.md              (WC-01 → WC-46)   Pending — ~46 scenarios
-2. ws-protocols-transport-test-scenarios.md        (WP-01 → WP-23)   Pending — ~23 scenarios
-3. ws-tabs-persistence-test-scenarios.md           (WT-01 → WT-42)   Pending — ~42 scenarios
-4. ws-filtering-diff-schema-test-scenarios.md      (WF-01 → WF-33)   Pending — ~33 scenarios
-5. ws-mock-server-test-scenarios.md                (WM-01 → WM-19)   Pending — ~19 scenarios
-6. ws-load-test-scenarios.md                       (WL-01 → WL-15)   Pending — ~15 scenarios
-7. sse-studio-test-scenarios.md                    (SE-01 → SE-15)   Pending — ~15 scenarios
+1. ws-core-connect-test-scenarios.md              (WC-01 → WC-46)   ✅ Done — 46 scenarios
+2. ws-protocols-transport-test-scenarios.md        (WP-01 → WP-23)   ✅ Done — 23 scenarios
+3. ws-tabs-persistence-test-scenarios.md           (WT-01 → WT-42)   ✅ Done — 42 scenarios
+4. ws-filtering-diff-schema-test-scenarios.md      (WF-01 → WF-33)   ✅ Done — 33 scenarios
+5. ws-mock-server-test-scenarios.md                (WM-01 → WM-19)   ✅ Done — 19 scenarios
+6. ws-load-test-scenarios.md                       (WL-01 → WL-15)   ✅ Done — 15 scenarios
+7. sse-studio-test-scenarios.md                    (SE-01 → SE-15)   ✅ Done — 15 scenarios
 ```
 
 Each file should be completed end-to-end before moving to the next:
@@ -605,7 +606,8 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | `ws-mock-server-test-scenarios.md` | 16 | WM-* | ~19 |
 | `ws-load-test-scenarios.md` | 17 | WL-* | ~15 |
 | `sse-studio-test-scenarios.md` | 18 | SE-* | ~15 |
-| **Total** | **1–19** | | **~193** |
+| `ws-workflow-runner-test-scenarios.md` | 4, 5 | WR-* | ~28 |
+| **Total** | **1–19** | | **~221** |
 
 ---
 
@@ -624,6 +626,8 @@ Every completed phase from `websocket-studio-plan.md` must be covered by at leas
 | Phase 3C — STOMP | CONNECT, SUBSCRIBE, SEND, heart-beat | `ws-protocols-transport` WP-08–WP-11 |
 | Phase 3D — TLS/mTLS | Certificate config, rejectUnauthorized | `ws-protocols-transport` WP-16–WP-18 |
 | Phase 3E — GraphQL-WS | connection_init, subscribe, next, complete | `ws-protocols-transport` WP-12–WP-15 |
+| Phase 4 — Workflow Integration | WS Connect/Send/Receive/Trigger nodes, output bindings, match criteria, variable extraction, Quick Test, Run in Harness | `ws-workflow-runner` WR-01–WR-14 |
+| Phase 5 — Runner & Assertions | Harness transport selector, WS scenario editors, `wsField`/`wsNumericField` assertions, + Add WebSocket category, transport-aware results | `ws-workflow-runner` WR-15–WR-28 |
 | Phase 6 — Tauri Native Transport | tokio-tungstenite, TS bridge, event-driven | `ws-protocols-transport` WP-19–WP-23 |
 | Phase 7 — Env Variable Interpolation | `{{baseUrl}}`, `{{wsBaseUrl}}`, resolved preview | `ws-core-connect` WC-40–WC-43 |
 | Phase 8 — Virtualized Message Log | Virtual rendering, 10k cap, export | `ws-core-connect` WC-44–WC-46 |
@@ -653,7 +657,7 @@ Every completed phase from `websocket-studio-plan.md` must be covered by at leas
 | Phase 19.2 — Real-Time Validation | ✓/✗ badges, validation tab, filter | `ws-filtering-diff-schema` WF-28–WF-31 |
 | Phase 19.3 — Schema Generation | Infer schema from messages | `ws-filtering-diff-schema` WF-32–WF-33 |
 
-**Note:** Phases 4 (Workflow Integration) and 5 (Runner & Assertions) are engine/harness features with 800+ unit tests. They are not included in visual test scenarios because they require full workflow + test runner UI flows that are already covered by the existing test infrastructure. If visual workflow test scenarios are needed, a separate `ws-workflow-runner-test-scenarios.md` file would be added.
+**Note:** Phases 4 (Workflow Integration) and 5 (Runner & Assertions) are covered by **File 8 — `ws-workflow-runner-test-scenarios.md`** (WR-01–WR-28). These visual scenarios complement the 800+ engine/harness unit tests by exercising the full workflow-designer and test-runner UI flows (WS nodes, output bindings, match criteria, transport selector, WS scenario editors, `wsField`/`wsNumericField` assertions, and transport-aware results).
 
 ---
 
@@ -661,4 +665,14 @@ Every completed phase from `websocket-studio-plan.md` must be covered by at leas
 
 | Date | File | Bug | Root Cause | Fix |
 |---|---|---|---|---|
-| *(populated during testing)* | | | | |
+| 2026-06-10 | File 1 (WC-03) | Connect button disabled when URL empty (plan said "enabled") | By design — prevents connecting to empty URLs | Updated WC-03 expected results |
+| 2026-06-10 | File 1 (WC-17) | Ping button disabled in direct browser mode | Browser WebSocket API doesn't expose ping frames | Documented that Ping requires proxy or native transport |
+| 2026-06-10 | File 3 (WT-01) | "+" button disappears at max tabs (not just disabled) | UI removes button entirely when MAX_TABS reached | Updated WT-01 expected results |
+| (prior) | File 4 (WF-14) | Filter preset stale closure bug | Closure captured stale `filterPresets` value | Fixed with functional `setFilterPresets(prev => ...)` |
+| (prior) | File 4 (WF-31) | Validation cache memory leak | `validationCacheRef` not pruned for evicted messages | Added cache pruning when size > messages.length + 50 |
+| (prior) | File 6 (WL-07) | `bytesSent` undercounted for non-ASCII chars | Used `.length` (UTF-16 code units) instead of byte count | Fixed to use `byteLength(withNonce)` |
+| (prior) | File 6 (WL-06) | Ramp profile not checked for high-rate confirmation | Only checked `config.rate`, not `config.rateEnd` | Added ramp-specific rate check and dialog text |
+| (prior) | File 7 (SE-12) | SSE HTTP errors didn't trigger auto-reconnect | `maybeReconnect()` not called in error path | Added `maybeReconnect()` after error state |
+| (prior) | File 7 (SE-12) | SSE reconnect overwrote error state | `maybeReconnect()` called `updateState('disconnected')` | Changed to only update `reconnectAttempt` counter |
+| 2026-06-10 | File 3 (WT-21) | Duplicate React key error when Bookmarked filter active | `setBookmarkedMessages` called as side effect inside `setBookmarkedIds` updater — React double-invocation caused duplicate frames | Separated state updates; added `bm.some(f => f.id === id)` guard in `useWebSocketBookmarks.ts` |
+| 2026-06-10 | File 8 (WR — harness runner) | Running a WS (or Kafka) harness test in the browser Test Runner failed with `Failed to parse URL from /api/ws/connect — Invalid URL [ERR_INVALID_URL] [WS_NETWORK_ERROR]` | The execution Web Worker installed `httpFetchViaViteProxy` as its transport, which POSTs every request to Vite's `/__proxy`; that handler runs in Node, whose `fetch` rejects relative `/api/*` URLs. HTTP tests were unaffected (absolute URLs). | Exported `proxyFetch` (already guards relative `/api/*` via native `fetch`) from `httpClient.ts` and installed it in `executionWorker.setupBrowserTransport()` instead. Added `proxyFetch` regression tests + updated worker test. Verified in browser: WS Connect now Status `CONNECT`, Passed ✓, 0% error rate |

@@ -79,7 +79,6 @@ export function useWebSocketReconnect(
   scheduleReconnectRef.current = () => {
     if (!autoReconnectRef.current || !mountedRef.current) return;
     if (reconnectTimerRef.current !== null) return;
-
     const attempt = reconnectAttemptRef.current + 1;
     const max = maxReconnectAttemptsRef.current;
 

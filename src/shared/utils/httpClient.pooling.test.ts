@@ -556,3 +556,37 @@ describe('httpFetchViaViteProxy — direct export', () => {
     expect(typeof mod.httpFetchViaViteProxy).toBe('function');
   });
 });
+
+// ────────────────────────────────────────────────────────
+// proxyFetch (exported for the execution worker)
+// ────────────────────────────────────────────────────────
+
+describe('proxyFetch — relative vs absolute routing', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    globalThis.fetch = vi.fn();
+  });
+
+  it('routes relative /api/* paths through native fetch (NOT /__proxy)', async () => {
+    // Regression: the execution worker installs proxyFetch as its transport. A relative
+    // WS/Kafka proxy path must use native fetch — POSTing it to /__proxy would make the
+    // Node-side fetch throw ERR_INVALID_URL ("Failed to parse URL from /api/ws/connect").
+    vi.mocked(globalThis.fetch).mockResolvedValue(makeFetchResponse('{"ok":true}', 200));
+    const mod = await import('./httpClient');
+    const res = await mod.proxyFetch('/api/ws/connect', 'POST', { 'Content-Type': 'application/json' }, '{}');
+    expect(res.status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('/api/ws/connect');
+  });
+
+  it('routes absolute URLs through the /__proxy endpoint', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      makeFetchResponse(JSON.stringify({ status: 200, statusText: 'OK', headers: {}, body: 'ok' }), 200),
+    );
+    const mod = await import('./httpClient');
+    await mod.proxyFetch('https://example.com/api', 'GET', {});
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('/__proxy');
+  });
+});

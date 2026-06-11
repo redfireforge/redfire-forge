@@ -1,6 +1,49 @@
 /* ── SSE Studio ─────────────────────────────────────────────────────── */
 
+/* ── Theme alias shim ───────────────────────────────────────────────────────
+   Maps the legacy undefined alias tokens to the canonical theme tokens from
+   src/index.css so the SSE Studio is fully theme-aware (matches Requests).
+   Scoped to the container; SSE renders no portals. */
 .sse-studio {
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--surface);
+  --bg-tertiary: var(--bg);
+  --bg-surface: var(--surface);
+  --bg-input: var(--surface);
+  --input-bg: var(--surface);
+  --color-input-bg: var(--surface);
+  --color-surface: var(--surface);
+  --panel-bg: var(--surface);
+  --dropdown-bg: var(--surface);
+  --bg-hover: var(--surface-hover);
+  --hover-bg: var(--surface-hover);
+  --color-btn-secondary-bg: var(--surface);
+  --color-btn-secondary-hover: var(--surface-hover);
+  --text-primary: var(--text);
+  --color-text-primary: var(--text);
+  --text-secondary: var(--text-muted);
+  --color-text-secondary: var(--text-muted);
+  --text-tertiary: var(--text-muted);
+  --border-color: var(--border);
+  --border-primary: var(--border);
+  --color-border: var(--border);
+  --accent-color: var(--primary);
+  --accent-primary: var(--primary);
+  --color-accent: var(--primary);
+  --ws-accent-color: var(--primary);
+  --accent-hover: var(--primary-hover);
+  --ws-accent-hover: var(--primary-hover);
+  --error-color: var(--danger);
+  --color-error-text: var(--danger);
+  --warning-color: var(--warning);
+  --ws-warning-color: var(--warning);
+  --color-warning-text: var(--warning);
+  --success-color: var(--success);
+  --color-warning-bg: color-mix(in srgb, var(--warning) 14%, transparent);
+  --color-warning-border: color-mix(in srgb, var(--warning) 40%, transparent);
+  --selection-bg: color-mix(in srgb, var(--primary) 35%, transparent);
+  --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -30,10 +73,17 @@
   flex-shrink: 0;
 }
 
-.sse-state-connected { background: #4caf50; color: #4caf50; }
-.sse-state-connecting { background: #ff9800; color: #ff9800; }
-.sse-state-error { background: #f44336; color: #f44336; }
-.sse-state-disconnected { background: #666; color: #999; }
+/* Text label color (no background — avoids unreadable solid block) */
+.sse-state-connected { color: var(--success); }
+.sse-state-connecting { color: var(--warning); }
+.sse-state-error { color: var(--danger); }
+.sse-state-disconnected { color: var(--text-muted); }
+
+/* Status dot fill */
+.sse-state-dot.sse-state-connected { background: var(--success); }
+.sse-state-dot.sse-state-connecting { background: var(--warning); }
+.sse-state-dot.sse-state-error { background: var(--danger); }
+.sse-state-dot.sse-state-disconnected { background: var(--text-muted); }
 
 .sse-url-input {
   flex: 1;
@@ -74,7 +124,7 @@
 .sse-connect-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .sse-connect-btn-danger {
-  background: #c62828;
+  background: var(--danger);
   color: #fff;
 }
 
@@ -140,15 +190,19 @@
 }
 
 .sse-header-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   color: var(--text-secondary, #999);
   cursor: pointer;
   font-size: 16px;
   padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.sse-header-remove:hover { color: #f44336; }
+.sse-header-remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
 .sse-add-header-btn {
   align-self: flex-start;
