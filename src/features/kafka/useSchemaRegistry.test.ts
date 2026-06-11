@@ -166,6 +166,42 @@ describe('useSchemaRegistry', () => {
     }));
   });
 
+  it('selectSubject auto-selects the highest version even when the list is unsorted', async () => {
+    mockDispatch
+      .mockResolvedValueOnce({
+        data: { subjects: ['orders.created-value'] },
+      })
+      .mockResolvedValueOnce({
+        data: { subject: 'orders.created-value', versions: [3, 1, 2] },
+      })
+      .mockResolvedValueOnce({
+        data: makeSchemaDetail({ version: 3 }),
+      });
+
+    const { result } = renderHook(() =>
+      useSchemaRegistry(makeKafkaState(), { dispatch: mockDispatch }),
+    );
+
+    act(() => {
+      result.current.setRegistryConfig({ registryUrl: 'http://localhost:8085' });
+    });
+    await act(async () => {
+      await result.current.loadSubjects();
+    });
+
+    act(() => { result.current.selectSubject('orders.created-value'); });
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledTimes(3);
+    });
+
+    expect(result.current.selectedVersion).toBe(3);
+    expect(mockDispatch).toHaveBeenCalledWith('schema-fetch', expect.objectContaining({
+      subject: 'orders.created-value',
+      version: 3,
+    }));
+  });
+
   it('selectSubject clears previous versions, selectedVersion, schemaDetail', async () => {
     mockDispatch
       .mockResolvedValueOnce({ data: { subjects: ['a', 'b'] } })

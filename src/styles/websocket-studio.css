@@ -6,8 +6,14 @@
    were never defined, so it fell back to hardcoded dark values and ignored the
    app theme (broken in light/dim/steel). We map every alias to the canonical
    tokens from src/index.css (the same set the Requests feature uses) so the
-   WebSocket Studio is fully theme-aware. Scoped to the container — WS renders
-   no portals, so this covers all descendants incl. inline styles. */
+   WebSocket Studio is fully theme-aware. Scoped to the container, so it covers
+   all in-tree descendants incl. inline styles.
+   ⚠ NOTE: this scope does NOT reach portaled content. The Saved profile editor
+   modal portals to document.body, so it must reference the canonical tokens
+   (--bg / --border / --text / --primary / --danger) directly — see the
+   .ws-editor-* block below. Any future WS modal that portals must do the same;
+   alias tokens (--input-bg, --border-color, …) are undefined outside this
+   scope and silently fall back to hardcoded grays. */
 .ws-studio-page {
   /* Surfaces */
   --bg-primary: var(--bg);
@@ -417,6 +423,12 @@
   border-bottom-color: var(--accent-color, #4fc3f7);
 }
 
+.ws-studio-tab:focus-visible {
+  outline: 2px solid var(--accent-color, #4fc3f7);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
 .ws-studio-tab-badge {
   font-size: 11px;
   background: var(--accent-color, #4fc3f7);
@@ -431,6 +443,159 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* ── Redesigned shell (Phase 1, feature-flagged) ─────────────────────────── */
+
+.ws-studio-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.ws-studio-modes {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.ws-studio-mode {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ws-studio-mode:hover {
+  color: var(--text-primary, #ccc);
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-studio-mode.active {
+  color: #fff;
+  background: var(--accent-color, #4fc3f7);
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-studio-mode:focus-visible {
+  outline: 2px solid var(--accent-color, #4fc3f7);
+  outline-offset: 2px;
+}
+
+.ws-studio-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ws-studio-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* In Mock / Saved modes the split renders a single full-width pane. */
+.ws-studio-split-single .ws-studio-left {
+  flex: 1;
+  width: auto;
+}
+
+.ws-studio-left-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ws-studio-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border-color, #333);
+  transition: background 0.15s;
+}
+
+.ws-studio-divider:hover {
+  background: var(--accent-color, #4fc3f7);
+}
+
+.ws-studio-divider:focus-visible {
+  outline: none;
+  background: var(--accent-color, #4fc3f7);
+  box-shadow: 0 0 0 2px var(--accent-color, #4fc3f7);
+}
+
+.ws-studio-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ws-studio-right-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Stats / Load Test / Schema rendered as dedicated right-pane tabs (Phase 5).
+   Fill the pane and scroll internally; drop the inline-drawer constraints. */
+.ws-studio-tab-pane {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ws-studio-tab-pane .ws-schema-panel {
+  max-height: none;
+  border-bottom: none;
+  overflow-y: visible;
+  flex: none;
+}
+
+.ws-studio-tab-pane .ws-stats-panel,
+.ws-studio-tab-pane .ws-lt-container {
+  border-top: none;
+}
+
+.ws-studio-pane-placeholder {
+  margin: auto;
+  max-width: 320px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #999);
+}
+
+.ws-studio-pane-placeholder-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  margin: 0 0 8px;
+}
+
+.ws-studio-pane-placeholder-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 /* ── Guard ────────────────────────────────────────────────────────────────── */
@@ -558,105 +723,9 @@
 }
 
 /* ── Key-Value Lists (Headers / Query Parameters) ────────────────────────── */
-
-.ws-connect-kv-section {
-  margin-bottom: 8px;
-}
-
-.ws-connect-kv-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.ws-connect-kv-add-btn {
-  padding: 2px 8px;
-  background: transparent;
-  border: 1px solid var(--border-color, #444);
-  border-radius: 4px;
-  color: var(--text-secondary, #999);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.ws-connect-kv-add-btn:hover:not(:disabled) {
-  background: var(--hover-bg, #333);
-  color: var(--text-primary, #e0e0e0);
-}
-
-.ws-connect-kv-add-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.ws-connect-kv-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-.ws-connect-kv-checkbox {
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  accent-color: var(--accent-color, #4fc3f7);
-}
-
-.ws-connect-kv-input {
-  padding: 4px 6px;
-  background: var(--input-bg, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 4px;
-  color: var(--text-primary, #e0e0e0);
-  font-size: 12px;
-  outline: none;
-}
-
-.ws-connect-kv-input:focus {
-  border-color: var(--accent-color, #4fc3f7);
-}
-
-.ws-connect-kv-input:disabled {
-  opacity: 0.6;
-}
-
-.ws-connect-kv-key {
-  flex: 1;
-  min-width: 0;
-}
-
-.ws-connect-kv-value {
-  flex: 2;
-  min-width: 0;
-}
-
-.ws-connect-kv-remove-btn {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--text-secondary, #666);
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.ws-connect-kv-remove-btn:hover:not(:disabled) {
-  color: var(--error-color, #f44336);
-  background: rgba(244, 67, 54, 0.1);
-}
-
-.ws-connect-kv-remove-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+/* Moved to src/styles/key-value-editor.css (imported by KeyValueEditor.tsx) so
+   the editor's styles are available wherever the component is used, including
+   the SSE Studio. */
 
 .ws-connect-field-row {
   margin-bottom: 8px;
@@ -730,7 +799,8 @@
 .ws-status-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   padding: 4px 0;
   font-size: 12px;
 }
@@ -767,6 +837,7 @@
   color: var(--text-secondary, #999);
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .ws-connect-error {
@@ -839,22 +910,35 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .ws-message-log-toolbar {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color, #333);
   flex-shrink: 0;
 }
 
+.ws-message-log-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ws-message-log-toolbar-row-search {
+  flex-wrap: nowrap;
+}
+
 .ws-message-search {
-  flex: 1;
-  max-width: 280px;
-  padding: 4px 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 10px;
   background: var(--input-bg, #2a2a2a);
   border: 1px solid var(--border-color, #444);
   border-radius: 4px;
@@ -868,7 +952,9 @@
 }
 
 .ws-message-direction-filter {
-  padding: 4px 6px;
+  flex: 0 0 auto;
+  width: auto;
+  padding: 5px 6px;
   background: var(--input-bg, #2a2a2a);
   border: 1px solid var(--border-color, #444);
   border-radius: 4px;
@@ -951,6 +1037,7 @@
 
 .ws-message-list {
   flex: 1;
+  min-height: 140px;
   overflow-y: auto;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 12px;
@@ -1243,6 +1330,289 @@
   flex-shrink: 0;
 }
 
+/* ── Phase 6: shell topbar (full-width above the split, used by Mock) ── */
+
+.ws-studio-topbar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+/* ── Phase 6a: Saved rail (left pane) + detail (right pane) ─────────── */
+
+.ws-saved-flat {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ws-saved-flat .ws-saved-rail {
+  width: 320px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color, #333);
+}
+
+.ws-saved-flat .ws-saved-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-saved-rail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ws-saved-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-saved-rail-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-saved-rail-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ws-saved-rail-icon-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.ws-saved-rail-icon-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-saved-rail-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ws-saved-rail-new {
+  white-space: nowrap;
+}
+
+.ws-saved-rail-search {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.ws-saved-rail-search .ws-message-search {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.ws-saved-rail-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  min-height: 0;
+}
+
+.ws-saved-rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: 2px;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.ws-saved-rail-item:hover {
+  background: var(--hover-bg, #2a2a2a);
+}
+
+.ws-saved-rail-item.selected {
+  background: var(--bg-tertiary, #2d2d3a);
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-saved-rail-item .ri-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-saved-rail-item .ri-sub {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-secondary, #999);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-saved-rail .ws-saved-count {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color, #333);
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ws-saved-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ws-saved-detail-empty {
+  margin: auto;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+}
+
+.ws-saved-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.ws-saved-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-saved-detail-titlewrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-saved-detail-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #e0e0e0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-saved-detail-url {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-secondary, #999);
+  word-break: break-all;
+}
+
+.ws-saved-detail-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.ws-saved-detail-spacer {
+  flex: 1;
+}
+
+.ws-saved-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.ws-saved-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ws-saved-summary-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #888);
+}
+
+.ws-saved-summary-value {
+  font-size: 13px;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-saved-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ws-saved-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ws-saved-notes-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary, #bbb);
+  white-space: pre-wrap;
+}
+
+.ws-saved-detail-updated {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+@media (max-width: 640px) {
+  .ws-saved-flat {
+    flex-direction: column;
+  }
+
+  .ws-saved-flat .ws-saved-rail {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color, #333);
+  }
+
+  .ws-saved-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* ── Paste Import ──────────────────────────────────────────────────── */
 
 .ws-paste-import-section {
@@ -1277,79 +1647,100 @@
 
 /* ── Profile Editor Modal ────────────────────────────────────────────── */
 
-.ws-editor-overlay {
+/* Profile editor uses the shared AppModalFrame (modal-overlay + modal base);
+   these classes only override sizing/chrome to match our modal standards. */
+.ws-editor-overlay.modal-overlay {
   position: fixed;
-  top: 0;
+  inset: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: transparent;
+  top: 0;
+  z-index: 10100;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  background: transparent;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
-.ws-editor-modal {
-  width: 480px;
-  max-height: 80vh;
+.ws-editor-modal.modal {
+  width: min(520px, 100%);
+  max-width: 520px;
+  max-height: 88vh;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary, #252525);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  background: var(--surface, #252525);
+  border: 1px solid var(--border, #444);
+  border-radius: var(--radius, 10px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-.ws-editor-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color, #333);
+.ws-editor-header.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #333);
+  flex-shrink: 0;
 }
 
-.ws-editor-title {
-  font-size: 14px;
+.ws-editor-header.modal-header h3 {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary, #e0e0e0);
+  color: var(--text, #e0e0e0);
 }
 
 .ws-editor-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 16px 18px;
 }
 
 .ws-editor-field {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .ws-editor-field-label {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary, #999);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .ws-editor-input {
   width: 100%;
-  padding: 6px 8px;
-  background: var(--input-bg, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 4px;
-  color: var(--text-primary, #e0e0e0);
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
   font-size: 13px;
   outline: none;
   box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .ws-editor-input:focus {
-  border-color: var(--accent-color, #4fc3f7);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.ws-editor-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ws-editor-input-sm {
-  width: 120px;
+  width: 100%;
 }
 
 .ws-editor-mono {
@@ -1358,69 +1749,110 @@
 
 .ws-editor-textarea {
   width: 100%;
-  padding: 6px 8px;
-  background: var(--input-bg, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 4px;
-  color: var(--text-primary, #e0e0e0);
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
   font-size: 13px;
   outline: none;
   resize: vertical;
-  min-height: 48px;
+  min-height: 52px;
   box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .ws-editor-textarea:focus {
-  border-color: var(--accent-color, #4fc3f7);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .ws-editor-error {
   display: block;
   font-size: 11px;
-  color: var(--error-color, #f44336);
-  margin-top: 2px;
+  color: var(--danger);
+  margin-top: 4px;
 }
 
 .ws-editor-row {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
-.ws-editor-toggle-label {
+/* Auto-reconnect toggle + grouped settings */
+.ws-editor-group {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.ws-editor-toggle {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-primary, #e0e0e0);
+  align-items: flex-start;
+  gap: 10px;
   cursor: pointer;
+}
+
+.ws-editor-toggle-checkbox {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.ws-editor-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ws-editor-toggle-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.ws-editor-toggle-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .ws-editor-inline-fields {
   display: flex;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .ws-editor-inline-field {
   flex: 1;
+  min-width: 0;
 }
 
 .ws-editor-kv-section {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .ws-editor-kv-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .ws-editor-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border-color, #333);
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -3130,14 +3562,15 @@
 }
 
 .ws-search-mode-pill {
-  padding: 2px 6px;
-  font-size: 10px;
+  padding: 5px 10px;
+  font-size: 11px;
   font-weight: 600;
   background: transparent;
   color: var(--text-secondary, #999);
   border: none;
   cursor: pointer;
   line-height: 1.2;
+  white-space: nowrap;
 }
 .ws-search-mode-pill:hover {
   background: var(--hover-bg, rgba(255,255,255,0.05));
@@ -3198,6 +3631,7 @@
   border-bottom: 1px solid var(--border-color, #333);
   font-size: 11px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .ws-filter-select {
@@ -4095,6 +4529,162 @@
   white-space: nowrap;
 }
 
+/* ── Mock shell layout (Phase 6b): server bar + status strip + panes ── */
+
+/* Legacy / test flat path: stack server bar over a clients|rules row. */
+.ws-mock-flat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.ws-mock-flat-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.ws-mock-flat-body .ws-mock-clients-pane {
+  width: 42%;
+  flex-shrink: 0;
+}
+.ws-mock-flat-body .ws-mock-rules-pane {
+  flex: 1;
+}
+
+/* Server bar (shell topBar) */
+.ws-mock-serverbar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-mock-serverbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+.ws-mock-proto {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--accent-color, #4fc3f7);
+  color: #06121a;
+  flex-shrink: 0;
+}
+.ws-mock-url {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--text-primary, #eee);
+  background: var(--input-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+}
+.ws-mock-serverbar .ws-mock-port-input {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+/* Status strip */
+.ws-mock-statusstrip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  border-bottom: 1px solid var(--border-color, #333);
+}
+.ws-mock-statuspill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, #333);
+}
+.ws-mock-statuspill.running { border-color: rgba(102, 187, 106, 0.5); }
+.ws-mock-strip-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-mock-strip-stat b { color: var(--text-primary, #eee); font-weight: 600; }
+.ws-mock-strip-fallback .ws-mock-fallback-select {
+  height: 26px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.ws-mock-strip-spacer { flex: 1; }
+
+/* Pane chrome shared by clients (left) + rules (right) */
+.ws-mock-clients-pane,
+.ws-mock-rules-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.ws-mock-pane-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+.ws-mock-pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.ws-mock-pane-tab:hover { color: var(--text-primary, #eee); }
+.ws-mock-pane-tab.active {
+  color: var(--text-primary, #eee);
+  border-bottom-color: var(--accent-color, #4fc3f7);
+}
+.ws-mock-pane-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-secondary, #aaa);
+}
+.ws-mock-clients-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+.ws-mock-clients-empty {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #777);
+  text-align: center;
+}
+.ws-mock-rules-pane { overflow-y: auto; }
+
+@media (max-width: 640px) {
+  .ws-mock-flat-body { flex-direction: column; }
+  .ws-mock-flat-body .ws-mock-clients-pane { width: 100%; }
+}
+
 /* ── Load Test ─────────────────────────────────────────────────────── */
 
 .ws-lt-container {
@@ -4328,6 +4918,16 @@
   gap: 16px;
   flex-wrap: wrap;
 }
+.ws-lt-live-stats {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #333);
+}
+.ws-lt-live-stats .ws-stats-panel {
+  padding: 0;
+  border-top: none;
+  background: transparent;
+}
 .ws-lt-metric {
   display: flex;
   flex-direction: column;
@@ -4503,6 +5103,8 @@
 
 /* Validation filter dropdown */
 .ws-validation-filter {
+  flex: 0 0 auto;
+  width: auto;
   font-size: 12px;
   background: var(--bg-secondary, #1e1e1e);
   color: var(--text-primary, #e0e0e0);
@@ -4519,6 +5121,7 @@
   background: var(--bg-secondary, #1a1a1a);
   max-height: 300px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 .ws-schema-panel-header {
   display: flex;
@@ -4767,4 +5370,72 @@
 }
 .ws-detail-tab-badge.ws-validation-pass { color: #4caf50; }
 .ws-detail-tab-badge.ws-validation-fail { color: #f44336; }
+
+/* ── Phase 8: Auth tab body ──────────────────────────────────────────────── */
+
+.ws-auth-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ws-auth-pane .ws-auth-panel {
+  margin: 0;
+}
+
+.ws-auth-resolved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #1e1e1e);
+}
+
+.ws-auth-resolved-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #999);
+}
+
+.ws-auth-resolved-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  word-break: break-all;
+}
+
+.ws-auth-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-color, #4fc3f7);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-color, #4fc3f7) 12%, transparent);
+}
+
+.ws-auth-callout-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--accent-color, #4fc3f7);
+}
+
+.ws-auth-callout-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary, #bbb);
+}
+
+/* Console (Phase 9) styles live in console-panel.css, imported by ConsolePanel
+   so they load on both the WebSocket and SSE studio pages. */
+
 

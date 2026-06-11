@@ -128,12 +128,16 @@ let mockReturn: UseWebSocketStudioReturn;
 let mockProfilesReturn: UseWebSocketProfilesReturn;
 let mockTemplatesReturn: UseWebSocketTemplatesReturn;
 let mockHistoryReturn: UseWebSocketHistoryReturn;
+// The shell-v2 flag was removed; v2 is the only production layout. Tests reach
+// the retained legacy flat-tab layout by threading `shellV2` via this seam.
+let mockWsShellV2 = false;
 
 beforeEach(() => {
   mockReturn = makeStudioReturn();
   mockProfilesReturn = makeProfilesReturn();
   mockTemplatesReturn = makeTemplatesReturn();
   mockHistoryReturn = makeHistoryReturn();
+  mockWsShellV2 = false;
   vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
   vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
   vi.spyOn(templatesModule, 'useWebSocketTemplates').mockReturnValue(mockTemplatesReturn);
@@ -149,7 +153,7 @@ afterEach(() => {
 async function renderStudioPage(props: Record<string, unknown> = {}) {
   let result!: ReturnType<typeof render>;
   await act(async () => {
-    result = render(<WebSocketStudioPage {...props} />);
+    result = render(<WebSocketStudioPage shellV2={mockWsShellV2} {...props} />);
   });
   return result;
 }
@@ -929,6 +933,105 @@ describe('WebSocketStudioPage', () => {
 
     it('returns hostname without port when port is empty', () => {
       expect(deriveTabLabel('ws://echo.websocket.org')).toBe('echo.websocket.org');
+    });
+  });
+
+  describe('studio shell (v2 — default layout)', () => {
+    beforeEach(() => {
+      mockWsShellV2 = true;
+    });
+
+    it('renders the legacy flat layout when shellV2 is off', async () => {
+      mockWsShellV2 = false;
+      await renderStudioPage();
+      expect(screen.queryByTestId('ws-studio-shell')).toBeNull();
+    });
+
+    it('wraps each tab in the shell by default', async () => {
+      await renderStudioPage();
+      expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
+      expect(screen.getByTestId('mode-client')).toBeTruthy();
+      expect(screen.getByTestId('mode-mock')).toBeTruthy();
+      expect(screen.getByTestId('mode-saved')).toBeTruthy();
+      // The existing tab content is still mounted inside the shell.
+      expect(screen.getByTestId('ws-studio-split')).toBeTruthy();
+    });
+
+    it('seeds shell mode from persisted studio-layout fields', async () => {
+      vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue({
+        tabs: [
+          { id: 'ws-tab-200', label: 'Mock', url: 'ws://m', viewTab: 'mock', mode: 'mock', leftTab: 'compose', rightTab: 'events' },
+        ],
+        activeTabId: 'ws-tab-200',
+        renamedTabIds: [],
+      });
+      await renderStudioPage();
+      // Mock mode is the active mode → the split container reflects the seeded
+      // mode and the mode toggle is selected.
+      expect(screen.getByTestId('mode-mock').getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('ws-studio-split').getAttribute('data-mode')).toBe('mock');
+    });
+
+    it('switches mode and persists the derived viewTab', async () => {
+      vi.useFakeTimers();
+      const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
+      await act(async () => {
+        render(<WebSocketStudioPage shellV2={mockWsShellV2} />);
+      });
+      saveSpy.mockClear();
+      fireEvent.click(screen.getByTestId('mode-saved'));
+      vi.advanceTimersByTime(400);
+      expect(saveSpy).toHaveBeenCalled();
+      const lastState = saveSpy.mock.calls.at(-1)![0];
+      expect(lastState.tabs[0].mode).toBe('saved');
+      expect(lastState.tabs[0].viewTab).toBe('saved');
+      vi.useRealTimers();
+    });
+
+    it('keeps the right-pane tab selection across left-tab and mode changes', async () => {
+      await renderStudioPage();
+      // Select a non-default right tab.
+      fireEvent.click(screen.getByTestId('right-tab-stats'));
+      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
+      // Change the (orthogonal) left tab — right tab must not reset.
+      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
+      // Round-trip through another mode and back — right tab must persist.
+      fireEvent.click(screen.getByTestId('mode-saved'));
+      fireEvent.click(screen.getByTestId('mode-client'));
+      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('splits the connect view into Connect / Headers / Params left tabs', async () => {
+      await renderStudioPage();
+      // Default left tab is Compose (messages view) — switch to Connect.
+      fireEvent.click(screen.getByTestId('left-tab-connect'));
+      // Connect tab: panel renders, headers/params relocated out.
+      expect(screen.getByTestId('connect-btn')).toBeTruthy();
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+      // Headers tab: only the headers editor.
+      fireEvent.click(screen.getByTestId('left-tab-headers'));
+      expect(screen.getByTestId('headers-section')).toBeTruthy();
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+      expect(screen.queryByTestId('connect-btn')).toBeNull();
+      // Params tab: only the params editor.
+      fireEvent.click(screen.getByTestId('left-tab-params'));
+      expect(screen.getByTestId('query-params-section')).toBeTruthy();
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('connect-btn')).toBeNull();
+    });
+
+    it('shows the relocated composer on the Compose left tab', async () => {
+      await renderStudioPage();
+      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      // Compose tab maps to the messages view: exactly one composer (the
+      // relocated standalone pane) and no connect/headers/params config.
+      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
+      expect(screen.getByTestId('ping-btn')).toBeTruthy();
+      expect(screen.queryByTestId('connect-btn')).toBeNull();
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
     });
   });
 });

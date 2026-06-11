@@ -20,7 +20,9 @@ import {
   type WsConnectionClosedPayload,
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
-import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict } from './wsMessageUtils';
+import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
+import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
+import type { GlobalAuthProfile } from '../../shared/types';
 import { toErrorMessage } from '../../shared/utils/helpers';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { detectProtocol, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
@@ -50,7 +52,10 @@ import {
 
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
-export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSocketStudioReturn {
+export function useWebSocketStudio(
+  envVarMap?: Record<string, string>,
+  globalAuthProfiles?: GlobalAuthProfile[],
+): UseWebSocketStudioReturn {
   const [draft, setDraftState] = useState<WsConnectionDraft>(createDefaultDraft);
   const [connection, setConnection] = useState<WsConnectionSnapshot>({ state: 'disconnected' });
   const [messages, setMessages] = useState<WsFrame[]>([]);
@@ -104,10 +109,15 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   const unlistenMessageRef = useRef<(() => void) | null>(null);
   const unlistenClosedRef = useRef<(() => void) | null>(null);
   const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
+  const globalAuthProfilesRef = useRef<GlobalAuthProfile[]>(globalAuthProfiles ?? []);
+  // Auth resolved at connect time (headers + query params) — re-resolved on
+  // every connect/reconnect so OAuth2 tokens stay fresh.
+  const resolvedAuthRef = useRef<ResolvedAuth>({ headers: [], queryParams: [] });
 
   maxMessagesRef.current = maxMessages;
   messagesRef.current = messages;
   envVarMapRef.current = envVarMap ?? {};
+  globalAuthProfilesRef.current = globalAuthProfiles ?? [];
   protocolModeRef.current = protocolMode;
   detectedProtocolRef.current = detectedProtocol;
   tlsConfigRef.current = tlsConfig;
@@ -155,6 +165,21 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
       proxyPollTimerRef.current = null;
     }
   }, []);
+
+  // Tear down a proxy connection lost mid-poll (caller supplies the state patch:
+  // block A clears `lastError`, block B leaves it untouched).
+  const failProxyConnection = useCallback(
+    (next: Partial<WsConnectionSnapshot>) => {
+      stopProxyPolling();
+      setConnection((prev) => ({ ...prev, ...next }));
+      resetConnectionTiming();
+      proxyConnectionIdRef.current = null;
+      if (!manualDisconnectRef.current) {
+        scheduleReconnectRef.current();
+      }
+    },
+    [stopProxyPolling, resetConnectionTiming, scheduleReconnectRef],
+  );
 
   const stopNativeListeners = useCallback(() => {
     if (unlistenMessageRef.current) {
@@ -222,31 +247,18 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
           if (!mountedRef.current) return;
           if (statusEnv.data && statusEnv.data.state !== 'connected') {
             const statusData = statusEnv.data;
-            stopProxyPolling();
-            setConnection((prev) => ({
-              ...prev,
+            failProxyConnection({
               state: statusData.state === 'error' ? 'error' : 'disconnected',
               lastError: statusData.lastError,
-            }));
-            resetConnectionTiming();
-            proxyConnectionIdRef.current = null;
-            if (!manualDisconnectRef.current) {
-              scheduleReconnectRef.current();
-            }
+            });
           }
         } catch {
           if (!mountedRef.current) return;
-          stopProxyPolling();
-          setConnection((prev) => ({ ...prev, state: 'disconnected' }));
-          resetConnectionTiming();
-          proxyConnectionIdRef.current = null;
-          if (!manualDisconnectRef.current) {
-            scheduleReconnectRef.current();
-          }
+          failProxyConnection({ state: 'disconnected' });
         }
       }
     }, PROXY_POLL_INTERVAL_MS);
-  }, [stopProxyPolling, appendMessages, resetConnectionTiming, updateDetectedProtocol, scheduleReconnectRef]);
+  }, [stopProxyPolling, appendMessages, failProxyConnection, updateDetectedProtocol]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {
     stopNativeListeners();
@@ -345,7 +357,10 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   // ── Direct Transport ────────────────────────────────────────────────────────
 
   const connectDirect = useCallback(() => {
-    const effectiveUrl = buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current);
+    const effectiveUrl = appendAuthQueryParams(
+      buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current),
+      resolvedAuthRef.current.queryParams,
+    );
     if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
@@ -495,7 +510,10 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   const connectProxy = useCallback(async () => {
     const currentDraft = draftRef.current;
     const evm = envVarMapRef.current;
-    const effectiveUrl = buildResolvedEffectiveUrl(currentDraft, evm);
+    const effectiveUrl = appendAuthQueryParams(
+      buildResolvedEffectiveUrl(currentDraft, evm),
+      resolvedAuthRef.current.queryParams,
+    );
     if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
@@ -508,6 +526,11 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
         const resolvedKey = resolveEnvVars(h.key.trim(), evm);
         headersMap[resolvedKey] = resolveEnvVars(h.value, evm);
       }
+    }
+    // Auth headers are applied last so an explicit auth config wins over a
+    // manually-typed header of the same name.
+    for (const ah of resolvedAuthRef.current.headers) {
+      headersMap[ah.key] = ah.value;
     }
 
     const subprotocols = currentDraft.subprotocols
@@ -589,7 +612,8 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
 
   const connect = useCallback(() => {
     const evm = envVarMapRef.current;
-    const resolvedEffective = buildResolvedEffectiveUrl(draftRef.current, evm).toLowerCase();
+    const effectiveUrlForDisplay = buildResolvedEffectiveUrl(draftRef.current, evm);
+    const resolvedEffective = effectiveUrlForDisplay.toLowerCase();
     if (!resolvedEffective || (!resolvedEffective.startsWith('ws://') && !resolvedEffective.startsWith('wss://'))) return;
 
     manualDisconnectRef.current = false;
@@ -600,17 +624,54 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
     }
     cleanupRef.current();
 
-    if (isTauri()) {
-      connectProxy();
-    } else {
+    // Choose a transport from the resolved auth. Header-based auth forces the
+    // proxy in the browser since the direct WebSocket transport cannot set
+    // custom headers; query-based auth (API key in query) works on every
+    // transport.
+    const route = (resolvedAuth: ResolvedAuth) => {
+      resolvedAuthRef.current = resolvedAuth;
+      if (isTauri()) {
+        connectProxy();
+        return;
+      }
       const needsProxy = hasCustomHeaders(draftRef.current) ||
+        resolvedAuth.headers.length > 0 ||
         (resolvedEffective.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
       if (needsProxy) {
         connectProxy();
       } else {
         connectDirect();
       }
+    };
+
+    // No auth configured → connect synchronously (preserves legacy timing and
+    // avoids a needless microtask). Auth is resolved asynchronously only when
+    // present, since OAuth2 may fetch a token.
+    const effectiveAuth = resolveEffectiveAuth(draftRef.current.auth, globalAuthProfilesRef.current);
+    if (!effectiveAuth) {
+      route({ headers: [], queryParams: [] });
+      return;
     }
+
+    void (async () => {
+      let resolvedAuth: ResolvedAuth;
+      try {
+        resolvedAuth = await resolveAuthForConnect(
+          draftRef.current.auth,
+          globalAuthProfilesRef.current,
+          evm,
+        );
+      } catch (err) {
+        resolvedAuthRef.current = { headers: [], queryParams: [] };
+        setConnection({
+          state: 'error',
+          url: effectiveUrlForDisplay,
+          lastError: `Auth failed: ${toErrorMessage(err)}`,
+        });
+        return;
+      }
+      route(resolvedAuth);
+    })();
   }, [connectDirect, connectProxy, updateDetectedProtocol, cancelReconnect, reconnectingRef]);
 
   const disconnect = useCallback((detail?: WsCloseDetail) => {
@@ -619,12 +680,15 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
 
     const code = detail?.code ?? 1000;
     const reason = detail?.reason ?? 'User disconnected';
-
-    if (detail) {
-      appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', code, reason)));
-    }
+    // The native browser `ws.close()` only accepts 1000 or 3000–4999; reserved
+    // codes fall back to 1000. The Tauri proxy (tungstenite) can send the code
+    // as-is over IPC, so only the native path is sanitized.
+    const nativeCode = sanitizeNativeCloseCode(code);
 
     if (proxyConnectionIdRef.current) {
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', code, reason)));
+      }
       setConnection((prev) => ({ ...prev, state: 'closing' }));
       const connId = proxyConnectionIdRef.current;
       proxyConnectionIdRef.current = null;
@@ -650,10 +714,16 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
           setConnection((prev) => ({ ...prev, state: 'disconnected' }));
         });
     } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
+      }
       setConnection((prev) => ({ ...prev, state: 'closing' }));
-      wsRef.current.close(code, reason);
+      wsRef.current.close(nativeCode, reason);
     } else if (wsRef.current) {
-      wsRef.current.close(code, reason);
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
+      }
+      wsRef.current.close(nativeCode, reason);
       resetConnectionTiming();
       setConnection((prev) => ({ ...prev, state: 'disconnected' }));
     } else {

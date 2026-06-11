@@ -66,8 +66,10 @@ describe('WebSocketSavedConnections', () => {
     ];
     render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
     expect(screen.getByTestId('saved-list')).toBeTruthy();
-    expect(screen.getByText('Alpha')).toBeTruthy();
-    expect(screen.getByText('Beta')).toBeTruthy();
+    expect(screen.getByTestId('profile-card-p1')).toBeTruthy();
+    expect(screen.getByTestId('profile-card-p2')).toBeTruthy();
+    expect(screen.getAllByText('Alpha').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Beta').length).toBeGreaterThan(0);
   });
 
   it('shows header count tag', () => {
@@ -91,7 +93,7 @@ describe('WebSocketSavedConnections', () => {
     ];
     render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
     fireEvent.change(screen.getByTestId('saved-search'), { target: { value: 'prod' } });
-    expect(screen.getByText('Prod Server')).toBeTruthy();
+    expect(screen.getAllByText('Prod Server').length).toBeGreaterThan(0);
     expect(screen.queryByText('Dev Server')).toBeNull();
   });
 
@@ -224,6 +226,15 @@ describe('WebSocketSavedConnections', () => {
       fireEvent.click(screen.getByTestId('profile-cancel-btn'));
       expect(screen.queryByTestId('profile-editor-modal')).toBeNull();
     });
+
+    it('closes editor modal via the header close button', () => {
+      render(<WebSocketSavedConnections {...defaultProps()} />);
+      fireEvent.click(screen.getByTestId('new-profile-btn'));
+      expect(screen.getByTestId('profile-editor-modal')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(screen.queryByTestId('profile-editor-modal')).toBeNull();
+    });
   });
 
   describe('profile actions', () => {
@@ -298,7 +309,7 @@ describe('WebSocketSavedConnections', () => {
       render(<WebSocketSavedConnections {...defaultProps({ profiles })} />);
       const searchInput = screen.getByTestId('saved-search');
       fireEvent.change(searchInput, { target: { value: 'Alpha' } });
-      expect(screen.getByText('Alpha Server')).toBeTruthy();
+      expect(screen.getAllByText('Alpha Server').length).toBeGreaterThan(0);
       expect(screen.queryByText('Beta Server')).toBeNull();
     });
   });

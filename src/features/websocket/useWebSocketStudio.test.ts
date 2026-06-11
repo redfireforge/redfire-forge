@@ -1091,8 +1091,19 @@ describe('useWebSocketStudio', () => {
       act(() => result.current.setDraft({ url: 'ws://localhost:8765' }));
       act(() => result.current.connect());
       act(() => lastMockWs().simulateOpen());
+      act(() => result.current.disconnect({ code: 4001, reason: 'Going away' }));
+      expect(lastMockWs().close).toHaveBeenCalledWith(4001, 'Going away');
+    });
+
+    it('sanitizes a protocol-reserved code to 1000 for the native close', () => {
+      // The browser rejects ws.close() with reserved codes like 1001/1011
+      // (InvalidAccessError); the reason is preserved on the close frame.
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:8765' }));
+      act(() => result.current.connect());
+      act(() => lastMockWs().simulateOpen());
       act(() => result.current.disconnect({ code: 1001, reason: 'Going away' }));
-      expect(lastMockWs().close).toHaveBeenCalledWith(1001, 'Going away');
+      expect(lastMockWs().close).toHaveBeenCalledWith(1000, 'Going away');
     });
 
     it('defaults to code 1000 when no detail provided', () => {

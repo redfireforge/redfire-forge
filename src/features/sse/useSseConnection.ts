@@ -4,6 +4,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { resolveEnvVars } from '../websocket/wsMessageUtils';
+import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from '../websocket/wsAuthResolve';
+import type { GlobalAuthProfile } from '../../shared/types';
 import type {
   SseConnectionConfig,
   SseConnectionSnapshot,
@@ -32,6 +34,7 @@ export interface UseSseConnectionReturn {
 
 export function useSseConnection(
   envVarMap?: Record<string, string>,
+  globalAuthProfiles?: GlobalAuthProfile[],
 ): UseSseConnectionReturn {
   const [config, setConfigState] = useState<SseConnectionConfig>(createDefaultSseConfig);
   const [connection, setConnection] = useState<SseConnectionSnapshot>({
@@ -57,9 +60,11 @@ export function useSseConnection(
   const mountedRef = useRef(true);
   const configRef = useRef(config);
   const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
+  const globalAuthProfilesRef = useRef<GlobalAuthProfile[]>(globalAuthProfiles ?? []);
 
   configRef.current = config;
   envVarMapRef.current = envVarMap ?? {};
+  globalAuthProfilesRef.current = globalAuthProfiles ?? [];
 
   const setConfig = useCallback((patch: Partial<SseConnectionConfig>) => {
     setConfigState((prev) => ({ ...prev, ...patch }));
@@ -98,25 +103,51 @@ export function useSseConnection(
   const doConnect = useCallback(async () => {
     const cfg = configRef.current;
     const map = envVarMapRef.current;
-    const url = resolveEnvVars(cfg.url, map);
+    const baseUrl = resolveEnvVars(cfg.url, map);
 
-    if (!url) {
+    if (!baseUrl) {
       updateState('error', 'URL is required');
       return;
     }
 
+    // Mark connecting + arm the abort controller synchronously (before the
+    // async auth resolve) so the re-entrancy guard in connect() sees the
+    // 'connecting' state immediately and a second connect() is a no-op.
     const abort = new AbortController();
     abortRef.current = abort;
     updateState('connecting');
+
+    // Resolve auth into headers + query params. SSE uses fetch, so header auth
+    // works directly in the browser. Only the auth resolve is awaited (OAuth2
+    // may fetch a token); the no-auth path stays synchronous so `fetch` is
+    // invoked in the same tick (preserving the connect re-entrancy guard).
+    const effectiveAuth = resolveEffectiveAuth(cfg.auth, globalAuthProfilesRef.current);
+    let resolvedAuth: ResolvedAuth;
+    if (effectiveAuth) {
+      try {
+        resolvedAuth = await resolveAuthForConnect(cfg.auth, globalAuthProfilesRef.current, map);
+      } catch (err) {
+        updateState('error', `Auth failed: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+    } else {
+      resolvedAuth = { headers: [], queryParams: [] };
+    }
+    const url = appendAuthQueryParams(baseUrl, resolvedAuth.queryParams);
 
     const headers: Record<string, string> = {
       Accept: 'text/event-stream',
       'Cache-Control': 'no-cache',
     };
     for (const h of cfg.headers) {
-      if (h.key.trim()) {
+      if (h.enabled && h.key.trim()) {
         headers[resolveEnvVars(h.key, map)] = resolveEnvVars(h.value, map);
       }
+    }
+    // Auth headers applied last so an explicit auth config wins over a
+    // manually-typed header of the same name.
+    for (const ah of resolvedAuth.headers) {
+      headers[ah.key] = ah.value;
     }
     if (lastEventIdRef.current) {
       headers['Last-Event-ID'] = lastEventIdRef.current;

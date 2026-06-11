@@ -191,6 +191,68 @@ describe('websocketStorage — tab state', () => {
     await saveWsTabState(state);
     expect(mockWrite).toHaveBeenCalledWith(WS_TAB_STATE_KEY, JSON.stringify(state));
   });
+
+  // ── Phase 1 studio-layout migration ──────────────────────────────
+  it('derives studio-layout fields from a legacy viewTab-only blob', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'Connect', url: '', viewTab: 'connect' },
+        { id: 'ws-tab-2', label: 'Messages', url: '', viewTab: 'messages' },
+        { id: 'ws-tab-3', label: 'Saved', url: '', viewTab: 'saved' },
+        { id: 'ws-tab-4', label: 'Mock', url: '', viewTab: 'mock' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'connect', rightTab: 'events' });
+    expect(result!.tabs[1]).toMatchObject({ mode: 'client', leftTab: 'compose', rightTab: 'events' });
+    expect(result!.tabs[2]).toMatchObject({ mode: 'saved', leftTab: 'compose', rightTab: 'events' });
+    expect(result!.tabs[3]).toMatchObject({ mode: 'mock', leftTab: 'compose', rightTab: 'events' });
+  });
+
+  it('preserves present-and-valid studio-layout fields', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'T', url: '', viewTab: 'connect', mode: 'mock', leftTab: 'auth', rightTab: 'stats' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    expect(result!.tabs[0]).toMatchObject({ mode: 'mock', leftTab: 'auth', rightTab: 'stats' });
+  });
+
+  it('falls back to derived values when a studio-layout field is invalid', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'T', url: '', viewTab: 'messages', mode: 'bogus', leftTab: 42, rightTab: 'stats' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    // invalid mode/leftTab derive from viewTab 'messages'; valid rightTab kept
+    expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'compose', rightTab: 'stats' });
+  });
+
+  it('round-trips studio-layout fields through save + load', async () => {
+    const state: WsPersistedTabState = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'T', url: 'ws://x', viewTab: 'mock', mode: 'mock', leftTab: 'connect', rightTab: 'schema' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    await saveWsTabState(state);
+    const written = mockWrite.mock.calls.at(-1)![1] as string;
+    mockRead.mockResolvedValue(written);
+    const result = await loadWsTabState();
+    expect(result!.tabs[0]).toMatchObject({ viewTab: 'mock', mode: 'mock', leftTab: 'connect', rightTab: 'schema' });
+  });
 });
 
 describe('websocketStorage — history', () => {

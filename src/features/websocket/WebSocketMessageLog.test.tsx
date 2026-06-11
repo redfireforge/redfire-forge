@@ -153,6 +153,23 @@ describe('WebSocketMessageLog', () => {
       fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
       expect(props.onSend).not.toHaveBeenCalled();
     });
+
+    it('renders the inline composer by default (showComposer defaults to true)', () => {
+      render(<WebSocketMessageLog {...defaultProps()} />);
+      expect(screen.queryByTestId('send-btn')).toBeTruthy();
+      expect(screen.queryByLabelText('Message input')).toBeTruthy();
+    });
+
+    it('hides the inline composer when showComposer is false', () => {
+      render(<WebSocketMessageLog {...defaultProps({ showComposer: false })} />);
+      expect(screen.queryByTestId('send-btn')).toBeNull();
+      expect(screen.queryByLabelText('Message input')).toBeNull();
+    });
+
+    it('still renders the inline composer when showComposer is explicitly true', () => {
+      render(<WebSocketMessageLog {...defaultProps({ showComposer: true })} />);
+      expect(screen.queryByTestId('send-btn')).toBeTruthy();
+    });
   });
 
   describe('format selector', () => {
@@ -1279,6 +1296,43 @@ describe('WebSocketMessageLog', () => {
     it('hides schema toggle when onToggleSchemasVisible not provided', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
       expect(screen.queryByTestId('schema-toggle-btn')).toBeNull();
+    });
+  });
+
+  describe('showAuxPanels (Phase 5 — relocated to right-pane tabs)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const metrics = { sentCount: 0, receivedCount: 0, sentBytes: 0, receivedBytes: 0, avgSentSize: 0, avgReceivedSize: 0, messageRate: 0, peakRate: 0, startedAt: null, elapsedMs: 0, latestSentAt: null, latestReceivedAt: null, sentRate: 0, receivedRate: 0 } as any;
+
+    it('shows the Stats/Load Test/Schema toggles by default', () => {
+      render(
+        <WebSocketMessageLog
+          {...defaultProps({ metrics, onToggleLoadTest: vi.fn(), onToggleSchemasVisible: vi.fn() })}
+        />,
+      );
+      expect(screen.getByTestId('stats-toggle-btn')).toBeTruthy();
+      expect(screen.getByTestId('load-test-toggle-btn')).toBeTruthy();
+      expect(screen.getByTestId('schema-toggle-btn')).toBeTruthy();
+    });
+
+    it('hides the Stats/Load Test/Schema toggles when showAuxPanels is false', () => {
+      render(
+        <WebSocketMessageLog
+          {...defaultProps({ metrics, onToggleLoadTest: vi.fn(), onToggleSchemasVisible: vi.fn(), showAuxPanels: false })}
+        />,
+      );
+      expect(screen.queryByTestId('stats-toggle-btn')).toBeNull();
+      expect(screen.queryByTestId('load-test-toggle-btn')).toBeNull();
+      expect(screen.queryByTestId('schema-toggle-btn')).toBeNull();
+    });
+
+    it('does not render the inline Stats panel when showAuxPanels is false even if toggled on', () => {
+      render(
+        <WebSocketMessageLog
+          {...defaultProps({ metrics, onToggleLoadTest: vi.fn(), onToggleSchemasVisible: vi.fn(), showAuxPanels: false })}
+        />,
+      );
+      // No toggle button means the inline stats panel can never be shown.
+      expect(screen.queryByTestId('stats-panel')).toBeNull();
     });
   });
 

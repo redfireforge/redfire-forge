@@ -248,7 +248,7 @@ export function createScenarioFromRequest(
     name: request.name,
     url: resolvedUrl,
     method: request.method as Scenario['method'],
-    headers: request.headers ? [...request.headers] : [],
+    headers: request.headers ? request.headers.filter(h => h.enabled !== false).map(h => ({ key: h.key, value: h.value })) : [],
     body: request.body ?? '',
     bodyType: request.bodyType,
     bodyForm: request.bodyForm ? [...request.bodyForm] : undefined,
