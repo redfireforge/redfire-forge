@@ -637,6 +637,7 @@ export default function App() {
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}
+                globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>
           )}
@@ -647,6 +648,7 @@ export default function App() {
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}
+                globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>
           )}

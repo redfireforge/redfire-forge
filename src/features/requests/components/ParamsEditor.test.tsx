@@ -224,4 +224,56 @@ describe('ParamsEditor', () => {
     const toggle = document.querySelector('.params-toggle') as HTMLLabelElement;
     expect(toggle?.getAttribute('title')).toBe('Enable parameter');
   });
+
+  it('renders a draggable reorder grip per row', () => {
+    render(<ParamsEditor params={makeParams()} onChange={vi.fn()} />);
+    const grips = document.querySelectorAll('.params-drag-handle');
+    expect(grips).toHaveLength(2);
+    expect((grips[0] as HTMLElement).getAttribute('draggable')).toBe('true');
+    expect(screen.getByLabelText('Reorder parameter 1')).toBeTruthy();
+  });
+
+  it('reorders params on drag-and-drop (drag row 0 onto row 1)', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    const grips = document.querySelectorAll('.params-drag-handle');
+    const rows = document.querySelectorAll('.params-row');
+    fireEvent.dragStart(grips[0], { dataTransfer });
+    fireEvent.dragOver(rows[1], { dataTransfer });
+    fireEvent.drop(rows[1], { dataTransfer });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const reordered = onChange.mock.calls[0][0] as ParamEntry[];
+    expect(reordered.map((p) => p.key)).toEqual(['limit', 'page']);
+  });
+
+  it('does not reorder when a param row is dropped onto itself', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    const grips = document.querySelectorAll('.params-drag-handle');
+    const rows = document.querySelectorAll('.params-row');
+    fireEvent.dragStart(grips[0], { dataTransfer });
+    fireEvent.drop(rows[0], { dataTransfer });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
+

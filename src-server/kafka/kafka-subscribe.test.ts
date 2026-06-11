@@ -284,6 +284,39 @@ describe('executeSubscribe', () => {
     expect(entry!.ringBuffer.length).toBe(1);
   });
 
+  it('strips server-only rawValue Buffer before buffering (no leak to client)', async () => {
+    const records = [
+      {
+        topic: 'orders.created',
+        partition: 0,
+        offset: '0',
+        timestamp: '1700000000000',
+        key: undefined,
+        value: '{"event":"test"}',
+        headers: {},
+        // Adapter always populates rawValue (raw bytes for schema decode);
+        // it must never be stored in the ring buffer nor serialized out.
+        rawValue: Buffer.from('{"event":"test"}', 'utf-8'),
+      },
+    ];
+    const { runtimeAdapter } = createMockRuntimeAdapter({ consumeRecords: records });
+
+    const result = await executeSubscribe(
+      runtimeAdapter,
+      makeConnection(),
+      baseRequest(),
+      subscriptionStore,
+      onSubscriptionRemoved,
+    );
+
+    const data = expectSuccess(result);
+    const entry = subscriptionStore.get(data.subscription.subscriptionId);
+    expect(entry!.ringBuffer.length).toBe(1);
+    const buffered = entry!.ringBuffer[0] as Record<string, unknown>;
+    expect('rawValue' in buffered).toBe(false);
+    expect(buffered.value).toBe('{"event":"test"}');
+  });
+
   it('includes createdAt timestamp in subscription info', async () => {
     const { runtimeAdapter } = createMockRuntimeAdapter();
 

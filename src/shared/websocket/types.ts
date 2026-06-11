@@ -1,4 +1,5 @@
 import type { WsProtocolMode } from './protocols/protocolTypes';
+import type { AuthConfig } from '../types';
 export type { WsProtocolMode } from './protocols/protocolTypes';
 export { formatBytes } from '../utils/helpers';
 
@@ -28,6 +29,8 @@ export interface WsConnectionDraft {
   subprotocols: string;
   headers: WsKeyValueEntry[];
   queryParams: WsKeyValueEntry[];
+  /** Phase 8 — request auth applied at connect time (header- or query-based). */
+  auth?: AuthConfig;
 }
 
 export type WsFrameDirection = 'sent' | 'received';
@@ -70,7 +73,7 @@ export function hasTlsOverrides(tls: WsTlsConfig | undefined): boolean {
 }
 
 export function createDefaultDraft(): WsConnectionDraft {
-  return { url: '', subprotocols: '', headers: [], queryParams: [] };
+  return { url: '', subprotocols: '', headers: [], queryParams: [], auth: undefined };
 }
 
 export function hasCustomHeaders(draft: WsConnectionDraft): boolean {
@@ -138,6 +141,8 @@ export interface WsConnectionProfile {
   backoffMultiplier?: WsBackoffMultiplier;
   maxMessages: number;
   tlsConfig?: WsTlsConfig;
+  /** Phase 8 — request auth saved with the profile (header- or query-based). */
+  auth?: AuthConfig;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -163,17 +168,19 @@ export function profileToDraft(profile: WsConnectionProfile): WsConnectionDraft 
     subprotocols: profile.subprotocols,
     headers: profile.headers.map((h) => ({ ...h })),
     queryParams: profile.queryParams.map((p) => ({ ...p })),
+    auth: profile.auth ? { ...profile.auth } : undefined,
   };
 }
 
 export function draftToProfileFields(
   draft: WsConnectionDraft,
-): Pick<WsConnectionProfile, 'url' | 'headers' | 'queryParams' | 'subprotocols'> {
+): Pick<WsConnectionProfile, 'url' | 'headers' | 'queryParams' | 'subprotocols' | 'auth'> {
   return {
     url: draft.url,
     headers: draft.headers.map((h) => ({ ...h })),
     queryParams: draft.queryParams.map((p) => ({ ...p })),
     subprotocols: draft.subprotocols,
+    auth: draft.auth ? { ...draft.auth } : undefined,
   };
 }
 
@@ -249,12 +256,101 @@ export interface WsPersistedTab {
   label: string;
   url: string;
   viewTab: WsViewTab;
+  /** Phase 1 studio-layout fields. Optional + back-compat: `viewTab` stays the
+   * required source of truth; `loadWsTabState` normalizes these from
+   * `mapViewTabToStudioLocation(viewTab)` when absent. */
+  mode?: WsStudioMode;
+  leftTab?: WsLeftTab;
+  rightTab?: WsRightTab;
+  /** Phase 8 studio-draft fields. Optional + back-compat: older persisted tabs
+   * only carried `url`; `loadWsTabState` defaults these to `''`/`[]`/`undefined`
+   * so the active draft (subprotocols/headers/queryParams/auth) survives reload. */
+  subprotocols?: string;
+  headers?: WsKeyValueEntry[];
+  queryParams?: WsKeyValueEntry[];
+  auth?: AuthConfig;
 }
 
 export interface WsPersistedTabState {
   tabs: WsPersistedTab[];
   activeTabId: string;
   renamedTabIds: string[];
+}
+
+// ── Studio Layout (Phase 0 foundation — pure, no runtime wiring yet) ──
+//
+// The redesigned WebSocket studio replaces the flat `WsViewTab` with a
+// two-level model: a top-level *mode* and, within the client mode, a split
+// pane with independent left/right tab selections. These types + helpers are
+// additive and unused at runtime; Phase 1 wires them into persistence.
+
+/** Valid values as const tuples — the single source of truth from which the
+ * union types below are derived and which the Phase 1 persistence validators
+ * iterate over. */
+export const WS_STUDIO_MODES = ['client', 'mock', 'saved'] as const;
+export const WS_LEFT_TABS = ['compose', 'connect', 'auth', 'params', 'headers'] as const;
+export const WS_RIGHT_TABS = ['events', 'console', 'stats', 'loadtest', 'schema'] as const;
+
+export type WsStudioMode = (typeof WS_STUDIO_MODES)[number];
+export type WsLeftTab = (typeof WS_LEFT_TABS)[number];
+export type WsRightTab = (typeof WS_RIGHT_TABS)[number];
+
+export const WS_DEFAULT_MODE: WsStudioMode = 'client';
+export const WS_DEFAULT_LEFT_TAB: WsLeftTab = 'compose';
+export const WS_DEFAULT_RIGHT_TAB: WsRightTab = 'events';
+
+export function isWsStudioMode(value: unknown): value is WsStudioMode {
+  return typeof value === 'string' && (WS_STUDIO_MODES as readonly string[]).includes(value);
+}
+
+export function isWsLeftTab(value: unknown): value is WsLeftTab {
+  return typeof value === 'string' && (WS_LEFT_TABS as readonly string[]).includes(value);
+}
+
+export function isWsRightTab(value: unknown): value is WsRightTab {
+  return typeof value === 'string' && (WS_RIGHT_TABS as readonly string[]).includes(value);
+}
+
+export interface WsStudioLocation {
+  mode: WsStudioMode;
+  leftTab: WsLeftTab;
+  rightTab: WsRightTab;
+}
+
+/**
+ * Maps a legacy {@link WsViewTab} to the new studio location (mode + pane
+ * tabs). Modes without a split pane (`saved`, `mock`) fall back to the client
+ * defaults so switching back to client mode lands on a sensible tab.
+ *
+ * Pure and side-effect free; Phase 1 consumes this during the persistence
+ * migration in `loadWsTabState`.
+ */
+export function mapViewTabToStudioLocation(viewTab: WsViewTab): WsStudioLocation {
+  switch (viewTab) {
+    case 'connect':
+      return { mode: 'client', leftTab: 'connect', rightTab: 'events' };
+    case 'messages':
+      return { mode: 'client', leftTab: 'compose', rightTab: 'events' };
+    case 'saved':
+      return { mode: 'saved', leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB };
+    case 'mock':
+      return { mode: 'mock', leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB };
+    default:
+      return { mode: WS_DEFAULT_MODE, leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB };
+  }
+}
+
+/**
+ * Inverse of {@link mapViewTabToStudioLocation} for Phase 1: collapses a studio
+ * mode + left tab back to the single legacy {@link WsViewTab} that the existing
+ * (still single-view) content renders. Used to drive the controlled child and
+ * to keep the persisted `viewTab` back-compat field consistent with the new
+ * `mode`/`leftTab` fields. Round-trips with `mapViewTabToStudioLocation`.
+ */
+export function deriveViewTabFromStudio(mode: WsStudioMode, leftTab: WsLeftTab): WsViewTab {
+  if (mode === 'mock') return 'mock';
+  if (mode === 'saved') return 'saved';
+  return leftTab === 'compose' ? 'messages' : 'connect';
 }
 
 // ── Connection History ───────────────────────────────────────────────

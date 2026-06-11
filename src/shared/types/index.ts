@@ -32,6 +32,12 @@ export interface Microservice {
 export interface KeyValue {
   key: string;
   value: string;
+  /**
+   * Whether this entry is included when the request is sent.
+   * Absent/undefined is treated as enabled (true) for backward compatibility;
+   * only explicitly disabled entries persist `enabled: false`.
+   */
+  enabled?: boolean;
 }
 
 export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2';

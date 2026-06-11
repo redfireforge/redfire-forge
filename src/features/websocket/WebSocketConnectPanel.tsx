@@ -53,6 +53,13 @@ interface WebSocketConnectPanelProps {
   history?: WsConnectionHistoryEntry[];
   onHistorySelect?: (url: string, protocol: string) => void;
   onClearHistory?: () => void;
+  /** When false, the Headers section is not rendered inline (it has been
+   * relocated to a dedicated left-pane tab by the studio shell). Defaults to
+   * true so the uncontrolled / flag-off layout is unchanged. */
+  showHeaders?: boolean;
+  /** When false, the Query Parameters section is not rendered inline (relocated
+   * to a dedicated left-pane tab). Defaults to true. */
+  showQueryParams?: boolean;
 }
 
 const STATE_LABELS: Record<string, { label: string; className: string }> = {
@@ -118,6 +125,8 @@ export function WebSocketConnectPanel({
   history,
   onHistorySelect,
   onClearHistory,
+  showHeaders = true,
+  showQueryParams = true,
 }: WebSocketConnectPanelProps) {
   const stateInfo = STATE_LABELS[connection.state] ?? STATE_LABELS.disconnected;
   const isConnected = connection.state === 'connected';
@@ -355,22 +364,28 @@ export function WebSocketConnectPanel({
       </div>
 
       {/* Headers */}
-      <KeyValueEditor
-        entries={draft.headers}
-        onChange={handleHeadersChange}
-        disabled={inputsDisabled}
-        label="Headers"
-        testIdPrefix="headers"
-      />
+      {showHeaders && (
+        <KeyValueEditor
+          entries={draft.headers}
+          onChange={handleHeadersChange}
+          onDeleteAll={() => handleHeadersChange([])}
+          disabled={inputsDisabled}
+          label="Headers"
+          testIdPrefix="headers"
+        />
+      )}
 
       {/* Query Parameters */}
-      <KeyValueEditor
-        entries={draft.queryParams}
-        onChange={handleQueryParamsChange}
-        disabled={inputsDisabled}
-        label="Query Parameters"
-        testIdPrefix="query-params"
-      />
+      {showQueryParams && (
+        <KeyValueEditor
+          entries={draft.queryParams}
+          onChange={handleQueryParamsChange}
+          onDeleteAll={() => handleQueryParamsChange([])}
+          disabled={inputsDisabled}
+          label="Query Parameters"
+          testIdPrefix="query-params"
+        />
+      )}
 
       {/* Protocol */}
       <WebSocketProtocolSelector

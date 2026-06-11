@@ -133,6 +133,38 @@ describe('WebSocketLoadTest', () => {
     expect(stopFn).toHaveBeenCalledOnce();
   });
 
+  it('shows the live stats panel inline while running when provided', () => {
+    const lt = makeLT({ state: 'running' });
+    render(
+      <WebSocketLoadTest
+        loadTest={lt}
+        isConnected={true}
+        statsPanel={<div data-testid="fake-stats">live stats</div>}
+      />,
+    );
+    const liveStats = screen.getByTestId('lt-live-stats');
+    expect(liveStats).toBeTruthy();
+    expect(liveStats.querySelector('[data-testid="fake-stats"]')).toBeTruthy();
+  });
+
+  it('does not render the live stats section when no statsPanel is provided', () => {
+    const lt = makeLT({ state: 'running' });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.queryByTestId('lt-live-stats')).toBeNull();
+  });
+
+  it('does not show the live stats panel in the config view', () => {
+    const lt = makeLT({ state: 'idle' });
+    render(
+      <WebSocketLoadTest
+        loadTest={lt}
+        isConnected={true}
+        statsPanel={<div data-testid="fake-stats">live stats</div>}
+      />,
+    );
+    expect(screen.queryByTestId('lt-live-stats')).toBeNull();
+  });
+
   it('renders results after completion', () => {
     const result = makeResult();
     const lt = makeLT({ state: 'done', result });
@@ -157,6 +189,29 @@ describe('WebSocketLoadTest', () => {
     expect(screen.getByTestId('lt-clear-btn')).toBeTruthy();
     fireEvent.click(screen.getByTestId('lt-clear-btn'));
     expect(clearFn).toHaveBeenCalledOnce();
+  });
+
+  it('re-runs the same test from results via Run Again', () => {
+    const startFn = vi.fn();
+    const result = makeResult();
+    const lt = makeLT({ state: 'done', result, start: startFn });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    const runAgain = screen.getByTestId('lt-run-again-btn') as HTMLButtonElement;
+    expect(runAgain.disabled).toBe(false);
+    fireEvent.click(runAgain);
+    expect(startFn).toHaveBeenCalledOnce();
+  });
+
+  it('disables Run Again and shows a hint when disconnected in results', () => {
+    const startFn = vi.fn();
+    const result = makeResult();
+    const lt = makeLT({ state: 'done', result, start: startFn });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={false} />);
+    const runAgain = screen.getByTestId('lt-run-again-btn') as HTMLButtonElement;
+    expect(runAgain.disabled).toBe(true);
+    expect(screen.getByTestId('lt-done-disconnected')).toBeTruthy();
+    fireEvent.click(runAgain);
+    expect(startFn).not.toHaveBeenCalled();
   });
 
   it('selects profile via pills', () => {

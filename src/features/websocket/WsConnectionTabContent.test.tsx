@@ -266,7 +266,7 @@ describe('WsConnectionTabContent', () => {
     const spy = vi.spyOn(hookModule, 'useWebSocketStudio');
     const envMap = { baseUrl: 'https://api.example.com', host: 'api.example.com' };
     render(<WsConnectionTabContent {...makeProps({ envVarMap: envMap })} />);
-    expect(spy).toHaveBeenCalledWith(envMap);
+    expect(spy).toHaveBeenCalledWith(envMap, []);
   });
 
   it('handleLoadProfile calls studio setters on Saved tab', () => {
@@ -879,4 +879,426 @@ describe('WsConnectionTabContent', () => {
       // The toggle should have been called
     }
   });
+
+  // ── Controlled view tab (shell-driven navigation) ──
+  describe('controlled mode', () => {
+    it('hides its own view-tab bar when controlledViewTab is provided', () => {
+      render(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'connect' })} />);
+      expect(screen.queryByTestId('tab-connect')).toBeNull();
+      expect(screen.queryByTestId('tab-messages')).toBeNull();
+      expect(screen.queryByTestId('tab-saved')).toBeNull();
+    });
+
+    it('renders the controlled view regardless of internal default', () => {
+      // Default uncontrolled view is connect; controlled forces saved.
+      render(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'saved' })} />);
+      expect(screen.getByText(/No saved connections/)).toBeTruthy();
+    });
+
+    it('follows controlledViewTab changes from the parent', () => {
+      const { rerender } = render(
+        <WsConnectionTabContent {...makeProps({ controlledViewTab: 'connect' })} />,
+      );
+      expect(screen.getByText('No WebSocket connection')).toBeTruthy();
+      rerender(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'saved' })} />);
+      expect(screen.getByText(/No saved connections/)).toBeTruthy();
+    });
+
+    it('keeps its own view-tab bar when controlledViewTab is absent (uncontrolled)', () => {
+      render(<WsConnectionTabContent {...makeProps()} />);
+      expect(screen.getByTestId('tab-connect')).toBeTruthy();
+      expect(screen.getByTestId('tab-messages')).toBeTruthy();
+    });
+  });
+
+  // ── Controlled left tab (Phase 2: Connect / Headers / Params split) ──
+  describe('controlled left tab', () => {
+    it('renders only the Headers editor on the headers left tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
+        />,
+      );
+      expect(screen.getByTestId('headers-section')).toBeTruthy();
+      // No params editor and no connect panel/URL bar in the headers tab.
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+      expect(screen.queryByTestId('connect-btn')).toBeNull();
+    });
+
+    it('renders only the Query Params editor on the params left tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'params' })}
+        />,
+      );
+      expect(screen.getByTestId('query-params-section')).toBeTruthy();
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('connect-btn')).toBeNull();
+    });
+
+    it('renders the connect panel without inline headers/params on the connect left tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'connect' })}
+        />,
+      );
+      // Connect panel (URL + actions) renders, but headers/params are relocated.
+      expect(screen.getByTestId('connect-btn')).toBeTruthy();
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+    });
+
+    it('updates draft headers from the relocated Headers editor', () => {
+      mockStudio = makeStudioReturn({
+        draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('headers-add-btn'));
+      expect(mockStudio.setDraft).toHaveBeenCalledWith({
+        headers: [{ key: '', value: '', enabled: true }],
+      });
+    });
+
+    it('renders headers and params inline when controlledLeftTab is absent (uncontrolled connect)', () => {
+      render(<WsConnectionTabContent {...makeProps()} />);
+      expect(screen.getByTestId('headers-section')).toBeTruthy();
+      expect(screen.getByTestId('query-params-section')).toBeTruthy();
+    });
+
+    it('disables the relocated Headers editor while connected', () => {
+      mockStudio = makeStudioReturn({
+        draft: { url: 'ws://test', subprotocols: '', headers: [{ key: 'A', value: '1', enabled: true }], queryParams: [] },
+        connection: { state: 'connected' },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
+        />,
+      );
+      expect((screen.getByTestId('headers-add-btn') as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  // ── Controlled compose tab (Phase 3: composer relocated to the left pane) ──
+  describe('controlled compose tab', () => {
+    it('renders the standalone composer and suppresses the inline log composer on the compose tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
+        />,
+      );
+      // Exactly one composer (the standalone pane); the events log's inline
+      // composer is suppressed via showComposer={false}.
+      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
+      expect(screen.getByTestId('ping-btn')).toBeTruthy();
+      expect(screen.getByLabelText('Message input')).toBeTruthy();
+    });
+
+    it('renders the inline log composer on the uncontrolled messages view (no standalone pane)', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'messages' })}
+        />,
+      );
+      // Still exactly one composer — the log's inline one — and no duplicate.
+      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
+    });
+
+    it('sends via the relocated composer using studio.send', () => {
+      mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'hello' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(mockStudio.send).toHaveBeenCalledWith('hello', 'text');
+    });
+
+    it('hides the relocated composer while a recording is replaying', () => {
+      mockRecording = makeRecordingReturn({ state: 'replaying' });
+      vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
+        />,
+      );
+      // Standalone composer hidden during replay; log composer also suppressed.
+      expect(screen.queryByTestId('send-btn')).toBeNull();
+    });
+  });
+
+  // ── Phase 4: split-pane shell render (composition inversion) ──────────────
+  describe('shell mode (controlledMode)', () => {
+    it('renders the split-pane shell with mode and left/right tab strips', () => {
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'client' })} />);
+      expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
+      expect(screen.getByTestId('mode-client')).toBeTruthy();
+      expect(screen.getByTestId('ws-studio-split')).toBeTruthy();
+      expect(screen.getByTestId('ws-studio-divider')).toBeTruthy();
+      expect(screen.getByTestId('left-tab-connect')).toBeTruthy();
+      expect(screen.getByTestId('right-tab-events')).toBeTruthy();
+      // It does NOT render its own legacy view-tab bar.
+      expect(screen.queryByTestId('tab-connect')).toBeNull();
+    });
+
+    it('renders the events log in the right pane with no composer there', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'events' })}
+        />,
+      );
+      // Events log present (search bar) — the right pane is not the placeholder.
+      expect(screen.getByTestId('search-input')).toBeTruthy();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+      // Connect left pane has no composer and the events log suppresses its own.
+      expect(screen.queryAllByTestId('send-btn')).toHaveLength(0);
+    });
+
+    it('renders the composer in the Compose left tab alongside the events log on the right', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'compose', controlledRightTab: 'events' })}
+        />,
+      );
+      // Exactly one composer (the standalone left pane); events log on the right
+      // suppresses its inline composer.
+      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
+      expect(screen.getByTestId('ping-btn')).toBeTruthy();
+      expect(screen.getByTestId('search-input')).toBeTruthy();
+    });
+
+    it('renders the headers editor in the Headers left tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'headers', controlledRightTab: 'events' })}
+        />,
+      );
+      expect(screen.getByTestId('headers-add-btn')).toBeTruthy();
+      // The events log still occupies the right pane.
+      expect(screen.getByTestId('search-input')).toBeTruthy();
+    });
+
+    it('renders the Console panel (not a placeholder) for the console right tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'console' })}
+        />,
+      );
+      expect(screen.getByTestId('ws-console')).toBeTruthy();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+      // The events log (with its search input) is not mounted on the console tab.
+      expect(screen.queryByTestId('search-input')).toBeNull();
+    });
+
+    it('renders the Stats panel (not a placeholder) for the stats right tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'stats' })}
+        />,
+      );
+      expect(screen.getByTestId('ws-studio-stats-pane')).toBeTruthy();
+      expect(screen.getByTestId('stats-panel')).toBeTruthy();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+      expect(screen.queryByTestId('search-input')).toBeNull();
+    });
+
+    it('renders the Load Test panel for the loadtest right tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'loadtest' })}
+        />,
+      );
+      expect(screen.getByTestId('ws-studio-loadtest-pane')).toBeTruthy();
+      expect(screen.getByTestId('load-test-panel')).toBeTruthy();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+    });
+
+    it('renders the Schema panel for the schema right tab', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'schema' })}
+        />,
+      );
+      expect(screen.getByTestId('ws-studio-schema-pane')).toBeTruthy();
+      expect(screen.getByTestId('ws-schema-panel')).toBeTruthy();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+    });
+
+    it('does not render the Stats/Load Test/Schema toggle buttons in the shell Events pane', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'events' })}
+        />,
+      );
+      // Events log is present, but the relocated toggles are not.
+      expect(screen.getByTestId('search-input')).toBeTruthy();
+      expect(screen.queryByTestId('stats-toggle-btn')).toBeNull();
+      expect(screen.queryByTestId('load-test-toggle-btn')).toBeNull();
+      expect(screen.queryByTestId('schema-toggle-btn')).toBeNull();
+    });
+
+    it('renders Mock mode as a server bar + clients/rules split with a divider', () => {
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'mock' })} />);
+      expect(screen.getByTestId('mode-mock')).toBeTruthy();
+      expect(screen.getByTestId('ws-studio-topbar')).toBeTruthy();
+      expect(screen.getByTestId('ws-studio-divider')).toBeTruthy();
+      expect(screen.getByTestId('mock-server-panel')).toBeTruthy();
+      expect(screen.queryByTestId('search-input')).toBeNull();
+      expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
+    });
+
+    it('renders Saved mode as a rail + detail split with a divider', () => {
+      render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved' })} />);
+      expect(screen.getByTestId('mode-saved')).toBeTruthy();
+      expect(screen.getByTestId('ws-studio-divider')).toBeTruthy();
+      expect(screen.getByTestId('saved-connections')).toBeTruthy();
+      expect(screen.getByTestId('saved-detail')).toBeTruthy();
+      expect(screen.getByText(/No saved connections/)).toBeTruthy();
+    });
+
+    it('forwards mode, left-tab, and right-tab changes to the parent', () => {
+      const onModeChange = vi.fn();
+      const onLeftTabChange = vi.fn();
+      const onRightTabChange = vi.fn();
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledMode: 'client',
+            controlledLeftTab: 'connect',
+            controlledRightTab: 'events',
+            onModeChange,
+            onLeftTabChange,
+            onRightTabChange,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('mode-saved'));
+      expect(onModeChange).toHaveBeenCalledWith('saved');
+      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      expect(onLeftTabChange).toHaveBeenCalledWith('compose');
+      fireEvent.click(screen.getByTestId('right-tab-stats'));
+      expect(onRightTabChange).toHaveBeenCalledWith('stats');
+    });
+
+    it('switches to Saved mode when "Save as profile" is clicked from the Connect tab', () => {
+      mockStudio = makeStudioReturn({
+        draft: { url: 'ws://localhost:8765', subprotocols: '', headers: [], queryParams: [] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      const onModeChange = vi.fn();
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledMode: 'client',
+            controlledLeftTab: 'connect',
+            controlledRightTab: 'events',
+            onModeChange,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('save-as-profile-btn'));
+      expect(onModeChange).toHaveBeenCalledWith('saved');
+    });
+  });
+
+  describe('coverage — draft seeding, persistence and relocated editors', () => {
+    it('seeds the draft and protocol from initialDraft/initialUrl/initialProtocol on mount', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            initialUrl: 'ws://seed:9000',
+            initialProtocol: 'graphql-ws',
+            initialDraft: {
+              subprotocols: 'graphql-ws',
+              headers: [{ key: 'X-Seed', value: '1', enabled: true }],
+              queryParams: [{ key: 'q', value: '2', enabled: true }],
+              auth: { type: 'none' },
+            },
+          })}
+        />,
+      );
+      expect(mockStudio.setDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'ws://seed:9000',
+          subprotocols: 'graphql-ws',
+          headers: [{ key: 'X-Seed', value: '1', enabled: true }],
+          queryParams: [{ key: 'q', value: '2', enabled: true }],
+          auth: { type: 'none' },
+        }),
+      );
+      expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('graphql-ws');
+    });
+
+    it('exposes the full draft snapshot via the ref handle', () => {
+      const ref = createRef<WsConnectionTabContentHandle>();
+      render(<WsConnectionTabContent ref={ref} {...makeProps()} />);
+      expect(ref.current!.getDraft()).toBe(mockStudio.draft);
+    });
+
+    it('fires onDraftChange when a persistable draft field changes', () => {
+      const onDraftChange = vi.fn();
+      const { rerender } = render(
+        <WsConnectionTabContent {...makeProps({ onDraftChange })} />,
+      );
+      // First effect run only snapshots; no callback yet.
+      expect(onDraftChange).not.toHaveBeenCalled();
+      mockStudio = makeStudioReturn({
+        draft: {
+          ...createDefaultDraft(),
+          headers: [{ key: 'X-New', value: 'v', enabled: true }],
+        },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      rerender(<WsConnectionTabContent {...makeProps({ onDraftChange })} />);
+      expect(onDraftChange).toHaveBeenCalledWith('test-tab');
+    });
+
+    it('clears headers via the relocated Headers editor (shell mode)', () => {
+      mockStudio = makeStudioReturn({
+        draft: { ...createDefaultDraft(), headers: [{ key: 'a', value: 'b', enabled: true }] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'headers' })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('headers-delete-all-btn'));
+      expect(mockStudio.setDraft).toHaveBeenCalledWith({ headers: [] });
+    });
+
+    it('clears query params via the relocated Params editor (shell mode)', () => {
+      mockStudio = makeStudioReturn({
+        draft: { ...createDefaultDraft(), queryParams: [{ key: 'q', value: '1', enabled: true }] },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'params' })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('query-params-delete-all-btn'));
+      expect(mockStudio.setDraft).toHaveBeenCalledWith({ queryParams: [] });
+    });
+
+    it('renders the relocated Auth panel (shell mode)', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
+        />,
+      );
+      // The auth pane mounts WebSocketAuthPanel without throwing.
+      expect(document.querySelector('.ws-studio-content')).toBeTruthy();
+    });
+  });
 });
+

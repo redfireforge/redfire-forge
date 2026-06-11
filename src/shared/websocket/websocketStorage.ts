@@ -1,12 +1,20 @@
 import { readKey, writeKey } from '../utils/storage';
+import type { AuthConfig } from '../types';
 import type {
   WsConnectionHistoryEntry,
   WsConnectionProfile,
   WsFilterPreset,
+  WsKeyValueEntry,
   WsMessageTemplate,
   WsMockRule,
   WsPersistedTab,
   WsPersistedTabState,
+} from './types';
+import {
+  isWsStudioMode,
+  isWsLeftTab,
+  isWsRightTab,
+  mapViewTabToStudioLocation,
 } from './types';
 
 export const WS_PROFILES_KEY = 'redfire-ws-profiles-v1';
@@ -35,6 +43,29 @@ const VALID_TEMPLATE_FORMATS = new Set(['text', 'json', 'binary']);
 function clampInt(val: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(val)) return fallback;
   return Math.max(min, Math.min(max, Math.round(val)));
+}
+
+const VALID_AUTH_TYPES = new Set(['none', 'inherit', 'basic', 'bearer', 'apikey', 'digest', 'oauth2']);
+
+/** Corrupt-safe sanitizer for a persisted WsKeyValueEntry[] (headers/params). */
+function sanitizeKeyValueEntries(value: unknown): WsKeyValueEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((e): e is Record<string, unknown> => typeof e === 'object' && e !== null)
+    .map((e) => ({
+      key: typeof e.key === 'string' ? e.key : '',
+      value: typeof e.value === 'string' ? e.value : '',
+      enabled: typeof e.enabled === 'boolean' ? e.enabled : true,
+    }));
+}
+
+/** Corrupt-safe sanitizer for a persisted AuthConfig. Returns undefined for
+ * missing/invalid data so an absent auth stays absent. */
+function sanitizeAuthConfig(value: unknown): AuthConfig | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  if (typeof v.type !== 'string' || !VALID_AUTH_TYPES.has(v.type)) return undefined;
+  return value as AuthConfig;
 }
 
 function normalizeProfile(p: WsConnectionProfile): WsConnectionProfile {
@@ -127,6 +158,30 @@ function isValidPersistedTab(entry: unknown): entry is WsPersistedTab {
   );
 }
 
+/**
+ * Normalizes a valid persisted tab so its Phase 1 studio-layout fields
+ * (`mode`/`leftTab`/`rightTab`) are always populated. Present-and-valid values
+ * are kept; anything missing or invalid is derived from the legacy `viewTab`
+ * via `mapViewTabToStudioLocation`, so legacy blobs migrate transparently.
+ *
+ * Phase 8 also normalizes the persisted draft fields
+ * (`subprotocols`/`headers`/`queryParams`/`auth`); older blobs that lack them
+ * default to `''`/`[]`/`undefined`.
+ */
+function normalizePersistedTab(tab: WsPersistedTab): WsPersistedTab {
+  const derived = mapViewTabToStudioLocation(tab.viewTab);
+  return {
+    ...tab,
+    mode: isWsStudioMode(tab.mode) ? tab.mode : derived.mode,
+    leftTab: isWsLeftTab(tab.leftTab) ? tab.leftTab : derived.leftTab,
+    rightTab: isWsRightTab(tab.rightTab) ? tab.rightTab : derived.rightTab,
+    subprotocols: typeof tab.subprotocols === 'string' ? tab.subprotocols : '',
+    headers: sanitizeKeyValueEntries(tab.headers),
+    queryParams: sanitizeKeyValueEntries(tab.queryParams),
+    auth: sanitizeAuthConfig(tab.auth),
+  };
+}
+
 export async function loadWsTabState(): Promise<WsPersistedTabState | null> {
   const raw = await readKey(WS_TAB_STATE_KEY);
   if (!raw) return null;
@@ -135,7 +190,7 @@ export async function loadWsTabState(): Promise<WsPersistedTabState | null> {
     if (typeof parsed !== 'object' || parsed === null) return null;
     const obj = parsed as Record<string, unknown>;
     if (!Array.isArray(obj.tabs) || typeof obj.activeTabId !== 'string') return null;
-    const validTabs = (obj.tabs as unknown[]).filter(isValidPersistedTab);
+    const validTabs = (obj.tabs as unknown[]).filter(isValidPersistedTab).map(normalizePersistedTab);
     if (validTabs.length === 0) return null;
     const renamedTabIds = Array.isArray(obj.renamedTabIds)
       ? (obj.renamedTabIds as unknown[]).filter((x): x is string => typeof x === 'string')

@@ -129,4 +129,80 @@ describe('KeyValueEditor', () => {
     expect(screen.getByLabelText('Headers value 1')).toBeInTheDocument();
     expect(screen.getByLabelText('Remove headers 1')).toBeInTheDocument();
   });
+
+  it('renders an empty-state hint when there are no entries', () => {
+    render(<KeyValueEditor entries={[]} onChange={vi.fn()} label="Headers" testIdPrefix="h" />);
+    expect(screen.getByTestId('h-empty')).toBeInTheDocument();
+    // The table is not rendered while empty.
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+
+  it('renders a reorder grip per row with an aria label', () => {
+    const entries = makeEntries('A', 'B');
+    render(<KeyValueEditor entries={entries} onChange={vi.fn()} label="Headers" testIdPrefix="h" />);
+    expect(screen.getByTestId('h-grip-0')).toBeInTheDocument();
+    expect(screen.getByTestId('h-grip-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reorder headers 1')).toBeInTheDocument();
+  });
+
+  it('reorders entries on drag-and-drop (drag row 0 onto row 2)', () => {
+    const onChange = vi.fn();
+    const entries = makeEntries('A', 'B', 'C');
+    render(<KeyValueEditor entries={entries} onChange={onChange} label="Headers" testIdPrefix="h" />);
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    fireEvent.dragStart(screen.getByTestId('h-grip-0'), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId('h-row-2'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('h-row-2'), { dataTransfer });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const reordered = onChange.mock.calls[0][0] as WsKeyValueEntry[];
+    expect(reordered.map((e) => e.key)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('does not reorder when dropping a row onto itself', () => {
+    const onChange = vi.fn();
+    const entries = makeEntries('A', 'B');
+    render(<KeyValueEditor entries={entries} onChange={onChange} label="Headers" testIdPrefix="h" />);
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    fireEvent.dragStart(screen.getByTestId('h-grip-0'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('h-row-0'), { dataTransfer });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not render a Delete all button when onDeleteAll is omitted', () => {
+    render(<KeyValueEditor entries={makeEntries('A')} onChange={vi.fn()} label="Headers" testIdPrefix="h" />);
+    expect(screen.queryByTestId('h-delete-all-btn')).not.toBeInTheDocument();
+  });
+
+  it('renders Delete all and calls onDeleteAll when there are entries', () => {
+    const onDeleteAll = vi.fn();
+    render(
+      <KeyValueEditor entries={makeEntries('A')} onChange={vi.fn()} onDeleteAll={onDeleteAll} label="Headers" testIdPrefix="h" />,
+    );
+    fireEvent.click(screen.getByTestId('h-delete-all-btn'));
+    expect(onDeleteAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Delete all when there are no entries', () => {
+    render(<KeyValueEditor entries={[]} onChange={vi.fn()} onDeleteAll={vi.fn()} label="Headers" testIdPrefix="h" />);
+    expect(screen.queryByTestId('h-delete-all-btn')).not.toBeInTheDocument();
+  });
 });
+

@@ -7,6 +7,7 @@ import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { useDropdownClose } from './useDropdownClose';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
 import { useWebSocketCompose } from './useWebSocketCompose';
+import { useWebSocketMessageDiff } from './useWebSocketMessageDiff';
 import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { WsMetricsSnapshot } from './useWebSocketMetrics';
 import { WebSocketStatsPanel } from './WebSocketStatsPanel';
@@ -49,6 +50,15 @@ interface WebSocketMessageLogProps {
   allMessages?: WsFrame[];
   transportMode?: 'direct' | 'proxy' | 'native';
   showStatusBar?: boolean;
+  /** When false, the inline composer is suppressed (the composer is rendered
+   * separately in the left Compose tab). Defaults to true so the uncontrolled
+   * / flag-off path renders the composer inline exactly as before. */
+  showComposer?: boolean;
+  /** When false, the Stats / Load Test / Schema toolbar toggle buttons and their
+   * inline drawer panels are suppressed because they are rendered as dedicated
+   * right-pane tabs in shell-v2 (Phase 5). Defaults to true so the legacy flat
+   * layout keeps the inline toggles exactly as before. */
+  showAuxPanels?: boolean;
   connectionUrl?: string;
   uptime?: number | null;
   sentCount?: number;
@@ -120,6 +130,8 @@ export function WebSocketMessageLog({
   allMessages = messages,
   transportMode = 'direct',
   showStatusBar = false,
+  showComposer = true,
+  showAuxPanels = true,
   connectionUrl,
   uptime = null,
   sentCount = 0,
@@ -174,9 +186,6 @@ export function WebSocketMessageLog({
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [showFilterBar, setShowFilterBar] = useState(false);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
-  const [diffPair, setDiffPair] = useState<[WsFrame, WsFrame] | null>(null);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const presetDropdownRef = useDropdownClose(
     presetDropdownOpen,
@@ -187,8 +196,18 @@ export function WebSocketMessageLog({
   const recordingFileInputRef = useRef<HTMLInputElement>(null);
   const allMessagesRef = useRef(allMessages);
   allMessagesRef.current = allMessages;
-  const compareModeRef = useRef(compareMode);
-  compareModeRef.current = compareMode;
+
+  const {
+    compareMode,
+    compareIds,
+    diffPair,
+    toggleCompare,
+    closeDiff,
+    swapDiff,
+    quickDiff,
+    selectCompareRow,
+    exitCompareMode,
+  } = useWebSocketMessageDiff({ allMessages, allMessagesRef });
 
   const isReplaying = recordingState === 'replaying' || recordingState === 'paused';
 
@@ -270,78 +289,13 @@ export function WebSocketMessageLog({
   }, []);
 
   const handleRowClick = useCallback((id: string) => {
-    if (compareModeRef.current) {
-      const frame = allMessagesRef.current.find((m) => m.id === id);
-      if (frame && frame.type !== 'text') return;
-      setCompareIds((prev) => {
-        if (prev[0] === id) return [null, prev[1]];
-        if (prev[1] === id) return [prev[0], null];
-        if (prev[0] === null) return [id, prev[1]];
-        if (prev[1] === null) return [prev[0], id];
-        return [id, null];
-      });
-      return;
-    }
+    if (selectCompareRow(id)) return;
     setSelectedMessageId((prev) => (prev === id ? null : id));
-  }, []);
-
-  useEffect(() => {
-    if (!compareMode) return;
-    if (!compareIds[0] || !compareIds[1]) {
-      setDiffPair(null);
-      return;
-    }
-    const a = allMessages.find((m) => m.id === compareIds[0]);
-    const b = allMessages.find((m) => m.id === compareIds[1]);
-    if (a && b) {
-      const [left, right] = new Date(a.timestamp) <= new Date(b.timestamp) ? [a, b] : [b, a];
-      setDiffPair([left, right]);
-    } else {
-      setDiffPair(null);
-    }
-  }, [compareMode, compareIds, allMessages]);
-
-  useEffect(() => {
-    if (compareMode || !diffPair) return;
-    const leftExists = allMessages.some((m) => m.id === diffPair[0].id);
-    const rightExists = allMessages.some((m) => m.id === diffPair[1].id);
-    if (!leftExists || !rightExists) setDiffPair(null);
-  }, [compareMode, diffPair, allMessages]);
+  }, [selectCompareRow]);
 
   const handleToggleBookmark = useCallback((id: string) => {
     onToggleBookmark?.(id);
   }, [onToggleBookmark]);
-
-  const handleToggleCompare = useCallback(() => {
-    setCompareMode((prev) => !prev);
-    setCompareIds([null, null]);
-    setDiffPair(null);
-  }, []);
-
-  const handleCloseDiff = useCallback(() => {
-    setDiffPair(null);
-    setCompareMode(false);
-    setCompareIds([null, null]);
-  }, []);
-
-  const handleSwapDiff = useCallback(() => {
-    setDiffPair((prev) => prev ? [prev[1], prev[0]] : null);
-  }, []);
-
-  const handleQuickDiff = useCallback((frame: WsFrame, direction: 'prev' | 'next') => {
-    const idx = allMessages.findIndex((m) => m.id === frame.id);
-    if (idx < 0) return;
-    const step = direction === 'prev' ? -1 : 1;
-    for (let i = idx + step; i >= 0 && i < allMessages.length; i += step) {
-      if (allMessages[i].direction === frame.direction && allMessages[i].type === 'text') {
-        const [left, right] = direction === 'prev'
-          ? [allMessages[i], frame]
-          : [frame, allMessages[i]];
-        setDiffPair([left, right]);
-        return;
-      }
-    }
-  }, [allMessages]);
 
   const handleRecordingFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -452,20 +406,19 @@ export function WebSocketMessageLog({
         }
       } else if (e.key === 'Escape') {
         if (diffPair) {
-          handleCloseDiff();
+          closeDiff();
         } else if (compareMode) {
-          setCompareMode(false);
-          setCompareIds([null, null]);
+          exitCompareMode();
         } else {
           setSelectedMessageId(null);
         }
       } else if (e.key === 'd' || e.key === 'D') {
         if (selectedFrame && selectedFrame.type === 'text') {
-          handleQuickDiff(selectedFrame, 'prev');
+          quickDiff(selectedFrame, 'prev');
         }
       }
     },
-    [selectedIndex, displayMessages, scrollToMessageId, compareMode, diffPair, handleCloseDiff, selectedFrame, handleQuickDiff],
+    [selectedIndex, displayMessages, scrollToMessageId, compareMode, diffPair, closeDiff, exitCompareMode, selectedFrame, quickDiff],
   );
 
   const hasDiffPrev = useMemo(() => {
@@ -509,6 +462,7 @@ export function WebSocketMessageLog({
 
       {/* Toolbar */}
       <div className="ws-message-log-toolbar">
+        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-search">
         <div className="ws-search-mode-pills" data-testid="search-mode-pills">
           {(['text', 'regex', 'jsonpath'] as const).map((mode) => (
             <button
@@ -518,7 +472,7 @@ export function WebSocketMessageLog({
               data-testid={`search-mode-${mode}`}
               title={mode === 'text' ? 'Text search' : mode === 'regex' ? 'Regex search' : 'JSONPath query'}
             >
-              {mode === 'text' ? 'T' : mode === 'regex' ? 'R' : 'JP'}
+              {mode === 'text' ? 'Text' : mode === 'regex' ? 'Regex' : 'JSONPath'}
             </button>
           ))}
         </div>
@@ -563,6 +517,8 @@ export function WebSocketMessageLog({
             <option value="invalid">Invalid only</option>
           </select>
         )}
+        </div>
+        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-actions">
         <button
           className={`ws-filter-toggle-btn ${showFilterBar ? 'ws-filter-toggle-active' : ''}`}
           onClick={() => setShowFilterBar((v) => !v)}
@@ -573,14 +529,14 @@ export function WebSocketMessageLog({
         </button>
         <button
           className={`ws-filter-toggle-btn ${compareMode ? 'ws-filter-toggle-active' : ''}`}
-          onClick={handleToggleCompare}
+          onClick={toggleCompare}
           disabled={totalCount < 2}
           data-testid="compare-btn"
           title={compareMode ? 'Exit compare mode' : 'Compare two messages'}
         >
           Compare
         </button>
-        {onToggleSchemasVisible && (
+        {showAuxPanels && onToggleSchemasVisible && (
           <button
             className={`ws-filter-toggle-btn ${schemasVisible ? 'ws-filter-toggle-active' : ''}`}
             onClick={onToggleSchemasVisible}
@@ -606,7 +562,7 @@ export function WebSocketMessageLog({
         >
           Export
         </button>
-        {metrics && (
+        {showAuxPanels && metrics && (
           <button
             className={`ws-stats-toggle-btn ${showStats ? 'ws-stats-toggle-active' : ''}`}
             onClick={() => setShowStats((v) => !v)}
@@ -616,7 +572,7 @@ export function WebSocketMessageLog({
             Stats
           </button>
         )}
-        {onToggleLoadTest && (
+        {showAuxPanels && onToggleLoadTest && (
           <button
             className={`ws-stats-toggle-btn ${loadTestActive ? 'ws-stats-toggle-active' : ''}`}
             onClick={onToggleLoadTest}
@@ -681,6 +637,7 @@ export function WebSocketMessageLog({
             {totalCount}/{maxMessages} — max reached
           </span>
         )}
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -750,7 +707,7 @@ export function WebSocketMessageLog({
                 ? 'Click a second message to compare'
                 : 'Comparison ready'}
           </span>
-          <button className="ws-compare-banner-cancel" onClick={handleToggleCompare} data-testid="compare-cancel">
+          <button className="ws-compare-banner-cancel" onClick={toggleCompare} data-testid="compare-cancel">
             Cancel
           </button>
         </div>
@@ -811,7 +768,7 @@ export function WebSocketMessageLog({
       </div>
 
       {/* Schema panel */}
-      {schemasVisible && onAddSchema && onUpdateSchema && onRemoveSchema && onToggleSchema && onGenerateSchema && setValidationEnabled && (
+      {showAuxPanels && schemasVisible && onAddSchema && onUpdateSchema && onRemoveSchema && onToggleSchema && onGenerateSchema && setValidationEnabled && (
         <WebSocketSchemaPanel
           schemas={schemas}
           validationEnabled={validationEnabled}
@@ -834,24 +791,24 @@ export function WebSocketMessageLog({
           onNext={handleDetailNext}
           hasPrev={selectedIndex > 0}
           hasNext={selectedIndex < displayMessages.length - 1}
-          onDiffPrev={hasDiffPrev ? () => handleQuickDiff(selectedFrame, 'prev') : undefined}
-          onDiffNext={hasDiffNext ? () => handleQuickDiff(selectedFrame, 'next') : undefined}
+          onDiffPrev={hasDiffPrev ? () => quickDiff(selectedFrame, 'prev') : undefined}
+          onDiffNext={hasDiffNext ? () => quickDiff(selectedFrame, 'next') : undefined}
           validationResults={getCachedValidation(selectedFrame)}
         />
       )}
 
-      {showStats && metrics && (
+      {showAuxPanels && showStats && metrics && (
         <WebSocketStatsPanel metrics={metrics} />
       )}
 
-      {!isReplaying && composeBar}
+      {!isReplaying && showComposer && composeBar}
 
       {diffPair && (
         <WebSocketMessageDiff
           left={diffPair[0]}
           right={diffPair[1]}
-          onClose={handleCloseDiff}
-          onSwap={handleSwapDiff}
+          onClose={closeDiff}
+          onSwap={swapDiff}
         />
       )}
     </div>

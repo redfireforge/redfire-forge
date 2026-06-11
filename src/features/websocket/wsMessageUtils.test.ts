@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp, hasUnresolvedVars, buildWsEnvVarMap, buildResolvedEffectiveUrl, decodeBase64ToBytes, decodeBase64ToBytesStrict } from './wsMessageUtils';
+import { isValidJson, prettyJson, tokenizeJson, buildHexDump, buildHexDumpLines, isValidWsUrl, byteLength, isValidBase64, resolveEnvVars, formatTimeAgo, buildBinaryPreview, formatWsTimestamp, hasUnresolvedVars, buildWsEnvVarMap, buildResolvedEffectiveUrl, decodeBase64ToBytes, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
 
 describe('decodeBase64ToBytes', () => {
   it('decodes valid base64 to Uint8Array', () => {
@@ -162,6 +162,36 @@ describe('byteLength', () => {
 
   it('returns correct length for emoji', () => {
     expect(byteLength('😀')).toBe(4);
+  });
+});
+
+describe('sanitizeNativeCloseCode', () => {
+  it('passes 1000 through unchanged', () => {
+    expect(sanitizeNativeCloseCode(1000)).toBe(1000);
+  });
+
+  it('passes codes in the 3000–4999 range through unchanged', () => {
+    expect(sanitizeNativeCloseCode(3000)).toBe(3000);
+    expect(sanitizeNativeCloseCode(4001)).toBe(4001);
+    expect(sanitizeNativeCloseCode(4999)).toBe(4999);
+  });
+
+  it('falls back to 1000 for protocol-reserved codes the browser rejects', () => {
+    // 1001/1002/1003/1006/1011 etc. throw InvalidAccessError on ws.close().
+    expect(sanitizeNativeCloseCode(1001)).toBe(1000);
+    expect(sanitizeNativeCloseCode(1002)).toBe(1000);
+    expect(sanitizeNativeCloseCode(1006)).toBe(1000);
+    expect(sanitizeNativeCloseCode(1011)).toBe(1000);
+    expect(sanitizeNativeCloseCode(2999)).toBe(1000);
+  });
+
+  it('falls back to 1000 for out-of-range and invalid values', () => {
+    expect(sanitizeNativeCloseCode(0)).toBe(1000);
+    expect(sanitizeNativeCloseCode(999)).toBe(1000);
+    expect(sanitizeNativeCloseCode(5000)).toBe(1000);
+    expect(sanitizeNativeCloseCode(undefined)).toBe(1000);
+    expect(sanitizeNativeCloseCode(1000.5)).toBe(1000);
+    expect(sanitizeNativeCloseCode(NaN)).toBe(1000);
   });
 });
 

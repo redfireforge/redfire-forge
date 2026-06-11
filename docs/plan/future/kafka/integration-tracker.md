@@ -1805,11 +1805,12 @@ Dependency: Phase 6+
 - [x] Create `src-server/kafka/schema-registry-client.ts` (registry client wrapper, subject/version/fetch helpers)
 - [x] Add registry route handlers (`schema-subjects`, `schema-versions`, `schema-fetch`) to `src-server/routes/kafka-routes.ts`
 - [x] Extend `KafkaProduceRequest` with optional `schemaConfig` at **request level** (applied to all messages in batch — not per-message)
-- [x] Add encode helper in produce path (Avro minimum; Protobuf/JSON Schema optional); produce encode chain: `registry.encode()` returns `Buffer` → convert to base64 string in `kafka-service.ts` before calling `adapter.send()` — `KafkaProducerMessage.value: string` in `kafka-adapter.ts` unchanged; wire format: base64 in existing `value` field + `valueEncoding?: 'base64-avro' | 'base64-protobuf' | 'base64-json-schema' | 'plain'` added to `KafkaProduceResult` in `contracts.ts`; `KafkaConsumeRecord` does NOT need `valueEncoding` (server decodes transparently before returning)
+- [x] Add encode helper in produce path (Avro minimum; Protobuf/JSON Schema optional). **Implemented in `kafka-produce.ts`** (not `kafka-service.ts`): `encodeValue()` returns a `Buffer` which is placed **directly** into `KafkaProducerMessage.value` (`value: string | Buffer` in `kafka-adapter.ts`) — **no base64 conversion** (the original plan proposed base64 but the adapter accepts `Buffer` natively, so raw `Buffer` is used). Wire format marker: `valueEncoding?: 'avro' | 'protobuf' | 'json-schema' | 'plain'` on `KafkaProduceResult` in `contracts.ts` (no `base64-` prefix). `KafkaConsumeRecord` does NOT need `valueEncoding` (server decodes transparently before returning)
 - [x] Extend `KafkaConsumerRecord` (adapter type in `kafka-adapter.ts`) with `rawValue?: Buffer`; adapter populates both `value` (`.toString('utf-8')`) and `rawValue` (raw Buffer); plain-JSON path uses `value` unchanged
 - [x] Extend `KafkaConsumeOnceRequest` with optional `schemaConfig`
-- [x] Add decode helper in consume path: use `record.rawValue` (not `record.value`) for registry decode; decoded value returned as JSON-stringified string in `value` field; `rawValue` is server-side only and never serialized to client
-- [x] Subscribe-path schema decode is **out of scope** for Phase 10B — only `consume-once` path supports schema-aware decode in the initial phase
+- [x] Add decode helper in consume path (**implemented in `kafka-consume-once.ts`**, not `kafka-service.ts`): use `record.rawValue` (not `record.value`) for registry decode; decoded value returned as JSON-stringified string in `value` field; `rawValue` is **server-side only and must be stripped on every path** before serialization to the client
+- [x] **`rawValue` strip on ALL consume paths** — `consume-once` destructures `{ rawValue, ...rest }` before returning; **subscribe / `subscription-messages`** must do the same when pushing to the in-memory ring buffer (the adapter always sets `rawValue`, so an un-stripped record leaks the raw `Buffer` to the client over JSON — fixed 2026-06-11, see Re-Evaluation note)
+- [x] Subscribe-path schema **decode** is **out of scope** for Phase 10B — only `consume-once` path supports schema-aware decode in the initial phase (the subscribe path still strips `rawValue`; decode would be a future phase)
 - [x] Define `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` as distinct error codes
 - [x] Key encoding explicitly out of scope (only `value` encoded/decoded in initial phase)
 - [x] Add collapsible schema config section to produce/consume UI panels (hidden by default)
@@ -1825,15 +1826,16 @@ Dependency: Phase 6+
 	- [x] `KafkaOperation` extended with `'schema-subjects'`, `'schema-versions'`, `'schema-fetch'`
 	- [x] `schema-registry-client.ts` created with `listSubjects`, `listVersions`, `fetchSchema` (via direct HTTP) and `encodeValue`/`decodeValue` (via library public API)
 	- [x] Route handlers for registry operations return `KafkaRouteEnvelope`-wrapped responses
-	- [x] 34 contract/unit tests with mocked registry (fetch for admin ops, constructor mock for encode/decode)
+	- [x] 44 contract/unit tests with mocked registry (fetch for admin ops, constructor mock for encode/decode)
 	- [x] Zero changes to existing produce/consume routes or service behavior
 - [x] Phase 10B - Runtime encode/decode integration
 	- [x] `KafkaProduceRequest` extended with optional `schemaConfig` at request level
-	- [x] Produce encodes via registry client when `schemaConfig` present; base64 produce chain
+	- [x] Produce encodes via registry client when `schemaConfig` present; raw `Buffer` placed directly into `KafkaProducerMessage.value` (no base64 — adapter accepts `Buffer`)
 	- [x] `KafkaConsumerRecord` (adapter type) extended with `rawValue?: Buffer`; adapter sets both fields
 	- [x] `KafkaConsumeOnceRequest` extended with optional `schemaConfig`
 	- [x] Consume decode uses `record.rawValue` (not `record.value`) to avoid UTF-8 corruption
-	- [x] Subscribe-path schema decode out of scope for Phase 10B initial implementation
+	- [x] `rawValue` stripped on **consume-once AND subscribe** paths before serialization (no Buffer leak to client)
+	- [x] Subscribe-path schema decode out of scope for Phase 10B initial implementation (rawValue still stripped)
 	- [x] `SCHEMA_MISMATCH`, `REGISTRY_UNREACHABLE`, and `REGISTRY_AUTH_FAILURE` error codes defined
 	- [x] Schema cache in registry client prevents per-message registry HTTP calls
 	- [x] All existing produce/consume tests pass unchanged
@@ -1848,8 +1850,8 @@ Dependency: Phase 6+
 	- [x] `buildKafkaNodeOperations.ts` passes `schemaConfig` in dispatch calls for produce and consume-once
 	- [x] `KafkaSchemaConfigSection.tsx` created — collapsible, off by default, lazy subject/version loading
 	- [x] Schema config section added to `KafkaProduceConfig.tsx` and `KafkaConsumeConfig.tsx`
-	- [x] 12 tests for `KafkaSchemaConfigSection.tsx`; all existing produce/consume config tests pass
-	- [x] `npx tsc --noEmit` clean; 470 Phase 10 tests pass
+	- [x] 34 tests for `KafkaSchemaConfigSection.tsx`; all existing produce/consume config tests pass
+	- [x] `npx tsc --noEmit` clean; Phase 10 tests pass
 
 ### Validation Gate Checklist
 
@@ -1881,7 +1883,83 @@ mock uses a regular function: `vi.fn(function() { return { ... }; })`.
 can call it directly for schema ops without going through `dispatchKafkaOperation` (which would recurse
 via `transportOverride`).
 
-### Exit Criteria
+### Re-Evaluation (2026-06-07)
+
+Full re-audit of all Phase 10 source. Baseline 281 tests green; 3 correctness bugs found and fixed
+(now 285 tests):
+
+1. **Stale "latest" cache** — `fetchSchema()` cached the version-less "latest" result permanently under
+   a `-1` alias key. Once a newer schema version was registered, "latest" requests kept returning the
+   stale schema until process restart. Fixed: only concrete (immutable) versions are cached; "latest"
+   always re-fetches. Concrete versions resolved via a "latest" lookup are still cached by their real
+   version number.
+2. **Stale credentials in instance cache** — `registryInstanceKey` keyed by URL + username only, so a
+   corrected password reused the previously-failed `SchemaRegistry` instance. Fixed: password is now
+   part of the key.
+3. **Latest-version selection** — `useSchemaRegistry` auto-selected `versionList[length-1]` as latest,
+   assuming ascending order. Fixed: uses `Math.max(...versionList)`, robust against an unsorted response.
+
+Confirmed correct (no change needed): rawValue stripping on the consume-once path (no Buffer leak),
+schema-config fields are connection-level plain inputs (no `{{variable}}` interpolation expected, so the
+graph runner passing `data.schemaConfig` raw is consistent), `valueEncoding` mapping, and
+`schemaConfig` passthrough through `buildKafkaNodeOperations` / Tauri transport.
+
+### Re-Evaluation (2026-06-11)
+
+Plan re-audit (not just code). Found and fixed plan drift plus one real bug the plan never covered:
+
+1. **Plan drift corrected** — the produce work item described a base64 wire format implemented in
+   `kafka-service.ts` with `valueEncoding: 'base64-avro' | ...`. The actual implementation encodes in
+   `kafka-produce.ts`, places the raw `Buffer` directly into `KafkaProducerMessage.value` (the adapter
+   accepts `string | Buffer`), and marks `valueEncoding: 'avro' | 'protobuf' | 'json-schema' | 'plain'`
+   (no `base64-` prefix). Decode lives in `kafka-consume-once.ts`. The plan now matches the code.
+2. **Subscribe-path `rawValue` Buffer leak (BUG, fixed)** — the plan guaranteed "`rawValue` is
+   server-side only and never serialized to the client" but only the consume-once path enforced it.
+   The subscribe path pushed raw adapter records (which **always** carry `rawValue: Buffer`) into the
+   in-memory ring buffer, and `getSubscriptionMessages` returned them verbatim — leaking the `Buffer`
+   (bloated JSON payload + unnecessary memory retention) on every `subscription-messages` poll. Fixed in
+   `kafka-subscribe.ts` by destructuring `{ rawValue, ...rest }` before `ringBuffer.push()`, mirroring
+   the consume-once strip. Added regression test "strips server-only rawValue Buffer before buffering".
+   The plan's `rawValue` work items now state the strip applies to **all** consume paths.
+3. **Kafka-trigger `rawValue` leak (BUG, fixed — Fix-All-Similar audit)** — a codebase-wide sweep for the
+   same pattern found `kafkaTriggerSubscriptionManager.dispatchWorkflowRun()` doing
+   `JSON.stringify(record)` on the raw adapter record, serializing `rawValue` as a
+   `{"type":"Buffer","data":[...]}` blob into the `__kafkaTriggerMessage` workflow variable. Fixed by
+   stripping `rawValue` before stringify; added regression test.
+
+Subscribe-path schema **decode** remains a deliberate future-phase scope item (not a bug); the rawValue
+strip is independent of decode and is now enforced everywhere.
+
+### Re-Evaluation (2026-06-11, convergence passes)
+
+Two further full code re-audits were run after the fixes above to satisfy the "repeat until no issue"
+mandate. **No new bugs were found in either pass — the audit has converged.**
+
+Areas re-verified in depth (previously only spot-checked):
+
+- **Produce encode path** (`kafka-produce.ts`): `JSON.parse` with raw-string fallback, `encodeValue` →
+  raw `Buffer` into `value`, format→`valueEncoding` mapping, `SchemaRegistryError` → envelope with
+  correct `retryable` flag, accurate `sentCount`, producer disconnect in `finally`.
+- **Encode/decode internals** (`schema-registry-client.ts`): version-specified vs latest schema-id
+  resolution; `decodeValue` magic-byte/length guard (`>= 5 && [0] === 0x00`); `classifyRegistryError`
+  pattern matching.
+- **Adapter `send`** (`kafka-adapter.ts`): `value: string | Buffer` passed through to kafkajs natively
+  (consistent with the raw-Buffer produce path).
+- **consume-once accumulation** (`kafka-consume-once.ts`): per-message decode with fail-fast settle on
+  `SchemaRegistryError`, `rawValue` destructured/stripped on every record.
+- **`useSchemaRegistry`** hook: state-machine resets on `selectSubject`, `Math.max(...versionList)` for
+  latest, `buildSchemaConfig` omits empty auth, `loadSubjects` guards empty URL.
+- **Version field** (`KafkaSchemaConfigSection.tsx`): `'' → undefined`, otherwise `Number(...)`;
+  `<input>` and `<select>` stay in sync; clearing falls back to "latest".
+
+Note: `toSchemaType` in `schema-registry-client.ts` is exported + tested but not referenced in
+production code. Left in place as a documented public helper (removal would be over-engineering).
+
+Verification: `npx tsc -b --noEmit` clean; **1359 Kafka tests pass across 43 files** (server + client +
+workflow engine + UI), including schema-registry-client 44, kafka-subscribe 17,
+kafkaTriggerSubscriptionManager 25, kafka-routes 45, useSchemaRegistry 34, KafkaSchemaConfigSection 34.
+
+
 
 - [x] Schema-aware produce and consume work with explicit opt-in for at least Avro format
 - [x] All plain-JSON Kafka features (Phase 6 runner, Phase 8 publish) are unaffected
