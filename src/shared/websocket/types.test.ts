@@ -9,8 +9,20 @@ import {
   buildEffectiveUrl,
   profileToDraft,
   draftToProfileFields,
+  WS_STUDIO_MODES,
+  WS_LEFT_TABS,
+  WS_RIGHT_TABS,
+  WS_DEFAULT_MODE,
+  WS_DEFAULT_LEFT_TAB,
+  WS_DEFAULT_RIGHT_TAB,
+  isWsStudioMode,
+  isWsLeftTab,
+  isWsRightTab,
+  mapViewTabToStudioLocation,
+  deriveViewTabFromStudio,
   type WsConnectionDraft,
   type WsConnectionProfile,
+  type WsViewTab,
 } from './types';
 
 beforeEach(() => {
@@ -285,5 +297,119 @@ describe('draftToProfileFields', () => {
     const fields = draftToProfileFields(draft);
     fields.headers[0].key = 'CHANGED';
     expect(draft.headers[0].key).toBe('K');
+  });
+});
+
+describe('studio layout constants', () => {
+  it('defaults are members of their const tuples', () => {
+    expect(WS_STUDIO_MODES).toContain(WS_DEFAULT_MODE);
+    expect(WS_LEFT_TABS).toContain(WS_DEFAULT_LEFT_TAB);
+    expect(WS_RIGHT_TABS).toContain(WS_DEFAULT_RIGHT_TAB);
+  });
+
+  it('exposes the expected values', () => {
+    expect([...WS_STUDIO_MODES]).toEqual(['client', 'mock', 'saved']);
+    expect([...WS_LEFT_TABS]).toEqual(['compose', 'connect', 'auth', 'params', 'headers']);
+    expect([...WS_RIGHT_TABS]).toEqual(['events', 'console', 'stats', 'loadtest', 'schema']);
+  });
+});
+
+describe('studio layout type guards', () => {
+  it('isWsStudioMode accepts valid modes and rejects others', () => {
+    for (const mode of WS_STUDIO_MODES) expect(isWsStudioMode(mode)).toBe(true);
+    expect(isWsStudioMode('client ')).toBe(false);
+    expect(isWsStudioMode('compose')).toBe(false);
+    expect(isWsStudioMode('')).toBe(false);
+    expect(isWsStudioMode(undefined)).toBe(false);
+    expect(isWsStudioMode(null)).toBe(false);
+    expect(isWsStudioMode(0)).toBe(false);
+    expect(isWsStudioMode({})).toBe(false);
+  });
+
+  it('isWsLeftTab accepts valid left tabs and rejects others', () => {
+    for (const tab of WS_LEFT_TABS) expect(isWsLeftTab(tab)).toBe(true);
+    expect(isWsLeftTab('events')).toBe(false);
+    expect(isWsLeftTab('client')).toBe(false);
+    expect(isWsLeftTab(null)).toBe(false);
+  });
+
+  it('isWsRightTab accepts valid right tabs and rejects others', () => {
+    for (const tab of WS_RIGHT_TABS) expect(isWsRightTab(tab)).toBe(true);
+    expect(isWsRightTab('connect')).toBe(false);
+    expect(isWsRightTab('mock')).toBe(false);
+    expect(isWsRightTab(42)).toBe(false);
+  });
+});
+
+describe('mapViewTabToStudioLocation', () => {
+  it('maps connect to client mode + Connect/Events panes', () => {
+    expect(mapViewTabToStudioLocation('connect')).toEqual({
+      mode: 'client', leftTab: 'connect', rightTab: 'events',
+    });
+  });
+
+  it('maps messages to client mode + Compose/Events panes', () => {
+    expect(mapViewTabToStudioLocation('messages')).toEqual({
+      mode: 'client', leftTab: 'compose', rightTab: 'events',
+    });
+  });
+
+  it('maps saved to saved mode with default panes', () => {
+    expect(mapViewTabToStudioLocation('saved')).toEqual({
+      mode: 'saved', leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB,
+    });
+  });
+
+  it('maps mock to mock mode with default panes', () => {
+    expect(mapViewTabToStudioLocation('mock')).toEqual({
+      mode: 'mock', leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB,
+    });
+  });
+
+  it('falls back to defaults for unknown view tabs', () => {
+    expect(mapViewTabToStudioLocation('bogus' as WsViewTab)).toEqual({
+      mode: WS_DEFAULT_MODE, leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB,
+    });
+  });
+
+  it('always returns a valid location for every known view tab', () => {
+    const tabs: WsViewTab[] = ['connect', 'messages', 'saved', 'mock'];
+    for (const tab of tabs) {
+      const loc = mapViewTabToStudioLocation(tab);
+      expect(isWsStudioMode(loc.mode)).toBe(true);
+      expect(isWsLeftTab(loc.leftTab)).toBe(true);
+      expect(isWsRightTab(loc.rightTab)).toBe(true);
+    }
+  });
+});
+
+describe('deriveViewTabFromStudio', () => {
+  it('maps mock mode to the mock view tab', () => {
+    expect(deriveViewTabFromStudio('mock', 'compose')).toBe('mock');
+    expect(deriveViewTabFromStudio('mock', 'auth')).toBe('mock');
+  });
+
+  it('maps saved mode to the saved view tab', () => {
+    expect(deriveViewTabFromStudio('saved', 'compose')).toBe('saved');
+    expect(deriveViewTabFromStudio('saved', 'connect')).toBe('saved');
+  });
+
+  it('maps client mode with the compose left tab to messages', () => {
+    expect(deriveViewTabFromStudio('client', 'compose')).toBe('messages');
+  });
+
+  it('maps client mode with a non-compose left tab to connect', () => {
+    expect(deriveViewTabFromStudio('client', 'connect')).toBe('connect');
+    expect(deriveViewTabFromStudio('client', 'auth')).toBe('connect');
+    expect(deriveViewTabFromStudio('client', 'params')).toBe('connect');
+    expect(deriveViewTabFromStudio('client', 'headers')).toBe('connect');
+  });
+
+  it('round-trips with mapViewTabToStudioLocation for every view tab', () => {
+    const tabs: WsViewTab[] = ['connect', 'messages', 'saved', 'mock'];
+    for (const tab of tabs) {
+      const loc = mapViewTabToStudioLocation(tab);
+      expect(deriveViewTabFromStudio(loc.mode, loc.leftTab)).toBe(tab);
+    }
   });
 });

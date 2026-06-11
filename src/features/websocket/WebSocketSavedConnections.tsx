@@ -1,273 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
-  WsBackoffMultiplier,
   WsConnectionDraft,
   WsConnectionProfile,
-  WsKeyValueEntry,
-  WsProtocolMode,
 } from '../../shared/websocket/types';
-import { DEFAULT_BACKOFF_MULTIPLIER, resolveBackoffMultiplier } from '../../shared/websocket/types';
-import { formatTimeAgo, isValidWsUrl } from './wsMessageUtils';
-import { KeyValueEditor } from './KeyValueEditor';
+import { formatTimeAgo } from './wsMessageUtils';
+import { ProfileEditorModal } from './WsProfileEditorModal';
+import type { ProfilePrefillDraft } from './WsProfileEditorModal';
 
-// ── Profile Editor Modal ─────────────────────────────────────────────
-
-export interface ProfilePrefillDraft {
-  name?: string;
-  url?: string;
-  subprotocols?: string;
-  headers?: WsKeyValueEntry[];
-  queryParams?: WsKeyValueEntry[];
-  protocolMode?: WsProtocolMode;
-  autoReconnect?: boolean;
-  maxReconnectAttempts?: number;
-  reconnectIntervalMs?: number;
-  backoffMultiplier?: WsBackoffMultiplier;
-  maxMessages?: number;
-  notes?: string;
-}
-
-interface ProfileEditorProps {
-  initial?: WsConnectionProfile;
-  prefill?: ProfilePrefillDraft;
-  existingNames: string[];
-  onSave: (fields: Omit<WsConnectionProfile, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  onCancel: () => void;
-}
-
-const PROFILE_DEFAULTS: {
-  protocolMode: WsProtocolMode;
-  autoReconnect: boolean;
-  maxReconnectAttempts: number;
-  reconnectIntervalMs: number;
-  backoffMultiplier: WsBackoffMultiplier;
-  maxMessages: number;
-} = {
-  protocolMode: 'auto',
-  autoReconnect: false,
-  maxReconnectAttempts: 5,
-  reconnectIntervalMs: 3000,
-  backoffMultiplier: DEFAULT_BACKOFF_MULTIPLIER,
-  maxMessages: 1000,
-};
-
-function ProfileEditorModal({ initial, prefill, existingNames, onSave, onCancel }: ProfileEditorProps) {
-  const source = initial ?? prefill;
-  const [name, setName] = useState(source?.name ?? prefill?.name ?? '');
-  const [url, setUrl] = useState(source?.url ?? prefill?.url ?? 'wss://');
-  const [subprotocols, setSubprotocols] = useState(source?.subprotocols ?? prefill?.subprotocols ?? '');
-  const [headers, setHeaders] = useState<WsKeyValueEntry[]>(
-    source?.headers?.map((h) => ({ ...h })) ?? prefill?.headers?.map((h) => ({ ...h })) ?? [],
-  );
-  const [queryParams, setQueryParams] = useState<WsKeyValueEntry[]>(
-    source?.queryParams?.map((p) => ({ ...p })) ?? prefill?.queryParams?.map((p) => ({ ...p })) ?? [],
-  );
-  const [autoReconnect, setAutoReconnect] = useState(
-    source?.autoReconnect ?? prefill?.autoReconnect ?? PROFILE_DEFAULTS.autoReconnect,
-  );
-  const [maxAttempts, setMaxAttempts] = useState(
-    source?.maxReconnectAttempts ?? prefill?.maxReconnectAttempts ?? PROFILE_DEFAULTS.maxReconnectAttempts,
-  );
-  const [retryInterval, setRetryInterval] = useState(
-    source?.reconnectIntervalMs ?? prefill?.reconnectIntervalMs ?? PROFILE_DEFAULTS.reconnectIntervalMs,
-  );
-  const [backoffMultiplier, setBackoffMultiplier] = useState<WsBackoffMultiplier>(
-    resolveBackoffMultiplier(source?.backoffMultiplier ?? prefill?.backoffMultiplier),
-  );
-  const [maxMsgs, setMaxMsgs] = useState(
-    source?.maxMessages ?? prefill?.maxMessages ?? PROFILE_DEFAULTS.maxMessages,
-  );
-  const [notes, setNotes] = useState(source?.notes ?? prefill?.notes ?? '');
-
-  const nameTrimmed = name.trim();
-  const isDuplicateName = existingNames.some(
-    (n) => n.toLowerCase() === nameTrimmed.toLowerCase() && n !== initial?.name,
-  );
-  const urlValid = isValidWsUrl(url);
-  const canSave = nameTrimmed.length > 0 && nameTrimmed.length <= 100 && !isDuplicateName && urlValid;
-
-  const handleSave = () => {
-    if (!canSave) return;
-    onSave({
-      name: nameTrimmed,
-      url: url.trim(),
-      subprotocols,
-      headers,
-      queryParams,
-      protocolMode: initial?.protocolMode ?? prefill?.protocolMode ?? PROFILE_DEFAULTS.protocolMode,
-      autoReconnect,
-      maxReconnectAttempts: Math.min(50, Math.max(1, maxAttempts)),
-      reconnectIntervalMs: Math.min(60000, Math.max(500, retryInterval)),
-      backoffMultiplier,
-      maxMessages: Math.min(50000, Math.max(100, maxMsgs)),
-      notes: notes.trim() || undefined,
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onCancel();
-    if (e.key === 'Enter' && canSave && e.target instanceof HTMLInputElement) {
-      e.preventDefault();
-      handleSave();
-    }
-  };
-
-  return (
-    <div className="ws-editor-overlay" onKeyDown={handleKeyDown} onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }} data-testid="profile-editor-modal">
-      <div className="ws-editor-modal">
-        <div className="ws-editor-header">
-          <span className="ws-editor-title">{initial ? 'Edit Profile' : 'New Profile'}</span>
-        </div>
-        <div className="ws-editor-body">
-          <div className="ws-editor-section-label">Connection Settings</div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Profile Name</label>
-            <input
-              className="ws-editor-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="My WebSocket Server"
-              maxLength={100}
-              autoFocus
-              data-testid="profile-name-input"
-            />
-            {isDuplicateName && (
-              <span className="ws-editor-error">A profile with this name already exists</span>
-            )}
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">WebSocket URL</label>
-            <input
-              className="ws-editor-input ws-editor-mono"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="wss://example.com/ws"
-              data-testid="profile-url-input"
-            />
-            {url.trim().length > 0 && !urlValid && (
-              <span className="ws-editor-error">URL must start with ws:// or wss://</span>
-            )}
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Subprotocols</label>
-            <input
-              className="ws-editor-input"
-              value={subprotocols}
-              onChange={(e) => setSubprotocols(e.target.value)}
-              placeholder="e.g. graphql-ws, json"
-            />
-          </div>
-          <KeyValueEditor
-            entries={headers}
-            onChange={setHeaders}
-            label="Headers"
-            sectionClassName="ws-editor-kv-section"
-            headerClassName="ws-editor-kv-header"
-            labelClassName="ws-editor-field-label"
-          />
-          <KeyValueEditor
-            entries={queryParams}
-            onChange={setQueryParams}
-            label="Query Parameters"
-            sectionClassName="ws-editor-kv-section"
-            headerClassName="ws-editor-kv-header"
-            labelClassName="ws-editor-field-label"
-          />
-          <div className="ws-editor-row">
-            <label className="ws-editor-toggle-label">
-              <input
-                type="checkbox"
-                checked={autoReconnect}
-                onChange={(e) => setAutoReconnect(e.target.checked)}
-              />
-              <span>
-                Auto-reconnect on unexpected disconnect
-                <span className="ws-reconnect-label-sub">
-                  Automatically retry when the connection drops (close code ≠ 1000)
-                </span>
-              </span>
-            </label>
-          </div>
-          <div className={`ws-reconnect-settings-row ws-editor-reconnect-row${autoReconnect ? '' : ' ws-reconnect-settings-disabled'}`}>
-            <div className="ws-editor-inline-field">
-              <label className="ws-editor-field-label">Max Attempts</label>
-              <input
-                type="number"
-                className="ws-editor-input ws-editor-input-sm"
-                value={maxAttempts}
-                onChange={(e) => setMaxAttempts(Number(e.target.value) || 5)}
-                min={1}
-                max={50}
-                disabled={!autoReconnect}
-              />
-            </div>
-            <div className="ws-editor-inline-field">
-              <label className="ws-editor-field-label">Retry Interval (ms)</label>
-              <input
-                type="number"
-                className="ws-editor-input ws-editor-input-sm"
-                value={retryInterval}
-                onChange={(e) => setRetryInterval(Number(e.target.value) || 3000)}
-                min={500}
-                max={60000}
-                step={500}
-                disabled={!autoReconnect}
-              />
-            </div>
-            <div className="ws-editor-inline-field">
-              <label className="ws-editor-field-label">Backoff Multiplier</label>
-              <select
-                className="ws-editor-input ws-editor-input-sm"
-                value={backoffMultiplier}
-                onChange={(e) => setBackoffMultiplier(Number(e.target.value) as WsBackoffMultiplier)}
-                disabled={!autoReconnect}
-              >
-                <option value={1}>None (fixed interval)</option>
-                <option value={1.5}>1.5×</option>
-                <option value={2}>2× (recommended)</option>
-              </select>
-            </div>
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Max Messages</label>
-            <input
-              type="number"
-              className="ws-editor-input ws-editor-input-sm"
-              value={maxMsgs}
-              onChange={(e) => setMaxMsgs(Number(e.target.value) || PROFILE_DEFAULTS.maxMessages)}
-              min={100}
-              max={50000}
-            />
-          </div>
-          <div className="ws-editor-field">
-            <label className="ws-editor-field-label">Notes</label>
-            <textarea
-              className="ws-editor-textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
-              maxLength={500}
-              rows={2}
-            />
-          </div>
-        </div>
-        <div className="ws-editor-footer">
-          <button className="ws-connect-btn ws-connect-btn-secondary" onClick={onCancel} data-testid="profile-cancel-btn">
-            Cancel
-          </button>
-          <button
-            className="ws-connect-btn ws-connect-btn-primary"
-            onClick={handleSave}
-            disabled={!canSave}
-            data-testid="profile-save-btn"
-          >
-            {initial ? 'Save Changes' : 'Save Profile'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+export type { ProfilePrefillDraft } from './WsProfileEditorModal';
 
 // ── Main Saved Connections Component ─────────────────────────────────
 
@@ -298,7 +38,54 @@ function profileHasMtls(profile: WsConnectionProfile): boolean {
   return !!(profile.tlsConfig?.clientCert && profile.tlsConfig?.clientKey);
 }
 
-export function WebSocketSavedConnections({
+function headerCount(profile: WsConnectionProfile): number {
+  return profile.headers.filter((h) => h.enabled && h.key.trim()).length;
+}
+
+function paramCount(profile: WsConnectionProfile): number {
+  return profile.queryParams.filter((p) => p.enabled && p.key.trim()).length;
+}
+
+// ── Shared UI-state hook (powers both the flat wrapper and the shell rail/detail) ──
+
+export interface SavedUi {
+  profiles: WsConnectionProfile[];
+  loading: boolean;
+  error: string | null;
+  filtered: WsConnectionProfile[];
+  selectedProfile: WsConnectionProfile | null;
+  selectedId: string | null;
+  select: (id: string) => void;
+  search: string;
+  setSearch: (v: string) => void;
+  importError: string | null;
+  importSuccess: string | null;
+  pasteImportOpen: boolean;
+  setPasteImportOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  pasteJson: string;
+  setPasteJson: (v: string) => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  confirmDeleteId: string | null;
+  setConfirmDeleteId: (id: string | null) => void;
+  editorOpen: boolean;
+  editingProfile: WsConnectionProfile | undefined;
+  editorPrefill: ProfilePrefillDraft | undefined;
+  existingNames: string[];
+  handleLoad: (id: string) => void;
+  handleEdit: (profile: WsConnectionProfile) => void;
+  handleCreate: () => void;
+  handleEditorSave: (fields: Omit<WsConnectionProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  handleEditorCancel: () => void;
+  handleDelete: (id: string) => Promise<void>;
+  handleExport: () => void;
+  handleImportClick: () => void;
+  handlePasteImport: () => Promise<void>;
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  onDuplicateProfile: (id: string) => Promise<void>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useWebSocketSavedUi({
   profiles,
   loading,
   error,
@@ -313,7 +100,7 @@ export function WebSocketSavedConnections({
   onSwitchToConnect,
   prefillDraft,
   onPrefillDraftConsumed,
-}: WebSocketSavedConnectionsProps) {
+}: WebSocketSavedConnectionsProps): SavedUi {
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<WsConnectionProfile | undefined>(undefined);
@@ -344,6 +131,25 @@ export function WebSocketSavedConnections({
       (p) => p.name.toLowerCase().includes(needle) || p.url.toLowerCase().includes(needle),
     );
   }, [profiles, search]);
+
+  // Keep a valid selection: auto-select the first visible profile so the detail
+  // pane is populated by default, and clear it when nothing matches.
+  useEffect(() => {
+    if (filtered.length === 0) {
+      if (selectedProfileId !== null) setSelectedProfileId(null);
+      return;
+    }
+    if (selectedProfileId == null || !filtered.some((p) => p.id === selectedProfileId)) {
+      setSelectedProfileId(filtered[0].id);
+    }
+  }, [filtered, selectedProfileId]);
+
+  const selectedProfile = useMemo(
+    () => profiles.find((p) => p.id === selectedProfileId) ?? null,
+    [profiles, selectedProfileId],
+  );
+
+  const select = useCallback((id: string) => setSelectedProfileId(id), []);
 
   const handleLoad = useCallback(
     (id: string) => {
@@ -453,28 +259,104 @@ export function WebSocketSavedConnections({
     [onImportProfiles],
   );
 
-  const headerCount = (profile: WsConnectionProfile) => {
-    const count = profile.headers.filter((h) => h.enabled && h.key.trim()).length;
-    return count;
-  };
+  const handleEditorCancel = useCallback(() => {
+    setEditorOpen(false);
+    setEditingProfile(undefined);
+    setEditorPrefill(undefined);
+  }, []);
 
-  const paramCount = (profile: WsConnectionProfile) => {
-    const count = profile.queryParams.filter((p) => p.enabled && p.key.trim()).length;
-    return count > 0 ? `${count} param${count > 1 ? 's' : ''}` : null;
+  return {
+    profiles,
+    loading,
+    error,
+    filtered,
+    selectedProfile,
+    selectedId: selectedProfileId,
+    select,
+    search,
+    setSearch,
+    importError,
+    importSuccess,
+    pasteImportOpen,
+    setPasteImportOpen,
+    pasteJson,
+    setPasteJson,
+    fileInputRef,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    editorOpen,
+    editingProfile,
+    editorPrefill,
+    existingNames,
+    handleLoad,
+    handleEdit,
+    handleCreate,
+    handleEditorSave,
+    handleEditorCancel,
+    handleDelete,
+    handleExport,
+    handleImportClick,
+    handlePasteImport,
+    handleFileChange,
+    onDuplicateProfile,
   };
+}
 
-  if (loading) {
-    return (
-      <div className="ws-saved-container" data-testid="saved-loading">
-        <div className="ws-saved-empty">Loading profiles...</div>
-      </div>
-    );
-  }
+// ── Rail (left pane): header + search + compact profile list ─────────
+
+const PASTE_PLACEHOLDER =
+  'Paste JSON array of profiles, e.g.:\n[\n  { "name": "My Server", "url": "wss://example.com/ws" }\n]';
+
+export function WebSocketSavedRail({ ui }: { ui: SavedUi }) {
+  const {
+    profiles, loading, error, filtered, selectedId, select,
+    search, setSearch, importError, importSuccess,
+    pasteImportOpen, setPasteImportOpen, pasteJson, setPasteJson,
+    fileInputRef, handleCreate, handleExport, handleImportClick,
+    handlePasteImport, handleFileChange,
+  } = ui;
 
   return (
-    <div className="ws-saved-container" data-testid="saved-connections">
-      <div className="ws-saved-header">
-        <h2 className="ws-saved-title">Saved Connections</h2>
+    <div className="ws-saved-rail" data-testid="saved-connections">
+      <div className="ws-saved-rail-head">
+        <span className="ws-saved-rail-title">Saved Profiles · {profiles.length}</span>
+        <div className="ws-saved-rail-head-actions">
+          <button
+            className="ws-saved-rail-icon-btn"
+            onClick={handleImportClick}
+            title="Import from file"
+            data-testid="import-btn"
+          >
+            Import
+          </button>
+          <button
+            className="ws-saved-rail-icon-btn"
+            onClick={() => { setPasteImportOpen((v) => !v); }}
+            title="Paste JSON"
+            data-testid="paste-import-btn"
+          >
+            Paste
+          </button>
+          <button
+            className="ws-saved-rail-icon-btn"
+            onClick={handleExport}
+            disabled={profiles.length === 0}
+            title="Export all profiles"
+            data-testid="export-btn"
+          >
+            Export
+          </button>
+          <button
+            className="ws-connect-btn ws-connect-btn-primary ws-saved-rail-new"
+            onClick={handleCreate}
+            data-testid="new-profile-btn"
+          >
+            + New Profile
+          </button>
+        </div>
+      </div>
+
+      <div className="ws-saved-rail-search">
         <input
           className="ws-message-search"
           placeholder="Search profiles..."
@@ -482,13 +364,6 @@ export function WebSocketSavedConnections({
           onChange={(e) => setSearch(e.target.value)}
           data-testid="saved-search"
         />
-        <button
-          className="ws-connect-btn ws-connect-btn-primary"
-          onClick={handleCreate}
-          data-testid="new-profile-btn"
-        >
-          + New Profile
-        </button>
       </div>
 
       {error && <div className="ws-connect-error">{error}</div>}
@@ -497,153 +372,13 @@ export function WebSocketSavedConnections({
         <div className="ws-saved-success" data-testid="import-success">{importSuccess}</div>
       )}
 
-      {filtered.length === 0 ? (
-        <div className="ws-saved-empty" data-testid="saved-empty">
-          {profiles.length === 0
-            ? 'No saved connections. Create one or use Save as Profile from the Connect tab.'
-            : 'No profiles match your search.'}
-        </div>
-      ) : (
-        <div className="ws-saved-list" data-testid="saved-list">
-          {filtered.map((profile) => {
-            const hCount = headerCount(profile);
-            const pCount = paramCount(profile);
-            const isSelected = selectedProfileId === profile.id;
-            return (
-            <div
-              className={`ws-saved-card ${isSelected ? 'selected' : ''}`}
-              key={profile.id}
-              data-testid={`profile-card-${profile.id}`}
-              onClick={() => setSelectedProfileId(profile.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSelectedProfileId(profile.id); }}
-            >
-              <div className="ws-saved-card-main">
-                <div className="ws-saved-card-name">{profile.name}</div>
-                <div className="ws-saved-card-url">{profile.url}</div>
-                <div className="ws-saved-card-tags">
-                  {hCount > 0 && (
-                    <span className="ws-saved-tag">{hCount} header{hCount > 1 ? 's' : ''}</span>
-                  )}
-                  {hCount === 0 && (
-                    <span className="ws-saved-tag">no headers</span>
-                  )}
-                  {pCount && (
-                    <span className="ws-saved-tag">{pCount}</span>
-                  )}
-                  {profileHasEnvVars(profile) && (
-                    <span className="ws-saved-tag">env vars</span>
-                  )}
-                  {profileHasMtls(profile) && (
-                    <span className="ws-saved-tag">mTLS</span>
-                  )}
-                  {profile.autoReconnect && (
-                    <span className="ws-saved-tag">auto-reconnect</span>
-                  )}
-                  {profile.subprotocols && (
-                    <span className="ws-saved-tag">{profile.subprotocols}</span>
-                  )}
-                  <span className="ws-saved-card-updated">Updated {formatTimeAgo(profile.updatedAt)}</span>
-                </div>
-              </div>
-              <div className="ws-saved-card-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  className="ws-saved-action-btn"
-                  onClick={() => handleLoad(profile.id)}
-                  title="Load into Connect tab"
-                  data-testid={`load-btn-${profile.id}`}
-                >
-                  Load
-                </button>
-                <button
-                  className="ws-saved-action-btn"
-                  onClick={() => handleEdit(profile)}
-                  title="Edit profile"
-                  data-testid={`edit-btn-${profile.id}`}
-                >
-                  Edit
-                </button>
-                <button
-                  className="ws-saved-action-btn"
-                  onClick={() => onDuplicateProfile(profile.id)}
-                  title="Duplicate profile"
-                  data-testid={`dup-btn-${profile.id}`}
-                >
-                  Dup
-                </button>
-                {confirmDeleteId === profile.id ? (
-                  <>
-                    <button
-                      className="ws-saved-action-btn ws-saved-action-delete"
-                      onClick={() => handleDelete(profile.id)}
-                      data-testid={`confirm-delete-${profile.id}`}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      className="ws-saved-action-btn"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      No
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="ws-saved-action-btn ws-saved-action-delete"
-                    onClick={() => setConfirmDeleteId(profile.id)}
-                    title="Delete profile"
-                    data-testid={`delete-btn-${profile.id}`}
-                  >
-                    Del
-                  </button>
-                )}
-              </div>
-            </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="ws-saved-footer">
-        <span className="ws-saved-count" data-testid="saved-count">
-          {profiles.length} saved profile{profiles.length !== 1 ? 's' : ''}
-        </span>
-        <button className="ws-connect-btn ws-connect-btn-secondary" onClick={handleImportClick} data-testid="import-btn">
-          Import File
-        </button>
-        <button
-          className="ws-connect-btn ws-connect-btn-secondary"
-          onClick={() => { setPasteImportOpen((v) => !v); setImportError(null); setImportSuccess(null); }}
-          data-testid="paste-import-btn"
-        >
-          Paste JSON
-        </button>
-        <button
-          className="ws-connect-btn ws-connect-btn-secondary"
-          onClick={handleExport}
-          disabled={profiles.length === 0}
-          data-testid="export-btn"
-        >
-          Export All
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-          data-testid="import-file-input"
-        />
-      </div>
-
       {pasteImportOpen && (
         <div className="ws-paste-import-section" data-testid="paste-import-section">
           <textarea
             className="ws-paste-import-textarea"
             value={pasteJson}
             onChange={(e) => setPasteJson(e.target.value)}
-            placeholder={'Paste JSON array of profiles, e.g.:\n[\n  { "name": "My Server", "url": "wss://example.com/ws" }\n]'}
+            placeholder={PASTE_PLACEHOLDER}
             rows={6}
             data-testid="paste-import-textarea"
           />
@@ -666,19 +401,234 @@ export function WebSocketSavedConnections({
         </div>
       )}
 
+      {loading ? (
+        <div className="ws-saved-empty" data-testid="saved-loading">Loading profiles...</div>
+      ) : filtered.length === 0 ? (
+        <div className="ws-saved-empty" data-testid="saved-empty">
+          {profiles.length === 0
+            ? 'No saved connections. Create one or use Save as Profile from the Connect tab.'
+            : 'No profiles match your search.'}
+        </div>
+      ) : (
+        <div className="ws-saved-rail-list" data-testid="saved-list">
+          {filtered.map((profile) => (
+            <button
+              key={profile.id}
+              type="button"
+              className={`ws-saved-rail-item ${selectedId === profile.id ? 'selected' : ''}`}
+              data-testid={`profile-card-${profile.id}`}
+              onClick={() => select(profile.id)}
+            >
+              <span className="ri-title">{profile.name}</span>
+              <span className="ri-sub">{profile.url}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <span className="ws-saved-count" data-testid="saved-count">
+        {profiles.length} saved profile{profiles.length !== 1 ? 's' : ''}
+      </span>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+        data-testid="import-file-input"
+      />
+    </div>
+  );
+}
+
+// ── Detail (right pane): selected profile summary + actions + editor ─
+
+export function WebSocketSavedDetail({ ui }: { ui: SavedUi }) {
+  const {
+    selectedProfile, confirmDeleteId, setConfirmDeleteId,
+    handleLoad, handleEdit, handleDelete, handleExport, onDuplicateProfile,
+    editorOpen, editingProfile, editorPrefill, existingNames,
+    handleEditorSave, handleEditorCancel,
+  } = ui;
+
+  return (
+    <div className="ws-saved-detail" data-testid="saved-detail">
+      {selectedProfile ? (
+        <SavedDetailCard
+          profile={selectedProfile}
+          confirmDeleteId={confirmDeleteId}
+          setConfirmDeleteId={setConfirmDeleteId}
+          handleLoad={handleLoad}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+          handleExport={handleExport}
+          onDuplicateProfile={onDuplicateProfile}
+        />
+      ) : (
+        <div className="ws-saved-detail-empty" data-testid="saved-detail-empty">
+          Select a profile to view its details.
+        </div>
+      )}
+
       {editorOpen && (
         <ProfileEditorModal
           initial={editingProfile}
           prefill={editorPrefill}
           existingNames={existingNames}
           onSave={handleEditorSave}
-          onCancel={() => {
-            setEditorOpen(false);
-            setEditingProfile(undefined);
-            setEditorPrefill(undefined);
-          }}
+          onCancel={handleEditorCancel}
         />
       )}
+    </div>
+  );
+}
+
+interface SavedDetailCardProps {
+  profile: WsConnectionProfile;
+  confirmDeleteId: string | null;
+  setConfirmDeleteId: (id: string | null) => void;
+  handleLoad: (id: string) => void;
+  handleEdit: (profile: WsConnectionProfile) => void;
+  handleDelete: (id: string) => Promise<void>;
+  handleExport: () => void;
+  onDuplicateProfile: (id: string) => Promise<void>;
+}
+
+function SavedDetailCard({
+  profile,
+  confirmDeleteId,
+  setConfirmDeleteId,
+  handleLoad,
+  handleEdit,
+  handleDelete,
+  handleExport,
+  onDuplicateProfile,
+}: SavedDetailCardProps) {
+  const hCount = headerCount(profile);
+  const pCount = paramCount(profile);
+  const protocolMode = profile.protocolMode ?? 'auto';
+
+  return (
+    <div className="ws-saved-detail-card" data-testid={`profile-detail-${profile.id}`}>
+      <div className="ws-saved-detail-head">
+        <div className="ws-saved-detail-titlewrap">
+          <span className="ws-saved-detail-name">{profile.name}</span>
+          {protocolMode !== 'auto' && <span className="ws-saved-tag">{protocolMode}</span>}
+        </div>
+        <button
+          className="ws-connect-btn ws-connect-btn-primary"
+          onClick={() => handleLoad(profile.id)}
+          data-testid={`load-btn-${profile.id}`}
+        >
+          Load &amp; Connect
+        </button>
+      </div>
+      <div className="ws-saved-detail-url">{profile.url}</div>
+
+      <div className="ws-saved-detail-toolbar">
+        <button
+          className="ws-saved-action-btn"
+          onClick={() => handleEdit(profile)}
+          data-testid={`edit-btn-${profile.id}`}
+        >
+          Edit
+        </button>
+        <button
+          className="ws-saved-action-btn"
+          onClick={() => onDuplicateProfile(profile.id)}
+          data-testid={`dup-btn-${profile.id}`}
+        >
+          Duplicate
+        </button>
+        <button className="ws-saved-action-btn" onClick={handleExport}>
+          Export
+        </button>
+        <span className="ws-saved-detail-spacer" />
+        {confirmDeleteId === profile.id ? (
+          <>
+            <button
+              className="ws-saved-action-btn ws-saved-action-delete"
+              onClick={() => handleDelete(profile.id)}
+              data-testid={`confirm-delete-${profile.id}`}
+            >
+              Confirm
+            </button>
+            <button className="ws-saved-action-btn" onClick={() => setConfirmDeleteId(null)}>
+              No
+            </button>
+          </>
+        ) : (
+          <button
+            className="ws-saved-action-btn ws-saved-action-delete"
+            onClick={() => setConfirmDeleteId(profile.id)}
+            data-testid={`delete-btn-${profile.id}`}
+          >
+            Delete
+          </button>
+        )}
+      </div>
+
+      <div className="ws-saved-summary-grid">
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Subprotocols</span>
+          <span className="ws-saved-summary-value">{profile.subprotocols || '\u2014'}</span>
+        </div>
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Headers</span>
+          <span className="ws-saved-summary-value">
+            {hCount > 0 ? `${hCount} header${hCount > 1 ? 's' : ''}` : 'no headers'}
+          </span>
+        </div>
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Query params</span>
+          <span className="ws-saved-summary-value">
+            {pCount > 0 ? `${pCount} param${pCount > 1 ? 's' : ''}` : 'none'}
+          </span>
+        </div>
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Auto-reconnect</span>
+          <span className="ws-saved-summary-value">
+            {profile.autoReconnect ? 'auto-reconnect' : 'off'}
+          </span>
+        </div>
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Protocol mode</span>
+          <span className="ws-saved-summary-value">{protocolMode}</span>
+        </div>
+        <div className="ws-saved-summary-item">
+          <span className="ws-saved-summary-label">Max messages</span>
+          <span className="ws-saved-summary-value">{profile.maxMessages ?? '\u2014'}</span>
+        </div>
+      </div>
+
+      {(profileHasEnvVars(profile) || profileHasMtls(profile)) && (
+        <div className="ws-saved-detail-tags">
+          {profileHasEnvVars(profile) && <span className="ws-saved-tag">env vars</span>}
+          {profileHasMtls(profile) && <span className="ws-saved-tag">mTLS</span>}
+        </div>
+      )}
+
+      {profile.notes && (
+        <div className="ws-saved-notes">
+          <span className="ws-saved-summary-label">Notes</span>
+          <p className="ws-saved-notes-text">{profile.notes}</p>
+        </div>
+      )}
+
+      <span className="ws-saved-detail-updated">Updated {formatTimeAgo(profile.updatedAt)}</span>
+    </div>
+  );
+}
+
+// ── Thin wrapper (legacy flat path + test surface) ──────────────────
+
+export function WebSocketSavedConnections(props: WebSocketSavedConnectionsProps) {
+  const ui = useWebSocketSavedUi(props);
+  return (
+    <div className="ws-saved-flat" data-testid="saved-flat">
+      <WebSocketSavedRail ui={ui} />
+      <WebSocketSavedDetail ui={ui} />
     </div>
   );
 }

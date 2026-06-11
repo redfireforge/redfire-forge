@@ -149,6 +149,23 @@ export function byteLength(s: string): number {
   return new TextEncoder().encode(s).byteLength;
 }
 
+/**
+ * Sanitize a close code for a native browser `WebSocket.close(code)` call.
+ *
+ * The HTML/WHATWG spec only permits JS to call `close()` with `1000` or a code
+ * in the `3000–4999` range; any other value (protocol-reserved codes like
+ * 1001/1002/1003/1006/1011, or anything < 1000 / > 4999) throws
+ * `InvalidAccessError`. For those we fall back to `1000` (normal closure) so the
+ * close never crashes — the browser sends a valid close frame regardless. The
+ * Tauri proxy path is unaffected (codes travel over IPC, not `close()`).
+ */
+export function sanitizeNativeCloseCode(code: number | undefined): number {
+  if (code == null || !Number.isInteger(code)) return 1000;
+  if (code === 1000) return 1000;
+  if (code >= 3000 && code <= 4999) return code;
+  return 1000;
+}
+
 /** Check if a string is valid base64 */
 export function isValidBase64(s: string): boolean {
   if (s.trim().length === 0) return false;

@@ -129,7 +129,7 @@ describe('useSseConnection', () => {
     const { result } = renderHook(() => useSseConnection(envVars));
     act(() => result.current.setConfig({
       url: 'http://example.com/events',
-      headers: [{ key: 'Authorization', value: 'Bearer {{TOKEN}}' }],
+      headers: [{ key: 'Authorization', value: 'Bearer {{TOKEN}}', enabled: true }],
     }));
     await act(async () => result.current.connect());
 
@@ -318,9 +318,9 @@ describe('useSseConnection', () => {
     act(() => result.current.setConfig({
       url: 'http://example.com/events',
       headers: [
-        { key: '', value: 'skip-me' },
-        { key: '  ', value: 'skip-me-too' },
-        { key: 'X-Custom', value: 'keep-me' },
+        { key: '', value: 'skip-me', enabled: true },
+        { key: '  ', value: 'skip-me-too', enabled: true },
+        { key: 'X-Custom', value: 'keep-me', enabled: true },
       ],
     }));
     await act(async () => result.current.connect());
@@ -328,6 +328,25 @@ describe('useSseConnection', () => {
     const callHeaders = fetchMock.mock.calls[0][1].headers;
     expect(callHeaders['X-Custom']).toBe('keep-me');
     expect(callHeaders['']).toBeUndefined();
+  });
+
+  it('skips disabled headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'err' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({
+      url: 'http://example.com/events',
+      headers: [
+        { key: 'X-Enabled', value: 'yes', enabled: true },
+        { key: 'X-Disabled', value: 'no', enabled: false },
+      ],
+    }));
+    await act(async () => result.current.connect());
+
+    const callHeaders = fetchMock.mock.calls[0][1].headers;
+    expect(callHeaders['X-Enabled']).toBe('yes');
+    expect(callHeaders['X-Disabled']).toBeUndefined();
   });
 
   it('sets startedAt on connect', async () => {

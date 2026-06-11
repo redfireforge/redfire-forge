@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { WsLoadProfile } from '../../shared/websocket/types';
 import type { UseWebSocketLoadTestReturn } from './useWebSocketLoadTest';
 import { computeExpectedTotal, createDefaultLoadTestConfig } from './wsLoadTestMetrics';
@@ -8,6 +9,12 @@ import { saveJsonFile } from '../../shared/utils/fileSaver';
 interface WebSocketLoadTestProps {
   loadTest: UseWebSocketLoadTestReturn;
   isConnected: boolean;
+  /**
+   * Optional live connection-stats panel. When provided it is shown inline
+   * beneath the progress metrics while a test is running, so the user can watch
+   * throughput/bytes/frame-types without switching to the separate Stats tab.
+   */
+  statsPanel?: ReactNode;
 }
 
 const PROFILES: { value: WsLoadProfile; label: string; description: string }[] = [
@@ -70,7 +77,7 @@ function HistogramBar({ buckets, maxCount }: { buckets: { bucket: string; count:
   );
 }
 
-export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestProps) {
+export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSocketLoadTestProps) {
   const { state, config, setConfig, progress, result } = loadTest;
   const [confirmStart, setConfirmStart] = useState(false);
 
@@ -99,6 +106,12 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
   const handleReset = useCallback(() => {
     setConfig(createDefaultLoadTestConfig());
   }, [setConfig]);
+
+  const handleRunAgain = useCallback(() => {
+    if (!isConnected) return;
+    setConfirmStart(false);
+    loadTest.start();
+  }, [isConnected, loadTest]);
 
   const handleExportResult = useCallback(async () => {
     if (!result) return;
@@ -320,6 +333,12 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
               </div>
             )}
           </div>
+          {statsPanel && (
+            <div className="ws-lt-live-stats" data-testid="lt-live-stats">
+              <div className="ws-lt-subsection-title">Live Connection Stats</div>
+              {statsPanel}
+            </div>
+          )}
           <div className="ws-lt-actions">
             <button
               className="ws-lt-btn ws-lt-btn-danger"
@@ -339,14 +358,28 @@ export function WebSocketLoadTest({ loadTest, isConnected }: WebSocketLoadTestPr
           <div className="ws-lt-section-header">
             <span className="ws-lt-section-title">Load Test Results</span>
             <div className="ws-lt-result-actions">
-              <button className="ws-lt-btn" onClick={handleExportResult} data-testid="lt-export-btn">
-                Export JSON
+              <button
+                className="ws-lt-btn ws-lt-btn-primary"
+                onClick={handleRunAgain}
+                disabled={!isConnected}
+                title={isConnected ? 'Run the same test again' : 'Reconnect to run the test again'}
+                data-testid="lt-run-again-btn"
+              >
+                Run Again
               </button>
               <button className="ws-lt-btn" onClick={loadTest.clearResult} data-testid="lt-clear-btn">
                 New Test
               </button>
+              <button className="ws-lt-btn" onClick={handleExportResult} data-testid="lt-export-btn">
+                Export JSON
+              </button>
             </div>
           </div>
+          {!isConnected && (
+            <div className="ws-lt-warning-banner" data-testid="lt-done-disconnected">
+              Disconnected — reconnect to run another load test.
+            </div>
+          )}
 
           {/* Summary cards */}
           <div className="ws-lt-result-cards" data-testid="lt-result-cards">

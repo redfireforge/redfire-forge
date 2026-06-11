@@ -294,6 +294,21 @@ describe('WebSocketConnectPanel', () => {
       });
     });
 
+    it('clears all headers via the Delete all control', () => {
+      const props = defaultProps({
+        draft: {
+          url: 'ws://test',
+          headers: [
+            { key: 'A', value: '1', enabled: true },
+            { key: 'B', value: '2', enabled: true },
+          ],
+        },
+      });
+      render(<WebSocketConnectPanel {...props} />);
+      fireEvent.click(screen.getByTestId('headers-delete-all-btn'));
+      expect(props.setDraft).toHaveBeenCalledWith({ headers: [] });
+    });
+
     it('disables header inputs when connected', () => {
       render(<WebSocketConnectPanel {...defaultProps({
         draft: {
@@ -303,6 +318,38 @@ describe('WebSocketConnectPanel', () => {
         connection: { state: 'connected' },
       })} />);
       expect((screen.getByLabelText('Headers key 1') as HTMLInputElement).disabled).toBe(true);
+    });
+  });
+
+  describe('relocated sections (showHeaders / showQueryParams)', () => {
+    it('renders both sections by default', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} />);
+      expect(screen.getByTestId('headers-section')).toBeTruthy();
+      expect(screen.getByTestId('query-params-section')).toBeTruthy();
+    });
+
+    it('hides the headers section when showHeaders is false', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} showHeaders={false} />);
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      // params unaffected
+      expect(screen.getByTestId('query-params-section')).toBeTruthy();
+    });
+
+    it('hides the query params section when showQueryParams is false', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} showQueryParams={false} />);
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+      // headers unaffected
+      expect(screen.getByTestId('headers-section')).toBeTruthy();
+    });
+
+    it('hides both sections when both flags are false', () => {
+      render(
+        <WebSocketConnectPanel {...defaultProps()} showHeaders={false} showQueryParams={false} />,
+      );
+      expect(screen.queryByTestId('headers-section')).toBeNull();
+      expect(screen.queryByTestId('query-params-section')).toBeNull();
+      // the URL input still renders
+      expect(screen.getByLabelText('WebSocket URL')).toBeTruthy();
     });
   });
 

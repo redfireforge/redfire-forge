@@ -12,7 +12,18 @@ import {
   type WsConnectionTabContentHandle,
 } from './WsConnectionTabContent';
 import { buildWsEnvVarMap } from './wsMessageUtils';
-import type { WsPersistedTabState, WsProtocolMode, WsViewTab } from '../../shared/websocket/types';
+import type { GlobalAuthProfile } from '../../shared/types';
+import type {
+  WsConnectionDraft,
+  WsPersistedTabState,
+  WsProtocolMode,
+  WsViewTab,
+  WsStudioLocation,
+} from '../../shared/websocket/types';
+import {
+  mapViewTabToStudioLocation,
+  deriveViewTabFromStudio,
+} from '../../shared/websocket/types';
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import '../../styles/websocket-studio.css';
 
@@ -37,9 +48,16 @@ interface WebSocketStudioPageProps {
   resolvedBaseUrl?: string;
   envName?: string;
   svcName?: string;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  /**
+   * Renders the redesigned split-pane shell (the only production layout).
+   * Retained as an optional prop so the legacy flat-tab layout stays reachable
+   * for tests; production callers always use the default (`true`).
+   */
+  shellV2?: boolean;
 }
 
-export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSocketStudioPageProps) {
+export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthProfiles = [], shellV2 = true }: WebSocketStudioPageProps) {
   const [tabs, setTabs] = useState<WsConnectionTabInfo[]>([]);
   const [activeTabId, setActiveTabId] = useState('');
   const [connectionStates, setConnectionStates] = useState<Record<string, ConnectionStateHint>>({});
@@ -49,7 +67,15 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
   const initialUrlsRef = useRef<Record<string, string>>({});
   const initialProtocolsRef = useRef<Record<string, WsProtocolMode>>({});
   const initialViewTabsRef = useRef<Record<string, WsViewTab>>({});
+  const initialDraftsRef = useRef<Record<string, Partial<WsConnectionDraft>>>({});
   const [loaded, setLoaded] = useState(false);
+
+  // ── Redesigned studio shell (now the only production layout) ──────────
+  const shellV2Ref = useRef(shellV2);
+  shellV2Ref.current = shellV2;
+  const [studioLoc, setStudioLoc] = useState<Record<string, WsStudioLocation>>({});
+  const studioLocRef = useRef(studioLoc);
+  studioLocRef.current = studioLoc;
 
   const tabRefs = useRef<Map<string, React.RefObject<WsConnectionTabContentHandle | null>>>(new Map());
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,21 +116,38 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
         const views: Record<string, WsViewTab> = {};
         const iUrls: Record<string, string> = {};
         const iViews: Record<string, WsViewTab> = {};
+        const iDrafts: Record<string, Partial<WsConnectionDraft>> = {};
+        const locs: Record<string, WsStudioLocation> = {};
         for (const t of state.tabs) {
           connStates[t.id] = 'disconnected';
           urls[t.id] = t.url;
           views[t.id] = t.viewTab;
           if (t.url) iUrls[t.id] = t.url;
           iViews[t.id] = t.viewTab;
+          iDrafts[t.id] = {
+            subprotocols: t.subprotocols ?? '',
+            headers: t.headers ?? [],
+            queryParams: t.queryParams ?? [],
+            auth: t.auth,
+          };
+          // loadWsTabState normalizes these, but fall back defensively.
+          const derived = mapViewTabToStudioLocation(t.viewTab);
+          locs[t.id] = {
+            mode: t.mode ?? derived.mode,
+            leftTab: t.leftTab ?? derived.leftTab,
+            rightTab: t.rightTab ?? derived.rightTab,
+          };
         }
         tabUrls.current = urls;
         tabViewTabs.current = views;
         initialUrlsRef.current = iUrls;
         initialViewTabsRef.current = iViews;
+        initialDraftsRef.current = iDrafts;
 
         setTabs(restoredTabs);
         setActiveTabId(state.activeTabId);
         setConnectionStates(connStates);
+        setStudioLoc(locs);
       } else {
         createDefaultTab();
       }
@@ -121,44 +164,87 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
 
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
+
+  // Phase 8: read the live draft fields (subprotocols/headers/queryParams/auth)
+  // for whole-draft persistence. Prefer the mounted tab's current draft via its
+  // imperative handle; fall back to the persisted seed for tabs that are not
+  // mounted (or before they have applied their initial draft).
+  const readTabDraftFields = useCallback(
+    (id: string): Pick<WsConnectionDraft, 'subprotocols' | 'headers' | 'queryParams' | 'auth'> => {
+      const handle = tabRefs.current.get(id)?.current;
+      const draft = handle?.getDraft();
+      if (draft) {
+        return {
+          subprotocols: draft.subprotocols,
+          headers: draft.headers,
+          queryParams: draft.queryParams,
+          auth: draft.auth,
+        };
+      }
+      const seed = initialDraftsRef.current[id];
+      return {
+        subprotocols: seed?.subprotocols ?? '',
+        headers: seed?.headers ?? [],
+        queryParams: seed?.queryParams ?? [],
+        auth: seed?.auth,
+      };
+    },
+    [],
+  );
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+
+  const buildPersistState = useCallback((): WsPersistedTabState => {
+    return {
+      tabs: tabsRef.current.map((t) => {
+        const loc = studioLocRef.current[t.id];
+        // When the shell is active, the studio location is the source of truth
+        // and the legacy `viewTab` is kept consistent via the inverse mapping.
+        // Otherwise `viewTab` leads and the new fields are derived from it.
+        let viewTab: WsViewTab;
+        let mode = loc?.mode;
+        let leftTab = loc?.leftTab;
+        let rightTab = loc?.rightTab;
+        if (shellV2Ref.current && loc) {
+          viewTab = deriveViewTabFromStudio(loc.mode, loc.leftTab);
+        } else {
+          viewTab = tabViewTabs.current[t.id] ?? 'connect';
+          const derived = mapViewTabToStudioLocation(viewTab);
+          mode = mode ?? derived.mode;
+          leftTab = leftTab ?? derived.leftTab;
+          rightTab = rightTab ?? derived.rightTab;
+        }
+        return {
+          id: t.id,
+          label: t.label,
+          url: tabUrls.current[t.id] ?? '',
+          viewTab,
+          mode,
+          leftTab,
+          rightTab,
+          ...readTabDraftFields(t.id),
+        };
+      }),
+      activeTabId: activeTabIdRef.current,
+      renamedTabIds: Array.from(renamedTabIds.current),
+    };
+  }, [readTabDraftFields]);
 
   const debouncedSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const state: WsPersistedTabState = {
-        tabs: tabsRef.current.map((t) => ({
-          id: t.id,
-          label: t.label,
-          url: tabUrls.current[t.id] ?? '',
-          viewTab: tabViewTabs.current[t.id] ?? 'connect',
-        })),
-        activeTabId: activeTabIdRef.current,
-        renamedTabIds: Array.from(renamedTabIds.current),
-      };
-      saveWsTabState(state);
+      saveWsTabState(buildPersistState());
     }, 300);
-  }, []);
+  }, [buildPersistState]);
 
   // Clean up save timer on unmount + save immediately
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (!loaded) return;
-      const state: WsPersistedTabState = {
-        tabs: tabsRef.current.map((t) => ({
-          id: t.id,
-          label: t.label,
-          url: tabUrls.current[t.id] ?? '',
-          viewTab: tabViewTabs.current[t.id] ?? 'connect',
-        })),
-        activeTabId: activeTabIdRef.current,
-        renamedTabIds: Array.from(renamedTabIds.current),
-      };
-      saveWsTabState(state);
+      saveWsTabState(buildPersistState());
     };
-  }, [loaded]);
+  }, [loaded, buildPersistState]);
 
   // ── Tab management ─────────────────────────────────────────────────
 
@@ -240,6 +326,13 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
       delete initialUrlsRef.current[id];
       delete initialProtocolsRef.current[id];
       delete initialViewTabsRef.current[id];
+      delete initialDraftsRef.current[id];
+      setStudioLoc((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       debouncedSave();
     },
     [tabs.length, activeTabId, connectionStates, debouncedSave],
@@ -301,9 +394,63 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
     [debouncedSave],
   );
 
+  // Phase 8: a tab's draft (subprotocols/headers/queryParams/auth) changed —
+  // debounce-save so the whole draft is persisted (read via the tab refs).
+  const handleDraftChange = useCallback(() => {
+    debouncedSave();
+  }, [debouncedSave]);
+
   const handleViewTabChange = useCallback(
     (tabId: string, viewTab: WsViewTab) => {
       tabViewTabs.current[tabId] = viewTab;
+      // Keep the shell's studio location in sync with child-initiated nav
+      // (e.g. "Save as profile" jumps to the Saved view, "Edit Connection"
+      // jumps back to Connect). The mode + left tab follow the viewTab, but the
+      // right pane is an independent axis — preserve the user's current right
+      // tab instead of resetting it to the mapping default.
+      if (shellV2Ref.current) {
+        setStudioLoc((prev) => {
+          const mapped = mapViewTabToStudioLocation(viewTab);
+          const cur = prev[tabId];
+          return {
+            ...prev,
+            [tabId]: { ...mapped, rightTab: cur?.rightTab ?? mapped.rightTab },
+          };
+        });
+      }
+      debouncedSave();
+    },
+    [debouncedSave],
+  );
+
+  const handleModeChange = useCallback(
+    (tabId: string, mode: WsStudioLocation['mode']) => {
+      setStudioLoc((prev) => {
+        const cur = prev[tabId] ?? mapViewTabToStudioLocation('connect');
+        return { ...prev, [tabId]: { ...cur, mode } };
+      });
+      debouncedSave();
+    },
+    [debouncedSave],
+  );
+
+  const handleLeftTabChange = useCallback(
+    (tabId: string, leftTab: WsStudioLocation['leftTab']) => {
+      setStudioLoc((prev) => {
+        const cur = prev[tabId] ?? mapViewTabToStudioLocation('connect');
+        return { ...prev, [tabId]: { ...cur, leftTab } };
+      });
+      debouncedSave();
+    },
+    [debouncedSave],
+  );
+
+  const handleRightTabChange = useCallback(
+    (tabId: string, rightTab: WsStudioLocation['rightTab']) => {
+      setStudioLoc((prev) => {
+        const cur = prev[tabId] ?? mapViewTabToStudioLocation('connect');
+        return { ...prev, [tabId]: { ...cur, rightTab } };
+      });
       debouncedSave();
     },
     [debouncedSave],
@@ -326,29 +473,41 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName }: WebSo
         onReorder={handleReorderTab}
         history={historyHook.history}
       />
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          style={{ display: tab.id === activeTabId ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}
-          data-testid={`conn-tab-pane-${tab.id}`}
-        >
-          <WsConnectionTabContent
-            ref={getTabRef(tab.id)}
-            tabId={tab.id}
-            envVarMap={envVarMap}
-            profilesHook={profilesHook}
-            templatesHook={templatesHook}
-            onConnectionStateChange={handleConnectionStateChange}
-            onUrlChange={handleUrlChange}
-            onViewTabChange={handleViewTabChange}
-            initialUrl={initialUrlsRef.current[tab.id]}
-            initialProtocol={initialProtocolsRef.current[tab.id]}
-            initialViewTab={initialViewTabsRef.current[tab.id]}
-            history={historyHook.history}
-            onClearHistory={historyHook.clearHistory}
-          />
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const loc = studioLoc[tab.id] ?? mapViewTabToStudioLocation('connect');
+        return (
+          <div
+            key={tab.id}
+            style={{ display: tab.id === activeTabId ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}
+            data-testid={`conn-tab-pane-${tab.id}`}
+          >
+            <WsConnectionTabContent
+              ref={getTabRef(tab.id)}
+              tabId={tab.id}
+              envVarMap={envVarMap}
+              globalAuthProfiles={globalAuthProfiles}
+              profilesHook={profilesHook}
+              templatesHook={templatesHook}
+              onConnectionStateChange={handleConnectionStateChange}
+              onUrlChange={handleUrlChange}
+              onViewTabChange={handleViewTabChange}
+              onDraftChange={handleDraftChange}
+              initialUrl={initialUrlsRef.current[tab.id]}
+              initialProtocol={initialProtocolsRef.current[tab.id]}
+              initialViewTab={initialViewTabsRef.current[tab.id]}
+              initialDraft={initialDraftsRef.current[tab.id]}
+              controlledLeftTab={shellV2 ? loc.leftTab : undefined}
+              controlledMode={shellV2 ? loc.mode : undefined}
+              controlledRightTab={shellV2 ? loc.rightTab : undefined}
+              onModeChange={(m) => handleModeChange(tab.id, m)}
+              onLeftTabChange={(lt) => handleLeftTabChange(tab.id, lt)}
+              onRightTabChange={(rt) => handleRightTabChange(tab.id, rt)}
+              history={historyHook.history}
+              onClearHistory={historyHook.clearHistory}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

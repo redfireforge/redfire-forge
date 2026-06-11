@@ -2,44 +2,58 @@
 
 > **Purpose:** Master plan for all WebSocket Studio visual test-scenarios MD files.
 > **Created:** 2026-06-10
-> **Updated:** 2026-06-10
-> **Completed:** 7 of 7 files written + visually tested
+> **Updated:** 2026-06-11
+> **Legacy Baseline:** 8 of 8 files written + validated against pre-redesign layout (2026-06-10)
+> **Redesign-Aligned Refresh:** 0 of 8 files fully refreshed (2026-06-11)
 > **In Progress:** None
-> **Remaining:** 0 files
+> **Remaining:** 8 files to refresh against the new split-pane UI
 >
 > **Source documents referenced:**
 > - `websocket-studio-plan.md` — Phase definitions and scope (Phases 1–19 + Phase 18 SSE)
-> - Phase Status Dashboard — All 19 phases complete (1261 WS + 47 SSE tests, 0 type errors)
+> - `websocket-new-design-plan.md` — redesign phases 0–11 (split-pane shell, mode switch, Auth, Console)
+> - Implementation sources reviewed: `src/features/websocket/WebSocketStudioPage.tsx`, `src/features/websocket/WsConnectionTabContent.tsx`, `src/features/websocket/WebSocketStudioShell.tsx`, `src/features/sse/SseStudioPage.tsx`, `src/features/sse/SseStudioShell.tsx`
+> - Current implementation status: redesigned shell is default in production (`shellV2 = true` by default); legacy flat layout remains test-only via optional prop
 >
-> Each file follows the same workflow:
-> 1. Write the test-scenarios MD file with click-by-click instructions
-> 2. Manually validate every scenario in the browser with Docker
-> 3. Fix any bugs or issues found
-> 4. Export test data where applicable
-> 5. Re-import and validate from scratch
-> 6. User validates independently using the MD file
+> Refresh workflow for each file:
+> 1. Re-map legacy navigation steps to the new IA (Mode switch + left/right pane tabs)
+> 2. Add redesign-only coverage where applicable (Auth, Console, split-pane behavior)
+> 3. Manually validate all updated scenarios in browser + desktop where required
+> 4. Fix issues found and immediately update both scenario file and this master plan
+> 5. Re-import / replay data flows where applicable
+> 6. User validates independently using the updated MD file
 
 ---
 
-## Status Summary
+## Status Summary (Post-Redesign)
 
-| # | File | Covers | WS Plan Phases | Count | Status |
+| # | File | Legacy Coverage | Redesign Impact | Refresh Priority | Current Status |
 |---|---|---|---|---|---|
-| 1 | `ws-core-connect-test-scenarios.md` | Core connect, compose, message log, saved connections, templates, auto-reconnect, env vars, virtualized log | Phases 1, 2, 7, 8 | 46 | ✅ Done |
-| 2 | `ws-protocols-transport-test-scenarios.md` | Protocol codecs (Socket.IO, STOMP, GraphQL-WS), TLS/mTLS, protocol detection, Tauri native transport | Phases 3, 6 | 23 | ✅ Done |
-| 3 | `ws-tabs-persistence-test-scenarios.md` | Multiple tabs, tab persistence, connection history, bookmarks, session recording/replay, stats dashboard, drag reorder, keyboard nav | Phases 9, 10, 11, 12, 13 | 42 | ✅ Done |
-| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Regex/JSONPath search, attribute filters, saved presets, message diff/compare, schema validation | Phases 14, 15, 19 | 33 | ✅ Done |
-| 5 | `ws-mock-server-test-scenarios.md` | Mock server core, response rules engine, live rule sync, broadcast, meta-testing | Phase 16 | 19 | ✅ Done |
-| 6 | `ws-load-test-scenarios.md` | Load test config (constant/ramp/burst), real-time metrics, latency histogram, results export | Phase 17 | 15 | ✅ Done |
-| 7 | `sse-studio-test-scenarios.md` | SSE connection, event log, type filtering, bookmarks, auto-reconnect, stats | Phase 18 | 15 | ✅ Done |
-| 8 | `ws-workflow-runner-test-scenarios.md` | Workflow WS nodes (Connect/Send/Receive/Trigger), output bindings, match criteria, harness transport selector, WS scenario editors, `wsField`/`wsNumericField` assertions, transport-aware results | Phases 4, 5 | 28 | ✅ Done |
+| 1 | `ws-core-connect-test-scenarios.md` | Strong (Phases 1,2,7,8) | High (old view-tab navigation, connect/messages split assumptions) | P0 | 🔄 Needs major rewrite |
+| 2 | `ws-protocols-transport-test-scenarios.md` | Strong (Phases 3,6) | Medium (navigation + Connect tab location + new Auth interactions) | P1 | 🔄 Needs targeted rewrite |
+| 3 | `ws-tabs-persistence-test-scenarios.md` | Strong (Phases 9,10,11,12,13) | High (old view tabs replaced by mode switch + pane tabs) | P0 | 🔄 Needs major rewrite |
+| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Strong (Phases 14,15,19) | Medium (features moved to right-pane tabs, toolbar assumptions changed) | P1 | 🔄 Needs targeted rewrite |
+| 5 | `ws-mock-server-test-scenarios.md` | Strong (Phase 16) | High (Mock is now a mode, not a sibling view tab) | P0 | 🔄 Needs major rewrite |
+| 6 | `ws-load-test-scenarios.md` | Strong (Phase 17) | Medium (Load Test moved to right-pane tab) | P1 | 🔄 Needs targeted rewrite |
+| 7 | `sse-studio-test-scenarios.md` | Strong (Phase 18) | High (new split-pane + Auth tab + Console tab + command line) | P0 | 🔄 Needs major rewrite |
+| 8 | `ws-workflow-runner-test-scenarios.md` | Strong (Phases 4,5) | Low (mostly unaffected; only cross-links/navigation references) | P2 | 🟡 Needs minor refresh |
+
+### Redesign Delta Checklist (must be reflected in refreshed scenario files)
+
+- WebSocket navigation must use: **Protocols → WebSocket → connection tab bar + mode switch (Client / Mock Server / Saved)**.
+- WS Client mode must validate left-pane tabs: **Compose / Connect / Auth / Params / Headers**.
+- WS Client mode must validate right-pane tabs: **Events / Console / Stats / Load Test / Schema**.
+- Saved and Mock must be validated as **modes** (not legacy sibling view tabs).
+- Console coverage must include both views (**Structured** and **Raw**) plus command line (`/help`, `/connect`, `/disconnect`, `/ping`, `/clear`, `/send`, `/template`, `/close`).
+- Auth coverage must use shared auth UI (`AuthConfigPanel`) and include resolved preview + browser callout behavior for header auth.
+- SSE navigation must use split-pane shell with left tabs (**Connect/Auth**) and right tabs (**Events/Console**), including SSE command line limits.
+- Legacy-only wording such as "Switch to Messages view tab" or "Mock view tab" must be removed or translated to the new shell semantics.
 
 ---
 
 ## File 1: `ws-core-connect-test-scenarios.md`
 
 **Covers:** Phases 1, 2, 7, 8 — Core Connect & Send/Receive, Saved Connections, Templates, Auto-Reconnect, Env Variables, Virtualized Log
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** domain tab → **Connect** / **Messages** / **Saved Connections** view tabs
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** domain tab → connection tab bar + **mode switch (Client / Mock Server / Saved)**; in Client mode the left pane exposes **Compose / Connect / Auth / Params / Headers** and the right pane exposes **Events / Console / Stats / Load Test / Schema**
 **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
 **Priority:** Highest — core debug UI surface
 
@@ -49,9 +63,9 @@
 
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
-| WC-01 | Activity bar → Protocols → WebSocket sub-nav renders; page shows default tab with Connect view | No | No |
-| WC-02 | Page layout: tab bar at top, view tabs (Connect / Messages / Saved Connections) below | No | No |
-| WC-03 | Initial state: URL input empty, status "Disconnected", Connect button enabled, Disconnect disabled | No | No |
+| WC-01 | Activity bar → Protocols → WebSocket sub-nav renders; page shows default connection tab in **Client** mode | No | No |
+| WC-02 | Shell-v2 layout: connection tab bar + mode switch (Client / Mock Server / Saved) at top; split pane with left tabs (Compose / Connect / Auth / Params / Headers) and right tabs (Events / Console / Stats / Load Test / Schema) | No | No |
+| WC-03 | Initial state: Connect left tab — URL input empty, status "Disconnected", Connect button enabled, Disconnect disabled | No | No |
 
 #### Connection Lifecycle (7 scenarios)
 
@@ -141,7 +155,7 @@
 ## File 2: `ws-protocols-transport-test-scenarios.md`
 
 **Covers:** Phases 3, 6 — Protocol Support (Socket.IO, STOMP, GraphQL-WS), TLS/mTLS, Tauri Native Transport
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Connect view (protocol selector + TLS panel)
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Client mode → **Connect** left tab (protocol selector + TLS panel); credentials via the **Auth** left tab
 **Docker:** Echo server + Socket.IO server + RabbitMQ/STOMP + GraphQL subscription server
 **Priority:** High — protocol correctness is critical for real-world use
 
@@ -205,7 +219,7 @@
 ## File 3: `ws-tabs-persistence-test-scenarios.md`
 
 **Covers:** Phases 9, 10, 11, 12, 13 — Multiple Connections, Tab Persistence, History, Bookmarks, Recording/Replay, Stats, Drag/Keyboard
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** → tab bar + view tabs
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** → connection tab bar + mode switch; per-tab persisted location is `{ mode, leftTab, rightTab }`
 **Docker:** Echo server (port 8765)
 **Priority:** High — core UX features
 
@@ -225,7 +239,7 @@
 
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
-| WT-06 | Navigate away (Kafka page) and back → all tabs restored with correct labels, URLs, view positions | No | No |
+| WT-06 | Navigate away (Kafka page) and back → all tabs restored with correct labels, URLs, and persisted studio location (`mode` + left/right pane tab) | No | No |
 | WT-07 | Restored tabs start disconnected (connections not resumable) but show previously-typed URL | No | No |
 | WT-08 | Close app and reopen (Tauri) → tabs restored from Tauri FS persistence | ✅ | N/A |
 | WT-09 | Rename a tab → name persists across navigation | No | No |
@@ -308,7 +322,7 @@
 ## File 4: `ws-filtering-diff-schema-test-scenarios.md`
 
 **Covers:** Phases 14, 15, 19 — Advanced Filtering, Message Diff/Compare, Schema Validation
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Messages view (toolbar + filter bar + schema panel)
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Client mode → right pane **Events** tab (filter bar + diff/compare) and **Schema** tab (schema panel)
 **Docker:** Echo server (port 8765) for generating message volume
 **Priority:** Medium-High — power-user features
 
@@ -392,7 +406,7 @@
 ## File 5: `ws-mock-server-test-scenarios.md`
 
 **Covers:** Phase 16 — WebSocket Mock Server (Express-hosted)
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** → **Mock** view tab (4th view tab)
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** → **Mock Server** mode (top-level mode switch, not a sibling view tab)
 **Docker:** Echo server (optional, for meta-testing); **Requires:** `npm run dev:server` for Express companion
 **Priority:** Medium-High — enables frontend development without real backends
 
@@ -402,7 +416,7 @@
 
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
-| WM-01 | "Mock" view tab visible in every connection tab; shows Start/Stop toggle | No | ✅ |
+| WM-01 | "Mock Server" mode reachable from the mode switch in every connection tab; shows Start/Stop toggle | No | ✅ |
 | WM-02 | Configure port (default 9876, valid range 1024–65535); port conflict detection | No | ✅ |
 | WM-03 | Start mock server → status indicator changes to "Running" (green); external client can connect to `ws://localhost:9876` | No | ✅ |
 | WM-04 | Auto-echo mode: mock server echoes every received message back to sender | No | ✅ |
@@ -447,7 +461,7 @@
 ## File 6: `ws-load-test-scenarios.md`
 
 **Covers:** Phase 17 — Load & Stress Testing
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Messages view → "Load Test" toolbar button
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** → Client mode → right pane **Load Test** tab
 **Docker:** Echo server (port 8765) for load testing target
 **Priority:** Medium — desk-check performance validation
 
@@ -457,7 +471,7 @@
 
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
-| WL-01 | "Load Test" toolbar button toggles load test panel below message log | ✅ | ✅ |
+| WL-01 | Right-pane **Load Test** tab shows the load-test configuration panel | ✅ | ✅ |
 | WL-02 | Must be connected first; Start button disabled when disconnected or template empty | ✅ | ✅ |
 | WL-03 | Message template with `{{counter}}`, `{{timestamp}}`, `{{random}}` placeholders | No | No |
 | WL-04 | Load profile selector: Constant rate / Ramp-up / Burst (pill selector) | No | No |
@@ -488,7 +502,7 @@
 ## File 7: `sse-studio-test-scenarios.md`
 
 **Covers:** Phase 18 — SSE (Server-Sent Events) Support
-**Navigation:** Left activity bar → **Protocols** → **SSE** domain sub-nav entry
+**Navigation:** Left activity bar → **Protocols** → **SSE** domain sub-nav entry → split-pane shell with left tabs (**Connect / Auth**) and right tabs (**Events / Console**)
 **Docker:** SSE test server (or simple Node.js SSE endpoint)
 **Priority:** Medium — growing SSE adoption for LLM streaming APIs
 
@@ -499,8 +513,8 @@
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
 | SE-01 | Protocols sub-nav: "SSE" entry alongside Kafka and WebSocket | No | No |
-| SE-02 | SSE Studio page: URL input, headers (key-value), Connect/Disconnect buttons | No | No |
-| SE-03 | Connect to SSE endpoint → events appear in message log with type badges | ✅ | ✅ |
+| SE-02 | SSE Studio split-pane shell: left **Connect** tab (URL input, headers key-value, Connect/Disconnect) + left **Auth** tab; right **Events** / **Console** tabs | No | No |
+| SE-03 | Connect from the **Connect** tab → events appear in the right-pane **Events** log with type badges | ✅ | ✅ |
 | SE-04 | Custom headers via fetch-based implementation (not EventSource API) | ✅ | ✅ |
 
 #### Event Log (4 scenarios)
@@ -578,16 +592,17 @@ npm run dev
 
 ## Execution Order
 
-Recommended order for writing and validating these files:
+Recommended order for redesign refresh (highest UI drift first):
 
 ```
-1. ws-core-connect-test-scenarios.md              (WC-01 → WC-46)   ✅ Done — 46 scenarios
-2. ws-protocols-transport-test-scenarios.md        (WP-01 → WP-23)   ✅ Done — 23 scenarios
-3. ws-tabs-persistence-test-scenarios.md           (WT-01 → WT-42)   ✅ Done — 42 scenarios
-4. ws-filtering-diff-schema-test-scenarios.md      (WF-01 → WF-33)   ✅ Done — 33 scenarios
-5. ws-mock-server-test-scenarios.md                (WM-01 → WM-19)   ✅ Done — 19 scenarios
-6. ws-load-test-scenarios.md                       (WL-01 → WL-15)   ✅ Done — 15 scenarios
-7. sse-studio-test-scenarios.md                    (SE-01 → SE-15)   ✅ Done — 15 scenarios
+1. ws-core-connect-test-scenarios.md              (WC-*)   🔄 Rewrite for shell-v2 IA
+2. ws-tabs-persistence-test-scenarios.md          (WT-*)   🔄 Rewrite mode/pane navigation semantics
+3. ws-mock-server-test-scenarios.md               (WM-*)   🔄 Rewrite Mock as mode (not view tab)
+4. sse-studio-test-scenarios.md                   (SE-*)   🔄 Rewrite for SSE split pane + Auth/Console
+5. ws-protocols-transport-test-scenarios.md       (WP-*)   🔄 Update Connect/Auth navigation path
+6. ws-filtering-diff-schema-test-scenarios.md     (WF-*)   🔄 Update right-pane tab semantics
+7. ws-load-test-scenarios.md                      (WL-*)   🔄 Update right-pane Load Test tab flow
+8. ws-workflow-runner-test-scenarios.md           (WR-*)   🟡 Minor wording/nav refresh only
 ```
 
 Each file should be completed end-to-end before moving to the next:
@@ -596,6 +611,8 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 ---
 
 ## Relationship to Plan Phases
+
+### Legacy Feature Coverage (still valid)
 
 | Test Scenarios File | WS Plan Phases | Scenario ID Prefix | Est. Count |
 |---|---|---|---|
@@ -609,9 +626,28 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | `ws-workflow-runner-test-scenarios.md` | 4, 5 | WR-* | ~28 |
 | **Total** | **1–19** | | **~221** |
 
+### Redesign Coverage Targets (new-design plan)
+
+| Redesign Phase | Description | Primary Scenario File(s) |
+|---|---|---|
+| 0 | Foundations + mockup honesty | `ws-core-connect`, `sse-studio` |
+| 1 | Split-pane shell + mode switch | `ws-core-connect`, `ws-tabs-persistence` |
+| 2 | Left pane Connect/Params/Headers relocation | `ws-core-connect`, `ws-protocols-transport` |
+| 3 | Left pane Compose relocation | `ws-core-connect` |
+| 4 | Right pane Events relocation | `ws-core-connect`, `ws-tabs-persistence` |
+| 5 | Right pane Stats/Load Test/Schema tabs | `ws-tabs-persistence`, `ws-load-test`, `ws-filtering-diff-schema` |
+| 6 | Saved + Mock mode reskin | `ws-core-connect`, `ws-mock-server` |
+| 7 | SSE split-pane reskin | `sse-studio` |
+| 8 | Auth feature (WS + SSE) | `ws-core-connect`, `ws-protocols-transport`, `sse-studio` |
+| 9 | Console feature (WS + SSE, structured/raw) | `ws-core-connect`, `sse-studio` |
+| 10 | Console command line | `ws-core-connect`, `sse-studio` |
+| 11 | Polish + a11y + keyboard | all UI-facing files |
+
 ---
 
 ## Coverage Cross-Reference: WS Plan Phase → Test Scenarios File
+
+This matrix remains the baseline mapping for `websocket-studio-plan.md` (Phases 1–19). During refresh, each mapped scenario set must also be translated to the new shell-v2 interaction model.
 
 Every completed phase from `websocket-studio-plan.md` must be covered by at least one test-scenarios file:
 
@@ -658,6 +694,19 @@ Every completed phase from `websocket-studio-plan.md` must be covered by at leas
 | Phase 19.3 — Schema Generation | Infer schema from messages | `ws-filtering-diff-schema` WF-32–WF-33 |
 
 **Note:** Phases 4 (Workflow Integration) and 5 (Runner & Assertions) are covered by **File 8 — `ws-workflow-runner-test-scenarios.md`** (WR-01–WR-28). These visual scenarios complement the 800+ engine/harness unit tests by exercising the full workflow-designer and test-runner UI flows (WS nodes, output bindings, match criteria, transport selector, WS scenario editors, `wsField`/`wsNumericField` assertions, and transport-aware results).
+
+---
+
+## Redesign Drift Findings (2026-06-11 review)
+
+| Area | Plan/Scenario Assumption | Current Implementation | Impact |
+|---|---|---|---|
+| WS navigation | Legacy view tabs (`Connect/Messages/Saved/Mock`) are primary navigation | `WebSocketStudioShell` uses mode switch (`Client/Mock Server/Saved`) + split-pane left/right tabs | Most WS files need navigation step rewrites |
+| WS Auth | Auth treated as manual header/query usage only | Dedicated `Auth` left tab with shared `AuthConfigPanel`, resolved preview, browser callout | Add explicit Auth scenarios to WS core/protocol files |
+| WS Console | No console tab in baseline files | Dedicated `Console` right tab with Structured/Raw + command line | Add console scenarios (view toggle, filters, commands) |
+| WS feature placement | Stats/Load/Schema assumed as toolbar toggles in Messages context | Available as right-pane tabs in shell-v2 client mode | Update scenario entry points and expected labels |
+| Mock mode | "Mock view tab" terminology | Mock is a top-level mode in shell-v2 | Rewrite mock scenarios around mode switch |
+| SSE layout | Stacked panel assumptions | `SseStudioShell` split pane with left Connect/Auth and right Events/Console | Major SSE scenario rewrite required |
 
 ---
 

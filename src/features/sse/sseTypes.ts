@@ -2,7 +2,26 @@
  * SSE (Server-Sent Events) types for connection state, events, and configuration.
  */
 
+import type { WsKeyValueEntry } from '../../shared/websocket/types';
+import type { AuthConfig } from '../../shared/types';
+
 export type SseConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+
+/** Phase 8 — left-pane tabs for the SSE studio shell. */
+export type SseLeftTab = 'connect' | 'auth';
+export const SSE_LEFT_TABS: SseLeftTab[] = ['connect', 'auth'];
+export const SSE_LEFT_TAB_LABELS: Record<SseLeftTab, string> = {
+  connect: 'Connect',
+  auth: 'Auth',
+};
+
+/** Phase 9 — right-pane tabs for the SSE studio shell. */
+export type SseRightTab = 'events' | 'console';
+export const SSE_RIGHT_TABS: SseRightTab[] = ['events', 'console'];
+export const SSE_RIGHT_TAB_LABELS: Record<SseRightTab, string> = {
+  events: 'Events',
+  console: 'Console',
+};
 
 export interface SseEvent {
   id: string;
@@ -15,9 +34,11 @@ export interface SseEvent {
 
 export interface SseConnectionConfig {
   url: string;
-  headers: { key: string; value: string }[];
+  headers: WsKeyValueEntry[];
   autoReconnect: boolean;
   maxRetries: number;
+  /** Phase 8 — request auth applied at connect time (header- or query-based). */
+  auth?: AuthConfig;
 }
 
 export interface SseConnectionSnapshot {

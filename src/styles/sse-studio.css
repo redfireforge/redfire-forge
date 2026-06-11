@@ -163,79 +163,197 @@
   margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 14px;
 }
 
-.sse-header-row {
+/* Config sections (Headers / Reconnect) */
+.sse-config-section {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.sse-header-key,
-.sse-header-value {
-  flex: 1;
-  padding: 4px 8px;
-  background: var(--input-bg, #1e1e2e);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 3px;
+.sse-config-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sse-config-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #999);
+}
+
+/* Headers use the shared key-value editor (.ws-connect-kv-*, see
+   src/styles/key-value-editor.css) so the SSE header format matches the
+   WebSocket Studio exactly. */
+
+/* Reconnect card */
+.sse-reconnect-card {
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #1e1e1e);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sse-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.sse-toggle-checkbox {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  accent-color: var(--accent-color, #7c6bf0);
+  cursor: pointer;
+}
+
+.sse-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sse-toggle-title {
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary, #e0e0e0);
-  font-size: 12px;
 }
 
-.sse-header-key:focus,
-.sse-header-value:focus {
-  border-color: var(--ws-accent-color, #7c6bf0);
-  outline: none;
-}
-
-.sse-header-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
+.sse-toggle-sub {
+  font-size: 11px;
   color: var(--text-secondary, #999);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.sse-header-remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
-
-.sse-add-header-btn {
-  align-self: flex-start;
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px dashed var(--border-color, #333);
-  border-radius: 3px;
-  color: var(--text-secondary, #999);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.sse-add-header-btn:hover { border-color: var(--text-secondary, #999); color: var(--text-primary, #e0e0e0); }
-
-.sse-reconnect-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-.sse-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-secondary, #999);
-  cursor: pointer;
 }
 
 .sse-retry-info {
   font-size: 11px;
   color: var(--text-secondary, #999);
+  padding-left: 25px;
+}
+
+.sse-retry-info strong {
+  color: var(--text-primary, #e0e0e0);
+  font-weight: 600;
+}
+
+/* ── Redesigned split-pane shell (Phase 7, feature-flagged) ──────────────────
+   Mirrors the WebSocket `.ws-studio-*` split-pane chrome. Simplified for SSE:
+   no mode switch and no per-pane tab strips (single config / events view). */
+
+.sse-studio-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sse-studio-topbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.sse-studio-status-strip {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-status-strip .sse-state-label {
+  margin-top: 0;
+}
+
+.sse-studio-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sse-studio-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color, #333);
+}
+
+.sse-studio-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sse-studio-pane-title {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #999);
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-left-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.sse-studio-right-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sse-studio-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border-color, #333);
+  transition: background 0.15s;
+}
+
+.sse-studio-divider:hover {
+  background: var(--ws-accent-color, var(--accent-color, #7c6bf0));
+}
+
+.sse-studio-divider:focus-visible {
+  outline: none;
+  background: var(--ws-accent-color, var(--accent-color, #7c6bf0));
+  box-shadow: 0 0 0 2px var(--ws-accent-color, var(--accent-color, #7c6bf0));
+}
+
+/* Config body inside the left pane: headers + reconnect, always visible. */
+.sse-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* In shell mode the events log fills the right pane. */
+.sse-studio-right-body .sse-message-log {
+  flex: 1;
 }
 
 /* ── Message Log ───────────────────────────────────────────────────── */
@@ -497,3 +615,94 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Phase 8: left-pane tab strip (Connect / Auth) ───────────────────────── */
+
+.sse-studio-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-tab {
+  position: relative;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sse-studio-tab:hover {
+  color: var(--text-primary, #ccc);
+}
+
+.sse-studio-tab.active {
+  color: var(--text-primary, #e0e0e0);
+  border-bottom-color: var(--accent-color, #4fc3f7);
+}
+
+.sse-studio-tab:focus-visible {
+  outline: 2px solid var(--ws-accent-color, var(--accent-color, #7c6bf0));
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
+.sse-studio-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color, #4fc3f7);
+  flex-shrink: 0;
+}
+
+/* ── Phase 8: Auth tab body ──────────────────────────────────────────────── */
+
+.sse-auth-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sse-auth-pane .sse-auth-panel {
+  margin: 0;
+}
+
+.sse-auth-resolved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #1e1e1e);
+}
+
+.sse-auth-resolved-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #999);
+}
+
+.sse-auth-resolved-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  word-break: break-all;
+}
+
