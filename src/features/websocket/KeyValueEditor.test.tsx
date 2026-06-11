@@ -70,7 +70,7 @@ describe('KeyValueEditor', () => {
     const onChange = vi.fn();
     const entries = makeEntries('A', 'B');
     render(<KeyValueEditor entries={entries} onChange={onChange} label="Headers" />);
-    const removeButtons = screen.getAllByText('×');
+    const removeButtons = screen.getAllByRole('button', { name: /remove headers/i });
     fireEvent.click(removeButtons[0]);
     expect(onChange).toHaveBeenCalledTimes(1);
     const remaining = onChange.mock.calls[0][0] as WsKeyValueEntry[];
@@ -85,7 +85,7 @@ describe('KeyValueEditor', () => {
     expect(screen.getByDisplayValue('X-Key')).toBeDisabled();
     expect(screen.getByDisplayValue('val-X-Key')).toBeDisabled();
     expect(screen.getByRole('checkbox')).toBeDisabled();
-    expect(screen.getByText('×')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /remove headers/i })).toBeDisabled();
   });
 
   it('renders with custom section/header/label class names', () => {

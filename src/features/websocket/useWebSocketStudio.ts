@@ -738,6 +738,10 @@ export function useWebSocketStudio(envVarMap?: Record<string, string>): UseWebSo
   connectFnRef.current = connect;
 
   useEffect(() => {
+    // Set true on (re)mount — React 18 StrictMode mounts, unmounts (cleanup sets
+    // this false), then remounts in dev; without resetting here the ref would stay
+    // false and silently disable reconnect/polling guards.
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       cleanupRef.current();

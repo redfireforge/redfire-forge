@@ -1,6 +1,59 @@
 /* ── WebSocket Studio ─────────────────────────────────────────────────────── */
 
+/* ── Theme alias shim ───────────────────────────────────────────────────────
+   Historically this stylesheet referenced a parallel set of design tokens
+   (--accent-color, --text-secondary, --border-color, --bg-secondary, …) that
+   were never defined, so it fell back to hardcoded dark values and ignored the
+   app theme (broken in light/dim/steel). We map every alias to the canonical
+   tokens from src/index.css (the same set the Requests feature uses) so the
+   WebSocket Studio is fully theme-aware. Scoped to the container — WS renders
+   no portals, so this covers all descendants incl. inline styles. */
 .ws-studio-page {
+  /* Surfaces */
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--surface);
+  --bg-tertiary: var(--bg);
+  --bg-surface: var(--surface);
+  --bg-input: var(--surface);
+  --input-bg: var(--surface);
+  --color-input-bg: var(--surface);
+  --color-surface: var(--surface);
+  --panel-bg: var(--surface);
+  --dropdown-bg: var(--surface);
+  --bg-hover: var(--surface-hover);
+  --hover-bg: var(--surface-hover);
+  --color-btn-secondary-bg: var(--surface);
+  --color-btn-secondary-hover: var(--surface-hover);
+  /* Text */
+  --text-primary: var(--text);
+  --color-text-primary: var(--text);
+  --text-secondary: var(--text-muted);
+  --color-text-secondary: var(--text-muted);
+  --text-tertiary: var(--text-muted);
+  /* Borders */
+  --border-color: var(--border);
+  --border-primary: var(--border);
+  --color-border: var(--border);
+  /* Accent / primary action */
+  --accent-color: var(--primary);
+  --accent-primary: var(--primary);
+  --color-accent: var(--primary);
+  --ws-accent-color: var(--primary);
+  --accent-hover: var(--primary-hover);
+  --ws-accent-hover: var(--primary-hover);
+  /* Semantic */
+  --error-color: var(--danger);
+  --color-error-text: var(--danger);
+  --warning-color: var(--warning);
+  --ws-warning-color: var(--warning);
+  --color-warning-text: var(--warning);
+  --success-color: var(--success);
+  --color-warning-bg: color-mix(in srgb, var(--warning) 14%, transparent);
+  --color-warning-border: color-mix(in srgb, var(--warning) 40%, transparent);
+  --selection-bg: color-mix(in srgb, var(--primary) 35%, transparent);
+  /* Misc */
+  --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -367,7 +420,7 @@
 .ws-studio-tab-badge {
   font-size: 11px;
   background: var(--accent-color, #4fc3f7);
-  color: #000;
+  color: #fff;
   padding: 1px 6px;
   border-radius: 8px;
   font-weight: 600;
@@ -417,6 +470,10 @@
 
 .ws-connect-url-row {
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .ws-connect-label {
@@ -427,6 +484,26 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
+}
+
+/* Inline label + input for URL and Subprotocols rows */
+.ws-connect-url-row > .ws-connect-label,
+.ws-connect-field-row > .ws-connect-label {
+  flex-shrink: 0;
+  width: 96px;
+  margin-bottom: 0;
+}
+
+.ws-connect-url-row > .ws-connect-url-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-connect-url-row > .ws-connect-env-preview,
+.ws-connect-url-row > .ws-connect-env-warning,
+.ws-connect-url-row > .ws-connect-url-hint {
+  flex-basis: 100%;
+  margin-left: 106px;
 }
 
 .ws-connect-url-wrapper {
@@ -583,10 +660,14 @@
 
 .ws-connect-field-row {
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ws-connect-subprotocols {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 6px 8px;
   background: var(--input-bg, #2a2a2a);
   border: 1px solid var(--border-color, #444);
@@ -626,7 +707,7 @@
 
 .ws-connect-btn-primary {
   background: var(--accent-color, #4fc3f7);
-  color: #000;
+  color: #fff;
   border-color: var(--accent-color, #4fc3f7);
   font-weight: 600;
 }
@@ -734,7 +815,7 @@
 .ws-compose-send-btn {
   padding: 6px 16px;
   background: var(--accent-color, #4fc3f7);
-  color: #000;
+  color: #fff;
   border: none;
   border-radius: 4px;
   font-size: 12px;
@@ -1762,9 +1843,9 @@
 }
 
 .ws-disconnect-caret {
-  background: #b71c1c;
+  background: var(--danger);
   color: #fff;
-  border: 1px solid #c62828;
+  border: 1px solid var(--danger);
   border-left: 1px solid rgba(255, 255, 255, 0.2);
   border-top-right-radius: 4px;
   border-bottom-right-radius: 4px;
@@ -1775,7 +1856,7 @@
 }
 
 .ws-disconnect-caret:hover:not(:disabled) {
-  background: #c62828;
+  background: color-mix(in srgb, var(--danger) 85%, #000);
 }
 
 .ws-disconnect-caret:disabled {
@@ -2532,14 +2613,14 @@
 }
 
 .ws-connect-btn-danger {
-  background: #c62828;
+  background: var(--danger);
   color: #fff;
-  border-color: #c62828;
+  border-color: var(--danger);
   font-weight: 600;
 }
 
 .ws-connect-btn-danger:hover:not(:disabled) {
-  background: #d32f2f;
+  background: color-mix(in srgb, var(--danger) 85%, #000);
   filter: none;
 }
 
@@ -2615,7 +2696,7 @@
 
 .ws-saved-card.selected {
   border-color: var(--accent-color, #4fc3f7);
-  background: rgba(79, 195, 247, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .ws-saved-count {
@@ -2691,7 +2772,7 @@
 }
 
 .ws-message-row.ws-message-close-sent {
-  background: rgba(79, 195, 247, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
   border-left: 3px solid #42a5f5;
 }
 
@@ -2883,7 +2964,7 @@
 }
 
 .hex-bytes {
-  color: #4fc3f7;
+  color: var(--primary);
 }
 
 .hex-ascii {
@@ -2904,8 +2985,9 @@
 .ws-stats-toggle-btn {
   padding: 2px 10px;
   font-size: 12px;
-  background: rgba(79, 195, 247, 0.08);
-  border: 1px solid rgba(79, 195, 247, 0.25);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
   color: var(--text-secondary, #aaa);
   border-radius: 3px;
   cursor: pointer;
@@ -2913,14 +2995,14 @@
 }
 
 .ws-stats-toggle-btn:hover {
-  background: rgba(79, 195, 247, 0.15);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
   color: var(--text-primary, #eee);
 }
 
 .ws-stats-toggle-btn.ws-stats-toggle-active {
-  background: rgba(79, 195, 247, 0.2);
-  border-color: rgba(79, 195, 247, 0.5);
-  color: #4fc3f7;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--primary);
 }
 
 /* ── Stats panel ── */
@@ -3239,7 +3321,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
-  background: rgba(79, 195, 247, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
   border-bottom: 1px solid var(--accent-color, #4fc3f7);
   font-size: 11px;
   color: var(--accent-color, #4fc3f7);
@@ -3255,7 +3337,7 @@
   cursor: pointer;
 }
 .ws-compare-banner-cancel:hover {
-  background: rgba(79, 195, 247, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 .ws-compare-banner-cancel:focus-visible {
   outline: 1px solid var(--accent-color, #4fc3f7);
@@ -3711,7 +3793,7 @@
   cursor: pointer;
 }
 .ws-mock-broadcast-btn:hover:not(:disabled) {
-  background: rgba(79, 195, 247, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 .ws-mock-broadcast-btn:disabled {
   opacity: 0.4;
@@ -3754,7 +3836,7 @@
   cursor: pointer;
 }
 .ws-mock-add-rule-btn:hover {
-  background: rgba(79, 195, 247, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 .ws-mock-add-rule-btn:focus-visible {
   outline: 1px solid var(--accent-color, #4fc3f7);
@@ -3773,7 +3855,7 @@
   opacity: 0.5;
 }
 .ws-mock-rule.editing {
-  background: rgba(79, 195, 247, 0.03);
+  background: color-mix(in srgb, var(--primary) 3%, transparent);
 }
 .ws-mock-rule-header {
   display: flex;
@@ -4662,7 +4744,7 @@
   border-bottom: 1px solid var(--border-color, #2a2a2a);
 }
 .ws-validation-error-path {
-  color: #4fc3f7;
+  color: var(--primary);
   font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
   min-width: 80px;
   flex-shrink: 0;
