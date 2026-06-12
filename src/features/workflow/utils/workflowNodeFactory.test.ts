@@ -6,6 +6,12 @@ import {
   defaultNodeData,
   defaultKafkaTriggerNodeData,
   defaultKafkaWaitNodeData,
+  defaultKafkaProduceNodeData,
+  defaultKafkaConsumeNodeData,
+  defaultWsConnectNodeData,
+  defaultWsSendNodeData,
+  defaultWsReceiveNodeData,
+  defaultWsTriggerNodeData,
   type WorkflowRFNode,
 } from './workflowNodeFactory';
 import type {
@@ -32,6 +38,10 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
   WorkflowNodeType,
   WorkflowNodeData,
 } from '../types/workflow';
@@ -425,6 +435,112 @@ describe('workflowNodeFactory', () => {
     it('kafkaTrigger and kafkaWait have registered canvas node components', () => {
       expect(nodeTypes.kafkaTrigger).toBeDefined();
       expect(nodeTypes.kafkaWait).toBeDefined();
+    });
+  });
+
+  describe('WebSocket node types', () => {
+    it('registers all WS node components in nodeTypes', () => {
+      expect(nodeTypes.wsConnect).toBeDefined();
+      expect(nodeTypes.wsSend).toBeDefined();
+      expect(nodeTypes.wsReceive).toBeDefined();
+      expect(nodeTypes.wsTrigger).toBeDefined();
+    });
+
+    it('registers all Kafka node components in nodeTypes', () => {
+      expect(nodeTypes.kafkaProduce).toBeDefined();
+      expect(nodeTypes.kafkaConsume).toBeDefined();
+    });
+  });
+
+  describe('defaultNodeData — WS nodes', () => {
+    it('returns default wsConnect node data', () => {
+      const data = defaultNodeData('wsConnect') as WsConnectNodeData;
+      expect(data.label).toBe('WS Connect');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.timeoutMs).toBe(10000);
+      expect(Array.isArray(data.headers)).toBe(true);
+      expect(Array.isArray(data.queryParams)).toBe(true);
+      expect(Array.isArray(data.subprotocols)).toBe(true);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsSend node data', () => {
+      const data = defaultNodeData('wsSend') as WsSendNodeData;
+      expect(data.label).toBe('WS Send');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.message).toBe('');
+      expect(data.messageType).toBe('text');
+      expect(data.waitForResponse).toBe(false);
+      expect(data.responseTimeoutMs).toBe(5000);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsReceive node data', () => {
+      const data = defaultNodeData('wsReceive') as WsReceiveNodeData;
+      expect(data.label).toBe('WS Receive');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.timeoutMs).toBe(30000);
+      expect(data.matchCriteria).toEqual({ messageType: 'any' });
+      expect(Array.isArray(data.extractionRules)).toBe(true);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsTrigger node data', () => {
+      const data = defaultNodeData('wsTrigger') as WsTriggerNodeData;
+      expect(data.label).toBe('WS Trigger');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.matchCriteria).toEqual({ messageType: 'any' });
+      expect(Array.isArray(data.extractionRules)).toBe(true);
+    });
+  });
+
+  describe('standalone default factory functions', () => {
+    it('defaultWsConnectNodeData returns correct defaults', () => {
+      const data = defaultWsConnectNodeData();
+      expect(data.label).toBe('WS Connect');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+    });
+
+    it('defaultWsSendNodeData returns correct defaults', () => {
+      const data = defaultWsSendNodeData();
+      expect(data.label).toBe('WS Send');
+      expect(data.messageType).toBe('text');
+      expect(data.waitForResponse).toBe(false);
+    });
+
+    it('defaultWsReceiveNodeData returns correct defaults', () => {
+      const data = defaultWsReceiveNodeData();
+      expect(data.label).toBe('WS Receive');
+      expect(data.timeoutMs).toBe(30000);
+    });
+
+    it('defaultWsTriggerNodeData returns correct defaults', () => {
+      const data = defaultWsTriggerNodeData();
+      expect(data.label).toBe('WS Trigger');
+      expect(data.url).toBe('');
+    });
+
+    it('defaultKafkaProduceNodeData returns correct defaults', () => {
+      const data = defaultKafkaProduceNodeData();
+      expect(data.label).toBe('Kafka Produce');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.ackMode).toBe('all');
+      expect(data.timeoutMs).toBe(10000);
+    });
+
+    it('defaultKafkaConsumeNodeData returns correct defaults', () => {
+      const data = defaultKafkaConsumeNodeData();
+      expect(data.label).toBe('Kafka Consume');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.timeoutMs).toBe(30000);
+      expect(data.maxMessages).toBe(1);
+      expect(data.startPosition).toBe('latest');
+      expect(data.loadTestBehavior).toEqual({ mode: 'wait-for-real' });
     });
   });
 });

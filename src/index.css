@@ -48,6 +48,9 @@
   --cancel-hover-text: #f1f5f9;
   --cancel-text: #a8b8cc;
   --card-shadow: none;
+  /* Drives native form controls (select popups, scrollbars, date pickers).
+     Light themes override this token to `light`; all others inherit `dark`. */
+  --color-scheme: dark;
 }
 
 [data-theme="light"] {
@@ -99,6 +102,7 @@
   --cancel-hover-text: #111827;
   --cancel-text: #3f4f63;
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --color-scheme: light;
 }
 
 /* ── Dim (GitHub Dimmed) ── */
@@ -312,6 +316,7 @@
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.18);
   --cancel-hover-bg: #f0f3f7; --cancel-hover-text: #111827; --cancel-text: #3f5068;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+  --color-scheme: light;
 }
 
 /* ── Frost (cool near-white) ── */
@@ -345,6 +350,7 @@
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);
   --cancel-hover-bg: #e8edf3; --cancel-hover-text: #0f1a28; --cancel-text: #3d5168;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+  --color-scheme: light;
 }
 
 /* ── Sage (warm olive-green, FeedBacker-inspired) ── */
@@ -378,6 +384,7 @@
   --confirm-bg: #f5f5f0; --confirm-shadow: rgba(0,0,0,0.15);
   --cancel-hover-bg: #edeee8; --cancel-hover-text: #1e2318; --cancel-text: #4d5544;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --color-scheme: light;
 }
 
 /* ── Sand (warm cream, Notion-inspired) ── */
@@ -411,7 +418,12 @@
   --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);
   --cancel-hover-bg: #f0ece4; --cancel-hover-text: #1c1b17; --cancel-text: #5a5750;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --color-scheme: light;
 }
+
+/* Apply the active theme's color-scheme token so native form controls
+   (select popups, scrollbars, date pickers) match the theme. */
+:root { color-scheme: var(--color-scheme, dark); }
 
 body {
   font-family: var(--font);

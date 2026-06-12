@@ -71,6 +71,8 @@ export { createSharedDsFetchAdapter } from './adapters/sharedDsFetchAdapter';
 export type { SharedDsFetchAdapterOptions, SharedDsFetchOutput } from './adapters/sharedDsFetchAdapter';
 export { createWebhookExtractionAdapter } from './adapters/webhookExtractionAdapter';
 export type { WebhookExtractionAdapterOptions, WebhookExtractionOutput } from './adapters/webhookExtractionAdapter';
+export { createWsExtractionAdapter } from './adapters/wsExtractionAdapter';
+export type { WsExtractionAdapterOptions } from './adapters/wsExtractionAdapter';
 export { createVariableBindingAdapter, extractTemplateRefs, collectTemplateSlots } from './adapters/variableBindingAdapter';
 export type { VariableBindingAdapterOptions, VariableBinding, VariableHintInput, TemplateSlot } from './adapters/variableBindingAdapter';
 export { createRequestBodyAdapter, extractBodyTemplateRefs, parseBodyJson, collectBodyLeafPaths, buildBodyFromMappings } from './adapters/requestBodyAdapter';

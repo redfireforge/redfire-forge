@@ -7,7 +7,8 @@
 import type { Workflow, HttpNodeData, KafkaConsumeNodeData } from '../types/workflow';
 import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
-import type { KafkaNodeOperations } from './graphRunnerNodeHandlerContext';
+import type { KafkaNodeOperations, WsNodeOperations } from './graphRunnerNodeHandlerContext';
+import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
 import { resolveKafkaConsumeLoadPolicy } from './kafkaLoadPolicy';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import { toErrorMessage } from '../../../shared/utils/helpers';
@@ -79,6 +80,8 @@ export interface GraphLoadRunOpts {
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined;
   /** Kafka client operations for produce/consume nodes. When omitted, Kafka nodes will fail. */
   kafkaOperations?: KafkaNodeOperations;
+  /** WebSocket client operations for WS nodes. When omitted, WS nodes will fail. */
+  wsOperations?: WsNodeOperations;
 }
 
 /**
@@ -91,7 +94,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth, kafkaOperations } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth, kafkaOperations, wsOperations } = opts;
 
   // ── Phase 7B: Pre-run Kafka load policy guard ──────────────────────────
   // Fail fast before any iteration machinery starts if a kafkaConsume node
@@ -202,6 +205,7 @@ export async function runGraphLoad(
         traceOptions, // Trace capture options for Results Explorer
         httpTimeoutMs, // Per-request HTTP timeout (defaults to 30s inside runGraph)
         kafkaOperations,
+        wsOperations ? buildWsNodeOperations() : undefined,
       );
 
       for (const r of results) {

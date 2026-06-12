@@ -10,6 +10,7 @@ import { createColumnMappingAdapter } from './columnMappingAdapter';
 import { createSharedDsFetchAdapter } from './sharedDsFetchAdapter';
 import { createDemoAdapter } from './demoAdapter';
 import { createWebhookExtractionAdapter } from './webhookExtractionAdapter';
+import { createWsExtractionAdapter } from './wsExtractionAdapter';
 import { createVariableBindingAdapter } from './variableBindingAdapter';
 import { createRequestBodyAdapter } from './requestBodyAdapter';
 import { Mapping } from '../types';
@@ -142,10 +143,11 @@ describe('3D.2 — variable hints interface compatibility', () => {
       createSharedDsFetchAdapter({ dataSource: ds }).contextId,
       createDemoAdapter().contextId,
       createWebhookExtractionAdapter().contextId,
+      createWsExtractionAdapter().contextId,
       createVariableBindingAdapter({ variableHints: [], templateSlots: [] }).contextId,
       createRequestBodyAdapter({ existingBody: '{}' }).contextId,
     ]);
-    expect(ids.size).toBe(10);
+    expect(ids.size).toBe(11);
     expect(ids).toContain('extraction');
     expect(ids).toContain('assertion');
     expect(ids).toContain('validation');
@@ -154,6 +156,7 @@ describe('3D.2 — variable hints interface compatibility', () => {
     expect(ids).toContain('shared-ds-fetch');
     expect(ids).toContain('demo');
     expect(ids).toContain('webhook-extraction');
+    expect(ids).toContain('ws-extraction');
     expect(ids).toContain('variable-binding');
     expect(ids).toContain('request-body');
   });

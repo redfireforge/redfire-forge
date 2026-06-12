@@ -252,6 +252,76 @@ export function resolveScenarioFromDataRow(
       }
     : base.kafkaConsumeAction;
 
+  // Apply variable substitution to WS connect action config fields
+  const wsConnectAction = base.wsConnectAction && hasBodyVars
+    ? {
+        ...base.wsConnectAction,
+        url: substituteVariables(base.wsConnectAction.url, bodyVars),
+        connectionId: base.wsConnectAction.connectionId !== undefined
+          ? substituteVariables(base.wsConnectAction.connectionId, bodyVars)
+          : undefined,
+        headers: base.wsConnectAction.headers
+          ? base.wsConnectAction.headers.map(h => ({
+              ...h,
+              value: substituteVariables(h.value, bodyVars),
+            }))
+          : undefined,
+        queryParams: base.wsConnectAction.queryParams
+          ? base.wsConnectAction.queryParams.map(qp => ({
+              ...qp,
+              value: substituteVariables(qp.value, bodyVars),
+            }))
+          : undefined,
+        subprotocols: base.wsConnectAction.subprotocols !== undefined
+          ? substituteVariables(base.wsConnectAction.subprotocols, bodyVars)
+          : undefined,
+      }
+    : base.wsConnectAction;
+
+  // Apply variable substitution to WS send action config fields
+  const wsSendAction = base.wsSendAction && hasBodyVars
+    ? {
+        ...base.wsSendAction,
+        message: substituteVariables(base.wsSendAction.message, bodyVars),
+        url: base.wsSendAction.url !== undefined
+          ? substituteVariables(base.wsSendAction.url, bodyVars)
+          : undefined,
+        connectionRef: base.wsSendAction.connectionRef !== undefined
+          ? substituteVariables(base.wsSendAction.connectionRef, bodyVars)
+          : undefined,
+      }
+    : base.wsSendAction;
+
+  // Apply variable substitution to WS receive action config fields
+  const wsReceiveAction = base.wsReceiveAction && hasBodyVars
+    ? {
+        ...base.wsReceiveAction,
+        url: base.wsReceiveAction.url !== undefined
+          ? substituteVariables(base.wsReceiveAction.url, bodyVars)
+          : undefined,
+        connectionRef: base.wsReceiveAction.connectionRef !== undefined
+          ? substituteVariables(base.wsReceiveAction.connectionRef, bodyVars)
+          : undefined,
+        matchCriteria: base.wsReceiveAction.matchCriteria
+          ? {
+              ...base.wsReceiveAction.matchCriteria,
+              contentContains: base.wsReceiveAction.matchCriteria.contentContains !== undefined
+                ? substituteVariables(base.wsReceiveAction.matchCriteria.contentContains, bodyVars)
+                : undefined,
+              contentRegex: base.wsReceiveAction.matchCriteria.contentRegex !== undefined
+                ? substituteVariables(base.wsReceiveAction.matchCriteria.contentRegex, bodyVars)
+                : undefined,
+              jsonPathValue: base.wsReceiveAction.matchCriteria.jsonPathValue !== undefined
+                ? substituteVariables(base.wsReceiveAction.matchCriteria.jsonPathValue, bodyVars)
+                : undefined,
+              jsonPathMatch: base.wsReceiveAction.matchCriteria.jsonPathMatch !== undefined
+                ? substituteVariables(base.wsReceiveAction.matchCriteria.jsonPathMatch, bodyVars)
+                : undefined,
+            }
+          : undefined,
+      }
+    : base.wsReceiveAction;
+
   // Build expectedFields from validate columns that have values in this row
   const validateCols = columns.filter(c => c.type === 'validate');
   const expectedFields: ExpectedField[] = validateCols
@@ -283,18 +353,23 @@ export function resolveScenarioFromDataRow(
     validation = { ...validation, unorderedArrays: true };
   }
 
-  // Substitute variables in kafkaField assertion values so parameterized rows
-  // can template expected values (e.g. kafka.key equals "{{orderId}}").
-  // Note: this substitution is scoped to kafkaField only for Phase 6C.
-  // Extending to all assertion types is a separate improvement (latent gap).
-  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField')) {
+  // Substitute variables in kafkaField/wsField/wsNumericField assertion values so parameterized
+  // rows can template expected values (e.g. kafka.key equals "{{orderId}}", ws.size < "{{maxBytes}}").
+  if (hasBodyVars && validation.assertions?.some(a => a.type === 'kafkaField' || a.type === 'wsField' || a.type === 'wsNumericField')) {
     validation = {
       ...validation,
-      assertions: validation.assertions!.map(a =>
-        a.type === 'kafkaField' && a.value !== undefined
-          ? { ...a, value: substituteVariables(a.value, bodyVars) }
-          : a,
-      ),
+      assertions: validation.assertions!.map(a => {
+        if ((a.type === 'kafkaField' || a.type === 'wsField') && a.value !== undefined) {
+          return { ...a, value: substituteVariables(a.value, bodyVars) };
+        }
+        if (a.type === 'wsNumericField' && a.value !== undefined) {
+          const substituted = substituteVariables(String(a.value), bodyVars);
+          if (!substituted.trim()) return a;
+          const parsed = Number(substituted);
+          return { ...a, value: Number.isNaN(parsed) ? a.value : parsed };
+        }
+        return a;
+      }),
     };
   }
 
@@ -306,6 +381,9 @@ export function resolveScenarioFromDataRow(
     validation,
     kafkaProduceAction,
     kafkaConsumeAction,
+    wsConnectAction,
+    wsSendAction,
+    wsReceiveAction,
     // Clear the data source on expanded scenarios — they are already resolved
     dataSource: undefined,
     // Tag with row context for result tracking

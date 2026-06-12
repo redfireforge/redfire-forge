@@ -238,4 +238,28 @@ describe('DataRowSummaryTable', () => {
     render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
     expect(screen.getByText('CONSUME')).toBeInTheDocument();
   });
+
+  it('shows CONNECT in status column for WS connect results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsConnect', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('CONNECT')).toBeInTheDocument();
+  });
+
+  it('shows SEND in status column for WS send results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsSend', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('SEND')).toBeInTheDocument();
+  });
+
+  it('shows RECEIVE in status column for WS receive results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsReceive', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('RECEIVE')).toBeInTheDocument();
+  });
 });

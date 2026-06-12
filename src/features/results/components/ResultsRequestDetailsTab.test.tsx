@@ -364,7 +364,7 @@ describe('ResultsRequestDetailsTab', () => {
       httpStatus: undefined as unknown as number,
     });
     render(<ResultsRequestDetailsTab {...props} isFlat groupTree={[]} filteredResults={[row]} />);
-    expect(screen.getByText('PRODUCE')).toBeTruthy();
+    expect(screen.getAllByText('PRODUCE').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows CONSUME label in status column for Kafka consume result (flat view)', () => {
@@ -378,6 +378,6 @@ describe('ResultsRequestDetailsTab', () => {
       httpStatus: undefined as unknown as number,
     });
     render(<ResultsRequestDetailsTab {...props} isFlat groupTree={[]} filteredResults={[row]} />);
-    expect(screen.getByText('CONSUME')).toBeTruthy();
+    expect(screen.getAllByText('CONSUME').length).toBeGreaterThanOrEqual(1);
   });
 });

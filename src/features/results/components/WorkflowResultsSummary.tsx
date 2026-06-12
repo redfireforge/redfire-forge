@@ -9,6 +9,7 @@ import {
   type WorkflowStepSummary,
   type WorkflowIterationSummary,
 } from '../../test-runner/utils/resultsGrouping';
+import { formatTransportStatus, getTransportMethodLabel } from '../utils/transportStatus';
 
 interface Props {
   run: TestRun;
@@ -351,9 +352,9 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
                         className={`iteration-result ${r.passed ? '' : 'result-failed'}`}
                         onClick={() => onResultClick?.(r)}
                       >
-                        <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
+                        <span className={`method-badge method-${r.method.toLowerCase()}`}>{getTransportMethodLabel(r)}</span>
                         <span className="result-name">{r.scenarioName}</span>
-                        <span className="result-status">{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</span>
+                        <span className="result-status">{formatTransportStatus(r)}</span>
                         <span className="result-time">{Math.round(r.responseTimeMs * 10) / 10}ms</span>
                         <span className="result-passed">{r.passed ? '✓' : '✗'}</span>
                       </div>

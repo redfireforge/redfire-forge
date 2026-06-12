@@ -999,6 +999,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .method-patch { background: #8b5cf633; color: #8b5cf6; }
 .method-delete { background: #ef444433; color: #ef4444; }
 .method-kafka { background: #f9731633; color: #f97316; }
+.method-websocket { background: #06b6d433; color: #06b6d4; }
 
 /* Tags */
 .tag {

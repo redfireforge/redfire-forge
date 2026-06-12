@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { KeyValue } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
 import { buildVariableSourceMap, resolveVariableSource } from '../../workflow/utils/workflowSourceMap';
+import { useListDragReorder } from '../../../shared/hooks/useListDragReorder';
 
 export interface ParamEntry extends KeyValue {
   enabled: boolean;
@@ -36,6 +37,8 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
   const [showDesc, setShowDesc] = useState(false);
 
   const activeCount = useMemo(() => params.filter((p) => p.key.trim() && p.enabled).length, [params]);
+
+  const drag = useListDragReorder(params, onChange, { mime: 'application/x-redfire-param-index' });
 
   const sourceMap = useMemo(() => buildVariableSourceMap(variableHints), [variableHints]);
   const showSource = variableHints.length > 0;
@@ -155,8 +158,22 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
           {params.map((p, i) => {
             const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
             return (
-            <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''} ${!p.enabled ? 'disabled' : ''}`}>
-              <span className="params-drag-handle" title="Drag to reorder">⠿</span>
+            <div
+              key={i}
+              className={`params-row ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''} ${!p.enabled ? 'disabled' : ''} ${drag.isDragOver(i) ? 'is-drag-over' : ''} ${drag.isDragging(i) ? 'is-dragging' : ''}`}
+              onDragOver={(e) => drag.onDragOver(e, i)}
+              onDrop={(e) => drag.onDrop(e, i)}
+            >
+              <span
+                className="params-drag-handle"
+                title="Drag to reorder"
+                draggable
+                onDragStart={(e) => drag.onDragStart(e, i)}
+                onDragEnd={drag.onDragEnd}
+                role="button"
+                tabIndex={-1}
+                aria-label={`Reorder parameter ${i + 1}`}
+              >⠿</span>
               <input
                 className="params-input"
                 value={p.key}

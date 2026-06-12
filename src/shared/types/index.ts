@@ -1,10 +1,19 @@
 import type {
-  KafkaActionType,
+  TransportType,
   KafkaAssertionTarget,
   KafkaProduceActionConfig,
   KafkaConsumeActionConfig,
   KafkaResultMeta,
 } from './kafka';
+import type {
+  ScenarioActionType,
+  WsAssertionTarget,
+  WsNumericAssertionTarget,
+  WsConnectActionConfig,
+  WsSendActionConfig,
+  WsReceiveActionConfig,
+  WsResultMeta,
+} from './websocket';
 import type { SlaTarget, TestConfig } from './runner-config';
 
 export interface Environment {
@@ -23,6 +32,12 @@ export interface Microservice {
 export interface KeyValue {
   key: string;
   value: string;
+  /**
+   * Whether this entry is included when the request is sent.
+   * Absent/undefined is treated as enabled (true) for backward compatibility;
+   * only explicitly disabled entries persist `enabled: false`.
+   */
+  enabled?: boolean;
 }
 
 export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2';
@@ -150,7 +165,18 @@ export type Assertion =
    * Target selector paths: `kafka.body`, `kafka.key`, `kafka.partition`, `kafka.offset`,
    * `kafka.header.<headerName>` (e.g. `kafka.header.x-order-id`).
    */
-  | (AssertionBase & { type: 'kafkaField'; target: KafkaAssertionTarget; operator: AssertionOperator; value?: string });
+  | (AssertionBase & { type: 'kafkaField'; target: KafkaAssertionTarget; operator: AssertionOperator; value?: string })
+  /**
+   * WebSocket field assertion (string-based) — evaluates against the WS message body,
+   * frame type, protocol, connection ID, upgrade headers, or JSONPath into the message.
+   * Uses `AssertionOperator` (equals/contains/regex/exists).
+   */
+  | (AssertionBase & { type: 'wsField'; target: WsAssertionTarget; operator: AssertionOperator; value?: string })
+  /**
+   * WebSocket numeric field assertion — evaluates `ws.latencyMs` or `ws.size` using
+   * `ComparisonOperator` (`<`, `>`, `<=`, `>=`, `=`, `!=`).
+   */
+  | (AssertionBase & { type: 'wsNumericField'; target: WsNumericAssertionTarget; operator: ComparisonOperator; value: number });
 
 export interface ValidationConfig {
   mode: ValidationMode;
@@ -180,13 +206,19 @@ export interface Extraction {
 export interface TestDefinitionSnapshot {
   name: string;
   url: string;
-  method: HttpMethod | 'KAFKA';
+  method: HttpMethod | 'KAFKA' | 'WEBSOCKET';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   extractions?: Extraction[];
+  actionType?: ScenarioActionType;
+  wsConnectAction?: WsConnectActionConfig;
+  wsSendAction?: WsSendActionConfig;
+  wsReceiveAction?: WsReceiveActionConfig;
+  kafkaProduceAction?: KafkaProduceActionConfig;
+  kafkaConsumeAction?: KafkaConsumeActionConfig;
 }
 
 export interface TestDefinitionVersion {
@@ -316,7 +348,7 @@ export interface Scenario {
   id: string;
   name: string;
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA' | 'WEBSOCKET';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
@@ -353,11 +385,17 @@ export interface Scenario {
    * Transport action type. Absent or `'http'` means standard HTTP request.
    * Older saved scenarios without this field are always treated as `'http'` by all consumers.
    */
-  actionType?: KafkaActionType;
+  actionType?: ScenarioActionType;
   /** Configuration for a Kafka produce action (present when `actionType === 'kafkaProduce'`). */
   kafkaProduceAction?: KafkaProduceActionConfig;
   /** Configuration for a Kafka consume action (present when `actionType === 'kafkaConsume'`). */
   kafkaConsumeAction?: KafkaConsumeActionConfig;
+  /** Configuration for a WS connect action (present when `actionType === 'wsConnect'`). */
+  wsConnectAction?: WsConnectActionConfig;
+  /** Configuration for a WS send action (present when `actionType === 'wsSend'`). */
+  wsSendAction?: WsSendActionConfig;
+  /** Configuration for a WS receive action (present when `actionType === 'wsReceive'`). */
+  wsReceiveAction?: WsReceiveActionConfig;
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -451,6 +489,7 @@ export interface TrashSettings {
 
 export * from './runner-config';
 export * from './kafka';
+export * from './websocket';
 
 export interface FailureDetail {
   path: string;
@@ -506,9 +545,11 @@ export interface RequestResult {
    * Rendering components should guard `httpStatus`/method-badge display behind
    * `(r.transportType ?? 'http') === 'http'`.
    */
-  transportType?: KafkaActionType;
+  transportType?: TransportType;
   /** Kafka-specific result metadata (populated when `transportType` is `'kafkaProduce'` or `'kafkaConsume'`). */
   kafkaResultMeta?: KafkaResultMeta;
+  /** WebSocket-specific result metadata (populated when `transportType` is a WS action). */
+  wsResultMeta?: WsResultMeta;
 }
 
 export interface TestSummary {
@@ -560,6 +601,8 @@ export type {
   WorkflowExecutionTrace,
   CapturedKafkaNodeDetails,
   KafkaFailureClass,
+  CapturedWsNodeDetails,
+  WsFailureClass,
 } from './trace';
 
 

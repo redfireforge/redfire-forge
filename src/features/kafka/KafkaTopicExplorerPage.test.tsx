@@ -335,7 +335,10 @@ describe('KafkaTopicExplorerPage', () => {
     );
 
     fireEvent.click(screen.getByTestId('topic-row-orders.created'));
-    await waitFor(() => expect(mockDispatch).toHaveBeenCalled());
+    // Wait for the detail to load and render (not just dispatch call)
+    await waitFor(() => {
+      expect(screen.getByTestId('topic-row-orders.created').textContent).toContain('● OK');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Recently Active' }));
     expect(screen.queryByTestId('topic-row-payments.settled')).toBeNull();

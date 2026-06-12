@@ -75,7 +75,7 @@ export function ResultsMetricsCards({ summary, selectedRun }: Props) {
         </div>
         <div className={`metric-card ${summary.errorRate > 0 ? 'error' : 'success'}`}>
           <div className="metric-value">{summary.errorRate}%</div>
-          <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>
+          <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of failed requests: HTTP errors (4xx/5xx/timeout) and non-HTTP transport failures (WS/Kafka). Includes intentional negative tests.">ⓘ</span></div>
         </div>
         <div className="metric-card">
           <div className="metric-value">{(summary.totalDurationMs / 1000).toFixed(2)}s</div>

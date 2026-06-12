@@ -11,6 +11,8 @@ import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
 import { createCorrelationRouter } from './correlation-handler.js';
 import { createKafkaRouter } from './routes/kafka-routes.js';
 import { createKafkaTriggerRouter } from './routes/kafka-trigger-routes.js';
+import { createWebSocketRouter } from './routes/websocket-routes.js';
+import { createWebSocketMockRouter } from './routes/websocket-mock-routes.js';
 import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
@@ -129,6 +131,12 @@ app.use(createKafkaRouter({ onLog: broadcastLog }));
 
 // Kafka trigger subscription routes
 app.use(createKafkaTriggerRouter({ onLog: broadcastLog }));
+
+// WebSocket proxy routes
+app.use(createWebSocketRouter({ onLog: broadcastLog }));
+
+// WebSocket mock server routes
+app.use(createWebSocketMockRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {

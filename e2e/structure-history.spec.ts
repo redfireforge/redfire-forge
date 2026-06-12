@@ -226,6 +226,7 @@ test.describe('V-Phase 6: Structure Change History', () => {
       // After Rename, <span> becomes <input> so hasText stops matching. Use first scenario card.
       const fgBody = page.locator('.feature-group-card', { hasText: 'Feature Group A' }).locator('.feature-group-body');
       const renameInput = fgBody.locator('.scenario-group-card').first().locator('.inline-edit-input');
+      await renameInput.waitFor({ state: 'visible', timeout: 5000 });
       await renameInput.fill('Scenario Alpha Renamed');
       await renameInput.press('Enter');
       await page.waitForTimeout(500);

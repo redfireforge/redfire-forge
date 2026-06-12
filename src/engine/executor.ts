@@ -7,10 +7,12 @@ import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache, type RunOpts } from './requestExecution';
 import { executeKafkaAction } from './kafkaExecution';
+import { executeWsAction } from './wsExecution';
+import { isWsActionType } from '../shared/types';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
-import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
+import type { KafkaNodeOperations, WsNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { expandQueue } from './dataSourceExpander';
 import { computeAllocation } from './allocationEngine';
 import { resolveHttpNodeBaseUrl, resolveServiceAuth } from '../features/workflow/utils/workflowHostResolve';
@@ -115,6 +117,8 @@ export async function runTest(
   workflowResolverData?: WorkflowResolverData,
   /** Kafka operations for Kafka produce/consume nodes in workflow execution. */
   kafkaOperations?: KafkaNodeOperations,
+  /** WebSocket operations for WS nodes in workflow execution. */
+  wsOperations?: WsNodeOperations,
 ): Promise<TestResult> {
   resetResultIdCounter(workerIndex);
   clearPrepCache();
@@ -165,66 +169,87 @@ export async function runTest(
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
   const opts: RunOpts = {
     tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs,
-    executeNonHttp: kafkaOperations
-      ? (scenario: Scenario) => executeKafkaAction(scenario, kafkaOperations, timeoutMs)
+    executeNonHttp: (kafkaOperations || wsOperations)
+      ? (scenario: Scenario) => {
+          const at = scenario.actionType ?? 'http';
+          if (at === 'kafkaProduce' || at === 'kafkaConsume') {
+            if (!kafkaOperations) throw new Error('Kafka operations not available for action type: ' + at);
+            return executeKafkaAction(scenario, kafkaOperations, timeoutMs);
+          }
+          if (isWsActionType(at)) {
+            if (!wsOperations) throw new Error('WS operations not available for action type: ' + at);
+            return executeWsAction(scenario, wsOperations, timeoutMs);
+          }
+          throw new Error(`Unknown non-HTTP action type: '${at}'`);
+        }
       : undefined,
   };
 
-  if (mode === 'workflow') {
-    if (workflow && config.workflowId) {
-      const iterations = config.iterations || 1;
-      const envLayer = config.workflowBaseUrl
-        ? { baseUrl: config.workflowBaseUrl }
-        : undefined;
-      const wfServices = workflow.services ?? [];
-      const wfMicroservices = workflowResolverData?.microservices ?? [];
-      const wfGlobalAuth = workflowResolverData?.globalAuthProfiles ?? [];
-      const wfEnvId = workflowResolverData?.selectedEnvId;
-
-      const resolveBaseUrl = wfServices.length > 0
-        ? (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, wfMicroservices, undefined, wfServices, wfEnvId)
-        : undefined;
-
-      const resolveAuth = wfServices.length > 0
-        ? (data: HttpNodeData): Scenario['auth'] | undefined => {
-            const authType = data.scenario?.auth?.type;
-            if (authType && authType !== 'inherit') return undefined;
-            return resolveServiceAuth(data, wfServices, wfEnvId, wfMicroservices, wfGlobalAuth) ?? undefined;
-          }
-        : undefined;
-
-      return runGraphLoad(workflow, {
-        iterations,
-        concurrency: config.concurrency,
-        initialVariables: config.workflowVariables,
-        breaker,
-        abortSignal,
-        onProgress,
-        correlationWaitConfig: config.correlationWaitConfig,
-        maxConcurrentPolls: config.maxConcurrentPolls,
-        traceOptions: config.traceOptions,
-        environmentLayer: envLayer,
-        resolveSubWorkflow,
-        resolveHttpBaseUrl: resolveBaseUrl,
-        resolveHttpAuth: resolveAuth,
-        kafkaOperations,
-      });
-    }
-    const ctx = new VariableContext(config.workflowVariables);
+  // Graph-based workflow path — graphRunner handles its own WS cleanup internally
+  if (mode === 'workflow' && workflow && config.workflowId) {
     const iterations = config.iterations || 1;
-    if (iterations <= 1) {
-      return { results: await runWorkflow(scenarios, opts, ctx) };
+    const envLayer = config.workflowBaseUrl
+      ? { baseUrl: config.workflowBaseUrl }
+      : undefined;
+    const wfServices = workflow.services ?? [];
+    const wfMicroservices = workflowResolverData?.microservices ?? [];
+    const wfGlobalAuth = workflowResolverData?.globalAuthProfiles ?? [];
+    const wfEnvId = workflowResolverData?.selectedEnvId;
+
+    const resolveBaseUrl = wfServices.length > 0
+      ? (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, wfMicroservices, undefined, wfServices, wfEnvId)
+      : undefined;
+
+    const resolveAuth = wfServices.length > 0
+      ? (data: HttpNodeData): Scenario['auth'] | undefined => {
+          const authType = data.scenario?.auth?.type;
+          if (authType && authType !== 'inherit') return undefined;
+          return resolveServiceAuth(data, wfServices, wfEnvId, wfMicroservices, wfGlobalAuth) ?? undefined;
+        }
+      : undefined;
+
+    return runGraphLoad(workflow, {
+      iterations,
+      concurrency: config.concurrency,
+      initialVariables: config.workflowVariables,
+      breaker,
+      abortSignal,
+      onProgress,
+      correlationWaitConfig: config.correlationWaitConfig,
+      maxConcurrentPolls: config.maxConcurrentPolls,
+      traceOptions: config.traceOptions,
+      environmentLayer: envLayer,
+      resolveSubWorkflow,
+      resolveHttpBaseUrl: resolveBaseUrl,
+      resolveHttpAuth: resolveAuth,
+      kafkaOperations,
+      wsOperations,
+    });
+  }
+
+  // All non-graph paths: legacy workflow, harness (sequential/batch/pool/load-profile)
+  try {
+    if (mode === 'workflow') {
+      const ctx = new VariableContext(config.workflowVariables);
+      const iterations = config.iterations || 1;
+      if (iterations <= 1) {
+        return { results: await runWorkflow(scenarios, opts, ctx) };
+      }
+      return { results: await runWorkflowLoad(scenarios, iterations, config.concurrency, opts, ctx) };
     }
-    return { results: await runWorkflowLoad(scenarios, iterations, config.concurrency, opts, ctx) };
+    if (mode === 'load-profile' && config.loadProfile) {
+      return { results: await runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts) };
+    }
+    if (mode === 'sequential') {
+      return { results: await runSequential(expandedQueue, opts) };
+    }
+    if (mode === 'pool') {
+      return { results: await runPool(expandedQueue, config.concurrency, opts) };
+    }
+    return { results: await runBatch(expandedQueue, config.concurrency, opts) };
+  } finally {
+    if (wsOperations) {
+      await wsOperations.disconnectAll().catch(() => { /* best-effort cleanup */ });
+    }
   }
-  if (mode === 'load-profile' && config.loadProfile) {
-    return { results: await runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts) };
-  }
-  if (mode === 'sequential') {
-    return { results: await runSequential(expandedQueue, opts) };
-  }
-  if (mode === 'pool') {
-    return { results: await runPool(expandedQueue, config.concurrency, opts) };
-  }
-  return { results: await runBatch(expandedQueue, config.concurrency, opts) };
 }

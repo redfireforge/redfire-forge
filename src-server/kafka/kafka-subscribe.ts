@@ -71,7 +71,13 @@ export async function executeSubscribe(
       if (!matchesKafkaConsumeFilter(record, request.filter)) {
         return;
       }
-      ringBuffer.push(record);
+      // Strip the server-only `rawValue` (raw Buffer) before buffering so it is
+      // never held in memory nor serialized to the client via
+      // subscription-messages. Mirrors the consume-once decode path; the
+      // subscribe path does not (yet) schema-decode, so the raw bytes are not
+      // needed once filtering has run.
+      const { rawValue: _rawValue, ...strippedRecord } = record;
+      ringBuffer.push(strippedRecord);
       if (ringBuffer.length > maxInMemoryMessages) {
         ringBuffer.shift();
       }

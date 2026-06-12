@@ -9,20 +9,20 @@ import { ProgressMeta } from './executor';
 import { HttpResponse } from '../shared/utils/httpClient';
 
 const httpMocks = vi.hoisted(() => {
-  const httpFetchViaViteProxy = vi.fn(async (): Promise<HttpResponse> => ({
+  const proxyFetch = vi.fn(async (): Promise<HttpResponse> => ({
     status: 200,
     statusText: 'OK',
     headers: {},
     body: '{}',
   }));
   const setHttpTransport = vi.fn();
-  return { httpFetchViaViteProxy, setHttpTransport };
+  return { proxyFetch, setHttpTransport };
 });
 
 const runTestMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../shared/utils/httpClient', () => ({
-  httpFetchViaViteProxy: httpMocks.httpFetchViaViteProxy,
+  proxyFetch: httpMocks.proxyFetch,
   setHttpTransport: httpMocks.setHttpTransport,
 }));
 
@@ -84,7 +84,7 @@ describe('executionWorker', () => {
     workerHarness.addEventListener.mockClear();
     runTestMock.mockReset();
     httpMocks.setHttpTransport.mockClear();
-    httpMocks.httpFetchViaViteProxy.mockClear();
+    httpMocks.proxyFetch.mockClear();
     await loadExecutionWorker();
   });
 
@@ -106,7 +106,7 @@ describe('executionWorker', () => {
       useTauriProxy: false,
     });
     await vi.waitFor(() => expect(runTestMock).toHaveBeenCalled());
-    expect(httpMocks.setHttpTransport).toHaveBeenCalledWith(httpMocks.httpFetchViaViteProxy);
+    expect(httpMocks.setHttpTransport).toHaveBeenCalledWith(httpMocks.proxyFetch);
     expect(runTestMock).toHaveBeenCalledWith(
       cfg,
       scenarios,
@@ -116,7 +116,8 @@ describe('executionWorker', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
+      expect.any(Object),
+      expect.any(Object),
     );
     await vi.waitFor(() =>
       expect(workerHarness.postMessage).toHaveBeenCalledWith(
@@ -225,7 +226,7 @@ describe('executionWorker', () => {
     await vi.waitFor(() => expect(runTestMock).toHaveBeenCalled());
     const installed = httpMocks.setHttpTransport.mock.calls[0]?.[0];
     expect(installed).toBeDefined();
-    expect(installed).not.toBe(httpMocks.httpFetchViaViteProxy);
+    expect(installed).not.toBe(httpMocks.proxyFetch);
   });
 
   it('Tauri transport posts http-request and resolves when http-response arrives', async () => {

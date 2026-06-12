@@ -34,6 +34,8 @@ import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
+import { WebSocketStudioPage } from '../features/websocket/WebSocketStudioPage';
+import { SseStudioPage } from '../features/sse/SseStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -629,6 +631,27 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'websocket-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WebSocketStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
+          {activeTab === 'sse-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <SseStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
 
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
