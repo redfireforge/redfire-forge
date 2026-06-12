@@ -1,0 +1,227 @@
+{
+  "_exportMeta": {
+    "type": "ws-test-profiles",
+    "version": "1.0.0",
+    "exportedAt": "2026-06-10T22:00:00.000Z",
+    "source": "ws-core-connect-test-scenarios.md",
+    "description": "WebSocket Studio test profiles for core connect, saved connections, and templates scenarios (WC-01 through WC-46)"
+  },
+  "data": {
+    "profiles": [
+      {
+        "id": "wc-echo-basic",
+        "name": "Echo Server (Basic)",
+        "url": "ws://localhost:8765",
+        "subprotocols": "",
+        "headers": [],
+        "queryParams": [],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": false,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 10000,
+        "description": "Basic echo server connection — used for WC-04, WC-05, WC-11 through WC-24"
+      },
+      {
+        "id": "wc-echo-headers",
+        "name": "Echo Server (With Headers)",
+        "url": "ws://localhost:8765",
+        "subprotocols": "",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer test-token-123" },
+          { "key": "X-Custom-Header", "value": "test-value" }
+        ],
+        "queryParams": [
+          { "key": "token", "value": "abc123" },
+          { "key": "mode", "value": "test" }
+        ],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": false,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 10000,
+        "description": "Echo server with custom headers (forces proxy mode) — used for WC-06, WC-07, WC-17"
+      },
+      {
+        "id": "wc-echo-subprotocol",
+        "name": "Echo Server (Subprotocol)",
+        "url": "ws://localhost:8765",
+        "subprotocols": "json",
+        "headers": [],
+        "queryParams": [],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": false,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 10000,
+        "description": "Echo server with subprotocol negotiation — used for WC-08"
+      },
+      {
+        "id": "wc-echo-reconnect",
+        "name": "Echo Server (Auto-Reconnect)",
+        "url": "ws://localhost:8765",
+        "subprotocols": "",
+        "headers": [],
+        "queryParams": [],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": true,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 10000,
+        "description": "Echo server with auto-reconnect enabled — used for WC-37, WC-38, WC-39"
+      },
+      {
+        "id": "wc-env-template",
+        "name": "Environment Template",
+        "url": "{{wsBaseUrl}}/ws",
+        "subprotocols": "",
+        "headers": [
+          { "key": "X-Environment", "value": "{{envName}}" }
+        ],
+        "queryParams": [],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": false,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 10000,
+        "description": "Profile using environment variable templates — used for WC-40, WC-41, WC-43"
+      },
+      {
+        "id": "wc-echo-lowcap",
+        "name": "Echo Server (Low Cap 100)",
+        "url": "ws://localhost:8765",
+        "subprotocols": "",
+        "headers": [],
+        "queryParams": [],
+        "protocolMode": "auto",
+        "autoReconnect": {
+          "enabled": false,
+          "maxRetries": 5,
+          "initialDelay": 1000,
+          "backoffMultiplier": 1.5
+        },
+        "maxMessages": 100,
+        "description": "Echo server with low message cap (100) — used for WC-45"
+      }
+    ],
+    "templates": [
+      {
+        "id": "tmpl-greeting",
+        "name": "Greeting JSON",
+        "body": "{\"type\":\"greeting\",\"message\":\"Hello from template\",\"timestamp\":\"{{timestamp}}\"}",
+        "format": "JSON"
+      },
+      {
+        "id": "tmpl-text-hello",
+        "name": "Simple Hello",
+        "body": "Hello WebSocket!",
+        "format": "Text"
+      },
+      {
+        "id": "tmpl-binary-test",
+        "name": "Binary Test (Base64)",
+        "body": "SGVsbG8gQmluYXJ5IQ==",
+        "format": "Binary (Base64)"
+      },
+      {
+        "id": "tmpl-error-json",
+        "name": "Error JSON",
+        "body": "{\"type\":\"error\",\"code\":500,\"message\":\"Test error message\"}",
+        "format": "JSON"
+      },
+      {
+        "id": "tmpl-complex-json",
+        "name": "Complex Object",
+        "body": "{\"id\":1,\"user\":{\"name\":\"Alice\",\"roles\":[\"admin\",\"user\"]},\"metadata\":{\"created\":\"2026-01-01\",\"active\":true}}",
+        "format": "JSON"
+      }
+    ],
+    "testMessages": [
+      {
+        "scenario": "WC-11",
+        "description": "Simple text message for echo test",
+        "message": "Hello WebSocket!",
+        "format": "Text",
+        "expectedEcho": true
+      },
+      {
+        "scenario": "WC-14",
+        "description": "JSON message for auto-detection test",
+        "message": "{\"type\":\"greeting\",\"message\":\"Hello JSON\"}",
+        "format": "JSON",
+        "expectedType": "json",
+        "expectedEcho": true
+      },
+      {
+        "scenario": "WC-16",
+        "description": "Binary message (Base64) for binary frame test",
+        "message": "SGVsbG8gQmluYXJ5IQ==",
+        "format": "Binary (Base64)",
+        "expectedType": "binary",
+        "expectedEcho": true
+      },
+      {
+        "scenario": "WF-16/17",
+        "description": "Two JSON messages for diff comparison",
+        "messageA": "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\"}",
+        "messageB": "{\"id\":2,\"name\":\"Bob\",\"role\":\"user\",\"active\":true}",
+        "expectedDiff": {
+          "structuralChanges": 4,
+          "added": ["$.active"],
+          "changed": ["$.id", "$.name", "$.role"],
+          "removed": []
+        }
+      }
+    ],
+    "schemas": [
+      {
+        "id": "schema-greeting",
+        "name": "Greeting Schema",
+        "direction": "both",
+        "enabled": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "name": { "type": "string" },
+            "message": { "type": "string" },
+            "count": { "type": "number" }
+          },
+          "required": ["type"]
+        }
+      },
+      {
+        "id": "schema-strict-user",
+        "name": "Strict User Schema",
+        "direction": "both",
+        "enabled": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "number" },
+            "name": { "type": "string" },
+            "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
+            "active": { "type": "boolean" }
+          },
+          "required": ["id", "name", "role"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}

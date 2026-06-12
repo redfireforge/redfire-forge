@@ -21,6 +21,7 @@ export interface ExtractionFetchSampleProps {
 import {
   DataMapperModal,
   createExtractionAdapter,
+  createWsExtractionAdapter,
   splitExtractions,
 } from '../../../shared/components/data-mapper';
 
@@ -35,15 +36,21 @@ interface Props {
   variableHints?: WorkflowVariableHint[];
   /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
   contextScope?: string;
+  /** Transport type — WS uses wsExtractionAdapter, restricts sources to body-only. */
+  transportType?: 'http' | 'ws';
 }
 
-const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
+const HTTP_SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
   { value: 'body', label: 'Body', hint: '$.data.id' },
   { value: 'header', label: 'Header', hint: 'Location' },
   { value: 'status', label: 'Status', hint: '(auto)' },
 ];
 
-export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [], contextScope }: Props) {
+const WS_SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
+  { value: 'body', label: 'Body', hint: '$.data.id' },
+];
+
+export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [], contextScope, transportType = 'http' }: Props) {
   const [pickerIdx, setPickerIdx] = useState<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -90,14 +97,14 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
     };
   }, [fetchSample]);
 
+  const isWs = transportType === 'ws';
+
   const extractionAdapter = useMemo(
-    () => createExtractionAdapter({
-      sampleResponseBody,
-      nonBodyExtractions,
-      fetchSampleData,
-    }),
+    () => isWs
+      ? createWsExtractionAdapter({ sampleMessage: sampleResponseBody })
+      : createExtractionAdapter({ sampleResponseBody, nonBodyExtractions, fetchSampleData }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sampleResponseBody, nonBodyFingerprint, fetchSampleData],
+    [isWs, sampleResponseBody, nonBodyFingerprint, fetchSampleData],
   );
 
   const pickerInitialData = useMemo(
@@ -106,13 +113,13 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
   );
 
   const pickerAdapter = useMemo(
-    () => pickerIdx !== null ? createExtractionAdapter({
-      sampleResponseBody,
-      nonBodyExtractions,
-      fetchSampleData,
-    }) : null,
+    () => pickerIdx !== null
+      ? (isWs
+        ? createWsExtractionAdapter({ sampleMessage: sampleResponseBody })
+        : createExtractionAdapter({ sampleResponseBody, nonBodyExtractions, fetchSampleData }))
+      : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pickerIdx, sampleResponseBody, nonBodyFingerprint, fetchSampleData],
+    [pickerIdx, isWs, sampleResponseBody, nonBodyFingerprint, fetchSampleData],
   );
 
   const update = (idx: number, patch: Partial<Extraction>) => {
@@ -216,7 +223,8 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
           </div>
 
           {extractions.map((ext, i) => {
-            const sourceInfo = SOURCES.find(s => s.value === ext.source) ?? SOURCES[0];
+            const activeSources = isWs ? WS_SOURCES : HTTP_SOURCES;
+            const sourceInfo = activeSources.find(s => s.value === ext.source) ?? activeSources[0];
             const isDragging = dragIdx === i;
             const isOver = dragOverIdx === i && dragIdx !== i;
             return (
@@ -249,7 +257,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     className="ext-select"
                     aria-label="Source"
                   >
-                    {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    {activeSources.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </span>
 

@@ -48,15 +48,18 @@ export class SchemaRegistryError extends Error {
 const subjectVersionCache = new Map<string, KafkaSchemaFetchResult>();
 
 /**
- * Cache of `SchemaRegistry` instances keyed by registry URL + username.
+ * Cache of `SchemaRegistry` instances keyed by registry URL + credentials.
  * Reusing instances lets the library's internal schema-ID cache carry over
  * across multiple encode/decode calls, avoiding repeated HTTP round-trips to
  * the registry for the same schema ID.
+ *
+ * The password is part of the key so that correcting previously-wrong
+ * credentials produces a fresh instance instead of reusing the failed one.
  */
 const registryInstanceCache = new Map<string, SchemaRegistry>();
 
 function registryInstanceKey(config: KafkaSchemaConfig): string {
-  return `${config.registryUrl}|${config.auth?.username ?? ''}`;
+  return `${config.registryUrl}|${config.auth?.username ?? ''}|${config.auth?.password ?? ''}`;
 }
 
 function subjectVersionKey(subject: string, version: number): string {
@@ -222,11 +225,16 @@ export async function fetchSchema(
 ): Promise<KafkaSchemaFetchResult> {
   const encoded = encodeURIComponent(subject);
   const versionPath = version != null ? String(version) : 'latest';
-  const cacheKey = subjectVersionKey(subject, version ?? -1);
 
-  const cached = subjectVersionCache.get(cacheKey);
-  if (cached) {
-    return cached;
+  // Only concrete versions are cacheable — registered schema versions are
+  // immutable. The "latest" alias must never be cached because the latest
+  // pointer moves when a new version is registered; caching it would pin a
+  // stale schema until the process restarts.
+  if (version != null) {
+    const cached = subjectVersionCache.get(subjectVersionKey(subject, version));
+    if (cached) {
+      return cached;
+    }
   }
 
   interface RegistryVersionResponse {
@@ -249,11 +257,8 @@ export async function fetchSchema(
     schemaType: raw.schemaType ?? 'AVRO',
   };
 
+  // Cache by the concrete version resolved from the response (immutable).
   subjectVersionCache.set(subjectVersionKey(subject, raw.version), result);
-  // Also cache the "latest" lookup
-  if (version == null) {
-    subjectVersionCache.set(cacheKey, result);
-  }
   return result;
 }
 

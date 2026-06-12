@@ -209,7 +209,10 @@ export function useSchemaRegistry(
           setVersions(versionList);
           setVersionsLoading(false);
           if (versionList.length > 0) {
-            const latest = versionList[versionList.length - 1];
+            // "Latest" is the highest version number, not merely the last
+            // array element — the registry is not guaranteed to return
+            // versions in ascending order.
+            const latest = Math.max(...versionList);
             setSelectedVersion(latest);
             void fetchSchemaForVersion(name, latest, registryConfig);
           }

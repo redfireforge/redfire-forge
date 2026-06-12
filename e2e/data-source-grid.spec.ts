@@ -310,15 +310,40 @@ test.describe('Column Drag-to-Reorder', () => {
     await expect(colNames.nth(1)).toHaveText('colB');
     await expect(colNames.nth(2)).toHaveText('colC');
 
-    // Drag colA handle onto colC drop target
-    const dragHandleA = page.locator('.data-source-col-drag-handle').first();
-    const colCHeader = page.locator('.data-source-th').nth(3); // 0=checkbox, 1=colA, 2=colB, 3=colC
+    // The React handler stores the dragged column ID in state during dragstart,
+    // then reads it during drop. We must fire dragstart first, let React commit
+    // the state update, then fire dragover + drop separately.
+    // Columns: th[0]=checkbox, th[1]=Row Name, th[2]=colA, th[3]=colB, th[4]=colC
+    const srcHandle = page.locator('.data-source-col-drag-handle').first();
+    const targetTh = page.locator('.data-source-th').nth(4); // colC header cell
 
-    await dragHandleA.dragTo(colCHeader);
+    // Tag elements for querySelector inside page.evaluate
+    await srcHandle.evaluate(el => el.setAttribute('data-e2e-drag', 'src'));
+    await targetTh.evaluate(el => el.setAttribute('data-e2e-drag', 'tgt'));
 
-    // After drag, colA should have moved — order should change
-    const newFirst = await colNames.first().textContent();
-    // colA was dragged to colC position, so colB should now be first
-    expect(newFirst).toBe('colB');
+    // Step 1: Fire dragstart → React sets draggingColDragId state
+    await page.evaluate(() => {
+      const src = document.querySelector('[data-e2e-drag="src"]')!;
+      const dt = new DataTransfer();
+      src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+    });
+
+    // Step 2: Let React commit the state update
+    await page.waitForTimeout(100);
+
+    // Step 3: Fire dragover + drop on target → React reads draggingColDragId and reorders
+    await page.evaluate(() => {
+      const src = document.querySelector('[data-e2e-drag="src"]')!;
+      const tgt = document.querySelector('[data-e2e-drag="tgt"]')!;
+      const dt = new DataTransfer();
+      tgt.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt }));
+      tgt.dispatchEvent(new DragEvent('drop',     { bubbles: true, dataTransfer: dt }));
+      src.dispatchEvent(new DragEvent('dragend',   { bubbles: true, dataTransfer: dt }));
+    });
+
+    // colA was dragged to colC position → order becomes colB, colC, colA
+    await expect(colNames.first()).toHaveText('colB');
+    await expect(colNames.nth(1)).toHaveText('colC');
+    await expect(colNames.nth(2)).toHaveText('colA');
   });
 });

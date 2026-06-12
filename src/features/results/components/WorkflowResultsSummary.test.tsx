@@ -705,7 +705,7 @@ describe('WorkflowResultsSummary', () => {
     render(<WorkflowResultsSummary run={run} />);
     fireEvent.click(screen.getByText('Per-Iteration Detail').closest('div')!);
     fireEvent.click(screen.getByText('Iteration #0').closest('div')!);
-    expect(screen.getByText('PRODUCE')).toBeInTheDocument();
+    expect(screen.getAllByText('PRODUCE').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows CONSUME in result-status for Kafka consume result', () => {
@@ -753,6 +753,6 @@ describe('WorkflowResultsSummary', () => {
     render(<WorkflowResultsSummary run={run} />);
     fireEvent.click(screen.getByText('Per-Iteration Detail').closest('div')!);
     fireEvent.click(screen.getByText('Iteration #0').closest('div')!);
-    expect(screen.getByText('CONSUME')).toBeInTheDocument();
+    expect(screen.getAllByText('CONSUME').length).toBeGreaterThanOrEqual(1);
   });
 });

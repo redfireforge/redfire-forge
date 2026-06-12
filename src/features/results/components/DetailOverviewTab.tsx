@@ -145,8 +145,137 @@ export default function OverviewTab({ events, stats, currentEvent, selectedItera
         </div>
       )}
 
-      {/* Current Event Details — Card Layout */}
-      {currentEvent && currentEvent.details && (
+      {/* WebSocket Details */}
+      {currentEvent && currentEvent.details?.wsDetails && (
+        <div className="exec-card">
+          <div className="exec-card-header">
+            <span className="exec-card-title">WebSocket Details</span>
+            <span className={`exec-status-badge ${currentEvent.state === 'pass' ? 'success' : 'error'}`}>
+              {currentEvent.nodeType === 'wsConnect' ? 'CONNECT' : currentEvent.nodeType === 'wsSend' ? 'SEND' : 'RECEIVE'}
+            </span>
+          </div>
+          {currentEvent.details.wsDetails.url && (
+            <div className="exec-endpoint">
+              <span className="exec-method">WS</span>
+              <span className="exec-url">{currentEvent.details.wsDetails.url}</span>
+            </div>
+          )}
+          <div className="exec-kv-grid">
+            <span className="exec-kv-label">Connection ID</span>
+            <span className="exec-kv-value">{currentEvent.details.wsDetails.connectionId}</span>
+            {currentEvent.details.wsDetails.protocol && (
+              <>
+                <span className="exec-kv-label">Protocol</span>
+                <span className="exec-kv-value">{currentEvent.details.wsDetails.protocol}</span>
+              </>
+            )}
+            {currentEvent.details.wsDetails.extensions && (
+              <>
+                <span className="exec-kv-label">Extensions</span>
+                <span className="exec-kv-value">{currentEvent.details.wsDetails.extensions}</span>
+              </>
+            )}
+            {currentEvent.details.wsDetails.messageType && (
+              <>
+                <span className="exec-kv-label">Message Type</span>
+                <span className="exec-kv-value">{currentEvent.details.wsDetails.messageType}</span>
+              </>
+            )}
+          </div>
+          {currentEvent.details.wsDetails.bodyPreview && (
+            <div className="exec-body-preview">
+              <span className="exec-kv-label">Message</span>
+              <pre className="exec-body-text">{currentEvent.details.wsDetails.bodyPreview}</pre>
+            </div>
+          )}
+          {currentEvent.details.wsDetails.durationMs !== undefined && (
+            <div className="exec-timing-row">
+              <div className="exec-timing-bar-track">
+                <div
+                  className={`exec-timing-bar-fill ${currentEvent.state === 'fail' ? 'error' : ''}`}
+                  style={{ width: `${Math.min(100, (currentEvent.details.wsDetails.durationMs / Math.max(stats?.maxDuration ?? 1, 1)) * 100)}%` }}
+                />
+              </div>
+              <span className="exec-timing-label">{formatDurationMs(currentEvent.details.wsDetails.durationMs)}</span>
+            </div>
+          )}
+          {currentEvent.details.wsDetails.failureClass && (
+            <div className="exec-error">
+              <span className="exec-error-icon">!</span>
+              <span className="exec-error-text">Failure: {currentEvent.details.wsDetails.failureClass}</span>
+            </div>
+          )}
+          {currentEvent.details.error && (
+            <div className="exec-error">
+              <span className="exec-error-icon">!</span>
+              <span className="exec-error-text">{currentEvent.details.error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* WS Trigger Details */}
+      {currentEvent && currentEvent.details?.wsTriggerDetails && (
+        <div className="exec-card">
+          <div className="exec-card-header">
+            <span className="exec-card-title">WS Trigger</span>
+            <span className={`exec-status-badge ${currentEvent.state === 'pass' ? 'success' : 'error'}`}>
+              {currentEvent.state === 'pass' ? 'MATCHED' : 'FAILED'}
+            </span>
+          </div>
+          <div className="exec-endpoint">
+            <span className="exec-method">WS</span>
+            <span className="exec-url">{currentEvent.details.wsTriggerDetails.url}</span>
+          </div>
+          <div className="exec-kv-grid">
+            <span className="exec-kv-label">Connection ID</span>
+            <span className="exec-kv-value">{currentEvent.details.wsTriggerDetails.connectionId}</span>
+            {currentEvent.details.wsTriggerDetails.messageType && (
+              <>
+                <span className="exec-kv-label">Message Type</span>
+                <span className="exec-kv-value">{currentEvent.details.wsTriggerDetails.messageType}</span>
+              </>
+            )}
+          </div>
+          {currentEvent.details.error && (
+            <div className="exec-error-banner">
+              <span className="exec-error-icon">!</span>
+              <span className="exec-error-text">{currentEvent.details.error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Kafka Details */}
+      {currentEvent && currentEvent.details?.kafkaDetails && (
+        <div className="exec-card">
+          <div className="exec-card-header">
+            <span className="exec-card-title">Kafka Details</span>
+            <span className={`exec-status-badge ${currentEvent.state === 'pass' ? 'success' : 'error'}`}>
+              {currentEvent.nodeType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}
+            </span>
+          </div>
+          <div className="exec-kv-grid">
+            <span className="exec-kv-label">Topic</span>
+            <span className="exec-kv-value">{currentEvent.details.kafkaDetails.topic}</span>
+            {currentEvent.details.kafkaDetails.partition !== undefined && (
+              <>
+                <span className="exec-kv-label">Partition</span>
+                <span className="exec-kv-value">{currentEvent.details.kafkaDetails.partition}</span>
+              </>
+            )}
+            {currentEvent.details.kafkaDetails.durationMs !== undefined && (
+              <>
+                <span className="exec-kv-label">Duration</span>
+                <span className="exec-kv-value">{formatDurationMs(currentEvent.details.kafkaDetails.durationMs)}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Current Event Details — Card Layout (skip for nodes with transport-specific cards above) */}
+      {currentEvent && currentEvent.details && !currentEvent.details.wsDetails && !currentEvent.details.wsTriggerDetails && !currentEvent.details.kafkaDetails && !currentEvent.details.kafkaTriggerDetails && (
         <div className="exec-card">
           <div className="exec-card-header">
             <span className="exec-card-title">Last Execution</span>

@@ -28,6 +28,10 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -53,6 +57,10 @@ import KafkaProduceNode from '../components/nodes/KafkaProduceNode';
 import KafkaConsumeNode from '../components/nodes/KafkaConsumeNode';
 import KafkaTriggerNode from '../components/nodes/KafkaTriggerNode';
 import KafkaWaitNode from '../components/nodes/KafkaWaitNode';
+import WsConnectNode from '../components/nodes/WsConnectNode';
+import WsSendNode from '../components/nodes/WsSendNode';
+import WsReceiveNode from '../components/nodes/WsReceiveNode';
+import WsTriggerNode from '../components/nodes/WsTriggerNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -81,6 +89,10 @@ export const nodeTypes = {
   kafkaConsume: KafkaConsumeNode,
   kafkaTrigger: KafkaTriggerNode,
   kafkaWait: KafkaWaitNode,
+  wsConnect: WsConnectNode,
+  wsSend: WsSendNode,
+  wsReceive: WsReceiveNode,
+  wsTrigger: WsTriggerNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -196,6 +208,10 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'kafkaConsume': return defaultKafkaConsumeNodeData();
     case 'kafkaTrigger': return defaultKafkaTriggerNodeData();
     case 'kafkaWait':    return defaultKafkaWaitNodeData();
+    case 'wsConnect':    return defaultWsConnectNodeData();
+    case 'wsSend':       return defaultWsSendNodeData();
+    case 'wsReceive':    return defaultWsReceiveNodeData();
+    case 'wsTrigger':    return defaultWsTriggerNodeData();
   }
 }
 
@@ -255,5 +271,53 @@ export function defaultKafkaWaitNodeData(): KafkaWaitNodeData {
     timeoutMs: 60000,
     headerFilters: [],
     loadTestBehavior: { mode: 'wait-for-real' },
+  };
+}
+
+// ── WebSocket Node Defaults ──────────────────────────────────────────
+
+export function defaultWsConnectNodeData(): WsConnectNodeData {
+  return {
+    label: 'WS Connect',
+    url: '',
+    headers: [],
+    queryParams: [],
+    subprotocols: [],
+    connectionId: 'ws1',
+    timeoutMs: 10000,
+    outputBindings: [],
+  };
+}
+
+export function defaultWsSendNodeData(): WsSendNodeData {
+  return {
+    label: 'WS Send',
+    connectionId: 'ws1',
+    message: '',
+    messageType: 'text',
+    waitForResponse: false,
+    responseTimeoutMs: 5000,
+    outputBindings: [],
+  };
+}
+
+export function defaultWsReceiveNodeData(): WsReceiveNodeData {
+  return {
+    label: 'WS Receive',
+    connectionId: 'ws1',
+    timeoutMs: 30000,
+    matchCriteria: { messageType: 'any' },
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultWsTriggerNodeData(): WsTriggerNodeData {
+  return {
+    label: 'WS Trigger',
+    url: '',
+    connectionId: 'ws1',
+    matchCriteria: { messageType: 'any' },
+    extractionRules: [],
   };
 }

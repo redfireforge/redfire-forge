@@ -33,6 +33,12 @@ describe('getAssertionTypeBadgeLabel', () => {
     expect(getAssertionTypeBadgeLabel('custom')).toBe('CUSTOM');
   });
 
+  it('maps transport assertion types to badge labels', () => {
+    expect(getAssertionTypeBadgeLabel('kafkaField')).toBe('KAFKA');
+    expect(getAssertionTypeBadgeLabel('wsField')).toBe('WS');
+    expect(getAssertionTypeBadgeLabel('wsNumericField')).toBe('WS#');
+  });
+
   it('returns SUBSET for unknown types', () => {
     expect(getAssertionTypeBadgeLabel('subset')).toBe('SUBSET');
     expect(getAssertionTypeBadgeLabel('')).toBe('SUBSET');

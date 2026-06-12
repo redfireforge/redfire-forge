@@ -521,6 +521,12 @@
 .params-row.disabled {
   opacity: 0.45;
 }
+.params-row.is-dragging {
+  opacity: 0.4;
+}
+.params-row.is-drag-over {
+  box-shadow: inset 0 2px 0 0 var(--primary);
+}
 .params-row.with-desc {
   grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
 }
@@ -540,6 +546,9 @@
   line-height: 1;
   letter-spacing: -1px;
   opacity: 0.5;
+}
+.params-drag-handle:active {
+  cursor: grabbing;
 }
 
 .params-value-with-insert {

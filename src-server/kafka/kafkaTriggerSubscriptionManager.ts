@@ -245,9 +245,15 @@ async function dispatchWorkflowRun(
   // Each execution gets a unique ID so concurrent runs don't collide
   const executionId = `kafka-${entry.workflowId}-${entry.nodeId}-${randomUUID()}`;
 
+  // Strip the server-only `rawValue` (raw Buffer) before exposing the record to
+  // the workflow: JSON.stringify would otherwise serialize it as a bloated
+  // `{"type":"Buffer","data":[...]}` blob in the `__kafkaTriggerMessage`
+  // variable. Consumers want the (already-stringified/decoded) `value`.
+  const { rawValue: _rawValue, ...triggerRecord } = record;
+
   const initialVariables: Record<string, string> = {
     ...workflow.variables,
-    __kafkaTriggerMessage: JSON.stringify(record),
+    __kafkaTriggerMessage: JSON.stringify(triggerRecord),
   };
 
   try {

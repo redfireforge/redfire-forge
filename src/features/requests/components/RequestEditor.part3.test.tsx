@@ -502,7 +502,7 @@ describe('RequestEditor interaction branches', () => {
     const left = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(left).getByRole('button', { name: /^Headers\b/ }));
 
-    fireEvent.click(within(left).getByRole('button', { name: '+ Add' }));
+    fireEvent.click(within(left).getByTestId('req-headers-add-btn'));
 
     await waitFor(() =>
       expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -700,9 +700,9 @@ describe('RequestEditor interaction branches', () => {
     );
     const requestTabs = document.querySelector('.req-pane-left .req-tabs');
     fireEvent.click(within(requestTabs as HTMLElement).getByRole('button', { name: /^Headers\b/ }));
-    const removeBtn = (container.querySelector('.req-headers-editor') as HTMLElement).querySelector('button.req-icon-btn');
+    const removeBtn = (container.querySelector('.req-headers-editor') as HTMLElement).querySelector('button.ws-connect-kv-remove-btn');
     fireEvent.click(removeBtn!);
-    expect(onUpdateRequest).toHaveBeenCalledWith({ headers: [{ key: '', value: '' }] });
+    expect(onUpdateRequest).toHaveBeenCalledWith({ headers: [] });
   });
 
   it('stacks another header row via the add control beside the bulk actions', () => {
@@ -717,7 +717,7 @@ describe('RequestEditor interaction branches', () => {
     const requestTabs = document.querySelector('.req-pane-left .req-tabs');
     fireEvent.click(within(requestTabs as HTMLElement).getByRole('button', { name: /^Headers\b/ }));
 
-    fireEvent.click(within(container.querySelector('.req-headers-editor') as HTMLElement).getByRole('button', { name: /^\+ Add$/ }));
+    fireEvent.click(within(container.querySelector('.req-headers-editor') as HTMLElement).getByTestId('req-headers-add-btn'));
 
     expect(onUpdateRequest).toHaveBeenCalledWith({
       headers: [
@@ -739,7 +739,7 @@ describe('RequestEditor interaction branches', () => {
     const requestTabs = document.querySelector('.req-pane-left .req-tabs');
     expect(requestTabs).toBeTruthy();
     fireEvent.click(within(requestTabs as HTMLElement).getByRole('button', { name: /^Headers\b/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete all' }));
+    fireEvent.click(screen.getByTestId('req-headers-delete-all-btn'));
     expect(onUpdateRequest).toHaveBeenCalledWith({ headers: [{ key: '', value: '' }] });
   });
 

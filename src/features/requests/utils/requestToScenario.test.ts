@@ -541,6 +541,20 @@ describe('createScenarioFromRequest branches', () => {
     expect(createScenarioFromRequest(req, makeContext()).headers).toEqual([]);
   });
 
+  it('excludes disabled headers and strips the enabled flag from kept ones', () => {
+    const req = makeRequest({
+      headers: [
+        { key: 'Accept', value: 'application/json' },
+        { key: 'X-Skip', value: 'no', enabled: false },
+        { key: 'X-Keep', value: 'yes', enabled: true },
+      ],
+    });
+    expect(createScenarioFromRequest(req, makeContext()).headers).toEqual([
+      { key: 'Accept', value: 'application/json' },
+      { key: 'X-Keep', value: 'yes' },
+    ]);
+  });
+
   it('does not prepend microservice base when resolved URL already absolute', () => {
     const scenario = createScenarioFromRequest(
       makeRequest({ url: 'https://api.example.com/rel' }),

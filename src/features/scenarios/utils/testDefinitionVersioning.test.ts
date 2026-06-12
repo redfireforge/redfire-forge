@@ -439,3 +439,129 @@ describe('hasDefinitionVersions', () => {
     expect(hasDefinitionVersions(s)).toBe(true);
   });
 });
+
+// ─── Transport-aware versioning (Phase 5F.2) ─────────────────────────────
+
+const wsConnectScenario = mkScenario({
+  actionType: 'wsConnect',
+  method: 'WEBSOCKET',
+  url: '',
+  wsConnectAction: { url: 'wss://api.example.com/ws', headers: [], timeoutMs: 5000 },
+});
+
+describe('createSnapshot — transport fields', () => {
+  it('includes actionType for WS scenarios', () => {
+    const snap = createSnapshot(wsConnectScenario);
+    expect(snap.actionType).toBe('wsConnect');
+  });
+
+  it('omits actionType for HTTP scenarios', () => {
+    const snap = createSnapshot(baseScenario);
+    expect(snap.actionType).toBeUndefined();
+  });
+
+  it('omits actionType when explicitly http', () => {
+    const snap = createSnapshot(mkScenario({ actionType: 'http' }));
+    expect(snap.actionType).toBeUndefined();
+  });
+
+  it('includes wsConnectAction when present', () => {
+    const snap = createSnapshot(wsConnectScenario);
+    expect(snap.wsConnectAction).toBeDefined();
+    expect(snap.wsConnectAction!.url).toBe('wss://api.example.com/ws');
+  });
+
+  it('omits wsConnectAction when absent', () => {
+    const snap = createSnapshot(baseScenario);
+    expect(snap.wsConnectAction).toBeUndefined();
+  });
+});
+
+describe('generateChangeSummary — transport changes', () => {
+  it('reports action type changed', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(wsConnectScenario);
+    const summary = generateChangeSummary(oldSnap, newSnap);
+    expect(summary).toContain('action type changed');
+  });
+
+  it('does not report change when both actionType are undefined', () => {
+    const snap = createSnapshot(baseScenario);
+    const summary = generateChangeSummary(snap, snap);
+    expect(summary).toBe('no changes detected');
+  });
+
+  it('does not report change when undefined vs explicit http', () => {
+    const snap1 = createSnapshot(baseScenario);
+    const snap2 = createSnapshot(mkScenario({ actionType: 'http' }));
+    const summary = generateChangeSummary(snap1, snap2);
+    expect(summary).toBe('no changes detected');
+  });
+
+  it('reports WS connect config changed', () => {
+    const old = createSnapshot(wsConnectScenario);
+    const modified = createSnapshot(mkScenario({
+      ...wsConnectScenario,
+      wsConnectAction: { ...wsConnectScenario.wsConnectAction!, url: 'wss://other.com/ws' },
+    }));
+    const summary = generateChangeSummary(old, modified);
+    expect(summary).toContain('WS connect config changed');
+  });
+});
+
+describe('computeSnapshotDiff — transport changes', () => {
+  it('returns actionTypeChanged true when types differ', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(wsConnectScenario);
+    const diff = computeSnapshotDiff(oldSnap, newSnap);
+    expect(diff.actionTypeChanged).toBe(true);
+    expect(diff.transportConfigChanged).toBe(true);
+  });
+
+  it('returns actionTypeChanged false for identical snapshots', () => {
+    const snap = createSnapshot(baseScenario);
+    const diff = computeSnapshotDiff(snap, snap);
+    expect(diff.actionTypeChanged).toBe(false);
+    expect(diff.transportConfigChanged).toBe(false);
+  });
+
+  it('detects transport config change without action type change', () => {
+    const snap1 = createSnapshot(wsConnectScenario);
+    const snap2 = createSnapshot(mkScenario({
+      ...wsConnectScenario,
+      wsConnectAction: { ...wsConnectScenario.wsConnectAction!, timeoutMs: 10000 },
+    }));
+    const diff = computeSnapshotDiff(snap1, snap2);
+    expect(diff.actionTypeChanged).toBe(false);
+    expect(diff.transportConfigChanged).toBe(true);
+  });
+
+  it('preserves HTTP diff fields alongside transport fields', () => {
+    const snap1 = createSnapshot(baseScenario);
+    const snap2 = createSnapshot(mkScenario({ url: 'https://new.example.com' }));
+    const diff = computeSnapshotDiff(snap1, snap2);
+    expect(diff.urlChanged).toBe(true);
+    expect(diff.actionTypeChanged).toBe(false);
+  });
+});
+
+describe('hasChanged — transport awareness', () => {
+  it('detects transport-only change', () => {
+    const httpVersion: TestDefinitionVersion = {
+      id: 'v1',
+      timestamp: 1000,
+      snapshot: createSnapshot(baseScenario),
+    };
+    expect(hasChanged(wsConnectScenario, [httpVersion])).toBe(true);
+  });
+
+  it('no false positive for legacy HTTP vs new HTTP', () => {
+    const legacy: TestDefinitionVersion = {
+      id: 'v1',
+      timestamp: 1000,
+      snapshot: createSnapshot(baseScenario),
+    };
+    const httpWithExplicitType = mkScenario({ actionType: 'http' });
+    expect(hasChanged(httpWithExplicitType, [legacy])).toBe(false);
+  });
+});

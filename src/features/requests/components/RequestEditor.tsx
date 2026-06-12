@@ -18,6 +18,8 @@ import type { UrlResolverContext } from '../utils/requestUrlResolver';
 import { BodyEditor } from './BodyEditor';
 import { ParamsEditor, fromParamEntries } from './ParamsEditor';
 import type { ParamEntry } from './ParamsEditor';
+import { KeyValueEditor } from '../../websocket/KeyValueEditor';
+import type { WsKeyValueEntry } from '../../../shared/websocket/types';
 import { PathParamsEditor } from './PathParamsEditor';
 import type { PathParamEntry } from './PathParamsEditor';
 import { resolvePathParamUrl } from '../utils/pathParamResolver';
@@ -123,6 +125,7 @@ export default function RequestEditor({
       setInputMode('builder');
       setCurlText('');
       setGeneratedCurl('');
+      setShowApiInfo(false);
     }
   }, [request.id, setResponseSearch]);
 
@@ -162,23 +165,23 @@ export default function RequestEditor({
     return request.savedPathParams ?? [];
   }, [request.savedPathParams]);
 
-  const headerCount = useMemo(() => request.headers.filter((h) => h.key.trim()).length, [request.headers]);
+  const headerCount = useMemo(() => request.headers.filter((h) => h.key.trim() && h.enabled !== false).length, [request.headers]);
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length + pathParams.length, [queryParams, pathParams]);
 
   const handleMethodChange = (method: HttpMethod) => onUpdateRequest({ method });
 
-  const handleHeaderChange = (idx: number, field: 'key' | 'value', val: string) => {
-    const headers = [...request.headers];
-    headers[idx] = { ...headers[idx], [field]: val };
-    onUpdateRequest({ headers });
-  };
+  const headerEntries: WsKeyValueEntry[] = useMemo(
+    () => request.headers.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled !== false })),
+    [request.headers],
+  );
 
-  const addHeader = () => onUpdateRequest({ headers: [...request.headers, { key: '', value: '' }] });
-
-  const removeHeader = (idx: number) => {
-    const headers = request.headers.filter((_, i) => i !== idx);
-    onUpdateRequest({ headers: headers.length > 0 ? headers : [{ key: '', value: '' }] });
-  };
+  const handleHeadersChange = useCallback((entries: WsKeyValueEntry[]) => {
+    onUpdateRequest({
+      headers: entries.map((e) =>
+        e.enabled === false ? { key: e.key, value: e.value, enabled: false } : { key: e.key, value: e.value },
+      ),
+    });
+  }, [onUpdateRequest]);
 
   const subColEnvId = useMemo(() => {
     if (!parentSubCollection) return undefined;
@@ -306,7 +309,10 @@ export default function RequestEditor({
 
   const buildRequestHeaders = useCallback(async (scenario: Scenario, contentType: string | null, envId?: string): Promise<Record<string, string>> => {
     const h: Record<string, string> = {};
-    for (const kv of scenario.headers) { if (kv.key.trim()) h[kv.key.trim()] = kv.value; }
+    for (const kv of scenario.headers) {
+      if (kv.enabled === false) continue;
+      if (kv.key.trim()) h[kv.key.trim()] = kv.value;
+    }
     if (contentType) {
       if (contentType.startsWith('multipart/form-data')) h['Content-Type'] = contentType;
       else if (!h['Content-Type']) h['Content-Type'] = contentType;
@@ -677,18 +683,15 @@ export default function RequestEditor({
               {activeTab === 'body' && <BodyEditor draft={draftScenario} onDraftChange={handleDraftChange} />}
 
               {activeTab === 'headers' && (
-                <div className="req-headers-editor">
-                  <div className="req-kv-toolbar">
-                    <button className="btn btn-sm" onClick={addHeader}>+ Add</button>
-                    <button className="btn btn-sm btn-ghost" onClick={() => onUpdateRequest({ headers: [{ key: '', value: '' }] })}>Delete all</button>
-                  </div>
-                  {request.headers.map((h, i) => (
-                    <div key={i} className="req-header-row">
-                      <input className="req-input" value={h.key} onChange={(e) => handleHeaderChange(i, 'key', e.target.value)} placeholder="Header name" />
-                      <input className="req-input" value={h.value} onChange={(e) => handleHeaderChange(i, 'value', e.target.value)} placeholder="Value" />
-                      <button className="req-icon-btn danger" onClick={() => removeHeader(i)}>&times;</button>
-                    </div>
-                  ))}
+                <div className="req-headers-editor req-headers-kv">
+                  <KeyValueEditor
+                    entries={headerEntries}
+                    onChange={handleHeadersChange}
+                    onDeleteAll={() => onUpdateRequest({ headers: [{ key: '', value: '' }] })}
+                    label="Headers"
+                    toggleVerb="send"
+                    testIdPrefix="req-headers"
+                  />
                 </div>
               )}
 

@@ -28,6 +28,14 @@ const CONSOLE_LABELS: Record<string, string> = {
   errorHandler: 'Error Handler',
   group: 'Group',
   parallel: 'Parallel',
+  kafkaProduce: 'Kafka Produce',
+  kafkaConsume: 'Kafka Consume',
+  kafkaTrigger: 'Kafka Trigger',
+  kafkaWait: 'Kafka Wait',
+  wsConnect: 'WS Connect',
+  wsSend: 'WS Send',
+  wsReceive: 'WS Receive',
+  wsTrigger: 'WS Trigger',
 };
 
 const EXPLORER_LABELS: Record<string, string> = {
@@ -52,6 +60,14 @@ const EXPLORER_LABELS: Record<string, string> = {
   errorHandler: 'ERROR HANDLER',
   group: 'GROUP',
   parallel: 'PARALLEL',
+  kafkaProduce: 'KAFKA PRODUCE',
+  kafkaConsume: 'KAFKA CONSUME',
+  kafkaTrigger: 'KAFKA TRIGGER',
+  kafkaWait: 'KAFKA WAIT',
+  wsConnect: 'WS CONNECT',
+  wsSend: 'WS SEND',
+  wsReceive: 'WS RECEIVE',
+  wsTrigger: 'WS TRIGGER',
 };
 
 export function formatNodeTypeConsole(type: string): string {
