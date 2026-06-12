@@ -6,7 +6,7 @@ import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage } from '../shared/utils/helpers';
+import { toErrorMessage, parseJsonOrRaw } from '../shared/utils/helpers';
 
 let _resultIdCounter = 0;
 let _resultIdPrefix = 'r';
@@ -115,7 +115,7 @@ async function executeRequest(
         || (scenario.validation.assertions?.length ?? 0) > 0
         || (scenario.validation.expectedFields?.length ?? 0) > 0;
       if (needsParse && responseBody) {
-        try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
+        responseObj = parseJsonOrRaw(responseBody);
       } else {
         responseObj = responseBody;
       }

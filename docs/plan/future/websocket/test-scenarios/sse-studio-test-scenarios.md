@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** SSE test server (or simple Node.js SSE endpoint)
+>
+> **2026-06-12 — Shell-IA doc refresh:** SSE Studio now uses a split-pane shell — **left-pane tabs** (Connect | Auth) and **right-pane tabs** (Events | Console), plus an SSE command line. The flat single-column layout was replaced. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -89,11 +91,14 @@ npm run dev          # Frontend → http://localhost:5173
 2. Observe the page structure
 
 **Expected Results:**
-- [ ] URL input with placeholder: "https://api.example.com/events"
+- [ ] Left pane shows **Connect** and **Auth** tabs; right pane shows **Events** and **Console** tabs
+- [ ] On the **Connect** left tab: URL input with placeholder "https://api.example.com/events"
 - [ ] **Connect** button (disabled when URL empty)
-- [ ] **Headers** button for adding custom HTTP headers
+- [ ] **Headers** button for adding custom HTTP headers (or the **Auth** left tab for auth/headers)
 - [ ] Connection status indicator: "Disconnected"
-- [ ] Event log area with toolbar (search, type filter, bookmark, export, clear)
+- [ ] **Events** right tab: event log area with toolbar (search, type filter, bookmark, export, clear)
+- [ ] **Console** right tab available for SSE command-line history
+- [ ] An SSE command line is present below the panes
 - [ ] Footer: Events: 0, Showing: 0, Uptime: —
 
 ---

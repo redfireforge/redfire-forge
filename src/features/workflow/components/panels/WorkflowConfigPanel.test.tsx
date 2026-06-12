@@ -206,6 +206,16 @@ describe('WorkflowConfigPanel', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('stops propagation when clicking inside the expanded modal', async () => {
+    const user = userEvent.setup();
+    render(<WorkflowConfigPanel {...baseProps} node={makeNode('http', { label: 'Get' })} />);
+    await user.click(screen.getByTitle('Expand to full screen'));
+    const dialog = screen.getByRole('dialog');
+    await user.click(dialog);
+    // Clicking inside the modal must not close it (stopPropagation prevents overlay dismissal)
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
   it('collapses via shrink button in expanded header', async () => {
     const user = userEvent.setup();
     render(<WorkflowConfigPanel {...baseProps} node={makeNode('condition')} />);

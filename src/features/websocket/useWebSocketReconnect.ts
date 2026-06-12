@@ -74,7 +74,7 @@ export function useWebSocketReconnect(
     setReconnectState(createDefaultReconnectState(maxReconnectAttemptsRef.current));
   }, []);
 
-  const scheduleReconnectRef = useRef<() => void>(() => {});
+  const scheduleReconnectRef = useRef<() => void>(/* v8 ignore next */ () => {});
 
   scheduleReconnectRef.current = () => {
     if (!autoReconnectRef.current || !mountedRef.current) return;

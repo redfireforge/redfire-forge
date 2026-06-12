@@ -137,6 +137,9 @@ function makeRecordingReturn(overrides?: Partial<UseWebSocketRecordingReturn>): 
   };
 }
 
+// The component is always shell-driven now: the parent (WebSocketStudioPage)
+// owns navigation and feeds `controlledMode`/`controlledLeftTab`/`controlledRightTab`.
+// Default props place it in Client mode on the Connect/Events location.
 function makeProps(overrides?: Partial<WsConnectionTabContentProps>): WsConnectionTabContentProps {
   return {
     tabId: 'test-tab',
@@ -145,6 +148,9 @@ function makeProps(overrides?: Partial<WsConnectionTabContentProps>): WsConnecti
     templatesHook: mockTemplates,
     onConnectionStateChange: vi.fn(),
     onUrlChange: vi.fn(),
+    controlledMode: 'client',
+    controlledLeftTab: 'connect',
+    controlledRightTab: 'events',
     ...overrides,
   };
 }
@@ -163,35 +169,10 @@ afterEach(() => {
 });
 
 describe('WsConnectionTabContent', () => {
+  // ── Basic rendering ──────────────────────────────────────────────
   it('renders with correct testid', () => {
     render(<WsConnectionTabContent {...makeProps()} />);
     expect(screen.getByTestId('conn-tab-content-test-tab')).toBeTruthy();
-  });
-
-  it('renders Connect/Messages/Saved view tabs', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByTestId('tab-connect')).toBeTruthy();
-    expect(screen.getByTestId('tab-messages')).toBeTruthy();
-    expect(screen.getByTestId('tab-saved')).toBeTruthy();
-  });
-
-  it('Connect tab is active by default', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
-  });
-
-  it('shows guard when disconnected and URL is blank', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByText('No WebSocket connection')).toBeTruthy();
-  });
-
-  it('hides guard when URL is present', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://localhost:8765', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
   it('shows config lock banner when connected', () => {
@@ -200,106 +181,8 @@ describe('WsConnectionTabContent', () => {
       connection: { state: 'connected' },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
+    render(<WsConnectionTabContent {...makeProps({ controlledLeftTab: 'connect' })} />);
     expect(screen.getByTestId('config-lock-banner')).toBeTruthy();
-  });
-
-  it('switches to Messages tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
-  });
-
-  it('switches to Saved tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
-    expect(screen.getByText(/No saved connections/)).toBeTruthy();
-  });
-
-  it('shows message badge on Messages tab', () => {
-    const msg = {
-      id: '1', direction: 'received' as const, type: 'text' as const,
-      data: 'hi', size: 2, timestamp: new Date().toISOString(),
-    };
-    mockStudio = makeStudioReturn({ messages: [msg] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByText('1')).toBeTruthy();
-  });
-
-  it('exposes handle via ref', () => {
-    const ref = createRef<WsConnectionTabContentHandle>();
-    render(<WsConnectionTabContent ref={ref} {...makeProps()} />);
-    expect(ref.current).toBeTruthy();
-    expect(ref.current!.getConnectionState()).toBe('disconnected');
-    expect(ref.current!.getUrl()).toBe('');
-    expect(ref.current!.getMessageCount()).toBe(0);
-  });
-
-  it('reports connection state changes', () => {
-    const onStateChange = vi.fn();
-    const { rerender } = render(
-      <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
-    );
-    mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(
-      <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
-    );
-    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
-  });
-
-  it('maps closing state to connected hint', () => {
-    const onStateChange = vi.fn();
-    mockStudio = makeStudioReturn({ connection: { state: 'closing' as 'connected' } });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(
-      <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
-    );
-    const calls = onStateChange.mock.calls.filter((c: unknown[]) => c[1] === 'connected');
-    expect(calls.length).toBeGreaterThanOrEqual(0);
-  });
-
-  it('passes envVarMap to useWebSocketStudio', () => {
-    const spy = vi.spyOn(hookModule, 'useWebSocketStudio');
-    const envMap = { baseUrl: 'https://api.example.com', host: 'api.example.com' };
-    render(<WsConnectionTabContent {...makeProps({ envVarMap: envMap })} />);
-    expect(spy).toHaveBeenCalledWith(envMap, []);
-  });
-
-  it('handleLoadProfile calls studio setters on Saved tab', () => {
-    const profile = {
-      id: 'p1', name: 'Test', url: 'wss://api.example.com',
-      headers: [], queryParams: [], subprotocols: 'graphql-ws',
-      autoReconnect: true, maxReconnectAttempts: 10,
-      reconnectIntervalMs: 5000, maxMessages: 500,
-      protocolMode: 'graphql-ws' as const,
-      backoffMultiplier: 2 as const,
-      createdAt: '', updatedAt: '',
-    };
-    mockProfiles = makeProfilesReturn({ profiles: [profile] });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
-    fireEvent.click(screen.getByTestId('load-btn-p1'));
-    expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('graphql-ws');
-    expect(mockStudio.setAutoReconnect).toHaveBeenCalledWith(true);
-    expect(mockStudio.setMaxReconnectAttempts).toHaveBeenCalledWith(10);
-    expect(mockStudio.setReconnectIntervalMs).toHaveBeenCalledWith(5000);
-    expect(mockStudio.setBackoffMultiplier).toHaveBeenCalledWith(2);
-    expect(mockStudio.setMaxMessages).toHaveBeenCalledWith(500);
-    expect(mockStudio.setTlsConfig).toHaveBeenCalled();
-  });
-
-  it('handleSaveAsProfile switches to Saved tab with prefill', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://localhost:8765', subprotocols: 'json', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('save-as-profile-btn'));
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
   });
 
   it('disconnect from banner works', () => {
@@ -308,72 +191,36 @@ describe('WsConnectionTabContent', () => {
       connection: { state: 'connected' },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
+    render(<WsConnectionTabContent {...makeProps({ controlledLeftTab: 'connect' })} />);
     fireEvent.click(screen.getByTestId('banner-disconnect-link'));
     expect(mockStudio.disconnect).toHaveBeenCalled();
   });
 
-  it('shows Mock tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByTestId('tab-mock')).toBeTruthy();
-  });
-
-  it('switches to Mock tab and shows mock server panel', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-mock'));
-    expect(screen.getByTestId('tab-mock').className).toContain('active');
-    expect(screen.getByTestId('mock-server-panel')).toBeTruthy();
-  });
-
-  it('calls onViewTabChange when switching tabs', () => {
-    const onViewTabChange = vi.fn();
-    render(<WsConnectionTabContent {...makeProps({ onViewTabChange })} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(onViewTabChange).toHaveBeenCalledWith('test-tab', 'messages');
-  });
-
-  it('starts with initialViewTab if provided', () => {
-    render(<WsConnectionTabContent {...makeProps({ initialViewTab: 'messages' })} />);
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-  });
-
-  it('applies initialUrl on mount', () => {
-    render(<WsConnectionTabContent {...makeProps({ initialUrl: 'ws://preset:3000' })} />);
-    expect(mockStudio.setDraft).toHaveBeenCalledWith({ url: 'ws://preset:3000' });
-  });
-
-  it('reports URL changes', () => {
-    const onUrlChange = vi.fn();
-    const { rerender } = render(
-      <WsConnectionTabContent {...makeProps({ onUrlChange })} />,
-    );
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://changed:9000', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps({ onUrlChange })} />);
-    expect(onUrlChange).toHaveBeenCalledWith('test-tab', 'ws://changed:9000');
-  });
-
-  it('shows guard on connect tab when disconnected and URL empty', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByText('No WebSocket connection')).toBeTruthy();
-    expect(screen.getByText(/Enter a WebSocket URL and click Connect/)).toBeTruthy();
-  });
-
-  it('hides guard when connected even with URL', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      connection: { state: 'connected' },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
-  });
-
-  it('shows save-as-profile button', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
+  it('shows save-as-profile button on the connect tab', () => {
+    render(<WsConnectionTabContent {...makeProps({ controlledLeftTab: 'connect' })} />);
     expect(screen.getByTestId('save-as-profile-btn')).toBeTruthy();
+  });
+
+  it('shows the message count badge on the Compose left tab', () => {
+    const msgs = [
+      { id: '1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() },
+      { id: '2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() },
+      { id: '3', direction: 'received' as const, type: 'text' as const, data: 'c', size: 1, timestamp: new Date().toISOString() },
+    ];
+    mockStudio = makeStudioReturn({ messages: msgs });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    render(<WsConnectionTabContent {...makeProps()} />);
+    expect(screen.getByTestId('left-tab-compose').textContent).toContain('3');
+  });
+
+  // ── Ref handle ───────────────────────────────────────────────────
+  it('exposes handle via ref', () => {
+    const ref = createRef<WsConnectionTabContentHandle>();
+    render(<WsConnectionTabContent ref={ref} {...makeProps()} />);
+    expect(ref.current).toBeTruthy();
+    expect(ref.current!.getConnectionState()).toBe('disconnected');
+    expect(ref.current!.getUrl()).toBe('');
+    expect(ref.current!.getMessageCount()).toBe(0);
   });
 
   it('ref getConnectionState maps closing to connected', () => {
@@ -396,16 +243,69 @@ describe('WsConnectionTabContent', () => {
     expect(ref.current!.getMessageCount()).toBe(2);
   });
 
-  it('shows profile count on Saved tab', () => {
-    mockProfiles = makeProfilesReturn({
-      profiles: [
-        { id: 'p1', name: 'A', url: 'wss://a', headers: [], queryParams: [], subprotocols: '', autoReconnect: false, maxReconnectAttempts: 5, reconnectIntervalMs: 3000, maxMessages: 1000, createdAt: '', updatedAt: '' },
-        { id: 'p2', name: 'B', url: 'wss://b', headers: [], queryParams: [], subprotocols: '', autoReconnect: false, maxReconnectAttempts: 5, reconnectIntervalMs: 3000, maxMessages: 1000, createdAt: '', updatedAt: '' },
-      ],
+  // ── Connection state + URL reporting (layout independent) ─────────
+  it('reports connection state changes', () => {
+    const onStateChange = vi.fn();
+    const { rerender } = render(
+      <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
+    );
+    mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(
+      <WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />,
+    );
+    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
+  });
+
+  it('reports URL changes', () => {
+    const onUrlChange = vi.fn();
+    const { rerender } = render(
+      <WsConnectionTabContent {...makeProps({ onUrlChange })} />,
+    );
+    mockStudio = makeStudioReturn({
+      draft: { url: 'ws://changed:9000', subprotocols: '', headers: [], queryParams: [] },
     });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    const savedTab = screen.getByTestId('tab-saved');
-    expect(savedTab.textContent).toContain('2');
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps({ onUrlChange })} />);
+    expect(onUrlChange).toHaveBeenCalledWith('test-tab', 'ws://changed:9000');
+  });
+
+  it('passes envVarMap to useWebSocketStudio', () => {
+    const spy = vi.spyOn(hookModule, 'useWebSocketStudio');
+    const envMap = { baseUrl: 'https://api.example.com', host: 'api.example.com' };
+    render(<WsConnectionTabContent {...makeProps({ envVarMap: envMap })} />);
+    expect(spy).toHaveBeenCalledWith(envMap, []);
+  });
+
+  it('applies initialUrl on mount', () => {
+    render(<WsConnectionTabContent {...makeProps({ initialUrl: 'ws://preset:3000' })} />);
+    expect(mockStudio.setDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'ws://preset:3000' }),
+    );
+  });
+
+  // ── handleLoadProfile (Saved mode: select then load) ──────────────
+  it('handleLoadProfile calls studio setters when a profile is loaded', () => {
+    const profile = {
+      id: 'p1', name: 'Test', url: 'wss://api.example.com',
+      headers: [], queryParams: [], subprotocols: 'graphql-ws',
+      autoReconnect: true, maxReconnectAttempts: 10,
+      reconnectIntervalMs: 5000, maxMessages: 500,
+      protocolMode: 'graphql-ws' as const,
+      backoffMultiplier: 2 as const,
+      createdAt: '', updatedAt: '',
+    };
+    mockProfiles = makeProfilesReturn({ profiles: [profile] });
+    render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved', profilesHook: mockProfiles })} />);
+    fireEvent.click(screen.getByTestId('profile-card-p1'));
+    fireEvent.click(screen.getByTestId('load-btn-p1'));
+    expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('graphql-ws');
+    expect(mockStudio.setAutoReconnect).toHaveBeenCalledWith(true);
+    expect(mockStudio.setMaxReconnectAttempts).toHaveBeenCalledWith(10);
+    expect(mockStudio.setReconnectIntervalMs).toHaveBeenCalledWith(5000);
+    expect(mockStudio.setBackoffMultiplier).toHaveBeenCalledWith(2);
+    expect(mockStudio.setMaxMessages).toHaveBeenCalledWith(500);
+    expect(mockStudio.setTlsConfig).toHaveBeenCalled();
   });
 
   it('handleLoadProfile applies TLS config from profile', () => {
@@ -418,243 +318,14 @@ describe('WsConnectionTabContent', () => {
       createdAt: '', updatedAt: '',
     };
     mockProfiles = makeProfilesReturn({ profiles: [profile] });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved', profilesHook: mockProfiles })} />);
+    fireEvent.click(screen.getByTestId('profile-card-p1'));
     fireEvent.click(screen.getByTestId('load-btn-p1'));
     expect(mockStudio.setTlsConfig).toHaveBeenCalledWith(
       expect.objectContaining({ rejectUnauthorized: false }),
     );
   });
 
-  it('renders metrics section on messages tab when connected', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      connection: { state: 'connected' },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-  });
-
-  it('renders mock server tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    const mockTab = screen.getByTestId('tab-mock');
-    expect(mockTab).toBeTruthy();
-    fireEvent.click(mockTab);
-    expect(mockTab.className).toContain('active');
-  });
-
-  it('starts on connect tab by default', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
-  });
-
-  it('renders saved tab and shows profiles', () => {
-    const profile = {
-      id: 'p2', name: 'Test Profile', url: 'ws://simple',
-      headers: [], queryParams: [], subprotocols: '',
-      autoReconnect: false, maxReconnectAttempts: 5,
-      reconnectIntervalMs: 3000, maxMessages: 1000,
-      createdAt: '', updatedAt: '',
-    };
-    mockProfiles = makeProfilesReturn({ profiles: [profile] });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
-  });
-
-  // ── Recording controls ──────────────────────────────────────────
-  it('shows recording start button on messages tab when idle', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('start-recording-btn')).toBeTruthy();
-  });
-
-  it('shows load test toggle on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('load-test-toggle-btn')).toBeTruthy();
-  });
-
-  it('toggles load test panel on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      connection: { state: 'connected' },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    fireEvent.click(screen.getByTestId('load-test-toggle-btn'));
-    // Load test panel should be visible
-    expect(screen.getByTestId('load-test-panel')).toBeTruthy();
-  });
-
-  // ── handleEditConnection ──────────────────────────────────────────
-  it('handleEditConnection cancels reconnect and switches to connect tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      connection: { state: 'connected' },
-      reconnectState: { ...createDefaultReconnectState(), isReconnecting: true },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    // Switch to messages first
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-    // Switch back to connect
-    fireEvent.click(screen.getByTestId('tab-connect'));
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
-  });
-
-  // ── handleLocalHistorySelect ──────────────────────────────────────
-  it('renders schema toggle on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('schema-toggle-btn')).toBeTruthy();
-  });
-
-  // ── Guard hides on messages tab ──────────────────────────────────
-  it('does not show guard on messages tab even when URL is empty', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
-  });
-
-  // ── Mock tab shows mock server ──────────────────────────────────
-  it('shows mock server on mock tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-mock'));
-    expect(screen.getByTestId('mock-server-panel')).toBeTruthy();
-  });
-
-  // ── Connection state recording via effect ──────────────────────
-  it('reports closing state as connected hint on transition', () => {
-    const onStateChange = vi.fn();
-    const { rerender } = render(<WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />);
-    onStateChange.mockClear();
-    // Transition to closing
-    mockStudio = makeStudioReturn({ connection: { state: 'closing' as 'connected' } });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps({ onConnectionStateChange: onStateChange })} />);
-    expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
-  });
-
-  // ── handleSwitchToConnect from saved tab ──────────────────────
-  it('handleSwitchToConnect returns to connect tab', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
-    // The WebSocketSavedConnections component should have some way back
-    expect(screen.getByTestId('tab-connect')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('tab-connect'));
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
-  });
-
-  // ── handleApplyDraft ──────────────────────────────────────────
-  it('passes onApplyDraft to saved connections', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
-    // Saved connections panel renders - onApplyDraft is wired
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
-  });
-
-  // ── Export button on messages tab ──────────────────────────────
-  it('shows export button on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('export-messages-btn')).toBeTruthy();
-  });
-
-  // ── Compare button on messages tab ──────────────────────────────
-  it('shows compare button on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('compare-btn')).toBeTruthy();
-  });
-
-  // ── Filter bar toggles on messages tab ──────────────────────────
-  it('shows filter toggle on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('filter-toggle-btn')).toBeTruthy();
-  });
-
-  // ── Status bar visibility ──────────────────────────────────────
-  it('shows status bar on messages tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      connection: { state: 'connected', url: 'ws://test' },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('messages-status-bar')).toBeTruthy();
-  });
-
-  it('hides status bar on connect tab', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    // Stay on connect tab
-    expect(screen.queryByTestId('messages-status-bar')).toBeNull();
-  });
-
-  // ── handlePrefillConsumed clears prefill ──────────────────────
-  it('clears prefill after save-as-profile consumed', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://localhost:8765', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    // Trigger save-as-profile
-    fireEvent.click(screen.getByTestId('save-as-profile-btn'));
-    expect(screen.getByTestId('tab-saved').className).toContain('active');
-    // Switch away and back to verify state is stable
-    fireEvent.click(screen.getByTestId('tab-connect'));
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
-  });
-
-  // ── Message badge shows correct count ──────────────────────────
-  it('shows message count on messages tab badge', () => {
-    const msgs = [
-      { id: '1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() },
-      { id: '2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() },
-      { id: '3', direction: 'received' as const, type: 'text' as const, data: 'c', size: 1, timestamp: new Date().toISOString() },
-    ];
-    mockStudio = makeStudioReturn({ messages: msgs });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByText('3')).toBeTruthy();
-  });
-
-  // ── handleLoadProfile without protocolMode defaults to auto ──
   it('handleLoadProfile uses auto when profile has no protocolMode', () => {
     const profile = {
       id: 'p3', name: 'No Protocol', url: 'wss://test',
@@ -664,107 +335,13 @@ describe('WsConnectionTabContent', () => {
       createdAt: '', updatedAt: '',
     };
     mockProfiles = makeProfilesReturn({ profiles: [profile] });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved', profilesHook: mockProfiles })} />);
+    fireEvent.click(screen.getByTestId('profile-card-p3'));
     fireEvent.click(screen.getByTestId('load-btn-p3'));
     expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('auto');
   });
 
-  // ── Mock tab badge when server running ──────────────────────────
-  it('shows running badge on mock tab when mock server active', () => {
-    render(<WsConnectionTabContent {...makeProps()} />);
-    const mockTab = screen.getByTestId('tab-mock');
-    expect(mockTab).toBeTruthy();
-  });
-
-  // ── Recording lifecycle: records new messages during recording ──
-  it('records new messages when recording state is active', () => {
-    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
-    const msg2 = { id: 'm2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() };
-    mockRecording = makeRecordingReturn({ state: 'recording' });
-    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-    mockStudio = makeStudioReturn({ messages: [msg1] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
-    mockRecording.recordMessage.mockClear();
-    // Add another message
-    mockStudio = makeStudioReturn({ messages: [msg1, msg2] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps()} />);
-    expect(mockRecording.recordMessage).toHaveBeenCalledWith(msg2);
-  });
-
-  // ── Recording lifecycle: cap eviction branch ──
-  it('handles cap eviction during recording when array same size but new IDs', () => {
-    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
-    const msg2 = { id: 'm2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() };
-    mockRecording = makeRecordingReturn({ state: 'recording' });
-    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-    // Start with 2 messages
-    mockStudio = makeStudioReturn({ messages: [msg1, msg2] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
-    mockRecording.recordMessage.mockClear();
-    // Cap eviction: same array size, but m1 is gone, new m3 appears
-    const msg3 = { id: 'm3', direction: 'received' as const, type: 'text' as const, data: 'c', size: 1, timestamp: new Date().toISOString() };
-    mockStudio = makeStudioReturn({ messages: [msg2, msg3] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps()} />);
-    expect(mockRecording.recordMessage).toHaveBeenCalledWith(msg3);
-  });
-
-  // ── Recording lifecycle: skips recording when not in recording state ──
-  it('does not call recordMessage when not in recording state', () => {
-    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
-    mockRecording = makeRecordingReturn({ state: 'idle' });
-    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-    mockStudio = makeStudioReturn({ messages: [] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
-    mockRecording.recordMessage.mockClear();
-    mockStudio = makeStudioReturn({ messages: [msg1] });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps()} />);
-    expect(mockRecording.recordMessage).not.toHaveBeenCalled();
-  });
-
-  // ── Recording lifecycle: records connection state changes ──
-  it('records connection state change during recording', () => {
-    mockRecording = makeRecordingReturn({ state: 'recording' });
-    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-    mockStudio = makeStudioReturn({
-      connection: { state: 'disconnected' },
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
-    mockRecording.recordStateChange.mockClear();
-    // Transition to connected
-    mockStudio = makeStudioReturn({
-      connection: { state: 'connected' },
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps()} />);
-    expect(mockRecording.recordStateChange).toHaveBeenCalledWith('connected', 'ws://test');
-  });
-
-  // ── Recording lifecycle: does not record state change when not recording ──
-  it('does not record state change when not in recording state', () => {
-    mockRecording = makeRecordingReturn({ state: 'idle' });
-    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-    mockStudio = makeStudioReturn({ connection: { state: 'disconnected' } });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
-    mockRecording.recordStateChange.mockClear();
-    mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    rerender(<WsConnectionTabContent {...makeProps()} />);
-    expect(mockRecording.recordStateChange).not.toHaveBeenCalled();
-  });
-
-  // ── handleLoadProfile applies all profile settings ──
-  it('handleLoadProfile applies full profile settings including TLS', () => {
+  it('handleLoadProfile applies full profile settings including the draft', () => {
     const profile = {
       id: 'p-full', name: 'Full Profile', url: 'wss://full',
       headers: [], queryParams: [], subprotocols: '',
@@ -780,8 +357,8 @@ describe('WsConnectionTabContent', () => {
       profiles: [profile],
       loadProfileAsDraft: vi.fn().mockReturnValue(draftResult),
     });
-    render(<WsConnectionTabContent {...makeProps({ profilesHook: mockProfiles })} />);
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    render(<WsConnectionTabContent {...makeProps({ controlledMode: 'saved', profilesHook: mockProfiles })} />);
+    fireEvent.click(screen.getByTestId('profile-card-p-full'));
     fireEvent.click(screen.getByTestId('load-btn-p-full'));
     expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('stomp');
     expect(mockStudio.setAutoReconnect).toHaveBeenCalledWith(true);
@@ -790,11 +367,87 @@ describe('WsConnectionTabContent', () => {
     expect(mockStudio.setBackoffMultiplier).toHaveBeenCalledWith(2);
     expect(mockStudio.setMaxMessages).toHaveBeenCalledWith(500);
     expect(mockStudio.setTlsConfig).toHaveBeenCalled();
-    // Verify handleApplyDraft was triggered (setDraft called with the draft)
     expect(mockStudio.setDraft).toHaveBeenCalledWith(draftResult);
   });
 
-  // ── Recording lifecycle: cap eviction with lastSeen not found ──
+  // ── Recording lifecycle (layout independent) ─────────────────────
+  it('records new messages when recording state is active', () => {
+    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
+    const msg2 = { id: 'm2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() };
+    mockRecording = makeRecordingReturn({ state: 'recording' });
+    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+    mockStudio = makeStudioReturn({ messages: [msg1] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
+    mockRecording.recordMessage.mockClear();
+    mockStudio = makeStudioReturn({ messages: [msg1, msg2] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps()} />);
+    expect(mockRecording.recordMessage).toHaveBeenCalledWith(msg2);
+  });
+
+  it('handles cap eviction during recording when array same size but new IDs', () => {
+    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
+    const msg2 = { id: 'm2', direction: 'sent' as const, type: 'text' as const, data: 'b', size: 1, timestamp: new Date().toISOString() };
+    mockRecording = makeRecordingReturn({ state: 'recording' });
+    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+    mockStudio = makeStudioReturn({ messages: [msg1, msg2] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
+    mockRecording.recordMessage.mockClear();
+    const msg3 = { id: 'm3', direction: 'received' as const, type: 'text' as const, data: 'c', size: 1, timestamp: new Date().toISOString() };
+    mockStudio = makeStudioReturn({ messages: [msg2, msg3] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps()} />);
+    expect(mockRecording.recordMessage).toHaveBeenCalledWith(msg3);
+  });
+
+  it('does not call recordMessage when not in recording state', () => {
+    const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
+    mockRecording = makeRecordingReturn({ state: 'idle' });
+    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+    mockStudio = makeStudioReturn({ messages: [] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
+    mockRecording.recordMessage.mockClear();
+    mockStudio = makeStudioReturn({ messages: [msg1] });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps()} />);
+    expect(mockRecording.recordMessage).not.toHaveBeenCalled();
+  });
+
+  it('records connection state change during recording', () => {
+    mockRecording = makeRecordingReturn({ state: 'recording' });
+    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+    mockStudio = makeStudioReturn({
+      connection: { state: 'disconnected' },
+      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
+    });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
+    mockRecording.recordStateChange.mockClear();
+    mockStudio = makeStudioReturn({
+      connection: { state: 'connected' },
+      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
+    });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps()} />);
+    expect(mockRecording.recordStateChange).toHaveBeenCalledWith('connected', 'ws://test');
+  });
+
+  it('does not record state change when not in recording state', () => {
+    mockRecording = makeRecordingReturn({ state: 'idle' });
+    vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+    mockStudio = makeStudioReturn({ connection: { state: 'disconnected' } });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
+    mockRecording.recordStateChange.mockClear();
+    mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps()} />);
+    expect(mockRecording.recordStateChange).not.toHaveBeenCalled();
+  });
+
   it('handles cap eviction when lastSeen message is gone from array', () => {
     const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
     mockRecording = makeRecordingReturn({ state: 'recording' });
@@ -803,16 +456,13 @@ describe('WsConnectionTabContent', () => {
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
     mockRecording.recordMessage.mockClear();
-    // Replace with completely different message, same length → cap eviction, lastSeen not found
     const msg2 = { id: 'm2', direction: 'sent' as const, type: 'text' as const, data: 'x', size: 1, timestamp: new Date().toISOString() };
     mockStudio = makeStudioReturn({ messages: [msg2] });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     rerender(<WsConnectionTabContent {...makeProps()} />);
-    // Should use fallback startIdx = msgs.length - 1
     expect(mockRecording.recordMessage).toHaveBeenCalledWith(msg2);
   });
 
-  // ── Recording: skips when messages array empty during recording ──
   it('skips recording when messages become empty during recording', () => {
     const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
     mockRecording = makeRecordingReturn({ state: 'recording' });
@@ -821,14 +471,12 @@ describe('WsConnectionTabContent', () => {
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
     mockRecording.recordMessage.mockClear();
-    // Clear messages
     mockStudio = makeStudioReturn({ messages: [] });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     rerender(<WsConnectionTabContent {...makeProps()} />);
     expect(mockRecording.recordMessage).not.toHaveBeenCalled();
   });
 
-  // ── Recording: skips when same lastId during recording ──
   it('skips recording when messages have same lastId', () => {
     const msg1 = { id: 'm1', direction: 'received' as const, type: 'text' as const, data: 'a', size: 1, timestamp: new Date().toISOString() };
     mockRecording = makeRecordingReturn({ state: 'recording' });
@@ -837,206 +485,11 @@ describe('WsConnectionTabContent', () => {
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     const { rerender } = render(<WsConnectionTabContent {...makeProps()} />);
     mockRecording.recordMessage.mockClear();
-    // Same messages array → lastId unchanged
     rerender(<WsConnectionTabContent {...makeProps()} />);
     expect(mockRecording.recordMessage).not.toHaveBeenCalled();
   });
 
-  // ── handleLocalHistorySelect sets URL and protocol ──
-  it('handleLocalHistorySelect sets URL and protocol from history', () => {
-    const historyEntries = [
-      { url: 'ws://hist.example.com', protocol: 'stomp', lastUsed: new Date().toISOString() },
-    ];
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://old', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps({ history: historyEntries })} />);
-    // Click URL history trigger
-    const trigger = screen.queryByTestId('url-history-trigger');
-    if (trigger) {
-      fireEvent.click(trigger);
-      const item = screen.queryByTestId('url-history-item');
-      if (item) {
-        fireEvent.click(item);
-        expect(mockStudio.setDraft).toHaveBeenCalledWith({ url: 'ws://hist.example.com' });
-        expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('stomp');
-      }
-    }
-  });
-
-  // ── Schema toggle visibility ──
-  it('toggles schema panel visibility via schema toggle button', () => {
-    mockStudio = makeStudioReturn({
-      draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-    });
-    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-    render(<WsConnectionTabContent {...makeProps()} />);
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    const schemaBtn = screen.queryByTestId('schema-toggle-btn');
-    if (schemaBtn) {
-      fireEvent.click(schemaBtn);
-      // The toggle should have been called
-    }
-  });
-
-  // ── Controlled view tab (shell-driven navigation) ──
-  describe('controlled mode', () => {
-    it('hides its own view-tab bar when controlledViewTab is provided', () => {
-      render(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'connect' })} />);
-      expect(screen.queryByTestId('tab-connect')).toBeNull();
-      expect(screen.queryByTestId('tab-messages')).toBeNull();
-      expect(screen.queryByTestId('tab-saved')).toBeNull();
-    });
-
-    it('renders the controlled view regardless of internal default', () => {
-      // Default uncontrolled view is connect; controlled forces saved.
-      render(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'saved' })} />);
-      expect(screen.getByText(/No saved connections/)).toBeTruthy();
-    });
-
-    it('follows controlledViewTab changes from the parent', () => {
-      const { rerender } = render(
-        <WsConnectionTabContent {...makeProps({ controlledViewTab: 'connect' })} />,
-      );
-      expect(screen.getByText('No WebSocket connection')).toBeTruthy();
-      rerender(<WsConnectionTabContent {...makeProps({ controlledViewTab: 'saved' })} />);
-      expect(screen.getByText(/No saved connections/)).toBeTruthy();
-    });
-
-    it('keeps its own view-tab bar when controlledViewTab is absent (uncontrolled)', () => {
-      render(<WsConnectionTabContent {...makeProps()} />);
-      expect(screen.getByTestId('tab-connect')).toBeTruthy();
-      expect(screen.getByTestId('tab-messages')).toBeTruthy();
-    });
-  });
-
-  // ── Controlled left tab (Phase 2: Connect / Headers / Params split) ──
-  describe('controlled left tab', () => {
-    it('renders only the Headers editor on the headers left tab', () => {
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
-        />,
-      );
-      expect(screen.getByTestId('headers-section')).toBeTruthy();
-      // No params editor and no connect panel/URL bar in the headers tab.
-      expect(screen.queryByTestId('query-params-section')).toBeNull();
-      expect(screen.queryByTestId('connect-btn')).toBeNull();
-    });
-
-    it('renders only the Query Params editor on the params left tab', () => {
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'params' })}
-        />,
-      );
-      expect(screen.getByTestId('query-params-section')).toBeTruthy();
-      expect(screen.queryByTestId('headers-section')).toBeNull();
-      expect(screen.queryByTestId('connect-btn')).toBeNull();
-    });
-
-    it('renders the connect panel without inline headers/params on the connect left tab', () => {
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'connect' })}
-        />,
-      );
-      // Connect panel (URL + actions) renders, but headers/params are relocated.
-      expect(screen.getByTestId('connect-btn')).toBeTruthy();
-      expect(screen.queryByTestId('headers-section')).toBeNull();
-      expect(screen.queryByTestId('query-params-section')).toBeNull();
-    });
-
-    it('updates draft headers from the relocated Headers editor', () => {
-      mockStudio = makeStudioReturn({
-        draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
-      });
-      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
-        />,
-      );
-      fireEvent.click(screen.getByTestId('headers-add-btn'));
-      expect(mockStudio.setDraft).toHaveBeenCalledWith({
-        headers: [{ key: '', value: '', enabled: true }],
-      });
-    });
-
-    it('renders headers and params inline when controlledLeftTab is absent (uncontrolled connect)', () => {
-      render(<WsConnectionTabContent {...makeProps()} />);
-      expect(screen.getByTestId('headers-section')).toBeTruthy();
-      expect(screen.getByTestId('query-params-section')).toBeTruthy();
-    });
-
-    it('disables the relocated Headers editor while connected', () => {
-      mockStudio = makeStudioReturn({
-        draft: { url: 'ws://test', subprotocols: '', headers: [{ key: 'A', value: '1', enabled: true }], queryParams: [] },
-        connection: { state: 'connected' },
-      });
-      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'connect', controlledLeftTab: 'headers' })}
-        />,
-      );
-      expect((screen.getByTestId('headers-add-btn') as HTMLButtonElement).disabled).toBe(true);
-    });
-  });
-
-  // ── Controlled compose tab (Phase 3: composer relocated to the left pane) ──
-  describe('controlled compose tab', () => {
-    it('renders the standalone composer and suppresses the inline log composer on the compose tab', () => {
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
-        />,
-      );
-      // Exactly one composer (the standalone pane); the events log's inline
-      // composer is suppressed via showComposer={false}.
-      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
-      expect(screen.getByTestId('ping-btn')).toBeTruthy();
-      expect(screen.getByLabelText('Message input')).toBeTruthy();
-    });
-
-    it('renders the inline log composer on the uncontrolled messages view (no standalone pane)', () => {
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'messages' })}
-        />,
-      );
-      // Still exactly one composer — the log's inline one — and no duplicate.
-      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
-    });
-
-    it('sends via the relocated composer using studio.send', () => {
-      mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
-      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
-        />,
-      );
-      fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'hello' } });
-      fireEvent.click(screen.getByTestId('send-btn'));
-      expect(mockStudio.send).toHaveBeenCalledWith('hello', 'text');
-    });
-
-    it('hides the relocated composer while a recording is replaying', () => {
-      mockRecording = makeRecordingReturn({ state: 'replaying' });
-      vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
-      render(
-        <WsConnectionTabContent
-          {...makeProps({ controlledViewTab: 'messages', controlledLeftTab: 'compose' })}
-        />,
-      );
-      // Standalone composer hidden during replay; log composer also suppressed.
-      expect(screen.queryByTestId('send-btn')).toBeNull();
-    });
-  });
-
-  // ── Phase 4: split-pane shell render (composition inversion) ──────────────
+  // ── Split-pane shell render (composition inversion) ───────────────
   describe('shell mode (controlledMode)', () => {
     it('renders the split-pane shell with mode and left/right tab strips', () => {
       render(<WsConnectionTabContent {...makeProps({ controlledMode: 'client' })} />);
@@ -1046,7 +499,7 @@ describe('WsConnectionTabContent', () => {
       expect(screen.getByTestId('ws-studio-divider')).toBeTruthy();
       expect(screen.getByTestId('left-tab-connect')).toBeTruthy();
       expect(screen.getByTestId('right-tab-events')).toBeTruthy();
-      // It does NOT render its own legacy view-tab bar.
+      // It does NOT render any legacy view-tab bar.
       expect(screen.queryByTestId('tab-connect')).toBeNull();
     });
 
@@ -1056,10 +509,8 @@ describe('WsConnectionTabContent', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'events' })}
         />,
       );
-      // Events log present (search bar) — the right pane is not the placeholder.
       expect(screen.getByTestId('search-input')).toBeTruthy();
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
-      // Connect left pane has no composer and the events log suppresses its own.
       expect(screen.queryAllByTestId('send-btn')).toHaveLength(0);
     });
 
@@ -1069,8 +520,6 @@ describe('WsConnectionTabContent', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'compose', controlledRightTab: 'events' })}
         />,
       );
-      // Exactly one composer (the standalone left pane); events log on the right
-      // suppresses its inline composer.
       expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
       expect(screen.getByTestId('ping-btn')).toBeTruthy();
       expect(screen.getByTestId('search-input')).toBeTruthy();
@@ -1083,7 +532,6 @@ describe('WsConnectionTabContent', () => {
         />,
       );
       expect(screen.getByTestId('headers-add-btn')).toBeTruthy();
-      // The events log still occupies the right pane.
       expect(screen.getByTestId('search-input')).toBeTruthy();
     });
 
@@ -1095,7 +543,6 @@ describe('WsConnectionTabContent', () => {
       );
       expect(screen.getByTestId('ws-console')).toBeTruthy();
       expect(screen.queryByText(/part of the redesigned layout/)).toBeNull();
-      // The events log (with its search input) is not mounted on the console tab.
       expect(screen.queryByTestId('search-input')).toBeNull();
     });
 
@@ -1139,7 +586,6 @@ describe('WsConnectionTabContent', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'connect', controlledRightTab: 'events' })}
         />,
       );
-      // Events log is present, but the relocated toggles are not.
       expect(screen.getByTestId('search-input')).toBeTruthy();
       expect(screen.queryByTestId('stats-toggle-btn')).toBeNull();
       expect(screen.queryByTestId('load-test-toggle-btn')).toBeNull();
@@ -1249,7 +695,6 @@ describe('WsConnectionTabContent', () => {
       const { rerender } = render(
         <WsConnectionTabContent {...makeProps({ onDraftChange })} />,
       );
-      // First effect run only snapshots; no callback yet.
       expect(onDraftChange).not.toHaveBeenCalled();
       mockStudio = makeStudioReturn({
         draft: {
@@ -1296,9 +741,206 @@ describe('WsConnectionTabContent', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
         />,
       );
-      // The auth pane mounts WebSocketAuthPanel without throwing.
       expect(document.querySelector('.ws-studio-content')).toBeTruthy();
     });
   });
-});
 
+  describe('coverage — tab fallbacks, connection hints and toolbar handlers', () => {
+    it('falls back to the connect/events tabs when controlled tabs are undefined', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledLeftTab: undefined, controlledRightTab: undefined })}
+        />,
+      );
+      expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
+      expect(screen.getByTestId('left-tab-connect')).toBeTruthy();
+      expect(screen.getByTestId('search-input')).toBeTruthy();
+    });
+
+    it('seeds nothing from an initialDraft whose fields are all undefined', () => {
+      render(<WsConnectionTabContent {...makeProps({ initialDraft: {} })} />);
+      expect(mockStudio.setDraft).not.toHaveBeenCalled();
+      expect(mockStudio.setProtocolMode).not.toHaveBeenCalled();
+    });
+
+    it('reports a connected hint when the socket transitions to closing', () => {
+      const onConnectionStateChange = vi.fn();
+      const { rerender } = render(
+        <WsConnectionTabContent {...makeProps({ onConnectionStateChange })} />,
+      );
+      mockStudio = makeStudioReturn({ connection: { state: 'closing' } });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      rerender(<WsConnectionTabContent {...makeProps({ onConnectionStateChange })} />);
+      expect(onConnectionStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
+    });
+
+    it('renders no right pane when the controlled mode is unknown', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: undefined })}
+        />,
+      );
+      expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
+      expect(screen.queryByTestId('search-input')).toBeNull();
+    });
+
+    it('starts a recording from the Events toolbar', () => {
+      render(<WsConnectionTabContent {...makeProps()} />);
+      fireEvent.click(screen.getByTestId('start-recording-btn'));
+      expect(mockRecording.startRecording).toHaveBeenCalledWith(
+        mockStudio.draft.url,
+        mockStudio.protocolMode,
+      );
+    });
+
+    it('stops a recording from the Events toolbar', () => {
+      mockRecording = makeRecordingReturn({ state: 'recording' });
+      vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+      render(<WsConnectionTabContent {...makeProps()} />);
+      fireEvent.click(screen.getByTestId('stop-recording-btn'));
+      expect(mockRecording.stopRecording).toHaveBeenCalled();
+    });
+
+    it('loads a recording file from the Events toolbar', async () => {
+      render(<WsConnectionTabContent {...makeProps()} />);
+      const input = screen.getByTestId('recording-file-input') as HTMLInputElement;
+      const file = new File(['{}'], 'rec.json', { type: 'application/json' });
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(mockRecording.loadRecording).toHaveBeenCalledWith(file);
+    });
+
+    it('starts a replay when a recording has been loaded', () => {
+      mockRecording = makeRecordingReturn({
+        state: 'idle',
+        loadedRecording: {
+          _format: 'ws-recording-v1',
+          metadata: {
+            url: 'ws://rec',
+            protocol: 'auto',
+            startedAt: new Date().toISOString(),
+            durationMs: 0,
+            messageCount: 0,
+          },
+          events: [],
+        },
+      });
+      vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+      render(<WsConnectionTabContent {...makeProps()} />);
+      fireEvent.click(screen.getByTestId('start-replay-btn'));
+      expect(mockStudio.clearMessages).toHaveBeenCalled();
+      expect(mockRecording.startReplay).toHaveBeenCalledWith(mockStudio.appendReplayFrame);
+    });
+
+    it('stops a replay from the replay bar', () => {
+      mockRecording = makeRecordingReturn({ state: 'replaying' });
+      vi.spyOn(recordingModule, 'useWebSocketRecording').mockReturnValue(mockRecording);
+      render(<WsConnectionTabContent {...makeProps()} />);
+      fireEvent.click(screen.getByTestId('replay-exit-btn'));
+      expect(mockRecording.stopReplay).toHaveBeenCalled();
+      expect(mockStudio.clearMessages).toHaveBeenCalled();
+    });
+
+    it('applies a URL and protocol from local connection history', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledLeftTab: 'connect',
+            history: [{ url: 'ws://history:9000', protocol: 'graphql-ws' }],
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      fireEvent.click(screen.getByTestId('url-history-item'));
+      expect(mockStudio.setDraft).toHaveBeenCalledWith({ url: 'ws://history:9000' });
+      expect(mockStudio.setProtocolMode).toHaveBeenCalledWith('graphql-ws');
+    });
+
+    it('does not change the protocol when the history entry uses auto', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledLeftTab: 'connect',
+            history: [{ url: 'ws://history:auto', protocol: 'auto' }],
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      fireEvent.click(screen.getByTestId('url-history-item'));
+      expect(mockStudio.setDraft).toHaveBeenCalledWith({ url: 'ws://history:auto' });
+      expect(mockStudio.setProtocolMode).not.toHaveBeenCalled();
+    });
+
+    it('updates the draft auth via the relocated Auth panel', () => {
+      render(
+        <WsConnectionTabContent
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
+        />,
+      );
+      const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
+      expect(select).toBeTruthy();
+      fireEvent.change(select, { target: { value: 'bearer' } });
+      expect(mockStudio.setDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ auth: expect.objectContaining({ type: 'bearer' }) }),
+      );
+    });
+
+    it('switches back to the Connect tab after loading a profile draft', () => {
+      const onModeChange = vi.fn();
+      const onLeftTabChange = vi.fn();
+      const profile = {
+        id: 'p1', name: 'SwitchTest', url: 'wss://api.example.com',
+        headers: [], queryParams: [], subprotocols: '',
+        autoReconnect: false, maxReconnectAttempts: 5,
+        reconnectIntervalMs: 3000, maxMessages: 1000,
+        createdAt: '', updatedAt: '',
+      };
+      mockProfiles = makeProfilesReturn({
+        profiles: [profile],
+        loadProfileAsDraft: vi.fn().mockReturnValue(createDefaultDraft()),
+      });
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledMode: 'saved',
+            profilesHook: mockProfiles,
+            onModeChange,
+            onLeftTabChange,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('profile-card-p1'));
+      fireEvent.click(screen.getByTestId('load-btn-p1'));
+      expect(onModeChange).toHaveBeenCalledWith('client');
+      expect(onLeftTabChange).toHaveBeenCalledWith('connect');
+    });
+
+    it('cancels the reconnect and returns to Connect when editing a failed connection', () => {
+      const onModeChange = vi.fn();
+      const onLeftTabChange = vi.fn();
+      mockStudio = makeStudioReturn({
+        reconnectState: {
+          active: false,
+          attempt: 3,
+          maxAttempts: 3,
+          lastError: 'boom',
+          lostAt: Date.now(),
+        },
+      });
+      vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+      render(
+        <WsConnectionTabContent
+          {...makeProps({
+            controlledMode: 'client',
+            controlledLeftTab: 'connect',
+            onModeChange,
+            onLeftTabChange,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('edit-connection-btn'));
+      expect(mockStudio.cancelReconnect).toHaveBeenCalled();
+      expect(onModeChange).toHaveBeenCalledWith('client');
+      expect(onLeftTabChange).toHaveBeenCalledWith('connect');
+    });
+  });
+});

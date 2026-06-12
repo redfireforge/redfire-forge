@@ -128,16 +128,12 @@ let mockReturn: UseWebSocketStudioReturn;
 let mockProfilesReturn: UseWebSocketProfilesReturn;
 let mockTemplatesReturn: UseWebSocketTemplatesReturn;
 let mockHistoryReturn: UseWebSocketHistoryReturn;
-// The shell-v2 flag was removed; v2 is the only production layout. Tests reach
-// the retained legacy flat-tab layout by threading `shellV2` via this seam.
-let mockWsShellV2 = false;
 
 beforeEach(() => {
   mockReturn = makeStudioReturn();
   mockProfilesReturn = makeProfilesReturn();
   mockTemplatesReturn = makeTemplatesReturn();
   mockHistoryReturn = makeHistoryReturn();
-  mockWsShellV2 = false;
   vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
   vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
   vi.spyOn(templatesModule, 'useWebSocketTemplates').mockReturnValue(mockTemplatesReturn);
@@ -153,50 +149,51 @@ afterEach(() => {
 async function renderStudioPage(props: Record<string, unknown> = {}) {
   let result!: ReturnType<typeof render>;
   await act(async () => {
-    result = render(<WebSocketStudioPage shellV2={mockWsShellV2} {...props} />);
+    result = render(<WebSocketStudioPage {...props} />);
   });
   return result;
 }
 
 describe('WebSocketStudioPage', () => {
-  it('renders tab bar with Connect, Messages, and Saved tabs', async () => {
+  it('renders the shell with Client, Mock, and Saved modes', async () => {
     await renderStudioPage();
-    expect(screen.getByTestId('tab-connect')).toBeTruthy();
-    expect(screen.getByTestId('tab-messages')).toBeTruthy();
-    expect(screen.getByTestId('tab-saved')).toBeTruthy();
+    expect(screen.getByTestId('mode-client')).toBeTruthy();
+    expect(screen.getByTestId('mode-mock')).toBeTruthy();
+    expect(screen.getByTestId('mode-saved')).toBeTruthy();
   });
 
-  it('shows guard when disconnected and URL is blank', async () => {
+  it('renders the connect panel on the default Connect left tab', async () => {
     await renderStudioPage();
-    expect(screen.getByText('No WebSocket connection')).toBeTruthy();
-    expect(screen.getByText(/Enter a WebSocket URL and click Connect/)).toBeTruthy();
+    expect(screen.getByTestId('connect-btn')).toBeTruthy();
+    // The events log occupies the right pane.
+    expect(screen.getByTestId('search-input')).toBeTruthy();
   });
 
-  it('hides guard when URL is entered', async () => {
+  it('renders the events log on the right pane when URL is entered', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://localhost:8765', subprotocols: '', headers: [], queryParams: [] },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
+    expect(screen.getByTestId('search-input')).toBeTruthy();
   });
 
-  it('hides guard when connected', async () => {
+  it('renders the events log on the right pane when connected', async () => {
     mockReturn = makeStudioReturn({
       connection: { state: 'connected', url: 'ws://localhost:8765' },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    expect(screen.queryByText('No WebSocket connection')).toBeNull();
+    expect(screen.getByTestId('search-input')).toBeTruthy();
   });
 
-  it('switches to Messages tab', async () => {
+  it('switches to the Compose left tab', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByText('Messages'));
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
-  it('shows message count badge on Messages tab', async () => {
+  it('shows message count badge on the Compose left tab', async () => {
     const msg = {
       id: '1', direction: 'received' as const, type: 'text' as const,
       data: 'hello', size: 5, timestamp: new Date().toISOString(),
@@ -204,22 +201,22 @@ describe('WebSocketStudioPage', () => {
     mockReturn = makeStudioReturn({ messages: [msg] });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByTestId('left-tab-compose').textContent).toContain('1');
   });
 
-  it('Connect tab is active by default', async () => {
+  it('Client mode + Connect left tab are active by default', async () => {
     await renderStudioPage();
-    const connectTab = screen.getByTestId('tab-connect');
-    expect(connectTab.className).toContain('active');
+    expect(screen.getByTestId('mode-client').className).toContain('active');
+    expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
 
-  it('shows Saved tab content when clicked', async () => {
+  it('shows Saved mode content when clicked', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    fireEvent.click(screen.getByTestId('mode-saved'));
     expect(screen.getByText(/No saved connections/)).toBeTruthy();
   });
 
-  it('shows profile count badge on Saved tab', async () => {
+  it('shows profile count badge on the Saved mode tab', async () => {
     mockProfilesReturn = makeProfilesReturn({
       profiles: [{
         id: 'p1', name: 'T', url: 'wss://t', headers: [], queryParams: [],
@@ -230,7 +227,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
     await renderStudioPage();
-    const savedTab = screen.getByTestId('tab-saved');
+    const savedTab = screen.getByTestId('mode-saved');
     expect(savedTab.textContent).toContain('1');
   });
 
@@ -256,21 +253,23 @@ describe('WebSocketStudioPage', () => {
     expect(screen.getByTestId('save-as-profile-btn')).toBeTruthy();
   });
 
-  it('renders template trigger on message log', async () => {
+  it('renders template trigger on the Compose left tab', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
     expect(screen.getByTestId('template-trigger')).toBeTruthy();
   });
 
-  it('renders format selector on message log', async () => {
+  it('renders format selector on the Compose left tab', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
     expect(screen.getByTestId('format-select')).toBeTruthy();
   });
 
@@ -285,14 +284,14 @@ describe('WebSocketStudioPage', () => {
     expect(mockReturn.disconnect).toHaveBeenCalled();
   });
 
-  it('handleSaveAsProfile switches to Saved tab with prefill data', async () => {
+  it('handleSaveAsProfile switches to Saved mode with prefill data', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://localhost:8765', subprotocols: 'json', headers: [], queryParams: [] },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
     fireEvent.click(screen.getByTestId('save-as-profile-btn'));
-    const savedTab = screen.getByTestId('tab-saved');
+    const savedTab = screen.getByTestId('mode-saved');
     expect(savedTab.className).toContain('active');
   });
 
@@ -309,25 +308,25 @@ describe('WebSocketStudioPage', () => {
     mockProfilesReturn = makeProfilesReturn({ profiles: [profile] });
     vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    fireEvent.click(screen.getByTestId('mode-saved'));
     expect(mockReturn.setProtocolMode).not.toHaveBeenCalled();
   });
 
-  it('switches to Connect tab when handleSwitchToConnect fires', async () => {
+  it('switches back to the Connect left tab when handleSwitchToConnect fires', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByText('Messages'));
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-    fireEvent.click(screen.getByText('Connect'));
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-connect'));
+    expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
 
-  it('renders Messages tab content without guard when on messages tab', async () => {
+  it('renders Compose content without guard on the messages view', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByText('Messages'));
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
@@ -346,7 +345,8 @@ describe('WebSocketStudioPage', () => {
     mockProfilesReturn = makeProfilesReturn({ profiles: [profile] });
     vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('tab-saved'));
+    fireEvent.click(screen.getByTestId('mode-saved'));
+    fireEvent.click(screen.getByTestId('profile-card-p1'));
     fireEvent.click(screen.getByTestId('load-btn-p1'));
     expect(mockReturn.setProtocolMode).toHaveBeenCalledWith('graphql-ws');
     expect(mockReturn.setAutoReconnect).toHaveBeenCalledWith(true);
@@ -358,7 +358,7 @@ describe('WebSocketStudioPage', () => {
     expect(mockProfilesReturn.loadProfileAsDraft).toHaveBeenCalledWith('p1');
   });
 
-  it('handleEditConnection cancels reconnect and switches to connect', async () => {
+  it('handleEditConnection cancels reconnect and switches to the Connect left tab', async () => {
     mockReturn = makeStudioReturn({
       draft: { url: 'ws://test', subprotocols: '', headers: [], queryParams: [] },
       connection: { state: 'connected' },
@@ -366,10 +366,10 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('tab-messages'));
-    expect(screen.getByTestId('tab-messages').className).toContain('active');
-    fireEvent.click(screen.getByTestId('tab-connect'));
-    expect(screen.getByTestId('tab-connect').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-connect'));
+    expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
 
   it('handleApplyDraft calls setDraft on studio', async () => {
@@ -577,9 +577,9 @@ describe('WebSocketStudioPage', () => {
         renamedTabIds: [],
       });
       await renderStudioPage();
-      // Messages tab should be active for the restored tab
-      const messagesTab = screen.getByTestId('tab-messages');
-      expect(messagesTab.className).toContain('active');
+      // The messages viewTab maps to Client mode + Compose left tab.
+      const composeTab = screen.getByTestId('left-tab-compose');
+      expect(composeTab.className).toContain('active');
     });
 
     it('auto-derives tab label from URL when not manually renamed', async () => {
@@ -830,7 +830,7 @@ describe('WebSocketStudioPage', () => {
       expect(tabBar.textContent).toContain('some-host');
     });
 
-    it('handleViewTabChange saves state', async () => {
+    it('handleLeftTabChange saves state', async () => {
       vi.useFakeTimers();
       const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
       vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue({
@@ -842,9 +842,8 @@ describe('WebSocketStudioPage', () => {
       });
       await renderStudioPage();
       saveSpy.mockClear();
-      // Switch to messages tab in the content
-      const messagesTab = screen.getByTestId('tab-messages');
-      fireEvent.click(messagesTab);
+      // Switch the left tab in the shell content.
+      fireEvent.click(screen.getByTestId('left-tab-compose'));
       vi.advanceTimersByTime(400);
       expect(saveSpy).toHaveBeenCalled();
       vi.useRealTimers();
@@ -936,17 +935,7 @@ describe('WebSocketStudioPage', () => {
     });
   });
 
-  describe('studio shell (v2 — default layout)', () => {
-    beforeEach(() => {
-      mockWsShellV2 = true;
-    });
-
-    it('renders the legacy flat layout when shellV2 is off', async () => {
-      mockWsShellV2 = false;
-      await renderStudioPage();
-      expect(screen.queryByTestId('ws-studio-shell')).toBeNull();
-    });
-
+  describe('studio shell (the only production layout)', () => {
     it('wraps each tab in the shell by default', async () => {
       await renderStudioPage();
       expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
@@ -976,7 +965,7 @@ describe('WebSocketStudioPage', () => {
       vi.useFakeTimers();
       const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
       await act(async () => {
-        render(<WebSocketStudioPage shellV2={mockWsShellV2} />);
+        render(<WebSocketStudioPage />);
       });
       saveSpy.mockClear();
       fireEvent.click(screen.getByTestId('mode-saved'));

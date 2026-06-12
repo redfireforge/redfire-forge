@@ -79,6 +79,51 @@ describe('websocketStorage — profiles', () => {
     await saveWsProfiles(profiles as never[]);
     expect(mockWrite).toHaveBeenCalledWith(WS_PROFILES_KEY, JSON.stringify(profiles));
   });
+
+  it('normalizes a profile with invalid/missing optional fields to safe defaults', async () => {
+    const profile = {
+      id: 'p1', name: 'N', url: 'ws://x',
+      headers: 'bad', queryParams: 42, subprotocols: 99,
+      protocolMode: 'invalid', autoReconnect: 'no',
+      maxReconnectAttempts: NaN, reconnectIntervalMs: 'x',
+      backoffMultiplier: 99, maxMessages: Infinity,
+      notes: 42,
+    };
+    mockRead.mockResolvedValue(JSON.stringify([profile]));
+    const result = await loadWsProfiles();
+    expect(result).toHaveLength(1);
+    const p = result[0];
+    expect(p.headers).toEqual([]);
+    expect(p.queryParams).toEqual([]);
+    expect(p.subprotocols).toBe('');
+    expect(p.protocolMode).toBe('auto');
+    expect(p.autoReconnect).toBe(false);
+    // NaN is typeof 'number' → clampInt returns the fallback (5).
+    expect(p.maxReconnectAttempts).toBe(5);
+    // Non-number string → fallback (3000).
+    expect(p.reconnectIntervalMs).toBe(3000);
+    // 99 is not a valid backoff multiplier → undefined.
+    expect(p.backoffMultiplier).toBeUndefined();
+    // Infinity is typeof 'number' → clampInt returns the fallback (1000).
+    expect(p.maxMessages).toBe(1000);
+    expect(p.notes).toBe('');
+    expect(typeof p.createdAt).toBe('string');
+    expect(typeof p.updatedAt).toBe('string');
+  });
+
+  it('clamps out-of-range numeric profile fields into their valid ranges', async () => {
+    const profile = {
+      id: 'p1', name: 'N', url: 'ws://x',
+      maxReconnectAttempts: 999, reconnectIntervalMs: 10, maxMessages: 99999999,
+      backoffMultiplier: 1.5,
+    };
+    mockRead.mockResolvedValue(JSON.stringify([profile]));
+    const p = (await loadWsProfiles())[0];
+    expect(p.maxReconnectAttempts).toBe(50); // clamped to max
+    expect(p.reconnectIntervalMs).toBe(500); // clamped to min
+    expect(p.maxMessages).toBe(50000); // clamped to max
+    expect(p.backoffMultiplier).toBe(1.5); // valid → preserved
+  });
 });
 
 describe('websocketStorage — templates', () => {
@@ -252,6 +297,78 @@ describe('websocketStorage — tab state', () => {
     mockRead.mockResolvedValue(written);
     const result = await loadWsTabState();
     expect(result!.tabs[0]).toMatchObject({ viewTab: 'mock', mode: 'mock', leftTab: 'connect', rightTab: 'schema' });
+  });
+
+  // ── Phase 8 draft-field sanitization ─────────────────────────────
+  it('sanitizes persisted headers/queryParams: drops non-objects and coerces bad fields', async () => {
+    const state = {
+      tabs: [
+        {
+          id: 'ws-tab-1', label: 'T', url: 'ws://x', viewTab: 'connect',
+          headers: [
+            { key: 'Authorization', value: 'Bearer t', enabled: false },
+            { key: 123, value: 456, enabled: 'yes' },
+            'not-an-object',
+            null,
+          ],
+          queryParams: [{ key: 'q', value: '1', enabled: true }],
+        },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    // Two object entries survive the filter; the string + null are dropped.
+    expect(result!.tabs[0].headers).toEqual([
+      { key: 'Authorization', value: 'Bearer t', enabled: false },
+      { key: '', value: '', enabled: true },
+    ]);
+    expect(result!.tabs[0].queryParams).toEqual([{ key: 'q', value: '1', enabled: true }]);
+  });
+
+  it('defaults non-array headers/queryParams to empty arrays', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'T', url: 'ws://x', viewTab: 'connect', headers: 'bad', queryParams: 42 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    expect(result!.tabs[0].headers).toEqual([]);
+    expect(result!.tabs[0].queryParams).toEqual([]);
+  });
+
+  it('keeps a valid persisted auth config and drops invalid ones', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'Good', url: 'ws://x', viewTab: 'connect', auth: { type: 'bearer', token: 't' } },
+        { id: 'ws-tab-2', label: 'BadType', url: 'ws://x', viewTab: 'connect', auth: { type: 'weird' } },
+        { id: 'ws-tab-3', label: 'NotObj', url: 'ws://x', viewTab: 'connect', auth: 'nope' },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    expect(result!.tabs[0].auth).toEqual({ type: 'bearer', token: 't' });
+    expect(result!.tabs[1].auth).toBeUndefined();
+    expect(result!.tabs[2].auth).toBeUndefined();
+  });
+
+  it('defaults non-string subprotocols to an empty string', async () => {
+    const state = {
+      tabs: [
+        { id: 'ws-tab-1', label: 'T', url: 'ws://x', viewTab: 'connect', subprotocols: 123 },
+      ],
+      activeTabId: 'ws-tab-1',
+      renamedTabIds: [],
+    };
+    mockRead.mockResolvedValue(JSON.stringify(state));
+    const result = await loadWsTabState();
+    expect(result!.tabs[0].subprotocols).toBe('');
   });
 });
 

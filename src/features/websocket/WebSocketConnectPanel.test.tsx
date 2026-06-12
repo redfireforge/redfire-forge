@@ -849,4 +849,119 @@ describe('WebSocketConnectPanel', () => {
       expect(screen.queryByTestId('url-history-clear-btn')).toBeNull();
     });
   });
+
+  describe('uncovered interaction callbacks', () => {
+    const histEntries = [
+      { url: 'ws://recent-one', protocol: 'raw' as const, lastUsedAt: 2 },
+      { url: 'ws://recent-two', protocol: 'socketio' as const, lastUsedAt: 1 },
+    ];
+
+    it('selects a history entry and closes the dropdown', () => {
+      const onHistorySelect = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps()}
+          history={histEntries}
+          onHistorySelect={onHistorySelect}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      fireEvent.click(screen.getByTitle('ws://recent-one'));
+      expect(onHistorySelect).toHaveBeenCalledWith('ws://recent-one', 'raw');
+      expect(screen.queryByTestId('url-history-dropdown')).toBeNull();
+    });
+
+    it('closes the history dropdown when clicking outside', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} history={histEntries} />);
+      fireEvent.click(screen.getByTestId('url-history-trigger'));
+      expect(screen.getByTestId('url-history-dropdown')).toBeTruthy();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByTestId('url-history-dropdown')).toBeNull();
+    });
+
+    it('deletes all query parameters', () => {
+      const setDraft = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps({ draft: { queryParams: [{ key: 'a', value: '1', enabled: true }] } })}
+          setDraft={setDraft}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('query-params-delete-all-btn'));
+      expect(setDraft).toHaveBeenCalledWith({ queryParams: [] });
+    });
+
+    it('falls back to a no-op when protocol mode change has no handler', () => {
+      render(<WebSocketConnectPanel {...defaultProps()} />);
+      // No onProtocolModeChange passed -> uses the () => {} fallback
+      expect(() =>
+        fireEvent.change(screen.getByTestId('protocol-select'), { target: { value: 'socketio' } }),
+      ).not.toThrow();
+    });
+
+    it('calls onMaxReconnectAttemptsChange on change', () => {
+      const onMaxReconnectAttemptsChange = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps()}
+          autoReconnect={true}
+          onMaxReconnectAttemptsChange={onMaxReconnectAttemptsChange}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('max-reconnect-attempts'), { target: { value: '10' } });
+      expect(onMaxReconnectAttemptsChange).toHaveBeenCalledWith(10);
+    });
+
+    it('falls back to 5 max attempts when the value is not a number', () => {
+      const onMaxReconnectAttemptsChange = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps()}
+          autoReconnect={true}
+          onMaxReconnectAttemptsChange={onMaxReconnectAttemptsChange}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('max-reconnect-attempts'), { target: { value: '' } });
+      expect(onMaxReconnectAttemptsChange).toHaveBeenCalledWith(5);
+    });
+
+    it('calls onReconnectIntervalMsChange on change', () => {
+      const onReconnectIntervalMsChange = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps()}
+          autoReconnect={true}
+          onReconnectIntervalMsChange={onReconnectIntervalMsChange}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('reconnect-interval-ms'), { target: { value: '5000' } });
+      expect(onReconnectIntervalMsChange).toHaveBeenCalledWith(5000);
+    });
+
+    it('calls onBackoffMultiplierChange on change', () => {
+      const onBackoffMultiplierChange = vi.fn();
+      render(
+        <WebSocketConnectPanel
+          {...defaultProps()}
+          autoReconnect={true}
+          onBackoffMultiplierChange={onBackoffMultiplierChange}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('backoff-multiplier'), { target: { value: '1.5' } });
+      expect(onBackoffMultiplierChange).toHaveBeenCalledWith(1.5);
+    });
+
+    it('selects a close-code preset from the disconnect dropdown', () => {
+      render(
+        <WebSocketConnectPanel {...defaultProps({ connection: { state: 'connected' } })} />,
+      );
+      fireEvent.click(screen.getByTestId('disconnect-caret'));
+      const presets = screen.getByTestId('close-code-presets');
+      const firstPreset = presets.querySelector('button');
+      expect(firstPreset).toBeTruthy();
+      fireEvent.click(firstPreset!);
+      // The selected preset becomes active
+      expect(firstPreset!.className).toContain('active');
+    });
+  });
 });

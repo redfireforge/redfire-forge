@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server + Socket.IO + RabbitMQ/STOMP + GraphQL subscription server
+>
+> **2026-06-12 — Shell-IA doc refresh:** "Connect view" is now the **Connect left-pane tab** (Compose | Connect | Auth | Params | Headers) in the Client-mode split-pane shell. The protocol selector and TLS config live on this Connect left tab. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -39,7 +41,7 @@ npm run server       # Backend (proxy mode)
 ### Navigation
 
 1. Open **http://localhost:5173** → **Protocols** → **WebSocket**
-2. Protocol selector is in the Connect view, below the URL input
+2. Protocol selector is on the **Connect** left-pane tab, below the URL input
 
 ---
 
@@ -50,7 +52,7 @@ npm run server       # Backend (proxy mode)
 **Goal:** Verify protocol selector options
 
 **Steps:**
-1. Navigate to WebSocket Studio → Connect view
+1. Navigate to WebSocket Studio → **Connect** left-pane tab
 2. Find the "Protocol" section
 3. Click the protocol dropdown
 
@@ -298,7 +300,7 @@ npm run server       # Backend (proxy mode)
 **Goal:** Verify TLS configuration panel
 
 **Steps:**
-1. On Connect view, look for TLS configuration section
+1. On the **Connect** left-pane tab, look for TLS configuration section
 2. Observe the available fields
 
 **Expected Results:**

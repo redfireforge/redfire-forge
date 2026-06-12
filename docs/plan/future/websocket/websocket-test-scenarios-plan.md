@@ -2,17 +2,17 @@
 
 > **Purpose:** Master plan for all WebSocket Studio visual test-scenarios MD files.
 > **Created:** 2026-06-10
-> **Updated:** 2026-06-11
+> **Updated:** 2026-06-12
 > **Legacy Baseline:** 8 of 8 files written + validated against pre-redesign layout (2026-06-10)
-> **Redesign-Aligned Refresh:** 0 of 8 files fully refreshed (2026-06-11)
-> **In Progress:** None
+> **Redesign-Aligned Refresh:** doc-only pass complete — 8 of 8 files refreshed to the split-pane shell IA after the legacy code path was deleted (2026-06-12). Visual re-validation of every scenario deferred to the merge gate.
+> **In Progress:** doc refresh of all 8 scenario files (visual re-validation deferred to the merge gate)
 > **Remaining:** 8 files to refresh against the new split-pane UI
 >
 > **Source documents referenced:**
 > - `websocket-studio-plan.md` — Phase definitions and scope (Phases 1–19 + Phase 18 SSE)
 > - `websocket-new-design-plan.md` — redesign phases 0–11 (split-pane shell, mode switch, Auth, Console)
 > - Implementation sources reviewed: `src/features/websocket/WebSocketStudioPage.tsx`, `src/features/websocket/WsConnectionTabContent.tsx`, `src/features/websocket/WebSocketStudioShell.tsx`, `src/features/sse/SseStudioPage.tsx`, `src/features/sse/SseStudioShell.tsx`
-> - Current implementation status: redesigned shell is default in production (`shellV2 = true` by default); legacy flat layout remains test-only via optional prop
+> - Current implementation status: the split-pane shell is the **only** production layout. The legacy flat-tab / stacked layouts, the `controlledViewTab` transitional API, and the `shellV2` test prop were **deleted** (2026-06-12); the `viewTab → mode/leftTab/rightTab` persistence migration is retained for back-compat. There is no flag-off path to test anymore.
 >
 > Refresh workflow for each file:
 > 1. Re-map legacy navigation steps to the new IA (Mode switch + left/right pane tabs)
@@ -28,14 +28,14 @@
 
 | # | File | Legacy Coverage | Redesign Impact | Refresh Priority | Current Status |
 |---|---|---|---|---|---|
-| 1 | `ws-core-connect-test-scenarios.md` | Strong (Phases 1,2,7,8) | High (old view-tab navigation, connect/messages split assumptions) | P0 | 🔄 Needs major rewrite |
-| 2 | `ws-protocols-transport-test-scenarios.md` | Strong (Phases 3,6) | Medium (navigation + Connect tab location + new Auth interactions) | P1 | 🔄 Needs targeted rewrite |
-| 3 | `ws-tabs-persistence-test-scenarios.md` | Strong (Phases 9,10,11,12,13) | High (old view tabs replaced by mode switch + pane tabs) | P0 | 🔄 Needs major rewrite |
-| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Strong (Phases 14,15,19) | Medium (features moved to right-pane tabs, toolbar assumptions changed) | P1 | 🔄 Needs targeted rewrite |
-| 5 | `ws-mock-server-test-scenarios.md` | Strong (Phase 16) | High (Mock is now a mode, not a sibling view tab) | P0 | 🔄 Needs major rewrite |
-| 6 | `ws-load-test-scenarios.md` | Strong (Phase 17) | Medium (Load Test moved to right-pane tab) | P1 | 🔄 Needs targeted rewrite |
-| 7 | `sse-studio-test-scenarios.md` | Strong (Phase 18) | High (new split-pane + Auth tab + Console tab + command line) | P0 | 🔄 Needs major rewrite |
-| 8 | `ws-workflow-runner-test-scenarios.md` | Strong (Phases 4,5) | Low (mostly unaffected; only cross-links/navigation references) | P2 | 🟡 Needs minor refresh |
+| 1 | `ws-core-connect-test-scenarios.md` | Strong (Phases 1,2,7,8) | High (old view-tab navigation, connect/messages split assumptions) | P0 | ✅ Doc-refreshed (2026-06-12) |
+| 2 | `ws-protocols-transport-test-scenarios.md` | Strong (Phases 3,6) | Medium (navigation + Connect tab location + new Auth interactions) | P1 | ✅ Doc-refreshed (2026-06-12) |
+| 3 | `ws-tabs-persistence-test-scenarios.md` | Strong (Phases 9,10,11,12,13) | High (old view tabs replaced by mode switch + pane tabs) | P0 | ✅ Doc-refreshed (2026-06-12) |
+| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Strong (Phases 14,15,19) | Medium (features moved to right-pane tabs, toolbar assumptions changed) | P1 | ✅ Doc-refreshed (2026-06-12) |
+| 5 | `ws-mock-server-test-scenarios.md` | Strong (Phase 16) | High (Mock is now a mode, not a sibling view tab) | P0 | ✅ Doc-refreshed (2026-06-12) |
+| 6 | `ws-load-test-scenarios.md` | Strong (Phase 17) | Medium (Load Test moved to right-pane tab) | P1 | ✅ Doc-refreshed (2026-06-12) |
+| 7 | `sse-studio-test-scenarios.md` | Strong (Phase 18) | High (new split-pane + Auth tab + Console tab + command line) | P0 | ✅ Doc-refreshed (2026-06-12) |
+| 8 | `ws-workflow-runner-test-scenarios.md` | Strong (Phases 4,5) | Low (mostly unaffected; only cross-links/navigation references) | P2 | ✅ Doc-refreshed (2026-06-12) |
 
 ### Redesign Delta Checklist (must be reflected in refreshed scenario files)
 

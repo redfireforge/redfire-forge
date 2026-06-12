@@ -4,11 +4,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
+import { loadWsFilterPresets, saveWsFilterPresets } from '../../shared/websocket/websocketStorage';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadWsFilterPresets: vi.fn().mockResolvedValue([]),
   saveWsFilterPresets: vi.fn().mockResolvedValue(undefined),
 }));
+
+const mockLoad = vi.mocked(loadWsFilterPresets);
+const mockSave = vi.mocked(saveWsFilterPresets);
 
 describe('useWebSocketFilterPresets', () => {
   const mockDeps = () => ({
@@ -108,6 +112,9 @@ describe('useWebSocketFilterPresets', () => {
     expect(deps.setContentTypeFilter).toHaveBeenCalledWith('json');
     expect(deps.setPresetDropdownOpen).toHaveBeenCalledWith(false);
     expect(deps.setShowFilterBar).toHaveBeenCalled();
+    // the updater passed to setShowFilterBar forces the bar visible
+    const updater = (deps.setShowFilterBar as ReturnType<typeof vi.fn>).mock.calls[0][0] as () => boolean;
+    expect(updater()).toBe(true);
   });
 
   it('applies a preset with defaults when fields are missing', () => {
@@ -140,5 +147,36 @@ describe('useWebSocketFilterPresets', () => {
     }
 
     expect(result.current.filterPresets.length).toBeLessThanOrEqual(20);
+  });
+
+  it('swallows errors when the initial load rejects', async () => {
+    mockLoad.mockRejectedValueOnce(new Error('load failed'));
+    const deps = mockDeps();
+    const { result } = renderHook(() => useWebSocketFilterPresets(deps));
+    await vi.waitFor(() => {
+      expect(result.current.filterPresets).toEqual([]);
+    });
+  });
+
+  it('swallows errors when saving a new preset rejects', async () => {
+    mockSave.mockRejectedValueOnce(new Error('save failed'));
+    const deps = mockDeps();
+    vi.spyOn(window, 'prompt').mockReturnValue('P');
+    const { result } = renderHook(() => useWebSocketFilterPresets(deps));
+    act(() => result.current.handleSavePreset());
+    expect(result.current.filterPresets).toHaveLength(1);
+    await Promise.resolve();
+  });
+
+  it('swallows errors when deleting a preset rejects', async () => {
+    const deps = mockDeps();
+    vi.spyOn(window, 'prompt').mockReturnValue('P');
+    const { result } = renderHook(() => useWebSocketFilterPresets(deps));
+    act(() => result.current.handleSavePreset());
+    const id = result.current.filterPresets[0].id;
+    mockSave.mockRejectedValueOnce(new Error('save failed'));
+    act(() => result.current.handleDeletePreset(id));
+    expect(result.current.filterPresets).toHaveLength(0);
+    await Promise.resolve();
   });
 });

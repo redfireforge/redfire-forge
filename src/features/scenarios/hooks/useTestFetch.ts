@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, type MutableRefObject } from 'react';
 import type { Scenario, AuthConfig, FailureDetail, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
-import { toErrorMessage, prettyJson } from '../../../shared/utils/helpers';
+import { toErrorMessage, prettyJson, parseJsonOrRaw } from '../../../shared/utils/helpers';
 import { proxyFetch } from '../../../engine/executor';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
 import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
@@ -383,7 +383,7 @@ export function useTestFetch({
       body: result.body || undefined,
       timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
     });
-    try { return JSON.parse(result.body); } catch { return result.body; }
+    return parseJsonOrRaw(result.body);
   }, [draftRef, applyFetchUrlOverrides, resolveEffectiveAuth]);
 
   // ── Validate response ──
@@ -430,8 +430,7 @@ export function useTestFetch({
         return;
       }
 
-      let responseObj: unknown;
-      try { responseObj = JSON.parse(result.body); } catch { responseObj = result.body; }
+      const responseObj: unknown = parseJsonOrRaw(result.body);
 
       const allFailures: FailureDetail[] = [];
 
