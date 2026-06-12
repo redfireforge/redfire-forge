@@ -87,6 +87,8 @@ function findEndpointFromMeta(
 }
 ```
 
+Implementation note: the exported-request drawer also tolerates legacy `catalogMeta` objects that may be missing arrays like `tags`, `parameters`, or `expectedResponses`, so older saved requests still open safely.
+
 #### 1.4 Unit Tests
 
 | # | Test Case |
@@ -95,6 +97,7 @@ function findEndpointFromMeta(
 | 2 | API Info button hidden when no catalogMeta |
 | 3 | Clicking button opens API Reference panel |
 | 4 | Panel shows correct endpoint info (params, responses) |
+| 5 | Drawer tolerates legacy catalogMeta objects with missing arrays |
 
 ---
 

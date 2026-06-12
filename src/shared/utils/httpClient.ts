@@ -215,7 +215,18 @@ async function tauriFetch(
   }
 }
 
-async function proxyFetch(
+/**
+ * Browser / Web Worker default transport.
+ *
+ * - Relative `/api/*` paths use the native `fetch` (resolved against the page/worker
+ *   origin; Vite's dev/preview proxy forwards `/api` → the backend). These MUST NOT
+ *   go through `/__proxy`, whose Node-side `fetch` rejects relative URLs (ERR_INVALID_URL).
+ * - Absolute external URLs are routed through `/__proxy` to avoid CORS.
+ *
+ * Exported so the execution worker can install it via `setHttpTransport` and get the
+ * same relative-vs-absolute routing the main thread uses.
+ */
+export async function proxyFetch(
   url: string,
   method: string,
   headers: Record<string, string>,

@@ -16,7 +16,7 @@ import type { FetchErrorDetail } from '../../../shared/components/data-mapper/ty
 import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
-import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES } from './testEditorValidationAddMenu';
+import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES, getTransportFilter, isRowVisibleForTransport } from './testEditorValidationAddMenu';
 import AssertionRowEditor from './AssertionRowEditor';
 
 export interface TestEditorValidationTabProps {
@@ -263,9 +263,11 @@ export default function TestEditorValidationTab({
                 <div className="aam-categories">
                   {ASSERTION_CATEGORIES.map((cat) => {
                     const q = addMenuSearch.trim().toLowerCase();
+                    const tf = getTransportFilter(draft.actionType);
                     const items = ADD_ASSERTION_MENU_ROWS.filter(
                       (r): r is Exclude<typeof r, { kind: 'divider' }> =>
                         r.kind !== 'divider' && r.category === cat &&
+                        isRowVisibleForTransport(r, tf) &&
                         (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
                     );
                     if (items.length === 0) return null;
@@ -305,8 +307,10 @@ export default function TestEditorValidationTab({
                   })}
                   {ASSERTION_CATEGORIES.every((cat) => {
                     const q = addMenuSearch.trim().toLowerCase();
+                    const tfEmpty = getTransportFilter(draft.actionType);
                     const items = ADD_ASSERTION_MENU_ROWS.filter(
                       (r) => r.kind !== 'divider' && r.category === cat &&
+                        isRowVisibleForTransport(r, tfEmpty) &&
                         (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
                     );
                     return items.length === 0;

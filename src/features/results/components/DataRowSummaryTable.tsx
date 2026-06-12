@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { RequestResult } from '../../../shared/types';
+import { formatTransportStatus } from '../utils/transportStatus';
 
 interface Props {
   results: RequestResult[];
@@ -38,7 +39,7 @@ export function DataRowSummaryTable({ results, scenarioName, onResultClick, expe
         onClick={() => onResultClick(r)}
       >
         <td className="data-row-label-cell">{r.dataRowLabel || r.dataRowId}</td>
-        <td>{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
+        <td>{formatTransportStatus(r)}</td>
         <td><span className={`tag ${validated ? 'tag-info' : 'tag-dim'}`}>{validated ? '✓ Yes' : '— No'}</span></td>
         <td>{r.responseTimeMs}ms</td>
         <td>{r.passed ? '✓' : '✗'}</td>

@@ -448,6 +448,28 @@ describe('buildErrorResult', () => {
     const r2 = buildErrorResult(s, new Error('b'));
     expect(r1.id).not.toBe(r2.id);
   });
+
+  it('propagates dataRowId and dataRowLabel from expanded scenario', () => {
+    const scenario = makeScenario({ dataRowId: 'row-3', dataRowLabel: 'Row 3: VIN=1GY' });
+    const result = buildErrorResult(scenario, new Error('fail'));
+    expect(result.dataRowId).toBe('row-3');
+    expect(result.dataRowLabel).toBe('Row 3: VIN=1GY');
+  });
+
+  it('sets transportType for non-HTTP action types', () => {
+    const wsScenario = makeScenario({ actionType: 'wsConnect' });
+    const wsResult = buildErrorResult(wsScenario, new Error('fail'));
+    expect(wsResult.transportType).toBe('wsConnect');
+
+    const kafkaScenario = makeScenario({ actionType: 'kafkaProduce' });
+    const kafkaResult = buildErrorResult(kafkaScenario, new Error('fail'));
+    expect(kafkaResult.transportType).toBe('kafkaProduce');
+  });
+
+  it('does not set transportType for HTTP action type', () => {
+    const result = buildErrorResult(makeScenario(), new Error('fail'));
+    expect(result.transportType).toBeUndefined();
+  });
 });
 
 // ────────────────────────────────────────────────────────

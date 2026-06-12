@@ -135,6 +135,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
+      expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
     );
     expect(mockRunTestInWorker).not.toHaveBeenCalled();
   });
@@ -227,6 +228,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       expect.objectContaining({ produce: expect.any(Function), consume: expect.any(Function) }),
+      expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
     );
   });
 
@@ -260,6 +262,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
+      expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
     );
   });
 

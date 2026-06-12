@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { WorkflowEdge, WorkflowNode } from '../types/workflow';
+import type {
+  WorkflowEdge,
+  WorkflowNode,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
+  KafkaProduceNodeData,
+  KafkaConsumeNodeData,
+} from '../types/workflow';
+import type { WsNodeOperations } from './graphRunnerNodeHandlerContext';
+import type { ExecutionTraceOptions } from '../../../shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -526,5 +537,236 @@ describe('runGraph', () => {
       .filter(([id]: [string]) => id === 'h-final')
       .map(([, s]: [string, { state: string }]) => s.state);
     expect(finalStates.filter(s => s === 'running')).toHaveLength(1);
+  });
+});
+
+// ── WebSocket node dispatch + trace detail building ──
+
+function mockWsOps(overrides: Partial<WsNodeOperations> = {}): WsNodeOperations {
+  return {
+    connect: vi.fn().mockResolvedValue({ connectionId: 'ws-c1', protocol: 'graphql-ws', extensions: '', latencyMs: 12 }),
+    send: vi.fn().mockResolvedValue({ latencyMs: 5 }),
+    snapshotCursor: vi.fn().mockResolvedValue('cur-0'),
+    waitForMessage: vi.fn().mockResolvedValue({ data: '{"status":"ok"}', type: 'text', timestamp: Date.now() }),
+    disconnect: vi.fn().mockResolvedValue(undefined),
+    disconnectAll: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as WsNodeOperations;
+}
+
+function wsConnectNode(id: string, label = 'WS Connect'): WorkflowNode {
+  const data: WsConnectNodeData = {
+    label,
+    url: 'wss://example.test/socket',
+    headers: [],
+    queryParams: [],
+    subprotocols: [],
+    connectionId: 'conn-1',
+    timeoutMs: 5000,
+    outputBindings: [],
+  };
+  return { id, type: 'wsConnect', position: { x: 0, y: 0 }, data };
+}
+
+function wsSendNode(id: string, label = 'WS Send'): WorkflowNode {
+  const data: WsSendNodeData = {
+    label,
+    connectionId: 'conn-1',
+    message: 'hello',
+    messageType: 'text',
+    waitForResponse: false,
+    responseTimeoutMs: 3000,
+    outputBindings: [],
+  };
+  return { id, type: 'wsSend', position: { x: 0, y: 0 }, data };
+}
+
+function wsReceiveNode(id: string, label = 'WS Receive'): WorkflowNode {
+  const data: WsReceiveNodeData = {
+    label,
+    connectionId: 'conn-1',
+    timeoutMs: 3000,
+    matchCriteria: {},
+    extractionRules: [],
+    outputBindings: [],
+  };
+  return { id, type: 'wsReceive', position: { x: 0, y: 0 }, data };
+}
+
+function wsTriggerNode(id: string, label = 'WS Trigger', matchCriteria: WsTriggerNodeData['matchCriteria'] = {}): WorkflowNode {
+  const data: WsTriggerNodeData = {
+    label,
+    url: 'wss://example.test/trigger',
+    connectionId: 'trig-conn',
+    matchCriteria,
+    extractionRules: [],
+    samplePayload: '{"event":"ping"}',
+  };
+  return { id, type: 'wsTrigger', position: { x: 0, y: 0 }, data };
+}
+
+// Positional helper: traceOptions is arg #16, wsOperations is arg #19.
+async function runWsGraph(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  cb: { onNodeStateChange: ReturnType<typeof vi.fn>; onVariablesChange: ReturnType<typeof vi.fn>; onComplete: ReturnType<typeof vi.fn> },
+  opts: { trace?: ExecutionTraceOptions; wsOps?: WsNodeOperations } = {},
+): Promise<void> {
+  await runGraph(
+    nodes, edges, {}, cb,
+    undefined, undefined, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, undefined, undefined,
+    opts.trace,
+    undefined, undefined,
+    opts.wsOps,
+  );
+}
+
+describe('runGraph — WebSocket node dispatch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('dispatches a wsConnect node and builds standard-level WS trace detail', async () => {
+    const node = wsConnectNode('ws-1');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('pass');
+  });
+
+  it('dispatches a wsSend node', async () => {
+    const node = wsSendNode('ws-send-1');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-send-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('pass');
+  });
+
+  it('dispatches a wsReceive node', async () => {
+    const node = wsReceiveNode('ws-recv-1');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-recv-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('pass');
+  });
+
+  it('dispatches a wsTrigger node and builds wsTrigger trace detail', async () => {
+    const node = wsTriggerNode('ws-trig-1');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-trig-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states.length).toBeGreaterThan(0);
+  });
+
+  it('captures minimal-level error detail for a failed WS node (no wsOperations)', async () => {
+    const node = wsConnectNode('ws-fail-1');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    // No wsOps → handler fails with "WebSocket operations not configured".
+    await runWsGraph([node], [], cb, { trace: { captureFullTrace: false, traceLevel: 'minimal' } });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-fail-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('builds standard-level WS trace error detail for a failed WS node (no wsOperations)', async () => {
+    const node = wsConnectNode('ws-fail-std');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    // No wsOps + default (standard) trace → exercises the error/responseTime branches.
+    await runWsGraph([node], [], cb);
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-fail-std')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('builds wsTrigger trace error detail when the message fails match criteria', async () => {
+    // samplePayload '{"event":"ping"}' will not contain this token → match failure → result pushed.
+    const node = wsTriggerNode('ws-trig-fail', 'WS Trigger', { contentContains: 'NOT_PRESENT_TOKEN' });
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-trig-fail')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('captures minimal-level error detail for a failed wsSend node', async () => {
+    const node = wsSendNode('ws-send-fail');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { trace: { captureFullTrace: false, traceLevel: 'minimal' } });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-send-fail')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('captures minimal-level error detail for a failed wsReceive node', async () => {
+    const node = wsReceiveNode('ws-recv-fail');
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { trace: { captureFullTrace: false, traceLevel: 'minimal' } });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-recv-fail')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('captures minimal-level error detail for a failed wsTrigger node', async () => {
+    const node = wsTriggerNode('ws-trig-min-fail', 'WS Trigger', { contentContains: 'NOPE_TOKEN' });
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([node], [], cb, { trace: { captureFullTrace: false, traceLevel: 'minimal' }, wsOps: mockWsOps() });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'ws-trig-min-fail')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
+  });
+
+  it('captures minimal-level error detail for failed kafkaProduce/kafkaConsume nodes', async () => {
+    // No kafkaOperations → both nodes fail; minimal trace exercises the kafka error branch.
+    const produce: WorkflowNode = {
+      id: 'kp-fail', type: 'kafkaProduce', position: { x: 0, y: 0 },
+      data: { label: 'Produce', clusterId: 'c1', topic: 'orders' } as KafkaProduceNodeData,
+    };
+    const consume: WorkflowNode = {
+      id: 'kc-fail', type: 'kafkaConsume', position: { x: 0, y: 0 },
+      data: { label: 'Consume', clusterId: 'c1', topic: 'orders' } as KafkaConsumeNodeData,
+    };
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runWsGraph([produce, consume], [], cb, { trace: { captureFullTrace: false, traceLevel: 'minimal' } });
+
+    expect(cb.onComplete).toHaveBeenCalledTimes(1);
+    const states = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'kp-fail' || id === 'kc-fail')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(states).toContain('fail');
   });
 });

@@ -32,6 +32,10 @@ import {
   handleKafkaConsumeNode,
   handleKafkaTriggerNode,
   handleKafkaWaitNode,
+  handleWsConnectNode,
+  handleWsSendNode,
+  handleWsReceiveNode,
+  handleWsTriggerNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
@@ -82,6 +86,8 @@ export async function runGraph(
   httpTimeoutMs?: number,
   /** Kafka client operations for produce/consume nodes. When omitted, Kafka nodes will fail. */
   kafkaOperations?: import('./graphRunnerNodeHandlerContext').KafkaNodeOperations,
+  /** WebSocket client operations for WS nodes. When omitted, WS nodes will fail. */
+  wsOperations?: import('./graphRunnerNodeHandlerContext').WsNodeOperations,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -95,6 +101,7 @@ export async function runGraph(
   const capturedSubWorkflowTraces = new Map<string, import('../../../shared/types').WorkflowExecutionTrace>();
   const capturedScriptOutput = new Map<string, string[]>();
   const capturedKafkaDetails = new Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>();
+  const capturedWsDetails = new Map<string, import('../../../shared/types').CapturedWsNodeDetails>();
 
   const effectiveLevelOnce = resolveTraceLevel(traceOptions);
   const nodeLogBuffer = new Map<string, { prefix: string; text: string; ts: number }[]>();
@@ -223,6 +230,8 @@ export async function runGraph(
       httpTimeoutMs: httpTimeoutMs ?? 30_000,
       kafkaOperations,
       capturedKafkaDetails,
+      wsOperations,
+      capturedWsDetails,
     };
 
     // Phase 7e: Record node execution start
@@ -273,6 +282,14 @@ export async function runGraph(
         await handleKafkaTriggerNode(nodeId, node, hCtx);
       } else if (node.type === 'kafkaWait') {
         await handleKafkaWaitNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsConnect') {
+        await handleWsConnectNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsSend') {
+        await handleWsSendNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsReceive') {
+        await handleWsReceiveNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsTrigger') {
+        await handleWsTriggerNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -419,6 +436,31 @@ export async function runGraph(
           ctx.delete('__kwWaitDurationMs');
           ctx.delete('__kwResumeData');
           ctx.delete('__kwOutcome');
+        } else if (node.type === 'wsConnect' || node.type === 'wsSend' || node.type === 'wsReceive') {
+          const wsCaptured = capturedWsDetails.get(nodeId);
+          const wsNodeResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastWsResult = wsNodeResults[wsNodeResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(wsCaptured ? { wsDetails: wsCaptured } : {}),
+            ...(lastWsResult ? { responseTimeMs: lastWsResult.responseTimeMs } : {}),
+            ...(!passedFlag.value && lastWsResult?.errorMessage ? { error: lastWsResult.errorMessage } : {}),
+          };
+        } else if (node.type === 'wsTrigger') {
+          const triggerUrl = ctx.get('ws.trigger.url');
+          const triggerConnId = ctx.get('ws.trigger.connectionId');
+          const triggerMsgType = ctx.get('ws.trigger.messageType');
+          const triggerResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastTriggerResult = triggerResults[triggerResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            wsTriggerDetails: {
+              url: triggerUrl ?? '',
+              connectionId: triggerConnId ?? '',
+              ...(triggerMsgType ? { messageType: triggerMsgType } : {}),
+            },
+            ...(!passedFlag.value && lastTriggerResult?.errorMessage ? { error: lastTriggerResult.errorMessage } : {}),
+          };
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -432,6 +474,13 @@ export async function runGraph(
                   .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
                   .join('; '),
               };
+            }
+          } else if (node.type === 'wsConnect' || node.type === 'wsSend' || node.type === 'wsReceive' || node.type === 'wsTrigger'
+            || node.type === 'kafkaProduce' || node.type === 'kafkaConsume') {
+            const transportResults = results.filter(r => r.workflowNodeId === nodeId);
+            const lastResult = transportResults[transportResults.length - 1];
+            if (lastResult && !lastResult.passed && lastResult.errorMessage) {
+              eventDetails = { error: lastResult.errorMessage };
             }
           }
         }
@@ -506,6 +555,15 @@ export async function runGraph(
       callbacks.onVariablesChange(ctx.snapshot());
       log({ prefix: '!', text: `Workflow-level error handler triggered — executing handler node "${nodeLabel(errorConfig.handlerEntryNodeId)}"` });
       await visit(errorConfig.handlerEntryNodeId);
+    }
+  }
+
+  // ── WebSocket cleanup — close all held connections (after error handler, so it can use WS nodes) ──
+  if (wsOperations) {
+    try {
+      await wsOperations.disconnectAll();
+    } catch {
+      // Best-effort cleanup — ignore disconnect failures
     }
   }
 

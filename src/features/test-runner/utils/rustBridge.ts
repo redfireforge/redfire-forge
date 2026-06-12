@@ -296,6 +296,7 @@ export function canUseRustExecutor(
   if (config.executionMode === 'workflow') return false;
   if (resolveSubWorkflow) return false;
   if (scenarios.some((s) => s.auth.type === 'oauth2')) return false;
+  if (scenarios.some((s) => s.actionType && s.actionType !== 'http')) return false;
   return true;
 }
 

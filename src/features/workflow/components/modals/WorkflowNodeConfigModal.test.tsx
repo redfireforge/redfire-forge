@@ -210,6 +210,58 @@ vi.mock('../configs/KafkaConsumeConfig', () => ({
   )),
 }));
 
+vi.mock('../configs/WsConnectConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-connect-config">
+      WsConnectConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Connect' })}>patch-ws-connect</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsSendConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-send-config">
+      WsSendConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Send' })}>patch-ws-send</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsReceiveConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-receive-config">
+      WsReceiveConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Receive' })}>patch-ws-receive</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsTriggerConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-trigger-config">
+      WsTriggerConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Trigger' })}>patch-ws-trigger</button>
+    </div>
+  )),
+}));
+
 vi.mock('./WorkflowVariableInsertModal', () => ({
   __esModule: true,
   default: vi.fn().mockImplementation((props: { open: boolean; initialSearch: string }) => (
@@ -741,6 +793,27 @@ describe('WorkflowNodeConfigModal', () => {
       const { unmount } = render(
         <WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />,
       );
+      fireEvent.click(screen.getByText(button));
+      fireEvent.click(screen.getByText('Save'));
+      expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
+  it('renders WS config components for all 4 WS node types', () => {
+    const wsCases: Array<{ type: WorkflowNode['type']; data: Record<string, unknown>; testId: string; button: string }> = [
+      { type: 'wsConnect', data: { url: 'wss://test', connectionId: 'c1' }, testId: 'ws-connect-config', button: 'patch-ws-connect' },
+      { type: 'wsSend', data: { connectionId: 'c1', message: 'hi' }, testId: 'ws-send-config', button: 'patch-ws-send' },
+      { type: 'wsReceive', data: { connectionId: 'c1', timeoutMs: 5000 }, testId: 'ws-receive-config', button: 'patch-ws-receive' },
+      { type: 'wsTrigger', data: { url: 'wss://test' }, testId: 'ws-trigger-config', button: 'patch-ws-trigger' },
+    ];
+    for (const { type, data, testId, button } of wsCases) {
+      const onUpdateNode = vi.fn();
+      const node = makeNode(type, data);
+      const { unmount } = render(
+        <WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />,
+      );
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
       fireEvent.click(screen.getByText(button));
       fireEvent.click(screen.getByText('Save'));
       expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);

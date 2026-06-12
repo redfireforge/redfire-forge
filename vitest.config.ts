@@ -17,6 +17,7 @@ export default defineConfig({
       exclude: [
         '**/__test-utils__/**',
         '**/__mocks__/**',
+        '**/test-helpers/**',
         '**/*.test.{ts,tsx}',
         '**/*.config.{ts,js}',
         'node_modules',

@@ -36,6 +36,58 @@ describe('emptyTest', () => {
     expect(t.headers).toEqual([{ key: '', value: '' }]);
     expect(t.bodyForm).toEqual([{ key: '', value: '' }]);
   });
+
+  it('returns HTTP defaults when called with no argument', () => {
+    const t = emptyTest();
+    expect(t.actionType).toBeUndefined();
+    expect(t.method).toBe('GET');
+  });
+
+  it('returns HTTP defaults when called with "http"', () => {
+    const t = emptyTest('http');
+    expect(t.actionType).toBeUndefined();
+    expect(t.method).toBe('GET');
+  });
+
+  it('returns wsConnect defaults', () => {
+    const t = emptyTest('wsConnect');
+    expect(t.actionType).toBe('wsConnect');
+    expect(t.method).toBe('WEBSOCKET');
+    expect(t.wsConnectAction).toBeDefined();
+    expect(t.wsConnectAction!.timeoutMs).toBe(10_000);
+    expect(t.wsSendAction).toBeUndefined();
+    expect(t.wsReceiveAction).toBeUndefined();
+  });
+
+  it('returns wsSend defaults', () => {
+    const t = emptyTest('wsSend');
+    expect(t.actionType).toBe('wsSend');
+    expect(t.method).toBe('WEBSOCKET');
+    expect(t.wsSendAction).toBeDefined();
+    expect(t.wsSendAction!.messageType).toBe('text');
+    expect(t.wsSendAction!.waitForResponse).toBe(false);
+    expect(t.wsConnectAction).toBeUndefined();
+  });
+
+  it('returns wsReceive defaults', () => {
+    const t = emptyTest('wsReceive');
+    expect(t.actionType).toBe('wsReceive');
+    expect(t.method).toBe('WEBSOCKET');
+    expect(t.wsReceiveAction).toBeDefined();
+    expect(t.wsReceiveAction!.timeoutMs).toBe(10_000);
+  });
+
+  it('returns kafkaProduce defaults', () => {
+    const t = emptyTest('kafkaProduce');
+    expect(t.actionType).toBe('kafkaProduce');
+    expect(t.method).toBe('KAFKA');
+  });
+
+  it('returns kafkaConsume defaults', () => {
+    const t = emptyTest('kafkaConsume');
+    expect(t.actionType).toBe('kafkaConsume');
+    expect(t.method).toBe('KAFKA');
+  });
 });
 
 // ---------------------------------------------------------------------------

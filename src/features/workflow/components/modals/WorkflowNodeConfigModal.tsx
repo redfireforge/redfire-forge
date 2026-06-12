@@ -22,6 +22,10 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -54,6 +58,10 @@ import KafkaProduceConfig from '../configs/KafkaProduceConfig';
 import KafkaConsumeConfig from '../configs/KafkaConsumeConfig';
 import KafkaTriggerConfig from '../configs/KafkaTriggerConfig';
 import KafkaWaitConfig from '../configs/KafkaWaitConfig';
+import WsConnectConfig from '../configs/WsConnectConfig';
+import WsSendConfig from '../configs/WsSendConfig';
+import WsReceiveConfig from '../configs/WsReceiveConfig';
+import WsTriggerConfig from '../configs/WsTriggerConfig';
 import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
@@ -96,6 +104,8 @@ interface Props {
   workflows?: WorkflowPickerItem[];
   /** Full variable scope from last run — includes upstream extracted values. */
   runtimeVariables?: Record<string, string>;
+  /** All nodes in the workflow — used to discover upstream connection IDs. */
+  allNodes?: WorkflowNode[];
 }
 
 export default function WorkflowNodeConfigModal({
@@ -108,6 +118,7 @@ export default function WorkflowNodeConfigModal({
   nodeRunStatus,
   workflows = [],
   runtimeVariables,
+  allNodes = [],
 }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
@@ -194,6 +205,16 @@ export default function WorkflowNodeConfigModal({
       return !latestBaseNames.has(m[1]) || (scopedCountMap.get(m[1]) ?? 0) > 1;
     });
   }, [variableInsertHints]);
+
+  // Available WebSocket connection IDs from all wsConnect nodes in the workflow
+  const wsConnectionIds = useMemo(() => {
+    return [...new Set(
+      allNodes
+        .filter((n) => n.type === 'wsConnect')
+        .map((n) => (n.data as WsConnectNodeData).connectionId?.trim())
+        .filter(Boolean),
+    )];
+  }, [allNodes]);
 
   // ── Validation fetch hook for HTTP nodes ──
   const httpDraftScenario = isHttpWorkflowNode(draftNode) ? (draftNode.data as HttpNodeData).scenario : null;
@@ -461,6 +482,46 @@ export default function WorkflowNodeConfigModal({
             {draftNode.type === 'kafkaWait' && (
               <KafkaWaitConfig
                 data={draftNode.data as KafkaWaitNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsConnect' && (
+              <WsConnectConfig
+                data={draftNode.data as WsConnectNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsSend' && (
+              <WsSendConfig
+                key={draftNode.id}
+                data={draftNode.data as WsSendNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                availableConnectionIds={wsConnectionIds}
+              />
+            )}
+
+            {draftNode.type === 'wsReceive' && (
+              <WsReceiveConfig
+                key={draftNode.id}
+                data={draftNode.data as WsReceiveNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                availableConnectionIds={wsConnectionIds}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsTrigger' && (
+              <WsTriggerConfig
+                data={draftNode.data as WsTriggerNodeData}
                 onChange={(data) => updateDraft(data)}
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}

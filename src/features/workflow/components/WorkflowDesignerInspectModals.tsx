@@ -88,6 +88,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
           selectedEnvId={selectedEnvId}
           nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
           workflows={configModalWorkflows}
+          allNodes={nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data } as import('../types/workflow').WorkflowNode))}
         />
       )}
 

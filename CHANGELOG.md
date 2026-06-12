@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Changed
+- **Split-pane resize logic unified** — Extracted the WebSocket + SSE studio left-pane resize into a shared `useSplitPaneResize` hook (persistence, debounced save, mouse drag, keyboard resize, ARIA divider props) plus a `tabListKeyboard` helper, removing the duplicated drag logic from both shells.
 - **Kafka Service Modularization** — Extracted `kafka-produce.ts` and `kafka-subscribe.ts` from monolithic `KafkaService` class (was 660+ lines, now 464 lines). Produce and subscribe logic are now standalone modules with dedicated test files.
 - **Kafka Utility Extraction** — Extracted `checkClusterMismatch()` into `kafka-service-utils.ts` for reuse and independent testing.
 - **Gallery Node Factory Extraction** — Extracted shared `nodeFactories.ts` (386 lines) from 6 workflow gallery files, eliminating ~1,500 lines of duplicated node-creation boilerplate across `apiPatterns.ts`, `asyncCorrelation.ts`, `flowControl.ts`, `kafka.ts`, `orchestration.ts`, and `performance.ts`.
@@ -17,6 +18,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Documentation Accuracy Pass** — Updated REFACTORING_PLAN.md (success criteria all checked, metrics updated to actuals), RESTRUCTURING_PLAN.md (WorkflowDesigner 895→23 lines), ROADMAP.md (Feature Maturity Assessment updated).
 
 ### Added
+- **WebSocket/SSE Studio console command line (Phase 10)** — The studio console now has a bottom command line. WebSocket supports `/help`, `/clear`, `/connect [url]`, `/disconnect`, `/ping`, `/close [code] [reason]`, `/send <data>`, and `/template <name>`; SSE is limited to `/help`, `/clear`, `/connect [url]`, and `/disconnect`. Commands echo as `command`-direction entries (`$` glyph in the Raw view), `↑`/`↓` recall history, and `/help` lists the available commands. Parsing/dispatch is split into a pure `wsConsoleCommands` module and a `useConsoleCommands` hook.
+- **WebSocket/SSE Studio accessibility (Phase 11)** — The redesigned WebSocket and SSE studio split-pane dividers are now keyboard-resizable (`Arrow`/`Shift`+Arrow/`PageUp`/`PageDown`/`Home`/`End`) with full WAI-ARIA `separator` semantics (`aria-valuenow`/`valuemin`/`valuemax`), and their left-pane widths persist across reloads. The mode/left/right tab strips gained roving `tabIndex`, `Arrow`/`Home`/`End` navigation, `aria-controls` → `role="tabpanel"` linkage, and visible `:focus-visible` rings.
 - **Cron Scheduler Tests** — `cron-scheduler.test.ts` with 15 tests covering all exports (`initScheduler`, `reloadSchedules`, `stopScheduler`, `getSchedulerStatus`) — 100% coverage.
 - **Kafka Produce Tests** — `kafka-produce.test.ts` with 16 tests covering message production, validation, schema encoding, error paths.
 - **Kafka Subscribe Tests** — `kafka-subscribe.test.ts` with 16 tests covering subscription lifecycle, ring buffer, filter matching, error paths.
@@ -24,6 +27,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Kafka Utils Tests** — `kafka-service-utils.test.ts` with 48 lines testing `checkClusterMismatch`.
 
 ### Fixed
+- **Schema Registry stale "latest" cache** — `fetchSchema()` cached the version-less "latest" lookup permanently under a `-1` alias key, so once a newer schema version was registered the registry kept returning the stale schema until process restart. Now only concrete (immutable) versions are cached; "latest" always re-fetches.
+- **Schema Registry stale credentials** — the `SchemaRegistry` instance cache was keyed by URL + username only, so correcting a previously-wrong password reused the failed instance. The password is now part of the cache key.
+- **Schema Registry latest-version selection** — `useSchemaRegistry` auto-selected the last array element as "latest"; it now selects the highest version number, robust against an unsorted registry response.
+- **Kafka subscribe `rawValue` Buffer leak** — the subscribe ring buffer stored raw adapter records (which always carry a server-only `rawValue` Buffer), so `subscription-messages` polls serialized the raw Buffer to the client. `rawValue` is now stripped before buffering, matching the consume-once path.
+- **Kafka trigger `rawValue` Buffer leak** — `kafkaTriggerSubscriptionManager` serialized the full record (including `rawValue`) into the `__kafkaTriggerMessage` workflow variable as a `{"type":"Buffer",...}` blob. `rawValue` is now stripped before `JSON.stringify`.
 - **Coverage Gap** — `kafka-service.test-utils.ts` improved from 83.3% → 93.75% line coverage.
 - **ESLint Errors** — Removed 4 unused-var imports across kafka modules.
 - **E2E Test Fixes** — Fixed bugs across 10 E2E spec files (`response-detail-modal`, `results-console`, `run-comparison`, `run-in-harness`, `structure-history`, `sub-workflow-drilldown`, `training-tracks`, `trash-box`, `validation-dsl-roundtrip`, `validation-mapper-source-sync`).

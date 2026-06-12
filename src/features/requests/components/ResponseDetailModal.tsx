@@ -6,6 +6,7 @@ import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import JsonPreview, { buildJTree, type JNode } from './JsonTreePreview';
 import ResponseBodySearchBar from './ResponseBodySearchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { formatTransportStatus, getTransportMethodLabel, getTransportFamily } from '../../results/utils/transportStatus';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -58,6 +59,16 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
 
   if (!result) return null;
 
+  const family = getTransportFamily(result.transportType);
+  const isHttp = family === 'http';
+  const methodLabel = getTransportMethodLabel(result);
+  const statusLabel = formatTransportStatus(result);
+  const statusTagClass = isHttp
+    ? (result.httpStatus >= 400 || result.httpStatus === 0 ? 'tag-danger' : 'tag-info')
+    : (result.passed ? 'tag-info' : 'tag-danger');
+  const wsMeta = result.wsResultMeta;
+  const hasWsMeta = !!(wsMeta && (wsMeta.url || wsMeta.connectionId || wsMeta.protocol || wsMeta.frameType || wsMeta.messageSize != null || wsMeta.closeCode != null));
+
   return (
     <WorkflowEditorModalFrame
       title="Response Detail"
@@ -72,10 +83,10 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           <div className="response-detail-meta">
             <div className="response-meta-row">
               <span className="tag tag-dim">#{result.id.replace(/^\D+/, '')}</span>
-              <span className={`method-badge method-${result.method.toLowerCase()}`}>{result.method}</span>
+              <span className={`method-badge method-${result.method.toLowerCase()}`}>{methodLabel}</span>
               <span className="response-meta-name">{result.scenarioName}</span>
-              <span className={`tag ${result.httpStatus >= 400 ? 'tag-danger' : result.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>
-                {result.httpStatus || 'ERR'}
+              <span className={`tag ${statusTagClass}`}>
+                {statusLabel}
               </span>
               <span className="tag">{result.responseTimeMs} ms</span>
               <span className={`tag ${result.passed ? 'tag-success' : 'tag-danger'}`}>
@@ -85,7 +96,56 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             <div className="response-meta-url">{result.url}</div>
           </div>
 
-          {result.timing && (
+          {/* WS Details panel */}
+          {family === 'ws' && hasWsMeta && wsMeta && (
+            <div className="response-detail-section">
+              <h4>WebSocket Details</h4>
+              <table className="response-headers-table">
+                <tbody>
+                  {wsMeta.url && (
+                    <tr><td className="header-name">URL</td><td className="header-value">{wsMeta.url}</td></tr>
+                  )}
+                  {wsMeta.connectionId && (
+                    <tr><td className="header-name">Connection ID</td><td className="header-value">{wsMeta.connectionId}</td></tr>
+                  )}
+                  {wsMeta.protocol && (
+                    <tr><td className="header-name">Protocol</td><td className="header-value">{wsMeta.protocol}</td></tr>
+                  )}
+                  {wsMeta.frameType && (
+                    <tr><td className="header-name">Frame Type</td><td className="header-value">{wsMeta.frameType}</td></tr>
+                  )}
+                  {wsMeta.messageSize != null && (
+                    <tr><td className="header-name">Message Size</td><td className="header-value">{wsMeta.messageSize.toLocaleString()} bytes</td></tr>
+                  )}
+                  {wsMeta.closeCode != null && (
+                    <tr><td className="header-name">Close Code</td><td className="header-value">{wsMeta.closeCode}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Kafka Details panel */}
+          {family === 'kafka' && result.kafkaResultMeta && (
+            <div className="response-detail-section">
+              <h4>Kafka Details</h4>
+              <table className="response-headers-table">
+                <tbody>
+                  <tr><td className="header-name">Topic</td><td className="header-value">{result.kafkaResultMeta.topic}</td></tr>
+                  <tr><td className="header-name">Partition</td><td className="header-value">{result.kafkaResultMeta.partition}</td></tr>
+                  <tr><td className="header-name">Offset</td><td className="header-value">{result.kafkaResultMeta.offset}</td></tr>
+                  {result.kafkaResultMeta.key != null && (
+                    <tr><td className="header-name">Key</td><td className="header-value">{result.kafkaResultMeta.key}</td></tr>
+                  )}
+                  {result.kafkaResultMeta.matchedMessages != null && (
+                    <tr><td className="header-name">Matched Messages</td><td className="header-value">{result.kafkaResultMeta.matchedMessages}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {isHttp && result.timing && (
             <div className="response-detail-section">
               <h4>Timing Breakdown</h4>
               <WaterfallBar timing={result.timing} />

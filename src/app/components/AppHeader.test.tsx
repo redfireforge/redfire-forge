@@ -1,0 +1,222 @@
+// @vitest-environment jsdom
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { createRef } from 'react';
+import type { RefObject } from 'react';
+import AppHeader from './AppHeader';
+import type { Environment, Microservice } from '../../shared/types';
+import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import { persistSavedThemes, type SavedCustomTheme } from '../themeCustomizerUtils';
+
+// Mock the Kafka indicator child so the header renders in isolation.
+vi.mock('./KafkaConnectionIndicator', () => ({
+  default: ({ hasClusters }: { hasClusters: boolean }) =>
+    hasClusters ? <div data-testid="kafka-indicator">kafka</div> : null,
+}));
+
+const THEMES = [
+  {
+    group: 'Dark',
+    items: [
+      { id: 'dark', icon: '🌙', label: 'Dark', bg: '#111' },
+      { id: 'midnight', icon: '🌃', label: 'Midnight', bg: '#001' },
+    ],
+  },
+  {
+    group: 'Light',
+    items: [{ id: 'light', icon: '☀️', label: 'Light', bg: '#fff' }],
+  },
+] as const;
+
+const THEME_ICONS: Record<string, string> = { dark: '🌙', light: '☀️' };
+
+const kafkaConnection: KafkaConnectionSnapshot = { state: 'disconnected' };
+
+interface Overrides {
+  environments?: Environment[];
+  microservices?: Microservice[];
+  selectedEnvId?: string;
+  selectedSvcId?: string;
+  theme?: string;
+  themePickerOpen?: boolean;
+  kafkaHasClusters?: boolean;
+}
+
+function setup(over: Overrides = {}) {
+  const setSelectedEnvId = vi.fn();
+  const setSelectedSvcId = vi.fn();
+  const setTheme = vi.fn();
+  const setThemePickerOpen = vi.fn();
+  const setShowCustomizer = vi.fn();
+  const onNavigateToKafkaSettings = vi.fn();
+  const headerRef = createRef<HTMLElement>() as RefObject<HTMLElement | null>;
+  const themePickerRef = createRef<HTMLDivElement>() as RefObject<HTMLDivElement | null>;
+
+  const utils = render(
+    <AppHeader
+      headerRef={headerRef}
+      environments={over.environments ?? [{ id: 'e1', name: 'Dev' }]}
+      microservices={over.microservices ?? [{ id: 's1', name: 'Orders', baseUrls: {} }]}
+      selectedEnvId={over.selectedEnvId ?? ''}
+      setSelectedEnvId={setSelectedEnvId}
+      selectedSvcId={over.selectedSvcId ?? ''}
+      setSelectedSvcId={setSelectedSvcId}
+      theme={over.theme ?? 'dark'}
+      setTheme={setTheme}
+      themePickerOpen={over.themePickerOpen ?? false}
+      setThemePickerOpen={setThemePickerOpen}
+      themePickerRef={themePickerRef}
+      THEMES={THEMES}
+      THEME_ICONS={THEME_ICONS}
+      setShowCustomizer={setShowCustomizer}
+      kafkaConnection={kafkaConnection}
+      kafkaClusterName={null}
+      kafkaHasClusters={over.kafkaHasClusters ?? false}
+      onNavigateToKafkaSettings={onNavigateToKafkaSettings}
+    />,
+  );
+
+  return {
+    ...utils,
+    setSelectedEnvId,
+    setSelectedSvcId,
+    setTheme,
+    setThemePickerOpen,
+    setShowCustomizer,
+  };
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.stubGlobal('__APP_VERSION__', '9.9.9');
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
+
+describe('AppHeader', () => {
+  it('renders the version badge from the global', () => {
+    setup();
+    expect(screen.getByText('v9.9.9')).toBeTruthy();
+  });
+
+  it('routes environment and service select changes', () => {
+    const { container, setSelectedEnvId, setSelectedSvcId } = setup();
+    const [envSelect, svcSelect] = Array.from(container.querySelectorAll('select'));
+    fireEvent.change(envSelect, { target: { value: 'e1' } });
+    fireEvent.change(svcSelect, { target: { value: 's1' } });
+    expect(setSelectedEnvId).toHaveBeenCalledWith('e1');
+    expect(setSelectedSvcId).toHaveBeenCalledWith('s1');
+  });
+
+  it('renders the Additional optgroup when a microservice has custom envs', () => {
+    setup({
+      microservices: [
+        { id: 's1', name: 'Orders', baseUrls: {}, customEnvs: [{ id: 'ce1', name: 'QA Sandbox' }] },
+      ],
+    });
+    expect(screen.getByText('QA Sandbox (Orders)')).toBeTruthy();
+  });
+
+  it('omits the Additional optgroup when no microservice has custom envs', () => {
+    const { container } = setup({ microservices: [{ id: 's1', name: 'Orders', baseUrls: {} }] });
+    expect(container.querySelector('optgroup')).toBeNull();
+  });
+
+  it('hides the kafka indicator without clusters and shows it with clusters', () => {
+    const { rerender } = setup({ kafkaHasClusters: false });
+    expect(screen.queryByTestId('kafka-indicator')).toBeNull();
+    rerender(
+      <AppHeader
+        headerRef={createRef<HTMLElement>() as RefObject<HTMLElement | null>}
+        environments={[]}
+        microservices={[]}
+        selectedEnvId=""
+        setSelectedEnvId={vi.fn()}
+        selectedSvcId=""
+        setSelectedSvcId={vi.fn()}
+        theme="dark"
+        setTheme={vi.fn()}
+        themePickerOpen={false}
+        setThemePickerOpen={vi.fn()}
+        themePickerRef={createRef<HTMLDivElement>() as RefObject<HTMLDivElement | null>}
+        THEMES={THEMES}
+        THEME_ICONS={THEME_ICONS}
+        setShowCustomizer={vi.fn()}
+        kafkaConnection={kafkaConnection}
+        kafkaClusterName={null}
+        kafkaHasClusters
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('kafka-indicator')).toBeTruthy();
+  });
+
+  it('toggles the theme picker open via the toggle button', () => {
+    const { container, setThemePickerOpen } = setup({ theme: 'dark' });
+    const toggle = container.querySelector('.theme-toggle') as HTMLButtonElement;
+    expect(toggle.title).toBe('Theme: dark');
+    expect(toggle.textContent).toContain('🌙');
+    fireEvent.click(toggle);
+    expect(setThemePickerOpen).toHaveBeenCalledTimes(1);
+    // Exercise the functional updater passed to the setter.
+    const updater = setThemePickerOpen.mock.calls[0][0] as (o: boolean) => boolean;
+    expect(updater(false)).toBe(true);
+  });
+
+  it('falls back to the default icon for unknown themes', () => {
+    const { container } = setup({ theme: 'midnight' });
+    const toggle = container.querySelector('.theme-toggle') as HTMLButtonElement;
+    expect(toggle.textContent).toContain('🎨');
+  });
+
+  it('adds the open class when the picker is open', () => {
+    const { container } = setup({ themePickerOpen: true });
+    expect(container.querySelector('.theme-picker')?.className).toContain('open');
+  });
+
+  it('selects a theme option and closes the picker', () => {
+    const { container, setTheme, setThemePickerOpen } = setup({ theme: 'dark' });
+    const lightOption = Array.from(container.querySelectorAll('.theme-option')).find(
+      (el) => el.textContent?.includes('Light'),
+    ) as HTMLButtonElement;
+    fireEvent.click(lightOption);
+    expect(setTheme).toHaveBeenCalledWith('light');
+    expect(setThemePickerOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('marks the active theme option', () => {
+    const { container } = setup({ theme: 'light' });
+    const active = container.querySelector('.theme-option.active');
+    expect(active?.textContent).toContain('Light');
+  });
+
+  it('shows the active custom badge with the saved theme name', () => {
+    const saved: SavedCustomTheme = { id: 'abc', name: 'Sunset', base: 'dark', overrides: {}, contrast: 0 };
+    persistSavedThemes([saved]);
+    const { container } = setup({ theme: 'custom:abc' });
+    expect(screen.getByText('Sunset')).toBeTruthy();
+    expect(screen.getByText('active')).toBeTruthy();
+    expect(container.querySelector('.theme-customize-btn')?.className).toContain('active');
+    const toggle = container.querySelector('.theme-toggle') as HTMLButtonElement;
+    expect(toggle.title).toBe('Theme: Sunset');
+  });
+
+  it('falls back to "Custom" when the custom theme is not saved', () => {
+    const { container } = setup({ theme: 'custom:missing' });
+    expect(screen.getByText('Custom')).toBeTruthy();
+    const toggle = container.querySelector('.theme-toggle') as HTMLButtonElement;
+    expect(toggle.title).toBe('Theme: Custom');
+  });
+
+  it('opens the customizer and closes the picker from the Customize button', () => {
+    const { container, setThemePickerOpen, setShowCustomizer } = setup({ theme: 'dark' });
+    const btn = container.querySelector('.theme-customize-btn') as HTMLButtonElement;
+    fireEvent.click(btn);
+    expect(setThemePickerOpen).toHaveBeenCalledWith(false);
+    expect(setShowCustomizer).toHaveBeenCalledWith(true);
+  });
+});

@@ -1,23 +1,47 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { KeyValue, Scenario } from '../../../shared/types';
+import type { KeyValue, Scenario, ScenarioActionType } from '../../../shared/types';
+import { isWsActionType } from '../../../shared/types';
 import {
   getBaseUrl as getBaseUrlShared,
   parseQueryParamsPreserveTemplates,
   rebuildUrl as rebuildUrlShared,
 } from '../../../shared/utils/queryParams';
+import {
+  createDefaultWsConnectAction,
+  createDefaultWsSendAction,
+  createDefaultWsReceiveAction,
+} from '../../../shared/utils/wsScenarioDefaults';
 
-export const emptyTest = (): Scenario => ({
-  id: uuidv4(),
-  name: '',
-  url: '',
-  method: 'GET',
-  headers: [{ key: '', value: '' }],
-  body: '',
-  bodyType: 'none',
-  bodyForm: [{ key: '', value: '' }],
-  auth: { type: 'inherit' },
-  validation: { mode: 'none', expectedFields: [] },
-});
+export const emptyTest = (actionType?: ScenarioActionType): Scenario => {
+  const base: Scenario = {
+    id: uuidv4(),
+    name: '',
+    url: '',
+    method: 'GET',
+    headers: [{ key: '', value: '' }],
+    body: '',
+    bodyType: 'none',
+    bodyForm: [{ key: '', value: '' }],
+    auth: { type: 'inherit' },
+    validation: { mode: 'none', expectedFields: [] },
+  };
+
+  if (!actionType || actionType === 'http') return base;
+
+  if (actionType === 'kafkaProduce' || actionType === 'kafkaConsume') {
+    return { ...base, actionType, method: 'KAFKA' };
+  }
+
+  if (isWsActionType(actionType)) {
+    const ws: Partial<Scenario> = { actionType, method: 'WEBSOCKET' };
+    if (actionType === 'wsConnect') ws.wsConnectAction = createDefaultWsConnectAction();
+    else if (actionType === 'wsSend') ws.wsSendAction = createDefaultWsSendAction();
+    else if (actionType === 'wsReceive') ws.wsReceiveAction = createDefaultWsReceiveAction();
+    return { ...base, ...ws };
+  }
+
+  return base;
+};
 
 import { canonicalize } from '../../../shared/utils/canonicalize';
 export { canonicalize };

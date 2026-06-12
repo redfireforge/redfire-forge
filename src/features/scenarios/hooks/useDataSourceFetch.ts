@@ -10,7 +10,7 @@ import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { extractJsonPath, expandPatternFromResponse, inferPatternsFromColumns } from '../utils/dataSourceImport';
 import { v4 as uuidv4 } from 'uuid';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
 
 /** Populate validate columns from a parsed response, expanding dynamic patterns as needed. */
 function populateValidateColumns(
@@ -144,8 +144,7 @@ export function useDataSourceFetch({ scenario, dataSource: dt, onChange, onFetch
           return;
         }
 
-        let responseObj: unknown = null;
-        try { responseObj = JSON.parse(result.body); } catch { /* not JSON */ }
+        const responseObj: unknown = tryParseJson(result.body) ?? null;
 
         if (responseObj != null) {
           const dynamicPatterns = new Set(currentDt.validationContract ?? []);
@@ -199,8 +198,7 @@ export function useDataSourceFetch({ scenario, dataSource: dt, onChange, onFetch
           if (result.error) { errors.push(`Row ${rowIdx + 1}: ${result.error}`); continue; }
           if (result.status >= 400) { errors.push(`Row ${rowIdx + 1}: HTTP ${result.status}`); continue; }
 
-          let responseObj: unknown = null;
-          try { responseObj = JSON.parse(result.body); } catch { /* not JSON */ }
+          const responseObj: unknown = tryParseJson(result.body) ?? null;
           if (responseObj == null) continue;
 
           const result2 = populateValidateColumns(responseObj, columns, rows[rowIdx].values, dynamicPatterns);

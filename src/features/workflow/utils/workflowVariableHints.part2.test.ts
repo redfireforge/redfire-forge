@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints } from './workflowVariableHints';
-import { HttpNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding, KafkaProduceNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
+import { HttpNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding, KafkaProduceNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
   const setVar = (id: string, vars: Record<string, string>): WorkflowNode => ({
@@ -862,5 +862,156 @@ describe('collectConditionVariableHints — kafkaConsume ancestor', () => {
     expect(refs).not.toContain('messageVal');
     const keyHint = hints.find(h => h.ref === 'messageKey');
     expect(keyHint?.source?.category).toBe('Integrations');
+  });
+});
+
+// ── WebSocket node hints ──
+
+describe('collectConditionVariableHints — WebSocket upstream nodes', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'Cond', conditions: [] },
+  });
+
+  it('includes wsConnect outputBindings from ancestor', () => {
+    const wsConnect: WorkflowNode = {
+      id: 'wc1',
+      type: 'wsConnect',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Connect',
+        url: 'ws://x',
+        connectionId: 'ws1',
+        timeoutMs: 5000,
+        headers: [],
+        queryParams: [],
+        subprotocols: [],
+        outputBindings: [
+          { field: 'protocol', variableName: 'proto', enabled: true },
+          { field: 'extensions', variableName: 'ext', enabled: false },
+          { field: 'latencyMs', variableName: '', enabled: true },
+        ],
+      } as WsConnectNodeData,
+    };
+    const nodes = [wsConnect, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('proto');
+    expect(refs).not.toContain('ext'); // disabled
+    expect(refs).not.toContain(''); // empty variableName
+    expect(hints.find(h => h.ref === 'proto')?.source?.category).toBe('Integrations');
+  });
+
+  it('includes wsSend outputBindings when waitForResponse', () => {
+    const wsSend: WorkflowNode = {
+      id: 'ws1',
+      type: 'wsSend',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Send',
+        connectionId: 'ws1',
+        message: '{}',
+        messageType: 'text',
+        waitForResponse: true,
+        responseTimeoutMs: 5000,
+        outputBindings: [
+          { field: 'responseBody', variableName: 'body', enabled: true },
+          { field: 'latencyMs', variableName: 'lat', enabled: true },
+        ],
+      } as WsSendNodeData,
+    };
+    const nodes = [wsSend, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'ws1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('body');
+    expect(refs).toContain('lat');
+  });
+
+  it('excludes wsSend outputBindings when waitForResponse is false', () => {
+    const wsSend: WorkflowNode = {
+      id: 'ws1',
+      type: 'wsSend',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Send',
+        connectionId: 'ws1',
+        message: '{}',
+        messageType: 'text',
+        waitForResponse: false,
+        responseTimeoutMs: 5000,
+        outputBindings: [
+          { field: 'responseBody', variableName: 'body', enabled: true },
+        ],
+      } as WsSendNodeData,
+    };
+    const nodes = [wsSend, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'ws1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.map(h => h.ref)).not.toContain('body');
+  });
+
+  it('includes wsReceive outputBindings and extractionRules', () => {
+    const wsReceive: WorkflowNode = {
+      id: 'wr1',
+      type: 'wsReceive',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Receive',
+        connectionId: 'ws1',
+        timeoutMs: 5000,
+        matchCriteria: {},
+        outputBindings: [
+          { field: 'messageBody', variableName: 'msg', enabled: true },
+          { field: 'latencyMs', variableName: 'lat', enabled: false },
+        ],
+        extractionRules: [
+          { variableName: 'orderId', jsonPath: '$.orderId' },
+          { variableName: '', jsonPath: '$.empty' }, // empty variableName — should be excluded
+        ],
+      } as WsReceiveNodeData,
+    };
+    const nodes = [wsReceive, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wr1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('msg');
+    expect(refs).not.toContain('lat'); // disabled
+    expect(refs).toContain('orderId');
+    expect(refs).not.toContain(''); // empty
+    expect(hints.find(h => h.ref === 'orderId')?.description).toContain('JSONPath');
+  });
+
+  it('includes wsTrigger built-in keys and extractionRules', () => {
+    const wsTrigger: WorkflowNode = {
+      id: 'wt1',
+      type: 'wsTrigger',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Trigger',
+        url: 'ws://x',
+        connectionId: 'ws1',
+        matchCriteria: {},
+        extractionRules: [
+          { variableName: 'eventType', jsonPath: '$.event' },
+        ],
+      } as WsTriggerNodeData,
+    };
+    const nodes = [wsTrigger, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wt1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    // Built-in trigger keys
+    expect(refs).toContain('ws.trigger.message');
+    expect(refs).toContain('ws.trigger.messageType');
+    expect(refs).toContain('ws.trigger.url');
+    expect(refs).toContain('ws.trigger.connectionId');
+    // Extraction rule
+    expect(refs).toContain('eventType');
+    expect(hints.find(h => h.ref === 'ws.trigger.message')?.source?.category).toBe('Triggers');
+    expect(hints.find(h => h.ref === 'eventType')?.description).toContain('JSONPath');
   });
 });
