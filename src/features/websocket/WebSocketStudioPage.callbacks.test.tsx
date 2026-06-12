@@ -417,17 +417,17 @@ describe('WebSocketStudioPage internal callbacks', () => {
     });
   });
 
-  describe('handleViewTabChange', () => {
-    it('saves view tab on change', async () => {
+  describe('handleModeChange', () => {
+    it('saves studio location on mode change', async () => {
       vi.useFakeTimers();
       const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
       await renderPage();
 
       const tabId = Object.keys(capturedTabContentProps)[0];
-      const onViewTabChange = capturedTabContentProps[tabId].onViewTabChange as (id: string, vt: string) => void;
+      const onModeChange = capturedTabContentProps[tabId].onModeChange as (mode: string) => void;
 
       saveSpy.mockClear();
-      act(() => { onViewTabChange(tabId, 'messages'); });
+      act(() => { onModeChange('saved'); });
       vi.advanceTimersByTime(400);
 
       expect(saveSpy).toHaveBeenCalled();

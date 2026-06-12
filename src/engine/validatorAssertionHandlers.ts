@@ -4,6 +4,7 @@
  */
 import type { Assertion, FailureDetail, ComparisonOperator } from '../shared/types';
 import { getByPath } from '../shared/utils/jsonPath';
+import { parseJsonOrRaw } from '../shared/utils/helpers';
 import { evaluateFieldOperator } from './fieldOperatorEvaluation';
 import { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';
 import { matchesStatusPattern, findHeader, evaluateHeaderOp, getJsonTypeName } from './validatorHttpHelpers';
@@ -166,8 +167,7 @@ export function handleArrayContains(a: Extract<Assertion, { type: 'arrayContains
   if (!Array.isArray(acArr)) {
     return [{ path: `(arrayContains:${a.jsonPath})`, expected: `array containing value`, actual: acArr === undefined ? 'undefined' : `not an array (${typeof acArr})` }];
   }
-  let parsedValue: unknown;
-  try { parsedValue = JSON.parse(a.value); } catch { parsedValue = a.value; }
+  const parsedValue: unknown = parseJsonOrRaw(a.value);
   const itemMatches = (item: unknown): boolean => {
     if (typeof parsedValue === 'object' && parsedValue !== null) {
       return deepSubsetMatch(item, parsedValue).match;

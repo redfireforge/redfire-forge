@@ -720,4 +720,118 @@ describe('ScenarioBuilder', () => {
     render(<ScenarioBuilder {...makeProps()} />);
     expect(screen.getByText(/feature groups/)).toBeInTheDocument();
   });
+
+  describe('additional interaction coverage', () => {
+    it('renders the new-scenario form and handles kind/name', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.namingScenario = 'fg1';
+      h.mut.newScenarioKind = 'parameterized';
+      render(<ScenarioBuilder {...makeProps()} />);
+      const standardRadio = document.querySelector('input[name="scenario-kind"][value="standard"]') as HTMLInputElement;
+      fireEvent.click(standardRadio);
+      expect(h.mut.setNewScenarioKind).toHaveBeenCalledWith('standard');
+      const nameInput = screen.getByPlaceholderText(/scenario name/i) as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'New Scenario' } });
+      expect(h.mut.setNewName).toHaveBeenCalledWith('New Scenario');
+    });
+
+    it('switches the new-scenario kind to parameterized', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.namingScenario = 'fg1';
+      h.mut.newScenarioKind = 'standard';
+      render(<ScenarioBuilder {...makeProps()} />);
+      const paramRadio = document.querySelector('input[name="scenario-kind"][value="parameterized"]') as HTMLInputElement;
+      fireEvent.click(paramRadio);
+      expect(h.mut.setNewScenarioKind).toHaveBeenCalledWith('parameterized');
+    });
+
+    it('creates a scenario when the name is non-empty', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.namingScenario = 'fg1';
+      h.mut.newName = 'Ready';
+      render(<ScenarioBuilder {...makeProps()} />);
+      fireEvent.click(screen.getByText('Create'));
+      expect(h.mut.addScenario).toHaveBeenCalledWith('fg1');
+    });
+
+    it('triggers scenario rename, auth, import, export and delete actions', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      const actions = within(document.querySelector('.scenario-group-actions') as HTMLElement);
+      fireEvent.click(actions.getByText('Rename'));
+      expect(h.mut.setEditingScenarioName).toHaveBeenCalledWith('sc1');
+      expect(h.mut.setEditName).toHaveBeenCalledWith('Std');
+      fireEvent.click(actions.getByText('Auth'));
+      expect(h.mut.toggleScenarioAuth).toHaveBeenCalledWith('fg1', 'sc1');
+      fireEvent.click(actions.getByText('Import'));
+      expect(h.exportImport.importTestsInto).toHaveBeenCalledWith('fg1', 'sc1');
+      fireEvent.click(actions.getByText('Export'));
+      expect(screen.getByTestId('export-popover')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('do-export'));
+      expect(h.exportImport.exportScenario).toHaveBeenCalled();
+      fireEvent.click(actions.getByText('Delete'));
+      expect(h.mut.removeScenario).toHaveBeenCalledWith('fg1', 'sc1');
+    });
+
+    it('edits a feature group name inline', () => {
+      h.mut.editingFeatureName = 'fg1';
+      h.mut.editName = 'Group One';
+      render(<ScenarioBuilder {...makeProps()} />);
+      const input = document.querySelector('.feature-group-header .inline-edit-input') as HTMLInputElement;
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'Renamed' } });
+      expect(h.mut.setEditName).toHaveBeenCalledWith('Renamed');
+    });
+
+    it('edits a scenario name inline', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.editingScenarioName = 'sc1';
+      h.mut.editName = 'Std';
+      render(<ScenarioBuilder {...makeProps()} />);
+      const input = document.querySelector('.scenario-group-header .inline-edit-input') as HTMLInputElement;
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'Renamed Scenario' } });
+      expect(h.mut.setEditName).toHaveBeenCalledWith('Renamed Scenario');
+    });
+
+    it('stops propagation when clicking inside the tag input wrap', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      fireEvent.click(screen.getAllByLabelText('Add tag')[0]);
+      const wrap = document.querySelector('.scenario-tag-input-wrap') as HTMLElement;
+      fireEvent.click(wrap);
+      const input = screen.getByPlaceholderText('tag name');
+      fireEvent.click(input);
+      expect(wrap).toBeInTheDocument();
+    });
+
+    it('exports a test via the test export popover', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      const testActions = within(document.querySelector('.test-card-actions') as HTMLElement);
+      fireEvent.click(testActions.getByText('Export'));
+      expect(screen.getByTestId('export-popover')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('do-export'));
+      expect(h.exportImport.exportTest).toHaveBeenCalled();
+    });
+
+    it('activates and releases the test drag handle', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      const handle = document.querySelector('.test-card .drag-handle') as HTMLElement;
+      fireEvent.mouseDown(handle);
+      fireEvent.mouseUp(handle);
+      expect(handle).toBeInTheDocument();
+    });
+
+    it('toggles search syntax help via the help button', () => {
+      render(<ScenarioBuilder {...makeProps()} />);
+      fireEvent.click(screen.getByTitle('Search syntax help'));
+      expect(h.search.setShowSearchHelp).toHaveBeenCalled();
+    });
+  });
 });

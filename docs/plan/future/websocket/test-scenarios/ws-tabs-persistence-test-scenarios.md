@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
+>
+> **2026-06-12 — Shell-IA doc refresh:** the legacy view tabs (Connect/Messages/Saved/Mock) were replaced by the split-pane shell. Persistence now restores each connection tab's **studio location** (mode + left/right pane tab). Message rows live in the right-pane **Events** tab. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -26,8 +28,8 @@ npm run server       # Backend (proxy mode)
 ### Navigation
 
 1. Open **http://localhost:5173** → **Protocols** → **WebSocket**
-2. Tab bar is at the top of the WebSocket Studio page
-3. View tabs (Connect/Messages/Saved/Mock) are below the connection tab bar
+2. The connection tab bar is at the top of the WebSocket Studio page
+3. The mode switch (Client/Mock Server/Saved) is below the connection tab bar; in Client mode the split pane shows left tabs (Compose/Connect/Auth/Params/Headers) and right tabs (Events/Console/Stats/Load Test/Schema)
 
 ---
 
@@ -120,7 +122,7 @@ npm run server       # Backend (proxy mode)
 - [ ] Double-click enables inline editing on the tab label
 - [ ] Typing replaces the auto-generated label
 - [ ] Press Enter confirms the rename
-- [ ] Custom label persists across view tab switches
+- [ ] Custom label persists across mode and pane-tab switches
 
 ---
 
@@ -138,7 +140,7 @@ npm run server       # Backend (proxy mode)
 **Expected Results:**
 - [ ] All 3 tabs restored with correct labels
 - [ ] URLs preserved in each tab
-- [ ] View tab positions (Connect/Messages) preserved
+- [ ] Per-tab studio location (mode + left/right pane tab selection) preserved
 - [ ] Active tab selection preserved
 
 ---
@@ -343,7 +345,7 @@ npm run server       # Backend (proxy mode)
 
 **Steps:**
 1. Connect and send messages
-2. Switch to Messages view
+2. The **Events** right tab shows the message rows
 3. Click the ☆ (empty star) icon on a message row
 
 **Expected Results:**

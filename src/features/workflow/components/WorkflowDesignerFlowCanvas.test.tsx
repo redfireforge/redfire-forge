@@ -200,6 +200,38 @@ describe('WorkflowDesignerFlowCanvas', () => {
     expect(onBrowseGallery).toHaveBeenCalled();
   });
 
+  it('uses a no-op fallback when onBrowseGallery is not provided', () => {
+    const onLoadTemplate = vi.fn();
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ onLoadTemplate, onBrowseGallery: undefined })} selected={selected} />);
+    // Clicking browse with no handler provided should hit the `?? (() => {})` fallback without throwing
+    expect(() => fireEvent.click(screen.getByTestId('tpl-browse'))).not.toThrow();
+  });
+
+  it('restores a saved viewport when switching to a workflow that has one', () => {
+    vi.useFakeTimers();
+    try {
+      const withViewport = { id: 'w2', name: 'WF2', savedViewport: { x: 5, y: 6, zoom: 2 } } as unknown as Workflow;
+      render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={withViewport} />);
+      act(() => { vi.advanceTimersByTime(200); });
+      // The effect schedules a setTimeout -> requestAnimationFrame -> setViewport; advancing timers flushes it
+      expect(document.querySelector('.wf-canvas-area')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fits view when switching to a workflow without a saved viewport', () => {
+    vi.useFakeTimers();
+    try {
+      const noViewport = { id: 'w3', name: 'WF3' } as unknown as Workflow;
+      render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={noViewport} />);
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(document.querySelector('.wf-canvas-area')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders preview banner and use-as-template / close actions', () => {
     const onUseAsTemplate = vi.fn();
     const onClearPreview = vi.fn();

@@ -6,6 +6,8 @@
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (optional, for meta-testing)
 > **Requires:** Backend server (`npm run server`)
+>
+> **2026-06-12 — Shell-IA doc refresh:** Mock Server is now a **mode** in the mode switch (Client | Mock Server | Saved), not a legacy "view tab". In Mock Server mode the shell shows a server bar (Start/Stop + port + fallback) on top, a connected-clients pane on the left, and a response-rules pane on the right. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -21,28 +23,28 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 ### Navigation
 
 1. Open **http://localhost:5173** → **Protocols** → **WebSocket**
-2. Click the **Mock** view tab (4th tab: Connect | Messages | Saved | **Mock**)
+2. Click the **Mock Server** mode in the mode switch (Client | **Mock Server** | Saved)
+
+> **Note:** Mock Server is now a **mode** (not a sibling "view tab"). In Mock Server mode the shell shows a **server bar** at the top (Start/Stop toggle + port + fallback mode), a **connected-clients pane** in the left pane, and a **response-rules pane** in the right pane. The activity log appears within the mock panes.
 
 ---
 
 ## Mock Server Core — Phase 16.1
 
-### WM-01: Mock view tab visible
+### WM-01: Mock Server mode renders
 
-**Goal:** Verify Mock tab renders
+**Goal:** Verify the Mock Server mode layout
 
 **Steps:**
 1. Navigate to WebSocket Studio
-2. Click **Mock** tab
+2. Click the **Mock Server** mode
 
 **Expected Results:**
-- [ ] Mock view renders with Start/Stop toggle
-- [ ] Status indicator: "Stopped" (red/grey)
-- [ ] Port configuration: default 9876
-- [ ] Fallback mode selector
-- [ ] Response Rules section
-- [ ] Test Rules preview
-- [ ] Activity Log section
+- [ ] Selecting **Mock Server** mode switches the shell into the mock layout
+- [ ] Server bar (top): Start/Stop toggle with status indicator "Stopped" (red/grey)
+- [ ] Server bar: Port configuration (default 9876) and Fallback mode selector
+- [ ] Right pane: Response Rules section + Test Rules preview
+- [ ] Activity Log section visible within the mock panes
 
 ---
 
@@ -51,7 +53,7 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 **Goal:** Verify port settings
 
 **Steps:**
-1. In Mock view, find the Port input
+1. In **Mock Server** mode, find the Port input (server bar)
 2. Change port to `9999`
 3. Try invalid ports: `80` (below 1024), `70000` (above 65535)
 
@@ -90,7 +92,7 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 
 **Expected Results:**
 - [ ] Mock server echoes every received message back
-- [ ] Activity log in Mock view shows incoming + outgoing events
+- [ ] Activity log in Mock Server mode shows incoming + outgoing events
 - [ ] Response is identical to the sent message
 
 ---
@@ -150,7 +152,7 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 
 **Steps:**
 1. Start mock server, connect 2+ clients from separate tabs
-2. Find the Broadcast input/button in Mock view
+2. Find the Broadcast input/button in **Mock Server** mode
 3. Type a message and click Broadcast
 
 **Expected Results:**
@@ -182,7 +184,7 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 **Goal:** Verify rule creation
 
 **Steps:**
-1. In Mock view, click **+ Add Rule**
+1. In **Mock Server** mode, click **+ Add Rule**
 2. Configure:
    - Match type: "Contains"
    - Match value: "ping"
@@ -320,7 +322,7 @@ npm run server       # Backend — REQUIRED for mock server (Express companion)
 **Steps:**
 1. Add several rules
 2. Reload the page
-3. Navigate to Mock view
+3. Switch to **Mock Server** mode
 
 **Expected Results:**
 - [ ] All rules restored from `websocketStorage.ts`

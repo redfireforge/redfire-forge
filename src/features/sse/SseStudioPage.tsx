@@ -19,15 +19,9 @@ interface SseStudioPageProps {
   envName?: string;
   svcName?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
-  /**
-   * Renders the redesigned split-pane shell (the only production layout).
-   * Retained as an optional prop so the legacy stacked layout stays reachable
-   * for tests; production callers always use the default (`true`).
-   */
-  shellV2?: boolean;
 }
 
-export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthProfiles = [], shellV2 = true }: SseStudioPageProps) {
+export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthProfiles = [] }: SseStudioPageProps) {
   const envVarMap = useMemo(() => {
     const map: Record<string, string> = {};
     if (resolvedBaseUrl) map.baseUrl = resolvedBaseUrl;
@@ -39,9 +33,6 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
   const sse = useSseConnection(envVarMap, globalAuthProfiles);
   const { config, setConfig, connection, events, stats, connect, disconnect } = sse;
   const sseConsole = useSseConsole({ connection, config, authProfiles: globalAuthProfiles });
-  const [showHeaders, setShowHeaders] = useState(false);
-  const [showReconnect, setShowReconnect] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
   // Phase 8 — left-pane tab (Connect / Auth) for the shell-v2 layout.
   const [leftTab, setLeftTab] = useState<SseLeftTab>('connect');
   // Phase 9 — right-pane tab (Events / Console) for the shell-v2 layout.
@@ -160,7 +151,7 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
     }
   })();
 
-  // Shared between the legacy stacked layout and the Phase 7 split-pane shell.
+  // Connection URL + state dot + connect/disconnect, shown in the shell's top bar.
   const urlControls = (
     <>
       <span className={`sse-state-dot ${stateClass}`} title={stateLabel} />
@@ -224,7 +215,7 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
     </div>
   );
 
-  // Both config sections, stacked. Used in the shell-v2 left pane where the
+  // Both config sections, stacked. Rendered in the shell's left pane where the
   // config is always visible.
   const configBody = (
     <>
@@ -253,123 +244,51 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
     />
   );
 
-  // Phase 7 split-pane shell (flag-gated): config on the left, events on the right.
-  if (shellV2) {
-    return (
-      <div className="sse-studio" data-testid="sse-studio">
-        <SseStudioShell
-          topBar={<div className="sse-url-row">{urlControls}</div>}
-          statusStrip={
-            <div className="sse-state-label" data-testid="sse-state-label">
-              <span className={stateClass}>{stateLabel}</span>
-              <span className="sse-auto-reconnect-badge">
-                Auto-reconnect: {config.autoReconnect ? 'On' : 'Off'}
-              </span>
-              <span className="sse-auto-reconnect-badge">Events: {stats.eventCount}</span>
-              {connection.lastEventId && (
-                <span className="sse-auto-reconnect-badge">
-                  Last-Event-ID: {connection.lastEventId}
-                </span>
-              )}
-            </div>
-          }
-          left={
-            <div className="sse-config-body" data-testid="sse-config-body">
-              {leftTab === 'auth' ? authBody : configBody}
-            </div>
-          }
-          leftTab={leftTab}
-          onLeftTabChange={setLeftTab}
-          authConfigured={authConfigured}
-          rightTab={rightTab}
-          onRightTabChange={setRightTab}
-          right={
-            rightTab === 'console' ? (
-              <ConsolePanel
-                entries={sseConsole.entries}
-                settings={sseConsole.settings}
-                onSettingsChange={sseConsole.setSettings}
-                onClear={sseConsole.clear}
-                variant="sse"
-                onCommand={runConsoleCommand}
-                commandHint={SSE_CONSOLE_HINT}
-              />
-            ) : (
-              messageLog
-            )
-          }
-        />
-      </div>
-    );
-  }
-
+  // Phase 7 split-pane shell: config on the left, events on the right.
   return (
     <div className="sse-studio" data-testid="sse-studio">
-      {/* Connection panel */}
-      <div className="sse-connect-panel" data-testid="sse-connect-panel">
-        <div className="sse-url-row">
-          {urlControls}
-          <button
-            className={`sse-headers-toggle ${showHeaders ? 'active' : ''}`}
-            onClick={() => setShowHeaders((v) => !v)}
-            title="Toggle headers"
-            data-testid="sse-headers-toggle"
-          >
-            Headers {config.headers.length > 0 && `(${config.headers.length})`}
-          </button>
-          <button
-            className={`sse-headers-toggle ${showReconnect ? 'active' : ''}`}
-            onClick={() => setShowReconnect((v) => !v)}
-            title="Toggle reconnect settings"
-            data-testid="sse-reconnect-toggle"
-          >
-            Reconnect
-          </button>
-          <button
-            className={`sse-headers-toggle ${showAuth ? 'active' : ''}`}
-            onClick={() => setShowAuth((v) => !v)}
-            title="Toggle auth settings"
-            data-testid="sse-auth-toggle"
-          >
-            Auth {authConfigured && '●'}
-          </button>
-        </div>
-
-        {/* Connection state label */}
-        <div className="sse-state-label" data-testid="sse-state-label">
-          <span className={stateClass}>{stateLabel}</span>
-          {connection.state === 'connected' && (
+      <SseStudioShell
+        topBar={<div className="sse-url-row">{urlControls}</div>}
+        statusStrip={
+          <div className="sse-state-label" data-testid="sse-state-label">
+            <span className={stateClass}>{stateLabel}</span>
             <span className="sse-auto-reconnect-badge">
               Auto-reconnect: {config.autoReconnect ? 'On' : 'Off'}
             </span>
-          )}
-        </div>
-
-        {/* Headers panel */}
-        {showHeaders && (
-          <div className="sse-headers-panel" data-testid="sse-headers-panel">
-            {headersSection}
+            <span className="sse-auto-reconnect-badge">Events: {stats.eventCount}</span>
+            {connection.lastEventId && (
+              <span className="sse-auto-reconnect-badge">
+                Last-Event-ID: {connection.lastEventId}
+              </span>
+            )}
           </div>
-        )}
-
-        {/* Reconnect panel */}
-        {showReconnect && (
-          <div className="sse-headers-panel" data-testid="sse-reconnect-panel">
-            {reconnectSection}
+        }
+        left={
+          <div className="sse-config-body" data-testid="sse-config-body">
+            {leftTab === 'auth' ? authBody : configBody}
           </div>
-        )}
-
-        {/* Auth panel */}
-        {showAuth && (
-          <div className="sse-headers-panel" data-testid="sse-auth-panel">
-            {authBody}
-          </div>
-        )}
-      </div>
-
-      {/* Message log */}
-      {messageLog}
+        }
+        leftTab={leftTab}
+        onLeftTabChange={setLeftTab}
+        authConfigured={authConfigured}
+        rightTab={rightTab}
+        onRightTabChange={setRightTab}
+        right={
+          rightTab === 'console' ? (
+            <ConsolePanel
+              entries={sseConsole.entries}
+              settings={sseConsole.settings}
+              onSettingsChange={sseConsole.setSettings}
+              onClear={sseConsole.clear}
+              variant="sse"
+              onCommand={runConsoleCommand}
+              commandHint={SSE_CONSOLE_HINT}
+            />
+          ) : (
+            messageLog
+          )
+        }
+      />
     </div>
   );
-
 }

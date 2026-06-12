@@ -120,6 +120,21 @@ describe('useWebSocketReconnect', () => {
     expect(connectFn).toHaveBeenCalledTimes(1);
   });
 
+  it('does not connect when the component unmounts before the timer fires', () => {
+    const connectFn = vi.fn();
+    const connectRef = createConnectFnRef(connectFn);
+    const mountedRef = createMountedRef();
+    const { result } = renderHook(() => useWebSocketReconnect(connectRef, mountedRef));
+
+    act(() => result.current.setAutoReconnect(true));
+    act(() => result.current.scheduleReconnectRef.current());
+    // unmount after scheduling but before the delay elapses
+    mountedRef.current = false;
+    act(() => vi.advanceTimersByTime(3000));
+
+    expect(connectFn).not.toHaveBeenCalled();
+  });
+
   it('scheduleReconnect stops after max attempts exceeded', () => {
     const connectFn = vi.fn();
     const connectRef = createConnectFnRef(connectFn);

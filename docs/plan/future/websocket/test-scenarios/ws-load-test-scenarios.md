@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
+>
+> **2026-06-12 — Shell-IA doc refresh:** Load Test is now a **right-pane tab** (Events | Console | Stats | Load Test | Schema) in the Client-mode split-pane shell, not a panel toggled from a legacy toolbar. The message log lives in the **Events** right tab. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -27,8 +29,7 @@ npm run server       # Backend (for proxy mode if needed)
 
 1. Open **http://localhost:5173** → **Protocols** → **WebSocket**
 2. Connect to `ws://localhost:8765`
-3. Switch to **Messages** view tab
-4. Click **Load Test** button in toolbar
+3. In Client mode, open the **Load Test** tab in the right pane
 
 ---
 
@@ -39,13 +40,13 @@ npm run server       # Backend (for proxy mode if needed)
 **Goal:** Verify load test panel visibility
 
 **Steps:**
-1. While connected, click **Load Test** button in toolbar
+1. While connected, open the **Load Test** right-pane tab
 
 **Expected Results:**
-- [ ] Load test panel expands below the toolbar
+- [ ] Load test panel renders in the right pane
 - [ ] Shows: message template input, profile selector, duration, rate
 - [ ] Start button available
-- [ ] Click Load Test again to collapse panel
+- [ ] Switching to another right tab and back preserves panel state
 
 ---
 
