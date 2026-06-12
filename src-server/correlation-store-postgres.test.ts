@@ -176,4 +176,42 @@ describe('PostgresServerStore', () => {
     await Promise.resolve();
     errSpy.mockRestore();
   });
+
+  it('swallows persistence errors when removing', async () => {
+    store.add(makeEntry({ correlationId: 'rm' }));
+    mockQuery.mockRejectedValue(new Error('db down'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(store.remove('rm')).toBeDefined();
+    await Promise.resolve();
+    await Promise.resolve();
+    errSpy.mockRestore();
+  });
+
+  it('swallows persistence errors when cleaning up expired entries', async () => {
+    store.add(makeEntry({ correlationId: 'exp', timeoutAt: Date.now() - 1000 }));
+    mockQuery.mockRejectedValue(new Error('db down'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(store.cleanupExpired()).toBe(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    errSpy.mockRestore();
+  });
+
+  it('swallows persistence errors when logging an unmatched webhook', async () => {
+    mockQuery.mockRejectedValue(new Error('db down'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => store.logUnmatched('/cb', 'corr-x', { a: 1 })).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
+    errSpy.mockRestore();
+  });
+
+  it('swallows persistence errors when clearing all', async () => {
+    store.add(makeEntry());
+    mockQuery.mockRejectedValue(new Error('db down'));
+    store.clearAll();
+    expect(store.count()).toBe(0);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 });

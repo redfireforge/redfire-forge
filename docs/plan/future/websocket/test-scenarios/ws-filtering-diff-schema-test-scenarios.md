@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
+>
+> **2026-06-12 — Shell-IA doc refresh:** In the Client-mode split-pane shell, the message log, filtering, and diff/compare controls live in the **Events** right-pane tab; schema validation lives in the dedicated **Schema** right-pane tab. The legacy "Messages view tab" / single-toolbar layout is gone. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -27,8 +29,7 @@ npm run server       # Backend
 
 1. Open **http://localhost:5173** → **Protocols** → **WebSocket**
 2. Connect to `ws://localhost:8765`
-3. Switch to **Messages** view tab
-4. All filtering/diff/schema controls are in the toolbar
+3. In Client mode, open the **Events** right-pane tab (filtering & diff controls live here); schema validation is on the **Schema** right-pane tab
 
 ### Test Data Preparation
 

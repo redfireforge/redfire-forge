@@ -15,7 +15,6 @@ import { WebSocketMessageLog } from './WebSocketMessageLog';
 import { WebSocketComposePane } from './WebSocketComposePane';
 import { WebSocketStudioShell } from './WebSocketStudioShell';
 import {
-  WebSocketSavedConnections,
   WebSocketSavedRail,
   WebSocketSavedDetail,
   useWebSocketSavedUi,
@@ -45,7 +44,7 @@ import { useWebSocketRecording } from './useWebSocketRecording';
 import { useWebSocketRecordingBridge } from './useWebSocketRecordingBridge';
 import { useWebSocketMetrics } from './useWebSocketMetrics';
 import { useWebSocketMockServer } from './useWebSocketMockServer';
-import { WebSocketMockServer, WebSocketMockServerBar, WebSocketMockClientsPane, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
+import { WebSocketMockServerBar, WebSocketMockClientsPane, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
 import { useWebSocketLoadTest } from './useWebSocketLoadTest';
 import { WebSocketLoadTest } from './WebSocketLoadTest';
 import { WebSocketStatsPanel } from './WebSocketStatsPanel';
@@ -72,33 +71,22 @@ export interface WsConnectionTabContentProps {
   templatesHook: UseWebSocketTemplatesReturn;
   onConnectionStateChange: (tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => void;
   onUrlChange: (tabId: string, url: string) => void;
-  onViewTabChange?: (tabId: string, viewTab: WsViewTab) => void;
   /** Phase 8 — fires when persistable draft fields (subprotocols/headers/
    * queryParams/auth) change, so the parent can debounce-save the whole draft. */
   onDraftChange?: (tabId: string) => void;
   initialUrl?: string;
   initialProtocol?: WsProtocolMode;
-  initialViewTab?: WsViewTab;
   /** Phase 8 — seeds the draft (subprotocols/headers/queryParams/auth) on mount
    * for whole-draft persistence restore. `initialUrl` still seeds the URL. */
   initialDraft?: Partial<WsConnectionDraft>;
-  /** When provided, the studio is *controlled* by the parent shell: this view
-   * is rendered instead of the internal state and the internal tab bar is
-   * hidden (the parent owns navigation). When omitted, the component is
-   * uncontrolled and behaves exactly as before. */
-  controlledViewTab?: WsViewTab;
-  /** When provided (shell mode), the `connect` view is split into the
-   * `Connect` / `Headers` / `Params` left-pane tabs and this selects which one
-   * is shown. When omitted, headers and params render inline in the connect
-   * panel exactly as before. */
+  /** Selects which left-pane tab is shown (`connect` / `headers` / `params` /
+   * `compose` / `auth`). When omitted, defaults to `connect`. */
   controlledLeftTab?: WsLeftTab;
-  /** Phase 4 (shell mode): when provided, the component renders the redesigned
-   * `WebSocketStudioShell` itself (composition inversion) so the studio-owning
-   * child can feed both panes from one hook instance. `mode` selects
-   * client/mock/saved; the left body follows `controlledLeftTab` and the right
-   * body follows `controlledRightTab`. When omitted, the legacy flat rendering
-   * is used (uncontrolled tab bar, or the `controlledViewTab` single view). */
-  controlledMode?: WsStudioMode;
+  /** Drives the redesigned `WebSocketStudioShell` this component renders
+   * (composition inversion) so the studio-owning child can feed both panes from
+   * one hook instance. `mode` selects client/mock/saved; the left body follows
+   * `controlledLeftTab` and the right body follows `controlledRightTab`. */
+  controlledMode: WsStudioMode;
   controlledRightTab?: WsRightTab;
   onModeChange?: (mode: WsStudioMode) => void;
   onLeftTabChange?: (tab: WsLeftTab) => void;
@@ -113,11 +101,10 @@ export const WsConnectionTabContent = forwardRef<
 >(function WsConnectionTabContent(
   {
     tabId, envVarMap, globalAuthProfiles = [], profilesHook, templatesHook,
-    onConnectionStateChange, onUrlChange, onViewTabChange,
+    onConnectionStateChange, onUrlChange,
     onDraftChange,
-    initialUrl, initialProtocol, initialViewTab,
+    initialUrl, initialProtocol,
     initialDraft,
-    controlledViewTab,
     controlledLeftTab,
     controlledMode,
     controlledRightTab,
@@ -129,19 +116,12 @@ export const WsConnectionTabContent = forwardRef<
   },
   ref,
 ) {
-  const [internalViewTab, setInternalViewTab] = useState<WsViewTab>(initialViewTab ?? 'connect');
-  // Shell mode (Phase 4): the parent drives mode/leftTab/rightTab and the
-  // component renders the split-pane shell itself. The legacy view is derived
-  // from mode + leftTab so the rest of the component (mock polling, status bar,
-  // etc.) keeps working unchanged.
-  const shellMode = controlledMode !== undefined;
+  // The parent drives mode/leftTab/rightTab and this component renders the
+  // split-pane shell. The legacy `viewTab` is derived from mode + leftTab so the
+  // rest of the component (mock polling, status bar, etc.) keeps working.
   const shellLeftTab = controlledLeftTab ?? 'connect';
   const shellRightTab = controlledRightTab ?? 'events';
-  const derivedShellViewTab = controlledMode !== undefined
-    ? deriveViewTabFromStudio(controlledMode, shellLeftTab)
-    : undefined;
-  const isControlled = controlledViewTab !== undefined || shellMode;
-  const viewTab = derivedShellViewTab ?? controlledViewTab ?? internalViewTab;
+  const viewTab = deriveViewTabFromStudio(controlledMode, shellLeftTab);
   const [profilePrefill, setProfilePrefill] = useState<ProfilePrefillDraft | null>(null);
 
   const studio = useWebSocketStudio(envVarMap, globalAuthProfiles);
@@ -217,19 +197,14 @@ export const WsConnectionTabContent = forwardRef<
 
   const changeViewTab = useCallback(
     (next: WsViewTab) => {
-      if (controlledMode !== undefined) {
-        // Shell mode: the legacy view-tab bar is hidden and `viewTab` is derived
-        // from mode + leftTab, so translate the intent into shell navigation
-        // (e.g. "Save as profile" → Saved mode, "Use connection" → Connect tab).
-        const target = mapViewTabToStudioLocation(next);
-        onModeChange?.(target.mode);
-        if (target.mode === 'client') onLeftTabChange?.(target.leftTab);
-        return;
-      }
-      setInternalViewTab(next);
-      onViewTabChange?.(tabId, next);
+      // The legacy view-tab bar is gone and `viewTab` is derived from mode +
+      // leftTab, so translate the intent into shell navigation (e.g. "Save as
+      // profile" → Saved mode, "Use connection" → Connect tab).
+      const target = mapViewTabToStudioLocation(next);
+      onModeChange?.(target.mode);
+      if (target.mode === 'client') onLeftTabChange?.(target.leftTab);
     },
-    [controlledMode, onModeChange, onLeftTabChange, tabId, onViewTabChange],
+    [onModeChange, onLeftTabChange],
   );
 
   const prevConnStateRef = useRef(studio.connection.state);
@@ -290,9 +265,6 @@ export const WsConnectionTabContent = forwardRef<
     }),
     [studio.connection.state, studio.messages.length, studio.draft],
   );
-
-  const isGuardVisible =
-    studio.connection.state === 'disconnected' && studio.draft.url.trim() === '';
 
   const resolvedUrl = useMemo(
     () => buildResolvedEffectiveUrl(studio.draft, envVarMap),
@@ -493,8 +465,7 @@ export const WsConnectionTabContent = forwardRef<
   };
 
   // ── Shared content nodes ─────────────────────────────────────────────────
-  // These are reused by both the legacy flat render (below) and the Phase 4
-  // split-pane shell render, so the two paths can never drift apart.
+  // Reusable nodes composed into the split-pane shell's left/right panes below.
   const lockBannerNode = isConnected ? (
     <div className="ws-config-lock-banner" data-testid="config-lock-banner">
       <span className="ws-config-lock-icon" aria-hidden="true">🔒</span>
@@ -576,8 +547,8 @@ export const WsConnectionTabContent = forwardRef<
         history={history}
         onHistorySelect={handleLocalHistorySelect}
         onClearHistory={onClearHistory}
-        showHeaders={controlledLeftTab === undefined && controlledMode === undefined}
-        showQueryParams={controlledLeftTab === undefined && controlledMode === undefined}
+        showHeaders={false}
+        showQueryParams={false}
       />
       <WebSocketTlsPanel
         tlsConfig={studio.tlsConfig}
@@ -624,234 +595,119 @@ export const WsConnectionTabContent = forwardRef<
   };
 
   // Shared Saved UI state so the shell rail (left) and detail (right) panes
-  // stay in sync (Phase 6a). The legacy flat path uses its own internal state
-  // via the WebSocketSavedConnections wrapper below.
+  // stay in sync (Phase 6a).
   const savedUi = useWebSocketSavedUi(savedProps);
 
-  const savedConnectionsNode = <WebSocketSavedConnections {...savedProps} />;
-
   // Shared Mock UI state so the shell server bar (topBar), clients pane (left)
-  // and rules pane (right) render from one source of truth (Phase 6b). The
-  // legacy flat path uses the WebSocketMockServer wrapper below.
+  // and rules pane (right) render from one source of truth (Phase 6b).
   const mockUi = useMockServerUi(mockServer);
 
-  const mockServerNode = <WebSocketMockServer mock={mockServer} />;
-
-  // ── Phase 4: split-pane shell render (composition inversion) ─────────────
-  // When the parent drives the shell (controlledMode set), this component owns
-  // the studio hook AND renders the shell, feeding the left body via children
-  // and the right (Events) pane via the rightPane slot.
-  if (controlledMode !== undefined) {
-    const leftBody =
-      controlledMode === 'mock' ? (
-        <WebSocketMockClientsPane ui={mockUi} />
-      ) : controlledMode === 'saved' ? (
-        <WebSocketSavedRail ui={savedUi} />
-      ) : shellLeftTab === 'compose' ? (
-        <div className="ws-studio-content">{composePaneNode}</div>
-      ) : shellLeftTab === 'params' ? (
-        <div className="ws-studio-content">
-          {lockBannerNode}
-          {queryParamsEditorNode}
-        </div>
-      ) : shellLeftTab === 'headers' ? (
-        <div className="ws-studio-content">
-          {lockBannerNode}
-          {headersEditorNode}
-        </div>
-      ) : shellLeftTab === 'auth' ? (
-        <div className="ws-studio-content">
-          {lockBannerNode}
-          {authPanelNode}
-        </div>
-      ) : (
-        <div className="ws-studio-content">
-          {lockBannerNode}
-          {connectPanelNode}
-        </div>
-      );
-
-    const rightBody =
-      controlledMode === 'saved' ? (
-        <WebSocketSavedDetail ui={savedUi} />
-      )
-      : controlledMode === 'mock' ? (
-        <WebSocketMockRulesPane ui={mockUi} />
-      )
-      : controlledMode !== 'client' ? undefined
-      : shellRightTab === 'events' ? (
-        <div className="ws-studio-content">
-          <WebSocketMessageLog {...messageLogProps} showComposer={false} showStatusBar showAuxPanels={false} />
-        </div>
-      )
-      : shellRightTab === 'stats' ? (
-        <div className="ws-studio-tab-pane" data-testid="ws-studio-stats-pane">
-          <WebSocketStatsPanel metrics={metrics} />
-        </div>
-      )
-      : shellRightTab === 'loadtest' ? (
-        <div className="ws-studio-tab-pane" data-testid="ws-studio-loadtest-pane">
-          <WebSocketLoadTest
-            loadTest={loadTest}
-            isConnected={isConnected}
-            statsPanel={<WebSocketStatsPanel metrics={metrics} />}
-          />
-        </div>
-      )
-      : shellRightTab === 'schema' ? (
-        <div className="ws-studio-tab-pane" data-testid="ws-studio-schema-pane">
-          <WebSocketSchemaPanel
-            schemas={schemaHook.schemas}
-            validationEnabled={schemaHook.validationEnabled}
-            onSetValidationEnabled={schemaHook.setValidationEnabled}
-            onAddSchema={schemaHook.addSchema}
-            onUpdateSchema={schemaHook.updateSchema}
-            onRemoveSchema={schemaHook.removeSchema}
-            onToggleSchema={schemaHook.toggleSchema}
-            onGenerateSchema={schemaHook.generateSchema}
-            messages={studio.messages}
-          />
-        </div>
-      )
-      : shellRightTab === 'console' ? (
-        <div className="ws-studio-tab-pane" data-testid="ws-studio-console-pane">
-          <ConsolePanel
-            entries={wsConsole.entries}
-            settings={wsConsole.settings}
-            onSettingsChange={wsConsole.setSettings}
-            onClear={wsConsole.clear}
-            variant="ws"
-            onCommand={runConsoleCommand}
-            commandHint={WS_CONSOLE_HINT}
-          />
-        </div>
-      )
-      : undefined; // unknown right tab → shell placeholder
-
-    return (
-      <div className="ws-conn-tab-content" data-testid={`conn-tab-content-${tabId}`}>
-        <WebSocketStudioShell
-          mode={controlledMode}
-          onModeChange={(m) => onModeChange?.(m)}
-          leftTab={shellLeftTab}
-          onLeftTabChange={(t) => onLeftTabChange?.(t)}
-          rightTab={shellRightTab}
-          onRightTabChange={(t) => onRightTabChange?.(t)}
-          profileCount={profilesHook.profiles.length}
-          messageCount={studio.messages.length}
-          mockRunning={mockServer.status.running}
-          topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} /> : undefined}
-          rightPane={rightBody}
-        >
-          {leftBody}
-        </WebSocketStudioShell>
+  // ── Split-pane shell render (composition inversion) ─────────────────────
+  // This component owns the studio hook AND renders the shell, feeding the left
+  // body via children and the right (Events) pane via the rightPane slot.
+  const leftBody =
+    controlledMode === 'mock' ? (
+      <WebSocketMockClientsPane ui={mockUi} />
+    ) : controlledMode === 'saved' ? (
+      <WebSocketSavedRail ui={savedUi} />
+    ) : shellLeftTab === 'compose' ? (
+      <div className="ws-studio-content">{composePaneNode}</div>
+    ) : shellLeftTab === 'params' ? (
+      <div className="ws-studio-content">
+        {lockBannerNode}
+        {queryParamsEditorNode}
+      </div>
+    ) : shellLeftTab === 'headers' ? (
+      <div className="ws-studio-content">
+        {lockBannerNode}
+        {headersEditorNode}
+      </div>
+    ) : shellLeftTab === 'auth' ? (
+      <div className="ws-studio-content">
+        {lockBannerNode}
+        {authPanelNode}
+      </div>
+    ) : (
+      <div className="ws-studio-content">
+        {lockBannerNode}
+        {connectPanelNode}
       </div>
     );
-  }
+
+  const rightBody =
+    controlledMode === 'saved' ? (
+      <WebSocketSavedDetail ui={savedUi} />
+    )
+    : controlledMode === 'mock' ? (
+      <WebSocketMockRulesPane ui={mockUi} />
+    )
+    : controlledMode !== 'client' ? undefined
+    : shellRightTab === 'events' ? (
+      <div className="ws-studio-content">
+        <WebSocketMessageLog {...messageLogProps} showComposer={false} showStatusBar showAuxPanels={false} />
+      </div>
+    )
+    : shellRightTab === 'stats' ? (
+      <div className="ws-studio-tab-pane" data-testid="ws-studio-stats-pane">
+        <WebSocketStatsPanel metrics={metrics} />
+      </div>
+    )
+    : shellRightTab === 'loadtest' ? (
+      <div className="ws-studio-tab-pane" data-testid="ws-studio-loadtest-pane">
+        <WebSocketLoadTest
+          loadTest={loadTest}
+          isConnected={isConnected}
+          statsPanel={<WebSocketStatsPanel metrics={metrics} />}
+        />
+      </div>
+    )
+    : shellRightTab === 'schema' ? (
+      <div className="ws-studio-tab-pane" data-testid="ws-studio-schema-pane">
+        <WebSocketSchemaPanel
+          schemas={schemaHook.schemas}
+          validationEnabled={schemaHook.validationEnabled}
+          onSetValidationEnabled={schemaHook.setValidationEnabled}
+          onAddSchema={schemaHook.addSchema}
+          onUpdateSchema={schemaHook.updateSchema}
+          onRemoveSchema={schemaHook.removeSchema}
+          onToggleSchema={schemaHook.toggleSchema}
+          onGenerateSchema={schemaHook.generateSchema}
+          messages={studio.messages}
+        />
+      </div>
+    )
+    : shellRightTab === 'console' ? (
+      <div className="ws-studio-tab-pane" data-testid="ws-studio-console-pane">
+        <ConsolePanel
+          entries={wsConsole.entries}
+          settings={wsConsole.settings}
+          onSettingsChange={wsConsole.setSettings}
+          onClear={wsConsole.clear}
+          variant="ws"
+          onCommand={runConsoleCommand}
+          commandHint={WS_CONSOLE_HINT}
+        />
+      </div>
+    )
+    : undefined; // unknown right tab → shell placeholder
 
   return (
     <div className="ws-conn-tab-content" data-testid={`conn-tab-content-${tabId}`}>
-      {!isControlled && (
-      <div className="ws-studio-tabs">
-        <button
-          className={`ws-studio-tab ${viewTab === 'connect' ? 'active' : ''}`}
-          onClick={() => changeViewTab('connect')}
-          data-testid="tab-connect"
-        >
-          Connect
-        </button>
-        <button
-          className={`ws-studio-tab ${viewTab === 'messages' ? 'active' : ''}`}
-          onClick={() => changeViewTab('messages')}
-          data-testid="tab-messages"
-        >
-          Messages
-          {studio.messages.length > 0 && (
-            <span className="ws-studio-tab-badge">{studio.messages.length}</span>
-          )}
-        </button>
-        <button
-          className={`ws-studio-tab ${viewTab === 'saved' ? 'active' : ''}`}
-          onClick={() => changeViewTab('saved')}
-          data-testid="tab-saved"
-        >
-          Saved
-          {profilesHook.profiles.length > 0 && (
-            <span className="ws-studio-tab-badge ws-studio-tab-badge-muted">
-              {profilesHook.profiles.length}
-            </span>
-          )}
-        </button>
-        <button
-          className={`ws-studio-tab ${viewTab === 'mock' ? 'active' : ''}`}
-          onClick={() => changeViewTab('mock')}
-          data-testid="tab-mock"
-        >
-          Mock
-          {mockServer.status.running && (
-            <span className="ws-studio-tab-badge ws-studio-tab-badge-running" aria-label="Mock server running">●</span>
-          )}
-        </button>
-      </div>
-      )}
-
-      {viewTab === 'connect' && (
-        <div className="ws-studio-content">
-          {lockBannerNode}
-          {controlledLeftTab === 'headers' ? (
-            headersEditorNode
-          ) : controlledLeftTab === 'params' ? (
-            queryParamsEditorNode
-          ) : controlledLeftTab === 'auth' ? (
-            authPanelNode
-          ) : (
-            <>
-              {connectPanelNode}
-              {isGuardVisible ? (
-                <div className="ws-guard">
-                  <div className="ws-guard-inner">
-                    <p className="ws-guard-title">No WebSocket connection</p>
-                    <p className="ws-guard-subtitle">
-                      Enter a WebSocket URL and click Connect to get started.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <WebSocketMessageLog {...messageLogProps} showStatusBar={false} />
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {viewTab === 'messages' && (
-        <div className="ws-studio-content">
-          <WebSocketMessageLog
-            {...messageLogProps}
-            showComposer={controlledLeftTab !== 'compose'}
-          />
-          {controlledLeftTab === 'compose' && composePaneNode}
-          {showLoadTest && (
-            <WebSocketLoadTest
-              loadTest={loadTest}
-              isConnected={isConnected}
-              statsPanel={<WebSocketStatsPanel metrics={metrics} />}
-            />
-          )}
-        </div>
-      )}
-
-      {viewTab === 'saved' && (
-        <div className="ws-studio-content">
-          {savedConnectionsNode}
-        </div>
-      )}
-
-      {viewTab === 'mock' && (
-        <div className="ws-studio-content">
-          {mockServerNode}
-        </div>
-      )}
+      <WebSocketStudioShell
+        mode={controlledMode}
+        onModeChange={(m) => onModeChange?.(m)}
+        leftTab={shellLeftTab}
+        onLeftTabChange={(t) => onLeftTabChange?.(t)}
+        rightTab={shellRightTab}
+        onRightTabChange={(t) => onRightTabChange?.(t)}
+        profileCount={profilesHook.profiles.length}
+        messageCount={studio.messages.length}
+        mockRunning={mockServer.status.running}
+        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} /> : undefined}
+        rightPane={rightBody}
+      >
+        {leftBody}
+      </WebSocketStudioShell>
     </div>
   );
 });

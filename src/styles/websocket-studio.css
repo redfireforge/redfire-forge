@@ -394,14 +394,20 @@
 .ws-studio-tabs {
   display: flex;
   gap: 2px;
-  padding: 6px 12px 0;
+  padding: 6px 8px 0;
   border-bottom: 1px solid var(--border-color, #333);
   background: var(--bg-secondary, #1e1e1e);
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.ws-studio-tabs::-webkit-scrollbar {
+  height: 4px;
 }
 
 .ws-studio-tab {
-  padding: 6px 16px;
+  padding: 6px 12px;
   border: none;
   background: transparent;
   color: var(--text-secondary, #999);
@@ -412,6 +418,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ws-studio-tab:hover {
@@ -870,8 +878,8 @@
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
   resize: vertical;
-  min-height: 32px;
-  max-height: 150px;
+  min-height: 120px;
+  max-height: 320px;
   outline: none;
 }
 
@@ -3411,6 +3419,24 @@
   flex-direction: column;
   border-top: 1px solid var(--border-color, #333);
   border-bottom: none;
+}
+
+/* Visual order within the Compose tab: controls (Format / Templates / Send /
+   Ping) first, then any protocol-specific fields, then the message text box,
+   then the message-count footer. */
+.ws-compose-bar > .ws-compose-controls {
+  order: 1;
+}
+.ws-compose-bar > .ws-sio-compose-fields,
+.ws-compose-bar > .ws-stomp-compose-fields,
+.ws-compose-bar > .ws-gql-compose-fields {
+  order: 2;
+}
+.ws-compose-bar > .ws-compose-input-wrapper {
+  order: 3;
+}
+.ws-compose-bar > .ws-compose-footer {
+  order: 4;
 }
 
 /* ── Stats toggle button ── */

@@ -78,6 +78,35 @@ describe('useImportHandlers', () => {
     await waitFor(() => expect(hook.result.current.importError).toBe('bad trace'));
   });
 
+  it('falls back to a generic message when a trace throws a non-Error', async () => {
+    mockValidateTrace.mockImplementation(() => { throw 'oops'; });
+    const { hook } = setup();
+    act(() => hook.result.current.handleImportTrace(fileEvent('{"a":1}')));
+    await waitFor(() => expect(hook.result.current.importError).toBe('Failed to parse trace file'));
+  });
+
+  it('sets an error when the FileReader fails to read the trace', async () => {
+    const RealFileReader = globalThis.FileReader;
+    class ErroringFileReader {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      readAsText() {
+        // simulate an async read failure
+        queueMicrotask(() => this.onerror?.());
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.FileReader = ErroringFileReader as any;
+    try {
+      const { hook } = setup();
+      act(() => hook.result.current.handleImportTrace(fileEvent('{"a":1}', 'trace.json')));
+      await waitFor(() => expect(hook.result.current.importError).toBe('Failed to read file'));
+      expect(hook.result.current.showReplayModal).toBe(false);
+    } finally {
+      globalThis.FileReader = RealFileReader;
+    }
+  });
+
   it('ignores run import with no file', async () => {
     const { hook, setAllRuns } = setup();
     await act(async () => { await hook.result.current.handleImportRun(emptyEvent()); });
@@ -126,6 +155,15 @@ describe('useImportHandlers', () => {
     } as unknown as React.ChangeEvent<HTMLInputElement>;
     await act(async () => { await hook.result.current.handleImportRun(badEvent); });
     expect(hook.result.current.importError).toBeTruthy();
+  });
+
+  it('falls back to a generic message when a run throws a non-Error', async () => {
+    const { hook } = setup();
+    const badEvent = {
+      target: { files: [{ name: 'f', text: () => Promise.reject('boom') }], value: '' },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+    await act(async () => { await hook.result.current.handleImportRun(badEvent); });
+    expect(hook.result.current.importError).toBe('Failed to parse run file');
   });
 
   it('closes the replay modal and clears state', () => {

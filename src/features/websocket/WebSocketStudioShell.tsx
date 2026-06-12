@@ -33,8 +33,8 @@ const RIGHT_TAB_LABELS: Record<WsRightTab, string> = {
   schema: 'Schema',
 };
 
-const MIN_LEFT_PX = 320;
-const MIN_RIGHT_PX = 220;
+const MIN_LEFT_PX = 380;
+const MIN_RIGHT_PX = 200;
 
 export interface WebSocketStudioShellProps {
   mode: WsStudioMode;
@@ -83,7 +83,7 @@ export function WebSocketStudioShell({
   const splitRef = useRef<HTMLDivElement | null>(null);
   const { width: leftWidth, dividerProps } = useSplitPaneResize({
     storageKey: WS_SPLIT_STORAGE_KEY,
-    defaultWidth: 560,
+    defaultWidth: 600,
     minWidth: MIN_LEFT_PX,
     minOppositeWidth: MIN_RIGHT_PX,
     containerRef: splitRef,

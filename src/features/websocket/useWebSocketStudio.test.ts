@@ -2367,4 +2367,168 @@ describe('useWebSocketStudio', () => {
       expect(result.current.filteredMessages[0].id).toBe(firstId);
     });
   });
+
+  describe('time filter tick interval', () => {
+    it('starts a periodic re-render tick when timeFilter is active and clears it on change', () => {
+      const { result, unmount } = renderHook(() => useWebSocketStudio());
+
+      // Activating a non-'all' time filter starts the interval (covers the
+      // FILTER_TICK_INTERVAL_MS setInterval callback + its cleanup).
+      act(() => result.current.setTimeFilter('last1m'));
+      expect(result.current.timeFilter).toBe('last1m');
+
+      // Advance well past the tick interval so the interval callback fires.
+      act(() => { vi.advanceTimersByTime(5000); });
+
+      // Switching back to 'all' triggers the effect cleanup (clearInterval).
+      act(() => result.current.setTimeFilter('all'));
+      expect(result.current.timeFilter).toBe('all');
+
+      // Re-activate then unmount to exercise cleanup via the unmount path too.
+      act(() => result.current.setTimeFilter('last5m'));
+      act(() => { vi.advanceTimersByTime(2000); });
+      unmount();
+    });
+  });
+
+  describe('proxy poll — auto-respond branch', () => {
+    it('auto-responds to a Socket.IO PING received via proxy polling (send rejection swallowed)', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('socket-io'));
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:9000',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('conn-sio-proxy'));
+      await act(async () => { result.current.connect(); });
+
+      let pollCount = 0;
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          pollCount += 1;
+          if (pollCount === 1) {
+            return Promise.resolve({
+              ok: true, op: 'messages',
+              data: {
+                messages: [{ data: '2', type: 'text', receivedAt: new Date().toISOString(), size: 1 }],
+                cursor: 1,
+              },
+              meta: { timestamp: '' },
+            });
+          }
+          return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 1 }, meta: { timestamp: '' } });
+        }
+        // Force the auto-respond send to reject so the inline .catch handler runs.
+        if (op === 'send') return Promise.reject(new Error('send failed'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      const pong = result.current.messages.find((m) => m.data === '3' && m.direction === 'sent');
+      expect(pong).toBeDefined();
+      expect(result.current.sentCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('slices proxy-polled frames to maxMessages cap', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setMaxMessages(2));
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:9000',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('conn-cap'));
+      await act(async () => { result.current.connect(); });
+
+      let pollCount = 0;
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          pollCount += 1;
+          if (pollCount === 1) {
+            return Promise.resolve({
+              ok: true, op: 'messages',
+              data: {
+                messages: [
+                  { data: 'a', type: 'text', receivedAt: new Date().toISOString(), size: 1 },
+                  { data: 'b', type: 'text', receivedAt: new Date().toISOString(), size: 1 },
+                  { data: 'c', type: 'text', receivedAt: new Date().toISOString(), size: 1 },
+                ],
+                cursor: 3,
+              },
+              meta: { timestamp: '' },
+            });
+          }
+          return Promise.resolve({ ok: true, op: 'messages', data: { messages: [], cursor: 3 }, meta: { timestamp: '' } });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      // Cap of 2 → only the last 2 frames are retained.
+      expect(result.current.messages.length).toBe(2);
+    });
+  });
+
+  describe('native listener — auto-respond branch', () => {
+    it('auto-responds to a Socket.IO PING received via native listener (send rejection swallowed)', async () => {
+      let messageCallback: ((p: { connectionId: string; data: string; messageType: string }) => void) | null = null;
+      mockIsTauri.mockReturnValue(true);
+      mockListenWsMessage.mockImplementation(async (cb) => {
+        messageCallback = cb as typeof messageCallback;
+        return vi.fn();
+      });
+      mockListenWsConnectionClosed.mockResolvedValue(vi.fn());
+
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('socket-io'));
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-sio'));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      // Force auto-respond send to reject → exercises the inline .catch handler.
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('send failed'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+
+      await act(async () => {
+        messageCallback?.({ connectionId: 'tauri-sio', data: '2', messageType: 'text' });
+      });
+
+      const pong = result.current.messages.find((m) => m.data === '3' && m.direction === 'sent');
+      expect(pong).toBeDefined();
+      expect(result.current.sentCount).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('connect with auth configured', () => {
+    it('resolves bearer auth asynchronously then routes through the proxy transport', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() =>
+        result.current.setDraft({
+          url: 'ws://localhost:8080',
+          auth: { type: 'bearer', token: 'tok-abc' },
+        }),
+      );
+
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('conn-auth'));
+      await act(async () => {
+        result.current.connect();
+      });
+      // Auth resolution is asynchronous (the connect() IIFE awaits a microtask)
+      // before routing — flush microtasks so the proxy connect is dispatched.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Header-based bearer auth forces the proxy transport in the browser.
+      expect(mockDispatch).toHaveBeenCalledWith('connect', expect.anything());
+    });
+  });
 });

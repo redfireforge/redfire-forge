@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
+>
+> **2026-06-12 — Shell-IA doc refresh:** navigation steps re-mapped from the removed legacy view tabs (Connect/Messages/Saved/Mock) to the split-pane shell — **Connect/Compose/Auth/Params/Headers** left tabs, **Events/Console/Stats/Load Test/Schema** right tabs, and **Client/Mock Server/Saved** modes. Message log now lives in the right-pane **Events** tab; the message-count badge is on the **Compose** left tab; **Saved** is a mode. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -57,19 +59,21 @@ npm run server
 
 ---
 
-### WC-02: Page layout — tab bar, view tabs, content area
+### WC-02: Page layout — connection tab bar, mode switch, split pane
 
-**Goal:** Verify the WebSocket Studio page structure
+**Goal:** Verify the WebSocket Studio page structure (split-pane shell)
 
 **Steps:**
 1. Navigate to **Protocols → WebSocket**
 2. Observe the page layout
 
 **Expected Results:**
-- [ ] Tab bar at top: shows one default tab "New Connection" with a status dot and a "+" button
-- [ ] View tabs below tab bar: **Connect** | **Messages** | **Saved** | **Mock**
-- [ ] Content area below view tabs: shows the Connect view by default
-- [ ] Status bar at bottom: shows "Disconnected" status and counters "↑ 0 ↓ 0"
+- [ ] Connection tab bar at top: shows one default tab "New Connection" with a status dot and a "+" button
+- [ ] Mode switch below the tab bar: **Client** | **Mock Server** | **Saved** (Client selected by default)
+- [ ] In Client mode, the split pane shows a **left pane** with tabs **Compose** | **Connect** | **Auth** | **Params** | **Headers** and a **right pane** with tabs **Events** | **Console** | **Stats** | **Load Test** | **Schema**
+- [ ] A draggable divider separates the left and right panes
+- [ ] Left pane shows the **Connect** tab by default; right pane shows the **Events** log by default
+- [ ] Status bar (within the Events pane): shows "Disconnected" status and counters "↑ 0 ↓ 0"
 
 ---
 
@@ -79,7 +83,7 @@ npm run server
 
 **Steps:**
 1. Navigate to **Protocols → WebSocket** (fresh page load)
-2. Observe the Connect view form elements
+2. On the **Connect** left tab, observe the form elements
 
 **Expected Results:**
 - [ ] URL input field: empty, with placeholder text "ws://localhost:8765 or wss://..."
@@ -116,7 +120,7 @@ npm run server
 - [ ] Connection lock banner appears: "🔒 Connection settings are locked while connected. Disconnect to edit."
 - [ ] URL input becomes read-only (greyed out)
 - [ ] **Connect** button becomes disabled; **Disconnect** button becomes enabled
-- [ ] Messages view tab shows badge with message count (system message + echo server welcome)
+- [ ] **Compose** left tab shows a badge with the message count (system message + echo server welcome)
 - [ ] "Recent connections" dropdown (▾) appears next to "+" in tab bar
 - [ ] Status bar also shows latency (e.g. "22ms"), **Uptime: Ns**, a **Raw** protocol badge, and a **Direct** transport badge (transport becomes **Proxy** when custom headers are set)
 
@@ -233,12 +237,12 @@ npm run server
 
 **Steps:**
 1. Connect to `ws://localhost:8765` (from WC-04)
-2. Switch to **Messages** view tab
+2. Select the **Compose** left tab
 3. Type `Hello WebSocket!` in the compose bar
 4. Click **Send**
 
 **Expected Results:**
-- [ ] Sent message appears in log with ↑ (sent) arrow
+- [ ] Sent message appears in the **Events** log (right pane) with ↑ (sent) arrow
 - [ ] Message shows timestamp (HH:MM:SS.mmm format)
 - [ ] Message type badge shows "text"
 - [ ] Message size shows "16 B"
@@ -354,8 +358,8 @@ npm run server
 
 **Steps:**
 1. Connect to `ws://localhost:8765` **with a custom header** (to force proxy mode)
-   - Add header: `X-Test: 1`
-2. Switch to Messages view
+   - On the **Headers** left tab, add header: `X-Test: 1`
+2. Select the **Compose** left tab
 3. Click **Ping** button
 
 **Expected Results:**
@@ -491,12 +495,12 @@ npm run server
 
 ## Saved Connection Profiles
 
-### WC-25: Saved Connections tab — empty state
+### WC-25: Saved mode — empty state
 
 **Goal:** Verify empty saved connections
 
 **Steps:**
-1. Click **Saved** view tab
+1. Click the **Saved** mode in the mode switch
 2. Observe the empty state
 
 **Expected Results:**
@@ -514,7 +518,7 @@ npm run server
 **Goal:** Verify profile saving
 
 **Steps:**
-1. On Connect tab, enter URL: `ws://localhost:8765`
+1. On the **Connect** left tab (Client mode), enter URL: `ws://localhost:8765`
 2. Add a header: `X-Test: value1`
 3. Add a query param: `key1: val1`
 4. Type `json` in Subprotocols field
@@ -538,8 +542,8 @@ npm run server
 **Goal:** Verify profile loading
 
 **Steps:**
-1. On Saved tab, click the **Load** button on the "Echo Server Test" profile card
-2. Observe the Connect tab form
+1. In **Saved** mode, click the **Load** button on the "Echo Server Test" profile card
+2. Switch to Client mode and observe the **Connect** left tab form
 
 **Expected Results:**
 - [ ] The profile card has an explicit **Load** button (loading is via this button, not by clicking the card body)
@@ -556,7 +560,7 @@ npm run server
 **Goal:** Verify profile deletion
 
 **Steps:**
-1. On Saved tab, click the **Del** button on a profile card
+1. In **Saved** mode, click the **Del** button on a profile card
 2. Click the inline **Confirm** button that appears (or **No** to cancel)
 
 **Expected Results:**
@@ -590,7 +594,7 @@ npm run server
 **Goal:** Verify the Dup card action clones a profile
 
 **Steps:**
-1. On Saved tab, click the **Dup** button on a profile card
+1. In **Saved** mode, click the **Dup** button on a profile card
 
 **Expected Results:**
 - [ ] A copy of the profile is created
@@ -604,7 +608,7 @@ npm run server
 **Goal:** Verify the Edit card action opens the profile editor
 
 **Steps:**
-1. On Saved tab, click the **Edit** button on a profile card
+1. In **Saved** mode, click the **Edit** button on a profile card
 2. Change a field (e.g. Notes or Max Messages)
 3. Click **Save Profile**
 
@@ -620,7 +624,7 @@ npm run server
 **Goal:** Verify pasting a JSON profile array imports profiles
 
 **Steps:**
-1. On Saved tab, click **Paste JSON** in the footer
+1. In **Saved** mode, click **Paste JSON** in the footer
 2. Paste a profile array, e.g. `[{"name":"Pasted Profile","url":"wss://example.com/ws","subprotocols":"graphql-ws"}]`
 3. Click **Import**
 
@@ -639,7 +643,7 @@ npm run server
 
 **Steps:**
 1. Connect to the echo server
-2. Observe the Connect view form
+2. Observe the **Connect** left tab form
 
 **Expected Results:**
 - [ ] Lock banner: "🔒 Connection settings are locked while connected. Disconnect to edit."
@@ -737,7 +741,7 @@ npm run server
 **Goal:** Verify auto-reconnect configuration UI
 
 **Steps:**
-1. On Connect view, expand the "Auto-Reconnect Settings" section
+1. On the **Connect** left tab, expand the "Auto-Reconnect Settings" section
 2. Observe the configuration options
 
 **Expected Results:**
@@ -946,7 +950,7 @@ npm run server
 **Goal:** Verify message cap configuration
 
 **Steps:**
-1. On Connect view, find the message cap setting (in profile or settings)
+1. On the **Connect** left tab, find the message cap setting (in profile or settings)
 
 **Expected Results:**
 - [ ] Cap options available: 100 / 500 / 1,000 / 10,000 / 50,000

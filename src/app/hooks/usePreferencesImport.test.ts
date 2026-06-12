@@ -69,4 +69,40 @@ describe('usePreferencesImport', () => {
     const merged = updater([{ id: 'e1', name: 'A' } as Environment]);
     expect(merged.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
   });
+
+  it('microservices updater merges existing and incoming by id', async () => {
+    const { hook, setMicroservices } = setup();
+    await act(async () => {
+      await hook.result.current.handleImportData({ microservices: [{ id: 'm2', name: 'B' } as Microservice] });
+    });
+    const updater = setMicroservices.mock.calls[0][0] as (prev: Microservice[]) => Microservice[];
+    const merged = updater([{ id: 'm1', name: 'A' } as Microservice]);
+    expect(merged.map((m) => m.id).sort()).toEqual(['m1', 'm2']);
+  });
+
+  it('feature-groups updater appends normalized incoming groups to existing', async () => {
+    const { hook, setFeatureGroups } = setup();
+    await act(async () => {
+      await hook.result.current.handleImportData({
+        featureGroups: [{ id: 'fg2', scenarios: [] } as unknown as FeatureGroup],
+      });
+    });
+    const updater = setFeatureGroups.mock.calls[0][0] as (prev: FeatureGroup[]) => FeatureGroup[];
+    const next = updater([{ id: 'fg1', scenarios: [] } as unknown as FeatureGroup]);
+    expect(next.map((g) => g.id)).toEqual(['fg1', 'fg2']);
+  });
+
+  it('auth-profiles updater merges existing and incoming by id', async () => {
+    const { hook, setAppGlobalAuthProfiles } = setup();
+    await act(async () => {
+      await hook.result.current.handleImportData({
+        globalAuthProfiles: [{ id: 'g2', name: 'B' } as GlobalAuthProfile],
+      });
+    });
+    const updater = setAppGlobalAuthProfiles.mock.calls[0][0] as (
+      prev: GlobalAuthProfile[],
+    ) => GlobalAuthProfile[];
+    const merged = updater([{ id: 'g1', name: 'A' } as GlobalAuthProfile]);
+    expect(merged.map((g) => g.id).sort()).toEqual(['g1', 'g2']);
+  });
 });

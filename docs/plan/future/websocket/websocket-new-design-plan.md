@@ -2,7 +2,7 @@
 
 > Branch (target for implementation): `feature/websocket` → new `feature/ws-redesign-*` branches per phase
 > Created: 2026-06-10
-> Status: **✅ Complete & default** — Phases 0–11 all implemented + tested on `feature/websocket` (uncommitted). The redesigned split-pane shell is now the **default (and only) studio layout**: the `redfire-ws-studio-shell-v2` / `redfire-sse-studio-shell-v2` feature flags and the **Settings → Labs** toggles were **removed** (2026-06-11). The legacy flat-tab / stacked layouts are retained as dead code, reachable only via an optional `shellV2` test prop. **Remaining:** commit/merge + full merge-gate verification (see [§13](#13-global-success-criteria)).
+> Status: **✅ Complete & default** — Phases 0–11 all implemented + tested on `feature/websocket` (uncommitted). The redesigned split-pane shell is now the **default (and only) studio layout**: the `redfire-ws-studio-shell-v2` / `redfire-sse-studio-shell-v2` feature flags and the **Settings → Labs** toggles were **removed** (2026-06-11), and the legacy flat-tab / stacked layouts + the `controlledViewTab` transitional API + the `shellV2` test prop were **deleted as dead code** (2026-06-12). **Remaining:** commit/merge + full merge-gate verification (see [§13](#13-global-success-criteria)).
 > Companion artifacts:
 > - Mockups: [docs/plan/future/websocket/mockups/](mockups/) (`index.html`, `ws-messages.html`, `ws-connect.html`, `ws-auth.html`, `ws-advanced.html`, `ws-saved.html`, `ws-mock.html`, `ws-console.html`, `ws-console-final.html`, `sse.html`)
 > - Feature-complete predecessor plan: [websocket-studio-plan.md](websocket-studio-plan.md) (Phases 1–19, all ✅)
@@ -313,6 +313,15 @@ Status legend: 🔲 not started · 🔨 in progress · ✅ complete.
 ## 9. Phased Implementation Plan
 
 > Each phase is independently shippable, keeps all tests green, and is presentation-additive until Phases 8–10.
+
+> **⚠️ Historical record — transitional seams since removed.** The phase narratives below describe the
+> incremental, flag-gated build-out. The transitional scaffolding they reference — the `shellV2` feature
+> flag/prop, the `controlledViewTab` prop on `WsConnectionTabContent`, and the legacy flat-tab / stacked
+> "flag-off" render paths — **no longer exists in the code.** The shell is now the only layout (flags removed
+> 2026-06-11; legacy paths + `controlledViewTab` + `shellV2` deleted 2026-06-12 — see [§13](#13-global-success-criteria)).
+> The persistence migration (`viewTab → mode/leftTab/rightTab`) and its pure helpers (`mapViewTabToStudioLocation`,
+> `deriveViewTabFromStudio`) were **kept**. Read the §-references to `shellV2`/`controlledViewTab`/"flag off" as
+> how-it-was-built history, not current behavior.
 
 ### Phase 0 — Foundations ✅
 - Promote the mockup `mockup.css` patterns into a real stylesheet plan (map each mockup class → production CSS module / existing class) — see [§10.1](#101-mockup-css--production-css-mapping).
@@ -1826,7 +1835,7 @@ export function resolveWsAuth(
 The redesign is **functionally complete, tested, and now the default layout** (the feature flag and Labs toggles were removed). The following remains:
 
 1. **~~Flip the flag default / hard cut-over.~~** ✅ Done (2026-06-11) — `shellV2` now defaults to `true`; the `redfire-ws-studio-shell-v2` / `redfire-sse-studio-shell-v2` flag modules and the `SettingsLabsTab` toggles were deleted.
-2. **Remove the legacy flat-tab code path.** Deferred by choice. The old `WsViewTab` (`connect/messages/saved/mock`) rendering in `WsConnectionTabContent`, the legacy stacked `SseStudioPage` layout, and the `controlledViewTab` transitional API remain as **dead code**, reachable only via the optional `shellV2={false}` test prop. They can be deleted in a later cleanup once v2 has soaked. The `viewTab → mode/leftTab/rightTab` persistence migration in `loadWsTabState` should be kept for back-compat.
+2. **~~Remove the legacy flat-tab code path.~~** ✅ Done (2026-06-12) — the old `WsViewTab` (`connect/messages/saved/mock`) flat rendering in `WsConnectionTabContent`, the legacy stacked `SseStudioPage` layout, the `controlledViewTab` transitional API, and the `shellV2` test escape-hatch prop were all deleted. Both studio components now render the split-pane shell **unconditionally**. The `viewTab → mode/leftTab/rightTab` persistence migration in `loadWsTabState` was **kept** for back-compat (along with the `WsViewTab` type, `WsPersistedTab.viewTab`, `mapViewTabToStudioLocation`, and `deriveViewTabFromStudio`).
 3. **Commit / merge.** All Phase 0–11 work (incl. this flag removal) is currently **uncommitted** on `feature/websocket` (per the project branching rules, awaiting explicit user go-ahead before commit/merge).
 4. **Merge-gate verification.** Run the **full** unit suite + the **complete** Playwright E2E set (`--reporter=list`) before merging to `develop` (per the testing-strategy rules), and update CHANGELOG / RELEASE docs.
 
@@ -1836,6 +1845,25 @@ The redesign is **functionally complete, tested, and now the default layout** (t
 
 ### Retrospective / Implementation Notes
 _(append per phase: start/end dates, commit hashes, design deltas vs this plan)_
+
+> **2026-06-12 — Legacy dead-code removal (§13 item 2).** Removed the legacy flat-tab WS render
+> path in `WsConnectionTabContent` (the `if (controlledMode !== undefined)` shell wrapper became
+> unconditional; the flat `ws-studio-tabs` bar + stacked blocks were deleted), the legacy stacked
+> `SseStudioPage` layout (the `if (shellV2)` shell return became unconditional), the `controlledViewTab`
+> transitional prop, and the `shellV2` test escape-hatch prop on both pages. `controlledMode` is now a
+> required prop on `WsConnectionTabContent`. Orphaned declarations removed: `savedConnectionsNode` /
+> `mockServerNode` content nodes, `WebSocketStudioPage`'s `initialViewTabsRef` + `handleViewTabChange`,
+> and now-unused imports. Tests migrated off the removed seams: `WsConnectionTabContent.test.tsx`
+> (43 tests, recreated — `makeProps` defaults `controlledMode:'client'`), `WebSocketStudioPage.test.tsx`
+> (80 tests — the four legacy guard / inline-composer assertions were converted: the shell has no
+> "No WebSocket connection" guard, so those now assert the connect panel + right-pane events log, and
+> the `template-trigger` / `format-select` checks click the Compose left tab first),
+> `WebSocketStudioPage.callbacks.test.tsx` (`handleViewTabChange` → `handleModeChange`), and
+> `SseStudioPage.test.tsx` (53 tests). **Kept** for back-compat: `WsViewTab`, `WsPersistedTab.viewTab`,
+> `mapViewTabToStudioLocation`, `deriveViewTabFromStudio`, the `loadWsTabState` migration, and
+> `src/shared/websocket/types.test.ts`. Verified: full `tsc -b --noEmit` 0 errors; `vitest run`
+> `src/features/websocket/` + `src/features/sse/` → 1913 pass / 63 files; WS E2E (`websocket-studio-shell`
+> + `websocket-console-cmd`, `--reporter=list`) → 10 pass; eslint clean on all touched files.
 
 > **2026-06-11 — Re-evaluation / status sync.** All 12 phases (0–11) are implemented and tested on
 > `feature/websocket` (uncommitted). Per-phase retrospectives are inline in [§9](#9-phased-implementation-plan).

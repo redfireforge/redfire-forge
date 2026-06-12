@@ -5,6 +5,8 @@
 > **Created:** 2026-06-10
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
+>
+> **2026-06-12 — Shell-IA doc refresh:** Reviewed against the split-pane shell IA; these workflow/runner scenarios reference workflow node names (e.g. WS Connect) and runner controls, not the WebSocket Studio view layout, so no legacy "view tab" translations were needed. Visual re-validation deferred to the merge gate.
 
 ---
 

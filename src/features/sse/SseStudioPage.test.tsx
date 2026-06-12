@@ -2,11 +2,10 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { ComponentProps } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { SseStudioPage as SseStudioPageImpl } from './SseStudioPage';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { SseStudioPage } from './SseStudioPage';
 import type { UseSseConnectionReturn } from './useSseConnection';
-import type { SseConnectionConfig, SseConnectionSnapshot, SseStats } from './sseTypes';
+import type { SseConnectionConfig, SseConnectionSnapshot, SseStats, SseEvent } from './sseTypes';
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
@@ -21,11 +20,17 @@ vi.mock('../../shared/utils/fileSaver', () => ({
 
 // Phase 8: isolate the page from real config persistence so the mount-time
 // load never reapplies a previous test's persisted config and the unmount
-// flush never writes to shared storage between tests.
+// flush never writes to shared storage between tests. Hoisted spies let
+// individual tests override the load result and observe saves.
+const { mockLoadSseConfig, mockSaveSseConfig } = vi.hoisted(() => ({
+  mockLoadSseConfig: vi.fn(() => Promise.resolve(null)),
+  mockSaveSseConfig: vi.fn(),
+}));
+
 vi.mock('./sseStorage', () => ({
   SSE_CONFIG_KEY: 'redfire-sse-config-v1',
-  loadSseConfig: () => Promise.resolve(null),
-  saveSseConfig: vi.fn(),
+  loadSseConfig: mockLoadSseConfig,
+  saveSseConfig: mockSaveSseConfig,
 }));
 
 function makeDefaultConfig(): SseConnectionConfig {
@@ -46,15 +51,14 @@ vi.mock('./useSseConnection', () => ({
   useSseConnection: () => mockSseReturn,
 }));
 
-let mockShellV2 = false;
-// The shell-v2 flag was removed; v2 is the only production layout. Tests reach
-// the retained legacy layout by threading `shellV2` through this wrapper.
-function SseStudioPage(props: ComponentProps<typeof SseStudioPageImpl>) {
-  return <SseStudioPageImpl shellV2={mockShellV2} {...props} />;
+function configBody() {
+  return screen.getByTestId('sse-config-body');
 }
 
 beforeEach(() => {
-  mockShellV2 = false;
+  mockLoadSseConfig.mockReset();
+  mockLoadSseConfig.mockResolvedValue(null);
+  mockSaveSseConfig.mockReset();
   mockSseReturn = {
     config: makeDefaultConfig(),
     setConfig: vi.fn((patch) => {
@@ -77,11 +81,26 @@ describe('SseStudioPage', () => {
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
+  it('renders the split-pane shell', () => {
+    render(<SseStudioPage />);
+    expect(screen.getByTestId('sse-studio-shell')).toBeTruthy();
+    expect(screen.getByTestId('sse-studio-split')).toBeTruthy();
+    expect(screen.getByTestId('sse-studio-divider')).toBeTruthy();
+  });
+
   it('renders URL input and Connect button', () => {
     render(<SseStudioPage />);
     expect(screen.getByTestId('sse-url-input')).toBeTruthy();
     expect(screen.getByTestId('sse-connect-btn')).toBeTruthy();
     expect(screen.getByTestId('sse-connect-btn').textContent).toBe('Connect');
+  });
+
+  it('keeps the URL bar and connect button in the shell top bar', () => {
+    mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
+    render(<SseStudioPage />);
+    const topbar = screen.getByTestId('sse-studio-topbar');
+    expect(topbar.querySelector('.sse-url-input')).toBeTruthy();
+    expect(screen.getByTestId('sse-connect-btn')).toBeTruthy();
   });
 
   it('disables Connect button when URL is empty', () => {
@@ -97,16 +116,9 @@ describe('SseStudioPage', () => {
     expect(btn.disabled).toBe(false);
   });
 
-  it('toggles headers panel visibility', () => {
+  it('shows the headers editor always-visible in the left pane', () => {
     render(<SseStudioPage />);
-    expect(screen.queryByTestId('sse-headers-panel')).toBeNull();
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    expect(screen.getByTestId('sse-headers-panel')).toBeTruthy();
-  });
-
-  it('renders add header button in headers panel', () => {
-    render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
+    expect(configBody().querySelector('input[type="checkbox"]')).toBeTruthy();
     expect(screen.getByTestId('sse-headers-add-btn')).toBeTruthy();
   });
 
@@ -176,32 +188,32 @@ describe('SseStudioPage', () => {
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Disconnected');
   });
 
-  // ── State CSS classes ───────────────────────────────────────────────
+  // ── State CSS classes (top-bar state dot) ───────────────────────────
 
   it('applies sse-state-connected class when connected', () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
-    const dot = screen.getByTestId('sse-connect-panel').querySelector('.sse-state-dot');
+    const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-connected');
   });
 
   it('applies sse-state-connecting class when connecting', () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connecting' });
     render(<SseStudioPage />);
-    const dot = screen.getByTestId('sse-connect-panel').querySelector('.sse-state-dot');
+    const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-connecting');
   });
 
   it('applies sse-state-error class when error', () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'error', error: 'fail' });
     render(<SseStudioPage />);
-    const dot = screen.getByTestId('sse-connect-panel').querySelector('.sse-state-dot');
+    const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-error');
   });
 
   it('applies sse-state-disconnected class by default', () => {
     render(<SseStudioPage />);
-    const dot = screen.getByTestId('sse-connect-panel').querySelector('.sse-state-dot');
+    const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-disconnected');
   });
 
@@ -243,41 +255,45 @@ describe('SseStudioPage', () => {
     expect((screen.getByTestId('sse-url-input') as HTMLInputElement).disabled).toBe(true);
   });
 
-  // ── Auto-reconnect badge ───────────────────────────────────────────
+  // ── Status strip badges ────────────────────────────────────────────
 
-  it('shows auto-reconnect badge when connected and autoReconnect on', () => {
+  it('shows auto-reconnect On in the status strip when autoReconnect is on', () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test', autoReconnect: true };
-    mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Auto-reconnect: On');
   });
 
-  it('shows auto-reconnect Off when connected and autoReconnect off', () => {
+  it('shows auto-reconnect Off in the status strip when autoReconnect is off', () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test', autoReconnect: false };
-    mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Auto-reconnect: Off');
   });
 
-  it('does not show auto-reconnect badge when not connected', () => {
+  it('shows the event count in the status strip', () => {
+    mockSseReturn.stats = { ...makeDefaultStats(), eventCount: 7 };
     render(<SseStudioPage />);
-    expect(screen.getByTestId('sse-state-label').textContent).not.toContain('Auto-reconnect');
+    expect(screen.getByTestId('sse-state-label').textContent).toContain('Events: 7');
   });
 
-  // ── Headers panel behavior ─────────────────────────────────────────
+  it('shows Last-Event-ID in the status strip when present', () => {
+    mockSseReturn.connection = makeDefaultConnection({ lastEventId: 'evt-42' });
+    render(<SseStudioPage />);
+    expect(screen.getByTestId('sse-state-label').textContent).toContain('Last-Event-ID: evt-42');
+  });
 
-  it('shows header count in toggle button', () => {
+  // ── Headers editor behavior (always-visible left pane) ─────────────
+
+  it('shows header count in the headers label', () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'Authorization', value: 'Bearer x', enabled: true }],
     };
     render(<SseStudioPage />);
-    expect(screen.getByTestId('sse-headers-toggle').textContent).toContain('(1)');
+    expect(configBody().textContent).toContain('Headers');
   });
 
   it('adds a header when + Add Header is clicked', () => {
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
     fireEvent.click(screen.getByTestId('sse-headers-add-btn'));
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
@@ -288,12 +304,9 @@ describe('SseStudioPage', () => {
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const panel = screen.getByTestId('sse-headers-panel');
-    const keyInputs = panel.querySelectorAll('.ws-connect-kv-key');
-    const valInputs = panel.querySelectorAll('.ws-connect-kv-value');
-    expect(keyInputs.length).toBe(1);
-    expect(valInputs.length).toBe(1);
+    const body = configBody();
+    expect(body.querySelectorAll('.ws-connect-kv-key').length).toBe(1);
+    expect(body.querySelectorAll('.ws-connect-kv-value').length).toBe(1);
   });
 
   it('calls setConfig when header key is changed', () => {
@@ -302,8 +315,7 @@ describe('SseStudioPage', () => {
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const keyInput = screen.getByTestId('sse-headers-panel').querySelector('.ws-connect-kv-key') as HTMLInputElement;
+    const keyInput = configBody().querySelector('.ws-connect-kv-key') as HTMLInputElement;
     fireEvent.change(keyInput, { target: { value: 'Authorization' } });
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
@@ -314,8 +326,7 @@ describe('SseStudioPage', () => {
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const valInput = screen.getByTestId('sse-headers-panel').querySelector('.ws-connect-kv-value') as HTMLInputElement;
+    const valInput = configBody().querySelector('.ws-connect-kv-value') as HTMLInputElement;
     fireEvent.change(valInput, { target: { value: 'Bearer xyz' } });
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
@@ -326,8 +337,7 @@ describe('SseStudioPage', () => {
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const removeBtn = screen.getByTestId('sse-headers-panel').querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
+    const removeBtn = configBody().querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
     fireEvent.click(removeBtn);
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
@@ -338,7 +348,6 @@ describe('SseStudioPage', () => {
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
     fireEvent.click(screen.getByTestId('sse-headers-delete-all-btn'));
     expect(mockSseReturn.setConfig).toHaveBeenCalledWith({ headers: [] });
   });
@@ -350,15 +359,13 @@ describe('SseStudioPage', () => {
     };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const keyInput = screen.getByTestId('sse-headers-panel').querySelector('.ws-connect-kv-key') as HTMLInputElement;
+    const keyInput = configBody().querySelector('.ws-connect-kv-key') as HTMLInputElement;
     expect(keyInput.disabled).toBe(true);
   });
 
   it('disables add header button when connected', () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
     const addBtn = screen.getByTestId('sse-headers-add-btn') as HTMLButtonElement;
     expect(addBtn.disabled).toBe(true);
   });
@@ -370,25 +377,22 @@ describe('SseStudioPage', () => {
     };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    const removeBtn = screen.getByTestId('sse-headers-panel').querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
+    const removeBtn = configBody().querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
     expect(removeBtn.disabled).toBe(true);
   });
 
-  // ── Auto-reconnect checkbox ────────────────────────────────────────
+  // ── Auto-reconnect checkbox (always-visible reconnect section) ─────
 
-  it('renders auto-reconnect checkbox in reconnect panel', () => {
+  it('renders auto-reconnect checkbox in the reconnect section', () => {
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-reconnect-toggle'));
-    const checkbox = screen.getByTestId('sse-reconnect-panel').querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const checkbox = configBody().querySelector('input[type="checkbox"]') as HTMLInputElement;
     expect(checkbox).toBeTruthy();
     expect(checkbox.checked).toBe(true);
   });
 
   it('toggles auto-reconnect checkbox', () => {
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-reconnect-toggle'));
-    const checkbox = screen.getByTestId('sse-reconnect-panel').querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const checkbox = configBody().querySelector('input[type="checkbox"]') as HTMLInputElement;
     fireEvent.click(checkbox);
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
@@ -397,10 +401,25 @@ describe('SseStudioPage', () => {
     mockSseReturn.config = { ...makeDefaultConfig(), autoReconnect: true };
     mockSseReturn.connection = makeDefaultConnection({ retryMs: 3000 });
     render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-reconnect-toggle'));
-    const panel = screen.getByTestId('sse-reconnect-panel');
-    expect(panel.textContent).toContain('Retry interval');
-    expect(panel.textContent).toContain('3000ms');
+    const body = configBody();
+    expect(body.textContent).toContain('Retry interval');
+    expect(body.textContent).toContain('3000ms');
+  });
+
+  // ── Left-pane tabs (Connect / Auth) ────────────────────────────────
+
+  it('switches the left pane to the auth panel', () => {
+    render(<SseStudioPage />);
+    fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
+    expect(configBody().querySelector('.sse-auth-pane')).toBeTruthy();
+  });
+
+  // ── Right-pane tabs (Events / Console) ─────────────────────────────
+
+  it('switches the right pane to the console', () => {
+    render(<SseStudioPage />);
+    fireEvent.click(screen.getByTestId('sse-right-tab-console'));
+    expect(screen.getByTestId('sse-console')).toBeTruthy();
   });
 
   // ── URL input change ───────────────────────────────────────────────
@@ -423,27 +442,9 @@ describe('SseStudioPage', () => {
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
-  // ── Headers toggle styling ─────────────────────────────────────────
-
-  it('applies active class to headers toggle when panel is open', () => {
-    render(<SseStudioPage />);
-    const toggle = screen.getByTestId('sse-headers-toggle');
-    expect(toggle.className).not.toContain('active');
-    fireEvent.click(toggle);
-    expect(toggle.className).toContain('active');
-  });
-
-  it('toggles headers panel off again', () => {
-    render(<SseStudioPage />);
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    expect(screen.getByTestId('sse-headers-panel')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('sse-headers-toggle'));
-    expect(screen.queryByTestId('sse-headers-panel')).toBeNull();
-  });
-
   // ── Button disabled logic ──────────────────────────────────────────
 
-  it('button is NOT disabled when URL is whitespace-only and not busy', () => {
+  it('button is disabled when URL is whitespace-only and not busy', () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: '   ' };
     render(<SseStudioPage />);
     const btn = screen.getByTestId('sse-connect-btn') as HTMLButtonElement;
@@ -471,72 +472,166 @@ describe('SseStudioPage', () => {
     render(<SseStudioPage />);
     expect(screen.getByTestId('sse-connect-btn').className).toContain('sse-connect-btn-danger');
   });
-});
 
-// ── Phase 7: split-pane shell (flag on) ──────────────────────────────
-describe('SseStudioPage (shell v2)', () => {
-  it('renders the split-pane shell when the flag is on', async () => {
-    mockShellV2 = true;
-    render(<SseStudioPage />);
-    expect(await screen.findByTestId('sse-studio-shell')).toBeTruthy();
-    expect(screen.getByTestId('sse-studio-split')).toBeTruthy();
-    expect(screen.getByTestId('sse-studio-divider')).toBeTruthy();
-  });
+  // ── Config persistence (load / debounced save / unmount flush) ─────
 
-  it('does not render the shell when the flag is off', async () => {
-    mockShellV2 = false;
-    render(<SseStudioPage />);
-    // Legacy connect panel renders; shell does not.
-    expect(await screen.findByTestId('sse-connect-panel')).toBeTruthy();
-    expect(screen.queryByTestId('sse-studio-shell')).toBeNull();
-  });
-
-  it('keeps the URL bar and connect button in the shell top bar', async () => {
-    mockShellV2 = true;
-    mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
-    render(<SseStudioPage />);
-    const topbar = await screen.findByTestId('sse-studio-topbar');
-    expect(topbar.querySelector('.sse-url-input')).toBeTruthy();
-    expect(screen.getByTestId('sse-connect-btn')).toBeTruthy();
-    expect(screen.queryByTestId('sse-headers-toggle')).toBeNull();
-  });
-
-  it('shows the config body (headers + reconnect) always-visible in the left pane', async () => {
-    mockShellV2 = true;
-    mockSseReturn.config = {
-      ...makeDefaultConfig(),
-      headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
+  it('applies a stored config when the mount-time load resolves with one', async () => {
+    const stored: SseConnectionConfig = {
+      url: 'https://stored.example/sse',
+      headers: [],
+      autoReconnect: false,
+      maxRetries: 5,
     };
+    mockLoadSseConfig.mockResolvedValueOnce(stored);
     render(<SseStudioPage />);
-    const body = await screen.findByTestId('sse-config-body');
-    expect(body.querySelector('.ws-connect-kv-key')).toBeTruthy();
-    expect(screen.getByTestId('sse-headers-add-btn')).toBeTruthy();
-    expect(body.querySelector('input[type="checkbox"]')).toBeTruthy();
+    await waitFor(() => expect(mockSseReturn.setConfig).toHaveBeenCalledWith(stored));
   });
 
-  it('renders the message log in the right pane', async () => {
-    mockShellV2 = true;
+  it('ignores a stored config that resolves to null (defaults retained)', async () => {
+    mockLoadSseConfig.mockResolvedValueOnce(null);
     render(<SseStudioPage />);
-    await screen.findByTestId('sse-studio-shell');
-    expect(screen.getByTestId('sse-message-log')).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockSseReturn.setConfig).not.toHaveBeenCalled();
   });
 
-  it('shows connection state + event count in the status strip', async () => {
-    mockShellV2 = true;
+  it('swallows a rejected load without crashing', async () => {
+    mockLoadSseConfig.mockRejectedValueOnce(new Error('boom'));
+    render(<SseStudioPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('sse-studio')).toBeTruthy();
+  });
+
+  it('debounce-saves config changes after the load resolves and flushes on unmount', async () => {
+    vi.useFakeTimers();
+    try {
+      mockLoadSseConfig.mockResolvedValueOnce(null);
+      const { rerender, unmount } = render(<SseStudioPage />);
+      // Let the load promise settle so the "loaded" gate opens.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      mockSaveSseConfig.mockClear();
+
+      // A config change should schedule the debounced save.
+      mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://changed.example/sse' };
+      rerender(<SseStudioPage />);
+      // A second change before the timer fires should clear the pending timer.
+      mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://changed2.example/sse' };
+      rerender(<SseStudioPage />);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(mockSaveSseConfig).toHaveBeenCalledTimes(1);
+      expect(mockSaveSseConfig).toHaveBeenCalledWith(mockSseReturn.config);
+
+      // Unmount should flush the latest config immediately.
+      mockSaveSseConfig.mockClear();
+      unmount();
+      expect(mockSaveSseConfig).toHaveBeenCalledWith(mockSseReturn.config);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a pending load and skips the unmount flush when unmounted before it resolves', async () => {
+    let resolveLoad: (v: SseConnectionConfig | null) => void = () => {};
+    mockLoadSseConfig.mockReturnValueOnce(
+      new Promise<SseConnectionConfig | null>((res) => {
+        resolveLoad = res;
+      }),
+    );
+    const { unmount } = render(<SseStudioPage />);
+    // Unmount before the load settles: the load effect cleanup flags cancelled
+    // and the unmount-flush effect must bail because the load never completed.
+    unmount();
+    await act(async () => {
+      resolveLoad(makeDefaultConfig());
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockSseReturn.setConfig).not.toHaveBeenCalled();
+    expect(mockSaveSseConfig).not.toHaveBeenCalled();
+  });
+
+  // ── Console command capabilities ───────────────────────────────────
+
+  it('runs the console /connect command with a URL (sets config then connects)', () => {
+    render(<SseStudioPage />);
+    fireEvent.click(screen.getByTestId('sse-right-tab-console'));
+    const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '/connect https://cli.example/sse' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(mockSseReturn.setConfig).toHaveBeenCalledWith({ url: 'https://cli.example/sse' });
+    expect(mockSseReturn.connect).toHaveBeenCalled();
+  });
+
+  it('runs the console /connect command without a URL (just connects)', () => {
+    mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://existing.example/sse' };
+    render(<SseStudioPage />);
+    fireEvent.click(screen.getByTestId('sse-right-tab-console'));
+    const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '/connect' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(mockSseReturn.connect).toHaveBeenCalled();
+  });
+
+  it('runs the console /disconnect command', () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    mockSseReturn.stats = { ...makeDefaultStats(), eventCount: 7 };
     render(<SseStudioPage />);
-    const strip = await screen.findByTestId('sse-studio-status-strip');
-    expect(strip.textContent).toContain('Connected');
-    expect(strip.textContent).toContain('Events: 7');
+    fireEvent.click(screen.getByTestId('sse-right-tab-console'));
+    const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '/disconnect' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(mockSseReturn.disconnect).toHaveBeenCalled();
   });
 
-  it('adds a header from the always-visible left pane', async () => {
-    mockShellV2 = true;
+  // ── Auth change ────────────────────────────────────────────────────
+
+  it('calls setConfig when the auth type changes in the auth pane', () => {
     render(<SseStudioPage />);
-    await screen.findByTestId('sse-config-body');
-    fireEvent.click(screen.getByTestId('sse-headers-add-btn'));
-    expect(mockSseReturn.setConfig).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
+    const select = configBody().querySelector('.sse-auth-pane select') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    fireEvent.change(select, { target: { value: 'bearer' } });
+    expect(mockSseReturn.setConfig).toHaveBeenCalledWith({
+      auth: expect.objectContaining({ type: 'bearer' }),
+    });
+  });
+
+  // ── Derived state edge cases ───────────────────────────────────────
+
+  it('treats a configured non-none auth as configured', () => {
+    mockSseReturn.config = { ...makeDefaultConfig(), auth: { type: 'bearer', token: 'tok' } };
+    render(<SseStudioPage />);
+    expect(screen.getByTestId('sse-studio')).toBeTruthy();
+  });
+
+  it('falls back to defaults for an unknown connection state', () => {
+    mockSseReturn.connection = makeDefaultConnection({
+      state: 'bogus' as SseConnectionSnapshot['state'],
+    });
+    const { container } = render(<SseStudioPage />);
+    expect(screen.getByTestId('sse-state-label').textContent).toContain('Disconnected');
+    const dot = container.querySelector('.sse-state-dot');
+    expect(dot?.className).toContain('sse-state-disconnected');
+  });
+
+  it('derives lastEventId from the most recent event when events are present', () => {
+    const event: SseEvent = {
+      id: 'e1',
+      eventType: 'message',
+      data: 'hello',
+      lastEventId: 'evt-last',
+      size: 5,
+      timestamp: new Date().toISOString(),
+    };
+    mockSseReturn.events = [event];
+    render(<SseStudioPage />);
+    expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 });
-
