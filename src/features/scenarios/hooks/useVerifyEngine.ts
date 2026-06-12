@@ -11,7 +11,7 @@ import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { validate as validateResponse } from '../../../engine/validator';
 import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceImport';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -155,8 +155,7 @@ export function useVerifyEngine(
           continue;
         }
 
-        let responseObj: unknown = null;
-        try { responseObj = JSON.parse(result.body); } catch { /* not JSON */ }
+        const responseObj: unknown = tryParseJson(result.body) ?? null;
 
         const failedCells: Record<string, string> = {};
         const actualCells: Record<string, string> = {};
@@ -250,8 +249,7 @@ export function useVerifyEngine(
 
         if (result.error || result.status >= 400) continue;
 
-        let responseObj: unknown = null;
-        try { responseObj = JSON.parse(result.body); } catch { /* not JSON */ }
+        const responseObj: unknown = tryParseJson(result.body) ?? null;
         if (responseObj == null) continue;
 
         const updatedValues = { ...row.values };
