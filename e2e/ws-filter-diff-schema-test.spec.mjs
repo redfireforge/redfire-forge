@@ -47,6 +47,26 @@ async function setupWithMessages(page) {
   await page.waitForTimeout(200);
 
   const msgInput = page.locator('textarea[aria-label="Message input"]');
+  // Wait for compose input to be enabled (connection fully established)
+  // If still disabled after 5s, reconnect
+  try {
+    await expect(msgInput).toBeEnabled({ timeout: 5000 });
+  } catch {
+    // Connection may have dropped — full reconnect cycle
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    await connected.waitFor({ timeout: 15000 });
+    await page.waitForTimeout(300);
+    await page.click('[data-testid="left-tab-compose"]');
+    await page.waitForTimeout(200);
+    await expect(msgInput).toBeEnabled({ timeout: 10000 });
+  }
   const sendBtn = page.locator('[data-testid="send-btn"]');
 
   const messages = [
@@ -58,6 +78,25 @@ async function setupWithMessages(page) {
   ];
 
   for (const msg of messages) {
+    // Ensure input is still enabled (connection may drop under parallel load)
+    try {
+      await expect(msgInput).toBeEnabled({ timeout: 3000 });
+    } catch {
+      // Reconnect
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: parseInt(MOCK_PORT, 10) },
+      }).catch(() => {});
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="left-tab-connect"]');
+      await page.waitForTimeout(200);
+      await page.click('[data-testid="connect-btn"]');
+      const reconnected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+      await reconnected.waitFor({ timeout: 15000 });
+      await page.waitForTimeout(300);
+      await page.click('[data-testid="left-tab-compose"]');
+      await page.waitForTimeout(200);
+      await expect(msgInput).toBeEnabled({ timeout: 10000 });
+    }
     await msgInput.fill(msg);
     await sendBtn.click();
     await page.waitForTimeout(400);

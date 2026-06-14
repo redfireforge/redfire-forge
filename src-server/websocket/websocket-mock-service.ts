@@ -48,6 +48,13 @@ export class WebSocketMockService {
 
   start(config: WsMockServerConfig): Promise<WsMockStatus> {
     return new Promise((resolve, reject) => {
+      // Idempotent: if already running on the same port, skip restart
+      if (this.wss && this.port === config.port) {
+        this.rules = config.rules;
+        this.fallback = config.fallback;
+        resolve(this.getStatus());
+        return;
+      }
       if (this.wss) {
         this.stopSync();
       }
