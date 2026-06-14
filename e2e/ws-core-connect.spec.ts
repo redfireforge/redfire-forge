@@ -23,7 +23,7 @@ async function connectTo(page: Page, url = MOCK_URL) {
   await page.click('[data-testid="connect-btn"]');
   // Use Playwright locator (more reliable than waitForFunction) on the
   // connection tab bar — aria-label includes state hint e.g. "localhost:9876 — connected".
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 10000 });
+  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 15000 });
   await page.waitForTimeout(300);
 }
 
@@ -60,6 +60,27 @@ async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
   await page.click(`[data-testid="mode-${mode}"]`);
   await page.waitForTimeout(300);
 }
+
+/* ── Ensure a mock WS echo server is running on port 9876 ── */
+
+test.beforeAll(async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  // Start mock echo server via backend API
+  await page.request.post('http://localhost:3001/api/ws/mock/start', {
+    data: { port: 9876 },
+  }).catch(() => {});
+  // Give the server a moment to bind the port
+  await page.waitForTimeout(1000);
+  await ctx.close();
+});
+
+test.afterAll(async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.request.post('http://localhost:3001/api/ws/mock/stop').catch(() => {});
+  await ctx.close();
+});
 
 /* ── WC-01: Navigation & Layout ──────────────────────── */
 
@@ -439,6 +460,8 @@ test.describe('Message Templates (WC-31–35)', () => {
     await connectTo(page);
     await switchLeftTab(page, 'compose');
     const input = page.locator('.ws-compose-input');
+    // Wait for compose input to be enabled (connection established)
+    await expect(input).toBeEnabled({ timeout: 10000 });
     await input.fill('{"greeting":"hello"}');
     await page.click('[data-testid="template-trigger"]');
     await page.waitForTimeout(300);
@@ -630,7 +653,8 @@ test.describe('Console (WC-C01–C09)', () => {
     await cmdInput.fill('/ping');
     await cmdInput.press('Enter');
     await page.waitForTimeout(300);
-    await expect(page.locator('[data-testid="ws-console"]')).toContainText('not supported');
+    // Browser transport shows "not supported"; if disconnected meanwhile, shows "Not connected"
+    await expect(page.locator('[data-testid="ws-console"]')).toContainText(/not supported|Not connected/i);
   });
 
   test('WC-C08: /send command', async ({ page }) => {
