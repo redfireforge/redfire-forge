@@ -257,6 +257,28 @@ describe('WsConnectionTabContent', () => {
     expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
   });
 
+  it('auto-switches to the Compose tab on a successful connect', () => {
+    const onLeftTabChange = vi.fn();
+    const { rerender } = render(
+      <WsConnectionTabContent {...makeProps({ onLeftTabChange })} />,
+    );
+    mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps({ onLeftTabChange })} />);
+    expect(onLeftTabChange).toHaveBeenCalledWith('compose');
+  });
+
+  it('does not switch tabs while merely connecting', () => {
+    const onLeftTabChange = vi.fn();
+    const { rerender } = render(
+      <WsConnectionTabContent {...makeProps({ onLeftTabChange })} />,
+    );
+    mockStudio = makeStudioReturn({ connection: { state: 'connecting' } });
+    vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
+    rerender(<WsConnectionTabContent {...makeProps({ onLeftTabChange })} />);
+    expect(onLeftTabChange).not.toHaveBeenCalled();
+  });
+
   it('reports URL changes', () => {
     const onUrlChange = vi.fn();
     const { rerender } = render(

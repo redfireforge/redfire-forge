@@ -159,6 +159,7 @@ export const WsConnectionTabContent = forwardRef<
     capabilities: buildWsConsoleCapabilities({
       isConnected,
       connectionState: studio.connection.state,
+      transportMode: studio.transportMode,
       setDraft: studio.setDraft,
       connect: studio.connect,
       disconnect: studio.disconnect,
@@ -210,12 +211,19 @@ export const WsConnectionTabContent = forwardRef<
   const prevConnStateRef = useRef(studio.connection.state);
   useEffect(() => {
     if (prevConnStateRef.current !== studio.connection.state) {
+      const prevState = prevConnStateRef.current;
       prevConnStateRef.current = studio.connection.state;
       const hint: ConnectionStateHint =
         studio.connection.state === 'closing' ? 'connected' : studio.connection.state;
       onConnectionStateChange(tabId, hint, studio.protocolMode);
+      // On a successful (re)connect, jump to the Compose tab so the user lands
+      // on the send screen — the setup tabs (Connect/Params/Auth/Headers) are
+      // only useful pre-connect.
+      if (studio.connection.state === 'connected' && prevState !== 'connected') {
+        onLeftTabChange?.('compose');
+      }
     }
-  }, [studio.connection.state, tabId, onConnectionStateChange, studio.protocolMode]);
+  }, [studio.connection.state, tabId, onConnectionStateChange, studio.protocolMode, onLeftTabChange]);
 
   const prevUrlRef = useRef(studio.draft.url);
   useEffect(() => {

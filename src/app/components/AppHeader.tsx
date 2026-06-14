@@ -90,6 +90,7 @@ export default function AppHeader({
           hasClusters={kafkaHasClusters}
           onNavigateToSettings={onNavigateToKafkaSettings}
         />
+
         <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
           <button className="theme-toggle" onClick={() => setThemePickerOpen((o: boolean) => !o)}
             title={`Theme: ${isCustomThemeId(theme) ? (findSavedTheme(theme)?.name ?? 'Custom') : theme}`}>

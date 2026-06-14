@@ -135,12 +135,12 @@ export function useConsoleCommands(opts: UseConsoleCommandsOptions): UseConsoleC
         }
 
         case 'ping': {
-          if (!caps.ping) {
-            emit(buildCommandErrorEntry('/ping is not supported here.'));
-            return;
-          }
           if (!caps.isConnected) {
             emit(buildCommandErrorEntry('Not connected.'));
+            return;
+          }
+          if (!caps.ping) {
+            emit(buildCommandErrorEntry('/ping is not supported here.'));
             return;
           }
           caps.ping();

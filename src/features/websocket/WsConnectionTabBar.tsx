@@ -21,6 +21,7 @@ export interface WsConnectionTabBarProps {
   onRename: (id: string, newLabel: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
   history?: WsConnectionHistoryEntry[];
+  onClearHistory?: () => void;
 }
 
 const STATE_COLORS: Record<ConnectionStateHint, string> = {
@@ -60,6 +61,7 @@ export function WsConnectionTabBar({
   onRename,
   onReorder,
   history,
+  onClearHistory,
 }: WsConnectionTabBarProps) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -415,6 +417,19 @@ export function WsConnectionTabBar({
                   </span>
                 </button>
               ))}
+              {onClearHistory && history!.length > 0 && (
+                <>
+                  <div className="ws-conn-tab-history-divider" />
+                  <button
+                    type="button"
+                    className="ws-conn-tab-history-item ws-conn-tab-history-clear"
+                    onClick={() => { onClearHistory(); setHistoryDropdownOpen(false); }}
+                    data-testid="conn-tab-history-clear"
+                  >
+                    <span className="ws-conn-tab-history-url">Clear History</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

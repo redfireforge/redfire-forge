@@ -1,0 +1,245 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { useDemoShortcuts } from './useDemoShortcuts';
+import type { Tab } from '../utils/appTabUtils';
+
+function makeDemoHub(overrides: Partial<{
+  state: { view: string; selectedLesson?: { initialTab?: string } | null };
+  exitLiveDemo: () => void;
+  nextStep: () => void;
+  prevStep: () => void;
+  toggleAutoPlay: () => void;
+}> = {}) {
+  return {
+    state: {
+      view: 'domains',
+      selectedLesson: null,
+    },
+    exitLiveDemo: vi.fn(),
+    nextStep: vi.fn(),
+    prevStep: vi.fn(),
+    toggleAutoPlay: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe('useDemoShortcuts', () => {
+  let activeTab: Tab;
+  let setActiveTab: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    activeTab = 'demo-hub' as Tab;
+    setActiveTab = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('registers keydown listener on mount', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const hub = makeDemoHub();
+    renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+  });
+
+  it('removes keydown listener on unmount', () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    const hub = makeDemoHub();
+    const { unmount } = renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+  });
+
+  it('Cmd+Shift+D navigates to demo-hub tab', () => {
+    const hub = makeDemoHub();
+    renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'D',
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+    window.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
+  });
+
+  it('Ctrl+Shift+D navigates to demo-hub tab', () => {
+    const hub = makeDemoHub();
+    renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'D',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
+  });
+
+  it('Escape in live mode exits demo and navigates to demo-hub', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+    });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+    window.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(hub.exitLiveDemo).toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
+  });
+
+  it('ArrowRight in live mode calls nextStep', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).toHaveBeenCalled();
+  });
+
+  it('ArrowLeft in live mode calls prevStep', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    expect(hub.prevStep).toHaveBeenCalled();
+  });
+
+  it('Space in live mode calls toggleAutoPlay', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: ' ',
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    expect(hub.toggleAutoPlay).toHaveBeenCalled();
+  });
+
+  it('does not fire shortcuts when target is INPUT', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+    });
+    Object.defineProperty(event, 'target', { value: input });
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it('does not fire shortcuts when target is TEXTAREA', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+    });
+    Object.defineProperty(event, 'target', { value: textarea });
+    window.dispatchEvent(event);
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+    document.body.removeChild(textarea);
+  });
+
+  it('ignores unrecognized keys in live mode', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+    expect(hub.nextStep).not.toHaveBeenCalled();
+    expect(hub.prevStep).not.toHaveBeenCalled();
+    expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
+  });
+
+  it('live mode shortcuts do nothing when not in live view', () => {
+    const hub = makeDemoHub({ state: { view: 'domains' } });
+    renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+    expect(hub.nextStep).not.toHaveBeenCalled();
+    expect(hub.prevStep).not.toHaveBeenCalled();
+    expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
+  });
+
+  it('auto-exits live demo when user navigates away from target tab', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'websocket-studio' } },
+    });
+    // activeTab differs from initialTab → should trigger exitLiveDemo
+    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).toHaveBeenCalled();
+  });
+
+  it('does not auto-exit when activeTab matches initialTab', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'websocket-studio' } },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'websocket-studio' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-exit when not in live view', () => {
+    const hub = makeDemoHub({
+      state: { view: 'concept', selectedLesson: { initialTab: 'websocket-studio' } },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-exit when lesson has no initialTab', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: {} },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+  });
+});

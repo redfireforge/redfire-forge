@@ -356,11 +356,15 @@ export function useWebSocketCompose({
                         onClick={() => handleTemplateLoad(tpl.id)}
                         title={`Load: ${tpl.name}`}
                       >
-                        <span className="ws-template-item-name">{tpl.name}</span>
+                        <span className="ws-template-item-head">
+                          <span className="ws-template-item-name">{tpl.name}</span>
+                          <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
+                            {tpl.format}
+                          </span>
+                        </span>
                         <span className="ws-template-item-preview">
                           {tpl.body.length > 60 ? tpl.body.slice(0, 60) + '\u2026' : tpl.body}
                         </span>
-                        <span className="ws-template-item-format">{tpl.format}</span>
                       </button>
                       <button
                         className="ws-template-item-delete"
