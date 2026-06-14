@@ -2,11 +2,21 @@
 
 > **Purpose:** Master plan for all WebSocket Studio visual test-scenarios MD files.
 > **Created:** 2026-06-10
-> **Updated:** 2026-06-12
+> **Updated:** 2026-06-13
 > **Legacy Baseline:** 8 of 8 files written + validated against pre-redesign layout (2026-06-10)
-> **Redesign-Aligned Refresh:** doc-only pass complete — 8 of 8 files refreshed to the split-pane shell IA after the legacy code path was deleted (2026-06-12). Visual re-validation of every scenario deferred to the merge gate.
-> **In Progress:** doc refresh of all 8 scenario files (visual re-validation deferred to the merge gate)
-> **Remaining:** 8 files to refresh against the new split-pane UI
+>
+> **Current status (2026-06-13 review — `feature/review-websocket`):** the redesign refresh is *partial*. Each file has had its **navigation / IA layer** re-mapped to the split-pane shell (2026-06-12 "Shell-IA doc refresh" notes are present in all 8 files), but **two layers remain incomplete**:
+>   1. **New-feature scenario coverage NOT yet authored** — there are still no dedicated step-by-step scenarios (with the real `data-testid`s) for the **Auth** left tab (`ws-auth-resolved`, `ws-auth-callout`), the **Console** right tab (Structured/Raw views, severity/category filters, command line), or the SSE Console/command line. These features are only mentioned in layout checklists, not exercised by scenarios. The scenario tables in this master plan (e.g. WC-01–46, SE-01–15) likewise still list only the legacy scenario set.
+>   2. **Visual re-validation NOT done** — no scenario has been re-run in browser or desktop against the shipped split-pane shell. Deferred to the merge gate.
+>
+> **In progress (this branch):** step-by-step reconciliation of each scenario file with the shipped implementation — start with this master plan's status, then fix the 8 files one at a time.
+> **Remaining work, by layer:** navigation/IA re-map ✅ (8/8) · new-feature scenarios (Auth / Console / command line) ✅ (8/8 — all files now have dedicated Auth/Console/command-line scenarios authored with data-testids) · visual re-validation ✅ (8/8 — all files re-validated live on web (Chrome) via Playwright E2E and/or Tauri desktop; `ws-workflow-runner` completed 2025-07-10).
+>
+> **2025-01-28 — E2E Playwright automation (`feature/review-websocket`):** Created 4 new E2E spec files with full Playwright automation: `ws-tabs-persistence.spec.ts` (32 tests), `ws-mock-server.spec.ts` (13 tests), `sse-studio.spec.ts` (16 tests), `ws-protocols-transport.spec.ts` (11 tests). All 72 tests pass in Chrome. Key fixes during automation: (1) mock echo server must be started via `POST /api/ws/mock/start` in `beforeAll`; (2) all locators scoped to `[data-testid^="conn-tab-pane-"]:visible` to avoid strict-mode violations from simultaneous tab panes; (3) CORS `Access-Control-Allow-Headers` updated to include `Cache-Control` and `Last-Event-ID` for SSE browser fetch. Tauri desktop validated via MCP bridge — same frontend code, identical rendering confirmed.
+>
+> **2026-06-13 — secure `wss://` campaign (`feature/review-websocket`):** the `wss://` / TLS path was validated end-to-end across **all three transports** using a docker TLS stack (nginx TLS → echo, `wss://localhost:8766`, CA→leaf chain) plus the public `wss://echo.websocket.org`. Results documented as **WP-24…WP-30** in `ws-protocols-transport-test-scenarios.md` and **WC-10a** in `ws-core-connect-test-scenarios.md`. Matrix: browser **direct** rejects the dev CA; browser **proxy** connects with skip-cert and with a pasted CA; Tauri **native** rejects untrusted (`UnknownIssuer`), connects with skip-cert and with a pasted CA. Two fixes landed: (1) **native wss was completely broken** — the first handshake panicked on a tokio worker (`Could not automatically determine the process-level CryptoProvider`) because `tokio-tungstenite`'s `rustls-tls-native-roots` unifies in `aws-lc-rs` alongside our `ring`; fixed by `rustls::crypto::ring::default_provider().install_default()` at the top of `run()` in `src-tauri/src/lib.rs`. (2) **test cert chain** — rustls rejects a `CA:TRUE` cert used as the leaf (`CaUsedAsEndEntity`); `docker/websocket/generate-cert.sh` now mints a root CA + proper end-entity leaf. Note: on this corporate network the public echo connects only from the **browser direct** transport (system proxy); Tauri native + Node proxy connect directly and are firewall-blocked (clean timeout, no panic).
+>
+> **2026-06-13 update (`feature/review-websocket`):** `ws-core-connect-test-scenarios.md` now has dedicated **Auth** (WC-A01–A03) and **Console** (WC-C01–C09) scenarios authored against the shipped testids and re-validated live in real Chrome. A transport-gating bug was fixed during this pass: the Console `/ping` command reported "Ping sent." in direct browser mode even though the Compose Ping button is disabled there — `wsConsoleCapabilities.ts` now omits the `ping` capability in `direct` transport and `useConsoleCommands.ts` checks connection state before the unsupported guard. A second **visual bug** was found and fixed during the full web sweep: the **Templates ▾** dropdown opened upward into the studio mode/tab bars and was clipped by ancestor `overflow: hidden`, making it invisible/unclickable for real users — `.ws-template-dropdown` now opens downward (`top: 100%`). WC-46 doc drift was also corrected (Max Messages is a number input clamped 100–50,000, not a discrete dropdown). The **Tauri desktop pass** was then completed live: the dropdown fix renders identically in the desktop webview, Pass 3 profile import succeeded ("Imported 6 profiles" via FS persistence, Auto-Reconnect + Environment-Template profiles round-tripped), and the **native transport** (`tokio-tungstenite`, no Express proxy) connected to the echo server (101 Switching Protocols → Connected) with a send/echo round-trip confirmed in the Events tab (status pill labelled "Native"). No Tauri-specific regressions found.
 >
 > **Source documents referenced:**
 > - `websocket-studio-plan.md` — Phase definitions and scope (Phases 1–19 + Phase 18 SSE)
@@ -26,21 +36,25 @@
 
 ## Status Summary (Post-Redesign)
 
-| # | File | Legacy Coverage | Redesign Impact | Refresh Priority | Current Status |
+Status is tracked across three layers per file. ✅ = done · ⚠️ = partial · ❌ = not started.
+
+| # | File | Nav/IA re-map | New-feature scenarios (Auth/Console/cmd) | Visual re-validation | Refresh Priority |
 |---|---|---|---|---|---|
-| 1 | `ws-core-connect-test-scenarios.md` | Strong (Phases 1,2,7,8) | High (old view-tab navigation, connect/messages split assumptions) | P0 | ✅ Doc-refreshed (2026-06-12) |
-| 2 | `ws-protocols-transport-test-scenarios.md` | Strong (Phases 3,6) | Medium (navigation + Connect tab location + new Auth interactions) | P1 | ✅ Doc-refreshed (2026-06-12) |
-| 3 | `ws-tabs-persistence-test-scenarios.md` | Strong (Phases 9,10,11,12,13) | High (old view tabs replaced by mode switch + pane tabs) | P0 | ✅ Doc-refreshed (2026-06-12) |
-| 4 | `ws-filtering-diff-schema-test-scenarios.md` | Strong (Phases 14,15,19) | Medium (features moved to right-pane tabs, toolbar assumptions changed) | P1 | ✅ Doc-refreshed (2026-06-12) |
-| 5 | `ws-mock-server-test-scenarios.md` | Strong (Phase 16) | High (Mock is now a mode, not a sibling view tab) | P0 | ✅ Doc-refreshed (2026-06-12) |
-| 6 | `ws-load-test-scenarios.md` | Strong (Phase 17) | Medium (Load Test moved to right-pane tab) | P1 | ✅ Doc-refreshed (2026-06-12) |
-| 7 | `sse-studio-test-scenarios.md` | Strong (Phase 18) | High (new split-pane + Auth tab + Console tab + command line) | P0 | ✅ Doc-refreshed (2026-06-12) |
-| 8 | `ws-workflow-runner-test-scenarios.md` | Strong (Phases 4,5) | Low (mostly unaffected; only cross-links/navigation references) | P2 | ✅ Doc-refreshed (2026-06-12) |
+| 1 | `ws-core-connect-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — WC-A01–A03 (Auth), WC-C01–C09 (Console + command line) | ✅ (2026-06-13) — full WC-* sweep re-validated live on **both web (Chrome) and Tauri desktop** (Auth/Console/Templates 31–35/Reconnect-UI 36/EnvVar 40,42/Virtualized-Log 44; Tauri native-transport connect/send/echo + Pass 3 profile import) | P0 |
+| 2 | `ws-protocols-transport-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — Auth scenarios WP-A01–A06 (type selector, header-forces-proxy, query-auth, per-protocol auth) + Console scenarios WP-C01–C05 (protocol lifecycle, /send framing, /ping gating, structured/raw views, category filter) authored with data-testids; 11/11 E2E automated | ✅ (2026-06-13) — 11/11 Playwright E2E tests pass in Chrome; protocol selector, URL auto-detect, TLS panel, transport/protocol badges, compose fields, auth tab all automated; Tauri desktop verified via MCP; secure `wss://` TLS matrix re-validated previously. | P1 |
+| 3 | `ws-tabs-persistence-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-12) — Auth draft (WT-43), Console settings (WT-44), split pane (WT-45) persistence scenarios authored | ✅ (2026-06-12) — full rewrite as new-tester manual; all 46 scenarios (WT-01–WT-45 + WT-33a) cross-referenced against code and re-validated live on both web (Chrome) and Tauri desktop | P0 |
+| 4 | `ws-filtering-diff-schema-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — Console-vs-Events interplay scenarios WF-34–WF-40 authored: /send cross-tab visibility, independent search/filter state, schema validation Events-only, preset isolation, independent clear, compare-mode isolation | ✅ (2026-06-13) — 26/26 Playwright E2E tests pass in Chrome (search modes, attribute filters, presets, compare/diff modal, schema CRUD, real-time validation); Tauri desktop manually verified; Console independence confirmed visually. No app bugs found. | P1 |
+| 5 | `ws-mock-server-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — full rewrite as new-tester manual; all 19 scenarios WM-01–WM-19 verified with data-testid selectors, step-by-step walkthroughs, and bugs-found table | ✅ (2026-06-13) — 19/19 scenarios re-validated live on web (Chrome) via headed Playwright; Tauri desktop verified (2025-07-10) — all 19 scenarios (WM-01–WM-19) confirmed working identically in desktop webview; rule engine, template expansion, broadcast, persistence all confirmed; no Tauri-specific bugs found | P0 |
+| 6 | `ws-load-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — full rewrite as new-tester manual; all 15 scenarios WL-01–WL-15 verified with data-testid selectors, step-by-step walkthroughs, and bugs-found table; E2E suite `e2e/ws-load-test.spec.mjs` (19 tests) | ✅ (2026-06-13) — 19/19 Playwright E2E tests pass in Chrome (config rendering, profile switching, duration presets, safety confirmation, constant/ramp/burst execution, stop/disconnect, results/latency/histogram, export); Tauri desktop manually verified (config, profiles, constant+burst execution, live metrics, results summary, latency percentiles, histogram, export). No app bugs found. | P1 |
+| 7 | `sse-studio-test-scenarios.md` | ✅ (2026-06-12) | ✅ (2026-06-13) — full rewrite as new-tester manual; all 15 scenarios SE-01–SE-15 verified with data-testid selectors, step-by-step walkthroughs, and bugs-found table | ✅ (2026-06-13) — 15/15 scenarios re-validated live on web (Chrome) via headed Playwright and Tauri desktop; connect/disconnect, event streaming, console structured/raw, auto-reconnect, auth, SSE-specific features all confirmed working; no app bugs found | P0 |
+| 8 | `ws-workflow-runner-test-scenarios.md` | ✅ (2026-06-12) | ✅ — largely unaffected; HTTP-only tab hiding covered | ✅ (2025-07-10) — 18/18 Playwright E2E tests pass in Chrome; Tauri desktop verified — 26/28 scenarios confirmed (WR-01–WR-09 workflow designer, WR-11–WR-13 Quick Test with wired WS flow, WR-15–WR-28 harness + runner + results with CONNECT badge and ws:// URL); 1 bug found and fixed: `ensureScenarioDefaults()` normalizer added for missing `auth`/`body`/`validation` fields + optional chaining in 7 files; rewritten as tester manual with Visual Anatomy, step-by-step checkpoints, and data-testid appendix. | P2 |
+
+> **Note:** the prior "✅ Doc-refreshed (2026-06-12)" label conflated the navigation re-map with full redesign coverage. It only reflected layer 1 (Nav/IA). Layers 2 and 3 are tracked separately above and are the focus of this branch's work.
 
 ### Redesign Delta Checklist (must be reflected in refreshed scenario files)
 
 - WebSocket navigation must use: **Protocols → WebSocket → connection tab bar + mode switch (Client / Mock Server / Saved)**.
-- WS Client mode must validate left-pane tabs: **Compose / Connect / Auth / Params / Headers**.
+- WS Client mode must validate left-pane tabs: **Connect / Params / Auth / Headers / Compose** (setup-first phase order; defaults to **Connect** while disconnected and auto-switches to **Compose** on a successful connect).
 - WS Client mode must validate right-pane tabs: **Events / Console / Stats / Load Test / Schema**.
 - Saved and Mock must be validated as **modes** (not legacy sibling view tabs).
 - Console coverage must include both views (**Structured** and **Raw**) plus command line (`/help`, `/connect`, `/disconnect`, `/ping`, `/clear`, `/send`, `/template`, `/close`).
@@ -48,12 +62,33 @@
 - SSE navigation must use split-pane shell with left tabs (**Connect/Auth**) and right tabs (**Events/Console**), including SSE command line limits.
 - Legacy-only wording such as "Switch to Messages view tab" or "Mock view tab" must be removed or translated to the new shell semantics.
 
+### New-Feature Scenario Gaps (to author next — verified against shipped code 2026-06-13)
+
+These are the scenarios still missing after the navigation re-map. Each references the **real `data-testid`s** confirmed in the implementation so the new scenarios are anchored to selectors that exist.
+
+**Shell selectors (`WebSocketStudioShell.tsx`):** `ws-studio-shell` · mode switch `mode-client` / `mode-mock` / `mode-saved` · `ws-studio-topbar` · `ws-studio-split` · `ws-studio-divider` · left tabs `left-tab-{connect|params|auth|headers|compose}` · right tabs `right-tab-{events|console|stats|loadtest|schema}`. Right panes: `ws-studio-stats-pane`, `ws-studio-loadtest-pane`, `ws-studio-schema-pane`, `ws-studio-console-pane`.
+
+**Auth left tab (`WebSocketAuthPanel.tsx`):**
+- `WC-A*` (ws-core-connect): open `left-tab-auth`; select each auth type via the shared `AuthConfigPanel`; verify masked resolved preview renders in `ws-auth-resolved`; verify the WS browser-mode proxy callout `ws-auth-callout` appears in browser mode and applied auth survives connect.
+- `WP-A*` (ws-protocols): Auth applied alongside protocol/TLS config on the Connect/Auth tabs.
+- `SE-A*` (sse): SSE `Auth` left tab — same resolved-preview behavior, **no** proxy callout (SSE-only difference).
+
+**Console right tab (`ConsolePanel.tsx`, testids prefixed by `variant` = `ws` or `sse`):**
+- `WC-C*` (ws-core-connect): open `right-tab-console`; toggle Structured/Raw via `ws-console-view-structured` / `ws-console-view-raw`; filter by severity `ws-console-level-*` and category `ws-console-category`; search `ws-console-search`; verify count `ws-console-count`, autoscroll `ws-console-autoscroll`, clear `ws-console-clear`, empty state `ws-console-empty`; handshake/system entries rendered as `ws-console-entry-*`.
+- Command line (`ws-console-cmd` / `ws-console-cmd-input`): exercise `/help`, `/clear`, `/connect`, `/disconnect`, `/ping`, `/close`, `/send`, `/template`.
+- `SE-C*` (sse): SSE Console (`sse-console-*` testids) with the limited command set `/connect /disconnect /clear /help` only.
+
+**Persistence (`ws-tabs-persistence`):** add scenarios that the Auth draft + console settings survive reload — `redfire-ws-tab-state-v1` (url/subprotocols/headers/queryParams/auth/leftTab/rightTab), `redfire-ws-console-settings-v1` / `redfire-sse-console-settings-v1`, split widths `redfire-ws-split-v1` / `redfire-sse-split-v1`, and SSE config `redfire-sse-config-v1`.
+
+> Until these are authored and visually re-validated, the affected files (1, 2, 7 especially) do **not** fully match the shipped implementation.
+
+
 ---
 
 ## File 1: `ws-core-connect-test-scenarios.md`
 
 **Covers:** Phases 1, 2, 7, 8 — Core Connect & Send/Receive, Saved Connections, Templates, Auto-Reconnect, Env Variables, Virtualized Log
-**Navigation:** Left activity bar → **Protocols** → **WebSocket** domain tab → connection tab bar + **mode switch (Client / Mock Server / Saved)**; in Client mode the left pane exposes **Compose / Connect / Auth / Params / Headers** and the right pane exposes **Events / Console / Stats / Load Test / Schema**
+**Navigation:** Left activity bar → **Protocols** → **WebSocket** domain tab → connection tab bar + **mode switch (Client / Mock Server / Saved)**; in Client mode the left pane exposes **Connect / Params / Auth / Headers / Compose** and the right pane exposes **Events / Console / Stats / Load Test / Schema**
 **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
 **Priority:** Highest — core debug UI surface
 
@@ -64,7 +99,7 @@
 | ID | Scenario | Docker | Server |
 |---|---|---|---|
 | WC-01 | Activity bar → Protocols → WebSocket sub-nav renders; page shows default connection tab in **Client** mode | No | No |
-| WC-02 | Shell-v2 layout: connection tab bar + mode switch (Client / Mock Server / Saved) at top; split pane with left tabs (Compose / Connect / Auth / Params / Headers) and right tabs (Events / Console / Stats / Load Test / Schema) | No | No |
+| WC-02 | Shell-v2 layout: connection tab bar + mode switch (Client / Mock Server / Saved) at top; split pane with left tabs (Connect / Params / Auth / Headers / Compose) and right tabs (Events / Console / Stats / Load Test / Schema) | No | No |
 | WC-03 | Initial state: Connect left tab — URL input empty, status "Disconnected", Connect button enabled, Disconnect disabled | No | No |
 
 #### Connection Lifecycle (7 scenarios)
@@ -592,21 +627,21 @@ npm run dev
 
 ## Execution Order
 
-Recommended order for redesign refresh (highest UI drift first):
+Recommended order for completing the refresh (highest remaining UI drift first). Nav/IA re-map is already done for all files; the remaining work is authoring new-feature scenarios + visual re-validation:
 
 ```
-1. ws-core-connect-test-scenarios.md              (WC-*)   🔄 Rewrite for shell-v2 IA
-2. ws-tabs-persistence-test-scenarios.md          (WT-*)   🔄 Rewrite mode/pane navigation semantics
-3. ws-mock-server-test-scenarios.md               (WM-*)   🔄 Rewrite Mock as mode (not view tab)
-4. sse-studio-test-scenarios.md                   (SE-*)   🔄 Rewrite for SSE split pane + Auth/Console
-5. ws-protocols-transport-test-scenarios.md       (WP-*)   🔄 Update Connect/Auth navigation path
-6. ws-filtering-diff-schema-test-scenarios.md     (WF-*)   🔄 Update right-pane tab semantics
-7. ws-load-test-scenarios.md                      (WL-*)   🔄 Update right-pane Load Test tab flow
-8. ws-workflow-runner-test-scenarios.md           (WR-*)   🟡 Minor wording/nav refresh only
+1. ws-core-connect-test-scenarios.md              (WC-*)   ➕ Add Auth (WC-A*) + Console (WC-C*) + command-line scenarios, then re-validate
+2. ws-tabs-persistence-test-scenarios.md          (WT-*)   ➕ Add Auth-draft / console-settings persistence scenarios, then re-validate
+3. ws-mock-server-test-scenarios.md               (WM-*)   ➕ Add Console-in-mock-mode coverage, then re-validate
+4. sse-studio-test-scenarios.md                   (SE-*)   ➕ Add SSE Auth (SE-A*) + Console (SE-C*) + limited command-line scenarios, then re-validate
+5. ws-protocols-transport-test-scenarios.md       (WP-*)   ➕ Add Connect/Auth-tab interaction scenarios, then re-validate
+6. ws-filtering-diff-schema-test-scenarios.md     (WF-*)   ➕ Cover Console-vs-Events interplay, then re-validate
+7. ws-load-test-scenarios.md                      (WL-*)   ➕ Cover Load Test ↔ Console interplay, then re-validate
+8. ws-workflow-runner-test-scenarios.md           (WR-*)   ✅ Nav refresh done; visual re-validation only
 ```
 
 Each file should be completed end-to-end before moving to the next:
-write MD → manual Docker validation → fix bugs → export data → reimport validation → user review.
+add new scenarios → manual Docker validation → fix bugs → export data → reimport validation → user review.
 
 ---
 
@@ -642,6 +677,9 @@ write MD → manual Docker validation → fix bugs → export data → reimport 
 | 9 | Console feature (WS + SSE, structured/raw) | `ws-core-connect`, `sse-studio` |
 | 10 | Console command line | `ws-core-connect`, `sse-studio` |
 | 11 | Polish + a11y + keyboard | all UI-facing files |
+
+> **Coverage gap (2026-06-13):** redesign phases **0–7 and 11** are reflected at the navigation/IA level in the listed files, but phases **8 (Auth), 9 (Console structured/raw), and 10 (command line)** have **no authored scenarios yet** — see "New-Feature Scenario Gaps" above. These are the highest-priority additions.
+
 
 ---
 
@@ -698,6 +736,8 @@ Every completed phase from `websocket-studio-plan.md` must be covered by at leas
 ---
 
 ## Redesign Drift Findings (2026-06-11 review)
+
+> **Status as of 2026-06-13:** the *navigation/IA* rows below have been addressed (all 8 files now describe the shell IA). The *Auth* and *Console* rows remain **open** — those scenarios have not been authored yet (see "New-Feature Scenario Gaps" above).
 
 | Area | Plan/Scenario Assumption | Current Implementation | Impact |
 |---|---|---|---|

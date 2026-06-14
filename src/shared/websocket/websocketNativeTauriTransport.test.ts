@@ -16,11 +16,13 @@ import {
   wsNativeTauriTransport,
   listenWsMessage,
   listenWsConnectionClosed,
+  _resetMessageBuffersForTesting,
 } from './websocketNativeTauriTransport';
 import { WsClientError } from './websocketClient';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  _resetMessageBuffersForTesting();
 });
 
 function okEnvelope(op: string, data: unknown): WsEnvelope {
@@ -124,8 +126,8 @@ describe('wsNativeTauriTransport', () => {
     });
   });
 
-  describe('messages (synthetic)', () => {
-    it('returns synthetic success envelope without invoking Rust', async () => {
+  describe('messages (client-side buffer)', () => {
+    it('returns empty buffer for unknown connection', async () => {
       const result = await wsNativeTauriTransport(
         makeRequest({
           op: 'messages',
@@ -140,6 +142,69 @@ describe('wsNativeTauriTransport', () => {
       expect(result.data).toEqual(
         expect.objectContaining({ messages: [], cursor: 0, bufferSize: 0 }),
       );
+    });
+
+    it('returns buffered messages after ws-message events fire', async () => {
+      // Capture the event callback registered by ensureMessageListener
+      let eventCallback: ((event: { payload: unknown }) => void) | undefined;
+      mockListen.mockImplementation((_eventName: string, cb: (event: { payload: unknown }) => void) => {
+        eventCallback = cb;
+        return Promise.resolve(() => { /* unlisten */ });
+      });
+
+      // Trigger the listener setup by calling messages once
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-1' } }),
+      );
+
+      // Simulate a ws-message event from Rust
+      expect(eventCallback).toBeDefined();
+      eventCallback!({
+        payload: {
+          connectionId: 'conn-1',
+          data: 'hello echo',
+          messageType: 'text',
+          timestamp: Date.now(),
+        },
+      });
+
+      // Now poll messages — should return the buffered message
+      const result = await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-1' } }),
+      );
+
+      const data = result.data as { messages: unknown[]; cursor: number; bufferSize: number };
+      expect(data.messages).toHaveLength(1);
+      expect(data.cursor).toBe(1);
+      expect(data.bufferSize).toBe(1);
+      expect((data.messages[0] as { data: string }).data).toBe('hello echo');
+    });
+
+    it('respects sinceCursor to skip already-seen messages', async () => {
+      let eventCallback: ((event: { payload: unknown }) => void) | undefined;
+      mockListen.mockImplementation((_eventName: string, cb: (event: { payload: unknown }) => void) => {
+        eventCallback = cb;
+        return Promise.resolve(() => { /* unlisten */ });
+      });
+
+      // Init listener
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-2' } }),
+      );
+
+      // Send two messages
+      eventCallback!({ payload: { connectionId: 'conn-2', data: 'msg1', messageType: 'text', timestamp: Date.now() } });
+      eventCallback!({ payload: { connectionId: 'conn-2', data: 'msg2', messageType: 'text', timestamp: Date.now() } });
+
+      // Poll with sinceCursor=1 — should skip msg1
+      const result = await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-2', sinceCursor: '1' } }),
+      );
+
+      const data = result.data as { messages: { data: string }[]; cursor: number };
+      expect(data.messages).toHaveLength(1);
+      expect(data.messages[0].data).toBe('msg2');
+      expect(data.cursor).toBe(2);
     });
   });
 

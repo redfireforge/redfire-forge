@@ -4,6 +4,7 @@
 // unit-tested in isolation.
 import type { WsCloseDetail, WsMessageFormat } from '../../shared/websocket/types';
 import type { ConsoleCommandCapabilities } from './useConsoleCommands';
+import type { WsTransportMode } from './useWebSocketStudioTypes';
 
 /** Minimal template shape needed to resolve `/template <name>`. */
 export interface WsConsoleTemplateLike {
@@ -18,6 +19,12 @@ export interface WsConsoleCapabilitiesDeps {
   isConnected: boolean;
   /** Current connection lifecycle state (used to derive `isConnecting`). */
   connectionState: string;
+  /**
+   * Active transport. Ping frames can only be sent over the proxy/native
+   * transports — the raw browser `WebSocket` API exposes no ping, so `/ping`
+   * is unsupported in `direct` mode (mirrors the disabled Compose Ping button).
+   */
+  transportMode: WsTransportMode;
   /** Apply a partial draft (used to set the URL on `/connect <url>`). */
   setDraft: (patch: { url: string }) => void;
   /** Initiate the connection. */
@@ -50,7 +57,9 @@ export function buildWsConsoleCapabilities(
       deps.disconnect(
         detail?.code != null ? { code: detail.code, reason: detail.reason } : undefined,
       ),
-    ping: () => deps.sendPing(),
+    // Direct (raw browser WebSocket) transport cannot send ping frames, so omit
+    // the capability entirely — `/ping` then reports "not supported here".
+    ping: deps.transportMode === 'direct' ? undefined : () => deps.sendPing(),
     send: (data) => deps.send(data),
     sendTemplate: (name) => {
       const tpl = deps.templates.find((t) => t.name.toLowerCase() === name.toLowerCase());

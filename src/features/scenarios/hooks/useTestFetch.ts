@@ -29,13 +29,13 @@ export function resolveEffectiveAuthFromHierarchy(
   editingScenarioId: string,
   allAuthProfiles: GlobalAuthProfile[],
 ): AuthResolution {
-  if (draft.auth.type !== 'inherit' && draft.auth.type !== 'none') {
+  if (draft.auth?.type !== 'inherit' && draft.auth?.type !== 'none') {
     return { auth: draft.auth, source: 'test' };
   }
   const fg = featureGroups.find((f) => f.id === editingFgId);
   const sc = fg?.scenarios.find((s) => s.id === editingScenarioId);
 
-  if (draft.auth.type === 'inherit' || draft.auth.type === 'none') {
+  if (!draft.auth || draft.auth.type === 'inherit' || draft.auth.type === 'none') {
     if (sc?.auth && sc.auth.type !== 'none' && sc.auth.type !== 'inherit') {
       return { auth: sc.auth, source: 'scenario' };
     }

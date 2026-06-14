@@ -156,7 +156,7 @@ describe('WebSocketStudioShell', () => {
     expect(divider).toHaveAttribute('aria-label', 'Resize left and right panes');
     expect(divider).toHaveAttribute('tabindex', '0');
     expect(divider).toHaveAttribute('aria-valuenow');
-    expect(divider).toHaveAttribute('aria-valuemin', '380');
+    expect(divider).toHaveAttribute('aria-valuemin', '440');
     expect(divider).toHaveAttribute('aria-valuemax');
   });
 
@@ -196,11 +196,11 @@ describe('WebSocketStudioShell', () => {
 
   it('navigates the left tab strip with arrow keys', () => {
     const onLeftTabChange = vi.fn();
-    render(<WebSocketStudioShell {...makeProps({ leftTab: 'compose', onLeftTabChange })} />);
+    render(<WebSocketStudioShell {...makeProps({ leftTab: 'connect', onLeftTabChange })} />);
     const tablist = screen.getByRole('tablist', { name: 'Left pane' });
-    screen.getByTestId('left-tab-compose').focus();
+    screen.getByTestId('left-tab-connect').focus();
     fireEvent.keyDown(tablist, { key: 'ArrowRight' });
-    expect(onLeftTabChange).toHaveBeenCalledWith('connect');
+    expect(onLeftTabChange).toHaveBeenCalledWith('params');
   });
 
   it('wraps the right tab strip from the last tab to the first on arrow keys', () => {

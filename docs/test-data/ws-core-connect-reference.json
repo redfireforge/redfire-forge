@@ -1,0 +1,100 @@
+{
+  "_note": "Reference fixtures for ws-core-connect-test-scenarios.md. These are NOT importable via the Saved-profiles Import/Paste flow (which only accepts a bare JSON array of connection profiles — see ws-core-connect-export.json). Templates are created manually via the compose 'Templates ▾' dropdown; testMessages are typed into the compose input; schemas are added via the Schema tab.",
+  "templates": [
+    {
+      "name": "Greeting JSON",
+      "body": "{\"type\":\"greeting\",\"message\":\"Hello from template\",\"timestamp\":\"{{timestamp}}\"}",
+      "format": "json"
+    },
+    {
+      "name": "Simple Hello",
+      "body": "Hello WebSocket!",
+      "format": "text"
+    },
+    {
+      "name": "Binary Test (Base64)",
+      "body": "SGVsbG8gQmluYXJ5IQ==",
+      "format": "binary"
+    },
+    {
+      "name": "Error JSON",
+      "body": "{\"type\":\"error\",\"code\":500,\"message\":\"Test error message\"}",
+      "format": "json"
+    },
+    {
+      "name": "Complex Object",
+      "body": "{\"id\":1,\"user\":{\"name\":\"Alice\",\"roles\":[\"admin\",\"user\"]},\"metadata\":{\"created\":\"2026-01-01\",\"active\":true}}",
+      "format": "json"
+    }
+  ],
+  "testMessages": [
+    {
+      "scenario": "WC-11",
+      "description": "Simple text message for echo test",
+      "message": "Hello WebSocket!",
+      "format": "text",
+      "expectedEcho": true
+    },
+    {
+      "scenario": "WC-14",
+      "description": "JSON message for auto-detection test",
+      "message": "{\"type\":\"greeting\",\"message\":\"Hello JSON\"}",
+      "format": "json",
+      "expectedType": "json",
+      "expectedEcho": true
+    },
+    {
+      "scenario": "WC-16",
+      "description": "Binary message (Base64) for binary frame test",
+      "message": "SGVsbG8gQmluYXJ5IQ==",
+      "format": "binary",
+      "expectedType": "binary",
+      "expectedEcho": true
+    },
+    {
+      "scenario": "WF-16/17",
+      "description": "Two JSON messages for diff comparison",
+      "messageA": "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\"}",
+      "messageB": "{\"id\":2,\"name\":\"Bob\",\"role\":\"user\",\"active\":true}",
+      "expectedDiff": {
+        "structuralChanges": 4,
+        "added": ["$.active"],
+        "changed": ["$.id", "$.name", "$.role"],
+        "removed": []
+      }
+    }
+  ],
+  "schemas": [
+    {
+      "name": "Greeting Schema",
+      "direction": "both",
+      "enabled": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "name": { "type": "string" },
+          "message": { "type": "string" },
+          "count": { "type": "number" }
+        },
+        "required": ["type"]
+      }
+    },
+    {
+      "name": "Strict User Schema",
+      "direction": "both",
+      "enabled": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "number" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
+          "active": { "type": "boolean" }
+        },
+        "required": ["id", "name", "role"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

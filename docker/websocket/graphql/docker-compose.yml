@@ -1,0 +1,14 @@
+# GraphQL-WS Subscription Server for WebSocket Studio E2E tests
+# Usage: docker compose up -d
+# WS Endpoint: ws://localhost:4100/graphql (subprotocol: graphql-transport-ws)
+# HTTP Publish: POST http://localhost:4100/publish { "text": "hello" }
+# Health: GET http://localhost:4100/health
+services:
+  ws-graphql-echo:
+    build: .
+    container_name: ws-graphql-echo
+    ports:
+      - "4100:4100"
+    environment:
+      - PORT=4100
+    restart: unless-stopped

@@ -309,7 +309,7 @@ describe('studio layout constants', () => {
 
   it('exposes the expected values', () => {
     expect([...WS_STUDIO_MODES]).toEqual(['client', 'mock', 'saved']);
-    expect([...WS_LEFT_TABS]).toEqual(['compose', 'connect', 'auth', 'params', 'headers']);
+    expect([...WS_LEFT_TABS]).toEqual(['connect', 'params', 'auth', 'headers', 'compose']);
     expect([...WS_RIGHT_TABS]).toEqual(['events', 'console', 'stats', 'loadtest', 'schema']);
   });
 });
