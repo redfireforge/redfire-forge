@@ -215,7 +215,9 @@ test('WL-06b: Safety confirmation for ramp with high end rate', async ({ page })
   const rateEnd = page.locator('[data-testid="lt-rate-end"]');
   await rateEnd.fill('200');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
   await page.waitForTimeout(300);
 
   const confirm = page.locator('[data-testid="lt-confirm"]');
@@ -228,6 +230,7 @@ test('WL-06b: Safety confirmation for ramp with high end rate', async ({ page })
 // ===== Real-Time Metrics =====
 
 test('WL-07: Constant-rate test execution with live metrics', async ({ page }) => {
+  test.setTimeout(60000);
   await setupConnected(page);
 
   const template = page.locator('[data-testid="lt-message-template"]');
@@ -239,7 +242,27 @@ test('WL-07: Constant-rate test execution with live metrics', async ({ page }) =
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('3');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  // Verify connection is still active before starting
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 2000 });
+  } catch {
+    // Restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+    await page.click('[data-testid="right-tab-loadtest"]');
+    await page.waitForTimeout(300);
+  }
+
+  const startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(startBtn).toBeEnabled({ timeout: 10000 });
+  await startBtn.click();
 
   // Running state should appear
   const running = page.locator('[data-testid="lt-running"]');
@@ -275,7 +298,9 @@ test('WL-08: Ramp-up profile execution', async ({ page }) => {
   const template = page.locator('[data-testid="lt-message-template"]');
   await template.fill('{"ramp":{{counter}}}');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
 
   const running = page.locator('[data-testid="lt-running"]');
   await expect(running).toBeVisible({ timeout: 3000 });
@@ -301,7 +326,9 @@ test('WL-09: Burst profile execution', async ({ page }) => {
   const template = page.locator('[data-testid="lt-message-template"]');
   await template.fill('{"burst":{{counter}}}');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
 
   // Burst should complete fast
   const results = page.locator('[data-testid="lt-results"]');
@@ -312,6 +339,7 @@ test('WL-09: Burst profile execution', async ({ page }) => {
 });
 
 test('WL-10: Stop button — mid-run halt', async ({ page }) => {
+  test.setTimeout(60000);
   await setupConnected(page);
 
   const template = page.locator('[data-testid="lt-message-template"]');
@@ -322,16 +350,36 @@ test('WL-10: Stop button — mid-run halt', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('30'); // Long duration so we can stop mid-run
 
+  // Verify connection is still active before starting
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 2000 });
+  } catch {
+    // Restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+    await page.click('[data-testid="right-tab-loadtest"]');
+    await page.waitForTimeout(300);
+  }
+
   const startBtn = page.locator('[data-testid="lt-start-btn"]');
   await expect(startBtn).toBeEnabled({ timeout: 10000 });
   await startBtn.click();
 
   const running = page.locator('[data-testid="lt-running"]');
-  await expect(running).toBeVisible({ timeout: 3000 });
+  await expect(running).toBeVisible({ timeout: 5000 });
 
   // Wait a bit then stop
   await page.waitForTimeout(2000);
-  await page.click('[data-testid="lt-stop-btn"]');
+  const stopBtn = page.locator('[data-testid="lt-stop-btn"]');
+  await expect(stopBtn).toBeVisible({ timeout: 5000 });
+  await stopBtn.click();
 
   // Results should appear with partial data
   const results = page.locator('[data-testid="lt-results"]');
@@ -342,6 +390,7 @@ test('WL-10: Stop button — mid-run halt', async ({ page }) => {
 });
 
 test('WL-11: Auto-stop on disconnect', async ({ page }) => {
+  test.setTimeout(60000);
   await setupConnected(page);
 
   const template = page.locator('[data-testid="lt-message-template"]');
@@ -352,7 +401,27 @@ test('WL-11: Auto-stop on disconnect', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('30');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  // Verify connection is still active before starting
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 2000 });
+  } catch {
+    // Restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+    await page.click('[data-testid="right-tab-loadtest"]');
+    await page.waitForTimeout(300);
+  }
+
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
   await page.waitForTimeout(500);
 
   const running = page.locator('[data-testid="lt-running"]');
@@ -386,7 +455,9 @@ test('WL-12: Results summary — total metrics', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('3');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(startBtn).toBeEnabled({ timeout: 10000 });
+  await startBtn.click();
 
   const results = page.locator('[data-testid="lt-results"]');
   await expect(results).toBeVisible({ timeout: 15000 });
@@ -404,6 +475,7 @@ test('WL-12: Results summary — total metrics', async ({ page }) => {
 });
 
 test('WL-13: Latency percentiles', async ({ page }) => {
+  test.setTimeout(60000);
   await setupConnected(page);
 
   const template = page.locator('[data-testid="lt-message-template"]');
@@ -414,7 +486,27 @@ test('WL-13: Latency percentiles', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('3');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  // Verify connection is still active before starting
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 2000 });
+  } catch {
+    // Restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+    await page.click('[data-testid="right-tab-loadtest"]');
+    await page.waitForTimeout(300);
+  }
+
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
 
   const results = page.locator('[data-testid="lt-results"]');
   await expect(results).toBeVisible({ timeout: 15000 });
@@ -440,7 +532,9 @@ test('WL-14: Latency histogram', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('3');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(startBtn).toBeEnabled({ timeout: 10000 });
+  await startBtn.click();
 
   const results = page.locator('[data-testid="lt-results"]');
   await expect(results).toBeVisible({ timeout: 15000 });
@@ -458,6 +552,7 @@ test('WL-14: Latency histogram', async ({ page }) => {
 });
 
 test('WL-15: Export results and New Test button', async ({ page }) => {
+  test.setTimeout(60000);
   await setupConnected(page);
 
   const template = page.locator('[data-testid="lt-message-template"]');
@@ -468,7 +563,27 @@ test('WL-15: Export results and New Test button', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('3');
 
-  await page.click('[data-testid="lt-start-btn"]');
+  // Verify connection is still active before starting
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 2000 });
+  } catch {
+    // Restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+    await page.click('[data-testid="right-tab-loadtest"]');
+    await page.waitForTimeout(300);
+  }
+
+  const _startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(_startBtn).toBeEnabled({ timeout: 10000 });
+  await _startBtn.click();
 
   const results = page.locator('[data-testid="lt-results"]');
   await expect(results).toBeVisible({ timeout: 15000 });

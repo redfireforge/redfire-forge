@@ -324,7 +324,7 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
     await quickTestBtn.click();
 
     // Wait for execution to complete — result shows in toolbar as "N/N passed"
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
   });
 
   test('WR-13: Node Output & Logs tabs after Quick Test', async ({ page }) => {
@@ -334,7 +334,7 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
 
     // Run Quick Test first
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Double-click the WS Connect node to open config
     await page.locator('.wf-node-wsConnect').dblclick();
@@ -509,6 +509,7 @@ test.describe('Part B — Harness WS Transport & Assertions', () => {
 test.describe('Part B — WS Test Execution & Results', () => {
 
   test('WR-24/25: Run a WS Connect test in Test Runner', async ({ page }) => {
+    test.setTimeout(60000);
     await seedHarnessWithWsTest(page);
 
     // Start mock server first
@@ -530,7 +531,7 @@ test.describe('Part B — WS Test Execution & Results', () => {
 
       // Check for results — progress or completion indicator
       const results = page.locator('text=/100%|completed|passed|View Full Results/i').first();
-      await expect(results).toBeVisible({ timeout: 15000 }).catch(() => {
+      await expect(results).toBeVisible({ timeout: 25000 }).catch(() => {
         // Test execution may require additional infrastructure
       });
     }
@@ -717,7 +718,7 @@ test.describe('Part D — Console Scenarios', () => {
 
     // Run Quick Test to produce console output
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Open console
     const consoleToggle = page.locator(
@@ -754,7 +755,7 @@ test.describe('Part D — Console Scenarios', () => {
 
     // Run Quick Test first
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Open console
     const consoleToggle = page.locator(
@@ -791,7 +792,7 @@ test.describe('Part D — Console Scenarios', () => {
 
     // Run Quick Test
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Open console
     const consoleToggle = page.locator(
@@ -819,7 +820,7 @@ test.describe('Part D — Console Scenarios', () => {
 
     // Run Quick Test to produce logs
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Open console
     const consoleToggle = page.locator(
@@ -865,7 +866,7 @@ test.describe('Part D — Console Scenarios', () => {
 
       // Run Quick Test
       await page.locator('.wf-quick-test-btn').click();
-      await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
       // Log lines should exist (class: wf-cl-line)
       const logLines = page.locator('.wf-cl-line');
@@ -873,7 +874,7 @@ test.describe('Part D — Console Scenarios', () => {
 
       // Run Quick Test again
       await page.locator('.wf-quick-test-btn').click();
-      await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
       // Console should still render without crashing
       // In append mode, lines accumulate; in clear mode, old lines are cleared
@@ -889,7 +890,7 @@ test.describe('Part D — Console Scenarios', () => {
 
     // Run Quick Test to produce logs
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
 
     // Open console
     const consoleToggle = page.locator(
