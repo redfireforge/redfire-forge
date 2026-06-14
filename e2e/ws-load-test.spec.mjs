@@ -10,16 +10,13 @@ const MOCK_PORT = '9876';
 
 /** Navigate to WS Studio, start mock server, connect, switch to Load Test tab */
 async function setupConnected(page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  // Ensure mock server is running via API (handles parallel worker race)
+  await page.request.post('http://localhost:3001/api/ws/mock/start', {
+    data: { port: parseInt(MOCK_PORT, 10) },
+  }).catch(() => {});
+  await page.waitForTimeout(500);
 
-  // Start mock server
-  await page.click('[data-testid="mode-mock"]');
-  await page.waitForTimeout(300);
-  const startBtn = page.locator('[data-testid="mock-start-btn"]');
-  if (await startBtn.isVisible()) {
-    await startBtn.click();
-    await page.waitForTimeout(1000);
-  }
+  await page.goto(BASE, { waitUntil: 'networkidle' });
 
   // Switch to Client & connect
   await page.click('[data-testid="mode-client"]');
@@ -27,7 +24,20 @@ async function setupConnected(page) {
   const urlInput = page.locator('[aria-label="WebSocket URL"]');
   await urlInput.fill(`ws://localhost:${MOCK_PORT}`);
   await page.click('[data-testid="connect-btn"]');
-  await page.waitForTimeout(1500);
+
+  // Wait for connected state with retry
+  const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connected.waitFor({ timeout: 10000 });
+  } catch {
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await page.click('[data-testid="connect-btn"]');
+    await connected.waitFor({ timeout: 15000 });
+  }
+  await page.waitForTimeout(300);
 
   // Switch to Load Test tab
   await page.click('[data-testid="right-tab-loadtest"]');
