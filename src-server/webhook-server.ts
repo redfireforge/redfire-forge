@@ -39,7 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Cache-Control, Last-Event-ID');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -280,6 +280,37 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
       executionId,
     });
   }
+});
+
+// SSE test endpoint — sends periodic events for E2E testing
+app.get('/api/sse-test', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  let counter = 0;
+  const lastEventId = req.headers['last-event-id'] as string | undefined;
+  if (lastEventId) {
+    counter = parseInt(lastEventId, 10) || 0;
+  }
+
+  // Send an initial event immediately
+  counter++;
+  res.write(`id: ${counter}\nevent: message\ndata: ${JSON.stringify({ type: 'greeting', text: 'Hello from SSE test server', counter })}\n\n`);
+
+  // Then send events every 1 second
+  const interval = setInterval(() => {
+    counter++;
+    const eventType = counter % 3 === 0 ? 'status' : counter % 3 === 1 ? 'message' : 'update';
+    res.write(`id: ${counter}\nevent: ${eventType}\ndata: ${JSON.stringify({ type: eventType, text: `Event #${counter}`, counter, ts: Date.now() })}\n\n`);
+  }, 1000);
+
+  req.on('close', () => {
+    clearInterval(interval);
+    console.log('[SSE-Test] Client disconnected');
+  });
 });
 
 // SSE endpoint for live log streaming to the UI Console

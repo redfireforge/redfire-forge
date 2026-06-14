@@ -18,7 +18,6 @@
 
 import {
   WsClientError,
-  defaultWsTransport,
   throwIfWsEnvelopeNotOk,
   type WsClientTransport,
   type WsDispatchRequest,
@@ -42,28 +41,125 @@ const COMMAND_MAP: Record<WsProxyOperation, CommandSpec> = {
   messages:   { command: '_events' },
 };
 
+// ── Client-side message buffer for Tauri native transport ──────────────────
+//
+// The Rust read loop emits `ws-message` events.  Studio uses those for
+// real-time display, but the workflow engine's `waitForMessage` needs
+// polling-style `messages` calls that return buffered data.  We keep a
+// per-connection buffer here and serve it when `messages` is requested.
+
+interface BufferedMsg {
+  data: string;
+  type: string;
+  receivedAt: string;
+  size: number;
+}
+
+interface ConnectionBuffer {
+  messages: BufferedMsg[];
+  cursor: number;
+}
+
+const messageBuffers = new Map<string, ConnectionBuffer>();
+
+/** Max messages per connection buffer before trimming the oldest. */
+const MAX_BUFFER_SIZE = 500;
+
+let listenerPromise: Promise<void> | null = null;
+
+/**
+ * Lazily starts a global `ws-message` listener that buffers incoming
+ * messages.  Safe to call multiple times — the listener is set up once.
+ */
+function ensureMessageListener(): Promise<void> {
+  if (!listenerPromise) {
+    listenerPromise = (async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      await listen<WsMessagePayload>('ws-message', (event) => {
+        const p = event.payload;
+        let buf = messageBuffers.get(p.connectionId);
+        if (!buf) {
+          buf = { messages: [], cursor: 0 };
+          messageBuffers.set(p.connectionId, buf);
+        }
+        buf.messages.push({
+          data: p.data,
+          type: p.messageType ?? 'text',
+          receivedAt: new Date(p.timestamp).toISOString(),
+          size: p.data.length,
+        });
+        buf.cursor += 1;
+        if (buf.messages.length > MAX_BUFFER_SIZE) {
+          buf.messages = buf.messages.slice(buf.messages.length - MAX_BUFFER_SIZE);
+        }
+      });
+    })();
+  }
+  return listenerPromise;
+}
+
+/**
+ * Reset internal state — for tests only.  Clears message buffers and
+ * forces the next `ensureMessageListener` call to re-register.
+ * @internal
+ */
+export function _resetMessageBuffersForTesting(): void {
+  messageBuffers.clear();
+  listenerPromise = null;
+}
+
+/**
+ * Serve the client-side message buffer for a `messages` request.
+ * sinceCursor semantics mirror the Express proxy: return messages after
+ * the given cursor index, or all messages if sinceCursor is 0/absent.
+ */
+function serveMessagesFromBuffer(request: WsDispatchRequest): WsEnvelope {
+  const connectionId = request.query?.connectionId ?? '';
+  const sinceCursor = Number(request.query?.sinceCursor) || 0;
+  const buf = messageBuffers.get(connectionId);
+
+  if (!buf) {
+    return {
+      ok: true,
+      op: request.op,
+      data: { connectionId, messages: [], cursor: 0, bufferSize: 0 },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  const bufferStartCursor = buf.cursor - buf.messages.length;
+  const startIndex = Math.max(0, sinceCursor - bufferStartCursor);
+  const messages = buf.messages.slice(startIndex);
+
+  return {
+    ok: true,
+    op: request.op,
+    data: { connectionId, messages, cursor: buf.cursor, bufferSize: buf.messages.length },
+    meta: { timestamp: new Date().toISOString() },
+  };
+}
+
 // ── Transport ───────────────────────────────────────────────────────────────
 
 /**
  * WsClientTransport backed by Tauri invoke.
  *
- * The `messages` operation returns a synthetic success envelope with empty
- * messages array because Studio receives messages via `ws-message` Tauri
- * events — not by polling. `ws_receive_next` exists for programmatic use
- * (runner, workflow engine) but is not exposed through this transport.
+ * The `messages` operation is served from a client-side buffer populated
+ * by `ws-message` Tauri events emitted by the Rust read loop.  This
+ * allows the workflow engine's polling-based `waitForMessage` to work
+ * correctly in desktop mode.
  */
 export const wsNativeTauriTransport: WsClientTransport = async (
   request: WsDispatchRequest,
 ): Promise<WsEnvelope> => {
+  // Start the event listener early so messages arriving before the
+  // first `messages` poll are captured.
+  await ensureMessageListener();
+
   const spec = COMMAND_MAP[request.op];
 
   if (spec.command === '_events') {
-    return {
-      ok: true,
-      op: request.op,
-      data: { connectionId: '', messages: [], cursor: 0, bufferSize: 0 },
-      meta: { timestamp: new Date().toISOString() },
-    };
+    return serveMessagesFromBuffer(request);
   }
 
   const { invoke } = await import('@tauri-apps/api/core');
@@ -89,6 +185,12 @@ export const wsNativeTauriTransport: WsClientTransport = async (
   }
 
   throwIfWsEnvelopeNotOk(request.op, envelope);
+
+  // Clean up message buffer when a connection is disconnected.
+  if (request.op === 'disconnect' && body && typeof body === 'object' && 'connectionId' in body) {
+    messageBuffers.delete((body as { connectionId: string }).connectionId);
+  }
+
   return envelope;
 };
 
@@ -155,6 +257,3 @@ export async function listenWsConnectionClosed(
     (e) => callback(e.payload),
   );
 }
-
-// Re-export defaultWsTransport for fallback scenarios
-export { defaultWsTransport };

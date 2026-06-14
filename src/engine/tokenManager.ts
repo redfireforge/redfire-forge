@@ -58,7 +58,7 @@ export class TokenManager {
   }
 
   async getToken(scenario: Scenario): Promise<string | undefined> {
-    if (scenario.auth.type !== 'oauth2') return undefined;
+    if (scenario.auth?.type !== 'oauth2') return undefined;
 
     const key = this.credKey(scenario.auth);
     const cached = this.cache.get(key);

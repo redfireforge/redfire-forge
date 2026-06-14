@@ -127,14 +127,14 @@ The first-pass mockups contained **two fabricated tabs** that do not exist in co
 ├───────────────────────────────┬──────────────────────────────────┤
 │ LEFT (config / compose)        │ RIGHT (events / response)         │
 │ Tabs:                          │ Tabs:                             │
-│  Compose | Connect | Auth ★    │  Events | Console ★ | Stats |     │
-│  Params | Headers              │  Load Test | Schema               │
+│  Connect | Params | Auth ★    │  Events | Console ★ | Stats |     │
+│  Headers | Compose             │  Load Test | Schema               │
 └───────────────────────────────┴──────────────────────────────────┘
                          ★ = NEW
 ```
 
 - **Mode switch** replaces the `Connect/Messages/Saved/Mock` semantics:
-  - `Client` → split pane (Compose/Connect/Auth/Params/Headers on left; Events/Console/Stats/Load Test/Schema on right).
+  - `Client` → split pane (Connect/Params/Auth/Headers/Compose on left; Events/Console/Stats/Load Test/Schema on right). Defaults to **Connect** while disconnected and auto-switches to **Compose** on a successful connect.
   - `Mock Server` → the existing Mock view (clients + rule engine).
   - `Saved` → the existing profiles collection + editor.
 - **Connect config** moves to the **left pane**; **Events** stream lives in the **right pane** → configure + observe at once (the core UX win).

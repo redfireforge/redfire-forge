@@ -20,6 +20,7 @@ export default defineConfig({
         '**/test-helpers/**',
         '**/*.test.{ts,tsx}',
         '**/*.config.{ts,js}',
+        'src/shared/types/index.ts',
         'node_modules',
         'dist',
         'src-tauri',
