@@ -170,18 +170,11 @@ async function seedHarnessWithWsTest(page: import('@playwright/test').Page) {
 /* ─── Start mock server helper ───────────────────────────────────────── */
 
 async function startMockServer(page: import('@playwright/test').Page) {
-  // Navigate to WS Studio, start mock server, then return
-  await gotoAppTab(page, 'websocket-studio');
-  // Click Mock Server mode
-  const mockTab = page.locator('[data-testid="mode-mock"]');
-  await expect(mockTab).toBeVisible({ timeout: 5000 });
-  await mockTab.click();
-  // Start server
-  const startBtn = page.getByRole('button', { name: 'Start Server' });
-  if (await startBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await startBtn.click();
-    await page.waitForTimeout(500);
-  }
+  // Start mock server via API (reliable across parallel workers)
+  await page.request.post('http://localhost:3001/api/ws/mock/start', {
+    data: { port: 9876 },
+  }).catch(() => {});
+  await page.waitForTimeout(500);
 }
 
 /* ─── Palette helper: search + add node ──────────────────────────────── */
