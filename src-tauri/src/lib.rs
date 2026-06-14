@@ -59,6 +59,13 @@ use websocket::state::WsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  // Install a process-level rustls CryptoProvider (ring) before any TLS work.
+  // rustls 0.23 panics on the first `wss://` handshake if no default provider
+  // is installed and the enabled crypto crate features are ambiguous (both
+  // `ring` and `aws-lc-rs` get unified in via tokio-tungstenite's rustls dep).
+  // Installing explicitly here fixes native `wss://` connections.
+  let _ = rustls::crypto::ring::default_provider().install_default();
+
   #[allow(unused_mut)] // `mut` is required when the `mcp-bridge` feature is enabled
   let mut builder = tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())

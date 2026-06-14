@@ -23,7 +23,7 @@ interface Harness {
   run: (input: string) => void;
 }
 
-function setup(opts: { connected?: boolean; connecting?: boolean; sse?: boolean; templateFound?: boolean } = {}): Harness {
+function setup(opts: { connected?: boolean; connecting?: boolean; sse?: boolean; templateFound?: boolean; noPing?: boolean } = {}): Harness {
   const entries: WsConsoleEntry[] = [];
   const append = (e: WsConsoleEntry) => entries.push(e);
   const clear = vi.fn();
@@ -46,7 +46,7 @@ function setup(opts: { connected?: boolean; connecting?: boolean; sse?: boolean;
         isConnecting: opts.connecting ?? false,
         connect: caps.connect,
         disconnect: caps.disconnect,
-        ping: caps.ping,
+        ping: opts.noPing ? undefined : caps.ping,
         send: caps.send,
         sendTemplate: caps.sendTemplate,
       };
@@ -161,6 +161,14 @@ describe('useConsoleCommands — /ping', () => {
     h.run('/ping');
     expect(h.caps.ping).not.toHaveBeenCalled();
     expect(last(h.entries)).toMatchObject({ level: 'error' });
+  });
+
+  it('reports not supported when connected but ping is unavailable (direct transport)', () => {
+    const h = setup({ connected: true, noPing: true });
+    h.run('/ping');
+    expect(h.caps.ping).not.toHaveBeenCalled();
+    expect(last(h.entries)).toMatchObject({ level: 'error' });
+    expect(last(h.entries).message).toMatch(/not supported here/);
   });
 });
 

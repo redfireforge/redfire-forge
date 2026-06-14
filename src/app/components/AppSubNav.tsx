@@ -43,6 +43,9 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'websocket-studio', label: 'WebSocket' },
     { tab: 'sse-studio', label: 'SSE' },
   ],
+  demo: [
+    { tab: 'demo-hub', label: 'Learning Hub' },
+  ],
 };
 
 function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab) => void) {

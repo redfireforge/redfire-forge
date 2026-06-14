@@ -3,10 +3,12 @@
 > **File:** `ws-core-connect-test-scenarios.md`
 > **Covers:** Phases 1, 2, 7, 8 — Core Connect & Send/Receive, Saved Connections, Templates, Auto-Reconnect, Env Variables, Virtualized Log
 > **Created:** 2026-06-10
+> **Last verified:** 2026-06-13 (Chrome E2E 42/42 + Tauri desktop manual, macOS)
+> **E2E file:** `e2e/ws-core-connect.spec.ts` (42 tests)
 > **Tested on:** Web (Chrome), Tauri (macOS)
 > **Docker:** Echo server (`jmalloc/echo-server` on port 8765)
 >
-> **2026-06-12 — Shell-IA doc refresh:** navigation steps re-mapped from the removed legacy view tabs (Connect/Messages/Saved/Mock) to the split-pane shell — **Connect/Compose/Auth/Params/Headers** left tabs, **Events/Console/Stats/Load Test/Schema** right tabs, and **Client/Mock Server/Saved** modes. Message log now lives in the right-pane **Events** tab; the message-count badge is on the **Compose** left tab; **Saved** is a mode. Visual re-validation deferred to the merge gate.
+> **2026-06-12 — Shell-IA doc refresh:** navigation steps re-mapped from the removed legacy view tabs (Connect/Messages/Saved/Mock) to the split-pane shell — **Connect/Params/Auth/Headers/Compose** left tabs, **Events/Console/Stats/Load Test/Schema** right tabs, and **Client/Mock Server/Saved** modes. Message log now lives in the right-pane **Events** tab; the message-count badge is on the **Compose** left tab; **Saved** is a mode. Visual re-validation deferred to the merge gate.
 
 ---
 
@@ -18,6 +20,11 @@
 # Start the echo server
 docker run -d --name ws-echo -p 8765:8080 jmalloc/echo-server
 # Verify: docker ps --filter name=ws-echo
+
+# Secure wss:// stack for WC-10 / WC-10a (nginx TLS → echo, CA→leaf chain)
+bash docker/websocket/generate-cert.sh
+docker compose -f docker/websocket/docker-compose.tls.yml up -d
+# → wss://localhost:8766  (paste docker/websocket/certs/ca.crt into the TLS panel)
 ```
 
 ### Dev Server
@@ -70,9 +77,9 @@ npm run server
 **Expected Results:**
 - [ ] Connection tab bar at top: shows one default tab "New Connection" with a status dot and a "+" button
 - [ ] Mode switch below the tab bar: **Client** | **Mock Server** | **Saved** (Client selected by default)
-- [ ] In Client mode, the split pane shows a **left pane** with tabs **Compose** | **Connect** | **Auth** | **Params** | **Headers** and a **right pane** with tabs **Events** | **Console** | **Stats** | **Load Test** | **Schema**
+- [ ] In Client mode, the split pane shows a **left pane** with tabs **Connect** | **Params** | **Auth** | **Headers** | **Compose** (setup-first phase order: URL → query params → auth → headers → message body) and a **right pane** with tabs **Events** | **Console** | **Stats** | **Load Test** | **Schema**
 - [ ] A draggable divider separates the left and right panes
-- [ ] Left pane shows the **Connect** tab by default; right pane shows the **Events** log by default
+- [ ] Left pane shows the **Connect** tab by default while disconnected; on a successful (re)connect the left pane auto-switches to the **Compose** tab so the user lands on the send screen; right pane shows the **Events** log by default
 - [ ] Status bar (within the Events pane): shows "Disconnected" status and counters "↑ 0 ↓ 0"
 
 ---
@@ -192,9 +199,11 @@ npm run server
 3. Click **Connect**
 
 **Expected Results:**
-- [ ] Connection succeeds
-- [ ] System message may show negotiated subprotocol info
-- [ ] Status bar displays connection
+- [ ] The requested subprotocol(s) are offered on the handshake (`Sec-WebSocket-Protocol: json`)
+- [ ] **If the server negotiates the subprotocol:** connection succeeds and the negotiated protocol is shown
+- [ ] **If the server does NOT negotiate it** (e.g. the `jmalloc/echo-server` used in these scenarios): the browser rejects the connection and the status bar shows **Error** — `Connection failed: Server sent no subprotocol [WS_CONNECT_FAILED]`. This is correct per the WebSocket spec: when a client offers subprotocols the server must select one, otherwise the client must fail the connection.
+
+> **Note:** The local `jmalloc/echo-server` does **not** echo/negotiate subprotocols, so requesting `json` against it fails with "Server sent no subprotocol". To exercise a *successful* negotiation, use a server that selects a subprotocol (e.g. a Socket.IO/STOMP/GraphQL-WS endpoint, or run the connection without a subprotocol).
 
 ---
 
@@ -226,6 +235,33 @@ npm run server
 - [ ] Connection succeeds over TLS
 - [ ] Status shows "Connected"
 - [ ] All messaging features work identically to ws:// connections
+
+---
+
+### WC-10a: Public echo over wss:// (`wss://echo.websocket.org`)
+
+**Goal:** Verify a real public `wss://` endpoint with a system-trusted cert.
+
+**Steps:**
+1. Set the URL field (`data-testid="ws-url-input"`) to `wss://echo.websocket.org`,
+   no TLS overrides.
+2. Connect, then send a message via the Compose tab / console `/send`.
+
+**Expected / Verified Results (2026-06-12, corporate network):**
+- [x] **Browser direct transport** → Connected (~384ms), status bar
+      `Connected · wss://echo.websocket.org · 384ms · ↑1 ↓4 · Raw · Direct`
+      (`↓4` = server greeting + echo). Left tab auto-switches to **Compose**.
+- [x] **Tauri native transport** → `Connection timed out after 10000ms
+      [WS_CONNECT_TIMEOUT]` on this network — native connects outbound directly
+      and does not use the corporate HTTP proxy, which blocks the egress. Clean
+      timeout, no panic.
+
+> The browser direct transport reaches public endpoints because it uses the
+> system / corporate proxy; the Tauri native and Node-proxy transports connect
+> directly and are blocked by the corporate firewall here. On an unrestricted
+> network all transports should connect. For deterministic offline testing use
+> the docker TLS stack (`wss://localhost:8766`) — see the protocols/transport
+> scenarios (WP-24…WP-30).
 
 ---
 
@@ -368,6 +404,8 @@ npm run server
 - [ ] Pong response visible when system frames are shown
 
 > **Note:** Ping is **disabled** in direct browser WebSocket mode because the browser API doesn't support sending ping frames. The tooltip says "Ping requires proxy or native transport". Use proxy mode (add any header) or Tauri desktop mode for this test.
+>
+> The **Console** `/ping` slash command mirrors this: in direct browser mode it reports `/ping is not supported here.` (error), and only sends a ping (`Ping sent.`) when connected over proxy/native transport. See WC-C07.
 
 ---
 
@@ -504,12 +542,13 @@ npm run server
 2. Observe the empty state
 
 **Expected Results:**
-- [ ] Heading: "Saved Connections"
-- [ ] Search input for filtering profiles
-- [ ] "+ New Profile" button
+- [ ] Heading: **Saved Profiles · 0** (count appended to the heading)
+- [ ] Search input (placeholder "Search profiles...")
+- [ ] **+ New Profile** button
+- [ ] Footer/header actions: **Import** (file), **Paste** (JSON), **Export** — plus **+ New Profile**
 - [ ] Empty state message: "No saved connections. Create one or use Save as Profile from the Connect tab."
-- [ ] Footer: "0 saved profiles" with Import File / Paste JSON / Export All buttons
-- [ ] Export All button is disabled when no profiles exist
+- [ ] Footer: "0 saved profiles"
+- [ ] The **Export** button is **disabled** when no profiles exist
 
 ---
 
@@ -531,9 +570,9 @@ npm run server
 - [ ] Clicking **Save as Profile** navigates to the **Saved** view and opens a full **New Profile editor** pre-filled from the current connection
 - [ ] Editor fields: **Profile Name** (auto-defaults to "Profile 1", placeholder "My WebSocket Server"), **WebSocket URL**, **Subprotocols**, **Headers**, **Query Parameters**, **Auto-reconnect settings**, **Max Messages** (default `10000`), and **Notes**
 - [ ] Editor has **Cancel** and **Save Profile** buttons
-- [ ] After saving, the profile card appears showing the name, URL, and config-summary badges (e.g. "1 header", "1 param", "json", "Updated just now")
-- [ ] Each profile card exposes **Load | Edit | Dup | Del** actions
-- [ ] Profile count updates: "1 saved profiles"
+- [ ] After saving, the profile card appears showing the name, URL, and config-summary badges (e.g. "json" subprotocol, "1 header", "1 param", "Auto-reconnect off", "Protocol mode auto", "Max messages 10000", "Updated just now")
+- [ ] Each profile card exposes **Load & Connect | Edit | Duplicate | Delete** actions
+- [ ] Profile count updates: heading shows **Saved Profiles · 1** and footer "1 saved profile"
 
 ---
 
@@ -542,16 +581,16 @@ npm run server
 **Goal:** Verify profile loading
 
 **Steps:**
-1. In **Saved** mode, click the **Load** button on the "Echo Server Test" profile card
-2. Switch to Client mode and observe the **Connect** left tab form
+1. In **Saved** mode, click the **Load & Connect** button on the "Echo Server Test" profile card
+2. Observe the **Connect** left tab form (the app switches to Client mode)
 
 **Expected Results:**
-- [ ] The profile card has an explicit **Load** button (loading is via this button, not by clicking the card body)
+- [ ] The profile card's primary action is **Load & Connect** — it loads the config into the Client-mode form **and** immediately initiates the connection (it does not merely fill the form)
 - [ ] URL field filled with `ws://localhost:8765`
 - [ ] Header row shows `X-Test: value1`
 - [ ] Query param shows `key1: val1`
 - [ ] Subprotocol field shows `json`
-- [ ] A resolved-URL preview is shown (e.g. "→ Resolved: ws://localhost:8765?token=abc123")
+- [ ] If the loaded subprotocol/headers prevent the handshake (e.g. `json` against the echo server — see WC-08), the form is still fully populated and the connection reports the corresponding error
 
 ---
 
@@ -564,11 +603,11 @@ npm run server
 2. Click the inline **Confirm** button that appears (or **No** to cancel)
 
 **Expected Results:**
-- [ ] The delete action is a text button labelled **Del** (one of the card actions: Load | Edit | Dup | Del), not a "×" icon
-- [ ] Clicking **Del** reveals inline **Confirm / No** buttons (NOT a separate modal dialog)
+- [ ] The delete action is a text button labelled **Delete** (one of the card actions: Load & Connect | Edit | Duplicate | Delete), not a "×" icon
+- [ ] Clicking **Delete** reveals inline **Confirm / No** buttons (NOT a separate modal dialog)
 - [ ] Clicking **Confirm** removes the profile from the list
 - [ ] Clicking **No** cancels the deletion
-- [ ] Profile count updates
+- [ ] Profile count updates (heading **Saved Profiles · N**)
 
 ---
 
@@ -589,15 +628,15 @@ npm run server
 
 ---
 
-### WC-29a: Duplicate (Dup) a profile
+### WC-29a: Duplicate a profile
 
-**Goal:** Verify the Dup card action clones a profile
+**Goal:** Verify the Duplicate card action clones a profile
 
 **Steps:**
-1. In **Saved** mode, click the **Dup** button on a profile card
+1. In **Saved** mode, click the **Duplicate** button on a profile card
 
 **Expected Results:**
-- [ ] A copy of the profile is created
+- [ ] A copy of the profile is created (named "<name> (copy)")
 - [ ] The duplicate retains URL, headers, query params, subprotocols, and settings
 - [ ] Profile count increments by 1
 
@@ -610,12 +649,13 @@ npm run server
 **Steps:**
 1. In **Saved** mode, click the **Edit** button on a profile card
 2. Change a field (e.g. Notes or Max Messages)
-3. Click **Save Profile**
+3. Click **Save Changes**
 
 **Expected Results:**
-- [ ] Edit opens the same full profile editor used by "Save as Profile", pre-filled with the profile's values
-- [ ] Saving updates the existing profile in place (no new card created)
-- [ ] The card config-summary badges reflect the edited values
+- [ ] Edit opens a full profile editor (dialog titled **Edit Profile**), pre-filled with the profile's values
+- [ ] The save button is labelled **Save Changes** (vs **Save Profile** in the New Profile editor)
+- [ ] Saving updates the existing profile in place (no new card created; count unchanged)
+- [ ] The card config-summary badges / notes reflect the edited values
 
 ---
 
@@ -624,12 +664,12 @@ npm run server
 **Goal:** Verify pasting a JSON profile array imports profiles
 
 **Steps:**
-1. In **Saved** mode, click **Paste JSON** in the footer
+1. In **Saved** mode, click **Paste** in the footer
 2. Paste a profile array, e.g. `[{"name":"Pasted Profile","url":"wss://example.com/ws","subprotocols":"graphql-ws"}]`
 3. Click **Import**
 
 **Expected Results:**
-- [ ] **Paste JSON** opens an inline textarea (placeholder shows an example profile array)
+- [ ] **Paste** opens an inline textarea (placeholder shows an example profile array)
 - [ ] The **Import** button is disabled until text is entered; **Cancel** dismisses the textarea
 - [ ] On import, a banner shows "Imported N profile(s)"
 - [ ] The pasted profile(s) appear as new cards with correct URL/subprotocol badges
@@ -667,6 +707,7 @@ npm run server
 4. Click **Save**
 
 **Expected Results:**
+- [ ] The dropdown opens **below** the Templates ▾ trigger and is fully visible (not clipped by the mode/tab bars above)
 - [ ] The dropdown is headed **"Saved Templates"** with an empty state "No saved templates. Type a message and save it."
 - [ ] The **Save** button is disabled until a template name is entered
 - [ ] Template is saved with name, body content, and format (text/json/binary)
@@ -950,13 +991,211 @@ npm run server
 **Goal:** Verify message cap configuration
 
 **Steps:**
-1. On the **Connect** left tab, find the message cap setting (in profile or settings)
+1. Open the **Saved** view and create/edit a profile (or use **Save as Profile** from the Connect tab) to open the Profile Editor
+2. Find the **Max Messages** field
 
 **Expected Results:**
-- [ ] Cap options available: 100 / 500 / 1,000 / 10,000 / 50,000
-- [ ] Default is 10,000
-- [ ] Changing cap takes effect immediately for new messages
-- [ ] Cap is saved with the connection profile
+- [ ] **Max Messages** is a **number input** (not a discrete dropdown), accepting any value clamped to **100–50,000**
+- [ ] The live studio default cap is **10,000** (the compose footer shows e.g. "N / 10000 messages"); a brand-new profile pre-fills **1,000**
+- [ ] Changing the cap takes effect immediately for new messages
+- [ ] Cap is saved with the connection profile (`maxMessages`)
+
+---
+
+## Connection Auth
+
+> The **Auth** left tab (`data-testid="left-tab-auth"`) configures an auth scheme that is applied when the connection is established. Because browsers can't set custom headers on a WebSocket handshake, any header-based scheme forces the connection through the local proxy (or the native transport in the Tauri desktop app).
+
+### WC-A01: Auth panel layout & type selector
+
+**Goal:** Verify the Auth panel renders with all supported schemes
+
+**Steps:**
+1. Open WebSocket Studio in **Client** mode
+2. Select the **Auth** left tab
+
+**Expected Results:**
+- [ ] Panel heading reads **Connection Auth** with subtitle "Applied when the connection is established"
+- [ ] A **Type** dropdown lists: **No Auth** (default), **Basic Auth**, **Bearer Token**, **API Key**, **Digest Auth**, **OAuth2 Client Credentials**
+- [ ] With **No Auth** selected, no credential fields and no proxy callout are shown
+
+---
+
+### WC-A02: Bearer Token fields & masked resolved preview
+
+**Goal:** Verify Bearer auth fields and the masked "Will send" preview
+
+**Steps:**
+1. On the **Auth** tab, set **Type** = **Bearer Token**
+2. Enter a token, e.g. `my-secret-token-abc123`
+3. Observe the **Prefix** field and the resolved preview
+
+**Expected Results:**
+- [ ] A **Token** field (placeholder `eyJhbGciOi...`) and a **Prefix** field (default value `Bearer`) appear
+- [ ] A **Verify Auth** button is shown
+- [ ] A resolved preview (`data-testid="ws-auth-resolved"`) shows the masked header, e.g. **Will send:** `` `Authorization: Bearer my-s…c123` `` (token is masked — only the first/last few chars are visible)
+- [ ] A browser callout (`data-testid="ws-auth-callout"`) explains: "Browsers can't set custom headers on a WebSocket handshake, so this connection will be routed through the local proxy to apply the auth header. In the desktop app the native transport is used instead."
+
+---
+
+### WC-A03: Auth forces proxy transport (browser)
+
+**Goal:** Verify that configuring header-based auth routes the connection through the proxy
+
+**Steps:**
+1. On the **Auth** tab, set **Type** = **Bearer Token** and enter any token
+2. On the **Connect** tab, enter `ws://localhost:8765` and click **Connect**
+3. Observe the status bar transport badge and the **Console** handshake entry
+
+**Expected Results:**
+- [ ] The status bar transport badge shows **Proxy** (not **Direct**) — in the desktop app it shows **Native**
+- [ ] The connection establishes successfully (echo server reachable through the proxy)
+- [ ] The Console handshake (Raw view) shows the `Authorization` header being sent on the upgrade request
+
+---
+
+## Console
+
+> The **Console** right tab (`data-testid="right-tab-console"`, pane `data-testid="ws-studio-console-pane"`) is a structured event + slash-command console. It surfaces lifecycle, handshake, reconnect, protocol, control, command, and system events, and accepts slash commands on the command line.
+>
+> **Key testids** (the `ConsolePanel` is rendered with `variant="ws"`): view toggle `ws-console-view-structured` / `ws-console-view-raw`; severity `ws-console-level-all` / `ws-console-level-info` / `ws-console-level-warn` / `ws-console-level-error`; category `ws-console-category`; search `ws-console-search`; count `ws-console-count` (renders `filtered/total`); autoscroll `ws-console-autoscroll`; clear `ws-console-clear`; empty state `ws-console-empty`; command line input `ws-console-cmd-input`; per-entry rows `ws-console-entry-<id>`.
+
+### WC-C01: Console pane layout
+
+**Goal:** Verify the console toolbar and command line render
+
+**Steps:**
+1. Open WebSocket Studio, select the **Console** right tab
+
+**Expected Results:**
+- [ ] **View** group: **Structured** | **Raw** toggle
+- [ ] **Severity** group: **All** | **Info** | **Warn** | **Error**
+- [ ] **Category** dropdown: All categories / Lifecycle / Handshake / Reconnect / Protocol / Control / Command / System
+- [ ] A **Search console…** box and an entry counter (e.g. `8/8`)
+- [ ] Toolbar buttons: **Auto-scroll ✓** | **Copy** | **Export** | **Clear**
+- [ ] A command line with placeholder "Type a command, e.g. /help"
+- [ ] A hint line: `↑↓ history · /help · /clear · /connect · /disconnect · /ping · /close · /send · /template`
+
+---
+
+### WC-C02: Structured view — lifecycle & handshake entries
+
+**Goal:** Verify structured event rendering on connect
+
+**Steps:**
+1. With **Structured** view active, connect to `ws://localhost:8765`
+
+**Expected Results:**
+- [ ] A `lifecycle` entry "Connecting to ws://localhost:8765" appears (INFO)
+- [ ] A `handshake` entry "101 Switching Protocols" appears and is **expandable** (chevron `›`)
+- [ ] A `lifecycle` entry "Connected (Nms)" appears with the handshake latency
+- [ ] Each entry shows a timestamp, level (INFO/WARN/ERR), and category
+
+---
+
+### WC-C03: Raw view — curl-style handshake timeline
+
+**Goal:** Verify the Raw view renders the handshake as a request/response timeline
+
+**Steps:**
+1. While connected, click the **Raw** view toggle
+
+**Expected Results:**
+- [ ] The handshake is shown curl-style: `>` lines for the upgrade request (`GET / HTTP/1.1`, `Host:`, `Connection: Upgrade`, `Upgrade: websocket`, `Sec-WebSocket-Version: 13`), `<` lines for the `101 Switching Protocols` response, and `*` lines for informational notes
+- [ ] Toggling back to **Structured** restores the grouped event list
+
+---
+
+### WC-C04: Severity & category filters
+
+**Goal:** Verify the console filters narrow the visible entries
+
+**Steps:**
+1. With several entries present, click **Severity → Error**
+2. Reset to **All**, then pick **Category → Handshake**
+
+**Expected Results:**
+- [ ] **Severity → Error** shows only error-level entries; the counter updates (e.g. `1/12`)
+- [ ] **Category → Handshake** shows only handshake entries; the counter updates
+- [ ] Resetting to **All** / **All categories** restores the full list
+
+---
+
+### WC-C05: Search filter
+
+**Goal:** Verify console search filters by message text
+
+**Steps:**
+1. Type `connected` into the **Search console…** box
+
+**Expected Results:**
+- [ ] Only entries whose message matches the query are shown
+- [ ] The counter reflects the filtered subset (e.g. `2/12`)
+- [ ] Clearing the search restores all entries
+
+---
+
+### WC-C06: `/help` and `/clear` commands
+
+**Goal:** Verify the help and clear slash commands
+
+**Steps:**
+1. In the command line, type `/help` and press **Enter**
+2. Type `/clear` and press **Enter**
+
+**Expected Results:**
+- [ ] `/help` echoes a `command` entry `/help`, followed by an expandable "Available commands (8)" entry listing the slash commands
+- [ ] `/clear` empties the console (counter resets to `0/0`)
+
+---
+
+### WC-C07: `/ping` command — transport-gated
+
+**Goal:** Verify `/ping` matches the Compose Ping button's transport gating
+
+**Steps:**
+1. Connect to `ws://localhost:8765` in **direct browser mode** (No Auth, no custom headers)
+2. In the Console command line, run `/ping`
+3. Disconnect, set **Bearer Token** auth (forces proxy), reconnect, and run `/ping` again
+
+**Expected Results:**
+- [ ] **Direct mode:** `/ping` reports an **error** — `/ping is not supported here.` (the browser WebSocket API can't send ping frames, mirroring the disabled Compose **Ping** button — see WC-17)
+- [ ] **Proxy / native mode:** `/ping` reports `Ping sent.` and a ping frame is dispatched
+- [ ] When disconnected, `/ping` reports `Not connected.` regardless of transport
+
+---
+
+### WC-C08: `/connect`, `/disconnect`, `/close`, `/send`, `/template`
+
+**Goal:** Verify the remaining slash commands delegate to studio actions
+
+**Steps:**
+1. While disconnected, run `/connect ws://localhost:8765`
+2. Run `/send hello`
+3. Run `/close 1000 bye`
+4. Save a template named `greet`, then while connected run `/template greet`
+
+**Expected Results:**
+- [ ] `/connect <url>` sets the draft URL and initiates the connection ("Connecting to …")
+- [ ] `/send <data>` sends a message ("Message sent.") when connected; reports `Not connected.` otherwise
+- [ ] `/close 1000 bye` closes with code 1000 and reason "bye"; invalid/out-of-range codes are rejected with an error
+- [ ] `/template <name>` resolves a saved template case-insensitively and sends it; an unknown name reports an error
+- [ ] `/disconnect` closes the connection; reports `Not connected.` when already closed
+
+---
+
+### WC-C09: Command history & console Export
+
+**Goal:** Verify history navigation and console export
+
+**Steps:**
+1. Run a few commands, then press **↑** / **↓** in the command line
+2. Click the toolbar **Export** button
+
+**Expected Results:**
+- [ ] **↑** / **↓** cycle through previously entered commands
+- [ ] **Export** saves the visible console entries (respecting active filters) to a JSON file
+- [ ] **Copy** copies the visible entries to the clipboard
 
 ---
 
@@ -973,10 +1212,160 @@ npm run server
 | 2026-06-11 | WC-28 | Doc said delete via "×" + modal confirm | Delete is a **Del** text button with inline **Confirm/No** (no modal) | Updated WC-28 |
 | 2026-06-11 | WC-29a/b/c | Dup (duplicate), Edit, and Paste JSON profile actions were undocumented | Card actions are Load/Edit/Dup/Del; footer has Paste JSON | Added WC-29a (Dup), WC-29b (Edit), WC-29c (Paste JSON) |
 | 2026-06-11 | WC-04 | Status bar transport/protocol/uptime badges undocumented | Status bar shows latency, Uptime, Raw (protocol), Direct/Proxy (transport) | Added badge expectations to WC-04 |
-| 2026-06-11 | WC-31/35 | Doc referenced a "Save Current" action | Actual UI: "Saved Templates" panel with a name field + Save button; entries show preview + format badge + × | Updated WC-31 and WC-35 |
+| 2026-06-12 | WC-C07 | Console `/ping` reported `Ping sent.` in **direct browser mode** even though the Compose **Ping** button is disabled there (and `sendPing()` silently no-ops without a proxy connection id) | `buildWsConsoleCapabilities` always wired the `ping` capability regardless of transport, and `useConsoleCommands` checked `caps.ping` existence before the connection state | **Fixed** — `wsConsoleCapabilities.ts` now omits `ping` when `transportMode === 'direct'`, and `useConsoleCommands.ts` checks `isConnected` before the unsupported-capability guard. Direct mode now reports `/ping is not supported here.`; proxy/native send a real ping. Re-validated live in Chrome (direct → not supported, Bearer/proxy → Ping sent). |
+| 2026-06-12 | WC-08 | Doc claimed connecting with a `json` subprotocol "succeeds" | The local `jmalloc/echo-server` does not negotiate subprotocols, so the browser correctly fails the connection with `Server sent no subprotocol [WS_CONNECT_FAILED]` (spec-compliant) | Rewrote WC-08 to cover both negotiated-success and not-negotiated-failure cases and noted the echo-server limitation. Re-validated live in Chrome. |
+| 2026-06-12 | WC-25/26/27/28/29* | Saved-view labels drifted from the doc | Shipped UI uses heading **Saved Profiles · N**, footer actions **Import / Paste / Export** (not "Import File / Paste JSON / Export All"), and card actions **Load & Connect / Edit / Duplicate / Delete** (not "Load / Edit / Dup / Del"). The New Profile editor saves with **Save Profile**; the **Edit Profile** editor saves with **Save Changes**. **Load & Connect** also auto-connects (doesn't just fill the form) | Updated WC-25–29c to the shipped labels/behavior. Re-validated live in Chrome (save, duplicate→count 2, edit-in-place, delete inline Confirm/No→count 1, Paste JSON→"Imported 1 profile"). |
+| 2026-06-13 | WC-31/32/33/35 | The **Templates ▾** dropdown was invisible/unclickable. Its content was present in the DOM (and JS-click worked) but a real user saw nothing and clicks landed on the studio mode/tab bars | `.ws-template-dropdown` used `bottom: 100%` (opened **upward**) but the Templates trigger sits in the **top** compose toolbar, so the dropdown opened into the `ws-studio-modes`/`ws-studio-tabs` bars and was clipped by the ancestor `overflow: hidden` on `.ws-studio-left`/`.ws-studio-left-body` | **Fixed** — `websocket-studio.css` flipped `.ws-template-dropdown` to open **downward** (`top: 100%`, `margin-top`, downward `box-shadow`). Re-validated live in Chrome: header/item/preview/format badge/delete ×/name field/Save are all visible and `elementFromPoint` at the Save button returns the Save button (no interception). The bottom-anchored `.ws-close-code-dropdown` correctly stays upward (verified not clipped). |
+| 2026-06-13 | WC-46 | Doc claimed the message cap was a discrete dropdown (100/500/1,000/10,000/50,000) | Max Messages is a free **number input** clamped 100–50,000 in the Profile Editor; the live studio default is 10,000 but a new profile pre-fills 1,000 | Rewrote WC-46 to describe the number input, clamp range, and the two defaults (studio 10,000 vs new-profile 1,000). |
+| 2026-06-13 | Pass 3 export | `docs/test-data/ws-core-connect-export.json` was **not importable** — it was wrapped in `{ _exportMeta, data: { profiles, templates, testMessages, schemas } }` with **nested** `autoReconnect: { enabled, maxRetries, initialDelay, backoffMultiplier }` objects | The Saved-profiles importer (`useWebSocketProfiles.importProfiles`) requires a **bare JSON array** of profiles (`!Array.isArray(parsed)` → "Expected a JSON array of profiles") with **flat** `autoReconnect` (boolean), `maxReconnectAttempts`, `reconnectIntervalMs`, `backoffMultiplier` (1/1.5/2), and `enabled` on header/queryParam entries. There is no template/schema JSON-import path at all | **Fixed** — rewrote the export file as a bare importable array matching the real `exportProfiles()` output; moved the non-importable templates/testMessages/schemas fixtures to a new `docs/test-data/ws-core-connect-reference.json`. Re-validated live in Chrome: Paste import reported **"Imported 6"** (2→8 cards); the Auto-Reconnect profile round-tripped with reconnect checked and 5/3000/10000 fields intact, and the env-template profile preserved the raw `{{wsBaseUrl}}/ws`. |
+| 2026-06-13 | WC-31/32/35 | The **Templates ▾** dropdown looked unpolished: format labels (JSON/TEXT) hung orphaned on their own line under each item, row heights were inconsistent, and the delete **×** had a heavy full-height divider line | The format was a plain stacked `<span>` below the preview and the delete button used a permanent `border-left` divider and was always visible | **Cosmetic fix** — `useWebSocketCompose.tsx` now renders a per-item head row (name + format **pill badge**); `websocket-studio.css` styles `.ws-template-item-format` as a rounded pill (JSON = blue, TEXT = neutral, Binary = purple), gives items consistent padding and a rounded per-row hover highlight, and reveals the delete **×** only on row hover (divider removed). Verified live in Chrome with 3 templates. |
+
+---
+
+## E2E Test Summary
+
+**Spec file:** `e2e/ws-core-connect.spec.ts` — 42 tests
+**Run command:** `npx playwright test e2e/ws-core-connect.spec.ts --reporter=list`
+**Prerequisites:** Backend on 3001 (`npm run server`), Vite on 5173 (`npm run dev`), Docker echo on 8765
+
+| Test | Scenario(s) | Status |
+|---|---|---|
+| WC-01 | Activity bar → Protocols → WebSocket sub-nav | ✅ |
+| WC-02 | Page layout — tab bar, mode switch, split pane | ✅ |
+| WC-03 | Initial state — URL input, status, buttons | ✅ |
+| WC-04 | Connect to echo server | ✅ |
+| WC-05 | Disconnect from echo server | ✅ |
+| WC-06 | Connect with custom headers (proxy mode) | ✅ |
+| WC-07 | Connect with query parameters | ✅ |
+| WC-09 | Connect to invalid URL | ✅ |
+| WC-11 | Send text message | ✅ |
+| WC-12 | Echo server response | ✅ |
+| WC-13 | Cmd+Enter shortcut sends message | ✅ |
+| WC-14 | Send JSON message — auto-detection | ✅ |
+| WC-15 | Format selector — Text / JSON / Binary | ✅ |
+| WC-16 | Send binary message | ✅ |
+| WC-16a | Type badge inference (content-based) | ✅ |
+| WC-18 | Send button disabled states | ✅ |
+| WC-20 | Direction filter | ✅ |
+| WC-21 | Text search | ✅ |
+| WC-22 | Click message → detail panel | ✅ |
+| WC-23 | Clear messages | ✅ |
+| WC-24 | Export messages as JSON | ✅ |
+| WC-25 | Saved mode — empty state | ✅ |
+| WC-26 | Save current connection as profile | ✅ |
+| WC-27 | Load profile → fills form & connects | ✅ |
+| WC-28 | Delete profile | ✅ |
+| WC-29a | Duplicate a profile | ✅ |
+| WC-30 | Config lock while connected | ✅ |
+| WC-31 | Save message template | ✅ |
+| WC-32 | Load template → fills compose bar | ✅ |
+| WC-33 | Delete template | ✅ |
+| WC-36 | Auto-reconnect settings UI | ✅ |
+| WC-38 | Close with code/reason | ✅ |
+| WC-40 | URL with {{wsBaseUrl}} placeholder | ✅ |
+| WC-A01 | Auth panel layout & type selector | ✅ |
+| WC-A02 | Bearer Token fields & masked preview | ✅ |
+| WC-A03 | Auth forces proxy transport (browser) | ✅ |
+| WC-C01 | Console pane layout | ✅ |
+| WC-C02 | Structured view — lifecycle & handshake | ✅ |
+| WC-C06 | /help and /clear commands | ✅ |
+| WC-C07 | /ping command — transport-gated | ✅ |
+| WC-C08 | /send command | ✅ |
+| WC-C08b | /connect and /disconnect commands | ✅ |
+
+### Not Automated (manual or environment-specific)
+- WC-08: Subprotocol negotiation (echo server doesn't negotiate)
+- WC-10/10a: WSS/TLS connect (requires TLS Docker stack)
+- WC-17: Ping button (proxy mode only)
+- WC-19: Auto-scroll to bottom (visual observation)
+- WC-29/29b/29c: Import/Export/Edit/Paste profiles
+- WC-34/35: Template persistence / dropdown
+- WC-37: Auto-reconnect on server disconnect (requires server restart)
+- WC-39/39a: Reconnect controls & banners
+- WC-41–45: Environment variables, unresolved warnings, profiles
+
+---
+
+## Appendix: `data-testid` & Selector Reference
+
+**Connection & Status:**
+- `ws-studio-shell` — main shell container
+- `conn-tab-bar` — connection tab bar
+- `connect-btn` / `disconnect-btn` — connect/disconnect buttons
+- `disconnect-caret` — disconnect dropdown caret (Close with Code)
+- `status-badge` — connection status (Disconnected/Connected/Error)
+- `transport-badge` — transport mode (Direct/Proxy/Native)
+- `protocol-badge` — detected protocol badge
+- `protocol-select` — protocol selector dropdown
+
+**Left-Pane Tabs:**
+- `left-tab-connect` / `left-tab-params` / `left-tab-auth` / `left-tab-headers` / `left-tab-compose` — left pane tab switches
+
+**Right-Pane Tabs:**
+- `right-tab-events` / `right-tab-console` / `right-tab-stats` / `right-tab-loadtest` / `right-tab-schema` — right pane tab switches
+
+**Messages & Events:**
+- `message-list` — message list container
+- `messages-status-bar` — status bar with counters
+- `counters` — message count display
+- `detail-panel` — message detail panel
+- `search-input` — search text input
+- `filter-toggle-btn` — filters toggle
+- `clear-btn` — clear messages
+- `export-messages-btn` — export messages as JSON
+- `send-btn` — send message button
+- `ping-btn` — ping button
+- `format-select` — message format selector (Text/JSON/Binary)
+
+**Auth Tab:**
+- `ws-auth-callout` — proxy-required callout
+- `ws-auth-resolved` — resolved auth preview (masked)
+
+**Close with Code:**
+- `close-code-input` — close code input
+- `close-reason-input` — close reason input
+- `close-with-code-btn` — close with code button
+
+**Auto-Reconnect:**
+- `auto-reconnect-toggle` — auto-reconnect on/off
+- `reconnect-interval-ms` — reconnect interval input
+- `max-reconnect-attempts` — max attempts input
+- `backoff-multiplier` — backoff multiplier input
+
+**Saved Profiles:**
+- `mode-client` / `mode-mock` / `mode-saved` — mode switches
+- `new-profile-btn` — new profile button
+- `profile-name-input` — profile name in editor
+- `profile-save-btn` — save profile button
+- `save-as-profile-btn` — save current connection as profile
+
+**Templates:**
+- `template-trigger` — Templates ▾ dropdown trigger
+- `template-dropdown` — dropdown container
+- `template-list` — template list
+- `template-save-btn` — save template button
+- `template-save-name` — template name input
+
+**Console:**
+- `ws-console` — console container
+- `ws-console-cmd-input` — command line input
+- `ws-console-view-structured` / `ws-console-view-raw` — view toggles
+- `ws-console-level-all` / `ws-console-level-info` / `ws-console-level-warn` / `ws-console-level-error` — severity filters
 
 ---
 
 ## Test Data Export
 
-See `docs/test-data/ws-core-connect-export.json` for importable test profiles and templates.
+- `docs/test-data/ws-core-connect-export.json` — a **bare JSON array** of connection profiles, directly importable via the Saved view **Import** / **Paste** buttons (round-trips with `exportProfiles()`). Verified: Paste import → "Imported 6".
+- `docs/test-data/ws-core-connect-reference.json` — reference fixtures (message templates, test messages, JSON schemas) that are **not** importable through the profiles flow; use them by typing into compose, the Templates ▾ dropdown, or the Schema tab.
+
+---
+
+## Tauri Desktop Validation (2026-06-13)
+
+The full WC-* sweep was re-validated live in the **Tauri desktop app** (macOS) in addition to the web (Chrome) pass. No Tauri-specific regressions were found.
+
+- **Templates ▾ dropdown** (WC-31–35): the CSS fix renders identically in the desktop webview — the dropdown opens **downward** and is fully visible/clickable (`getComputedStyle(...).top === "28px"`, `elementFromPoint` at the name field returns the input, no interception).
+- **Pass 3 profile import**: Paste-importing the bare-array `ws-core-connect-export.json` reported **"Imported 6 profiles"** (Tauri starts at 0, uses **FS persistence** rather than localStorage). The Auto-Reconnect profile round-tripped (detail pane shows AUTO-RECONNECT: auto-reconnect) and the Environment Template kept the raw `{{wsBaseUrl}}/ws`.
+- **Native transport connect/send/echo**: the status pill is labelled **Native** (not Direct/Proxy). `/connect` produced `101 Switching Protocols` → `Connected (4ms)`; `/send hello-from-tauri` round-tripped through the echo server with the Events tab showing both `↑ TEXT hello-from-tauri` and `↓ TEXT hello-from-tauri` (status `↑1 ↓1`). This exercises the Tauri `tokio-tungstenite` path with **no** Express proxy.
+- **Driver note (for future Tauri passes):** simulating a JS `.click()` on the **Connect** button via the webview did not fire the connection (React synthetic-event gesture); driving the console command input (`.ws-console-cmd-input`) with `/connect`, `/send …`, `/disconnect` works reliably instead.

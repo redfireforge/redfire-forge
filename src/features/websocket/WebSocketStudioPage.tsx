@@ -25,6 +25,7 @@ import {
   deriveViewTabFromStudio,
 } from '../../shared/websocket/types';
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
+import ConfirmModal from '../../shared/components/ConfirmModal';
 import '../../styles/websocket-studio.css';
 
 const MAX_TABS = 8;
@@ -62,6 +63,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
   const initialProtocolsRef = useRef<Record<string, WsProtocolMode>>({});
   const initialDraftsRef = useRef<Record<string, Partial<WsConnectionDraft>>>({});
   const [loaded, setLoaded] = useState(false);
+  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
 
   // ── Redesigned studio shell (now the only production layout) ──────────
   const [studioLoc, setStudioLoc] = useState<Record<string, WsStudioLocation>>({});
@@ -281,15 +283,8 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
     [debouncedSave],
   );
 
-  const handleCloseTab = useCallback(
+  const doCloseTab = useCallback(
     (id: string) => {
-      if (tabs.length <= 1) return;
-
-      const state = connectionStates[id];
-      if (state === 'connected' || state === 'connecting') {
-        if (!window.confirm('This connection is active. Close and disconnect?')) return;
-      }
-
       let removed = false;
       setTabs((prev) => {
         if (prev.length <= 1) return prev;
@@ -323,7 +318,22 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
       });
       debouncedSave();
     },
-    [tabs.length, activeTabId, connectionStates, debouncedSave],
+    [activeTabId, debouncedSave],
+  );
+
+  const handleCloseTab = useCallback(
+    (id: string) => {
+      if (tabs.length <= 1) return;
+
+      const state = connectionStates[id];
+      if (state === 'connected' || state === 'connecting') {
+        setPendingCloseTabId(id);
+        return;
+      }
+
+      doCloseTab(id);
+    },
+    [tabs.length, connectionStates, doCloseTab],
   );
 
   const handleSelectTab = useCallback((id: string) => {
@@ -437,6 +447,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
         onRename={handleRenameTab}
         onReorder={handleReorderTab}
         history={historyHook.history}
+        onClearHistory={historyHook.clearHistory}
       />
       {tabs.map((tab) => {
         const loc = studioLoc[tab.id] ?? mapViewTabToStudioLocation('connect');
@@ -471,6 +482,20 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
           </div>
         );
       })}
+      {pendingCloseTabId != null && (
+        <ConfirmModal
+          title="Close Active Connection"
+          message="This connection is active. Close and disconnect?"
+          confirmLabel="Close"
+          variant="danger"
+          onConfirm={() => {
+            const id = pendingCloseTabId;
+            setPendingCloseTabId(null);
+            doCloseTab(id);
+          }}
+          onCancel={() => setPendingCloseTabId(null)}
+        />
+      )}
     </div>
   );
 }

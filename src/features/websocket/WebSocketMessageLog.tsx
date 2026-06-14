@@ -186,6 +186,7 @@ export function WebSocketMessageLog({
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [showFilterBar, setShowFilterBar] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const presetDropdownRef = useDropdownClose(
     presetDropdownOpen,
@@ -300,8 +301,12 @@ export function WebSocketMessageLog({
   const handleRecordingFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !onLoadRecordingFile) return;
-    await onLoadRecordingFile(file);
+    const ok = await onLoadRecordingFile(file);
     e.target.value = '';
+    if (!ok) {
+      setImportError('Invalid recording file — expected ws-recording-v1 format');
+      setTimeout(() => setImportError(null), 4000);
+    }
   }, [onLoadRecordingFile]);
 
   const handleSearchChange = useCallback(
@@ -620,6 +625,9 @@ export function WebSocketMessageLog({
               onChange={handleRecordingFileChange}
               data-testid="recording-file-input"
             />
+            {importError && (
+              <span className="ws-import-error" data-testid="import-error">{importError}</span>
+            )}
           </>
         )}
         {hasLoadedRecording && recordingState === 'idle' && (

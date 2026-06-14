@@ -364,66 +364,124 @@ export function WebSocketMockClientsPane({ ui }: { ui: MockUi }) {
   );
 }
 
+/** Match-type badge color map. */
+const MATCH_BADGE_CLASS: Record<WsMockMatchType, string> = {
+  any: 'badge-any',
+  exact: 'badge-exact',
+  contains: 'badge-contains',
+  regex: 'badge-regex',
+  jsonpath: 'badge-jsonpath',
+};
+/** Response-type badge color map. */
+const RESPONSE_BADGE_CLASS: Record<WsMockResponseType, string> = {
+  echo: 'badge-echo',
+  static: 'badge-static',
+  template: 'badge-template',
+  close: 'badge-close',
+};
+
 /** Single rule card (header + inline editor). */
 function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: number }) {
   const { editingRuleId, rules } = ui;
+  const isOpen = editingRuleId === rule.id;
   return (
     <div
-      className={`ws-mock-rule ${rule.enabled ? '' : 'disabled'} ${editingRuleId === rule.id ? 'editing' : ''}`}
+      className={`ws-mock-rule ${rule.enabled ? '' : 'disabled'} ${isOpen ? 'editing' : ''}`}
       data-testid={`mock-rule-${rule.id}`}
     >
       <div className="ws-mock-rule-header">
-        <input
-          type="checkbox"
-          checked={rule.enabled}
-          onChange={() => ui.handleToggleRule(rule.id)}
-          aria-label={`Enable ${rule.name}`}
-          data-testid={`rule-toggle-${rule.id}`}
-        />
+        {/* Toggle (custom switch) */}
+        <label className="ws-mock-rule-toggle-switch" title={rule.enabled ? 'Enabled' : 'Disabled'}>
+          <input
+            type="checkbox"
+            checked={rule.enabled}
+            onChange={() => ui.handleToggleRule(rule.id)}
+            aria-label={`Enable ${rule.name}`}
+            data-testid={`rule-toggle-${rule.id}`}
+          />
+          <span className="ws-mock-toggle-slider" />
+        </label>
+
+        {/* Priority badge */}
+        <span className="ws-mock-rule-priority" title={`Priority ${idx + 1}`}>
+          {idx + 1}
+        </span>
+
+        {/* Rule name (click to expand/collapse) */}
         <button
           type="button"
           className="ws-mock-rule-name"
-          onClick={() => ui.setEditingRuleId(editingRuleId === rule.id ? null : rule.id)}
-          aria-expanded={editingRuleId === rule.id}
+          onClick={() => ui.setEditingRuleId(isOpen ? null : rule.id)}
+          aria-expanded={isOpen}
           aria-label={`Edit ${rule.name}`}
         >
           {rule.name}
+          <span className={`ws-mock-rule-chevron ${isOpen ? 'open' : ''}`}>›</span>
         </button>
-        <span className="ws-mock-rule-summary">
+
+        {/* Type badges */}
+        <span className="ws-mock-rule-badges">
+          <span className={`ws-mock-type-badge ${MATCH_BADGE_CLASS[rule.match.type]}`}>
+            {rule.match.type}
+          </span>
+          {rule.match.type !== 'any' && rule.match.pattern && (
+            <span className="ws-mock-pattern-pill" title={rule.match.pattern}>
+              {rule.match.pattern.slice(0, 24)}{rule.match.pattern.length > 24 ? '\u2026' : ''}
+            </span>
+          )}
+          <span className="ws-mock-rule-arrow">→</span>
+          <span className={`ws-mock-type-badge ${RESPONSE_BADGE_CLASS[rule.response.type]}`}>
+            {rule.response.type}
+          </span>
+          {rule.response.delay ? (
+            <span className="ws-mock-delay-pill">+{rule.response.delay}ms</span>
+          ) : null}
+        </span>
+
+        {/* Legacy summary for tests (visually hidden) */}
+        <span className="ws-mock-rule-summary" aria-hidden="true">
           {rule.match.type}{rule.match.type !== 'any' ? `: ${rule.match.pattern.slice(0, 30)}${rule.match.pattern.length > 30 ? '\u2026' : ''}` : ''}
           {' → '}
           {rule.response.type}
           {rule.response.delay ? ` (+${rule.response.delay}ms)` : ''}
         </span>
+
+        {/* Actions */}
         <div className="ws-mock-rule-actions">
           <button
-            className="ws-mock-rule-action-btn"
+            className="ws-mock-rule-action-btn ws-mock-rule-move"
             onClick={() => ui.handleMoveRule(rule.id, 'up')}
             disabled={idx === 0}
             title="Move up"
             aria-label={`Move ${rule.name} up`}
-          >▲</button>
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2.5L10 7.5H2L6 2.5Z" fill="currentColor"/></svg>
+          </button>
           <button
-            className="ws-mock-rule-action-btn"
+            className="ws-mock-rule-action-btn ws-mock-rule-move"
             onClick={() => ui.handleMoveRule(rule.id, 'down')}
             disabled={idx === rules.length - 1}
             title="Move down"
             aria-label={`Move ${rule.name} down`}
-          >▼</button>
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 9.5L2 4.5H10L6 9.5Z" fill="currentColor"/></svg>
+          </button>
           <button
             className="ws-mock-rule-action-btn ws-mock-rule-delete"
             onClick={() => ui.handleDeleteRule(rule.id)}
             title="Delete rule"
             aria-label={`Delete ${rule.name}`}
             data-testid={`rule-delete-${rule.id}`}
-          >×</button>
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3L9 9M9 3L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          </button>
         </div>
       </div>
 
-      {editingRuleId === rule.id && (
+      {isOpen && (
         <div className="ws-mock-rule-editor" data-testid={`rule-editor-${rule.id}`}>
-          <label className="ws-mock-editor-label">
-            Name:
+          <div className="ws-mock-editor-grid">
+            <label className="ws-mock-editor-label">Name</label>
             <input
               className="ws-mock-editor-input"
               type="text"
@@ -431,11 +489,9 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
               onChange={(e) => ui.handleUpdateRule(rule.id, { name: e.target.value })}
               data-testid={`rule-name-${rule.id}`}
             />
-          </label>
 
-          <div className="ws-mock-editor-row">
-            <label className="ws-mock-editor-label">
-              Match:
+            <label className="ws-mock-editor-label">Match</label>
+            <div className="ws-mock-editor-field-group">
               <select
                 className="ws-mock-editor-select"
                 value={rule.match.type}
@@ -448,28 +504,26 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
-            </label>
-            {rule.match.type !== 'any' && (
-              <input
-                className="ws-mock-editor-input ws-mock-editor-pattern"
-                type="text"
-                value={rule.match.pattern}
-                onChange={(e) => ui.handleUpdateRule(rule.id, {
-                  match: { ...rule.match, pattern: e.target.value },
-                })}
-                placeholder={
-                  rule.match.type === 'regex' ? 'e.g. hello.*'
-                    : rule.match.type === 'jsonpath' ? 'e.g. $.type=ping'
-                      : 'Pattern\u2026'
-                }
-                data-testid={`rule-match-pattern-${rule.id}`}
-              />
-            )}
-          </div>
+              {rule.match.type !== 'any' && (
+                <input
+                  className="ws-mock-editor-input ws-mock-editor-pattern"
+                  type="text"
+                  value={rule.match.pattern}
+                  onChange={(e) => ui.handleUpdateRule(rule.id, {
+                    match: { ...rule.match, pattern: e.target.value },
+                  })}
+                  placeholder={
+                    rule.match.type === 'regex' ? 'e.g. hello.*'
+                      : rule.match.type === 'jsonpath' ? 'e.g. $.type=ping'
+                        : 'Pattern\u2026'
+                  }
+                  data-testid={`rule-match-pattern-${rule.id}`}
+                />
+              )}
+            </div>
 
-          <div className="ws-mock-editor-row">
-            <label className="ws-mock-editor-label">
-              Response:
+            <label className="ws-mock-editor-label">Response</label>
+            <div className="ws-mock-editor-field-group">
               <select
                 className="ws-mock-editor-select"
                 value={rule.response.type}
@@ -482,63 +536,64 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
                   <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
               </select>
-            </label>
-            {(rule.response.type === 'static' || rule.response.type === 'template') && (
-              <textarea
-                className="ws-mock-editor-textarea"
-                value={rule.response.data ?? ''}
-                onChange={(e) => ui.handleUpdateRule(rule.id, {
-                  response: { ...rule.response, data: e.target.value },
-                })}
-                placeholder={
-                  rule.response.type === 'template'
-                    ? '{"status":"ok","ts":"{{timestamp}}","client":"{{clientId}}"}'
-                    : 'Response data\u2026'
-                }
-                rows={2}
-                data-testid={`rule-response-data-${rule.id}`}
-              />
-            )}
-            {rule.response.type === 'close' && (
-              <div className="ws-mock-editor-close-fields">
-                <input
-                  className="ws-mock-editor-input ws-mock-editor-close-code"
-                  type="number"
-                  value={rule.response.closeCode ?? 1000}
+              {(rule.response.type === 'static' || rule.response.type === 'template') && (
+                <textarea
+                  className="ws-mock-editor-textarea"
+                  value={rule.response.data ?? ''}
                   onChange={(e) => ui.handleUpdateRule(rule.id, {
-                    response: { ...rule.response, closeCode: parseInt(e.target.value, 10) || 1000 },
+                    response: { ...rule.response, data: e.target.value },
                   })}
-                  placeholder="Code"
-                  data-testid={`rule-close-code-${rule.id}`}
+                  placeholder={
+                    rule.response.type === 'template'
+                      ? '{"status":"ok","ts":"{{timestamp}}","client":"{{clientId}}"}'
+                      : 'Response data\u2026'
+                  }
+                  rows={2}
+                  data-testid={`rule-response-data-${rule.id}`}
                 />
-                <input
-                  className="ws-mock-editor-input"
-                  type="text"
-                  value={rule.response.closeReason ?? ''}
-                  onChange={(e) => ui.handleUpdateRule(rule.id, {
-                    response: { ...rule.response, closeReason: e.target.value },
-                  })}
-                  placeholder="Reason"
-                  data-testid={`rule-close-reason-${rule.id}`}
-                />
-              </div>
-            )}
-          </div>
+              )}
+              {rule.response.type === 'close' && (
+                <div className="ws-mock-editor-close-fields">
+                  <input
+                    className="ws-mock-editor-input ws-mock-editor-close-code"
+                    type="number"
+                    value={rule.response.closeCode ?? 1000}
+                    onChange={(e) => ui.handleUpdateRule(rule.id, {
+                      response: { ...rule.response, closeCode: parseInt(e.target.value, 10) || 1000 },
+                    })}
+                    placeholder="Code"
+                    data-testid={`rule-close-code-${rule.id}`}
+                  />
+                  <input
+                    className="ws-mock-editor-input"
+                    type="text"
+                    value={rule.response.closeReason ?? ''}
+                    onChange={(e) => ui.handleUpdateRule(rule.id, {
+                      response: { ...rule.response, closeReason: e.target.value },
+                    })}
+                    placeholder="Reason"
+                    data-testid={`rule-close-reason-${rule.id}`}
+                  />
+                </div>
+              )}
+            </div>
 
-          <label className="ws-mock-editor-label">
-            Delay (ms):
-            <input
-              className="ws-mock-editor-input ws-mock-editor-delay"
-              type="number"
-              value={rule.response.delay ?? 0}
-              onChange={(e) => ui.handleUpdateRule(rule.id, {
-                response: { ...rule.response, delay: Math.max(0, Math.min(10000, parseInt(e.target.value, 10) || 0)) },
-              })}
-              min={0}
-              max={10000}
-              data-testid={`rule-delay-${rule.id}`}
-            />
-          </label>
+            <label className="ws-mock-editor-label">Delay</label>
+            <div className="ws-mock-editor-field-group ws-mock-editor-delay-group">
+              <input
+                className="ws-mock-editor-input ws-mock-editor-delay"
+                type="number"
+                value={rule.response.delay ?? 0}
+                onChange={(e) => ui.handleUpdateRule(rule.id, {
+                  response: { ...rule.response, delay: Math.max(0, Math.min(10000, parseInt(e.target.value, 10) || 0)) },
+                })}
+                min={0}
+                max={10000}
+                data-testid={`rule-delay-${rule.id}`}
+              />
+              <span className="ws-mock-editor-unit">ms</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

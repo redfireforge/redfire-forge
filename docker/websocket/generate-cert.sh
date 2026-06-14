@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Generate a local TLS chain for the wss:// echo proxy: a root CA plus a
+# server (leaf) certificate signed by that CA.
+#
+# Why a chain (CA + leaf) instead of a single self-signed cert?
+#   A self-signed cert with basicConstraints CA:TRUE used directly as the
+#   server cert is rejected by strict TLS stacks (rustls/webpki) with
+#   "CaUsedAsEndEntity". The native (Tauri) transport uses rustls, so we need
+#   a proper end-entity leaf (CA:FALSE) signed by a separate CA. This lets us
+#   exercise all three TLS panel paths across all transports:
+#     - "Skip certificate validation" (rejectUnauthorized:false)
+#     - custom CA validation (paste ca.crt -> validates the leaf)
+#     - default rejection of an untrusted chain
+#
+# Outputs (in ./certs):
+#   ca.crt      - root CA cert  -> PASTE THIS into the TLS panel "CA Certificate (PEM)"
+#   ca.key      - root CA key   (used only to sign the leaf)
+#   server.crt  - server leaf cert (CN/SAN=localhost) -> nginx ssl_certificate
+#   server.key  - server leaf key                     -> nginx ssl_certificate_key
+set -euo pipefail
+
+CERT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/certs"
+mkdir -p "$CERT_DIR"
+
+DAYS="${DAYS:-825}"
+
+# 1. Root CA
+openssl req -x509 -nodes -newkey rsa:2048 \
+  -keyout "$CERT_DIR/ca.key" \
+  -out "$CERT_DIR/ca.crt" \
+  -days "$DAYS" \
+  -subj "/CN=RedfireForge Dev Root CA/O=RedfireForge Dev/OU=WebSocket Studio"
+
+# 2. Server (leaf) key + CSR
+openssl req -nodes -newkey rsa:2048 \
+  -keyout "$CERT_DIR/server.key" \
+  -out "$CERT_DIR/server.csr" \
+  -subj "/CN=localhost/O=RedfireForge Dev/OU=WebSocket Studio"
+
+# 3. Sign the leaf with the CA (end-entity: CA:FALSE, SAN=localhost)
+openssl x509 -req \
+  -in "$CERT_DIR/server.csr" \
+  -CA "$CERT_DIR/ca.crt" \
+  -CAkey "$CERT_DIR/ca.key" \
+  -CAcreateserial \
+  -days "$DAYS" \
+  -extfile <(printf 'basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost,IP:127.0.0.1\n') \
+  -out "$CERT_DIR/server.crt"
+
+rm -f "$CERT_DIR/server.csr" "$CERT_DIR/ca.srl"
+chmod 600 "$CERT_DIR/server.key" "$CERT_DIR/ca.key"
+
+echo "Generated TLS chain:"
+echo "  CA cert : $CERT_DIR/ca.crt   (paste into the TLS panel 'CA Certificate (PEM)')"
+echo "  CA key  : $CERT_DIR/ca.key"
+echo "  Leaf crt: $CERT_DIR/server.crt  (nginx ssl_certificate)"
+echo "  Leaf key: $CERT_DIR/server.key  (nginx ssl_certificate_key)"
+echo
+echo "CA cert to paste into the TLS panel 'CA Certificate (PEM)' field:"
+echo "  cat $CERT_DIR/ca.crt"

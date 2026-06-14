@@ -7,7 +7,7 @@
  * Child components are mocked to expose callback props for direct invocation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import type { ConnectionStateHint } from './WsConnectionTabBar';
 
 /* ── captured callbacks ─────────────────────────────────────────────── */
@@ -349,8 +349,7 @@ describe('WebSocketStudioPage internal callbacks', () => {
   });
 
   describe('handleCloseTab — confirm path', () => {
-    it('does not close tab when connection is active and confirm is rejected', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
+    it('does not close tab when connection is active and confirm is cancelled', async () => {
       await renderPage({
         tabs: [
           { id: 'ws-tab-1', label: 'Active', url: '', viewTab: 'connect' },
@@ -367,13 +366,18 @@ describe('WebSocketStudioPage internal callbacks', () => {
       const onClose = capturedTabBarProps.onClose as (id: string) => void;
       act(() => { onClose('ws-tab-1'); });
 
-      expect(window.confirm).toHaveBeenCalled();
+      // ConfirmModal should be rendered
+      expect(screen.getByText('This connection is active. Close and disconnect?')).toBeTruthy();
       const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
-      expect(tabs.length).toBe(2); // not closed
+      expect(tabs.length).toBe(2); // not closed yet
+
+      // Click Cancel
+      act(() => { screen.getByText('Cancel').click(); });
+      expect(screen.queryByText('This connection is active. Close and disconnect?')).toBeNull();
+      expect(tabs.length).toBe(2); // still not closed
     });
 
     it('closes tab when connection is active and confirm is accepted', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       await renderPage({
         tabs: [
           { id: 'ws-tab-1', label: 'Active', url: '', viewTab: 'connect' },
@@ -389,13 +393,16 @@ describe('WebSocketStudioPage internal callbacks', () => {
       const onClose = capturedTabBarProps.onClose as (id: string) => void;
       act(() => { onClose('ws-tab-1'); });
 
-      expect(window.confirm).toHaveBeenCalled();
+      // ConfirmModal should be rendered
+      expect(screen.getByText('This connection is active. Close and disconnect?')).toBeTruthy();
+
+      // Click Close (confirm)
+      act(() => { screen.getByText('Close').click(); });
       const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
       expect(tabs.length).toBe(1); // closed
     });
 
-    it('prompts confirm for connecting tab', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
+    it('shows confirm modal for connecting tab', async () => {
       await renderPage({
         tabs: [
           { id: 'ws-tab-1', label: 'Connecting', url: '', viewTab: 'connect' },
@@ -411,9 +418,12 @@ describe('WebSocketStudioPage internal callbacks', () => {
       const onClose = capturedTabBarProps.onClose as (id: string) => void;
       act(() => { onClose('ws-tab-1'); });
 
-      expect(window.confirm).toHaveBeenCalled();
+      expect(screen.getByText('This connection is active. Close and disconnect?')).toBeTruthy();
       const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
       expect(tabs.length).toBe(2);
+
+      // Cancel
+      act(() => { screen.getByText('Cancel').click(); });
     });
   });
 
