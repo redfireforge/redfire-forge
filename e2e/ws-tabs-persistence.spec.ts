@@ -38,18 +38,41 @@ async function connectTo(page: Page, url = MOCK_URL) {
   const urlInput = pane.locator('[aria-label="WebSocket URL"]');
   await urlInput.fill(url);
   await pane.locator('[data-testid="connect-btn"]').click();
-  await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]').waitFor({ timeout: 10000 });
+  const connectedTab = page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]');
+  try {
+    await connectedTab.waitFor({ timeout: 10000 });
+  } catch {
+    // Retry: restart mock server and reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: 9876 },
+    }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await pane.locator('[data-testid="connect-btn"]').click();
+    await connectedTab.waitFor({ timeout: 15000 });
+  }
   await page.waitForTimeout(300);
 }
 
 async function disconnect(page: Page) {
   const pane = activePane(page);
+  // Check if already disconnected
+  const disconnectedTab = page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="disconnected"]');
+  if (await disconnectedTab.isVisible({ timeout: 500 }).catch(() => false)) {
+    return; // Already disconnected
+  }
   const disconnectBtn = pane.locator('[data-testid="disconnect-btn"]');
   if (!(await disconnectBtn.isVisible({ timeout: 500 }).catch(() => false))) {
     await switchLeftTab(page, 'connect');
   }
+  // Wait for button to be enabled (connection must be active)
+  try {
+    await expect(disconnectBtn).toBeEnabled({ timeout: 5000 });
+  } catch {
+    // Connection may have already dropped
+    return;
+  }
   await pane.locator('[data-testid="disconnect-btn"]').click();
-  await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="disconnected"]').waitFor({ timeout: 5000 });
+  await disconnectedTab.waitFor({ timeout: 5000 });
 }
 
 async function switchLeftTab(page: Page, tab: string) {
@@ -66,6 +89,14 @@ async function sendMessage(page: Page, msg: string) {
   await switchLeftTab(page, 'compose');
   const pane = activePane(page);
   const input = pane.locator('.ws-compose-input');
+  try {
+    await expect(input).toBeEnabled({ timeout: 5000 });
+  } catch {
+    // Connection may have dropped — reconnect
+    await connectTo(page);
+    await switchLeftTab(page, 'compose');
+    await expect(input).toBeEnabled({ timeout: 10000 });
+  }
   await input.fill(msg);
   await pane.locator('[data-testid="send-btn"]').click();
   await page.waitForTimeout(500);

@@ -322,7 +322,9 @@ test('WL-10: Stop button — mid-run halt', async ({ page }) => {
   const duration = page.locator('[data-testid="lt-duration"]');
   await duration.fill('30'); // Long duration so we can stop mid-run
 
-  await page.click('[data-testid="lt-start-btn"]');
+  const startBtn = page.locator('[data-testid="lt-start-btn"]');
+  await expect(startBtn).toBeEnabled({ timeout: 10000 });
+  await startBtn.click();
 
   const running = page.locator('[data-testid="lt-running"]');
   await expect(running).toBeVisible({ timeout: 3000 });

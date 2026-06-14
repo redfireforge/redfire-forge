@@ -18,7 +18,17 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
+    {
+      name: 'chromium',
+      testIgnore: '**/ws-mock-server.spec.ts',
+      use: { browserName: 'chromium' },
+    },
+    {
+      name: 'ws-mock-server',
+      testMatch: '**/ws-mock-server.spec.ts',
+      use: { browserName: 'chromium' },
+      dependencies: ['chromium'],
+    },
   ],
   webServer: {
     command: 'npm run dev',

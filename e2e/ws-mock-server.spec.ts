@@ -37,7 +37,14 @@ async function gotoMockMode(page: Page) {
 }
 
 async function startMockServer(page: Page, port = 9876) {
+  // If a mock server is already running, stop it first so port input becomes editable
+  const stopBtn = page.locator('[data-testid="mock-stop-btn"]');
+  if (await stopBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await stopBtn.click();
+    await page.waitForTimeout(500);
+  }
   const portInput = page.locator('[data-testid="mock-port-input"]');
+  await expect(portInput).toBeEnabled({ timeout: 5000 });
   await portInput.fill(String(port));
   await page.click('[data-testid="mock-start-btn"]');
   await page.waitForTimeout(1000);
@@ -53,23 +60,9 @@ async function stopMockServer(page: Page) {
   }
 }
 
-/* ── Ensure mock server is stopped before tests ──────── */
-
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  // Stop any running mock server from previous test suites
-  await page.request.post('http://localhost:3001/api/ws/mock/stop').catch(() => {});
-  await ctx.close();
-});
-
 /* ── WM-01–07: Mock Server Core ──────────────────────── */
 
 test.describe('Mock Server Core (WM-01–07)', () => {
-  test.beforeEach(async ({ page }) => {
-    // Ensure mock server is stopped before each test
-    await page.request.post('http://localhost:3001/api/ws/mock/stop').catch(() => {});
-  });
 
   test('WM-01: Mock Server mode reachable from mode switch', async ({ page }) => {
     await gotoMockMode(page);

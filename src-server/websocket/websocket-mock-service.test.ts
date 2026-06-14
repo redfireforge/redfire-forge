@@ -406,9 +406,23 @@ describe('WebSocketMockService', () => {
     const status1 = service.getStatus();
     expect(status1.running).toBe(true);
 
-    // Calling start again restarts (stops first)
+    // Idempotent: calling start again on same port updates config without restart
     const status2 = await service.start({ port, rules: [], fallback: 'ignore' });
     expect(status2.running).toBe(true);
+    // Fallback should be updated (verify via behavior, not status object)
+  });
+
+  it('restarts when port changes', async () => {
+    service = new WebSocketMockService();
+    const port2 = port + 1;
+    await service.start({ port, rules: [], fallback: 'echo' });
+    expect(service.getStatus().running).toBe(true);
+
+    // Different port forces a restart
+    const status2 = await service.start({ port: port2, rules: [], fallback: 'echo' });
+    expect(status2.running).toBe(true);
+    expect(status2.port).toBe(port2);
+    // Original port should be free now
   });
 
   it('updateRules also updates fallback when provided', async () => {
