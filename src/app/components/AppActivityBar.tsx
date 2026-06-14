@@ -7,6 +7,7 @@ import {
   isGalleryTab,
   isSettingsTab,
   isProtocolsTab,
+  isDemoTab,
 } from '../utils/appTabUtils';
 
 interface AppActivityBarProps {
@@ -103,6 +104,21 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
           </ActivityBarIcon>
         </span>
         <span className="ab-label">Protocols</span>
+      </button>
+      <button
+        className={`ab-btn ${domainOf(activeTab) === 'demo' ? 'active' : ''}`}
+        onClick={() => { if (!isDemoTab(activeTab)) setActiveTab('demo-hub'); }}
+        title="Demo Hub"
+      >
+        <span className="ab-icon">
+          <ActivityBarIcon>
+            <path d="M12 3v18" />
+            <path d="M5 6l7 4 7-4" />
+            <path d="M5 10l7 4 7-4" />
+            <path d="M5 14l7 4 7-4" />
+          </ActivityBarIcon>
+        </span>
+        <span className="ab-label">Demo Hub</span>
       </button>
       <div className="ab-spacer" />
       <button

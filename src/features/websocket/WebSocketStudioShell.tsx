@@ -18,11 +18,11 @@ const MODE_LABELS: Record<WsStudioMode, string> = {
 };
 
 const LEFT_TAB_LABELS: Record<WsLeftTab, string> = {
-  compose: 'Compose',
   connect: 'Connect',
-  auth: 'Auth',
   params: 'Params',
+  auth: 'Auth',
   headers: 'Headers',
+  compose: 'Compose',
 };
 
 const RIGHT_TAB_LABELS: Record<WsRightTab, string> = {
@@ -33,7 +33,7 @@ const RIGHT_TAB_LABELS: Record<WsRightTab, string> = {
   schema: 'Schema',
 };
 
-const MIN_LEFT_PX = 380;
+const MIN_LEFT_PX = 440;
 const MIN_RIGHT_PX = 200;
 
 export interface WebSocketStudioShellProps {

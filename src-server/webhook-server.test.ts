@@ -172,6 +172,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app)
         .put('/api/workflows/wf-1')
+        .timeout({ response: 5000, deadline: 7000 })
         .send(workflow);
 
       expect(res.status).toBe(200);
@@ -564,6 +565,68 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(500);
       expect(res.body.message).toBe('string error');
     });
+  });
+});
+
+// ── SSE test endpoint ─────────────────────────────────────────────────────
+
+describe('GET /api/sse-test', () => {
+  it('sends initial greeting event with correct headers', async () => {
+    const chunks: string[] = [];
+    let contentType = '';
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get(`http://localhost:${port}/api/sse-test`, (res) => {
+          contentType = res.headers['content-type'] ?? '';
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(contentType).toBe('text/event-stream');
+    expect(allData).toContain('event: message');
+    expect(allData).toContain('Hello from SSE test server');
+    expect(allData).toContain('"counter":1');
+  });
+
+  it('resumes from last-event-id header', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get({
+          hostname: 'localhost',
+          port,
+          path: '/api/sse-test',
+          headers: { 'Last-Event-ID': '5' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('"counter":6');
   });
 });
 

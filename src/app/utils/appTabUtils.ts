@@ -1,6 +1,6 @@
-export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio' | 'demo-hub';
 
-export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols';
+export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols' | 'demo';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'param-runner', 'workflow-runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
@@ -20,6 +20,9 @@ export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
 
+const DEMO_TABS = new Set<Tab>(['demo-hub']);
+export const isDemoTab = (t: Tab) => DEMO_TABS.has(t);
+
 /** Derive the active domain from the current tab. */
 export function domainOf(tab: Tab): Domain {
   if (isApiTab(tab)) return 'api';
@@ -27,10 +30,11 @@ export function domainOf(tab: Tab): Domain {
   if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';
   if (isProtocolsTab(tab)) return 'protocols';
+  if (isDemoTab(tab)) return 'demo';
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'websocket-studio', 'sse-studio']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'websocket-studio', 'sse-studio', 'demo-hub']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 

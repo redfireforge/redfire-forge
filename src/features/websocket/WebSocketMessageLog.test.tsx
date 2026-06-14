@@ -1773,6 +1773,18 @@ describe('WebSocketMessageLog', () => {
       });
       expect(onLoad).toHaveBeenCalledWith(file);
     });
+
+    it('shows error message when import file is invalid', async () => {
+      const onLoad = vi.fn().mockResolvedValue(false);
+      render(<WebSocketMessageLog {...defaultProps({ recordingState: 'idle', onLoadRecordingFile: onLoad })} />);
+      const fileInput = screen.getByTestId('recording-file-input') as HTMLInputElement;
+      const file = new File(['not valid'], 'bad.json', { type: 'application/json' });
+      await act(async () => {
+        fireEvent.change(fileInput, { target: { files: [file] } });
+      });
+      expect(screen.getByTestId('import-error')).toBeTruthy();
+      expect(screen.getByTestId('import-error').textContent).toContain('Invalid recording file');
+    });
   });
 
   describe('replay speed selector', () => {

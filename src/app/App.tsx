@@ -10,10 +10,12 @@ import { useCatalogExport } from './hooks/useCatalogExport';
 import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
+import { useDemoShortcuts } from './hooks/useDemoShortcuts';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
+import RustTestPanelOverlay from './components/RustTestPanelOverlay';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -62,8 +64,12 @@ import {
 import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
-import { lazy, Suspense } from 'react';
-import type { ComponentType } from 'react';
+import '../styles/demo-player.css';
+import '../styles/demo-hub.css';
+import { lazy } from 'react';
+import DemoHub from '../features/demo-player/DemoHub';
+import { useDemoHub } from '../features/demo-player/useDemoHub';
+import LiveDemo from '../features/demo-player/LiveDemo';
 
 const RustExecutorTestPanel = import.meta.env.DEV
   ? lazy(() => import('../features/test-runner/components/RustExecutorTestPanel'))
@@ -119,6 +125,10 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
+  const demoHub = useDemoHub({ navigateToTab: (t) => setActiveTab(t as Tab) });
+
+  // Demo Hub keyboard shortcuts + auto-exit
+  useDemoShortcuts(demoHub, activeTab, setActiveTab);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -320,6 +330,25 @@ export default function App() {
     setActiveTab('gallery');
   }, [setActiveTab]);
 
+  const handleImportPreview = useCallback(() => {
+    if (!previewRequest) return;
+    const req = previewRequest.request;
+    const GALLERY_COL_NAME = 'Gallery Samples';
+    const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+    const colId = col ? col.id : wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
+    const reqId = wb.addRequest(colId);
+    wb.updateRequest(colId, reqId, {
+      name: req.name,
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: req.body,
+      bodyType: req.bodyType,
+      auth: req.auth,
+    });
+    setPreviewRequest(null);
+  }, [previewRequest, wb]);
+
   // ---- Loading screen ----
   if (loading) {
     return (
@@ -371,7 +400,7 @@ export default function App() {
       <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && domainOf(activeTab) !== 'demo' && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -493,14 +522,14 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && domainOf(activeTab) !== 'demo' && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' || domainOf(activeTab) === 'demo' ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' || domainOf(activeTab) === 'demo' ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
@@ -543,6 +572,11 @@ export default function App() {
                 onNavigateTo={gallery.onNavigateTo}
                 initialDomain={galleryInitialDomain}
               />
+            </div>
+          )}
+          {activeTab === 'demo-hub' && (
+            <div className="app-tab-pane demo-hub-pane">
+              <DemoHub hub={demoHub} />
             </div>
           )}
           {activeTab === 'training' && (
@@ -761,29 +795,7 @@ export default function App() {
               onClearPreview={() => { setPreviewRequest(null); setGalleryInitialDomain(undefined); setActiveTab('gallery'); }}
               onSendToHarness={() => setShowSendToHarness(true)}
               harnessRequestIds={harnessRequestIds}
-              onImportPreview={() => {
-                if (!previewRequest) return;
-                const req = previewRequest.request;
-                const GALLERY_COL_NAME = 'Gallery Samples';
-                const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
-                let colId: string;
-                if (col) {
-                  colId = col.id;
-                } else {
-                  colId = wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
-                }
-                const reqId = wb.addRequest(colId);
-                wb.updateRequest(colId, reqId, {
-                  name: req.name,
-                  method: req.method,
-                  url: req.url,
-                  headers: req.headers,
-                  body: req.body,
-                  bodyType: req.bodyType,
-                  auth: req.auth,
-                });
-                setPreviewRequest(null);
-              }}
+              onImportPreview={handleImportPreview}
             />
           </div>
           <AppWorkbenchModals
@@ -861,34 +873,25 @@ export default function App() {
 
       {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
 
-    </div>
-  );
-}
+      {/* Live Demo overlay — renders on top of whatever tab the lesson navigated to */}
+      {demoHub.state.view === 'live' && demoHub.state.selectedLesson && (
+        <LiveDemo
+          lesson={demoHub.state.selectedLesson}
+          stepIndex={demoHub.state.stepIndex}
+          isPlaying={demoHub.state.isPlaying}
+          speed={demoHub.state.speed}
+          progress={demoHub.progress}
+          stepPhase={demoHub.stepPhase}
+          onNext={demoHub.nextStep}
+          onPrev={demoHub.prevStep}
+          onGoToStep={demoHub.goToStep}
+          onTogglePlay={demoHub.toggleAutoPlay}
+          onSetSpeed={demoHub.setSpeed}
+          onSkipReading={demoHub.skipReading}
+          onExit={() => { demoHub.exitLiveDemo(); setActiveTab('demo-hub'); }}
+        />
+      )}
 
-/** Dev-only overlay for the Rust executor integration test panel. */
-function RustTestPanelOverlay({ Panel }: { Panel: ComponentType }) {
-  const [show, setShow] = useState(() => new URLSearchParams(window.location.search).has('rust-test'));
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        setShow(v => !v);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
-  if (!show) return null;
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, overflow: 'auto', background: 'var(--background, #0d1117)' }}>
-      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 1 }}>
-        <button onClick={() => setShow(false)} style={{ background: 'none', border: '1px solid var(--border, #30363d)', color: 'var(--text-muted, #8b949e)', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: '12px' }}>
-          Close (Cmd+Shift+T)
-        </button>
-      </div>
-      <Suspense fallback={<div style={{ padding: 20, color: '#8b949e' }}>Loading test panel...</div>}>
-        <Panel />
-      </Suspense>
     </div>
   );
 }

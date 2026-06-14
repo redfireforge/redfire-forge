@@ -63,10 +63,10 @@ export function buildHeaders(scenario: Scenario, token?: string, contentType?: s
   for (const h of scenario.headers) {
     const key = h.key.trim();
     if (!key) continue;
-    if (key.toLowerCase() === 'authorization' && scenario.auth.type !== 'none') continue;
+    if (key.toLowerCase() === 'authorization' && scenario.auth?.type !== 'none') continue;
     headers[key] = h.value;
   }
-  Object.assign(headers, resolveAuthHeaders(scenario.auth, token));
+  Object.assign(headers, resolveAuthHeaders(scenario.auth ?? { type: 'none' }, token));
   const bt = getEffectiveBodyType(scenario);
   if (contentType) {
     if (bt === 'form-data') {

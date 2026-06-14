@@ -1,0 +1,12 @@
+{
+  "name": "redfire-graphql-ws-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GraphQL-WS subscription server for WebSocket Studio E2E tests",
+  "main": "server.js",
+  "dependencies": {
+    "graphql": "^16.9.0",
+    "graphql-ws": "^5.16.0",
+    "ws": "^8.18.0"
+  }
+}
