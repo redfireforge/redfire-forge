@@ -40,15 +40,15 @@ async function connectTo(page: Page, url = MOCK_URL) {
   await pane.locator('[data-testid="connect-btn"]').click();
   const connectedTab = page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]');
   try {
-    await connectedTab.waitFor({ timeout: 10000 });
+    await connectedTab.waitFor({ timeout: 8000 });
   } catch {
     // Retry: restart mock server and reconnect
     await page.request.post('http://localhost:3001/api/ws/mock/start', {
       data: { port: 9876 },
     }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     await pane.locator('[data-testid="connect-btn"]').click();
-    await connectedTab.waitFor({ timeout: 15000 });
+    await connectedTab.waitFor({ timeout: 10000 });
   }
   await page.waitForTimeout(300);
 }

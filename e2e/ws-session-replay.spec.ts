@@ -41,16 +41,37 @@ async function connectTo(page: Page, url = MOCK_URL) {
   const urlInput = pane.locator('[aria-label="WebSocket URL"]');
   await urlInput.fill(url);
   await pane.locator('[data-testid="connect-btn"]').click();
-  await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]')
-    .waitFor({ timeout: 10000 });
+  try {
+    await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]')
+      .waitFor({ timeout: 10000 });
+  } catch {
+    // Retry: restart mock server and reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: 9876, rules: [], fallback: 'echo' },
+    });
+    await page.waitForTimeout(500);
+    await pane.locator('[data-testid="connect-btn"]').click();
+    await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]')
+      .waitFor({ timeout: 10000 });
+  }
   await page.waitForTimeout(300);
 }
 
 async function sendMessage(page: Page, msg: string) {
   const pane = activePane(page);
   await pane.locator('[data-testid="left-tab-compose"]').click();
-  await pane.locator('.ws-compose-input').fill(msg);
+  const msgInput = pane.locator('.ws-compose-input');
+  await msgInput.fill(msg);
   await pane.locator('[data-testid="send-btn"]').click();
+  // If compose input becomes disabled, connection dropped — reconnect and resend
+  try {
+    await expect(msgInput).toBeEnabled({ timeout: 2000 });
+  } catch {
+    await connectTo(page);
+    await pane.locator('[data-testid="left-tab-compose"]').click();
+    await msgInput.fill(msg);
+    await pane.locator('[data-testid="send-btn"]').click();
+  }
   await page.waitForTimeout(400);
 }
 

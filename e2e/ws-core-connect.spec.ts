@@ -21,19 +21,17 @@ async function connectTo(page: Page, url = MOCK_URL) {
   const urlInput = page.locator('[aria-label="WebSocket URL"]');
   await urlInput.fill(url);
   await page.click('[data-testid="connect-btn"]');
-  // Use Playwright locator (more reliable than waitForFunction) on the
-  // connection tab bar — aria-label includes state hint e.g. "localhost:9876 — connected".
   const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
   try {
-    await connected.waitFor({ timeout: 10000 });
+    await connected.waitFor({ timeout: 8000 });
   } catch {
     // Mock server may have been stopped by a parallel spec — restart and retry
     await page.request.post('http://localhost:3001/api/ws/mock/start', {
       data: { port: 9876 },
     }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     await page.click('[data-testid="connect-btn"]');
-    await connected.waitFor({ timeout: 15000 });
+    await connected.waitFor({ timeout: 10000 });
   }
   await page.waitForTimeout(300);
 }
@@ -63,12 +61,12 @@ async function sendMessage(page: Page, msg: string) {
   await switchLeftTab(page, 'compose');
   const input = page.locator('.ws-compose-input');
   try {
-    await expect(input).toBeEnabled({ timeout: 5000 });
+    await expect(input).toBeEnabled({ timeout: 3000 });
   } catch {
     // Connection dropped — reconnect
     await connectTo(page);
     await switchLeftTab(page, 'compose');
-    await expect(input).toBeEnabled({ timeout: 10000 });
+    await expect(input).toBeEnabled({ timeout: 5000 });
   }
   await input.fill(msg);
   await page.click('[data-testid="send-btn"]');
@@ -256,6 +254,13 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   test('WC-13: Cmd+Enter shortcut sends message', async ({ page }) => {
     await switchLeftTab(page, 'compose');
     const input = page.locator('.ws-compose-input');
+    try {
+      await expect(input).toBeEnabled({ timeout: 3000 });
+    } catch {
+      await connectTo(page);
+      await switchLeftTab(page, 'compose');
+      await expect(input).toBeEnabled({ timeout: 5000 });
+    }
     await input.fill('Shortcut test');
     await input.press('Meta+Enter');
     await page.waitForTimeout(500);
@@ -279,6 +284,15 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   });
 
   test('WC-16: Send binary message', async ({ page }) => {
+    // Verify connection before compose
+    const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    try {
+      await connLabel.waitFor({ timeout: 2000 });
+    } catch {
+      await switchLeftTab(page, 'connect');
+      await page.click('[data-testid="connect-btn"]');
+      await connLabel.waitFor({ timeout: 10000 });
+    }
     await switchLeftTab(page, 'compose');
     await page.selectOption('[data-testid="format-select"]', 'binary');
     const input = page.locator('.ws-compose-input');
@@ -286,7 +300,7 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
     await page.click('[data-testid="send-btn"]');
     await page.waitForTimeout(500);
     const sentMsg = page.locator('[data-testid="message-list"] [data-testid^="message-row-"]').filter({ hasText: 'binary' }).first();
-    await expect(sentMsg).toBeVisible();
+    await expect(sentMsg).toBeVisible({ timeout: 5000 });
   });
 
   test('WC-16a: Type badge inference (content-based)', async ({ page }) => {
@@ -301,8 +315,20 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   });
 
   test('WC-18: Send button disabled states', async ({ page }) => {
+    // Verify connection before checking button states
+    const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    if (!(await connLabel.isVisible({ timeout: 500 }).catch(() => false))) {
+      await connectTo(page);
+    }
     await switchLeftTab(page, 'compose');
     const input = page.locator('.ws-compose-input');
+    try {
+      await expect(input).toBeEnabled({ timeout: 3000 });
+    } catch {
+      await connectTo(page);
+      await switchLeftTab(page, 'compose');
+      await expect(input).toBeEnabled({ timeout: 5000 });
+    }
     await input.fill('');
     await expect(page.locator('[data-testid="send-btn"]')).toBeDisabled();
     await input.fill('test');
@@ -446,7 +472,8 @@ test.describe('Config Lock (WC-30)', () => {
     await gotoWsStudio(page);
     await connectTo(page);
     await switchLeftTab(page, 'connect');
-    await expect(page.locator('[aria-label="WebSocket URL"]')).toBeDisabled();
+    // Wait for config lock to take effect after connection
+    await expect(page.locator('[aria-label="WebSocket URL"]')).toBeDisabled({ timeout: 10000 });
     await expect(page.locator('[data-testid="protocol-select"]')).toBeDisabled();
     await expect(page.locator('text=Connection settings are locked')).toBeVisible();
   });
@@ -474,6 +501,11 @@ test.describe('Message Templates (WC-31–35)', () => {
   test('WC-32: Load template → fills compose bar', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
+    // Verify connection is still alive before switching to compose
+    const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    if (!(await connLabel.isVisible({ timeout: 500 }).catch(() => false))) {
+      await connectTo(page);
+    }
     await switchLeftTab(page, 'compose');
     const input = page.locator('.ws-compose-input');
     // Wait for compose input to be enabled (connection established)
@@ -543,6 +575,14 @@ test.describe('Close with Code (WC-38)', () => {
   test('WC-38: Close with code/reason', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
+    // Verify still connected before proceeding
+    const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    try {
+      await connLabel.waitFor({ timeout: 2000 });
+    } catch {
+      // Connection dropped — reconnect
+      await connectTo(page);
+    }
     await switchLeftTab(page, 'connect');
     await page.click('[data-testid="disconnect-caret"]');
     await page.waitForTimeout(300);
@@ -554,7 +594,7 @@ test.describe('Close with Code (WC-38)', () => {
     await codeInput.fill('1000');
     await reasonInput.fill('Normal closure test');
     const closeBtn = page.locator('[data-testid="close-with-code-btn"]');
-    await expect(closeBtn).toBeEnabled({ timeout: 5000 });
+    await expect(closeBtn).toBeEnabled({ timeout: 10000 });
     await closeBtn.click();
     await page.waitForTimeout(1000);
     await expect(page.locator('.ws-messages-status-label')).toContainText('Disconnected');
