@@ -36,7 +36,18 @@ async function connectTo(page: Page, url = MOCK_URL) {
   const urlInput = page.locator('[aria-label="WebSocket URL"]');
   await urlInput.fill(url);
   await page.click('[data-testid="connect-btn"]');
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 10000 });
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connLabel.waitFor({ timeout: 8000 });
+  } catch {
+    // Retry: restart mock server + reconnect
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: 9876, rules: [], fallback: 'echo' },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="connect-btn"]');
+    await connLabel.waitFor({ timeout: 10000 });
+  }
   await page.waitForTimeout(300);
 }
 

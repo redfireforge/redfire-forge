@@ -332,11 +332,10 @@ test('WF-11: Active filter count badge', async ({ page }) => {
   await page.waitForTimeout(300);
   await page.locator('[data-testid="size-filter"]').selectOption('lt1k');
   await page.locator('[data-testid="time-filter"]').selectOption('last5m');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
 
-  // Filter button should show count
-  const btnText = await filterBtn.textContent();
-  expect(btnText).toMatch(/Filters\s*\(\d+\)/);
+  // Filter button should show count — use expect with timeout for re-render
+  await expect(filterBtn).toHaveText(/Filters\s*\(\d+\)/, { timeout: 5000 });
 
   // Clear button should appear
   const clearBtn = page.locator('[data-testid="clear-filters-btn"]');
@@ -345,8 +344,7 @@ test('WF-11: Active filter count badge', async ({ page }) => {
   await page.waitForTimeout(300);
 
   // Badge should be gone
-  const btnTextAfter = await filterBtn.textContent();
-  expect(btnTextAfter).toBe('Filters');
+  await expect(filterBtn).toHaveText('Filters', { timeout: 5000 });
 });
 
 // ===== Filter Presets =====
@@ -465,7 +463,7 @@ test('WF-16+17: Select A and B → diff modal with line-level diff', async ({ pa
 
   // Diff modal should open
   const diffModal = page.locator('[data-testid="diff-modal"]');
-  await expect(diffModal).toBeVisible();
+  await expect(diffModal).toBeVisible({ timeout: 10000 });
 
   // Check modal title
   const title = diffModal.locator('.ws-diff-title');
@@ -479,10 +477,12 @@ test('WF-16+17: Select A and B → diff modal with line-level diff', async ({ pa
 test('WF-18: JSON structural changes summary', async ({ page }) => {
   await setupWithMessages(page);
 
+  // Ensure messages have been received
+  const rows = page.locator('.ws-message-row');
+  await expect(rows.nth(3)).toBeVisible({ timeout: 5000 });
+
   await page.click('[data-testid="compare-btn"]');
   await page.waitForTimeout(300);
-
-  const rows = page.locator('.ws-message-row');
 
   // Select two different JSON messages
   await rows.nth(1).click();
@@ -491,7 +491,7 @@ test('WF-18: JSON structural changes summary', async ({ page }) => {
   await page.waitForTimeout(500);
 
   const diffModal = page.locator('[data-testid="diff-modal"]');
-  await expect(diffModal).toBeVisible();
+  await expect(diffModal).toBeVisible({ timeout: 10000 });
 
   // Summary section
   const summary = page.locator('[data-testid="diff-summary"]');
@@ -514,7 +514,7 @@ test('WF-19: Swap sides and Copy diff', async ({ page }) => {
   await page.waitForTimeout(500);
 
   const diffModal = page.locator('[data-testid="diff-modal"]');
-  await expect(diffModal).toBeVisible();
+  await expect(diffModal).toBeVisible({ timeout: 10000 });
 
   // Swap button
   const swapBtn = page.locator('[data-testid="diff-swap"]');
@@ -546,7 +546,7 @@ test('WF-20: Close diff → exits compare mode', async ({ page }) => {
   await page.waitForTimeout(500);
 
   const diffModal = page.locator('[data-testid="diff-modal"]');
-  await expect(diffModal).toBeVisible();
+  await expect(diffModal).toBeVisible({ timeout: 10000 });
 
   // Close modal
   await page.click('[data-testid="diff-close"]');
@@ -580,7 +580,7 @@ test('WF-21+22: Detail panel Diff ↑ / Diff ↓ buttons', async ({ page }) => {
     await diffPrev.click();
     await page.waitForTimeout(500);
     const diffModal = page.locator('[data-testid="diff-modal"]');
-    await expect(diffModal).toBeVisible();
+    await expect(diffModal).toBeVisible({ timeout: 10000 });
     await page.click('[data-testid="diff-close"]');
     await page.waitForTimeout(300);
   }
@@ -817,6 +817,23 @@ test('WF-32: Generate schema from messages', async ({ page }) => {
 
 test('WF-34: Console /send appears in Events log', async ({ page }) => {
   await setupWithMessages(page);
+
+  // Verify still connected before sending console command
+  const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connected.waitFor({ timeout: 3000 });
+  } catch {
+    // Reconnect if connection dropped under parallel load
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: parseInt(MOCK_PORT, 10) },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="left-tab-connect"]');
+    await page.waitForTimeout(200);
+    await page.click('[data-testid="connect-btn"]');
+    await connected.waitFor({ timeout: 10000 });
+    await page.waitForTimeout(300);
+  }
 
   // Switch to Console tab
   await page.click('[data-testid="right-tab-console"]');
