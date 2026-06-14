@@ -4929,6 +4929,10 @@
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   border-color: var(--danger);
 }
+.wf-server-status-native {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: var(--primary);
+}
 .wf-server-status-checking {
   background: color-mix(in srgb, var(--warning) 12%, transparent);
   border-color: var(--warning);
@@ -4939,6 +4943,7 @@
 }
 .wf-server-dot-online  { background: var(--success); }
 .wf-server-dot-offline { background: var(--danger); }
+.wf-server-dot-native  { background: var(--primary); }
 .wf-server-dot-checking {
   background: var(--warning);
   animation: wf-server-pulse 1.5s ease-in-out infinite;

@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import ServerStatusIndicator from './ServerStatusIndicator';
+import * as platform from '../../../../shared/utils/platform';
 
 type FetchOutcome = 'ok' | 'bad' | 'throw';
 let fetchQueue: FetchOutcome[] = [];
@@ -121,5 +122,23 @@ describe('ServerStatusIndicator', () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
     expect(screen.getByText('✗ Server Offline')).toBeTruthy();
+  });
+
+  it('shows Native Desktop in Tauri mode when server is offline', async () => {
+    vi.spyOn(platform, 'isTauri').mockReturnValue(true);
+    fetchQueue = ['throw'];
+    render(<ServerStatusIndicator />);
+    await flush();
+    expect(screen.getByText('⚡ Native Desktop')).toBeTruthy();
+    vi.restoreAllMocks();
+  });
+
+  it('shows Server Running in Tauri mode when server is online', async () => {
+    vi.spyOn(platform, 'isTauri').mockReturnValue(true);
+    fetchQueue = ['ok'];
+    render(<ServerStatusIndicator />);
+    await flush();
+    expect(screen.getByText('✓ Server Running')).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });

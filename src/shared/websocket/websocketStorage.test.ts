@@ -253,8 +253,8 @@ describe('websocketStorage — tab state', () => {
     const result = await loadWsTabState();
     expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'connect', rightTab: 'events' });
     expect(result!.tabs[1]).toMatchObject({ mode: 'client', leftTab: 'compose', rightTab: 'events' });
-    expect(result!.tabs[2]).toMatchObject({ mode: 'saved', leftTab: 'compose', rightTab: 'events' });
-    expect(result!.tabs[3]).toMatchObject({ mode: 'mock', leftTab: 'compose', rightTab: 'events' });
+    expect(result!.tabs[2]).toMatchObject({ mode: 'saved', leftTab: 'connect', rightTab: 'events' });
+    expect(result!.tabs[3]).toMatchObject({ mode: 'mock', leftTab: 'connect', rightTab: 'events' });
   });
 
   it('preserves present-and-valid studio-layout fields', async () => {

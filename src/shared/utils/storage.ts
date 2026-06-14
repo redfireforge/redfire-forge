@@ -1,5 +1,6 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
 import { migrateScenarioKinds } from './scenarioMigration';
+import { ensureScenarioDefaults } from './wsScenarioDefaults';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 import {
@@ -465,6 +466,21 @@ export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {
 
 export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
   let fgs = await featureGroupsStorage.load();
+
+  // Normalize: ensure all test objects have required fields (auth, body, validation, headers)
+  let normalized = false;
+  for (const fg of fgs) {
+    for (const sc of fg.scenarios ?? []) {
+      for (const t of sc.tests ?? []) {
+        if (!t.auth || !t.validation || t.body == null || !t.headers) {
+          ensureScenarioDefaults(t);
+          normalized = true;
+        }
+      }
+    }
+  }
+  if (normalized) await saveFeatureGroups(fgs);
+
   // Migrate: rename legacy "dataTable" property to "dataSource" on Scenario objects
   let migrated = false;
   for (const fg of fgs) {

@@ -7,6 +7,7 @@ function makeDeps(overrides: Partial<WsConsoleCapabilitiesDeps> = {}): WsConsole
   return {
     isConnected: false,
     connectionState: 'idle',
+    transportMode: 'proxy',
     setDraft: vi.fn(),
     connect: vi.fn(),
     disconnect: vi.fn(),
@@ -63,6 +64,20 @@ describe('buildWsConsoleCapabilities', () => {
     caps.send?.('hello');
     expect(deps.sendPing).toHaveBeenCalledTimes(1);
     expect(deps.send).toHaveBeenCalledWith('hello');
+  });
+
+  it('omits ping in direct transport mode (raw browser WebSocket has no ping)', () => {
+    const deps = makeDeps({ transportMode: 'direct' });
+    const caps = buildWsConsoleCapabilities(deps);
+    expect(caps.ping).toBeUndefined();
+    expect(deps.sendPing).not.toHaveBeenCalled();
+  });
+
+  it.each(['proxy', 'native'] as const)('exposes ping in %s transport mode', (transportMode) => {
+    const deps = makeDeps({ transportMode });
+    const caps = buildWsConsoleCapabilities(deps);
+    caps.ping?.();
+    expect(deps.sendPing).toHaveBeenCalledTimes(1);
   });
 
   it('sendTemplate resolves a template case-insensitively and sends it', () => {

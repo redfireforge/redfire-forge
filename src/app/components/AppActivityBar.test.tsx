@@ -74,8 +74,21 @@ describe('AppActivityBar', () => {
 
   it('renders all five domain labels plus settings', () => {
     renderBar('requests');
-    for (const label of ['API', 'Workflow', 'Harness', 'Gallery', 'Protocols', 'Settings']) {
+    for (const label of ['API', 'Workflow', 'Harness', 'Gallery', 'Protocols', 'Settings', 'Demo Hub']) {
       expect(screen.getByText(label)).toBeTruthy();
     }
+  });
+
+  it('marks the Demo Hub domain active and does not re-route when already in it', () => {
+    const { setActiveTab } = renderBar('demo-hub');
+    expect(screen.getByTitle('Demo Hub').className).toContain('active');
+    fireEvent.click(screen.getByTitle('Demo Hub'));
+    expect(setActiveTab).not.toHaveBeenCalled();
+  });
+
+  it('routes to demo-hub when clicking Demo Hub from another domain', () => {
+    const { setActiveTab } = renderBar('requests');
+    fireEvent.click(screen.getByTitle('Demo Hub'));
+    expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
   });
 });

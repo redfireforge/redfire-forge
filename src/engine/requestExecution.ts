@@ -31,7 +31,7 @@ export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: str
     responseBody: '',
     timestamp: Date.now(),
     passed: false,
-    validationMode: scenario.validation.mode,
+    validationMode: scenario.validation?.mode ?? 'none',
     failureDetails: [{ path: '(error)', expected: 'success', actual: msg }],
     errorMessage: msg,
     responseHeaders: {},
@@ -74,7 +74,7 @@ export function prepareScenario(scenario: Scenario): PreparedScenario {
   const { body, contentType } = serializeWithContentType(scenario);
   const baseHeaders = buildHeaders(scenario, undefined, contentType);
   const resolvedUrl = buildUrl(scenario);
-  const needsOAuth = scenario.auth.type === 'oauth2';
+  const needsOAuth = scenario.auth?.type === 'oauth2';
   const prep: PreparedScenario = { body, contentType, baseHeaders, resolvedUrl, needsOAuth };
   _prepCache.set(cacheKey, prep);
   return prep;
@@ -111,9 +111,9 @@ async function executeRequest(
       responseHeaders = result.headers;
       const isHttpError = httpStatus >= 400 || httpStatus === 0;
       const needsParse = isHttpError
-        || scenario.validation.mode !== 'none'
-        || (scenario.validation.assertions?.length ?? 0) > 0
-        || (scenario.validation.expectedFields?.length ?? 0) > 0;
+        || (scenario.validation?.mode ?? 'none') !== 'none'
+        || (scenario.validation?.assertions?.length ?? 0) > 0
+        || (scenario.validation?.expectedFields?.length ?? 0) > 0;
       if (needsParse && responseBody) {
         responseObj = parseJsonOrRaw(responseBody);
       } else {
@@ -141,10 +141,11 @@ async function executeRequest(
     }
   }
 
-  const assertions = scenario.validation.assertions ?? [];
+  const validation = scenario.validation ?? { mode: 'none' as const };
+  const assertions = validation.assertions ?? [];
   const vr = buildValidationResult({
     httpStatus, responseTimeMs, responseHeaders, responseBody, responseObj,
-    errorMessage, validation: scenario.validation, assertions,
+    errorMessage, validation, assertions,
   });
 
   return {
@@ -161,7 +162,7 @@ async function executeRequest(
     responseHeaders,
     timestamp: Date.now(),
     passed: vr.passed,
-    validationMode: scenario.validation.mode,
+    validationMode: scenario.validation?.mode ?? 'none',
     failureDetails: vr.failureDetails,
     errorMessage: vr.errorMessage,
     timing,

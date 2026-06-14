@@ -41,6 +41,25 @@ export function createDefaultWsReceiveAction(): WsReceiveActionConfig {
   };
 }
 
+// ─── Scenario normalization ────────────────────────────────────────────────────
+
+/**
+ * Ensures a Scenario object has all required fields with safe defaults.
+ * Imported / manually-constructed test objects may lack `auth`, `body`, or
+ * `validation`, which would crash the rendering and execution code.
+ * Mutates in place and returns the same object for convenience.
+ */
+export function ensureScenarioDefaults(scenario: Scenario): Scenario {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const s = scenario as any;
+  if (!s.auth) s.auth = { type: 'none' };
+  if (s.body == null) s.body = '';
+  if (!s.validation) s.validation = { mode: 'none' };
+  if (!s.headers) s.headers = [];
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  return scenario;
+}
+
 // ─── Type guards ────────────────────────────────────────────────────────────────
 
 /**

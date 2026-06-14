@@ -7,6 +7,7 @@ import {
   resolveWsActionType,
   getWsActionType,
   validateWsActionConfig,
+  ensureScenarioDefaults,
 } from './wsScenarioDefaults';
 import type {
   Scenario,
@@ -412,5 +413,39 @@ describe('Scenario with WS config integration', () => {
     expect(resolveWsActionType(scenario)).toBe('http');
     expect(getWsActionType(scenario)).toBeUndefined();
     expect(validateWsActionConfig(scenario)).toEqual([]);
+  });
+});
+
+// ─── ensureScenarioDefaults ─────────────────────────────────────────────────────
+
+describe('ensureScenarioDefaults', () => {
+  it('adds missing auth, body, validation, headers to a bare WS scenario', () => {
+    const bare = { id: 'x', name: 'bare', url: 'ws://localhost', method: 'WEBSOCKET' as const } as unknown as Scenario;
+    const result = ensureScenarioDefaults(bare);
+    expect(result).toBe(bare); // mutates in place
+    expect(result.auth).toEqual({ type: 'none' });
+    expect(result.body).toBe('');
+    expect(result.validation).toEqual({ mode: 'none' });
+    expect(result.headers).toEqual([]);
+  });
+
+  it('does not overwrite existing fields', () => {
+    const scenario = makeTest('full', {
+      auth: { type: 'bearer', token: 'abc' },
+      body: '{"x":1}',
+      validation: { mode: 'full' },
+      headers: [{ key: 'X-Test', value: '1' }],
+    });
+    ensureScenarioDefaults(scenario);
+    expect(scenario.auth).toEqual({ type: 'bearer', token: 'abc' });
+    expect(scenario.body).toBe('{"x":1}');
+    expect(scenario.validation).toEqual({ mode: 'full' });
+    expect(scenario.headers).toEqual([{ key: 'X-Test', value: '1' }]);
+  });
+
+  it('handles null body specifically', () => {
+    const scenario = makeTest('nb', { body: null as unknown as string });
+    ensureScenarioDefaults(scenario);
+    expect(scenario.body).toBe('');
   });
 });

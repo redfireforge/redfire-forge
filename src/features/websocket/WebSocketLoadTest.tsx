@@ -17,10 +17,10 @@ interface WebSocketLoadTestProps {
   statsPanel?: ReactNode;
 }
 
-const PROFILES: { value: WsLoadProfile; label: string; description: string }[] = [
-  { value: 'constant', label: 'Constant', description: 'Fixed rate for a set duration' },
-  { value: 'ramp', label: 'Ramp-up', description: 'Gradually increase from start to end rate' },
-  { value: 'burst', label: 'Burst', description: 'Send N messages as fast as possible' },
+const PROFILES: { value: WsLoadProfile; label: string; icon: string; description: string }[] = [
+  { value: 'constant', label: 'Constant', icon: '⚡', description: 'Fixed rate for a set duration' },
+  { value: 'ramp', label: 'Ramp-up', icon: '📈', description: 'Gradually increase from start to end rate' },
+  { value: 'burst', label: 'Burst', icon: '💥', description: 'Send N messages as fast as possible' },
 ];
 
 const DURATION_PRESETS = [5, 10, 15, 30, 60];
@@ -145,94 +145,109 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
     <div className="ws-lt-container" data-testid="load-test-panel">
       {!isRunning && !isDone && (
         <div className="ws-lt-config" data-testid="lt-config">
-          <div className="ws-lt-section-title">Load Test Configuration</div>
+          <div className="ws-lt-section-title">
+            <span className="ws-lt-section-icon">🔬</span>
+            Load Test Configuration
+          </div>
 
           {/* Profile selector */}
-          <div className="ws-lt-field">
-            <label className="ws-lt-label">Profile</label>
-            <div className="ws-lt-profile-pills" data-testid="lt-profile-pills">
-              {PROFILES.map((p) => (
-                <button
-                  key={p.value}
-                  className={`ws-lt-profile-pill ${config.profile === p.value ? 'active' : ''}`}
-                  onClick={() => setConfig({ profile: p.value })}
-                  title={p.description}
-                  data-testid={`lt-profile-${p.value}`}
-                >
-                  {p.label}
-                </button>
-              ))}
+          <div className="ws-lt-config-card">
+            <div className="ws-lt-field">
+              <label className="ws-lt-label">Profile</label>
+              <div className="ws-lt-profile-pills" data-testid="lt-profile-pills">
+                {PROFILES.map((p) => (
+                  <button
+                    key={p.value}
+                    className={`ws-lt-profile-pill ${config.profile === p.value ? 'active' : ''}`}
+                    onClick={() => setConfig({ profile: p.value })}
+                    title={p.description}
+                    data-testid={`lt-profile-${p.value}`}
+                  >
+                    <span className="ws-lt-profile-icon">{p.icon}</span>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="ws-lt-profile-desc">
+                {PROFILES.find((p) => p.value === config.profile)?.description}
+              </div>
             </div>
           </div>
 
           {/* Message template */}
-          <div className="ws-lt-field">
-            <label className="ws-lt-label">
-              Message Template
-              <span className="ws-lt-hint">{'{{counter}} {{timestamp}} {{random}}'}</span>
-            </label>
-            <textarea
-              className="ws-lt-textarea"
-              value={config.messageTemplate}
-              onChange={(e) => setConfig({ messageTemplate: e.target.value })}
-              rows={3}
-              placeholder='{"type":"ping","seq":{{counter}}}'
-              data-testid="lt-message-template"
-            />
+          <div className="ws-lt-config-card">
+            <div className="ws-lt-field">
+              <label className="ws-lt-label">
+                <span className="ws-lt-label-icon">📝</span>
+                Message Template
+                <span className="ws-lt-hint">{'{{counter}} {{timestamp}} {{random}}'}</span>
+              </label>
+              <textarea
+                className="ws-lt-textarea"
+                value={config.messageTemplate}
+                onChange={(e) => setConfig({ messageTemplate: e.target.value })}
+                rows={3}
+                placeholder='{"type":"ping","seq":{{counter}}}'
+                data-testid="lt-message-template"
+              />
+            </div>
           </div>
 
           {/* Rate config */}
           {config.profile !== 'burst' && (
-            <div className="ws-lt-row">
-              <div className="ws-lt-field">
-                <label className="ws-lt-label">
-                  {config.profile === 'ramp' ? 'Start Rate (msg/s)' : 'Rate (msg/s)'}
-                </label>
-                <input
-                  className="ws-lt-input"
-                  type="number"
-                  value={config.rate}
-                  onChange={(e) => setConfig({ rate: parseInt(e.target.value, 10) || 1 })}
-                  min={1}
-                  max={1000}
-                  data-testid="lt-rate"
-                />
-              </div>
-              {config.profile === 'ramp' && (
+            <div className="ws-lt-config-card">
+              <div className="ws-lt-row">
                 <div className="ws-lt-field">
-                  <label className="ws-lt-label">End Rate (msg/s)</label>
+                  <label className="ws-lt-label">
+                    <span className="ws-lt-label-icon">⏱️</span>
+                    {config.profile === 'ramp' ? 'Start Rate (msg/s)' : 'Rate (msg/s)'}
+                  </label>
                   <input
                     className="ws-lt-input"
                     type="number"
-                    value={config.rateEnd}
-                    onChange={(e) => setConfig({ rateEnd: parseInt(e.target.value, 10) || 1 })}
+                    value={config.rate}
+                    onChange={(e) => setConfig({ rate: parseInt(e.target.value, 10) || 1 })}
                     min={1}
                     max={1000}
-                    data-testid="lt-rate-end"
+                    data-testid="lt-rate"
                   />
                 </div>
-              )}
-              <div className="ws-lt-field">
-                <label className="ws-lt-label">Duration (seconds)</label>
-                <div className="ws-lt-duration-row">
-                  {DURATION_PRESETS.map((d) => (
-                    <button
-                      key={d}
-                      className={`ws-lt-duration-btn ${config.durationSec === d ? 'active' : ''}`}
-                      onClick={() => setConfig({ durationSec: d })}
-                    >
-                      {d}s
-                    </button>
-                  ))}
-                  <input
-                    className="ws-lt-input ws-lt-input-sm"
-                    type="number"
-                    value={config.durationSec}
-                    onChange={(e) => setConfig({ durationSec: parseInt(e.target.value, 10) || 1 })}
-                    min={1}
-                    max={60}
-                    data-testid="lt-duration"
-                  />
+                {config.profile === 'ramp' && (
+                  <div className="ws-lt-field">
+                    <label className="ws-lt-label">End Rate (msg/s)</label>
+                    <input
+                      className="ws-lt-input"
+                      type="number"
+                      value={config.rateEnd}
+                      onChange={(e) => setConfig({ rateEnd: parseInt(e.target.value, 10) || 1 })}
+                      min={1}
+                      max={1000}
+                      data-testid="lt-rate-end"
+                    />
+                  </div>
+                )}
+                <div className="ws-lt-field">
+                  <label className="ws-lt-label">Duration (seconds)</label>
+                  <div className="ws-lt-duration-row">
+                    {DURATION_PRESETS.map((d) => (
+                      <button
+                        key={d}
+                        className={`ws-lt-duration-btn ${config.durationSec === d ? 'active' : ''}`}
+                        onClick={() => setConfig({ durationSec: d })}
+                      >
+                        {d}s
+                      </button>
+                    ))}
+                    <input
+                      className="ws-lt-input ws-lt-input-sm"
+                      type="number"
+                      value={config.durationSec}
+                      onChange={(e) => setConfig({ durationSec: parseInt(e.target.value, 10) || 1 })}
+                      min={1}
+                      max={60}
+                      data-testid="lt-duration"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -240,51 +255,63 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
 
           {/* Burst config */}
           {config.profile === 'burst' && (
-            <div className="ws-lt-field">
-              <label className="ws-lt-label">Total Messages</label>
-              <input
-                className="ws-lt-input"
-                type="number"
-                value={config.burstCount}
-                onChange={(e) => setConfig({ burstCount: parseInt(e.target.value, 10) || 1 })}
-                min={1}
+            <div className="ws-lt-config-card">
+              <div className="ws-lt-field">
+                <label className="ws-lt-label">
+                  <span className="ws-lt-label-icon">💥</span>
+                  Total Messages
+                </label>
+                <input
+                  className="ws-lt-input"
+                  type="number"
+                  value={config.burstCount}
+                  onChange={(e) => setConfig({ burstCount: parseInt(e.target.value, 10) || 1 })}
+                  min={1}
                 max={60000}
                 data-testid="lt-burst-count"
               />
+              </div>
             </div>
           )}
 
           {/* Summary */}
-          <div className="ws-lt-summary" data-testid="lt-summary">
-            Expected: ~{expectedTotal.toLocaleString()} messages
-            {config.profile !== 'burst' && ` over ${config.durationSec}s`}
+          <div className="ws-lt-summary-card" data-testid="lt-summary">
+            <span className="ws-lt-summary-icon">📊</span>
+            <span className="ws-lt-summary-text">
+              Expected: ~{expectedTotal.toLocaleString()} messages
+              {config.profile !== 'burst' && ` over ${config.durationSec}s`}
+            </span>
             {(config.rate > 100 || (config.profile === 'ramp' && (config.rateEnd ?? 0) > 100)) && config.profile !== 'burst' && (
-              <span className="ws-lt-warning"> (high rate — may impact UI responsiveness)</span>
+              <span className="ws-lt-warning"> ⚠ high rate — may impact UI responsiveness</span>
             )}
           </div>
 
           {/* Actions */}
           <div className="ws-lt-actions">
             {confirmStart ? (
-              <div className="ws-lt-confirm" data-testid="lt-confirm">
-                <span>{config.profile === 'ramp'
+              <div className="ws-lt-confirm-card" data-testid="lt-confirm">
+                <span className="ws-lt-confirm-icon">⚠️</span>
+                <span className="ws-lt-confirm-text">{config.profile === 'ramp'
                   ? `Ramp from ${config.rate} to ${config.rateEnd} msg/s over ${config.durationSec}s?`
                   : `Send at ${config.rate} msg/s for ${config.durationSec}s?`}</span>
-                <button className="ws-lt-btn ws-lt-btn-primary" onClick={handleConfirm} data-testid="lt-confirm-yes">
-                  Confirm
-                </button>
-                <button className="ws-lt-btn" onClick={handleCancelConfirm} data-testid="lt-confirm-no">
-                  Cancel
-                </button>
+                <div className="ws-lt-confirm-actions">
+                  <button className="ws-lt-btn ws-lt-btn-primary" onClick={handleConfirm} data-testid="lt-confirm-yes">
+                    Confirm
+                  </button>
+                  <button className="ws-lt-btn" onClick={handleCancelConfirm} data-testid="lt-confirm-no">
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : (
               <>
                 <button
-                  className="ws-lt-btn ws-lt-btn-primary"
+                  className="ws-lt-btn ws-lt-btn-primary ws-lt-btn-start"
                   onClick={handleStart}
                   disabled={!isConnected || !config.messageTemplate.trim()}
                   data-testid="lt-start-btn"
                 >
+                  <span className="ws-lt-btn-icon">▶</span>
                   Start Load Test
                 </button>
                 <button className="ws-lt-btn" onClick={handleReset} data-testid="lt-reset-btn">
@@ -300,11 +327,13 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
       {isRunning && (
         <div className="ws-lt-running" data-testid="lt-running">
           <div className="ws-lt-section-title">
+            <span className="ws-lt-section-icon">{state === 'stopping' ? '⏸' : '🔄'}</span>
             {state === 'stopping' ? 'Stopping\u2026' : 'Load Test Running'}
           </div>
           <div className="ws-lt-progress-bar-container">
-            <div className="ws-lt-progress-bar" style={{ width: `${progressPct}%` }} />
+            <div className={`ws-lt-progress-bar ${state === 'stopping' ? '' : 'ws-lt-progress-animated'}`} style={{ width: `${progressPct}%` }} />
           </div>
+          <div className="ws-lt-pct-label">{Math.round(progressPct)}%</div>
           <div className="ws-lt-live-metrics">
             <div className="ws-lt-metric">
               <span className="ws-lt-metric-value">{progress.totalSent.toLocaleString()}</span>
@@ -356,7 +385,10 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
       {isDone && result && (
         <div className="ws-lt-results" data-testid="lt-results">
           <div className="ws-lt-section-header">
-            <span className="ws-lt-section-title">Load Test Results</span>
+            <span className="ws-lt-section-title">
+              <span className="ws-lt-section-icon">📊</span>
+              Load Test Results
+            </span>
             <div className="ws-lt-result-actions">
               <button
                 className="ws-lt-btn ws-lt-btn-primary"
@@ -383,19 +415,19 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
 
           {/* Summary cards */}
           <div className="ws-lt-result-cards" data-testid="lt-result-cards">
-            <div className="ws-lt-card">
+            <div className="ws-lt-card ws-lt-card-sent">
               <span className="ws-lt-card-value">{result.totalSent.toLocaleString()}</span>
               <span className="ws-lt-card-label">Messages Sent</span>
             </div>
-            <div className="ws-lt-card">
+            <div className="ws-lt-card ws-lt-card-received">
               <span className="ws-lt-card-value">{result.totalReceived.toLocaleString()}</span>
               <span className="ws-lt-card-label">Received</span>
             </div>
-            <div className="ws-lt-card">
+            <div className="ws-lt-card ws-lt-card-duration">
               <span className="ws-lt-card-value">{formatDuration(result.durationMs)}</span>
               <span className="ws-lt-card-label">Duration</span>
             </div>
-            <div className="ws-lt-card">
+            <div className="ws-lt-card ws-lt-card-rate">
               <span className="ws-lt-card-value">{formatRate(result.avgSendRate)}</span>
               <span className="ws-lt-card-label">Avg Send Rate</span>
             </div>
@@ -411,6 +443,7 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
           {result.latency.samples > 0 && (
             <div className="ws-lt-latency-section">
               <div className="ws-lt-subsection-title">
+                <span className="ws-lt-label-icon">⏱️</span>
                 Round-Trip Latency ({result.latency.samples.toLocaleString()} samples)
               </div>
               <div className="ws-lt-latency-cards">
@@ -464,8 +497,10 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
 
       {/* Not connected warning */}
       {!isConnected && !isRunning && !isDone && (
-        <div className="ws-lt-warning-banner" data-testid="lt-not-connected">
-          Connect to a WebSocket endpoint first to run a load test.
+        <div className="ws-lt-not-connected-card" data-testid="lt-not-connected">
+          <span className="ws-lt-not-connected-icon">🔌</span>
+          <span className="ws-lt-not-connected-title">Not Connected</span>
+          <span className="ws-lt-not-connected-text">Connect to a WebSocket endpoint first to run a load test.</span>
         </div>
       )}
     </div>
