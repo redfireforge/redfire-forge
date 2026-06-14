@@ -23,7 +23,18 @@ async function connectTo(page: Page, url = MOCK_URL) {
   await page.click('[data-testid="connect-btn"]');
   // Use Playwright locator (more reliable than waitForFunction) on the
   // connection tab bar — aria-label includes state hint e.g. "localhost:9876 — connected".
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 15000 });
+  const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  try {
+    await connected.waitFor({ timeout: 10000 });
+  } catch {
+    // Mock server may have been stopped by a parallel spec — restart and retry
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: 9876 },
+    }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await page.click('[data-testid="connect-btn"]');
+    await connected.waitFor({ timeout: 15000 });
+  }
   await page.waitForTimeout(300);
 }
 
