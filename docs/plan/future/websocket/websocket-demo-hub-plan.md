@@ -1183,7 +1183,7 @@ EXPORT_BTN, CLEAR_BTN, STATUS_BAR
 
 ---
 
-### Lesson 19: Secure WebSocket — wss:// & TLS (P7 — Phase 2)
+### Lesson 19: Secure WebSocket — wss:// & TLS (P7 — Phase 2) ✅ Shipped
 
 **Why:** Real-world WebSocket APIs use `wss://`. Showing the TLS panel, the `rejectUnauthorized` toggle, and a live public echo over `wss://` demonstrates that RedfireForge works in secure production contexts.
 
@@ -1191,41 +1191,68 @@ EXPORT_BTN, CLEAR_BTN, STATUS_BAR
 **Export:** `wsTlsLesson` | **initialTab:** `websocket-studio`
 **Source:** WP-16–18, WP-30
 
-**Proposed steps (~7):**
+#### Design notes
 
-| # | Step ID | Title | Highlights |
-|---|---|---|---|
-| 1 | `tls-intro` | `wss://` vs `ws://` | URL scheme difference; TLS in the browser |
-| 2 | `tls-echo` | Connect to a Public wss:// Echo | `wss://echo.websocket.org` — live TLS |
-| 3 | `tls-send` | Send & Receive Over TLS | Confirm encrypted round-trip works |
-| 4 | `tls-panel` | TLS Panel in Auth Tab | Cert fields, `rejectUnauthorized` toggle |
-| 5 | `tls-reject-unauth` | `rejectUnauthorized: false` | Self-signed cert use case |
-| 6 | `tls-proxy-banner` | Proxy-Only Banner | Some TLS options require proxy transport |
-| 7 | `tls-tauri-note` | Desktop vs Browser TLS | Native rustls on Tauri vs browser passthrough |
+- **TLS panel is on the Connect tab**, not the Auth tab. It only appears when the URL starts with `wss://`.
+- **No transport dropdown** — transport is chosen automatically: Direct (browser, no headers/overrides), Proxy (browser with headers or TLS overrides), or Native (Tauri always).
+- **Proxy notice banner** (`tls-proxy-notice`) is shown inside the TLS panel only when: expanded + browser + no TLS overrides yet. It disappears once skip-cert is toggled or a CA is pasted — because that forces proxy mode.
+- **Mock server only supports ws://** — lesson uses `wss://echo.websocket.org` for live demo. This is network-dependent.
+- **No Docker required** — self-signed cert demo is explain-only (toggle + describe). Docker `wss://localhost:8766` stack exists for manual testing but not in this lesson.
+- **Step order matters**: proxy banner must be shown BEFORE toggling skip-cert, since the banner disappears after.
+- Added TLS selectors to `selectors.ts` for stable automation.
+
+#### Finalized steps (7)
+
+| # | Step ID | Title | Highlights | Notes |
+|---|---|---|---|---|
+| 1 | `tls-intro` | wss:// vs ws:// | `WS.URL_INPUT` | preAction: set `wss://echo.websocket.org` to trigger TLS panel |
+| 2 | `tls-panel` | TLS Configuration Panel | `WS.TLS_TOGGLE` | action: expand TLS panel; shows proxy notice banner |
+| 3 | `tls-connect` | Connect Over TLS | `WS.CONNECT_BTN` | action: connect to public echo; verify connected |
+| 4 | `tls-send` | Send & Receive Over TLS | `WS.SEND_BTN` | action: send message, see echo response |
+| 5 | `tls-skip-cert` | Skip Certificate Validation | `WS.TLS_SKIP_CERT` | preAction: disconnect; action: toggle skip-cert checkbox |
+| 6 | `tls-certs` | CA Certificate & mTLS | `WS.TLS_BODY` | highlight PEM textareas (CA, client cert, client key) |
+| 7 | `tls-transport` | Transport Modes & Desktop TLS | `WS.STATUS_BAR` | concept step: explain Direct/Proxy/Native differences |
+
+### Selectors added to `src/shared/selectors.ts`
+
+```
+TLS_PANEL, TLS_TOGGLE, TLS_BODY, TLS_INDICATOR,
+TLS_PROXY_NOTICE, TLS_SKIP_CERT,
+TLS_CA_CERT, TLS_CLIENT_CERT, TLS_CLIENT_KEY,
+TRANSPORT_BADGE
+```
 
 ---
 
-### Lesson 20: Workflow Test Harness & Runner (P8 — Phase 2)
+### Lesson 20: Test Harness Tour (P8 — Phase 2) ✅ Shipped
 
-**Why:** Lesson 9 (Workflow Builder) demos the designer and Quick Test. This lesson shows how to run WS tests inside the full Harness — feature groups, assertions, Test Runner results page, and export.
+**Why:** Lesson 9 (Workflow Builder) demos the designer and Quick Test. This lesson gives users a guided tour of the full Test Harness — its 5 sub-tabs (Feature Groups, Test Runner, Parameterized Runner, Workflow Runner, Results), how WS tests fit in, and export capabilities.
 
 **File:** `src/features/demo-player/lessons/protocols/ws-test-runner.ts`
-**Export:** `wsTestRunnerLesson` | **initialTab:** `workflow`
+**Export:** `wsTestRunnerLesson` | **initialTab:** `scenarios`
 **Source:** WR-14–28
 
-**Proposed steps (~9):**
+#### Design notes
 
-| # | Step ID | Title | Highlights |
-|---|---|---|---|
-| 1 | `tr-harness-intro` | Run in Harness | Harness tab in Workflow runner |
-| 2 | `tr-transport` | Transport Selector | Browser / Proxy / Tauri dropdown |
-| 3 | `tr-feature-group` | Feature Group with WS Tests | Create feature group; see WS category |
-| 4 | `tr-add-ws-test` | Add a WS Test Scenario | + Add → WebSocket category |
-| 5 | `tr-configure` | Configure WS Connect + Send + Receive | Connect URL, send payload, receive timeout |
-| 6 | `tr-assertion` | Add an Assertion — `wsField` | Assert payload field equals expected value |
-| 7 | `tr-run` | Run in Test Runner | Test Runner executes WS scenario |
-| 8 | `tr-results` | Results Page — Transport Row | Transport-aware result row; run type tabs |
-| 9 | `tr-export` | Export / Import WS Test Run | Export JSON → share with team |
+- **Harness is its own domain** in the activity bar (click `button[title="Harness"]`), NOT a tab within the Workflow page.
+- **No Browser/Proxy/Tauri dropdown in Harness** — the transport selector in Test Editor is the action type (HTTP / WS Connect / WS Send / WS Receive / Kafka).
+- **Guided tour approach**: Instead of creating FGs/tests from scratch (too many modals and fragile), the lesson navigates through all 5 Harness sub-tabs, highlighting key UI at each stop.
+- **No mock server needed** — the lesson doesn't execute tests, it shows the UI structure.
+- **No data dependency** — lesson works regardless of whether the user has existing data.
+- Uses `ctx.navigateToTab` for reliable tab navigation.
+- Almost no `data-testid` on Harness elements — uses CSS classes and text selectors.
+
+#### Finalized steps (7)
+
+| # | Step ID | Title | Highlights | Notes |
+|---|---|---|---|---|
+| 1 | `tr-harness-intro` | The Test Harness | `button[title="Harness"]` | action: click Harness in activity bar, land on Feature Groups |
+| 2 | `tr-feature-groups` | Feature Groups | `.page-header` | highlight the Feature Groups page structure |
+| 3 | `tr-test-runner` | Test Runner | `.sub-nav-tab` (Test Runner) | action: click Test Runner sub-tab |
+| 4 | `tr-param-runner` | Parameterized Runner | `.sub-nav-tab` (Param Runner) | action: click Parameterized Runner sub-tab |
+| 5 | `tr-workflow-runner` | Workflow Runner | `.sub-nav-tab` (Workflow Runner) | action: click Workflow Runner sub-tab |
+| 6 | `tr-results` | Results Dashboard | `.sub-nav-tab` (Results) | action: click Results sub-tab |
+| 7 | `tr-export` | Export & Reporting | `.page-header` | highlight export/report buttons in Results |
 
 ---
 

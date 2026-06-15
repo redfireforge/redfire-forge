@@ -12,30 +12,11 @@
  * Requires: docker/websocket/socketio/docker-compose.yml
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
+import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 // ── Selectors (Socket.IO specific) ────────────────────────────
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
-
-// ── Helpers ────────────────────────────────────────────────────
-
-/** Disconnect if currently connected. */
-async function disconnectIfNeeded(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-  if (btn && !btn.disabled) {
-    btn.click();
-    await ctx.delay(400);
-  }
-}
-
-/** Clear the event log. */
-async function clearLog(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.CLEAR_BTN) as HTMLButtonElement | null;
-  if (btn) {
-    btn.click();
-    await ctx.delay(200);
-  }
-}
 
 /** Reset protocol selection back to 'raw'. */
 async function resetProtocol(ctx: DemoActionContext) {
@@ -49,9 +30,9 @@ async function resetProtocol(ctx: DemoActionContext) {
 
 async function sioSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
-  await disconnectIfNeeded(ctx);
+  await disconnectWebSocket(ctx);
   await ctx.delay(200);
-  await clearLog(ctx);
+  await clearEvents(ctx);
   await ctx.delay(200);
   // Ensure we are in client mode
   await ctx.click(WS.MODE_CLIENT);
@@ -70,8 +51,8 @@ async function sioSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function sioCleanup(ctx: DemoActionContext): Promise<void> {
-  await disconnectIfNeeded(ctx);
-  await clearLog(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
   await resetProtocol(ctx);
   await ctx.click(WS.MODE_CLIENT);
 }

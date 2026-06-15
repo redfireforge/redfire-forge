@@ -1,41 +1,14 @@
 /** Lesson 4: Tabs & Multi-Connection — tab bar, independent connections, rename, history */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup } from '../setup-helpers';
+import { wsSetup, closeExtraConnectionTabs, disconnectWebSocket, clearEvents, stopMockServer, switchToClientMode, fillControlledInput } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-/** Close extra tabs until only 1 remains. */
-async function closeExtraTabs(ctx: DemoActionContext): Promise<void> {
-  for (let i = 0; i < 7; i++) {
-    const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
-    if (tabs.length <= 1) break;
-    const lastTab = tabs[tabs.length - 1] as HTMLElement;
-    const tabId = lastTab.getAttribute('data-testid')?.replace('conn-tab-', '') ?? '';
-    const closeBtn = document.querySelector(`[data-testid="conn-tab-close-${tabId}"]`) as HTMLElement | null;
-    if (closeBtn) {
-      closeBtn.click();
-      await ctx.delay(300);
-    } else {
-      break;
-    }
-  }
-}
 
 /** Setup: clean leftover tabs, disconnect, reset tab label, then start mock + switch to client. */
 async function tabsSetup(ctx: DemoActionContext): Promise<void> {
-  // Wait for tab bar to fully render
   await ctx.delay(500);
-  // Disconnect any active connection first
-  const dcBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-  if (dcBtn && !dcBtn.disabled) {
-    dcBtn.click();
-    await ctx.delay(300);
-  }
-  // Close extra tabs so we start with exactly 1
-  await closeExtraTabs(ctx);
+  await disconnectWebSocket(ctx);
+  await closeExtraConnectionTabs(ctx);
   await ctx.delay(200);
-  // Reset tab label to "New Connection" so step 6 rename is visible on replay
   const tab = document.querySelector(WS.CONN_TAB_FIRST) as HTMLElement | null;
   if (tab) {
     const label = tab.querySelector('.ws-conn-tab-label');
@@ -44,46 +17,23 @@ async function tabsSetup(ctx: DemoActionContext): Promise<void> {
       await ctx.delay(300);
       const renameInput = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
       if (renameInput) {
-        const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-        nativeSet?.call(renameInput, 'New Connection');
-        renameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        renameInput.dispatchEvent(new Event('change', { bubbles: true }));
+        fillControlledInput(renameInput, 'New Connection');
         await ctx.delay(200);
         renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         await ctx.delay(200);
       }
     }
   }
-  // Standard setup: start mock + switch to client
   await wsSetup(ctx);
 }
 
 /** Cleanup: close extra tabs, disconnect, clear, stop mock, switch to client. */
 async function tabsCleanup(ctx: DemoActionContext): Promise<void> {
-  // Close extra tabs
-  await closeExtraTabs(ctx);
-  // Disconnect if connected
-  const dcBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-  if (dcBtn && !dcBtn.disabled) {
-    dcBtn.click();
-    await ctx.delay(300);
-  }
-  // Clear events
-  const clearBtn = document.querySelector(WS.CLEAR_BTN) as HTMLButtonElement | null;
-  if (clearBtn && !clearBtn.disabled) {
-    clearBtn.click();
-    await ctx.delay(200);
-  }
-  // Stop mock server
-  await ctx.click(WS.MODE_MOCK);
-  await ctx.delay(300);
-  const stopBtn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
-  if (stopBtn && !stopBtn.disabled) {
-    stopBtn.click();
-    await ctx.delay(500);
-  }
-  await ctx.click(WS.MODE_CLIENT);
-  await ctx.delay(200);
+  await closeExtraConnectionTabs(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
+  await stopMockServer(ctx);
+  await switchToClientMode(ctx);
 }
 
 export const wsTabsLesson: DemoLesson = {

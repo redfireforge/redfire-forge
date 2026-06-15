@@ -20,6 +20,8 @@ import { wsReliabilityLesson } from './ws-reliability';
 import { wsSessionRecordingLesson } from './ws-session-recording';
 import { wsPowerUserLesson } from './ws-power-user';
 import { sseStudioAdvancedLesson } from './sse-studio-advanced';
+import { wsTlsLesson } from './ws-tls';
+import { wsTestRunnerLesson } from './ws-test-runner';
 import type { DemoActionContext } from '../../types';
 
 function makeCtx(): DemoActionContext {
@@ -416,6 +418,26 @@ describe('ws-auth-transport lesson', () => {
   it('step auth-compose-send highlights compose tab', () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     expect(step.highlight).toContain('compose');
+  });
+
+  it('setup disconnects, clears events, resets auth, and starts mock server', async () => {
+    const ctx = makeCtx();
+    await wsAuthTransportLesson.setup!(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+  });
+
+  it('step auth-bearer sets token value on first auth input', async () => {
+    const container = document.createElement('div');
+    container.className = 'ws-auth-pane';
+    const input = document.createElement('input');
+    container.appendChild(input);
+    document.body.appendChild(container);
+
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
+    await step.action!(makeCtx());
+    expect(input.value).toContain('demo-token');
   });
 });
 
@@ -1174,6 +1196,64 @@ describe('ws-tabs lesson', () => {
     await wsTabsLesson.cleanup!(ctx);
     expect(ctx.click).toHaveBeenCalled();
   });
+
+  it('setup fills rename input when tab label is not New Connection', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">
+          <span class="ws-conn-tab-label">Echo Server</span>
+        </div>
+      </div>
+      <input data-testid="conn-tab-rename-1" />`;
+
+    const tab = document.querySelector('[data-testid="conn-tab-1"]') as HTMLElement;
+    tab.addEventListener('dblclick', () => {
+      const renameInput = document.querySelector('[data-testid="conn-tab-rename-1"]') as HTMLInputElement;
+      if (renameInput) {
+        const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        nativeSet?.call(renameInput, 'New Connection');
+        renameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+
+    const renameInput = document.querySelector('[data-testid="conn-tab-rename-1"]') as HTMLInputElement;
+    const enterSpy = vi.spyOn(renameInput, 'dispatchEvent');
+
+    await wsTabsLesson.setup!(makeCtx());
+    expect(enterSpy).toHaveBeenCalled();
+  });
+
+  it('step tabs-rename fills rename input and commits with Enter', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+      </div>
+      <input data-testid="conn-tab-rename-1" />`;
+
+    const tab = document.querySelector('[data-testid="conn-tab-bar"] [role="tab"]:first-child') as HTMLElement;
+    tab.addEventListener('dblclick', () => {
+      // rename input already in DOM for this test
+    });
+
+    const renameInput = document.querySelector('[data-testid="conn-tab-rename-1"]') as HTMLInputElement;
+    const enterSpy = vi.spyOn(renameInput, 'dispatchEvent');
+
+    const step = wsTabsLesson.steps.find(s => s.id === 'tabs-rename')!;
+    await step.action!(makeCtx());
+
+    expect(renameInput.value).toBe('Echo Server');
+    const enterCalls = enterSpy.mock.calls.filter(
+      c => c[0] instanceof KeyboardEvent && (c[0] as KeyboardEvent).key === 'Enter',
+    );
+    expect(enterCalls.length).toBe(1);
+  });
+
+  it('step tabs-connect handles missing console input gracefully', async () => {
+    const step = wsTabsLesson.steps.find(s => s.id === 'tabs-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalled();
+  });
 });
 
 // ─── ws-filtering ───────────────────────────────────────────────
@@ -1447,6 +1527,38 @@ describe('ws-filtering lesson', () => {
     await wsFilteringLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalled();
   });
+
+  it('step diff-compare preAction closes filter bar when open', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'filter-bar');
+    document.body.appendChild(bar);
+
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('filter-toggle'));
+  });
+
+  it('step schema-validate preAction creates schema when card is missing', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'Greeting Schema');
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'both');
+  });
+
+  it('step schema-validate preAction skips schema creation when card exists', async () => {
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'ws-schema-card');
+    document.body.appendChild(card);
+
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
 });
 
 // ─── ws-load-testing ────────────────────────────────────────────
@@ -1699,10 +1811,149 @@ describe('ws-load-testing lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it('cleanup clicks clear button when present', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'lt-clear-btn');
+    document.body.appendChild(btn);
+    const clickSpy = vi.fn();
+    btn.addEventListener('click', clickSpy);
+
+    const ctx = makeCtx();
+    await wsLoadTestingLesson.cleanup!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
   it('setup is callable', async () => {
     const ctx = makeCtx();
     await wsLoadTestingLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step lt-results preAction runs full ensureTestResults when no results', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'lt-message-template');
+    ta.value = '{"test":true}';
+    document.body.appendChild(ta);
+    const startBtn = document.createElement('button');
+    startBtn.setAttribute('data-testid', 'lt-start-btn');
+    startBtn.disabled = true;
+    document.body.appendChild(startBtn);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step lt-results preAction navigates to LT tab when config not visible', async () => {
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('loadtest'));
+  });
+
+  it('step lt-export preAction runs ensureTestResults when no results exist', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-export')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step lt-template preAction navigates to LT tab when config not visible', async () => {
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-template')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('loadtest'));
+  });
+
+  it('step lt-profile preAction navigates to LT tab when config not visible', async () => {
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-profile')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('loadtest'));
+  });
+
+  it('ensureTestResults fills empty template before running', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'lt-message-template');
+    ta.value = '';
+    document.body.appendChild(ta);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('ping'));
+  });
+
+  it('ensureTestResults clicks enabled start button and waits', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'lt-message-template');
+    ta.value = '{"test":true}';
+    document.body.appendChild(ta);
+    const startBtn = document.createElement('button');
+    startBtn.setAttribute('data-testid', 'lt-start-btn');
+    document.body.appendChild(startBtn);
+    const clickSpy = vi.spyOn(startBtn, 'click');
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-results')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalled();
+  });
+
+  it('step lt-settings preAction skips navigation when LT config is already visible', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-settings')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const loadtestNav = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: [string]) => c[0].includes('loadtest'));
+    expect(loadtestNav.length).toBe(0);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('constant'));
+  });
+
+  it('step lt-run preAction skips navigation when LT config is already visible', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'lt-message-template');
+    ta.value = '{"filled":true}';
+    document.body.appendChild(ta);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const loadtestNav = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: [string]) => c[0].includes('loadtest'));
+    expect(loadtestNav.length).toBe(0);
+  });
+
+  it('step lt-template preAction skips navigation when LT config is visible', async () => {
+    const config = document.createElement('div');
+    config.setAttribute('data-testid', 'lt-config');
+    document.body.appendChild(config);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-template')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 });
 
@@ -1843,6 +2094,63 @@ describe('sse-studio lesson', () => {
     const ctx = makeCtx();
     await sseStudioLesson.setup!(ctx);
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('setup clears events when clear button is enabled', async () => {
+    const clearBtn = document.createElement('button');
+    clearBtn.setAttribute('data-testid', 'sse-clear-btn');
+    document.body.appendChild(clearBtn);
+    const clickSpy = vi.spyOn(clearBtn, 'click');
+
+    await sseStudioLesson.setup!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('setup switches to events and connect tabs', async () => {
+    const eventsTab = document.createElement('button');
+    eventsTab.setAttribute('data-testid', 'sse-right-tab-events');
+    const connectTab = document.createElement('button');
+    connectTab.setAttribute('data-testid', 'sse-left-tab-connect');
+    document.body.append(eventsTab, connectTab);
+    const eventsSpy = vi.spyOn(eventsTab, 'click');
+    const connectSpy = vi.spyOn(connectTab, 'click');
+
+    await sseStudioLesson.setup!(makeCtx());
+    expect(eventsSpy).toHaveBeenCalled();
+    expect(connectSpy).toHaveBeenCalled();
+  });
+
+  it('cleanup clears events when clear button is enabled', async () => {
+    const clearBtn = document.createElement('button');
+    clearBtn.setAttribute('data-testid', 'sse-clear-btn');
+    document.body.appendChild(clearBtn);
+    const clickSpy = vi.spyOn(clearBtn, 'click');
+
+    await sseStudioLesson.cleanup!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step sse-events preAction waits for more events', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-events')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
+  });
+
+  it('step sse-console preAction clears search input', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-console')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('sse-search'), '');
+  });
+
+  it('step sse-disconnect switches to events tab before disconnecting', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-disconnect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map((c: [string]) => c[0]);
+    expect(calls[0]).toContain('sse-right-tab-events');
+    expect(calls[1]).toContain('sse-connect-btn');
   });
 });
 
@@ -2010,6 +2318,145 @@ describe('ws-workflow-builder lesson', () => {
     expect(addConnectStep.verify).toBeTruthy();
     const quickTestStep = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-quick-test')!;
     expect(quickTestStep.verify).toBeTruthy();
+  });
+
+  it('setup deletes existing demo workflow when __wfDeleteByName is available', async () => {
+    const wfDelete = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = wfDelete;
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    await wsWorkflowBuilderLesson.setup!(makeCtx());
+    expect(wfDelete).toHaveBeenCalledWith('WS Echo Demo');
+    delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+    vi.restoreAllMocks();
+  });
+
+  it('cleanup clicks cfg close and deletes demo workflow', async () => {
+    const saveFooter = document.createElement('div');
+    saveFooter.className = 'wf-config-modal-footer-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-primary';
+    saveFooter.appendChild(saveBtn);
+    document.body.appendChild(saveFooter);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'cfg-close');
+    document.body.appendChild(closeBtn);
+    const closeSpy = vi.spyOn(closeBtn, 'click');
+
+    const wfDelete = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = wfDelete;
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    await wsWorkflowBuilderLesson.cleanup!(makeCtx());
+    expect(closeSpy).toHaveBeenCalled();
+    expect(wfDelete).toHaveBeenCalledWith('WS Echo Demo');
+    delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+    vi.restoreAllMocks();
+  });
+
+  it('wf-palette preAction dismisses onboarding tooltip when present', async () => {
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'onboarding-tooltip-skip';
+    document.body.appendChild(skipBtn);
+    const clickSpy = vi.spyOn(skipBtn, 'click');
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-palette')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('wf-add-connect preAction scrolls palette item into view', async () => {
+    const el = document.createElement('div');
+    el.className = 'wf-palette-block-wsConnect';
+    el.scrollIntoView = vi.fn();
+    document.body.appendChild(el);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-connect')!;
+    await step.preAction!(makeCtx());
+    expect(el.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('wf-add-connect action connects nodes via __wfConnect and clicks fit view', async () => {
+    document.body.innerHTML = `
+      <div class="react-flow__node-start" data-id="start-1"></div>
+      <div class="react-flow__node-wsConnect" data-id="connect-1"></div>
+      <button title="Fit view">Fit</button>`;
+    const wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = wfConnect;
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-connect')!;
+    await step.action!(makeCtx());
+    expect(wfConnect).toHaveBeenCalledWith('start-1', 'connect-1', 'out', null);
+    delete (window as unknown as Record<string, unknown>).__wfConnect;
+  });
+
+  it('wf-add-send action connects WS Connect to WS Send', async () => {
+    document.body.innerHTML = `
+      <div class="react-flow__node-wsConnect" data-id="connect-1"></div>
+      <div class="react-flow__node-wsSend" data-id="send-1"></div>
+      <button title="Fit view">Fit</button>`;
+    const wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = wfConnect;
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-send')!;
+    await step.action!(makeCtx());
+    expect(wfConnect).toHaveBeenCalledWith('connect-1', 'send-1', null, null);
+    delete (window as unknown as Record<string, unknown>).__wfConnect;
+  });
+
+  it('wf-add-receive action connects WS Send to WS Receive', async () => {
+    document.body.innerHTML = `
+      <div class="react-flow__node-wsSend" data-id="send-1"></div>
+      <div class="react-flow__node-wsReceive" data-id="recv-1"></div>
+      <button title="Fit view">Fit</button>`;
+    const wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = wfConnect;
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-receive')!;
+    await step.action!(makeCtx());
+    expect(wfConnect).toHaveBeenCalledWith('send-1', 'recv-1', null, null);
+    delete (window as unknown as Record<string, unknown>).__wfConnect;
+  });
+
+  it('wf-config-receive fills timeout and saves', async () => {
+    document.body.innerHTML = '<div class="react-flow__node-wsReceive"></div>';
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-receive')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('ws-receive-config'), '5000');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+  });
+
+  it('wf-config-connect dispatches dblclick on node', async () => {
+    const node = document.createElement('div');
+    node.className = 'react-flow__node-wsConnect';
+    const dblSpy = vi.fn();
+    node.addEventListener('dblclick', dblSpy);
+    document.body.appendChild(node);
+
+    await wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!.action!(makeCtx());
+    expect(dblSpy).toHaveBeenCalled();
+  });
+
+  it('quick-test saves workflow when save button exists', async () => {
+    document.body.innerHTML = `
+      <div class="wf-toolbar-save-wrap"><button>Save</button></div>
+      <button title="Fit view">Fit</button>`;
+    const saveBtn = document.querySelector('.wf-toolbar-save-wrap button') as HTMLElement;
+    const saveSpy = vi.spyOn(saveBtn, 'click');
+
+    await wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-quick-test')!.action!(makeCtx());
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it('connectNodes returns false when __wfConnect is missing', async () => {
+    document.body.innerHTML = `
+      <div class="react-flow__node-wsConnect" data-id="connect-1"></div>
+      <div class="react-flow__node-wsSend" data-id="send-1"></div>
+      <button title="Fit view">Fit</button>`;
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-send')!;
+    await step.action!(makeCtx());
+    // Should not throw when __wfConnect is undefined
   });
 });
 
@@ -3305,6 +3752,72 @@ describe('ws-workspace lesson', () => {
   it('cleanup switches to client mode', async () => {
     const ctx = makeCtx();
     await wsWorkspaceLesson.cleanup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+  });
+
+  it('setup deletes existing profile cards via clearSavedProfiles', async () => {
+    document.body.innerHTML = `
+      <div data-testid="profile-card-abc">Profile</div>
+      <button data-testid="delete-btn-abc">Delete</button>
+      <button data-testid="confirm-delete-abc">Confirm</button>`;
+    const card = document.querySelector('[data-testid="profile-card-abc"]')!;
+    const confirm = document.querySelector('[data-testid="confirm-delete-abc"]')!;
+    confirm.addEventListener('click', () => card.remove());
+
+    const ctx = makeCtx();
+    await wsWorkspaceLesson.setup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-saved'));
+    expect(document.querySelector('[data-testid="profile-card-abc"]')).toBeNull();
+  });
+
+  it('setup clears templates when trigger and delete buttons exist', async () => {
+    document.body.innerHTML = `
+      <button data-testid="template-trigger">Templates</button>
+      <button data-testid="template-delete-1">Del</button>`;
+    const delBtn = document.querySelector('[data-testid="template-delete-1"]')!;
+    delBtn.addEventListener('click', () => delBtn.remove());
+
+    const ctx = makeCtx();
+    await wsWorkspaceLesson.setup!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
+    expect(document.querySelector('[data-testid="template-delete-1"]')).toBeNull();
+  });
+
+  it('setup closes template dropdown when still open after deletes', async () => {
+    document.body.innerHTML = `
+      <button data-testid="template-trigger">Templates</button>
+      <div data-testid="template-dropdown"></div>`;
+    const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    const clickSpy = vi.spyOn(trigger, 'click');
+
+    await wsWorkspaceLesson.setup!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step ws-profile-intro action delays for observation', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(400);
+  });
+
+  it('step ws-profile-load action selects card and clicks load button', async () => {
+    document.body.innerHTML = `
+      <div data-testid="profile-card-abc">Profile</div>
+      <button data-testid="load-btn-abc">Load</button>`;
+
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-load')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="profile-card-abc"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="load-btn-abc"]');
+  });
+
+  it('cleanup clears profiles and templates before wsCleanup', async () => {
+    document.body.innerHTML = `<button data-testid="template-trigger">T</button>`;
+    const ctx = makeCtx();
+    await wsWorkspaceLesson.cleanup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-saved'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
 });
@@ -4793,5 +5306,490 @@ describe('sse-studio-advanced lesson', () => {
 
     expect(connectBtn.onclick).toHaveBeenCalled();
     expect(clearBtn.onclick).toHaveBeenCalled();
+  });
+});
+
+// ─── ws-tls ──────────────────────────────────────────────────────
+
+describe('ws-tls lesson', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('has valid lesson structure', () => {
+    expect(wsTlsLesson.id).toBe('ws-tls');
+    expect(wsTlsLesson.domainId).toBe('protocols');
+    expect(wsTlsLesson.name).toBe('Secure WebSocket — wss:// & TLS');
+    expect(wsTlsLesson.steps.length).toBe(7);
+    expect(wsTlsLesson.concept.title).toBeTruthy();
+    expect(wsTlsLesson.concept.body).toBeTruthy();
+    expect(wsTlsLesson.initialTab).toBe('websocket-studio');
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof wsTlsLesson.setup).toBe('function');
+    expect(typeof wsTlsLesson.cleanup).toBe('function');
+  });
+
+  it('all steps have required fields', () => {
+    for (const step of wsTlsLesson.steps) {
+      expect(step.id).toBeTruthy();
+      expect(step.title).toBeTruthy();
+      expect(step.description).toBeTruthy();
+    }
+  });
+
+  it('all steps have pauseAfter: true', () => {
+    for (const step of wsTlsLesson.steps) {
+      expect(step.pauseAfter).toBe(true);
+    }
+  });
+
+  it('has key terms defined', () => {
+    const terms = wsTlsLesson.concept.keyTerms;
+    expect(terms).toBeDefined();
+    expect(terms!.length).toBe(4);
+    const termNames = terms!.map(t => t.term);
+    expect(termNames).toContain('wss://');
+    expect(termNames).toContain('TLS');
+    expect(termNames).toContain('mTLS');
+    expect(termNames).toContain('rejectUnauthorized');
+  });
+
+  it('has a diagram', () => {
+    expect(wsTlsLesson.concept.diagram).toBeTruthy();
+  });
+
+  it('has category set to websocket', () => {
+    expect(wsTlsLesson.category).toBe('websocket');
+  });
+
+  it('has correct step IDs in order', () => {
+    const ids = wsTlsLesson.steps.map(s => s.id);
+    expect(ids).toEqual([
+      'tls-intro', 'tls-panel', 'tls-connect', 'tls-send',
+      'tls-skip-cert', 'tls-certs', 'tls-transport',
+    ]);
+  });
+
+  it('estimated time is 3 minutes', () => {
+    expect(wsTlsLesson.estimatedMinutes).toBe(3);
+  });
+
+  // ─── Step: tls-intro ──────────────────────────────────────
+
+  it('step tls-intro highlights URL input', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
+    expect(step.highlight).toContain('WebSocket URL');
+  });
+
+  it('step tls-intro action fills wss:// URL', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+  });
+
+  // ─── Step: tls-panel ──────────────────────────────────────
+
+  it('step tls-panel highlights TLS toggle', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
+    expect(step.highlight).toContain('tls-toggle');
+  });
+
+  it('step tls-panel action expands TLS panel', async () => {
+    const toggle = document.createElement('button');
+    toggle.setAttribute('data-testid', 'tls-toggle');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.onclick = vi.fn();
+    document.body.appendChild(toggle);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(toggle.onclick).toHaveBeenCalled();
+  });
+
+  it('step tls-panel does not click toggle if already expanded', async () => {
+    const toggle = document.createElement('button');
+    toggle.setAttribute('data-testid', 'tls-toggle');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.onclick = vi.fn();
+    document.body.appendChild(toggle);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(toggle.onclick).not.toHaveBeenCalled();
+  });
+
+  // ─── Step: tls-connect ────────────────────────────────────
+
+  it('step tls-connect highlights connect button', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    expect(step.highlight).toContain('connect-btn');
+  });
+
+  it('step tls-connect action clicks connect', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step tls-connect has verify for connected status', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    expect(step.verify).toContain('connected');
+  });
+
+  // ─── Step: tls-send ───────────────────────────────────────
+
+  it('step tls-send highlights send button', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
+    expect(step.highlight).toContain('send-btn');
+  });
+
+  it('step tls-send preAction switches to compose tab', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
+  it('step tls-send action fills message and sends', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Message input'),
+      expect.stringContaining('TLS'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+  });
+
+  // ─── Step: tls-skip-cert ──────────────────────────────────
+
+  it('step tls-skip-cert highlights skip-cert checkbox', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
+    expect(step.highlight).toContain('tls-reject-unauthorized');
+  });
+
+  it('step tls-skip-cert preAction disconnects and switches to connect tab', async () => {
+    const discBtn = document.createElement('button');
+    discBtn.setAttribute('data-testid', 'disconnect-btn');
+    discBtn.onclick = vi.fn();
+    document.body.appendChild(discBtn);
+
+    const tlsToggle = document.createElement('button');
+    tlsToggle.setAttribute('data-testid', 'tls-toggle');
+    tlsToggle.setAttribute('aria-expanded', 'false');
+    tlsToggle.onclick = vi.fn();
+    document.body.appendChild(tlsToggle);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(discBtn.onclick).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(tlsToggle.onclick).toHaveBeenCalled();
+  });
+
+  it('step tls-skip-cert action dispatches click on checkbox', async () => {
+    const label = document.createElement('label');
+    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = false;
+    const spy = vi.fn();
+    checkbox.addEventListener('click', spy);
+    label.appendChild(checkbox);
+    document.body.appendChild(label);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(spy).toHaveBeenCalled();
+  });
+
+  // ─── Step: tls-certs ──────────────────────────────────────
+
+  it('step tls-certs highlights TLS body', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
+    expect(step.highlight).toContain('tls-body');
+  });
+
+  it('step tls-certs action focuses CA cert textarea', async () => {
+    const caCert = document.createElement('textarea');
+    caCert.setAttribute('data-testid', 'tls-ca-cert');
+    caCert.focus = vi.fn();
+    document.body.appendChild(caCert);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(caCert.focus).toHaveBeenCalled();
+  });
+
+  // ─── Step: tls-transport ──────────────────────────────────
+
+  it('step tls-transport highlights status bar', () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    expect(step.highlight).toContain('status-bar');
+  });
+
+  it('step tls-transport preAction dispatches click to reset skip-cert', async () => {
+    const label = document.createElement('label');
+    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    const spy = vi.fn();
+    checkbox.addEventListener('click', spy);
+    label.appendChild(checkbox);
+    document.body.appendChild(label);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(spy).toHaveBeenCalled();
+  });
+
+  // ─── Setup / Cleanup ─────────────────────────────────────
+
+  it('setup disconnects, clears events, and switches to connect tab', async () => {
+    const ctx = makeCtx();
+    await wsTlsLesson.setup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
+  });
+
+  it('cleanup disconnects and clears URL', async () => {
+    const ctx = makeCtx();
+    await wsTlsLesson.cleanup!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
+  });
+});
+
+// ─── ws-test-runner (Lesson 20) ──────────────────────────────────
+
+describe('ws-test-runner lesson', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // ── Metadata ──
+
+  it('has correct id and domainId', () => {
+    expect(wsTestRunnerLesson.id).toBe('ws-test-runner');
+    expect(wsTestRunnerLesson.domainId).toBe('protocols');
+  });
+
+  it('has correct category', () => {
+    expect(wsTestRunnerLesson.category).toBe('websocket');
+  });
+
+  it('has name and description', () => {
+    expect(wsTestRunnerLesson.name).toBe('Test Harness Tour');
+    expect(wsTestRunnerLesson.description.length).toBeGreaterThan(10);
+  });
+
+  it('sets estimated minutes', () => {
+    expect(wsTestRunnerLesson.estimatedMinutes).toBe(3);
+  });
+
+  it('initialTab is not set (avoids auto-exit on tab switch)', () => {
+    expect(wsTestRunnerLesson.initialTab).toBeUndefined();
+  });
+
+  // ── Concept ──
+
+  it('concept title mentions Test Harness', () => {
+    expect(wsTestRunnerLesson.concept.title).toContain('Test Harness');
+  });
+
+  it('concept body mentions all five sub-tabs', () => {
+    const body = wsTestRunnerLesson.concept.body;
+    expect(body).toContain('Feature Groups');
+    expect(body).toContain('Test Runner');
+    expect(body).toContain('Parameterized Runner');
+    expect(body).toContain('Workflow Runner');
+    expect(body).toContain('Results');
+  });
+
+  it('concept body mentions WS transports', () => {
+    const body = wsTestRunnerLesson.concept.body;
+    expect(body).toContain('WS Connect');
+    expect(body).toContain('WS Send');
+    expect(body).toContain('WS Receive');
+  });
+
+  it('concept body mentions Connection ID chaining', () => {
+    expect(wsTestRunnerLesson.concept.body).toContain('Connection ID');
+  });
+
+  it('has key terms', () => {
+    expect(wsTestRunnerLesson.concept.keyTerms).toBeDefined();
+    expect(wsTestRunnerLesson.concept.keyTerms!.length).toBe(4);
+  });
+
+  it('keyTerms cover Feature Group, Test Runner, Workflow Runner, Transport', () => {
+    const terms = wsTestRunnerLesson.concept.keyTerms!.map(k => k.term);
+    expect(terms).toContain('Feature Group');
+    expect(terms).toContain('Test Runner');
+    expect(terms).toContain('Workflow Runner');
+    expect(terms).toContain('Transport');
+  });
+
+  it('has SVG diagram', () => {
+    expect(wsTestRunnerLesson.concept.diagram).toBeDefined();
+    expect(wsTestRunnerLesson.concept.diagram).toContain('<svg');
+    expect(wsTestRunnerLesson.concept.diagram).toContain('</svg>');
+  });
+
+  it('diagram shows flow from Feature Groups through Runner to Results', () => {
+    const d = wsTestRunnerLesson.concept.diagram!;
+    expect(d).toContain('Feature Groups');
+    expect(d).toContain('Test Runner');
+    expect(d).toContain('Results');
+  });
+
+  it('diagram shows WS transport chain', () => {
+    const d = wsTestRunnerLesson.concept.diagram!;
+    expect(d).toContain('Connect');
+    expect(d).toContain('Send');
+    expect(d).toContain('Receive');
+  });
+
+  // ── Steps ──
+
+  it('has 7 steps', () => {
+    expect(wsTestRunnerLesson.steps).toHaveLength(7);
+  });
+
+  it('all steps have unique IDs', () => {
+    const ids = wsTestRunnerLesson.steps.map(s => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('all steps have title and description', () => {
+    for (const s of wsTestRunnerLesson.steps) {
+      expect(s.title.length).toBeGreaterThan(0);
+      expect(s.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all steps have highlight', () => {
+    for (const s of wsTestRunnerLesson.steps) {
+      expect(s.highlight).toBeDefined();
+    }
+  });
+
+  it('all steps have pauseAfter', () => {
+    for (const s of wsTestRunnerLesson.steps) {
+      expect(s.pauseAfter).toBe(true);
+    }
+  });
+
+  it('step 1 (harness-intro) highlights sub-nav-tabs', () => {
+    const s = wsTestRunnerLesson.steps[0];
+    expect(s.id).toBe('tr-harness-intro');
+    expect(s.highlight).toContain('sub-nav');
+  });
+
+  it('step 2 (feature-groups) highlights .page', () => {
+    const s = wsTestRunnerLesson.steps[1];
+    expect(s.id).toBe('tr-feature-groups');
+    expect(s.highlight).toBe('.page');
+    expect(s.description).toContain('Feature Group');
+    expect(s.description).toContain('Connection ID');
+  });
+
+  it('step 3 (test-runner) navigates to runner tab', async () => {
+    const s = wsTestRunnerLesson.steps[2];
+    expect(s.id).toBe('tr-test-runner');
+    const ctx = makeCtx();
+    await s.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('runner');
+  });
+
+  it('step 4 (param-runner) navigates to param-runner tab', async () => {
+    const s = wsTestRunnerLesson.steps[3];
+    expect(s.id).toBe('tr-param-runner');
+    const ctx = makeCtx();
+    await s.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('param-runner');
+  });
+
+  it('step 5 (workflow-runner) navigates to workflow-runner tab', async () => {
+    const s = wsTestRunnerLesson.steps[4];
+    expect(s.id).toBe('tr-workflow-runner');
+    const ctx = makeCtx();
+    await s.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+  });
+
+  it('step 5 description references Lesson 9', () => {
+    const s = wsTestRunnerLesson.steps[4];
+    expect(s.description).toContain('Lesson 9');
+  });
+
+  it('step 6 (results) navigates to results tab', async () => {
+    const s = wsTestRunnerLesson.steps[5];
+    expect(s.id).toBe('tr-results');
+    const ctx = makeCtx();
+    await s.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
+  });
+
+  it('step 7 (export) highlights page-header on results page', () => {
+    const s = wsTestRunnerLesson.steps[6];
+    expect(s.id).toBe('tr-export');
+    expect(s.highlight).toBe('.page-header');
+    expect(s.description).toContain('JSON');
+    expect(s.description).toContain('CSV');
+  });
+
+  // ── Setup / Cleanup ──
+
+  it('setup navigates to scenarios', async () => {
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.setup!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('scenarios');
+  });
+
+  it('cleanup navigates back to scenarios', async () => {
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.cleanup!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('scenarios');
+  });
+
+  // ── Step descriptions cover WS-specific content ──
+
+  it('test-runner step mentions WS transport status', () => {
+    const s = wsTestRunnerLesson.steps[2];
+    expect(s.description).toContain('CONNECT');
+    expect(s.description).toContain('SEND');
+    expect(s.description).toContain('RECEIVE');
+  });
+
+  it('param-runner step mentions parameterization for WS', () => {
+    const s = wsTestRunnerLesson.steps[3];
+    expect(s.description).toContain('message payload');
+  });
+
+  it('results step mentions WS-specific details', () => {
+    const s = wsTestRunnerLesson.steps[5];
+    expect(s.description).toContain('Connection ID');
+    expect(s.description).toContain('frame type');
   });
 });

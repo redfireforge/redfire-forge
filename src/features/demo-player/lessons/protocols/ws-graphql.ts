@@ -12,39 +12,20 @@
  * Requires: docker/websocket/graphql/docker-compose.yml
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
+import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 // ── Constants ──────────────────────────────────────────────────
 const GQL_URL = 'ws://localhost:4100/graphql';
 const GQL_SUBPROTOCOL = 'graphql-transport-ws';
 
-// ── Helpers ─────────────────────────────────────────────────────
-
-/** Disconnect if currently connected. */
-async function disconnectIfNeeded(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-  if (btn && !btn.disabled) {
-    btn.click();
-    await ctx.delay(400);
-  }
-}
-
-/** Clear the event log. */
-async function clearLog(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.CLEAR_BTN) as HTMLButtonElement | null;
-  if (btn) {
-    btn.click();
-    await ctx.delay(200);
-  }
-}
-
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function gqlSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
-  await disconnectIfNeeded(ctx);
+  await disconnectWebSocket(ctx);
   await ctx.delay(200);
-  await clearLog(ctx);
+  await clearEvents(ctx);
   await ctx.delay(200);
   // Ensure client mode
   await ctx.click(WS.MODE_CLIENT);
@@ -62,8 +43,8 @@ async function gqlSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function gqlCleanup(ctx: DemoActionContext): Promise<void> {
-  await disconnectIfNeeded(ctx);
-  await clearLog(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
   // Navigate to Connect tab to reset the protocol + subprotocol
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);

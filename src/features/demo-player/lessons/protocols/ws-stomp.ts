@@ -11,30 +11,11 @@
  * Requires: docker/websocket/stomp/docker-compose.yml
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
+import { disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 // ── Constants ──────────────────────────────────────────────────
 const STOMP_URL = 'ws://localhost:15674/ws';
-
-// ── Helpers ─────────────────────────────────────────────────────
-
-/** Disconnect if currently connected. */
-async function disconnectIfNeeded(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-  if (btn && !btn.disabled) {
-    btn.click();
-    await ctx.delay(400);
-  }
-}
-
-/** Clear the event log. */
-async function clearLog(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.CLEAR_BTN) as HTMLButtonElement | null;
-  if (btn) {
-    btn.click();
-    await ctx.delay(200);
-  }
-}
 
 /** Reset STOMP command select back to SEND. */
 async function resetStompCommand(ctx: DemoActionContext) {
@@ -50,9 +31,9 @@ async function resetStompCommand(ctx: DemoActionContext) {
 
 async function stompSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
-  await disconnectIfNeeded(ctx);
+  await disconnectWebSocket(ctx);
   await ctx.delay(200);
-  await clearLog(ctx);
+  await clearEvents(ctx);
   await ctx.delay(200);
   // Ensure client mode
   await ctx.click(WS.MODE_CLIENT);
@@ -72,8 +53,8 @@ async function stompSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function stompCleanup(ctx: DemoActionContext): Promise<void> {
-  await disconnectIfNeeded(ctx);
-  await clearLog(ctx);
+  await disconnectWebSocket(ctx);
+  await clearEvents(ctx);
   // Reset STOMP command to SEND before resetting protocol to raw
   // (resetStompCommand needs protocol still set to stomp so compose fields are rendered)
   await ctx.click(WS.LEFT_TAB_COMPOSE);

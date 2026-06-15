@@ -343,7 +343,9 @@ describe('useWebSocketLoadTest', () => {
     act(() => { result.current.start(); });
     expect(result.current.state).toBe('running');
 
-    act(() => { vi.advanceTimersByTime(1500); });
+    // Duration (1s) + drain window (500ms) + buffer for scheduling
+    act(() => { vi.advanceTimersByTime(1200); });
+    act(() => { vi.advanceTimersByTime(1000); });
 
     expect(result.current.state).toBe('done');
     expect(result.current.result).not.toBeNull();

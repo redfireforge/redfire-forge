@@ -1,6 +1,6 @@
 /** Lesson 6: Filtering, Diff & Schema — search modes, compare, and JSON schema validation */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -13,16 +13,6 @@ async function sendMessage(ctx: DemoActionContext, message: string): Promise<voi
   await ctx.delay(100);
   await ctx.click(WS.SEND_BTN);
   await ctx.delay(800);
-}
-
-/** Connect to mock server via Connect panel. */
-async function connectToMock(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
-  await ctx.delay(200);
-  await ctx.click(WS.CONNECT_BTN);
-  await ctx.delay(1500);
 }
 
 /**
@@ -42,7 +32,7 @@ async function filteringSetup(ctx: DemoActionContext): Promise<void> {
   await wsSetup(ctx);
   await ctx.delay(300);
   // Connect
-  await connectToMock(ctx);
+  await connectToMockServer(ctx);
   // Send 4 varied messages for filtering/diff demos
   await sendMessage(ctx, '{"type": "greeting", "message": "Hello WebSocket!"}');
   await sendMessage(ctx, '{"type": "status", "code": 200, "online": true}');

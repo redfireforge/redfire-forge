@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import ConceptSlide from './ConceptSlide';
+import ConceptSlide, { renderMarkdown } from './ConceptSlide';
 import DomainSelector from './DomainSelector';
 import DemoSpotlight from './DemoSpotlight';
 import DemoHubHeader from './DemoHubHeader';
@@ -11,6 +11,10 @@ import LessonPlayer from './LessonPlayer';
 import LessonList from './LessonList';
 import LiveDemo from './LiveDemo';
 import type { ConceptContent, DemoDomain, DemoLesson, DemoProgress, SpeedMultiplier } from './types';
+
+vi.mock('./utils/checkEndpoint', () => ({
+  checkEndpoint: vi.fn().mockResolvedValue(false),
+}));
 
 const baseProgress: DemoProgress = {
   completedLessons: [],
@@ -118,6 +122,108 @@ describe('ConceptSlide', () => {
     const { container } = render(<ConceptSlide concept={concept} />);
     const code = container.querySelector('code');
     expect(code?.textContent).toBe('ws://localhost');
+  });
+});
+
+// ── renderMarkdown ──────────────────────────────────────────────
+
+describe('renderMarkdown', () => {
+  it('wraps plain text in <p>', () => {
+    expect(renderMarkdown('Hello')).toBe('<p>Hello</p>');
+  });
+
+  it('renders bold text', () => {
+    expect(renderMarkdown('**bold**')).toContain('<strong>bold</strong>');
+  });
+
+  it('renders inline code', () => {
+    expect(renderMarkdown('Use `foo` here')).toContain('<code>foo</code>');
+  });
+
+  it('renders bullet lists', () => {
+    const html = renderMarkdown('- One\n- Two');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>One</li>');
+    expect(html).toContain('<li>Two</li>');
+  });
+
+  it('renders numbered lists', () => {
+    const html = renderMarkdown('1. First\n2. Second');
+    expect(html).toContain('<ol>');
+    expect(html).toContain('<li>First</li>');
+  });
+
+  it('renders markdown tables', () => {
+    const md = '| Name | Value |\n| --- | --- |\n| Foo | 1 |\n| Bar | 2 |';
+    const html = renderMarkdown(md);
+    expect(html).toContain('<table');
+    expect(html).toContain('<th>Name</th>');
+    expect(html).toContain('<td>Foo</td>');
+    expect(html).toContain('<td>2</td>');
+  });
+
+  it('renders fenced code blocks', () => {
+    const md = '```\nconst x = 1;\n```';
+    const html = renderMarkdown(md);
+    expect(html).toContain('<pre class="demo-concept-code">');
+    expect(html).toContain('const x = 1;');
+  });
+
+  it('escapes HTML in fenced code blocks', () => {
+    const md = '```\n<div>&test</div>\n```';
+    const html = renderMarkdown(md);
+    expect(html).toContain('&lt;div&gt;');
+    expect(html).toContain('&amp;test');
+  });
+
+  it('handles multiple paragraphs', () => {
+    const html = renderMarkdown('First para\n\nSecond para');
+    expect(html).toContain('<p>First para</p>');
+    expect(html).toContain('<p>Second para</p>');
+  });
+
+  it('converts line breaks within a paragraph to <br/>', () => {
+    const html = renderMarkdown('Line 1\nLine 2');
+    expect(html).toContain('Line 1<br/>Line 2');
+  });
+
+  it('renders table with leading text', () => {
+    const md = 'Header text\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const html = renderMarkdown(md);
+    expect(html).toContain('<p>Header text</p>');
+    expect(html).toContain('<table');
+  });
+
+  it('handles asterisk bullet lists', () => {
+    const html = renderMarkdown('* Alpha\n* Beta');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>Alpha</li>');
+  });
+
+  it('renders fenced code block with language tag', () => {
+    const md = '```typescript\nconst a = 1;\n```';
+    const html = renderMarkdown(md);
+    expect(html).toContain('<pre class="demo-concept-code">');
+    expect(html).toContain('const a = 1;');
+  });
+
+  it('preserves multiple code blocks', () => {
+    const md = '```\nblock1\n```\n\n```\nblock2\n```';
+    const html = renderMarkdown(md);
+    expect(html).toContain('block1');
+    expect(html).toContain('block2');
+  });
+
+  it('handles empty string', () => {
+    const html = renderMarkdown('');
+    expect(html).toBeTruthy();
+  });
+
+  it('handles table cells with formatting', () => {
+    const md = '| **Name** | `code` |\n| --- | --- |\n| x | y |';
+    const html = renderMarkdown(md);
+    expect(html).toContain('<strong>Name</strong>');
+    expect(html).toContain('<code>code</code>');
   });
 });
 
@@ -345,6 +451,82 @@ describe('LessonPlayer', () => {
     );
     fireEvent.click(screen.getByText('2x'));
     expect(onSetSpeed).toHaveBeenCalledWith(2);
+  });
+
+  it('disables start button when lesson has dockerEndpoint and gate not cleared', () => {
+    const onStart = vi.fn();
+    render(
+      <LessonPlayer
+        lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/socket.io/?EIO=4' })}
+        speed={1 as SpeedMultiplier}
+        onStartDemo={onStart}
+        onSetSpeed={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    const startBtn = screen.getByText(/Waiting for Docker/);
+    expect(startBtn).toBeTruthy();
+    expect((startBtn as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(startBtn);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('renders PrerequisiteGate when dockerEndpoint is set', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson({
+          dockerEndpoint: 'ws://localhost:3100/test',
+          dockerCommand: 'docker compose up test',
+        })}
+        speed={1 as SpeedMultiplier}
+        onStartDemo={vi.fn()}
+        onSetSpeed={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    const gateEl = document.querySelector('.prereq-gate');
+    expect(gateEl).toBeTruthy();
+  });
+
+  it('does not render PrerequisiteGate without dockerEndpoint', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson()}
+        speed={1 as SpeedMultiplier}
+        onStartDemo={vi.fn()}
+        onSetSpeed={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(document.querySelector('.prereq-gate')).toBeNull();
+  });
+
+  it('enables start button when docker gate becomes ready', async () => {
+    vi.useFakeTimers();
+    const { checkEndpoint } = await import('./utils/checkEndpoint');
+    (checkEndpoint as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false).mockResolvedValue(true);
+
+    const onStart = vi.fn();
+    render(
+      <LessonPlayer
+        lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/test' })}
+        speed={1 as SpeedMultiplier}
+        onStartDemo={onStart}
+        onSetSpeed={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByText(/Waiting for Docker/)).toBeTruthy();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+    const startBtn = screen.getByText('Start Demo →');
+    expect(startBtn).toBeTruthy();
+    expect((startBtn as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(startBtn);
+    expect(onStart).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
 
@@ -749,7 +931,45 @@ describe('LiveDemo', () => {
     (['0.5× speed', '1× speed', '1.5× speed', '2× speed'] as const).forEach(label => {
       expect(screen.getByRole('button', { name: label })).toBeTruthy();
     });
-    // default speed is 1× — that button should be active
     expect(screen.getByRole('button', { name: '1× speed' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('drag handle starts drag on mousedown and moves panel', () => {
+    const { container } = render(<LiveDemo {...liveProps} />);
+    const header = container.querySelector('.demo-live-panel-header--draggable') as HTMLElement;
+    expect(header).toBeTruthy();
+
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    fireEvent(window, new MouseEvent('mousemove', { clientX: 150, clientY: 120 }));
+    fireEvent(window, new MouseEvent('mouseup'));
+
+    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
+    expect(panel).toBeTruthy();
+  });
+
+  it('drag ignores mousedown on buttons inside header', () => {
+    const { container } = render(<LiveDemo {...liveProps} />);
+    const exitBtn = screen.getByText('✕');
+    fireEvent.mouseDown(exitBtn, { clientX: 100, clientY: 100 });
+    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
+    expect(panel.style.top).toBe('');
+  });
+
+  it('renders step description with markdown', () => {
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'MD Step', description: '**bold** and `code`' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+    const { container } = render(<LiveDemo {...liveProps} lesson={lesson} />);
+    expect(container.querySelector('strong')?.textContent).toBe('bold');
+    expect(container.querySelector('code')?.textContent).toBe('code');
+  });
+
+  it('renders drag handle icon', () => {
+    const { container } = render(<LiveDemo {...liveProps} />);
+    const handle = container.querySelector('.demo-live-drag-handle');
+    expect(handle?.textContent).toBe('⠿');
   });
 });

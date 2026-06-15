@@ -11,6 +11,7 @@ import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useDemoShortcuts } from './hooks/useDemoShortcuts';
+import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
@@ -128,17 +129,8 @@ export default function App() {
   const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
   const demoHub = useDemoHub({ navigateToTab });
 
-  // Demo Hub keyboard shortcuts + auto-exit
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
-
-  // Expose a helper for demo lessons to delete a workflow by name from React state
-  useEffect(() => {
-    (window as unknown as Record<string, unknown>).__wfDeleteByName = (name: string) => {
-      const wf = wfHook.workflows.find((w) => w.name === name);
-      if (wf) wfHook.remove(wf.id);
-    };
-    return () => { delete (window as unknown as Record<string, unknown>).__wfDeleteByName; };
-  }, [wfHook]);
+  useDemoWorkflowBridge(wfHook.workflows, wfHook.remove);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
