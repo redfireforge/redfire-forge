@@ -391,7 +391,7 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
     >
       <div className="ws-mock-rule-header">
         {/* Toggle (custom switch) */}
-        <label className="ws-mock-rule-toggle-switch" title={rule.enabled ? 'Enabled' : 'Disabled'}>
+        <label className="ws-mock-rule-toggle-switch" title={rule.enabled ? 'Enabled' : 'Disabled'} data-testid={`rule-toggle-label-${rule.id}`}>
           <input
             type="checkbox"
             checked={rule.enabled}

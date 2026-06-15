@@ -55,26 +55,26 @@ export const WebSocketStatsPanel = memo(function WebSocketStatsPanel({ metrics }
     <div className="ws-stats-panel" data-testid="stats-panel">
       <div className="ws-stats-cards">
         <div className="ws-stats-card" data-testid="stats-msg-rate">
-          <div className="ws-stats-card-label">Msg/s</div>
+          <div className="ws-stats-card-label"><span className="ws-stats-card-icon">⚡</span> Msg/s</div>
           <div className="ws-stats-card-value">{metrics.msgPerSec}</div>
           <div className="ws-stats-card-detail">↑ {metrics.sentPerSec} &nbsp; ↓ {metrics.receivedPerSec}</div>
           <Sparkline data={metrics.history} />
         </div>
 
         <div className="ws-stats-card" data-testid="stats-bytes-in">
-          <div className="ws-stats-card-label">Bytes In</div>
+          <div className="ws-stats-card-label"><span className="ws-stats-card-icon">📥</span> Bytes In</div>
           <div className="ws-stats-card-value">{formatBytes(metrics.totalBytesIn)}</div>
           <div className="ws-stats-card-detail">{formatBytes(metrics.bytesInPerSec)}/s</div>
         </div>
 
         <div className="ws-stats-card" data-testid="stats-bytes-out">
-          <div className="ws-stats-card-label">Bytes Out</div>
+          <div className="ws-stats-card-label"><span className="ws-stats-card-icon">📤</span> Bytes Out</div>
           <div className="ws-stats-card-value">{formatBytes(metrics.totalBytesOut)}</div>
           <div className="ws-stats-card-detail">{formatBytes(metrics.bytesOutPerSec)}/s</div>
         </div>
 
         <div className="ws-stats-card ws-stats-card-wide" data-testid="stats-frames">
-          <div className="ws-stats-card-label">Frame Types</div>
+          <div className="ws-stats-card-label"><span className="ws-stats-card-icon">📊</span> Frame Types</div>
           <FrameTypeBar text={metrics.textFrames} binary={metrics.binaryFrames} control={metrics.controlFrames} />
           <div className="ws-stats-card-legend">
             <span className="ws-stats-legend-item"><span className="ws-stats-legend-dot ws-stats-frame-text" /> Text {metrics.textFrames}</span>

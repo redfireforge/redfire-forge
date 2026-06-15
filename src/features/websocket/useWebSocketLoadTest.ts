@@ -36,6 +36,7 @@ export interface UseWebSocketLoadTestReturn {
   start: () => void;
   stop: () => void;
   clearResult: () => void;
+  loadResult: (imported: WsLoadTestResult) => void;
 }
 
 function clampConfig(config: WsLoadTestConfig): WsLoadTestConfig {
@@ -126,7 +127,7 @@ export function useWebSocketLoadTest(
   }, []);
 
   useEffect(() => {
-    if (stateRef.current !== 'running') return;
+    if (stateRef.current !== 'running' && stateRef.current !== 'stopping') return;
     const msgs = messages;
     const len = msgs.length;
     const lastId = len > 0 ? msgs[len - 1].id : null;
@@ -234,7 +235,14 @@ export function useWebSocketLoadTest(
         sendOne();
       }
       if (sentRef.current >= cfg.burstCount) {
-        finalize();
+        // Drain window: keep collecting echoes for 500ms before finalizing
+        stateRef.current = 'stopping';
+        setState('stopping');
+        if (progressTimerRef.current) {
+          clearInterval(progressTimerRef.current);
+          progressTimerRef.current = null;
+        }
+        sendLoopRef.current = setTimeout(() => finalize(), 500);
         return;
       }
       sendLoopRef.current = setTimeout(() => scheduleSendLoopRef.current(), 0);
@@ -243,7 +251,20 @@ export function useWebSocketLoadTest(
 
     const totalMs = cfg.durationSec * 1000;
     if (elapsed >= totalMs) {
-      finalize();
+      // Send any messages that should have fired at exactly totalMs
+      const finalExpected = cfg.profile === 'ramp'
+        ? Math.round(((cfg.rate + (cfg.rateEnd ?? cfg.rate)) / 2) * cfg.durationSec)
+        : cfg.rate * cfg.durationSec;
+      const remaining = Math.min(finalExpected - sentRef.current, 50);
+      for (let i = 0; i < remaining; i++) sendOne();
+      // Drain window: keep collecting echoes for 500ms before finalizing
+      stateRef.current = 'stopping';
+      setState('stopping');
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+      sendLoopRef.current = setTimeout(() => finalize(), 500);
       return;
     }
 
@@ -326,6 +347,13 @@ export function useWebSocketLoadTest(
     setProgress(EMPTY_PROGRESS);
   }, []);
 
+  const loadResult = useCallback((imported: WsLoadTestResult) => {
+    stateRef.current = 'done';
+    setState('done');
+    setResult(imported);
+    setProgress(EMPTY_PROGRESS);
+  }, []);
+
   useEffect(() => {
     if (!isConnected && stateRef.current === 'running') {
       stateRef.current = 'stopping';
@@ -341,7 +369,7 @@ export function useWebSocketLoadTest(
     };
   }, []);
 
-  return { state, config, setConfig, progress, result, start, stop, clearResult };
+  return { state, config, setConfig, progress, result, start, stop, clearResult, loadResult };
 }
 
 function computeRampExpected(

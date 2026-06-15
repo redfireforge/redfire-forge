@@ -86,7 +86,9 @@ describe('ConceptSlide', () => {
       diagram: '<svg><circle r="10"/></svg>',
     };
     const { container } = render(<ConceptSlide concept={concept} />);
-    expect(container.querySelector('.demo-concept-diagram')).toBeTruthy();
+    const wrapper = container.querySelector('.demo-concept-diagram');
+    expect(wrapper).toBeTruthy();
+    expect(wrapper?.querySelector('svg')).toBeTruthy();
   });
 
   it('renders bullet list', () => {
@@ -372,8 +374,10 @@ describe('LessonList', () => {
         onBack={vi.fn()}
       />,
     );
-    expect(screen.getByText('✅')).toBeTruthy();
+    expect(screen.getByText('✓')).toBeTruthy();
     expect(screen.getByText('Restart')).toBeTruthy();
+    // Lesson number should still be visible even when completed
+    expect(screen.getByText('1')).toBeTruthy();
   });
 
   it('shows Resume badge for in-progress lessons', () => {
@@ -558,17 +562,19 @@ describe('LiveDemo', () => {
     expect(onNext).toHaveBeenCalled();
   });
 
-  it('renders speed selector with current speed', () => {
+  it('renders speed buttons with active state on current speed', () => {
     render(<LiveDemo {...liveProps} speed={1.5 as SpeedMultiplier} />);
-    const select = screen.getByDisplayValue('1.5x');
-    expect(select).toBeTruthy();
+    const btn = screen.getByRole('button', { name: '1.5× speed' });
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+    // other speeds rendered but not active
+    expect(screen.getByRole('button', { name: '0.5× speed' }).getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('calls onSetSpeed when speed is changed', () => {
+  it('calls onSetSpeed when a speed button is clicked', () => {
     const onSetSpeed = vi.fn();
     render(<LiveDemo {...liveProps} onSetSpeed={onSetSpeed} />);
-    const select = screen.getByDisplayValue('1x');
-    fireEvent.change(select, { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: '2× speed' }));
     expect(onSetSpeed).toHaveBeenCalledWith(2);
   });
 
@@ -736,10 +742,14 @@ describe('LiveDemo', () => {
     expect(onSkipReading).not.toHaveBeenCalled();
   });
 
-  it('renders all speed options', () => {
-    const { container } = render(<LiveDemo {...liveProps} />);
-    const options = container.querySelectorAll('.demo-live-speed option');
-    expect(options.length).toBe(4);
-    expect([...options].map(o => o.textContent)).toEqual(['0.5x', '1x', '1.5x', '2x']);
+  it('renders all four speed options (0.5×, 1×, 1.5×, 2×)', () => {
+    render(<LiveDemo {...liveProps} />);
+    const group = screen.getByRole('group', { name: 'Playback speed' });
+    expect(group).toBeTruthy();
+    (['0.5× speed', '1× speed', '1.5× speed', '2× speed'] as const).forEach(label => {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    });
+    // default speed is 1× — that button should be active
+    expect(screen.getByRole('button', { name: '1× speed' }).getAttribute('aria-pressed')).toBe('true');
   });
 });

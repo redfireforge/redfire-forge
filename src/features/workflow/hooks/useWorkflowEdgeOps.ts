@@ -114,5 +114,15 @@ export function useWorkflowEdgeOps({
     }));
   }, [nodeStatuses, setEdges]);
 
+  // Expose a global helper for the demo player to create edges programmatically
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfConnect = (
+      source: string, target: string,
+      sourceHandle: string | null = null,
+      targetHandle: string | null = null,
+    ) => onConnect({ source, target, sourceHandle, targetHandle });
+    return () => { delete (window as unknown as Record<string, unknown>).__wfConnect; };
+  }, [onConnect]);
+
   return { onConnect, onReconnect } as const;
 }

@@ -125,10 +125,20 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  const demoHub = useDemoHub({ navigateToTab: (t) => setActiveTab(t as Tab) });
+  const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
+  const demoHub = useDemoHub({ navigateToTab });
 
   // Demo Hub keyboard shortcuts + auto-exit
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
+
+  // Expose a helper for demo lessons to delete a workflow by name from React state
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = (name: string) => {
+      const wf = wfHook.workflows.find((w) => w.name === name);
+      if (wf) wfHook.remove(wf.id);
+    };
+    return () => { delete (window as unknown as Record<string, unknown>).__wfDeleteByName; };
+  }, [wfHook]);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);

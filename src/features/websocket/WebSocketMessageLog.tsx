@@ -732,7 +732,15 @@ export function WebSocketMessageLog({
       >
         {displayMessages.length === 0 && (
           <div className="ws-message-empty" data-testid="empty-state">
-            {totalCount === 0 ? 'No messages yet' : 'No messages match filters'}
+            <span className="ws-message-empty-icon">{totalCount === 0 ? '💬' : '🔍'}</span>
+            <span className="ws-message-empty-title">
+              {totalCount === 0 ? 'No Messages Yet' : 'No Results'}
+            </span>
+            <span className="ws-message-empty-text">
+              {totalCount === 0
+                ? 'Connect to a WebSocket endpoint and start sending messages to see them here.'
+                : 'No messages match the current filters. Try adjusting your search or filter criteria.'}
+            </span>
           </div>
         )}
         {displayMessages.length > 0 && (

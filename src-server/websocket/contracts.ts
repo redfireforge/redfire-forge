@@ -87,6 +87,10 @@ export interface WsProxyMessagesResult {
   messages: WsProxyMessageRecord[];
   cursor: number;
   bufferSize: number;
+  /** Current connection state — lets the client detect server-side disconnects without a separate status poll. */
+  state: 'connecting' | 'connected' | 'disconnected' | 'error';
+  closeCode?: number;
+  closeReason?: string;
 }
 
 export interface WsProxyStatusResult {

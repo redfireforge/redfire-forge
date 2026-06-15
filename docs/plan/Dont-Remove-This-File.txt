@@ -65,3 +65,53 @@ please thoroughly re-evaluate Phase 6C plan and if you find any missing or issue
 Can you fix the following two issues? 
 All 40 tests pass. The act() warning is just informational (async template save)
 Any preexisting issues
+
+
+
+
+Let's do the same test cycles based on sse-studio-test-scenarios.md file. 
+With Web and tauri, you should do test. Web means normal Chrome browser. Any issue or bug you should fix them. And after fully testing them, please update this md file from new user and tester perspective. Go ahead. 
+Make sure you should always use "normla full screen Chrome broser for your testing"
+
+
+Did you fix any issue and bug and update ws-mock-server-test-scenarios.md from new user or tester perspective? 
+
+
+
+1. sse-studio-test-scenarios.md
+2. ws-filtering-diff-schema-test-scenarios.md
+3. ws-load-test-scenarios.md
+4. ws-workflow-runner-test-scenarios.md
+
+
+
+Additionally from the summary line:
+
+new-feature scenarios (Auth / Console / command line) ⚠️ (5/8) — only ws-core-connect, ws-tabs-persistence, ws-mock-server, sse-studio, ws-load-test done
+
+The 3 files still incomplete for new-feature scenario authoring are:
+ws-filtering-diff-schema — needs Console-vs-Events interplay scenarios
+ws-workflow-runner — marked "largely unaffected" but hasn't had explicit Auth/Console scenario coverage added
+
+Any bug or un-implemented or not finished one we have this time? 
+
+
+
+
+Next feature work — pick from the unimplemented phases based on user demand:
+
+Next feature work (from your list):
+
+Priority	Feature	Effort	Value
+1	Tab keyboard nav (WT-39–42)	Low	High (a11y)
+2	Saved filter presets (WF-12–14)	Medium	High (power users)
+3	Session replay (WT-28–31)	Medium	Medium (demo)
+4	Tab drag-reorder (WT-36–38)	Low	Low
+
+Demo lessons — add new ones organically as features ship, not retroactively for existing features
+
+
+
+
+
+Please thoroughly re-evaluate the Lession 6 implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider the demo speed from End User perspective, not machine. 

@@ -284,18 +284,33 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   });
 
   test('WC-16: Send binary message', async ({ page }) => {
-    // Verify connection before compose
+    // Verify connection before compose — with full stop+start if needed
     const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
     try {
       await connLabel.waitFor({ timeout: 2000 });
     } catch {
-      await switchLeftTab(page, 'connect');
-      await page.click('[data-testid="connect-btn"]');
-      await connLabel.waitFor({ timeout: 10000 });
+      await page.request.post('http://localhost:3001/api/ws/mock/stop', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(300);
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(1000);
+      await connectTo(page);
     }
     await switchLeftTab(page, 'compose');
-    await page.selectOption('[data-testid="format-select"]', 'binary');
     const input = page.locator('.ws-compose-input');
+    // Wait for compose input to be enabled (connection alive)
+    try {
+      await expect(input).toBeEnabled({ timeout: 5000 });
+    } catch {
+      // Reconnect if connection dropped between tab switch
+      await connectTo(page);
+      await switchLeftTab(page, 'compose');
+      await expect(input).toBeEnabled({ timeout: 10000 });
+    }
+    await page.selectOption('[data-testid="format-select"]', 'binary');
     await input.fill('SGVsbG8gQmluYXJ5IQ==');
     await page.click('[data-testid="send-btn"]');
     await page.waitForTimeout(500);
@@ -538,6 +553,23 @@ test.describe('Message Templates (WC-31–35)', () => {
     await connectTo(page);
     await switchLeftTab(page, 'compose');
     const input = page.locator('.ws-compose-input');
+    // Ensure compose input is enabled (connection alive)
+    try {
+      await expect(input).toBeEnabled({ timeout: 5000 });
+    } catch {
+      // Connection dropped — full reconnect
+      await page.request.post('http://localhost:3001/api/ws/mock/stop', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(300);
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(1000);
+      await connectTo(page);
+      await switchLeftTab(page, 'compose');
+      await expect(input).toBeEnabled({ timeout: 10000 });
+    }
     await input.fill('temp delete test');
     await page.click('[data-testid="template-trigger"]');
     await page.waitForTimeout(300);
@@ -575,16 +607,42 @@ test.describe('Close with Code (WC-38)', () => {
   test('WC-38: Close with code/reason', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
-    // Verify still connected before proceeding
+    // Verify still connected — if dropped, do full stop+start+reconnect
     const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
-    try {
-      await connLabel.waitFor({ timeout: 2000 });
-    } catch {
-      // Connection dropped — reconnect
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const isConnected = await connLabel.isVisible({ timeout: 1000 }).catch(() => false);
+      if (isConnected) break;
+      // Full stop+start cycle to get a fresh mock server
+      await page.request.post('http://localhost:3001/api/ws/mock/stop', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(300);
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(1000);
       await connectTo(page);
     }
     await switchLeftTab(page, 'connect');
-    await page.click('[data-testid="disconnect-caret"]');
+    // Verify disconnect-caret is enabled (connection is truly alive)
+    const caret = page.locator('[data-testid="disconnect-caret"]');
+    try {
+      await expect(caret).toBeEnabled({ timeout: 5000 });
+    } catch {
+      // Connection dropped right before click — one more reconnect
+      await page.request.post('http://localhost:3001/api/ws/mock/stop', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(300);
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(1000);
+      await connectTo(page);
+      await switchLeftTab(page, 'connect');
+      await expect(caret).toBeEnabled({ timeout: 10000 });
+    }
+    await caret.click();
     await page.waitForTimeout(300);
     const codeInput = page.locator('[data-testid="close-code-input"]');
     await expect(codeInput).toBeVisible();
