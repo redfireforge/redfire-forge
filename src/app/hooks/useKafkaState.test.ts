@@ -468,18 +468,41 @@ describe('useKafkaState', () => {
     expect(result.current.statusPollFailureStreak).toBe(1);
   });
 
-  it('testSelectedClusterConnection delegates to connectSelectedCluster', async () => {
+  it('testSelectedClusterConnection probes the broker and auto-disconnects (does not persist connection)', async () => {
+    // Status returns disconnected so the hook starts unconnected → probe path is taken
     mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
       if (op === 'status') {
-        return {
-          ok: true,
-          op: 'status',
-          data: {
-            state: 'connected',
-            clusterId: 'cluster-b',
-            connectedAt: '2026-05-30T00:00:00.000Z',
-          },
-        };
+        return { ok: true, op: 'status', data: { state: 'disconnected' } };
+      }
+      return { ok: true, op, data: {} };
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    await waitFor(() => expect(result.current.connection.state).toBe('disconnected'));
+
+    await act(async () => {
+      const ok = await result.current.testSelectedClusterConnection();
+      expect(ok).toBe(true);
+    });
+
+    // connect was called (probe)
+    expect(mocks.dispatchKafkaOperation).toHaveBeenCalledWith('connect', expect.any(Object));
+    // disconnect was called (cleanup after probe)
+    expect(mocks.dispatchKafkaOperation).toHaveBeenCalledWith('disconnect', expect.any(Object));
+    // connection is NOT left open
+    expect(result.current.connection.state).toBe('disconnected');
+    // lastTestResult reflects the outcome
+    expect(result.current.lastTestResult).toEqual({ ok: true, clusterId: expect.any(String) });
+  });
+
+  it('testSelectedClusterConnection sets lastTestResult to false on failure', async () => {
+    mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
+      if (op === 'status') {
+        return { ok: true, op: 'status', data: { state: 'disconnected' } };
+      }
+      if (op === 'connect') {
+        throw new Error('Connection refused');
       }
       return { ok: true, op, data: {} };
     });
@@ -489,11 +512,45 @@ describe('useKafkaState', () => {
 
     await act(async () => {
       const ok = await result.current.testSelectedClusterConnection();
-      expect(ok).toBe(true);
+      expect(ok).toBe(false);
     });
 
-    expect(mocks.dispatchKafkaOperation).toHaveBeenCalledWith('connect', expect.any(Object));
-    expect(result.current.connection.state).toBe('connected');
+    expect(result.current.lastTestResult).toEqual({ ok: false, clusterId: expect.any(String) });
+    // disconnect should NOT have been called (nothing to clean up)
+    expect(mocks.dispatchKafkaOperation).not.toHaveBeenCalledWith('disconnect', expect.anything());
+  });
+
+  it('testSelectedClusterConnection only refreshes status when already connected to same cluster', async () => {
+    let statusCallCount = 0;
+    mocks.dispatchKafkaOperation.mockImplementation(async (op: string) => {
+      if (op === 'status') {
+        statusCallCount++;
+        return {
+          ok: true, op: 'status',
+          data: { state: 'connected', clusterId: 'cluster-b', connectedAt: '2026-05-30T00:00:00.000Z' },
+        };
+      }
+      return { ok: true, op, data: {} };
+    });
+
+    const { result } = renderHook(() => useKafkaState());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // Manually set connection to already-connected state for the selected cluster
+    act(() => {
+      result.current.setConnectionState('connected', { clusterId: 'cluster-b' });
+    });
+
+    const statusBefore = statusCallCount;
+    await act(async () => {
+      await result.current.testSelectedClusterConnection();
+    });
+
+    // connect should NOT have been called (already connected to same cluster)
+    expect(mocks.dispatchKafkaOperation).not.toHaveBeenCalledWith('connect', expect.anything());
+    // status was refreshed
+    expect(statusCallCount).toBeGreaterThan(statusBefore);
+    expect(result.current.lastTestResult?.ok).toBe(true);
   });
 
   it('loads topics for the connected selected cluster and supports include-internal refreshes', async () => {
