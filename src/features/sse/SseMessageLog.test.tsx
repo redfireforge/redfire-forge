@@ -54,7 +54,7 @@ describe('SseMessageLog', () => {
         uptime={null}
       />,
     );
-    expect(screen.getByText('Waiting for events…')).toBeDefined();
+    expect(screen.getByText('Waiting for Events')).toBeDefined();
   });
 
   it('renders event rows', () => {
@@ -244,7 +244,7 @@ describe('SseMessageLog', () => {
     );
 
     fireEvent.change(screen.getByTestId('sse-search'), { target: { value: 'zzzzzzz' } });
-    expect(screen.getByText('No events match the current filters')).toBeDefined();
+    expect(screen.getByText('No Matching Events')).toBeDefined();
   });
 
   it('export button calls saveJsonFile', async () => {

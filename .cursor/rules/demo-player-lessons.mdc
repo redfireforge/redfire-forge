@@ -1,0 +1,187 @@
+---
+description: Rules for authoring Demo Hub lesson files (DemoLesson, DemoStep, action/preAction functions)
+alwaysApply: true
+---
+
+# Demo Player Lesson Authoring Rules
+
+These rules apply whenever creating or modifying lesson files under
+`src/features/demo-player/lessons/`.
+
+---
+
+## 1. Always Think in Human Reading Time
+
+Every visible sub-action inside a step `action()` needs a `ctx.delay()` pause sized
+to the cognitive load it creates for a human viewer watching in real time:
+
+| Event | Minimum delay |
+|---|---|
+| Tab / panel switch | `800ms` |
+| Form opens (empty) | `600ms` |
+| Filled input / select change | `400–500ms` |
+| Auto-generated content (Generate, Auto-detect) | `1500–2000ms` |
+| Save / submit — result card appears | `700ms` |
+
+A step that runs 5 visible sub-actions in under 1 second total is **too fast** for a
+human viewer. When in doubt, add more delay.
+
+---
+
+## 2. One Concept Per Step
+
+Split into separate steps when any of the following is true:
+
+- There are two conceptually distinct things to explain (e.g. "enable the toggle"
+  vs. "fill the form")
+- The action sequence takes more than ~5–6 seconds of wall time
+- The user needs to understand part A before part B makes sense
+
+Combining "enable validation + open form + fill all fields + save" into one step is
+too dense. A viewer who blinks will miss the point.
+
+---
+
+## 3. Always Demonstrate the "Power User" Feature
+
+If a panel has a **Generate**, **Auto-detect**, **Smart fill**, or **Import** button
+that does non-obvious magic, the demo **MUST** show it — even if the final result
+replaces what it produces.
+
+- Click the button with a visible ripple (use `ctx.click()`)
+- Insert a `1500–2000ms` delay immediately after so the viewer can read the output
+- Only then modify / refine the result
+
+Skipping these buttons leaves viewers unaware the feature exists.
+
+---
+
+## 4. `preAction` Guards for Every Stateful Step
+
+Any step that relies on state produced by a previous step (a card existing, a toggle
+being on, a form already filled) **MUST** have a `preAction` that recreates that
+state quietly when it is missing.
+
+This covers:
+- User clicking **Next** during the reading pause (action of the prior step never ran)
+- User restarting the lesson mid-way
+- Steps being replayed individually
+
+Use `buildQuietContext` / `ctx` without ripple in `preAction` — these operations
+should be invisible to the viewer.
+
+```typescript
+preAction: async (ctx) => {
+  if (!document.querySelector(WS.SCHEMA_CARD)) {
+    // recreate schema silently ...
+  }
+},
+```
+
+---
+
+## 5. The React Async Render Timing Rule
+
+After clicking a button that triggers a **React state change** (opening an editor
+form, expanding a panel, etc.), **never** call `ctx.fill()` or `ctx.selectOption()`
+immediately. The DOM update is async and the target element may not exist yet.
+
+**Always** insert `await ctx.waitFor(CHILD_SELECTOR)` to wait for the new DOM to
+render before interacting with it:
+
+```typescript
+// ✅ Correct
+await ctx.click(WS.SCHEMA_ADD_BTN);
+await ctx.waitFor(WS.SCHEMA_NAME_INPUT);   // wait for React to render the form
+await ctx.delay(600);                       // pause so the viewer sees the empty form
+await ctx.fill(WS.SCHEMA_NAME_INPUT, 'My Schema');
+
+// ❌ Wrong — fill() is a silent no-op if the input doesn't exist yet
+await ctx.click(WS.SCHEMA_ADD_BTN);
+await ctx.fill(WS.SCHEMA_NAME_INPUT, 'My Schema');
+```
+
+The pattern is always: **click → waitFor(child) → delay(pause) → interact**.
+
+---
+
+## 6. Descriptions Must Explain WHY, Not Just WHAT
+
+The `description` field is the narration a real human reads. It must answer:
+- Why does this feature exist?
+- What will they see on screen?
+- What should they pay attention to?
+
+```
+// ❌ Too sparse — just describes the click
+'The Schema tab lets you add a schema. Click + Add and fill it in.'
+
+// ✅ Educational — explains context, intent, and what to watch for
+'Click **+ Add** to open the schema editor. Hit **Generate** to auto-build a ' +
+'schema from your existing received messages — no JSON expertise needed. ' +
+'Then name it, set direction to **Both** (validate sent AND received), and ' +
+'replace the generated schema with a strict version...'
+```
+
+Use `**bold**` for button names and important terms. Use backticks for field names
+and JSON keys.
+
+---
+
+## 7. Keep Selectors in `src/shared/selectors.ts`
+
+All `data-testid` selector strings used in lesson actions **must** be defined as
+named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts`.
+
+- Never inline a raw `'[data-testid="..."]'` string inside a lesson file
+- Add the constant before writing the lesson step
+- Use descriptive names: `SCHEMA_GENERATE_BTN`, not `GENERATE`
+
+---
+
+## 8. Update Tests Atomically With the Lesson
+
+When restructuring steps (adding, removing, or reordering), update **all** of the
+following in the test file in the same commit:
+
+- Step count assertion (`steps.length`)
+- Step IDs array assertion
+- `estimatedMinutes` assertion
+- Tests for any new steps
+- Tests for changed step behavior (e.g. new `ctx.click` call count)
+
+Never leave stale assertions that pass only by coincidence. Each step should have at
+minimum:
+- One test for its `action()` verifying the key interaction (click / fill / select)
+- One test for its `verify` selector (if present)
+- One test for its `preAction` guard (if present), covering both the "guard triggers"
+  and "guard skips" branches
+
+---
+
+## 9. `estimatedMinutes` Must Reflect Actual Step Count
+
+Re-calculate after any restructure. Rough guide: each step contributes ~25–35 seconds
+at 1× speed (reading pause + action delays). Round up to the nearest minute.
+
+- 6 steps ≈ 3 min
+- 9 steps ≈ 4 min
+- 12 steps ≈ 5 min
+
+Update the lesson card in the domain list too — it displays `estimatedMinutes`.
+
+---
+
+## 10. Visual Validation Is Mandatory Before Marking Done
+
+After any lesson change, perform a browser run-through before closing the task:
+
+1. Open Demo Hub → navigate to the lesson → **Restart**
+2. Play through **all modified steps** in auto-play at 1× speed
+3. Confirm each step's narration is visible, each action executes with ripple, and
+   each pause gives sufficient reading time
+4. Confirm the final result (card, badge, modal, etc.) appears as described
+5. Click **Next** rapidly through the same steps to confirm `preAction` guards
+   recover gracefully
+
+Do **not** declare done until all 5 checks pass.

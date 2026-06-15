@@ -341,6 +341,9 @@ export class WebSocketProxyService {
       messages,
       cursor: handle.cursor,
       bufferSize: handle.messageBuffer.length,
+      state: handle.state as 'connecting' | 'connected' | 'disconnected' | 'error',
+      closeCode: handle.closeCode,
+      closeReason: handle.closeReason,
     });
   }
 

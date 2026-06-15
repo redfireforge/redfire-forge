@@ -202,12 +202,33 @@ export function useWebSocketStudio(
         const env = await dispatchWsOperation<{
           messages: Array<{ data: string; type: string; receivedAt: string; size: number }>;
           cursor: number;
+          state?: string;
+          closeCode?: number;
+          closeReason?: string;
         }>('messages', {
           connectionId,
           sinceCursor: proxyCursorRef.current,
         });
 
         if (!mountedRef.current) return;
+
+        // Check if the server-side connection has been closed (e.g. mock server stopped).
+        // The messages response now includes the connection state so we can detect
+        // disconnects without waiting for a poll failure.
+        if (env.data?.state && env.data.state !== 'connected') {
+          const code = env.data.closeCode ?? 1006;
+          const reason = env.data.closeReason || undefined;
+          const ackMsg = formatCloseFrame('ACK', code, reason);
+          appendMessage(createFrame('received', 'close', ackMsg));
+          failProxyConnection({
+            state: env.data.state === 'error' ? 'error' : 'disconnected',
+            closeCode: code,
+            closeReason: reason,
+            closedAt: new Date().toISOString(),
+          });
+          return;
+        }
+
         if (env.data && env.data.messages.length > 0) {
           const allFrames: WsFrame[] = [];
 
@@ -258,7 +279,7 @@ export function useWebSocketStudio(
         }
       }
     }, PROXY_POLL_INTERVAL_MS);
-  }, [stopProxyPolling, appendMessages, failProxyConnection, updateDetectedProtocol]);
+  }, [stopProxyPolling, appendMessage, appendMessages, failProxyConnection, updateDetectedProtocol]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {
     stopNativeListeners();

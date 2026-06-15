@@ -209,9 +209,15 @@ export function ConsolePanel(props: ConsolePanelProps): React.ReactElement {
       <div className="ws-console-body" ref={scrollRef}>
         {filtered.length === 0 ? (
           <div className="ws-console-empty" data-testid={`${variant}-console-empty`}>
-            {entries.length === 0
-              ? 'No console activity yet. Connect to start logging.'
-              : 'No entries match the current filters.'}
+            <span className="ws-console-empty-icon">{entries.length === 0 ? '📋' : '🔍'}</span>
+            <span className="ws-console-empty-title">
+              {entries.length === 0 ? 'No Console Activity' : 'No Matching Entries'}
+            </span>
+            <span className="ws-console-empty-text">
+              {entries.length === 0
+                ? 'Connect to start logging lifecycle events, protocol frames, and system messages.'
+                : 'No entries match the current filters. Try adjusting severity, category, or search text.'}
+            </span>
           </div>
         ) : isRaw ? (
           <RawView entries={filtered} />
