@@ -1966,6 +1966,40 @@ label.kafka-editor-checkbox {
   align-items: center;
   justify-content: space-between;
 }
+.kafka-ms-field-label-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Compact inline serde selector (String / JSON / Base64 / Hex) */
+.kafka-ms-serde-select {
+  padding: 1px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted, #7a8ea8);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.kafka-ms-serde-select:hover,
+.kafka-ms-serde-select:focus {
+  border-color: rgba(99,179,237,0.4);
+  color: var(--accent, #63b3ed);
+}
+/* Decode preview result line shown below the textarea */
+.kafka-ms-decode-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted, #7a8ea8);
+  font-family: monospace;
+}
+.kafka-ms-decode-preview--error {
+  color: var(--color-danger, #ef4444);
+}
 .kafka-ms-pretty-badge {
   display: inline-flex;
   align-items: center;

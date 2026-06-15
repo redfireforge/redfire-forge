@@ -73,11 +73,13 @@ export function useKafkaMessageStudio(
   const [publishDraftState, setPublishDraftState] = useState<KafkaPublishDraft>({
     topic: '',
     key: '',
+    keyFormat: 'string',
     partition: '',
     acks: -1,
     timeoutMs: '',
     headers: [],
     body: '',
+    bodyFormat: 'json',
   });
 
   const [publishLoading, setPublishLoading] = useState(false);
@@ -143,8 +145,8 @@ export function useKafkaMessageStudio(
     setPublishResult(null);
     setPublishError(null);
 
-    // Validate JSON body before sending — reject invalid JSON early
-    if (publishDraftState.body.trim()) {
+    // Validate JSON body before sending — only applies when bodyFormat is 'json'
+    if (publishDraftState.bodyFormat === 'json' && publishDraftState.body.trim()) {
       const jsonResult = validateAndFormatJson(publishDraftState.body);
       if (!jsonResult.ok) {
         setPublishError({
