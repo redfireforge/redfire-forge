@@ -3,6 +3,8 @@ import { useListCrud } from '../../shared/hooks/useListCrud';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { KafkaPublishTemplate } from '../../shared/kafka/kafkaStorage';
+import type { KafkaSerdeFormat } from './types';
+import { validateBase64, validateHex } from './kafkaMessageStudioUtils';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
 
 interface KafkaPublishStudioProps {
@@ -47,6 +49,7 @@ export function KafkaPublishStudio({
   }, [publishDraft.headers, setPublishDraft]);
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [decodePreview, setDecodePreview] = useState<{ text: string; ok: boolean } | null>(null);
   const topicEmpty = publishDraft.topic.trim() === '';
   const bodyEmpty = publishDraft.body.trim() === '';
   const canSend = !topicEmpty && !publishLoading && connected;
@@ -58,6 +61,17 @@ export function KafkaPublishStudio({
   const handleFormatJson = useCallback(() => {
     studio.validateJsonBody();
   }, [studio]);
+
+  const handleDecodePreview = useCallback(() => {
+    const fmt = publishDraft.bodyFormat ?? 'json';
+    const result = fmt === 'base64' ? validateBase64(publishDraft.body) : validateHex(publishDraft.body);
+    if (result.ok && result.byteCount !== undefined) {
+      const preview = result.utf8Preview ? ` — “${result.utf8Preview}${result.byteCount > 60 ? '…' : ''}”` : '';
+      setDecodePreview({ text: `${result.byteCount} bytes${preview}`, ok: true });
+    } else {
+      setDecodePreview({ text: result.error ?? 'Invalid encoding', ok: false });
+    }
+  }, [publishDraft.body, publishDraft.bodyFormat]);
 
   // ── Workflow variable dropdown (Phase 3D) ──────────────────────────────
   const [wfDropdownOpen, setWfDropdownOpen] = useState(false);
@@ -146,7 +160,20 @@ export function KafkaPublishStudio({
         {/* Key + Partition */}
         <div className="kafka-ms-field-grid">
           <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-key">Key</label>
+            <div className="kafka-ms-field-label-row">
+              <label htmlFor="kms-pub-key">Key</label>
+              <select
+                aria-label="Key format"
+                className="kafka-ms-serde-select"
+                value={publishDraft.keyFormat ?? 'string'}
+                onChange={(e) => setPublishDraft({ keyFormat: e.target.value as KafkaSerdeFormat })}
+                data-testid="pub-key-format"
+              >
+                <option value="string">String</option>
+                <option value="base64">Base64</option>
+                <option value="hex">Hex</option>
+              </select>
+            </div>
             <input
               id="kms-pub-key"
               type="text"
@@ -242,25 +269,68 @@ export function KafkaPublishStudio({
         {/* Body */}
         <div className="kafka-ms-field full">
           <div className="kafka-ms-field-label-row">
-            <label htmlFor="kms-pub-body">Message Body (JSON)</label>
-            <button
-              type="button"
-              className="kafka-ms-pretty-badge"
-              onClick={handleFormatJson}
-              title="Pretty Format JSON"
-              data-testid="pub-pretty-format-badge"
-            >
-              {'{ }'} Pretty Format
-            </button>
+            <label htmlFor="kms-pub-body">Message Body</label>
+            <div className="kafka-ms-field-label-actions">
+              <select
+                aria-label="Body format"
+                className="kafka-ms-serde-select"
+                value={publishDraft.bodyFormat ?? 'json'}
+                onChange={(e) => {
+                  setPublishDraft({ bodyFormat: e.target.value as KafkaSerdeFormat });
+                  setDecodePreview(null);
+                }}
+                data-testid="pub-body-format"
+              >
+                <option value="json">JSON</option>
+                <option value="string">String</option>
+                <option value="base64">Base64</option>
+                <option value="hex">Hex</option>
+              </select>
+              {(publishDraft.bodyFormat == null || publishDraft.bodyFormat === 'json') && (
+                <button
+                  type="button"
+                  className="kafka-ms-pretty-badge"
+                  onClick={handleFormatJson}
+                  title="Pretty Format JSON"
+                  data-testid="pub-pretty-format-badge"
+                >
+                  Pretty Format
+                </button>
+              )}
+              {(publishDraft.bodyFormat === 'base64' || publishDraft.bodyFormat === 'hex') && (
+                <button
+                  type="button"
+                  className="kafka-ms-pretty-badge"
+                  onClick={handleDecodePreview}
+                  title={`Preview decoded ${publishDraft.bodyFormat} bytes`}
+                  data-testid="pub-decode-preview-badge"
+                >
+                  Preview
+                </button>
+              )}
+            </div>
           </div>
           <textarea
             id="kms-pub-body"
             className="kafka-ms-textarea"
-            placeholder='{"key": "value"}'
+            placeholder={
+              publishDraft.bodyFormat === 'base64' ? 'aGVsbG8gd29ybGQ='
+              : publishDraft.bodyFormat === 'hex' ? '68 65 6c 6c 6f'
+              : publishDraft.bodyFormat === 'string' ? 'Plain text value'
+              : '{"key": "value"}'
+            }
             value={publishDraft.body}
-            onChange={(e) => setPublishDraft({ body: e.target.value })}
+            onChange={(e) => { setPublishDraft({ body: e.target.value }); setDecodePreview(null); }}
             onBlur={() => setTouched((p) => ({ ...p, body: true }))}
           />
+          {decodePreview && (
+            <span
+              className={`kafka-ms-decode-preview${decodePreview.ok ? '' : ' kafka-ms-decode-preview--error'}`}
+              data-testid="pub-decode-preview-result"
+            >
+              {decodePreview.text}
+            </span>
+          )}
           {touched.body && bodyEmpty && (
             <span className="kafka-ms-field-hint" data-testid="pub-body-hint">Message body is required</span>
           )}
