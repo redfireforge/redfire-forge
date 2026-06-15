@@ -13,6 +13,7 @@ import type { PromotionContext, PromotionOptions } from '../utils/requestToScena
 import { createScenarioFromRequest } from '../utils/requestToScenario';
 import { CascadeSelect } from './CascadeSelect';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useHarnessEnvironmentCascade } from '../hooks/useHarnessEnvironmentCascade';
 
 export interface SendToHarnessPayload {
   scenario: Scenario;
@@ -61,26 +62,11 @@ export default function SendToHarnessModal({
   const isNewGroup = groupId === '__new__';
   const isNewScenario = scenarioId === '__new__';
 
-  // Environment options: global envs + all additional envs from all microservices
-  const envOptions = useMemo(() => {
-    const opts = environments.map(e => ({ id: e.id, name: e.name }));
-    for (const svc of microservices) {
-      for (const ce of (svc.customEnvs ?? [])) {
-        if (!opts.some(o => o.id === ce.id)) {
-          opts.push({ id: ce.id, name: `${ce.name} (${svc.name})` });
-        }
-      }
-    }
-    return opts;
-  }, [environments, microservices]);
-
-  // Filtered microservices based on selected environment (global or additional)
-  const filteredMicroservices = useMemo(() => {
-    if (!envId) return microservices;
-    return microservices.filter(s =>
-      envId in s.baseUrls || (s.customEnvs ?? []).some(ce => ce.id === envId)
-    );
-  }, [envId, microservices]);
+  const { envOptions, filteredMicroservices } = useHarnessEnvironmentCascade(
+    environments,
+    microservices,
+    envId,
+  );
 
   // Filtered feature groups based on env + svc
   const filteredGroups = useMemo(() => {

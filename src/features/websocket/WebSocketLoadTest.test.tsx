@@ -20,6 +20,7 @@ function makeLT(overrides: Partial<UseWebSocketLoadTestReturn> = {}): UseWebSock
     start: vi.fn(),
     stop: vi.fn(),
     clearResult: vi.fn(),
+    loadResult: vi.fn(),
     ...overrides,
   };
 }
@@ -417,5 +418,148 @@ describe('WebSocketLoadTest', () => {
     const lt = makeLT();
     render(<WebSocketLoadTest loadTest={lt} isConnected={false} />);
     expect(screen.getByTestId('lt-not-connected')).toBeTruthy();
+  });
+
+  it('format button formats valid JSON template', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({
+      setConfig,
+      config: { ...createDefaultLoadTestConfig(), messageTemplate: '{"type":"ping","seq":{{counter}}}' },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-format-btn'));
+    expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({
+      messageTemplate: expect.stringContaining('{{counter}}'),
+    }));
+  });
+
+  it('format button shows error for invalid JSON', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({
+      setConfig,
+      config: { ...createDefaultLoadTestConfig(), messageTemplate: 'not valid json {{{' },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-format-btn'));
+    expect(setConfig).not.toHaveBeenCalled();
+    expect(screen.getByTestId('lt-format-btn').textContent).toContain('Invalid');
+  });
+
+  it('format button preserves {{timestamp}} and {{random}} markers', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({
+      setConfig,
+      config: { ...createDefaultLoadTestConfig(), messageTemplate: '{"ts":"{{timestamp}}","r":"{{random}}"}' },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-format-btn'));
+    const formatted = (setConfig as ReturnType<typeof vi.fn>).mock.calls[0][0].messageTemplate as string;
+    expect(formatted).toContain('{{timestamp}}');
+    expect(formatted).toContain('{{random}}');
+  });
+
+  it('import button opens file dialog', () => {
+    const result = makeResult();
+    const lt = makeLT({ state: 'done', result });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    const importBtn = screen.getByTestId('lt-import-btn');
+    expect(importBtn).toBeTruthy();
+    fireEvent.click(importBtn);
+  });
+
+  it('handleImportResult loads valid JSON file', async () => {
+    const loadResultFn = vi.fn();
+    const result = makeResult();
+    const lt = makeLT({ state: 'done', result, loadResult: loadResultFn });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+
+    const validData = JSON.stringify(makeResult({ totalSent: 999 }));
+    const file = new File([validData], 'test.json', { type: 'application/json' });
+
+    Object.defineProperty(fileInput, 'files', { value: [file], writable: false });
+    fireEvent.change(fileInput);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(loadResultFn).toHaveBeenCalled();
+  });
+
+  it('handleImportResult ignores malformed JSON', async () => {
+    const loadResultFn = vi.fn();
+    const result = makeResult();
+    const lt = makeLT({ state: 'done', result, loadResult: loadResultFn });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['not json'], 'bad.json', { type: 'application/json' });
+
+    Object.defineProperty(fileInput, 'files', { value: [file], writable: false });
+    fireEvent.change(fileInput);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(loadResultFn).not.toHaveBeenCalled();
+  });
+
+  it('disables start button when message template is empty', () => {
+    const lt = makeLT({ config: { ...createDefaultLoadTestConfig(), messageTemplate: '  ' } });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect((screen.getByTestId('lt-start-btn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('shows high rate warning for ramp with high end rate', () => {
+    const startFn = vi.fn();
+    const lt = makeLT({
+      start: startFn,
+      config: { ...createDefaultLoadTestConfig(), profile: 'ramp', rate: 1, rateEnd: 500 },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-start-btn'));
+    expect(startFn).not.toHaveBeenCalled();
+    expect(screen.getByTestId('lt-confirm')).toBeTruthy();
+    expect(screen.getByTestId('lt-confirm').textContent).toContain('Ramp');
+  });
+
+  it('changes rate input', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({ setConfig });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.change(screen.getByTestId('lt-rate'), { target: { value: '25' } });
+    expect(setConfig).toHaveBeenCalledWith({ rate: 25 });
+  });
+
+  it('changes duration input', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({ setConfig });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.change(screen.getByTestId('lt-duration'), { target: { value: '15' } });
+    expect(setConfig).toHaveBeenCalledWith({ durationSec: 15 });
+  });
+
+  it('stop button is disabled while in stopping state', () => {
+    const lt = makeLT({
+      state: 'stopping',
+      progress: { elapsedMs: 3000, totalSent: 30, totalReceived: 28, targetRate: 10, actualRate: 10, errorCount: 0 },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect((screen.getByTestId('lt-stop-btn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('burst profile skips high-rate confirmation', () => {
+    const startFn = vi.fn();
+    const lt = makeLT({
+      start: startFn,
+      config: { ...createDefaultLoadTestConfig(), profile: 'burst', rate: 500, burstCount: 1000 },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-start-btn'));
+    expect(startFn).toHaveBeenCalledOnce();
+  });
+
+  it('shows high rate warning in summary for constant profile > 100', () => {
+    const lt = makeLT({ config: { ...createDefaultLoadTestConfig(), rate: 200 } });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.getByTestId('lt-summary').textContent).toContain('high rate');
   });
 });
