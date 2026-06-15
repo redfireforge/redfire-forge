@@ -15,6 +15,31 @@ import { SSE } from '../../../../shared/selectors';
 
 const SSE_TEST_URL = 'http://localhost:3001/api/sse-test';
 
+// ── Guard helpers ──────────────────────────────────────────────────
+
+/**
+ * Silently ensures SSE is connected with at least one event in the log
+ * and the right pane is on the Events tab.  Safe to call even when already
+ * connected — it checks state before acting.
+ */
+async function ensureConnectedWithEvents(ctx: DemoActionContext): Promise<void> {
+  // Always switch right pane to Events so the message log is visible
+  await ctx.click(SSE.RIGHT_TAB_EVENTS);
+  await ctx.delay(300);
+
+  const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
+  const isConnected = connectBtn?.textContent?.includes('Disconnect');
+
+  if (!isConnected) {
+    await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+    await ctx.delay(300);
+    await ctx.click(SSE.CONNECT_BTN);
+    await ctx.delay(3000); // Wait for events to accumulate
+  } else if (!document.querySelector(SSE.EVENT_ROW)) {
+    await ctx.delay(2000); // Connected but no events yet — wait briefly
+  }
+}
+
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
 async function sseAdvancedSetup(ctx: DemoActionContext): Promise<void> {
@@ -73,7 +98,7 @@ export const sseStudioAdvancedLesson: DemoLesson = {
   category: 'sse',
   name: 'SSE Advanced Features',
   description: 'Master bookmarks, stats, auto-reconnect, Last-Event-ID, and export in SSE Studio.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'sse-studio',
 
   setup: sseAdvancedSetup,
@@ -145,11 +170,13 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         'Welcome back to SSE Studio. In Lesson 8 you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
       highlight: SSE.STUDIO,
       preAction: async (ctx) => {
-        // Connect and wait for events to accumulate
-        await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
-        await ctx.delay(300);
-        await ctx.click(SSE.CONNECT_BTN);
-        await ctx.delay(3000);
+        const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
+        if (!connectBtn?.textContent?.includes('Disconnect')) {
+          await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+          await ctx.delay(300);
+          await ctx.click(SSE.CONNECT_BTN);
+          await ctx.delay(3000);
+        }
       },
       pauseAfter: true,
     },
@@ -161,6 +188,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       description:
         'Click the star icon (☆) on any event row to bookmark it. Bookmarked events show a filled star (★) and are tracked in the toolbar counter. Bookmarks persist for the current session — use them to flag events you want to revisit.',
       highlight: SSE.EVENT_ROW,
+      preAction: async (ctx) => {
+        await ensureConnectedWithEvents(ctx);
+      },
       action: async (ctx) => {
         // Click the bookmark star on the first visible event row
         const firstRow = document.querySelector(SSE.EVENT_ROW) as HTMLElement | null;
@@ -192,13 +222,25 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       description:
         'Click the ★ filter button in the toolbar to show only your bookmarked events. The counter shows how many events are bookmarked. Click it again to return to the full event stream. This is essential when monitoring high-volume streams where you only want to see events you\'ve flagged.',
       highlight: SSE.BOOKMARK_FILTER,
+      preAction: async (ctx) => {
+        await ensureConnectedWithEvents(ctx);
+        // Ensure at least one bookmark exists so the filter is demonstrable
+        const firstRow = document.querySelector(SSE.EVENT_ROW) as HTMLElement | null;
+        if (firstRow) {
+          const star = firstRow.querySelector('.sse-bookmark-btn') as HTMLElement | null;
+          if (star && !star.classList.contains('active')) {
+            star.click();
+            await ctx.delay(300);
+          }
+        }
+      },
       action: async (ctx) => {
         // Activate the bookmark filter
         await ctx.click(SSE.BOOKMARK_FILTER);
         await ctx.delay(1500);
         // Deactivate to show full list again
         await ctx.click(SSE.BOOKMARK_FILTER);
-        await ctx.delay(500);
+        await ctx.delay(800);
       },
       pauseAfter: true,
     },
@@ -210,6 +252,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       description:
         'The status bar at the bottom of the event log provides live metrics: total Events received, Showing count (changes with filters), connection Uptime, and a Type breakdown showing how many events of each type arrived (message, update, status). The status strip above shows connection state and Last-Event-ID.',
       highlight: SSE.STATUS_BAR,
+      preAction: async (ctx) => {
+        await ensureConnectedWithEvents(ctx);
+      },
       pauseAfter: true,
     },
 
@@ -218,10 +263,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       id: 'sse-adv-reconnect',
       title: 'Auto-Reconnect',
       description:
-        'Switch to the Connect tab to see the Reconnect section. The auto-reconnect toggle controls whether SSE Studio automatically retries the connection after unexpected disconnects. When enabled, you\'ll see the retry interval and maximum attempts. These values come from server defaults and the SSE retry field — they ensure your stream recovers without manual intervention.',
+        'The **Connect** tab\'s Reconnect section controls whether SSE Studio automatically retries after an unexpected disconnect. The **Auto-reconnect** toggle turns this on or off. When enabled, you\'ll see the retry interval and maximum attempts — these come from the server\'s retry field and ensure your stream recovers without manual intervention.',
       highlight: SSE.LEFT_TAB_CONNECT,
       preAction: async (ctx) => {
-        // Switch to Connect tab to show reconnect section
         await ctx.click(SSE.LEFT_TAB_CONNECT);
         await ctx.delay(300);
       },
@@ -229,12 +273,12 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         // Toggle auto-reconnect to demonstrate the setting
         const checkbox = document.querySelector('.sse-reconnect-card input[type="checkbox"]') as HTMLInputElement | null;
         if (checkbox) {
-          // If it's already on, toggle off then on to show the change
+          // If already on, toggle off then back on to show the change clearly
           if (checkbox.checked) {
             checkbox.click();
             await ctx.delay(800);
             checkbox.click();
-            await ctx.delay(600);
+            await ctx.delay(800);
           } else {
             checkbox.click();
             await ctx.delay(800);
@@ -252,9 +296,7 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         'Look at the status strip — it shows the Last-Event-ID value, which is the ID of the most recent event received. When auto-reconnect triggers, SSE Studio sends this ID as an HTTP header so the server can resume from exactly where it left off. You can also see the per-event ID in the Event Detail panel by clicking any event.',
       highlight: SSE.STATE_LABEL,
       preAction: async (ctx) => {
-        // Switch back to Events tab to show the status strip
-        await ctx.click(SSE.RIGHT_TAB_EVENTS);
-        await ctx.delay(300);
+        await ensureConnectedWithEvents(ctx);
       },
       action: async (ctx) => {
         // Click an event to show the detail panel with Last-Event-ID
@@ -274,6 +316,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       description:
         'The Export button saves all events as a JSON file — perfect for offline analysis, sharing, or archival. The Clear button resets the event log and bookmarks while preserving the uptime counter. Both are essential for long-running SSE sessions where the event log grows large.',
       highlight: SSE.CLEAR_BTN,
+      preAction: async (ctx) => {
+        await ensureConnectedWithEvents(ctx);
+      },
       action: async (ctx) => {
         // Close detail panel if open
         const closeBtn = document.querySelector('.sse-detail-close') as HTMLElement | null;
@@ -286,7 +331,7 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         await ctx.delay(1000);
         // Demo clear
         await ctx.click(SSE.CLEAR_BTN);
-        await ctx.delay(500);
+        await ctx.delay(800);
       },
       pauseAfter: true,
     },

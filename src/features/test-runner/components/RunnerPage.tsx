@@ -62,7 +62,7 @@ export default function RunnerPage({
   const hasContent = variant.hasContent(featureGroups);
 
   return (
-    <div className="page">
+    <div className={`page ${variant.namePrefix}-page`}>
       <div className="page-header">
         <h2>{variant.title}</h2>
         <div className="context-tags">

@@ -154,7 +154,7 @@ WS tests reference each other by Connection ID — a Send or Receive test picks 
       title: 'Parameterized Runner',
       description:
         'The Parameterized Runner is for data-driven testing. Upload a CSV or JSON file, or connect a shared data source, and the runner iterates over each row — substituting values into your test templates. For WS tests, you can parameterize the URL, message payload, connection timeout, or expected response — perfect for testing multiple endpoints or message formats in a single run.',
-      highlight: '.page',
+      highlight: '.param-runner-page',
       preAction: async (ctx) => {
         ctx.navigateToTab('param-runner');
         await ctx.delay(600);
@@ -182,7 +182,7 @@ WS tests reference each other by Connection ID — a Send or Receive test picks 
       title: 'Results Dashboard',
       description:
         'The Results Dashboard shows all test and workflow run history. Filter by run type (Test Runs vs Workflow Runs) using the tabs at the top. Drill into individual results to see transport-aware details — WS results show Connection ID, protocol, frame type, and message size instead of the HTTP timing waterfall. Use the view tabs to switch between Overview, Requests, SLA, and Analysis.',
-      highlight: '.page',
+      highlight: '.results-run-filter-tabs',
       preAction: async (ctx) => {
         ctx.navigateToTab('results');
         await ctx.delay(600);
@@ -196,7 +196,7 @@ WS tests reference each other by Connection ID — a Send or Receive test picks 
       title: 'Export & Reporting',
       description:
         'Export your test results as JSON or CSV for CI/CD integration, team sharing, or archival. You can also import results from CLI runs or workflow replays. The Generate Report dropdown creates detailed HTML reports. Feature Groups can be exported and imported too — share test suites across environments or with teammates.',
-      highlight: '.page-header',
+      highlight: '.results-top-actions',
       pauseAfter: true,
     },
   ],

@@ -16,6 +16,34 @@ import { WS } from '../../../../shared/selectors';
 
 const WSS_ECHO_URL = 'wss://echo.websocket.org';
 
+// ── Guard helpers ──────────────────────────────────────────────────
+
+/**
+ * Silently ensures the Connect tab is active and a wss:// URL is filled
+ * so the TLS configuration panel renders in the DOM.
+ */
+async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+  const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
+  if (!urlInput?.value?.startsWith('wss://')) {
+    await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+    await ctx.delay(300);
+  }
+}
+
+/**
+ * Silently ensures the TLS accordion panel is expanded (aria-expanded="true").
+ * No-op if the TLS toggle doesn't exist or is already open.
+ */
+async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
+  const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await ctx.delay(300);
+  }
+}
+
 /** Set the skip-cert checkbox to the desired state via click dispatch. */
 async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<void> {
   const checkbox = document.querySelector(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`) as HTMLInputElement | null;
@@ -66,7 +94,7 @@ export const wsTlsLesson: DemoLesson = {
   category: 'websocket',
   name: 'Secure WebSocket — wss:// & TLS',
   description: 'Connect over wss://, explore TLS configuration, certificate validation, and transport modes.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'websocket-studio',
 
   setup: tlsSetup,
@@ -158,11 +186,14 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       description:
         'The TLS / mTLS Configuration panel appears on the Connect tab (not Auth) whenever you use a wss:// URL. Expand it to see the available options. Notice the info banner: in browser Direct mode, TLS options are handled by the browser itself. Custom options (skip-cert, CA) require the Proxy transport.',
       highlight: WS.TLS_TOGGLE,
+      preAction: async (ctx) => {
+        await ensureTlsPanelReady(ctx);
+      },
       action: async (ctx) => {
         const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
         if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
           toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-          await ctx.delay(600);
+          await ctx.delay(800);
         }
       },
       pauseAfter: true,
@@ -175,6 +206,11 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       description:
         'Click Connect to establish an encrypted WebSocket connection to the public echo server. The browser handles the TLS handshake using its built-in certificate store — no custom configuration needed for servers with valid certificates. Watch the status change to Connected.',
       highlight: WS.CONNECT_BTN,
+      preAction: async (ctx) => {
+        await ensureTlsPanelReady(ctx);
+        // Ensure disconnected so the Connect button is active
+        await disconnectWebSocket(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
@@ -191,6 +227,12 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'Switch to Compose and send a message. The echo server mirrors it back — proving the encrypted round-trip works. The data travels through the TLS tunnel: encrypted in transit, decrypted at each end. This is identical to a plain ws:// connection from the application\'s perspective.',
       highlight: WS.SEND_BTN,
       preAction: async (ctx) => {
+        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        if (!isConnected) {
+          await ensureTlsPanelReady(ctx);
+          await ctx.click(WS.CONNECT_BTN);
+          await ctx.delay(2500);
+        }
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(300);
       },
@@ -212,25 +254,20 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'For development servers with self-signed certificates, check "Skip certificate validation." This sets rejectUnauthorized to false, accepting any certificate. It\'s essential for internal staging environments but should never be used in production. Note: in the browser, this requires the Proxy transport — the browser\'s own TLS stack always validates.',
       highlight: WS.TLS_SKIP_CERT,
       preAction: async (ctx) => {
-        // Disconnect first
+        // Disconnect first so skip-cert can be changed while disconnected
         const discBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
         if (discBtn && !discBtn.disabled) {
           discBtn.click();
           await ctx.delay(500);
         }
-        // Switch back to Connect tab
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        // Ensure Connect tab + wss:// URL (so TLS panel renders)
+        await ensureTlsPanelReady(ctx);
         // Ensure TLS panel is expanded
-        const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
-        if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
-          toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-          await ctx.delay(300);
-        }
+        await ensureTlsPanelExpanded(ctx);
       },
       action: async (ctx) => {
         await setSkipCert(ctx, true);
-        await ctx.delay(600);
+        await ctx.delay(800);
       },
       pauseAfter: true,
     },
@@ -242,6 +279,10 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       description:
         'Below the skip-cert toggle, you\'ll find three PEM fields: CA Certificate for custom certificate authorities (internal PKI), Client Certificate and Client Key for mutual TLS (mTLS) where the server verifies your identity. Paste PEM-encoded content into these fields for enterprise or zero-trust environments.',
       highlight: WS.TLS_BODY,
+      preAction: async (ctx) => {
+        await ensureTlsPanelReady(ctx);
+        await ensureTlsPanelExpanded(ctx);
+      },
       action: async (ctx) => {
         // Briefly focus the CA cert textarea to draw attention
         const caCert = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
@@ -260,10 +301,26 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       title: 'Transport Modes & Desktop TLS',
       description:
         'RedfireForge selects the transport automatically. In the browser: Direct mode for standard wss:// (browser handles TLS), Proxy mode when you set custom TLS options (Node.js applies them). On Tauri desktop: Native mode always — rustls handles TLS directly with full support for skip-cert, custom CA, and mTLS without needing a proxy.',
-      highlight: WS.STATUS_BAR,
+      highlight: WS.TRANSPORT_BADGE,
       preAction: async (ctx) => {
-        // Reset skip-cert so we leave clean state
+        // Reset skip-cert so the connection uses Direct (not Proxy) transport
         await setSkipCert(ctx, false);
+        await ctx.delay(300);
+        // Ensure connected so the transport badge is visible and showing "Direct"
+        const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
+        if (!isConnected) {
+          await ensureTlsPanelReady(ctx);
+          await ctx.click(WS.CONNECT_BTN);
+          await ctx.delay(2500);
+        }
+      },
+      action: async (ctx) => {
+        // Draw the viewer's eye to the transport badge showing "Direct"
+        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        if (badge) {
+          badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        }
+        await ctx.delay(1500);
       },
       pauseAfter: true,
     },
