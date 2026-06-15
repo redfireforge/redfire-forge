@@ -4702,6 +4702,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Shift vertical center below toolbar + SLA Targets bar */
+  padding-top: 96px;
   background: transparent;
   backdrop-filter: none;
   pointer-events: none;
