@@ -142,7 +142,7 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     await page.locator('.wf-node-correlationWait .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('CORRELATIONWAIT');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Correlation Wait');
   });
 
   test('config modal shows label field', async ({ page }) => {

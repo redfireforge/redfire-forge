@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { DemoLesson, DemoProgress, SpeedMultiplier, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
 import { renderMarkdown } from './ConceptSlide';
+import StepOverviewDrawer from './StepOverviewDrawer';
 
 interface LiveDemoProps {
   lesson: DemoLesson;
@@ -73,7 +74,7 @@ export default function LiveDemo({
   stepPhase,
   onNext,
   onPrev,
-  onGoToStep: _onGoToStep,
+  onGoToStep,
   onTogglePlay,
   onSetSpeed,
   onSkipReading,
@@ -81,6 +82,7 @@ export default function LiveDemo({
 }: LiveDemoProps) {
   const step = lesson.steps[stepIndex];
   const [targetFound, setTargetFound] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const { style: dragStyle, onMouseDown: onDragMouseDown } = useDraggable(panelRef);
@@ -134,6 +136,16 @@ export default function LiveDemo({
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 
+      {/* Steps overview drawer — anchored above the panel */}
+      {overviewOpen && (
+        <StepOverviewDrawer
+          lesson={lesson}
+          currentStepIndex={stepIndex}
+          onGoToStep={(idx) => { onGoToStep(idx); setOverviewOpen(false); }}
+          onClose={() => setOverviewOpen(false)}
+        />
+      )}
+
       {/* Floating narration panel */}
       <div className="demo-live-panel" ref={panelRef} style={dragStyle}>
         <div className="demo-live-panel-header demo-live-panel-header--draggable" onMouseDown={onDragMouseDown}>
@@ -145,6 +157,19 @@ export default function LiveDemo({
           <span className={`demo-live-mode-badge ${targetFound ? 'live' : 'guide'}`}>
             {targetFound ? '🟢 Live' : '📖 Guide'}
           </span>
+          <button
+            className={`demo-live-overview-btn${overviewOpen ? ' active' : ''}`}
+            onClick={() => setOverviewOpen(o => !o)}
+            title="View all steps"
+            aria-label="Toggle steps overview"
+            aria-expanded={overviewOpen}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="2" y1="4" x2="14" y2="4"/>
+              <line x1="2" y1="8" x2="14" y2="8"/>
+              <line x1="2" y1="12" x2="14" y2="12"/>
+            </svg>
+          </button>
         </div>
 
         <div className="demo-live-progress-bar">

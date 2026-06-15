@@ -73,6 +73,24 @@ import type { Environment, Scenario } from '../../../../shared/types';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
+const NODE_TYPE_LABELS: Record<string, string> = {
+  http: 'HTTP', wsConnect: 'WS Connect', wsSend: 'WS Send',
+  wsReceive: 'WS Receive', wsTrigger: 'WS Trigger',
+  kafkaProduce: 'Kafka Produce', kafkaConsume: 'Kafka Consume',
+  kafkaTrigger: 'Kafka Trigger', kafkaWait: 'Kafka Wait',
+  condition: 'Condition', delay: 'Delay', start: 'Start',
+  webhook: 'Webhook', schedule: 'Schedule', switch: 'Switch',
+  loop: 'Loop', setVariable: 'Set Variable', aggregate: 'Aggregate',
+  errorHandler: 'Error Handler', logDebug: 'Log Debug',
+  waitForCondition: 'Wait For Condition', subWorkflow: 'Sub-Workflow',
+  script: 'Script', correlationWait: 'Correlation Wait',
+  fork: 'Fork', join: 'Join', end: 'End',
+};
+
+function formatNodeTypeLabel(type: string): string {
+  return NODE_TYPE_LABELS[type] ?? type.replace(/([A-Z])/g, ' $1').trim();
+}
+
 interface Props {
   node: WorkflowNode;
   workflowVariables: Record<string, string>;
@@ -234,7 +252,11 @@ export default function WorkflowNodeConfigModal({
     resetKey: node.id,
   });
 
-  const title = `${node.type.toUpperCase()} — ${(draft as HttpNodeData).label || 'Step Config'}`;
+  const nodeTypeLabel = formatNodeTypeLabel(node.type);
+  const nodeUserLabel = (draft as HttpNodeData).label?.trim();
+  const title = nodeUserLabel && nodeUserLabel !== nodeTypeLabel
+    ? `${nodeTypeLabel} — ${nodeUserLabel}`
+    : nodeTypeLabel;
 
   return (
     <>

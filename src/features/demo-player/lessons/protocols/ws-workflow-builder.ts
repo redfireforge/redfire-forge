@@ -6,7 +6,7 @@
  * each node, and runs Quick Test.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { WF } from '../../../../shared/selectors';
+import { WF, WFR } from '../../../../shared/selectors';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -223,17 +223,44 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       id: 'wf-config-connect',
       title: 'Configure the Connection',
       description:
-        'Double-click the WS Connect node to open its config. Set the URL to ws://localhost:9876 (our mock echo server) and save.',
+        'Double-click the WS Connect node to open its config. Instead of a hard-coded URL, type `{{wsUrl}}` — a variable placeholder. This lets you override the endpoint from Workflow Runner without editing the workflow.',
       highlight: WF.NODE_WS_CONNECT,
       action: async (ctx) => {
         // Double-click to open config
         await doubleClickNode(WF.NODE_WS_CONNECT);
         await ctx.delay(600);
-        // Fill URL
-        await ctx.fill(WF.CFG_WS_URL, 'ws://localhost:9876');
+        // Fill URL with a variable placeholder
+        await ctx.fill(WF.CFG_WS_URL, '{{wsUrl}}');
         await ctx.delay(300);
         // Save config
         await ctx.click(WF.CFG_SAVE);
+        await ctx.delay(400);
+      },
+      pauseAfter: true,
+    },
+
+    // ── 4b. Define the wsUrl variable ────────────────────────────
+    {
+      id: 'wf-define-variable',
+      title: 'Define the wsUrl Variable',
+      description:
+        'Open the Variables panel from the toolbar. Add `wsUrl = ws://localhost:9876` as the default value. This tells the workflow which server to use unless the runner overrides it.',
+      highlight: WF.VARIABLES_BTN,
+      action: async (ctx) => {
+        // Open Variables modal
+        await ctx.click(WF.VARIABLES_BTN);
+        await ctx.delay(600);
+        // Fill name input in the new-var row
+        await ctx.fill(WF.DEFAULTS_NEW_KEY, 'wsUrl');
+        await ctx.delay(200);
+        // Fill value input
+        await ctx.fill(WF.DEFAULTS_NEW_VAL, 'ws://localhost:9876');
+        await ctx.delay(200);
+        // Click + to add the variable
+        await ctx.click(WF.DEFAULTS_ADD_BTN);
+        await ctx.delay(300);
+        // Save the modal
+        await ctx.click(WF.DEFAULTS_SAVE_BTN);
         await ctx.delay(400);
       },
       pauseAfter: true,
@@ -339,6 +366,33 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
         await ctx.delay(3000);
       },
       verify: WF.EXEC_SUMMARY,
+      pauseAfter: true,
+    },
+
+    // ── 10. Workflow Runner — override the URL at runtime ────────
+    {
+      id: 'wf-runner-variable',
+      title: 'Override the URL in Workflow Runner',
+      description:
+        'Navigate to Workflow Runner and select "WS Echo Demo". The `wsUrl` variable appears in the **Initial Variables** panel. Change it to any WebSocket endpoint — the workflow runs against that server without modifying the definition.',
+      preAction: async (ctx) => {
+        ctx.navigateToTab('workflow-runner');
+        await ctx.delay(800);
+      },
+      action: async (ctx) => {
+        // Select the WS Echo Demo workflow in the runner picker
+        const picker = document.querySelector('[data-testid="workflow-select"]') as HTMLElement | null;
+        if (picker) { picker.click(); await ctx.delay(400); }
+        const items = Array.from(document.querySelectorAll('.wft-dropdown-item'));
+        const demoItem = items.find((el) => el.textContent?.includes('WS Echo Demo')) as HTMLElement | undefined;
+        if (demoItem) { demoItem.click(); await ctx.delay(600); }
+        // Highlight the wsUrl variable input
+        const varInputs = Array.from(document.querySelectorAll(WFR.VAR_INPUT)) as HTMLInputElement[];
+        const wsUrlInput = varInputs[0];
+        if (wsUrlInput) wsUrlInput.focus();
+        await ctx.delay(500);
+      },
+      highlight: WFR.VAR_ROW,
       pauseAfter: true,
     },
   ],

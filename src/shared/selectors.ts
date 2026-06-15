@@ -299,6 +299,8 @@ export const SSE = {
   EXPORT_BTN:          '[data-testid="sse-export-btn"]',
   CLEAR_BTN:           '[data-testid="sse-clear-btn"]',
   STATUS_BAR:          '[data-testid="sse-status-bar"]',
+  RECONNECT_CARD:      '[data-testid="sse-reconnect-card"]',
+  RECONNECT_TOGGLE:    '[data-testid="sse-reconnect-toggle"]',
 } as const;
 
 // ─── Workflow Designer ──────────────────────────────────────────
@@ -339,6 +341,18 @@ export const WF = {
   NODE_WS_CONNECT:     '.react-flow__node-wsConnect',
   NODE_WS_SEND:        '.react-flow__node-wsSend',
   NODE_WS_RECEIVE:     '.react-flow__node-wsReceive',
+  // Defaults (Variables) modal
+  DEFAULTS_MODAL:      '.wf-defaults-modal',
+  DEFAULTS_NEW_KEY:    '.wf-defaults-modal .wf-var-key-input[placeholder="name"]',
+  DEFAULTS_NEW_VAL:    '.wf-defaults-modal .wf-var-new-row-value .wf-var-value-input',
+  DEFAULTS_ADD_BTN:    '.wf-defaults-modal .wf-config-vars > div:last-child > button[type="button"]:last-of-type',
+  DEFAULTS_SAVE_BTN:   '.wf-defaults-modal .btn-primary',
+} as const;
+
+// ─── Workflow Runner ─────────────────────────────────────────────
+export const WFR = {
+  VAR_ROW:    '.wfp-var-row',
+  VAR_INPUT:  '.wfp-var-input',
 } as const;
 
 // ─── Demo Hub ───────────────────────────────────────────────────
