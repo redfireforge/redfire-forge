@@ -32,7 +32,7 @@ export default function WsReceiveConfig({
 
   return (
     <div className="wf-config-body" data-testid="ws-receive-config">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
@@ -43,7 +43,7 @@ export default function WsReceiveConfig({
         availableConnectionIds={availableConnectionIds}
       />
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
         <input
           type="number"
@@ -51,7 +51,6 @@ export default function WsReceiveConfig({
           onChange={(e) => update({ timeoutMs: Number(e.target.value) || 30000 })}
           placeholder="30000"
         />
-        <span className="wf-config-hint">Maximum time to wait for a matching message.</span>
       </div>
 
       <WsMatchCriteriaSection

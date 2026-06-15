@@ -1,37 +1,129 @@
 /**
- * Lesson 20: Test Harness Tour
+ * Lesson 20: Run WS Workflow in Test Harness
  *
- * Guided tour of the Test Harness domain — its 5 sub-tabs:
- *   Feature Groups, Test Runner, Parameterized Runner,
- *   Workflow Runner, and Results.
+ * Demonstrates the Workflow Runner in the Test Harness by running the
+ * "WS Echo Demo" workflow (seeded in setup if not yet created by Lesson 8).
+ * The user:
+ *   1. Navigates to the Workflow Runner tab
+ *   2. Selects the WS Echo Demo workflow from the picker
+ *   3. Inspects the wsUrl Initial Variable (pre-set to ws://localhost:9876)
+ *   4. Clicks ▶ Run Workflow and watches execution against the live mock server
+ *   5. Reads the completion banner (timing, request count)
+ *   6. Navigates to the Results Dashboard to explore the workflow run
  *
- * Explains how WS tests (Connect / Send / Receive) fit into the
- * Harness alongside HTTP and Kafka tests, how to run them,
- * and how to view + export results.
+ * Setup:
+ *   - Starts the mock server at ws://localhost:9876
+ *   - Seeds "WS Echo Demo" workflow via __wfInsertWorkflow (if bridge available)
  *
- * Navigation-based "tour" lesson — no mock server or data seeding
- * required. Each step uses preAction to navigate to the target tab
- * before the spotlight and reading phase.
- *
- * NOTE: `initialTab` is intentionally NOT set. The auto-exit hook
- * in useDemoShortcuts exits the demo when activeTab !== initialTab.
- * Since this lesson navigates across multiple tabs (scenarios → runner
- * → param-runner → workflow-runner → results), setting initialTab
- * would trigger auto-exit on the first tab switch. Setup navigates
- * to `scenarios` instead.
+ * NOTE: initialTab intentionally NOT set. The auto-exit hook in
+ * useDemoShortcuts exits the demo when activeTab !== initialTab.
+ * This lesson navigates from workflow-runner → results, so setting
+ * initialTab would trigger auto-exit on the final step. Setup
+ * navigates to workflow-runner instead.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 
+// ── WS Echo Demo Workflow Factory ─────────────────────────────────
+
+/**
+ * Creates a minimal "WS Echo Demo" workflow: Start → WS Connect → WS Send → WS Receive.
+ * Used by setup to seed the workflow when the user hasn't completed Lesson 8 yet.
+ */
+function createWsEchoDemoWorkflow(): Record<string, unknown> {
+  const startId = crypto.randomUUID();
+  const connectId = crypto.randomUUID();
+  const sendId = crypto.randomUUID();
+  const receiveId = crypto.randomUUID();
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    name: 'WS Echo Demo',
+    schemaVersion: 6,
+    variables: { wsUrl: 'ws://localhost:9876' },
+    services: [],
+    hostProfiles: [],
+    authProfiles: [],
+    nodes: [
+      { id: startId, type: 'start', position: { x: 250, y: 50 }, data: { label: 'Start', inputVariables: {} } },
+      {
+        id: connectId, type: 'wsConnect', position: { x: 250, y: 160 },
+        data: { label: 'WS Connect', url: '{{wsUrl}}', headers: [], queryParams: [], subprotocols: [], connectionId: 'ws1', timeoutMs: 10000, outputBindings: [] },
+      },
+      {
+        id: sendId, type: 'wsSend', position: { x: 250, y: 270 },
+        data: { label: 'WS Send', connectionId: 'ws1', message: '{"action": "hello", "from": "workflow"}', messageType: 'text', waitForResponse: false, responseTimeoutMs: 5000, outputBindings: [] },
+      },
+      {
+        id: receiveId, type: 'wsReceive', position: { x: 250, y: 380 },
+        data: { label: 'WS Receive', connectionId: 'ws1', timeoutMs: 5000, matchCriteria: { messageType: 'any' }, extractionRules: [], outputBindings: [] },
+      },
+    ],
+    edges: [
+      { id: crypto.randomUUID(), source: startId, target: connectId },
+      { id: crypto.randomUUID(), source: connectId, target: sendId },
+      { id: crypto.randomUUID(), source: sendId, target: receiveId },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
-async function harnessSetup(ctx: DemoActionContext): Promise<void> {
-  ctx.navigateToTab('scenarios');
+async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
+  // Seed "WS Echo Demo" workflow so the Workflow Runner picker always has something to select.
+  // If the user already built it via Lesson 8, delete the old copy and re-seed a fresh one
+  // so the wsUrl variable is correctly set for this lesson.
+  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as ((name: string) => void) | undefined;
+  const wfInsert = (window as unknown as Record<string, unknown>).__wfInsertWorkflow as ((wf: Record<string, unknown>) => void) | undefined;
+  if (wfDelete) wfDelete('WS Echo Demo');
+  if (wfInsert) {
+    await ctx.delay(100); // let React flush the delete
+    wfInsert(createWsEchoDemoWorkflow());
+  }
+  // Start mock server so the workflow has a live endpoint to connect to
+  try {
+    await fetch('/api/ws/mock/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: 9876 }) });
+  } catch { /* server may already be running */ }
+  await ctx.delay(400);
+  ctx.navigateToTab('workflow-runner');
+  await ctx.delay(600);
+}
+
+async function harnessRunCleanup(ctx: DemoActionContext): Promise<void> {
+  try { await fetch('/api/ws/mock/stop', { method: 'POST' }); } catch { /* ignore */ }
+  ctx.navigateToTab('workflow-runner');
   await ctx.delay(300);
 }
 
-async function harnessCleanup(ctx: DemoActionContext): Promise<void> {
-  ctx.navigateToTab('scenarios');
-  await ctx.delay(300);
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Open the workflow picker and select "WS Echo Demo". */
+async function selectWsEchoDemo(ctx: DemoActionContext): Promise<void> {
+  // Use ctx.click so the ripple shows the user what's being clicked
+  await ctx.click('[data-testid="workflow-select"]');
+  // wfp-dropdown-panel is conditionally rendered — wait for it to mount (Rule 5).
+  await ctx.waitFor('.wfp-dropdown-panel');
+  await ctx.delay(400); // let animation settle so viewer sees the list open
+  // Find item by text content — items have class wfp-dropdown-item
+  const items = Array.from(document.querySelectorAll('.wfp-dropdown-item'));
+  const target = items.find((el) => el.textContent?.includes('WS Echo Demo')) as HTMLElement | undefined;
+  if (target) { target.click(); await ctx.delay(700); }
+}
+
+/** Click the Run Workflow button and wait until the completion banner appears (up to 15 s). */
+async function runWorkflow(ctx: DemoActionContext): Promise<void> {
+  // ctx.click shows a ripple so the user sees the button being pressed
+  await ctx.click('.config-form .form-actions .btn-primary');
+  // Poll for completion banner — workflow takes a few seconds against the mock server
+  for (let i = 0; i < 30; i++) {
+    await ctx.delay(500);
+    if (document.querySelector('.completion-section')) break;
+  }
+  // Scroll the completion banner into view so the user can read the result
+  // (the progress section renders below the Run button, outside the viewport).
+  document.querySelector('.completion-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await ctx.delay(600);
 }
 
 // ── Lesson Definition ──────────────────────────────────────────────
@@ -40,163 +132,196 @@ export const wsTestRunnerLesson: DemoLesson = {
   id: 'ws-test-runner',
   domainId: 'protocols',
   category: 'websocket',
-  name: 'Test Harness Tour',
-  description: 'Explore the Test Harness — Feature Groups, Test Runner, Workflow Runner, and Results Dashboard.',
+  name: 'Run WS Workflow in Harness',
+  description: 'Run the WS Echo Demo workflow from the Test Harness Workflow Runner and explore the results.',
   estimatedMinutes: 3,
   // initialTab intentionally omitted — see file header comment
 
-  setup: harnessSetup,
-  cleanup: harnessCleanup,
+  setup: harnessRunSetup,
+  cleanup: harnessRunCleanup,
 
   concept: {
-    title: 'Test Harness — Organize, Run & Analyze',
-    body: `The **Test Harness** is where you organize your tests, run them, and analyze results. It's a separate domain from the Workflow Designer and WebSocket Studio.
+    title: 'Workflow Runner — From Designer to Harness',
+    body: `The **Workflow Runner** in the Test Harness is where visual workflows graduate from ad hoc exploration to tracked test runs.
 
-**Five Sub-Tabs:**
-1. **Feature Groups** — Organize tests into groups and scenarios. Each test can be HTTP, WebSocket (Connect / Send / Receive), or Kafka.
-2. **Test Runner** — Select scenarios, configure overrides, and execute test runs.
-3. **Parameterized Runner** — Run scenarios with data-driven parameters (CSV, JSON, shared data sources).
-4. **Workflow Runner** — Execute entire workflows (from the Designer) as test runs.
-5. **Results** — View run history, analyze pass/fail rates, export JSON/CSV reports.
+**Quick Test vs Workflow Runner**
 
-**WebSocket Tests in the Harness:**
-- Use the **Transport** dropdown in the Test Editor to select WS Connect, WS Send, or WS Receive
-- Chain them in a scenario: Connect → Send → Receive
-- Add WS-specific assertions (body content, frame type, latency, message size)
-- Results show transport-aware status: CONNECT, SEND, RECEIVE instead of HTTP codes
+| | Quick Test | Workflow Runner |
+|---|---|---|
+| Location | Workflow Designer toolbar | Test Harness → Workflow Runner |
+| Result saved? | No — ephemeral | Yes — stored in Results |
+| Variable override | No | Yes — edit before each run |
+| Run history | No | Full history with timestamps |
+| Load testing | No | Yes — concurrency + iterations |
 
-**Connection Flow:**
-WS tests reference each other by Connection ID — a Send or Receive test picks the Connection ID from a sibling Connect test in the same scenario.`,
+**How It Works**
+
+1. Pick a workflow from the **Workflow** dropdown
+2. The **Initial Variables** panel shows all defined variables — override them without touching the workflow
+3. Click **▶ Run Workflow** — execution runs through the proxy backend
+4. A completion banner shows total requests and wall-clock time
+5. Click **View Full Results →** to open the Results Dashboard filtered to that run
+
+**WS Echo Demo variables**
+The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — change it here without modifying the workflow definition.`,
     keyTerms: [
-      { term: 'Feature Group', definition: 'A named collection of test scenarios, scoped to an environment and microservice.' },
-      { term: 'Test Runner', definition: 'Executes selected scenarios and produces pass/fail results with timing data.' },
-      { term: 'Workflow Runner', definition: 'Runs an entire visual workflow (from the Designer) as a test execution.' },
-      { term: 'Transport', definition: 'The action type for a test: HTTP, WS Connect, WS Send, WS Receive, or Kafka.' },
+      { term: 'Workflow Runner', definition: 'The Test Harness tab that runs visual workflows as tracked test executions with result history.' },
+      { term: 'Initial Variables', definition: 'Per-run variable overrides — shown in the picker panel, applied at execution time only.' },
+      { term: 'Completion Banner', definition: 'The summary shown after a run finishes: request count and total duration.' },
+      { term: 'Results Dashboard', definition: 'The Results tab filtered to show workflow runs — drill into each node\'s output and timing.' },
     ],
-    diagram: `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
-  <rect x="0" y="0" width="400" height="140" rx="8" fill="#1e1e2e" />
+    diagram: `<svg viewBox="0 0 400 150" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+  <rect x="0" y="0" width="400" height="150" rx="8" fill="#1e1e2e" />
 
-  <!-- Feature Groups -->
-  <rect x="15" y="15" width="110" height="50" rx="4" fill="#2a2a3a" stroke="#60a5fa" stroke-width="1" />
-  <text x="70" y="35" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">Feature Groups</text>
-  <text x="70" y="50" text-anchor="middle" fill="#888" font-size="7">FG → Scenario → Test</text>
+  <!-- Step 1: Workflow Picker -->
+  <rect x="10" y="20" width="88" height="110" rx="4" fill="#2a2a3a" stroke="#60a5fa" stroke-width="1" />
+  <text x="54" y="38" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="bold">Workflow</text>
+  <text x="54" y="50" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="bold">Picker</text>
+  <rect x="18" y="56" width="72" height="15" rx="2" fill="#1e3a5f" />
+  <text x="54" y="67" text-anchor="middle" fill="#93c5fd" font-size="7">WS Echo Demo ▾</text>
+  <rect x="18" y="76" width="72" height="36" rx="2" fill="#16213e" />
+  <text x="54" y="88" text-anchor="middle" fill="#888" font-size="6.5">wsUrl =</text>
+  <text x="54" y="99" text-anchor="middle" fill="#a78bfa" font-size="6">ws://localhost:9876</text>
+  <text x="54" y="118" text-anchor="middle" fill="#888" font-size="6.5">Initial Variables</text>
 
-  <!-- Test Runner -->
-  <rect x="145" y="15" width="110" height="50" rx="4" fill="#2a2a3a" stroke="#4ade80" stroke-width="1" />
-  <text x="200" y="35" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="bold">Test Runner</text>
-  <text x="200" y="50" text-anchor="middle" fill="#888" font-size="7">Select → Run → Pass/Fail</text>
+  <!-- Arrow 1 -->
+  <path d="M101,75 L118,75" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr2)" />
 
-  <!-- Results -->
-  <rect x="275" y="15" width="110" height="50" rx="4" fill="#2a2a3a" stroke="#f59e0b" stroke-width="1" />
-  <text x="330" y="35" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">Results</text>
-  <text x="330" y="50" text-anchor="middle" fill="#888" font-size="7">Analyze + Export</text>
+  <!-- Step 2: Run -->
+  <rect x="120" y="20" width="80" height="110" rx="4" fill="#2a2a3a" stroke="#4ade80" stroke-width="1" />
+  <text x="160" y="38" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="bold">▶ Run</text>
+  <text x="160" y="50" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="bold">Workflow</text>
+  <rect x="128" y="56" width="64" height="20" rx="3" fill="#052e16" stroke="#22c55e" stroke-width="0.5" />
+  <text x="160" y="70" text-anchor="middle" fill="#4ade80" font-size="7">Connect ✓</text>
+  <rect x="128" y="80" width="64" height="20" rx="3" fill="#052e16" stroke="#22c55e" stroke-width="0.5" />
+  <text x="160" y="94" text-anchor="middle" fill="#4ade80" font-size="7">Send ✓</text>
+  <rect x="128" y="104" width="64" height="20" rx="3" fill="#052e16" stroke="#22c55e" stroke-width="0.5" />
+  <text x="160" y="118" text-anchor="middle" fill="#4ade80" font-size="7">Receive ✓</text>
 
-  <!-- Arrows -->
-  <path d="M128,40 L142,40" stroke="#888" stroke-width="1.5" marker-end="url(#arr20)" />
-  <path d="M258,40 L272,40" stroke="#888" stroke-width="1.5" marker-end="url(#arr20)" />
+  <!-- Arrow 2 -->
+  <path d="M203,75 L220,75" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr3)" />
 
-  <!-- WS Transport row -->
-  <rect x="15" y="80" width="370" height="45" rx="4" fill="#2a2a3a" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" />
-  <text x="25" y="97" fill="#a78bfa" font-size="9" font-weight="bold">WS Tests:</text>
-  <rect x="100" y="86" width="70" height="22" rx="3" fill="#3a3a4a" />
-  <text x="135" y="101" text-anchor="middle" fill="#60a5fa" font-size="8">Connect</text>
-  <text x="178" y="101" fill="#888" font-size="8">→</text>
-  <rect x="190" y="86" width="55" height="22" rx="3" fill="#3a3a4a" />
-  <text x="217" y="101" text-anchor="middle" fill="#4ade80" font-size="8">Send</text>
-  <text x="253" y="101" fill="#888" font-size="8">→</text>
-  <rect x="265" y="86" width="65" height="22" rx="3" fill="#3a3a4a" />
-  <text x="297" y="101" text-anchor="middle" fill="#f59e0b" font-size="8">Receive</text>
-  <text x="345" y="101" fill="#888" font-size="8">→ Assert</text>
-  <text x="200" y="120" text-anchor="middle" fill="#888" font-size="7">Chain WS tests by Connection ID within a scenario</text>
+  <!-- Step 3: Completion -->
+  <rect x="222" y="20" width="88" height="52" rx="4" fill="#2a2a3a" stroke="#f59e0b" stroke-width="1" />
+  <text x="266" y="38" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="bold">Completion</text>
+  <text x="266" y="50" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="bold">Banner</text>
+  <text x="266" y="64" text-anchor="middle" fill="#888" font-size="6.5">3 requests · 0.42 s</text>
 
-  <defs><marker id="arr20" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/></marker></defs>
+  <!-- Arrow 3 -->
+  <path d="M266,74 L266,88" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr4)" />
+
+  <!-- Step 4: Results -->
+  <rect x="222" y="90" width="88" height="40" rx="4" fill="#2a2a3a" stroke="#a78bfa" stroke-width="1" />
+  <text x="266" y="107" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="bold">Results</text>
+  <text x="266" y="120" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="bold">Dashboard</text>
+
+  <!-- Mock server -->
+  <rect x="320" y="20" width="70" height="110" rx="4" fill="#2a2a3a" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4,3" />
+  <text x="355" y="38" text-anchor="middle" fill="#38bdf8" font-size="7" font-weight="bold">Mock WS</text>
+  <text x="355" y="50" text-anchor="middle" fill="#38bdf8" font-size="7" font-weight="bold">Server</text>
+  <text x="355" y="65" text-anchor="middle" fill="#888" font-size="6.5">:9876</text>
+  <text x="355" y="80" text-anchor="middle" fill="#4ade80" font-size="6.5">echo</text>
+  <line x1="200" y1="94" x2="318" y2="70" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="3,2" />
+
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/></marker>
+    <marker id="arr3" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/></marker>
+    <marker id="arr4" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+  </defs>
 </svg>`,
   },
 
   steps: [
-    // ── 1. The Test Harness ────────────────────────────────────
+    // ── 1. Workflow Runner tab ─────────────────────────────────────
     {
-      id: 'tr-harness-intro',
-      title: 'The Test Harness',
-      description:
-        'The Test Harness is a separate domain from the Workflow Designer and WebSocket Studio. It has five sub-tabs visible at the top: Feature Groups (where you organize tests), Test Runner, Parameterized Runner, Workflow Runner, and Results. Each tab serves a distinct purpose in the test lifecycle.',
-      highlight: '.sub-nav-tabs',
-      pauseAfter: true,
-    },
-
-    // ── 2. Feature Groups ──────────────────────────────────────
-    {
-      id: 'tr-feature-groups',
-      title: 'Feature Groups',
-      description:
-        'Feature Groups is where you organize your tests. The hierarchy is: Feature Group → Scenario → Test. Each test can be HTTP, WebSocket (Connect / Send / Receive), or Kafka. WS tests in the same scenario can reference each other by Connection ID — connect first, then send and receive on that connection. Use "+ Add Feature Group" to create one, then add scenarios and tests inside it.',
-      highlight: '.page',
-      pauseAfter: true,
-    },
-
-    // ── 3. Test Runner ─────────────────────────────────────────
-    {
-      id: 'tr-test-runner',
-      title: 'Test Runner',
-      description:
-        'The Test Runner lets you select scenarios from your Feature Groups, configure execution options (skip validation, force unordered, assertion overrides), and run them. WS tests execute through the proxy backend — Connect establishes the WebSocket, Send transmits a message, and Receive waits for a response. Results show transport-specific status: CONNECT, SEND, RECEIVE instead of HTTP codes.',
-      highlight: '.page',
-      preAction: async (ctx) => {
-        ctx.navigateToTab('runner');
-        await ctx.delay(600);
-      },
-      pauseAfter: true,
-    },
-
-    // ── 4. Parameterized Runner ────────────────────────────────
-    {
-      id: 'tr-param-runner',
-      title: 'Parameterized Runner',
-      description:
-        'The Parameterized Runner is for data-driven testing. Upload a CSV or JSON file, or connect a shared data source, and the runner iterates over each row — substituting values into your test templates. For WS tests, you can parameterize the URL, message payload, connection timeout, or expected response — perfect for testing multiple endpoints or message formats in a single run.',
-      highlight: '.param-runner-page',
-      preAction: async (ctx) => {
-        ctx.navigateToTab('param-runner');
-        await ctx.delay(600);
-      },
-      pauseAfter: true,
-    },
-
-    // ── 5. Workflow Runner ─────────────────────────────────────
-    {
-      id: 'tr-workflow-runner',
+      id: 'wfhr-open',
       title: 'Workflow Runner',
       description:
-        'The Workflow Runner executes entire visual workflows from the Designer. In Lesson 9, you built a WS workflow with Connect → Send → Receive nodes and ran Quick Test. Here you can run that same workflow as a full test, with all node outputs captured and assertion results tracked. Click "Run in Harness" from the Workflow Designer toolbar to jump here with your workflow pre-selected.',
-      highlight: '.page',
-      preAction: async (ctx) => {
-        ctx.navigateToTab('workflow-runner');
-        await ctx.delay(600);
+        'You\'re now in the **Workflow Runner** — the Test Harness tab that runs visual workflows as fully tracked test executions. Unlike Quick Test (which runs inside the Designer and discards the result), every run here is saved to the Results Dashboard with timestamps, request details, and timing data. The picker at the top lets you choose any workflow you\'ve built.',
+      highlight: '.workflow-picker',
+      pauseAfter: true,
+    },
+
+    // ── 2. Select WS Echo Demo ─────────────────────────────────────
+    {
+      id: 'wfhr-pick',
+      title: 'Select the WS Echo Demo Workflow',
+      description:
+        'Click the **Workflow** dropdown and select "WS Echo Demo" — the workflow you built in Lesson 8 (Connect → Send → Receive). The demo seeds it automatically in setup, so it will always appear. Once selected, the workflow summary and Initial Variables panel appear below the picker.',
+      highlight: '[data-testid="workflow-select"]',
+      action: async (ctx) => {
+        await selectWsEchoDemo(ctx);
+      },
+      verify: '.workflow-vars-section',
+      pauseAfter: true,
+    },
+
+    // ── 3. Inspect Initial Variables ───────────────────────────────
+    {
+      id: 'wfhr-variables',
+      title: 'Initial Variables — Override wsUrl',
+      description:
+        'The **Initial Variables** panel shows every variable defined in the workflow. "WS Echo Demo" has one — `wsUrl`, pre-set to `ws://localhost:9876` (the mock server started in this lesson\'s setup). You can change it here to point the workflow at any other WebSocket server without touching the workflow definition itself. The mock server is already running, so leave it as-is.',
+      highlight: '.workflow-vars-section',
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: ensure WS Echo Demo is selected so the vars panel is visible.
+        if (!document.querySelector('.workflow-vars-section')) {
+          await selectWsEchoDemo(ctx);
+        }
       },
       pauseAfter: true,
     },
 
-    // ── 6. Results Dashboard ───────────────────────────────────
+    // ── 4. Run the workflow ────────────────────────────────────────
     {
-      id: 'tr-results',
-      title: 'Results Dashboard',
+      id: 'wfhr-run',
+      title: 'Run the Workflow',
       description:
-        'The Results Dashboard shows all test and workflow run history. Filter by run type (Test Runs vs Workflow Runs) using the tabs at the top. Drill into individual results to see transport-aware details — WS results show Connection ID, protocol, frame type, and message size instead of the HTTP timing waterfall. Use the view tabs to switch between Overview, Requests, SLA, and Analysis.',
+        'After reading, the demo clicks **▶ Run Workflow** for you. Watch the live progress panel — the WS Connect node opens a connection to `ws://localhost:9876`, WS Send delivers the echo message, and WS Receive captures the reply. All three nodes complete in a second or two against the local mock server.',
+      highlight: '.config-form .form-actions',
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: ensure WS Echo Demo is selected so the Run Workflow button exists.
+        if (!document.querySelector('.config-form')) {
+          await selectWsEchoDemo(ctx);
+        }
+      },
+      action: async (ctx) => {
+        await runWorkflow(ctx);
+      },
+      verify: '.completion-section',
+      pauseAfter: true,
+    },
+
+    // ── 5. Completion banner → open Results ────────────────────────
+    {
+      id: 'wfhr-complete',
+      title: 'Run Complete — View Full Results',
+      description:
+        'The completion banner confirms the run finished — total requests (one per WS node) and wall-clock duration are shown. The result is now persisted in the Results Dashboard. The demo clicks **View Full Results →** to open it filtered to this workflow run.',
+      highlight: '.completion-section',
+      action: async (ctx) => {
+        // Click "View Full Results →" with ripple so the user sees it happening;
+        // this triggers onComplete('workflow') → navigates to results tab
+        await ctx.click('.completion-section .btn-primary');
+      },
+      verify: '.results-run-filter-tabs',
+      pauseAfter: true,
+    },
+
+    // ── 6. Results Dashboard ───────────────────────────────────────
+    {
+      id: 'wfhr-results',
+      title: 'Results Dashboard — Workflow Run',
+      description:
+        'The Results Dashboard is now filtered to **Workflow Runs**. The most recent entry at the top is the "WS Echo Demo" run — tagged **⚡ WS Echo Demo** with a pass/fail badge and duration. Click it to open the **Workflow Results Explorer**: a node-by-node diagram with status indicators, extracted values, and timing for every WS step. You can also export the full trace as JSON or PNG from the header toolbar.',
       highlight: '.results-run-filter-tabs',
-      preAction: async (ctx) => {
-        ctx.navigateToTab('results');
-        await ctx.delay(600);
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: navigate to results if step 5 was skipped.
+        if (!document.querySelector('.results-run-filter-tabs')) {
+          ctx.navigateToTab('results');
+          await ctx.delay(800);
+        }
       },
-      pauseAfter: true,
-    },
-
-    // ── 7. Export & Reporting ───────────────────────────────────
-    {
-      id: 'tr-export',
-      title: 'Export & Reporting',
-      description:
-        'Export your test results as JSON or CSV for CI/CD integration, team sharing, or archival. You can also import results from CLI runs or workflow replays. The Generate Report dropdown creates detailed HTML reports. Feature Groups can be exported and imported too — share test suites across environments or with teammates.',
-      highlight: '.results-top-actions',
       pauseAfter: true,
     },
   ],

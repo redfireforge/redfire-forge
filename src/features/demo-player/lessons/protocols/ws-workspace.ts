@@ -218,8 +218,12 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.SAVE_AS_PROFILE_BTN);
-        await ctx.delay(600);
-        // The profile editor modal should now be open — fill name and save
+        // Rule 5: ProfileEditorModal is conditionally rendered — wait for it to mount.
+        // Clicking the button switches to Saved mode, sets prefillDraft, which triggers
+        // a useEffect that sets editorOpen = true, then the modal mounts.
+        await ctx.waitFor(WS.PROFILE_NAME_INPUT);
+        await ctx.delay(400);
+        // The profile editor modal is now open — fill name and save
         await ctx.fill(WS.PROFILE_NAME_INPUT, DEMO_PROFILE_NAME);
         await ctx.delay(400);
         await ctx.click(WS.PROFILE_SAVE_BTN);
@@ -267,6 +271,8 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       action: async (ctx: DemoActionContext) => {
         // Open the dropdown briefly to show the empty state
         await ctx.click(WS.TEMPLATE_TRIGGER);
+        // Rule 5: dropdown is conditionally rendered — wait for it to appear.
+        await ctx.waitFor(WS.TEMPLATE_DROPDOWN);
         await ctx.delay(1200);
         // Close it
         await ctx.click(WS.TEMPLATE_TRIGGER);
@@ -290,7 +296,8 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         await ctx.delay(300);
         // Open templates dropdown to expose the save row
         await ctx.click(WS.TEMPLATE_TRIGGER);
-        await ctx.delay(300);
+        // Rule 5: dropdown is conditionally rendered — wait for the save input to appear.
+        await ctx.waitFor(WS.TEMPLATE_SAVE_NAME);
       },
       action: async (ctx: DemoActionContext) => {
         // Type the template name
@@ -316,11 +323,20 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         // Clear the compose area so the load is visible
         await ctx.fill(WS.MESSAGE_INPUT, '');
         await ctx.delay(200);
+        // Guard: step 5 leaves the template dropdown open (the save is visible).
+        // If still open, close it so step 6's action reliably opens (not closes) it.
+        if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
+          const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
+          if (trigger) trigger.click();
+          await ctx.delay(200);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         // Open templates dropdown
         await ctx.click(WS.TEMPLATE_TRIGGER);
-        await ctx.delay(500);
+        // Rule 5: dropdown is conditionally rendered — wait for load button to appear.
+        await ctx.waitFor('.ws-template-item-load');
+        await ctx.delay(400);
         // Click the load button inside the first template item (with visual ripple)
         await ctx.click('.ws-template-item-load');
         await ctx.delay(600);
@@ -355,6 +371,13 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         'Now the URL uses `{{unknownHost}}` — a variable name that doesn\'t match any built-in or custom variable. RedfireForge shows a **warning** below the URL field immediately, so you catch typos before clicking Connect. Whether the issue is a wrong variable name, a missing environment config, or no environment selected at all, you\'ll always know.',
       highlight: WS.URL_INPUT,
       pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: ensure we are on Client mode + Connect tab so the URL input is visible.
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(200);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
+      },
       action: async (ctx: DemoActionContext) => {
         await ctx.fill(WS.URL_INPUT, UNRESOLVED_URL);
         await ctx.delay(800);

@@ -95,8 +95,13 @@ export default function LiveDemo({
     const maxAttempts = 20; // 20 × 100ms = 2s
 
     const poll = () => {
-      const el = document.querySelector(step.highlight!);
-      if (el && isElementVisible(el)) {
+      // When multiple tabs render the same testid, find the first VISIBLE match
+      // (e.g. left-tab-auth exists once per connection tab; inactive tabs have 0×0 size)
+      const all = document.querySelectorAll(step.highlight!);
+      const el = all.length > 0
+        ? Array.from(all).find(e => isElementVisible(e)) ?? null
+        : null;
+      if (el) {
         setTargetFound(true);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -136,12 +141,12 @@ export default function LiveDemo({
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 
-      {/* Steps overview drawer — anchored above the panel */}
+      {/* Steps overview — independent draggable modal */}
       {overviewOpen && (
         <StepOverviewDrawer
           lesson={lesson}
           currentStepIndex={stepIndex}
-          onGoToStep={(idx) => { onGoToStep(idx); setOverviewOpen(false); }}
+          onGoToStep={onGoToStep}
           onClose={() => setOverviewOpen(false)}
         />
       )}

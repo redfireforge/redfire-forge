@@ -130,7 +130,7 @@ export default function App() {
   const demoHub = useDemoHub({ navigateToTab });
 
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
-  useDemoWorkflowBridge(wfHook.workflows, wfHook.remove);
+  useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);

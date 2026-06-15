@@ -11,7 +11,7 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '../../../../shared/selectors';
-import { wsSetup, wsCleanup } from '../setup-helpers';
+import { wsSetup, wsCleanup, connectToMockServer, disconnectWebSocket } from '../setup-helpers';
 
 // ── Constants ──────────────────────────────────────────────────
 const MOCK_URL = 'ws://localhost:9876';
@@ -172,6 +172,10 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       highlight: WS.STATS_MSG_RATE,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
+        // Guard: must be connected to show the spike; reconnect silently if needed.
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await connectToMockServer(ctx);
+        }
         // Switch to Compose, send a burst, then back to Stats
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(200);
@@ -222,13 +226,19 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
       highlight: WS.DISCONNECT_CARET,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
+        // Guard: caret is disabled when disconnected; reconnect silently if needed.
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await connectToMockServer(ctx);
+        }
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
         // Open the close-with-code dropdown
         await ctx.click(WS.DISCONNECT_CARET);
-        await ctx.delay(800);
+        // Rule 5: the close panel is conditionally rendered — wait for it to appear.
+        await ctx.waitFor(WS.CLOSE_CODE_INPUT);
+        await ctx.delay(400);
         // Fill close code and reason
         await ctx.fill(WS.CLOSE_CODE_INPUT, '1001');
         await ctx.delay(600);
@@ -248,6 +258,10 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
         'After disconnecting, the Stats tab shows what happened: per-second rates drop to **zero**, the sparkline flatlines, and bytes/frame totals freeze at their final values. This gives you a clear before-and-after picture of when the connection was lost.',
       highlight: WS.RIGHT_TAB_STATS,
       pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: must be disconnected so rates show zero flatline; disconnect silently if still active.
+        await disconnectWebSocket(ctx);
+      },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.RIGHT_TAB_STATS);
         await ctx.delay(1400);

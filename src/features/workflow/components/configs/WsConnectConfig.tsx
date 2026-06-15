@@ -34,12 +34,12 @@ export default function WsConnectConfig({
 
   return (
     <div className="wf-config-body" data-testid="ws-connect-config">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>URL</label>
         <InsertVarField
           onRequestVariableInsert={onRequestVariableInsert}
@@ -53,30 +53,27 @@ export default function WsConnectConfig({
             variableHints={hintSet}
           />
         </InsertVarField>
-        <span className="wf-config-hint">Supports <code>{'{{variable}}'}</code> templates.</span>
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Connection ID</label>
         <input
           value={data.connectionId}
           onChange={(e) => update({ connectionId: e.target.value })}
           placeholder="ws1"
         />
-        <span className="wf-config-hint">Referenced by downstream WS Send / WS Receive nodes.</span>
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Subprotocols</label>
         <input
           value={(data.subprotocols ?? []).join(', ')}
           onChange={(e) => update({ subprotocols: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
           placeholder="graphql-ws, mqtt"
         />
-        <span className="wf-config-hint">Comma-separated list of WebSocket subprotocols.</span>
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
         <input
           type="number"

@@ -25,7 +25,9 @@ async function renameTabByIndex(ctx: DemoActionContext, index: number, name: str
   await ctx.delay(500);
   tab.focus();
   await ctx.delay(200);
-  tab.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true }));
+  const f2Event = new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
+  (f2Event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+  tab.dispatchEvent(f2Event);
   await ctx.delay(500);
 
   let input = document.querySelector(WS.CONN_TAB_RENAME) as HTMLInputElement | null;
@@ -38,7 +40,9 @@ async function renameTabByIndex(ctx: DemoActionContext, index: number, name: str
 
   fillControlledInput(input, name);
   await ctx.delay(300);
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+  (enterEvent as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+  input.dispatchEvent(enterEvent);
   await ctx.delay(300);
 }
 
@@ -61,7 +65,11 @@ async function pressKeyOnTab(ctx: DemoActionContext, key: string, tab?: HTMLElem
   await ctx.delay(200);
   target.focus();
   await ctx.delay(100);
-  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  // Mark as demo-synthetic so useDemoShortcuts ignores it and does not
+  // accidentally advance/reverse the lesson step.
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  (event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+  target.dispatchEvent(event);
   await ctx.delay(300);
 }
 
@@ -209,7 +217,7 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       id: 'pu-drag-reorder',
       title: 'Drag to Reorder',
       description:
-        'Grab any tab and **drag** it to a new position. The source tab fades to 40% opacity, and a colored inset line appears on the target tab showing where the drop will land (left edge = before, right edge = after). Release to finalize the new order — it\'s saved automatically.',
+        '**Try it yourself right now!** Grab any tab and drag it to a new position. The source tab fades to 40% opacity while dragging, and a colored inset line appears on the target tab showing where the drop will land (left edge = before, right edge = after). Release to finalize — the new order is saved automatically.',
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
@@ -242,10 +250,12 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       },
       action: async (ctx: DemoActionContext) => {
         const tab1 = getTabByIndex(0);
+        // Use index-based targeting: ArrowRight moves focus, not activation,
+        // so getActiveTab() would still return tab1 — target tab2 by index directly.
+        const tab2 = getTabByIndex(1) ?? tab1;
         if (tab1) {
           await pressKeyOnTab(ctx, 'ArrowRight', tab1);
           await ctx.delay(600);
-          const tab2 = getActiveTab();
           await pressKeyOnTab(ctx, 'ArrowRight', tab2);
           await ctx.delay(600);
         }
@@ -357,7 +367,13 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       highlight: WS.CONN_TAB_BAR,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Set tab 1 to Console on the right
+        // Guard: need at least 2 tabs to demonstrate cross-tab state persistence
+        const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+        if (tabs.length < 2) {
+          await ctx.click(WS.CONN_TAB_ADD);
+          await ctx.delay(400);
+        }
+        // Set tab 1's right pane to Console (preload state for the demonstration)
         await ctx.click(WS.CONN_TAB_FIRST);
         await ctx.delay(300);
         await ctx.click(WS.RIGHT_TAB_CONSOLE);

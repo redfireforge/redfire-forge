@@ -27,6 +27,34 @@ async function resetStompCommand(ctx: DemoActionContext) {
   await ctx.delay(100);
 }
 
+/**
+ * Guard used by preActions of steps 5+ to ensure WS transport is open AND
+ * a STOMP CONNECT frame has been sent (so the broker accepts SUBSCRIBE/SEND).
+ * Called only when the user skips directly to a late step.
+ */
+async function ensureStompSession(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  // Establish WebSocket transport
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+  await ctx.click(WS.CONNECT_BTN);
+  await ctx.waitFor(WS.STATUS_CONNECTED);
+  await ctx.delay(300);
+  // Send STOMP CONNECT frame so the broker accepts subsequent frames
+  await ctx.click(WS.LEFT_TAB_COMPOSE);
+  await ctx.delay(200);
+  await ctx.selectOption(WS.STOMP_COMMAND, 'CONNECT');
+  await ctx.delay(200);
+  await ctx.fill(WS.STOMP_DESTINATION, '/');
+  await ctx.delay(150);
+  await ctx.fill(WS.STOMP_LOGIN, 'guest');
+  await ctx.delay(150);
+  await ctx.fill(WS.STOMP_PASSCODE, 'guest');
+  await ctx.delay(150);
+  await ctx.click(WS.SEND_BTN);
+  await ctx.delay(600); // allow CONNECTED reply from broker
+}
+
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function stompSetup(ctx: DemoActionContext): Promise<void> {
@@ -189,8 +217,12 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       description: 'With **Protocol: STOMP** selected, RedfireForge decodes every frame in the Events tab. Instead of seeing raw null-byte-terminated text like `SEND↵destination:/queue/demo↵↵{"hello":"world"}↵\\0`, you see a clean row labeled **SEND → /queue/demo**. Incoming broker messages show as **MESSAGE ← /queue/demo**. System frames like **CONNECTED** and **HEARTBEAT (♥)** are visually distinguished.',
       highlight: WS.PROTOCOL_SELECT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction ensures Connect tab is visible so PROTOCOL_SELECT is in the DOM
+      // before the spotlight renders (PROTOCOL_SELECT only exists inside the Connect panel).
+      preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
       },
     },
@@ -206,13 +238,16 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       },
       action: async (ctx: DemoActionContext) => {
         // ── Step 1: Open the WebSocket transport ───────────────────
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1200);
+        // Replay guard: skip WS connect if already open from a prior pass.
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+        }
+        await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green status dot (Rule 5)
+        await ctx.delay(400); // brief pause to observe the green dot
         // Show Events — SYS entry for transport open should be visible
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(600);
-        // ── Step 2: Send STOMP CONNECT frame immediately ───────────
-        // Both steps must happen quickly before RabbitMQ's initial handshake timeout.
+        // ── Step 2: Send STOMP CONNECT frame ───────────────────────
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(300);
         // Select CONNECT command — triggers React re-render showing login/passcode fields
@@ -227,7 +262,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
         await ctx.fill(WS.STOMP_PASSCODE, 'guest');
         await ctx.delay(300);
         await ctx.click(WS.SEND_BTN);
-        await ctx.delay(1500);
+        await ctx.delay(800); // allow CONNECTED reply from broker
         // Show Events to reveal CONNECTED frame
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(700);
@@ -253,9 +288,11 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       description: 'The compose panel is set to **SUBSCRIBE** targeting `/queue/demo`. Sending this frame tells RabbitMQ to deliver every message on that queue directly to this client. The auto-generated `id: sub-NNN` header lets the broker track which subscription each delivery belongs to — watch the **SUBSCRIBE** row appear in the Events log when the demo sends it.',
       highlight: WS.STOMP_COMPOSE_FIELDS,
       pauseAfter: true,
-      // preAction navigates to Compose AND pre-populates SUBSCRIBE + destination
-      // so the user reads the description while already seeing the correct state.
+      // preAction ensures WS+STOMP session is active (connection guard), then
+      // navigates to Compose and pre-populates SUBSCRIBE + destination so the
+      // user reads the description while already seeing the correct compose state.
       preAction: async (ctx: DemoActionContext) => {
+        await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(200);
         await ctx.selectOption(WS.STOMP_COMMAND, 'SUBSCRIBE');
@@ -276,8 +313,10 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       description: 'Command is **SEND**, destination is `/queue/demo` — same queue we subscribed to. When we send `{"hello":"from RedfireForge!"}`, the broker delivers it back immediately as a **MESSAGE** frame. Two rows appear in the Events log: **SEND → /queue/demo** (↑) and **MESSAGE ← /queue/demo** (↓). That\'s destination-based pub/sub in action: publish once, receive once.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
-      // preAction navigates to Compose and selects SEND command before the spotlight
+      // preAction ensures WS+STOMP session is active (connection guard), then
+      // navigates to Compose and selects SEND command before the spotlight.
       preAction: async (ctx: DemoActionContext) => {
+        await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(200);
         await ctx.selectOption(WS.STOMP_COMMAND, 'SEND');
