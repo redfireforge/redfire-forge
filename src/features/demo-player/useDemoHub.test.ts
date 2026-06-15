@@ -390,7 +390,9 @@ describe('useDemoHub (async execution)', () => {
     });
     expect(result.current.state.stepIndex).toBe(1);
     act(() => { result.current.toggleAutoPlay(); });
-    expect(result.current.state.isPlaying).toBe(true);
+    // isPlaying starts as false during restart so the auto-play effect does NOT
+    // race with cleanup/setup (it gets re-enabled inside the callback after setup).
+    expect(result.current.state.isPlaying).toBe(false);
     expect(result.current.state.stepIndex).toBe(0);
   });
 

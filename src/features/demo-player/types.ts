@@ -1,4 +1,4 @@
-/** Demo Player v2 — type definitions */
+/** Demo Player — type definitions */
 
 // ─── State Machine ───────────────────────────────────────────────
 export type HubView = 'domains' | 'lessons' | 'concept' | 'live';
@@ -59,6 +59,13 @@ export interface DemoLesson {
   setup?: (ctx: DemoActionContext) => Promise<void>;
   /** Runs when exiting or restarting — disconnect, stop servers, reset UI */
   cleanup?: (ctx: DemoActionContext) => Promise<void>;
+  /** Badge label shown on the lesson card (e.g. '🐳 Docker'). */
+  tag?: string;
+  /** HTTP or WS URL to probe before allowing the live demo to start.
+   *  When set, LessonPlayer renders a PrerequisiteGate below the concept slide. */
+  dockerEndpoint?: string;
+  /** docker compose command the user must run to start the required container. */
+  dockerCommand?: string;
 }
 
 export interface ConceptContent {
@@ -86,11 +93,13 @@ export interface DemoStep {
   /** Selector to poll after action — step won't advance until this appears */
   verify?: string;
   fallbackImage?: string;
-  /** Override auto-calculated reading time (ms). Otherwise derived from word count. */
-  pauseAfter?: number;
+  /** Step display duration. A number overrides the auto-calculated reading time (ms);
+   *  `true` keeps the auto-calculated reading time (used as an explicit "pause to read"
+   *  marker). Otherwise the time is derived from word count. */
+  pauseAfter?: number | boolean;
 }
 
-// ─── Action Context (same interface as v1, proven stable) ────────
+// ─── Action Context ──────────────────────────────────────────────
 export interface DemoActionContext {
   navigateToTab: (tab: string) => void;
   click: (selector: string) => Promise<void>;

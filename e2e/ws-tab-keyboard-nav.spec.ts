@@ -50,7 +50,17 @@ async function connectActiveTab(page: Page) {
   await pane.locator('[data-testid="left-tab-connect"]').click();
   await pane.locator('[aria-label="WebSocket URL"]').fill('ws://localhost:9876');
   await pane.locator('[data-testid="connect-btn"]').click();
-  await activeTab(page).filter({ has: page.locator('[title="connected"]') }).waitFor({ timeout: 10000 });
+  try {
+    await activeTab(page).filter({ has: page.locator('[title="connected"]') }).waitFor({ timeout: 10000 });
+  } catch {
+    // Mock server may have been restarted by another worker — restart + retry
+    await page.request.post('http://localhost:3001/api/ws/mock/start', {
+      data: { port: 9876, rules: [], fallback: 'echo' },
+    }).catch(() => {});
+    await page.waitForTimeout(500);
+    await pane.locator('[data-testid="connect-btn"]').click();
+    await activeTab(page).filter({ has: page.locator('[title="connected"]') }).waitFor({ timeout: 10000 });
+  }
   await page.waitForTimeout(300);
 }
 

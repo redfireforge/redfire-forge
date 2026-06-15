@@ -50,6 +50,7 @@ export default function WorkflowExecSummary({ runProgress, failedStepLabel, onOp
 
   return (
     <div
+      data-testid="exec-summary"
       className={`wf-exec-strip wf-exec-strip-${status}`}
       onClick={status !== 'running' ? onOpenConsole : undefined}
       style={status !== 'running' ? { cursor: 'pointer' } : undefined}

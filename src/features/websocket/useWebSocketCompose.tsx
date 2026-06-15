@@ -48,6 +48,8 @@ export function useWebSocketCompose({
   const [sioNamespace, setSioNamespace] = useState('/');
   const [stompCommand, setStompCommand] = useState('SEND');
   const [stompDestination, setStompDestination] = useState('');
+  const [stompLogin, setStompLogin] = useState('');
+  const [stompPasscode, setStompPasscode] = useState('');
   const [gqlVariables, setGqlVariables] = useState('');
   const [gqlOperationName, setGqlOperationName] = useState('');
   const [gqlOperationId, setGqlOperationId] = useState(1);
@@ -98,7 +100,13 @@ export function useWebSocketCompose({
       const input = stompDestination.trim();
       if (stompCommand === 'CONNECT' || stompCommand === 'STOMP') {
         headers['accept-version'] = '1.2';
+        // Negotiate heartbeats: keeps connection alive during long reading pauses.
+        // Format: "<send-interval-ms>,<receive-interval-ms>" — 10s each.
+        headers['heart-beat'] = '10000,10000';
         if (input) headers['host'] = input;
+        // Include broker credentials when supplied in the CONNECT-only fields
+        if (stompLogin.trim()) headers['login'] = stompLogin.trim();
+        if (stompPasscode.trim()) headers['passcode'] = stompPasscode.trim();
       } else if (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') {
         if (input) headers['id'] = input;
       } else {
@@ -131,7 +139,7 @@ export function useWebSocketCompose({
     }
     onSend(composeText.trim(), composeFormat);
     setComposeText('');
-  }, [composeText, composeFormat, canSend, onSend, isSioMode, sioEventName, sioNamespace, isStompMode, stompCommand, stompDestination, isGqlMode, gqlVariables, gqlOperationName, gqlOperationId]);
+  }, [composeText, composeFormat, canSend, onSend, isSioMode, sioEventName, sioNamespace, isStompMode, stompCommand, stompDestination, stompLogin, stompPasscode, isGqlMode, gqlVariables, gqlOperationName, gqlOperationId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -230,7 +238,7 @@ export function useWebSocketCompose({
             value={stompDestination}
             onChange={(e) => setStompDestination(e.target.value)}
             placeholder={
-              stompCommand === 'CONNECT' ? 'Host (e.g. broker.local)'
+              stompCommand === 'CONNECT' ? 'Virtual host (e.g. /)'
               : (stompCommand === 'UNSUBSCRIBE' || stompCommand === 'ACK' || stompCommand === 'NACK') ? 'ID (e.g. sub-0 or msg-42)'
               : 'Destination (e.g. /topic/chat)'
             }
@@ -242,6 +250,30 @@ export function useWebSocketCompose({
             }
             data-testid="stomp-destination"
           />
+          {(stompCommand === 'CONNECT' || stompCommand === 'STOMP') && (
+            <>
+              <input
+                className="ws-stomp-auth-input"
+                type="text"
+                value={stompLogin}
+                onChange={(e) => setStompLogin(e.target.value)}
+                placeholder="Login (e.g. guest)"
+                disabled={!isConnected}
+                aria-label="STOMP login"
+                data-testid="stomp-login"
+              />
+              <input
+                className="ws-stomp-auth-input ws-stomp-passcode-input"
+                type="password"
+                value={stompPasscode}
+                onChange={(e) => setStompPasscode(e.target.value)}
+                placeholder="Passcode"
+                disabled={!isConnected}
+                aria-label="STOMP passcode"
+                data-testid="stomp-passcode"
+              />
+            </>
+          )}
         </div>
       )}
       {isGqlMode && (
@@ -283,7 +315,7 @@ export function useWebSocketCompose({
                 : isStompMode
                   ? 'Message body (optional)\u2026'
                   : isGqlMode
-                    ? 'subscription { onMessage { id text } }'
+                    ? 'subscription { countdown(from: 5) }'
                     : 'Type a message\u2026'
           }
           disabled={!isConnected}

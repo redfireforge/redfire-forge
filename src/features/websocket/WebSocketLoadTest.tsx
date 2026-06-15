@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { WsLoadProfile } from '../../shared/websocket/types';
+import type { WsLoadTestResult, WsLoadProfile } from '../../shared/websocket/types';
 import type { UseWebSocketLoadTestReturn } from './useWebSocketLoadTest';
 import { computeExpectedTotal, createDefaultLoadTestConfig } from './wsLoadTestMetrics';
 import { round2 } from '../../shared/utils/percentiles';
@@ -80,6 +80,52 @@ function HistogramBar({ buckets, maxCount }: { buckets: { bucket: string; count:
 export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSocketLoadTestProps) {
   const { state, config, setConfig, progress, result } = loadTest;
   const [confirmStart, setConfirmStart] = useState(false);
+  const [formatState, setFormatState] = useState<'idle' | 'ok' | 'err'>('idle');
+  const formatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
+
+  const handleImportResult = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string) as WsLoadTestResult;
+        loadTest.loadResult(data);
+      } catch {
+        // ignore malformed files
+      }
+    };
+    reader.readAsText(file);
+    // Reset so the same file can be imported again
+    e.target.value = '';
+  }, [loadTest]);
+
+  const handleFormatTemplate = useCallback(() => {
+    const raw = config.messageTemplate.trim();
+    // Use unique marker values unlikely to appear in real templates.
+    // Number marker: preserved as number by JSON.parse, so {{counter}} type is preserved.
+    const COUNTER_N = 1234567890;
+    const TIMESTAMP_S = '2099-01-01T00:00:00.000Z';
+    const RANDOM_S = 'XRND_PLACEHOLDER_X';
+    const substituted = raw
+      .replace(/\{\{counter\}\}/g, String(COUNTER_N))
+      .replace(/\{\{timestamp\}\}/g, TIMESTAMP_S)
+      .replace(/\{\{random\}\}/g, RANDOM_S);
+    try {
+      let pretty = JSON.stringify(JSON.parse(substituted), null, 2);
+      pretty = pretty
+        .replace(new RegExp(String(COUNTER_N), 'g'), '{{counter}}')
+        .replace(new RegExp(`"${TIMESTAMP_S}"`, 'g'), '"{{timestamp}}"')
+        .replace(new RegExp(`"${RANDOM_S}"`, 'g'), '"{{random}}"');
+      setConfig({ messageTemplate: pretty });
+      setFormatState('ok');
+    } catch {
+      setFormatState('err');
+    }
+    if (formatTimerRef.current) clearTimeout(formatTimerRef.current);
+    formatTimerRef.current = setTimeout(() => setFormatState('idle'), 1500);
+  }, [config.messageTemplate, setConfig]);
 
   const expectedTotal = useMemo(() => computeExpectedTotal(config), [config]);
 
@@ -181,6 +227,15 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
                 <span className="ws-lt-label-icon">📝</span>
                 Message Template
                 <span className="ws-lt-hint">{'{{counter}} {{timestamp}} {{random}}'}</span>
+                <button
+                  className={`ws-lt-format-btn ${formatState === 'ok' ? 'ws-lt-format-ok' : formatState === 'err' ? 'ws-lt-format-err' : ''}`}
+                  onClick={handleFormatTemplate}
+                  title="Format as pretty-printed JSON"
+                  type="button"
+                  data-testid="lt-format-btn"
+                >
+                  {formatState === 'ok' ? '✓ Formatted' : formatState === 'err' ? '✗ Invalid JSON' : '{ } Format'}
+                </button>
               </label>
               <textarea
                 className="ws-lt-textarea"
@@ -405,6 +460,16 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
               <button className="ws-lt-btn" onClick={handleExportResult} data-testid="lt-export-btn">
                 Export JSON
               </button>
+              <button className="ws-lt-btn" onClick={() => importRef.current?.click()} data-testid="lt-import-btn">
+                Import JSON
+              </button>
+              <input
+                ref={importRef}
+                type="file"
+                accept=".json,application/json"
+                style={{ display: 'none' }}
+                onChange={handleImportResult}
+              />
             </div>
           </div>
           {!isConnected && (
@@ -448,27 +513,27 @@ export function WebSocketLoadTest({ loadTest, isConnected, statsPanel }: WebSock
               </div>
               <div className="ws-lt-latency-cards">
                 <div className="ws-lt-latency-card">
-                  <span className="ws-lt-latency-value">{result.latency.min}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.min}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">Min</span>
                 </div>
                 <div className="ws-lt-latency-card">
-                  <span className="ws-lt-latency-value">{result.latency.mean}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.mean}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">Mean</span>
                 </div>
                 <div className="ws-lt-latency-card">
-                  <span className="ws-lt-latency-value">{result.latency.p50}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.p50}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">P50</span>
                 </div>
                 <div className="ws-lt-latency-card ws-lt-latency-highlight">
-                  <span className="ws-lt-latency-value">{result.latency.p95}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.p95}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">P95</span>
                 </div>
                 <div className="ws-lt-latency-card">
-                  <span className="ws-lt-latency-value">{result.latency.p99}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.p99}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">P99</span>
                 </div>
                 <div className="ws-lt-latency-card">
-                  <span className="ws-lt-latency-value">{result.latency.max}ms</span>
+                  <span className="ws-lt-latency-value">{result.latency.max}<span className="ws-lt-latency-unit">ms</span></span>
                   <span className="ws-lt-latency-label">Max</span>
                 </div>
               </div>

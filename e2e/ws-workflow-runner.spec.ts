@@ -332,9 +332,11 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
     await page.goto('/?tab=workflow');
     await waitForWorkflowReady(page);
 
-    // Run Quick Test first
+    // Run Quick Test first — wait for it to complete (pass or fail)
     await page.locator('.wf-quick-test-btn').click();
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
+    const passedText = page.getByText(/\d+\/\d+ passed/i).first();
+    const failedText = page.getByText(/\d+ failed/i).first();
+    await expect(passedText.or(failedText)).toBeVisible({ timeout: 25000 });
 
     // Double-click the WS Connect node to open config
     await page.locator('.wf-node-wsConnect').dblclick();

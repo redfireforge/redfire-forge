@@ -1,4 +1,4 @@
-/** Demo Hub v2 — state machine hook */
+/** Demo Hub — state machine hook */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type {
   DemoHubState,
@@ -246,7 +246,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       // Phase 3: reading pause (auto-calculated from word count)
       // — user can click the "👀 Reading" badge to skip this wait.
       setStepPhase('reading');
-      const readTime = step.pauseAfter ?? calcReadingTime(step);
+      const readTime = (typeof step.pauseAfter === 'number') ? step.pauseAfter : calcReadingTime(step);
       await new Promise<void>(resolve => {
         skipReadingRef.current = resolve;
         const timer = setTimeout(resolve, scaleMs(readTime));
@@ -344,7 +344,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const atEnd = lesson && prev.stepIndex >= lesson.steps.length - 1;
       if (newPlaying && atEnd && lesson) {
         const currentSpeed = prev.speed;
-        // Run cleanup → setup → step 0 action asynchronously after state update
+        // Run cleanup → setup → step 0 action asynchronously after state update.
+        // NOTE: isPlaying starts as false so the auto-play effect does NOT fire
+        // concurrently with cleanup/setup (which would race against them switching
+        // tabs and cause template/profile deletion to fail). isPlaying is re-enabled
+        // inside the callback after setup completes.
         setTimeout(async () => {
           if (!isMountedRef.current) return;
           const ctx = buildQuietContext();
@@ -355,15 +359,24 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
             try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
           }
           if (isMountedRef.current && lesson.steps[0]) {
+            // Re-enable auto-play now that setup is done, then execute step 0.
+            setState(prev => ({ ...prev, isPlaying: true }));
             await executeCurrentStep(lesson.steps[0], currentSpeed);
             progress.setLessonStep(lesson.id, 0);
           }
         }, 50);
-        return { ...prev, isPlaying: true, stepIndex: 0 };
+        // Start with isPlaying: false to prevent the auto-play effect from racing
+        // with cleanup/setup (it would immediately schedule step 1 before setup finishes).
+        return { ...prev, isPlaying: false, stepIndex: 0 };
       }
       return { ...prev, isPlaying: newPlaying };
     });
   }, [buildQuietContext, executeCurrentStep, progress]);
+
+  // Stable progress callbacks — useCallback([update]) where update is useCallback([])
+  // so these never change reference across renders. Destructured here to keep
+  // the auto-play effect deps stable (avoids re-firing when progress.data updates).
+  const { setLessonStep: progressSetStep, markLessonComplete: progressMarkComplete } = progress;
 
   // Auto-play effect: step execution includes its own reading pauses,
   // so we just chain steps sequentially when playing
@@ -372,7 +385,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     if (state.stepIndex >= lesson.steps.length - 1) {
       setState(prev => ({ ...prev, isPlaying: false }));
-      progress.markLessonComplete(lesson.id);
+      progressMarkComplete(lesson.id);
       return;
     }
 
@@ -381,16 +394,21 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     autoPlayRef.current = setTimeout(async () => {
       if (!isMountedRef.current) return;
-      // Guard: don't fire if a pipeline is still running
-      if (executingRef.current) return;
+      // Wait for any running step pipeline to finish before advancing.
+      // At slower speeds (0.5×), setup + step execution can exceed the
+      // breathing pause — without this poll the demo would get permanently stuck.
+      while (executingRef.current) {
+        await new Promise(r => setTimeout(r, 200));
+        if (!isMountedRef.current) return;
+      }
       const nextIdx = state.stepIndex + 1;
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
       await executeCurrentStep(lesson.steps[nextIdx], state.speed);
-      progress.setLessonStep(lesson.id, nextIdx);
+      progressSetStep(lesson.id, nextIdx);
     }, breathingPause);
 
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
-  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progress]);
+  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep, progressMarkComplete]);
 
   const setSpeed = useCallback((speed: SpeedMultiplier) => {
     setState(prev => ({ ...prev, speed }));

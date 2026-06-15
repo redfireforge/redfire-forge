@@ -85,11 +85,17 @@ export default function LessonList({ domain, progress, onSelect, onBack }: Lesso
               className={`demo-lesson-item ${isComplete ? 'completed' : ''}`}
               onClick={() => onSelect(lesson)}
             >
-              <span className="demo-lesson-status">
-                {isComplete ? '✅' : `${idx + 1}.`}
+              <span className={`demo-lesson-status ${isComplete ? 'completed' : ''}`}>
+                <span className="demo-lesson-number">{idx + 1}</span>
+                {isComplete && <span className="demo-lesson-check" aria-label="Completed">✓</span>}
               </span>
               <div className="demo-lesson-info">
-                <span className="demo-lesson-name">{lesson.name}</span>
+                <span className="demo-lesson-name">
+                  {lesson.name}
+                  {lesson.tag && (
+                    <span className="demo-lesson-tag">{lesson.tag}</span>
+                  )}
+                </span>
                 <span className="demo-lesson-desc">{lesson.description}</span>
               </div>
               <div className="demo-lesson-meta">
