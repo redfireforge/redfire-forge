@@ -46,6 +46,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     disconnectActiveCluster,
     refreshConnectionStatus,
     testSelectedClusterConnection,
+    lastTestResult,
   } = kafkaState;
   const [editorMode, setEditorMode] = useState<'create' | 'edit' | null>(null);
   const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
@@ -446,6 +447,14 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                   >
                     Test Connection
                   </button>
+                  {lastTestResult && (
+                    <span
+                      className={`kafka-test-result ${lastTestResult.ok ? 'kafka-test-result--ok' : 'kafka-test-result--fail'}`}
+                      data-testid="kafka-test-result"
+                    >
+                      {lastTestResult.ok ? '✓ Verified' : '✗ Failed'}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="btn btn-sm"
