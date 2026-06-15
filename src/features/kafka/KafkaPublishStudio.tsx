@@ -247,10 +247,10 @@ export function KafkaPublishStudio({
               type="button"
               className="kafka-ms-pretty-badge"
               onClick={handleFormatJson}
-              title="Pretty-format JSON"
-              data-testid="pub-pretty-badge"
+              title="Pretty Format JSON"
+              data-testid="pub-pretty-format-badge"
             >
-              {'{ }'} Pretty
+              {'{ }'} Pretty Format
             </button>
           </div>
           <textarea
