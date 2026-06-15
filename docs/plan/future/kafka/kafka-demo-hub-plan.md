@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** � In Progress — K5 shipped; K1–K4, K6–K13 pending
+> **Status:** 🔨 In Progress — K2 (Publish Studio), K5 (Templates) shipped; K1, K3–K4, K6–K13 pending
 
 ---
 
@@ -1103,9 +1103,9 @@ Recommended implementation sequence (short lessons and no-Docker first):
 
 | Order | Lesson | Why first |
 |---|---|---|
-| 1 | K5 Templates | No Docker, pure UI — fast to implement and test |
-| 2 | K2 Publish Studio | Core feature, rich selectors already exist |
-| 3 | K3 Consume Studio | Builds directly on K2 selectors |
+| 1 | ~~K5 Templates~~ ✅ Done | No Docker, pure UI — fast to implement and test |
+| 2 | ~~K2 Publish Studio~~ ✅ Done | Core feature, rich selectors already exist |
+| 3 | **K3 Consume Studio** ← next | Builds directly on K2 selectors |
 | 4 | K4 Headers & Filters | Extends K2+K3 patterns |
 | 5 | K1 Quick Start | Docker, but simple step flow |
 | 6 | K6 Topic Explorer | Reuses existing explorer data-testids |
