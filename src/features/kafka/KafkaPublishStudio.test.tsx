@@ -9,8 +9,8 @@ import type { KafkaPublishDraft } from './types';
 
 function basePublishDraft(): KafkaPublishDraft {
   return {
-    topic: 'orders.events', key: '', partition: '', acks: -1,
-    timeoutMs: '', headers: [], body: '{"hello":"world"}',
+    topic: 'orders.events', key: '', keyFormat: 'string', partition: '', acks: -1,
+    timeoutMs: '', headers: [], body: '{"hello":"world"}', bodyFormat: 'json',
   };
 }
 
@@ -169,7 +169,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-body-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Message Body (JSON)'));
+    fireEvent.blur(screen.getByLabelText('Message Body'));
     expect(screen.getByTestId('pub-body-hint').textContent).toBe('Message body is required');
   });
 
@@ -367,7 +367,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Message Body textarea changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Message Body (JSON)'), { target: { value: '{"new":"body"}' } });
+    fireEvent.change(screen.getByLabelText('Message Body'), { target: { value: '{"new":"body"}' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ body: '{"new":"body"}' });
   });
 });

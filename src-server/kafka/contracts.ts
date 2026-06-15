@@ -18,6 +18,9 @@ export type KafkaOperation =
 
 export type KafkaServiceState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+/** Serialization format for key and value fields in a produce request. */
+export type KafkaSerdeFormat = 'string' | 'json' | 'base64' | 'hex';
+
 export type KafkaAuthMode = 'none' | 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 export interface KafkaAuthConfig {
@@ -111,6 +114,17 @@ export interface KafkaProduceRequest {
    * When absent, messages are sent as plain JSON (no behavioral change).
    */
   schemaConfig?: KafkaSchemaConfig;
+  /**
+   * Serde format for the message body.  Default: 'json' (UTF-8 string, backward compat).
+   * 'base64' and 'hex' cause the server to decode the string to a raw Buffer before sending.
+   * Ignored when schemaConfig is present (schema encoding takes precedence).
+   */
+  bodyFormat?: KafkaSerdeFormat;
+  /**
+   * Serde format for the message key.  Default: 'string' (UTF-8 key string).
+   * 'base64' and 'hex' cause the server to decode the key string to a raw Buffer.
+   */
+  keyFormat?: KafkaSerdeFormat;
 }
 
 export interface KafkaProduceRecordResult {
@@ -130,7 +144,7 @@ export interface KafkaProduceResult {
    * `KafkaConsumeRecord` does NOT include this field — the server always decodes
    * before returning so clients always receive plain JSON in `value`.
    */
-  valueEncoding?: 'avro' | 'protobuf' | 'json-schema' | 'plain';
+  valueEncoding?: 'avro' | 'protobuf' | 'json-schema' | 'plain' | 'base64' | 'hex';
 }
 
 export interface KafkaMessageFilter {
