@@ -242,8 +242,13 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 **File:** `src/features/demo-player/lessons/protocols/kafka-quick-start.ts`
 **Export:** `kafkaQuickStartLesson`
-**Icon:** ⚡ | **Est. time:** 3 min | **initialTab:** `kafka-message-studio`
+**Icon:** ⚡ | **Est. time:** 3 min | **initialTab:** `kafka-settings`
 **Category:** `kafka` | **Docker:** 🐳 Plaintext (`http://localhost:18080`)
+**allowedTabs:** `['kafka-settings', 'kafka-message-studio']`
+
+> **Note:** `initialTab` is `kafka-settings` because the first lesson step IS the settings page.
+> `allowedTabs` must include both tabs to prevent the auto-exit guard from firing during
+> the final `navigateToTab('kafka-message-studio')` in step 7.
 
 #### Concept
 - Kafka broker vs cluster ID vs topic
@@ -254,23 +259,30 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `ks-intro` | Welcome to Kafka in RedfireForge | `KAFKA_STUDIO_TAB` | Informational — shows the Protocols → Kafka nav |
-| 2 | `ks-settings` | Configure a Cluster | `KAFKA_SETTINGS_LINK` | Navigates to Settings → Kafka (link in guard panel) |
-| 3 | `ks-create` | Create Your First Cluster | `KAFKA_NEW_CLUSTER_BTN` | Clicks "+ New Cluster" (or "Create First Cluster") |
-| 4 | `ks-fill` | Fill in Broker Details | `KAFKA_BROKER_INPUT` | preAction: fills Name="Local Plaintext", Broker="127.0.0.1:19092", Auth=None |
-| 5 | `ks-save` | Save the Cluster | `KAFKA_SAVE_BTN` | Clicks Save Cluster |
-| 6 | `ks-connect` | Connect | `KAFKA_CONNECT_BTN` | Clicks Connect → waits for status badge to show "connected" |
-| 7 | `ks-studio` | Back to the Studio | `KAFKA_STUDIO_TAB` | Navigates to Protocols → Kafka; shows the 4 tabs (Publish/Consume/Topics/Schema Registry) |
+| 1 | `ks-intro` | Welcome to Kafka in RedfireForge | `KAFKA.SETTINGS_PAGE` | Informational — Kafka Cluster Studio overview |
+| 2 | `ks-create` | Create Your First Cluster | `KAFKA.EMPTY_CREATE_BTN` | **action**: clicks `KAFKA.EMPTY_CREATE_BTN` (empty state) or `KAFKA.ADD_CLUSTER_BTN` (if clusters exist) — editor opens |
+| 3 | `ks-fill` | Fill in Broker Details | `KAFKA.BROKER_INPUT` | **action**: fills `#kafka-cluster-name` with `Demo Cluster`, verifies broker = `127.0.0.1:19092`, auth = None |
+| 4 | `ks-save` | Save the Cluster | `KAFKA.SAVE_BTN` | **action**: clicks `KAFKA.SAVE_BTN` — cluster card appears in list |
+| 5 | `ks-connect` | Connect to the Broker | `KAFKA.CONNECT_BTN` | **action**: clicks `KAFKA.CONNECT_BTN` — waits for "Connected" badge |
+| 6 | `ks-status` | Connection Status | `KAFKA.SETTINGS_LIST` | Informational — explains Connected badge, cluster list, selected profile |
+| 7 | `ks-studio` | Back to the Studio | `KAFKA.PUBLISH_TAB` | **preAction**: `navigateToTab('kafka-message-studio')` + delay(400) — shows 4 tabs |
 
-**Setup:** Navigate to `kafka-message-studio` tab; show `PrerequisiteGate` for plaintext broker.
-**Cleanup:** No-op (cluster config persists intentionally — needed by all subsequent lessons).
+**Setup:** No-op — lesson starts directly on `kafka-settings`.
+**Cleanup:** No-op (cluster config persists intentionally — needed by K2/K3/K4 onwards).
 
 **PrerequisiteGate config:**
 ```typescript
 dockerEndpoint: 'http://localhost:18080',
 dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
-// No dockerDescription field — DemoLesson type only has dockerEndpoint and dockerCommand
 ```
+
+#### Implementation Notes (to be filled after implementation)
+
+**Key design considerations for K1:**
+- Step 2 must handle two cases: empty state (`KAFKA.EMPTY_CREATE_BTN`) vs already has clusters (`KAFKA.ADD_CLUSTER_BTN`). Use `KAFKA.EMPTY_CREATE_BTN` as primary; if absent, fall back to `KAFKA.ADD_CLUSTER_BTN`. This avoids creating duplicate clusters on repeated runs (same bug that was fixed in `kafkaPublishSetup`).
+- Step 3 should NOT fill the broker input if it already shows `127.0.0.1:19092` — it's the default. Only fill cluster name.
+- Step 7 navigates away from `kafka-settings` — MUST use `preAction` (same rule as all tab navigation).
+- `initialTab: 'kafka-settings'` means K1 does NOT use `kafkaPublishSetup`. No setup function needed.
 
 ---
 
