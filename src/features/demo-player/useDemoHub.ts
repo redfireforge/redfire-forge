@@ -313,6 +313,12 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
     await executeCurrentStep(lesson.steps[clamped], state.speed);
     progress.setLessonStep(lesson.id, clamped);
+    // Mark the lesson complete when the last step is reached via manual navigation
+    // (auto-play marks complete through its own effect; nextStep marks complete
+    // when the user presses → again after already being on the last step)
+    if (clamped >= lesson.steps.length - 1) {
+      progress.markLessonComplete(lesson.id);
+    }
   }, [state.selectedLesson, state.speed, executeCurrentStep, progress]);
 
   const nextStep = useCallback(() => {

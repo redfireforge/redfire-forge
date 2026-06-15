@@ -1324,11 +1324,25 @@ describe('ws-filtering lesson', () => {
     expect(wsFilteringLesson.estimatedMinutes).toBe(4);
   });
 
-  it('step filter-search preAction clicks events tab', async () => {
+  // ── filter-search ──────────────────────────────────────────────
+
+  it('step filter-search preAction navigates to Events tab', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
+    const ctx = makeCtx();
+    // No SEARCH_INPUT in DOM → ensureEventsTab clicks events tab
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step filter-search preAction skips tab click when already on Events tab', async () => {
+    // Add search input to simulate Events tab being active
+    const el = document.createElement('input');
+    el.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(el);
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-search')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step filter-search action fills search input', async () => {
@@ -1338,11 +1352,36 @@ describe('ws-filtering lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'greeting');
   });
 
+  // ── filter-direction ───────────────────────────────────────────
+
+  it('step filter-direction has preAction', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'filter-direction')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step filter-direction preAction navigates to Events tab when not visible', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'filter-direction')!;
+    const ctx = makeCtx();
+    // No SEARCH_INPUT → must navigate
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
   it('step filter-direction action selects sent direction', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'filter-direction')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'sent');
+  });
+
+  // ── filter-bar ─────────────────────────────────────────────────
+
+  it('step filter-bar preAction navigates to Events tab first', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'filter-bar')!;
+    const ctx = makeCtx();
+    // No SEARCH_INPUT → ensureEventsTab fires before reset
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
   it('step filter-bar preAction resets direction and search', async () => {
@@ -1365,6 +1404,31 @@ describe('ws-filtering lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
+  // ── diff-compare ───────────────────────────────────────────────
+
+  it('step diff-compare preAction navigates to Events tab', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
+    const ctx = makeCtx();
+    // No SEARCH_INPUT → must navigate to Events tab
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step diff-compare preAction closes filter bar when open', async () => {
+    // Put SEARCH_INPUT in DOM so ensureEventsTab doesn't navigate
+    const search = document.createElement('input');
+    search.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(search);
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'filter-bar');
+    document.body.appendChild(bar);
+
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('filter-toggle'));
+  });
+
   it('step diff-compare action clicks compare button', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
     const ctx = makeCtx();
@@ -1377,8 +1441,52 @@ describe('ws-filtering lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
-  it('step diff-view clicks message rows when available', async () => {
-    // Add mock message rows (simulating: Connected, sent#1, echo#1, sent#2, echo#2, sent#3, echo#3)
+  // ── diff-view ──────────────────────────────────────────────────
+
+  it('step diff-view has preAction', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step diff-view preAction navigates to Events tab when not visible', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step diff-view preAction enters compare mode when not active', async () => {
+    // Put SEARCH_INPUT in DOM (Events tab active), no COMPARE_BANNER
+    const search = document.createElement('input');
+    search.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(search);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('compare-btn'));
+  });
+
+  it('step diff-view preAction closes existing diff modal', async () => {
+    // Simulate diff modal already open
+    const search = document.createElement('input');
+    search.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(search);
+    const modal = document.createElement('div');
+    modal.setAttribute('data-testid', 'diff-modal');
+    document.body.appendChild(modal);
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'diff-close');
+    document.body.appendChild(closeBtn);
+    const closeSpy = vi.fn();
+    closeBtn.addEventListener('click', closeSpy);
+
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(closeSpy).toHaveBeenCalled();
+  });
+
+  it('step diff-view action clicks message rows when available', async () => {
     for (let i = 0; i < 7; i++) {
       const row = document.createElement('div');
       row.className = 'ws-message-row';
@@ -1393,9 +1501,11 @@ describe('ws-filtering lesson', () => {
     await step.action!(ctx);
     // Rows 1 and 5 should be clicked (two greeting messages)
     expect(clickSpy).toHaveBeenCalledTimes(2);
+    // Rule 5: should use waitFor for diff modal, not just delay
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('diff-modal'), expect.any(Number));
   });
 
-  it('step diff-view does nothing when fewer than 6 rows', async () => {
+  it('step diff-view action does nothing when fewer than 6 rows', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-view')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -1407,22 +1517,95 @@ describe('ws-filtering lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
+  // ── diff-close ─────────────────────────────────────────────────
+
+  it('step diff-close has preAction', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step diff-close preAction navigates to Events tab when not visible', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
+    const ctx = makeCtx();
+    // No SEARCH_INPUT → ensureDiffOpen → ensureEventsTab must click events tab
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step diff-close preAction enters compare mode when banner absent', async () => {
+    const search = document.createElement('input');
+    search.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(search);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('compare-btn'));
+  });
+
+  it('step diff-close preAction skips setup when diff already open', async () => {
+    const search = document.createElement('input');
+    search.setAttribute('data-testid', 'search-input');
+    document.body.appendChild(search);
+    const modal = document.createElement('div');
+    modal.setAttribute('data-testid', 'diff-modal');
+    document.body.appendChild(modal);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Diff already open → ensureDiffOpen returns early; no compare-btn click
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('compare-btn'));
+  });
+
   it('step diff-close action clicks close button', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'diff-close')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('diff-close'));
+  });
+
+  // ── schema-intro ───────────────────────────────────────────────
+
+  it('step schema-intro has preAction', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step schema-intro preAction closes diff and compare when active', async () => {
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'diff-close');
+    document.body.appendChild(closeBtn);
+    const closeSpy = vi.fn();
+    closeBtn.addEventListener('click', closeSpy);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.setAttribute('data-testid', 'compare-cancel');
+    document.body.appendChild(cancelBtn);
+    const cancelSpy = vi.fn();
+    cancelBtn.addEventListener('click', cancelSpy);
+
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(closeSpy).toHaveBeenCalled();
+    expect(cancelSpy).toHaveBeenCalled();
+  });
+
+  it('step schema-intro preAction does nothing when no diff or compare active', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
+    const ctx = makeCtx();
+    // Empty DOM — should not throw or click anything
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step schema-intro action clicks schema tab and enables toggle', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
   });
 
   it('step schema-intro enables validate toggle when unchecked', async () => {
-    // Add a mock unchecked validation toggle to DOM
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
@@ -1431,12 +1614,11 @@ describe('ws-filtering lesson', () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // Should have clicked at least twice: schema tab + validation toggle
+    // Should click: schema tab + validation toggle
     expect(ctx.click).toHaveBeenCalledTimes(2);
   });
 
   it('step schema-intro skips toggle click when already checked', async () => {
-    // Add a mock checked validation toggle to DOM
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.setAttribute('data-testid', 'ws-validation-toggle');
@@ -1445,8 +1627,47 @@ describe('ws-filtering lesson', () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // Only one click: schema tab (toggle already checked)
+    // Only schema tab click (toggle already checked)
     expect(ctx.click).toHaveBeenCalledTimes(1);
+  });
+
+  // ── schema-add ─────────────────────────────────────────────────
+
+  it('step schema-add has preAction', () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step schema-add preAction navigates to Schema tab', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
+  });
+
+  it('step schema-add preAction enables validation toggle when unchecked', async () => {
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.setAttribute('data-testid', 'ws-validation-toggle');
+    toggle.checked = false;
+    document.body.appendChild(toggle);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // schema tab + toggle
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-validation-toggle'));
+  });
+
+  it('step schema-add preAction skips toggle click when already checked', async () => {
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.setAttribute('data-testid', 'ws-validation-toggle');
+    toggle.checked = true;
+    document.body.appendChild(toggle);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-add')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('ws-validation-toggle'));
   });
 
   it('step schema-add action demonstrates generate then saves', async () => {
@@ -1455,9 +1676,7 @@ describe('ws-filtering lesson', () => {
     await step.action!(ctx);
     // Should click: +Add, Generate, Save
     expect(ctx.click).toHaveBeenCalledTimes(3);
-    // Should fill name and schema JSON
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'Greeting Schema');
-    // Should set direction to 'both'
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'both');
   });
 
@@ -1466,12 +1685,61 @@ describe('ws-filtering lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
+  // ── schema-validate ────────────────────────────────────────────
+
   it('step schema-validate action clicks events tab', async () => {
     const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
+
+  it('step schema-validate preAction creates schema when card is missing', async () => {
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'Greeting Schema');
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'both');
+  });
+
+  it('step schema-validate preAction enables toggle when schema exists but toggle is off', async () => {
+    // Card exists but toggle is unchecked
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'ws-schema-card');
+    document.body.appendChild(card);
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.setAttribute('data-testid', 'ws-validation-toggle');
+    toggle.checked = false;
+    document.body.appendChild(toggle);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Should enable the toggle even though card exists
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-validation-toggle'));
+    // Should NOT try to create schema
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it('step schema-validate preAction skips schema creation when card exists', async () => {
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'ws-schema-card');
+    document.body.appendChild(card);
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.setAttribute('data-testid', 'ws-validation-toggle');
+    toggle.checked = true; // already on
+    document.body.appendChild(toggle);
+    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // No schema creation, no toggle click
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('ws-validation-toggle'));
+  });
+
+  // ── cleanup ────────────────────────────────────────────────────
 
   it('cleanup handles missing DOM elements gracefully', async () => {
     const ctx = makeCtx();
@@ -1520,44 +1788,9 @@ describe('ws-filtering lesson', () => {
   });
 
   it('setup is callable', async () => {
-    // Setup uses DOM operations and module imports — just verify it doesn't throw in JSDOM
-    // (Some operations will be no-ops since there's no real WebSocket UI)
     const ctx = makeCtx();
-    // Setup calls wsSetup which calls startMockServer > click — will use ctx.click
     await wsFilteringLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step diff-compare preAction closes filter bar when open', async () => {
-    const bar = document.createElement('div');
-    bar.setAttribute('data-testid', 'filter-bar');
-    document.body.appendChild(bar);
-
-    const step = wsFilteringLesson.steps.find(s => s.id === 'diff-compare')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('filter-toggle'));
-  });
-
-  it('step schema-validate preAction creates schema when card is missing', async () => {
-    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'Greeting Schema');
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'both');
-  });
-
-  it('step schema-validate preAction skips schema creation when card exists', async () => {
-    const card = document.createElement('div');
-    card.setAttribute('data-testid', 'ws-schema-card');
-    document.body.appendChild(card);
-
-    const step = wsFilteringLesson.steps.find(s => s.id === 'schema-validate')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-schema'));
-    expect(ctx.fill).not.toHaveBeenCalled();
   });
 });
 
@@ -1695,7 +1928,7 @@ describe('ws-load-testing lesson', () => {
     expect(values.filter((v: string) => v === '5').length).toBe(2); // both rate and duration are 5
   });
 
-  it('step lt-run action uses ctx.click for ripple on enabled button', async () => {
+  it('step lt-run action uses ctx.click for ripple on enabled button and waitFor results (Rule 5)', async () => {
     const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'lt-start-btn');
@@ -1704,6 +1937,8 @@ describe('ws-load-testing lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('lt-start-btn'));
+    // Must use waitFor to detect test completion robustly (Rule 5)
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('lt-results'), expect.any(Number));
   });
 
   it('step lt-run action skips ctx.click when button is disabled', async () => {
@@ -1716,6 +1951,24 @@ describe('ws-load-testing lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step lt-run preAction clears previous results when config is hidden (Rule 4 skip guard)', async () => {
+    // Simulate: user skipped here from step 6/7 — results panel is visible, config is hidden
+    const results = document.createElement('div');
+    results.setAttribute('data-testid', 'lt-results');
+    document.body.appendChild(results);
+    const clearBtn = document.createElement('button');
+    clearBtn.setAttribute('data-testid', 'lt-clear-btn');
+    document.body.appendChild(clearBtn);
+
+    const step = wsLoadTestingLesson.steps.find(s => s.id === 'lt-run')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // ctx.click should be called with lt-clear-btn to dismiss results
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('lt-clear-btn'));
+    // ctx.waitFor should wait for the config form to appear after clearing
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('lt-config'), expect.any(Number));
   });
 
   it('step lt-run preAction always sets rate=5 and duration=5 regardless of template state', async () => {
@@ -2028,12 +2281,56 @@ describe('sse-studio lesson', () => {
     expect(step.highlight).toBeTruthy();
   });
 
-  it('step sse-connect action fills URL and clicks connect', async () => {
+  it('step sse-connect action fills URL and clicks connect with waitFor (Rule 5)', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'http://localhost:3001/api/sse-test');
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    // Must use waitFor rather than a fixed delay (Rule 5)
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+  });
+
+  it('step sse-connect action disconnects first when already connected (replay guard)', async () => {
+    // Simulate already-connected state
+    document.body.innerHTML = '<span class="sse-state-dot sse-state-connected"></span>';
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    // Should have clicked the button at least twice (disconnect + reconnect)
+    const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c: string[]) => c[0]?.includes('sse-connect-btn')
+    );
+    expect(connectBtnCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('step sse-events preAction ensures connection and navigates to events tab (Rule 4)', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-events')!;
+    const ctx = makeCtx();
+    // No connected dot in DOM → ensureSseConnected should run
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
+  });
+
+  it('step sse-events preAction skips connect when already connected', async () => {
+    document.body.innerHTML = '<span class="sse-state-dot sse-state-connected"></span>';
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-events')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
+  });
+
+  it('step sse-detail has a preAction that ensures connection and navigates to events tab (Rule 4)', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-detail')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
   });
 
   it('step sse-detail action clicks first event row when present', async () => {
@@ -2043,6 +2340,16 @@ describe('sse-studio lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-event-row"]');
   });
 
+  it('step sse-filter has a preAction that ensures connection and navigates to events tab (Rule 4)', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-filter')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
+  });
+
   it('step sse-filter action fills search input', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-filter')!;
     const ctx = makeCtx();
@@ -2050,14 +2357,32 @@ describe('sse-studio lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'greeting');
   });
 
+  it('step sse-console preAction ensures connection for lifecycle log entries (Rule 4)', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-console')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+  });
+
   it('step sse-console action clicks console tab', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-console')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-console"]');
   });
 
-  it('step sse-disconnect action clicks disconnect when available', async () => {
+  it('step sse-disconnect has a preAction that ensures connection (Rule 4)', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-disconnect')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
+  });
+
+  it('step sse-disconnect action clicks disconnect button', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-disconnect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -2130,27 +2455,32 @@ describe('sse-studio lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step sse-events preAction waits for more events', async () => {
+  it('step sse-events preAction waits for events to arrive (delay after connect)', async () => {
+    // When connected, ensureSseConnected returns immediately; the delay for events should still fire
+    document.body.innerHTML = '<span class="sse-state-dot sse-state-connected"></span>';
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-events')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    // Should have called delay (for events to arrive) — the 1500ms pause after tab navigation
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('step sse-console preAction clears search input', async () => {
+  it('step sse-console preAction clears search input and ensures connection', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-console')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    // Must ensure connection (so console has lifecycle entries)
+    expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
+    // Must attempt to clear stale search text
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('sse-search'), '');
   });
 
-  it('step sse-disconnect switches to events tab before disconnecting', async () => {
+  it('step sse-disconnect preAction navigates to events tab (now in preAction, not action)', async () => {
+    document.body.innerHTML = '<span class="sse-state-dot sse-state-connected"></span>';
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-disconnect')!;
     const ctx = makeCtx();
-    await step.action!(ctx);
-    const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map((c: [string]) => c[0]);
-    expect(calls[0]).toContain('sse-right-tab-events');
-    expect(calls[1]).toContain('sse-connect-btn');
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
   });
 });
 
@@ -2169,6 +2499,8 @@ describe('ws-workflow-builder lesson', () => {
     expect(wsWorkflowBuilderLesson.concept.title).toBeTruthy();
     expect(wsWorkflowBuilderLesson.concept.body).toBeTruthy();
     expect(wsWorkflowBuilderLesson.initialTab).toBe('workflow');
+    // allowedTabs must include workflow-runner so step 11 navigation does not trigger auto-exit
+    expect(wsWorkflowBuilderLesson.allowedTabs).toContain('workflow-runner');
   });
 
   it('has setup and cleanup functions', () => {
@@ -2282,6 +2614,20 @@ describe('ws-workflow-builder lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('wf-var-value-input'), 'ws://localhost:9876');
   });
 
+  it('wf-define-variable preAction navigates to workflow tab (Rule 4 skip guard)', async () => {
+    const ctx = makeCtx();
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-define-variable')!;
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+  });
+
+  it('wf-quick-test preAction navigates to workflow tab (Rule 4 skip guard)', async () => {
+    const ctx = makeCtx();
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-quick-test')!;
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+  });
+
   it('config-send step fills message and saves', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = '<div class="react-flow__node-wsSend"></div>';
@@ -2290,11 +2636,12 @@ describe('ws-workflow-builder lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{"action": "hello", "from": "workflow"}');
   });
 
-  it('quick-test step clicks the Quick Test button', async () => {
+  it('quick-test step clicks the Quick Test button and uses waitFor (Rule 5)', async () => {
     const ctx = makeCtx();
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-quick-test')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('quick-test'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="exec-summary"]');
   });
 
   it('cleanup closes config modals when present', async () => {
@@ -2475,6 +2822,82 @@ describe('ws-workflow-builder lesson', () => {
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-add-send')!;
     await step.action!(makeCtx());
     // Should not throw when __wfConnect is undefined
+  });
+
+  it('wf-config-connect preAction scrolls WS Connect node into view (Rule 4)', async () => {
+    const el = document.createElement('div');
+    el.className = 'react-flow__node-wsConnect';
+    el.scrollIntoView = vi.fn();
+    document.body.appendChild(el);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!;
+    await step.preAction!(makeCtx());
+    expect(el.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('wf-config-send preAction scrolls WS Send node into view (Rule 4)', async () => {
+    const el = document.createElement('div');
+    el.className = 'react-flow__node-wsSend';
+    el.scrollIntoView = vi.fn();
+    document.body.appendChild(el);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-send')!;
+    await step.preAction!(makeCtx());
+    expect(el.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('wf-config-receive preAction scrolls WS Receive node into view (Rule 4)', async () => {
+    const el = document.createElement('div');
+    el.className = 'react-flow__node-wsReceive';
+    el.scrollIntoView = vi.fn();
+    document.body.appendChild(el);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-receive')!;
+    await step.preAction!(makeCtx());
+    expect(el.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('wf-runner-variable preAction navigates to runner and clicks workflow picker (Rule 4)', async () => {
+    const picker = document.createElement('button');
+    picker.setAttribute('data-testid', 'workflow-select');
+    const pickerClick = vi.spyOn(picker, 'click');
+    const demoItem = document.createElement('div');
+    demoItem.className = 'wfp-dropdown-item';
+    demoItem.textContent = 'WS Echo Demo';
+    const itemClick = vi.spyOn(demoItem, 'click');
+    document.body.appendChild(picker);
+    document.body.appendChild(demoItem);
+
+    const ctx = makeCtx();
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-runner-variable')!;
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    expect(pickerClick).toHaveBeenCalled();
+    expect(itemClick).toHaveBeenCalled();
+  });
+
+  it('wf-runner-variable preAction closes dropdown gracefully when WS Echo Demo is missing (Guide mode guard)', async () => {
+    // No demoItem in DOM — simulates guide mode after cleanup deleted the workflow
+    const picker = document.createElement('button');
+    picker.setAttribute('data-testid', 'workflow-select');
+    const pickerClick = vi.spyOn(picker, 'click');
+    document.body.appendChild(picker);
+
+    const ctx = makeCtx();
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-runner-variable')!;
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    // Picker clicked twice: once to open, once to close since workflow not found
+    expect(pickerClick).toHaveBeenCalledTimes(2);
+  });
+
+  it('wf-runner-variable action fills and restores wsUrl variable', async () => {
+    document.body.innerHTML = `<input class="wfp-var-input" value="ws://localhost:9876" />`;
+    const ctx = makeCtx();
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-runner-variable')!;
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith('.wfp-var-input', 'ws://staging.example.com/ws');
+    expect(ctx.fill).toHaveBeenCalledWith('.wfp-var-input', 'ws://localhost:9876');
   });
 });
 
@@ -6099,10 +6522,11 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('tls-toggle');
   });
 
-  it('step tls-panel preAction switches to Connect tab and fills wss:// URL', async () => {
+  it('step tls-panel preAction switches to client mode, Connect tab, and fills wss:// URL', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
@@ -6120,6 +6544,7 @@ describe('ws-tls lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).not.toHaveBeenCalled();
   });
@@ -6159,10 +6584,11 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('connect-btn');
   });
 
-  it('step tls-connect preAction fills wss:// URL and ensures disconnected', async () => {
+  it('step tls-connect preAction switches to client mode, fills wss:// URL and ensures disconnected', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
@@ -6253,7 +6679,7 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('tls-reject-unauthorized');
   });
 
-  it('step tls-skip-cert preAction disconnects, fills wss:// URL, and expands TLS panel', async () => {
+  it('step tls-skip-cert preAction navigates to Connect tab first, then disconnects, and expands TLS panel', async () => {
     const discBtn = document.createElement('button');
     discBtn.setAttribute('data-testid', 'disconnect-btn');
     discBtn.onclick = vi.fn();
@@ -6269,8 +6695,11 @@ describe('ws-tls lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
-    expect(discBtn.onclick).toHaveBeenCalled();
+    // Must switch to client mode and Connect tab BEFORE disconnecting (DISCONNECT_BTN
+    // is only in the DOM when the Connect panel is rendered in client mode).
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(discBtn.onclick).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
       expect.stringContaining('wss://'),
@@ -6356,7 +6785,7 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('transport-badge');
   });
 
-  it('step tls-transport preAction dispatches click to reset skip-cert', async () => {
+  it('step tls-transport preAction switches to client mode, resets skip-cert, and switches back to Connect tab', async () => {
     const label = document.createElement('label');
     label.setAttribute('data-testid', 'tls-reject-unauthorized');
     const checkbox = document.createElement('input');
@@ -6376,19 +6805,23 @@ describe('ws-tls lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(spy).toHaveBeenCalled();
     // Should NOT click Connect because already connected
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
 
-  it('step tls-transport preAction connects when disconnected', async () => {
+  it('step tls-transport preAction connects when disconnected and switches back to Connect tab', async () => {
     // No status-connected element → disconnected state
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
-    // Should click Connect tab and Connect button
+    // Must switch to client mode + Connect tab, connect, then switch back to Connect tab
+    // so the transport badge (inside the Connect panel) is in the DOM for the spotlight.
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
@@ -6409,17 +6842,20 @@ describe('ws-tls lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup disconnects, clears events, and switches to connect tab', async () => {
+  it('setup switches to client mode, disconnects, and resets to Connect + Events tabs', async () => {
     const ctx = makeCtx();
     await wsTlsLesson.setup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
   });
 
-  it('cleanup disconnects and clears URL', async () => {
+  it('cleanup switches to client mode, Connect tab, disconnects and clears URL', async () => {
     const ctx = makeCtx();
     await wsTlsLesson.cleanup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
   });
 });
