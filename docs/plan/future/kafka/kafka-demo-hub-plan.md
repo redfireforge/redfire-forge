@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** 🔨 In Progress — K2 (Publish Studio), K3 (Consume Studio), K5 (Templates) shipped; K1, K4, K6–K13 pending
+> **Status:** 🔨 In Progress — K1 (Quick Start), K2 (Publish Studio), K3 (Consume Studio), K5 (Templates) shipped; K4, K6–K13 pending
 
 ---
 
@@ -216,7 +216,7 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 | # | Lesson | ID | File | Status | Steps | E2E Source | Docker |
 |---|---|---|---|---|---|---|---|
-| K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | 🔲 Not started | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | ✅ Done (2026-06-15) | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
 | K2 | Publish Studio | `kafka-publish` | `kafka-publish.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
@@ -276,13 +276,34 @@ dockerEndpoint: 'http://localhost:18080',
 dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 ```
 
-#### Implementation Notes (to be filled after implementation)
+#### Implementation Notes (2026-06-15)
 
-**Key design considerations for K1:**
-- Step 2 must handle two cases: empty state (`KAFKA.EMPTY_CREATE_BTN`) vs already has clusters (`KAFKA.ADD_CLUSTER_BTN`). Use `KAFKA.EMPTY_CREATE_BTN` as primary; if absent, fall back to `KAFKA.ADD_CLUSTER_BTN`. This avoids creating duplicate clusters on repeated runs (same bug that was fixed in `kafkaPublishSetup`).
-- Step 3 should NOT fill the broker input if it already shows `127.0.0.1:19092` — it's the default. Only fill cluster name.
-- Step 7 navigates away from `kafka-settings` — MUST use `preAction` (same rule as all tab navigation).
-- `initialTab: 'kafka-settings'` means K1 does NOT use `kafkaPublishSetup`. No setup function needed.
+**Design decision — no setup/cleanup functions:**
+K1 starts directly on `kafka-settings` via `initialTab: 'kafka-settings'` — no setup navigation needed. Cluster config persists to localStorage so K2/K3/K4 (which use `kafkaPublishSetup`) find the cluster already saved.
+
+**Step 2 dual-button strategy (no duplicate clusters):**
+Step 2 action checks for `[data-testid="kafka-empty-create-btn"]` first (empty state), falls back to `[data-testid="kafka-add-cluster-btn"]` (toolbar, shown when ≥1 cluster). This avoids the duplicate-cluster bug that was previously fixed in `kafkaPublishSetup`.
+
+**Step 3 only fills cluster name:**
+The broker field already shows `127.0.0.1:19092` by default. `ctx.fill('#kafka-cluster-name', 'Demo Cluster')` is sufficient — the React state auto-derives Cluster ID to `demo-cluster`.
+
+**Step 7 uses `preAction` for tab navigation:**
+All tab navigation uses `preAction` (runs before reading phase). `action` is skipped if user presses ArrowRight early. `preAction` is guaranteed to execute. The `allowedTabs` includes both `kafka-settings` and `kafka-message-studio` to prevent the auto-exit guard from firing during step 7 navigation.
+
+**Visual validation pass (2026-06-15):**
+- Step 1: Settings page highlighted, no clusters yet ✓
+- Step 2: Empty-state "Create First Cluster" clicked → editor opened ✓
+- Step 3: Cluster name filled → "Demo Cluster", Cluster ID auto → "demo-cluster" ✓
+- Step 4: Save Cluster clicked → Demo Cluster card appeared in list as "Connected" ✓
+- Step 5: Connect btn was already disabled (save auto-connected) — action correctly skipped the click ✓
+- Step 6: Connection status highlighted, "Connected to demo-cluster" text visible ✓
+- Step 7: preAction navigated to `kafka-message-studio` — Publish/Consume/Topics/Schema Registry tabs shown ✓
+After exit: Quick Start shows ✓ Completed, Kafka counter shows **3/4** (K1+K2+K3 done) ✓
+
+**22 unit tests added (85 total):**
+K1 test suite follows same pattern as K2/K3 (~21 tests). Added in `kafka-lessons.test.ts`. All 85 tests pass.
+
+**TypeScript:** 0 errors.
 
 ---
 
