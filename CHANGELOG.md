@@ -8,7 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Learning Hub — 20 WebSocket/SSE Demo Lessons** — Full interactive guided lesson system for the Protocols domain: 20 lessons covering Mock Server, WS Basics, Console & Debugging, Tabs, Auth & Transport, Filtering/Diff/Schema, Load Testing, Workflow Builder, SSE Studio, Socket.IO (🐳), STOMP/RabbitMQ (🐳), GraphQL Subscriptions (🐳), Advanced Mock Server, Workspace, Reliability, Session Recording, Power User, SSE Advanced, wss:// TLS, and Workflow Runner in Harness. Each lesson has a concept panel, step-by-step live demo with spotlight, progress tracking, and keyboard shortcuts (Esc, Space, arrows). Docker-backed lessons use `PrerequisiteGate` with `checkEndpoint` auto-polling.
+- **Demo Player enhancements** — `StepOverviewDrawer` (collapsible step TOC), `useDemoShortcuts` (keyboard navigation), `useDemoWorkflowBridge` / `__wfInsertWorkflow` window bridge for seeding demo workflows. Lesson 20 seeds "WS Echo Demo" workflow automatically so users don't need to complete Lesson 8 first.
+- **WS workflow node configs: variable hints** — `InsertVarField` + `variableHints` added to `WsConnectConfig`, `WsSendConfig`, `WsReceiveConfig`, `WsTriggerConfig`, `WsConfigShared`, and `WorkflowNodeConfigModal` for `{{variable}}` insertion support.
+- **Kafka Demo Hub Plan** — `docs/plan/future/kafka/kafka-demo-hub-plan.md`: 13-lesson Kafka demo plan (K1–K13) with fully audited selectors, Docker port table, PrerequisiteGate configs, and open questions.
+
 ### Changed
+- **Kafka UI CSS consistency** — Unified card backgrounds (warm/cool radial gradient), input field backgrounds (`rgba(255,255,255,0.04)`), button styles, sticky table headers, metric boxes, version select, schema content, topic chips, subject table selection, and kind badges across all 4 Kafka tabs (Publish, Consume, Topics, Schema Registry). All changes are CSS-only in `settings.css`.
 - **Split-pane resize logic unified** — Extracted the WebSocket + SSE studio left-pane resize into a shared `useSplitPaneResize` hook (persistence, debounced save, mouse drag, keyboard resize, ARIA divider props) plus a `tabListKeyboard` helper, removing the duplicated drag logic from both shells.
 - **Kafka Service Modularization** — Extracted `kafka-produce.ts` and `kafka-subscribe.ts` from monolithic `KafkaService` class (was 660+ lines, now 464 lines). Produce and subscribe logic are now standalone modules with dedicated test files.
 - **Kafka Utility Extraction** — Extracted `checkClusterMismatch()` into `kafka-service-utils.ts` for reuse and independent testing.
