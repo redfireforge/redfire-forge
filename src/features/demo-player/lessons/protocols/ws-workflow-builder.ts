@@ -1,5 +1,5 @@
 /**
- * Lesson 9: Workflow Builder — build a real WebSocket workflow from scratch.
+ * Lesson 8: Workflow Builder — build a real WebSocket workflow from scratch.
  *
  * Interactive lesson that creates a new workflow, adds WS Connect + WS Send +
  * WS Receive nodes from the palette, connects them with edges, configures
@@ -84,6 +84,7 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
   description: 'Build visual WebSocket automation workflows with drag-and-drop nodes, then run them instantly.',
   estimatedMinutes: 3,
   initialTab: 'workflow',
+  allowedTabs: ['workflow-runner'],
 
   setup: workflowSetup,
   cleanup: workflowCleanup,
@@ -225,6 +226,7 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Double-click the WS Connect node to open its config. Instead of a hard-coded URL, type `{{wsUrl}}` — a variable placeholder. This lets you override the endpoint from Workflow Runner without editing the workflow.',
       highlight: WF.NODE_WS_CONNECT,
+      preAction: async () => { scrollIntoParent(WF.NODE_WS_CONNECT); },
       action: async (ctx) => {
         // Double-click to open config
         await doubleClickNode(WF.NODE_WS_CONNECT);
@@ -239,13 +241,18 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 4b. Define the wsUrl variable ────────────────────────────
+    // ── 5. Define the wsUrl variable ─────────────────────────────
     {
       id: 'wf-define-variable',
       title: 'Define the wsUrl Variable',
       description:
         'Open the Variables panel from the toolbar. Add `wsUrl = ws://localhost:9876` as the default value. This tells the workflow which server to use unless the runner overrides it.',
       highlight: WF.VARIABLES_BTN,
+      preAction: async (ctx) => {
+        // Navigate back to workflow tab if step 11 navigated away (Rule 4 skip guard)
+        ctx.navigateToTab('workflow');
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
         // Open Variables modal
         await ctx.click(WF.VARIABLES_BTN);
@@ -266,7 +273,7 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 5. Add WS Send Node + Edge ───────────────────────────────
+    // ── 6. Add WS Send Node + Edge ───────────────────────────────
     {
       id: 'wf-add-send',
       title: 'Add a WS Send Node',
@@ -287,13 +294,14 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 6. Configure the Message ─────────────────────────────────
+    // ── 7. Configure the Message ─────────────────────────────────
     {
       id: 'wf-config-send',
       title: 'Configure the Message',
       description:
         'Double-click the WS Send node to configure it. Enter a JSON message — the echo server will bounce it right back.',
       highlight: WF.NODE_WS_SEND,
+      preAction: async () => { scrollIntoParent(WF.NODE_WS_SEND); },
       action: async (ctx) => {
         // Double-click to open config
         await doubleClickNode(WF.NODE_WS_SEND);
@@ -308,7 +316,7 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 7. Add WS Receive Node + Edge ────────────────────────────
+    // ── 8. Add WS Receive Node + Edge ────────────────────────────
     {
       id: 'wf-add-receive',
       title: 'Add a WS Receive Node',
@@ -329,13 +337,14 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 8. Configure the Receive ─────────────────────────────────
+    // ── 9. Configure the Receive ─────────────────────────────────
     {
       id: 'wf-config-receive',
       title: 'Configure the Receive',
       description:
         'Double-click the WS Receive node. It will wait up to 5 seconds for a response containing our message. The echo server mirrors everything back.',
       highlight: WF.NODE_WS_RECEIVE,
+      preAction: async () => { scrollIntoParent(WF.NODE_WS_RECEIVE); },
       action: async (ctx) => {
         // Double-click to open config
         await doubleClickNode(WF.NODE_WS_RECEIVE);
@@ -350,47 +359,65 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 9. Run Quick Test ────────────────────────────────────────
+    // ── 10. Run Quick Test ───────────────────────────────────────
     {
       id: 'wf-quick-test',
       title: 'Quick Test',
       description:
         'Click Quick Test to run the workflow. Watch the nodes light up as each step executes — Connect opens the WebSocket, Send delivers your message, and Receive captures the echo response.',
       highlight: WF.QUICK_TEST_BTN,
+      preAction: async (ctx) => {
+        // Navigate back to workflow tab if step 11 navigated away (Rule 4 skip guard)
+        ctx.navigateToTab('workflow');
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
         // Fit view and save before running
         await clickFitView(ctx);
         const saveBtn = document.querySelector('.wf-toolbar-save-wrap button') as HTMLElement | null;
         if (saveBtn) { saveBtn.click(); await ctx.delay(400); }
         await ctx.click(WF.QUICK_TEST_BTN);
-        await ctx.delay(3000);
+        await ctx.waitFor(WF.EXEC_SUMMARY); // wait for execution to complete (Rule 5)
+        await ctx.delay(800); // brief pause so results are visible
       },
       verify: WF.EXEC_SUMMARY,
       pauseAfter: true,
     },
 
-    // ── 10. Workflow Runner — override the URL at runtime ────────
+    // ── 11. Workflow Runner — override the URL at runtime ────────
     {
       id: 'wf-runner-variable',
       title: 'Override the URL in Workflow Runner',
       description:
         'Navigate to Workflow Runner and select "WS Echo Demo". The `wsUrl` variable appears in the **Initial Variables** panel. Change it to any WebSocket endpoint — the workflow runs against that server without modifying the definition.',
       preAction: async (ctx) => {
+        // Navigate first, then select the workflow so WFR.VAR_ROW exists before spotlight renders
         ctx.navigateToTab('workflow-runner');
         await ctx.delay(800);
-      },
-      action: async (ctx) => {
-        // Select the WS Echo Demo workflow in the runner picker
         const picker = document.querySelector('[data-testid="workflow-select"]') as HTMLElement | null;
         if (picker) { picker.click(); await ctx.delay(400); }
-        const items = Array.from(document.querySelectorAll('.wft-dropdown-item'));
+        const items = Array.from(document.querySelectorAll('.wfp-dropdown-item'));
         const demoItem = items.find((el) => el.textContent?.includes('WS Echo Demo')) as HTMLElement | undefined;
-        if (demoItem) { demoItem.click(); await ctx.delay(600); }
-        // Highlight the wsUrl variable input
+        if (demoItem) {
+          demoItem.click();
+          await ctx.delay(800);
+        } else if (picker) {
+          // WS Echo Demo not found (e.g. demo not yet run or cleanup already ran) — close the open dropdown
+          picker.click();
+          await ctx.delay(200);
+        }
+      },
+      action: async (ctx) => {
+        // Focus the wsUrl variable input to demonstrate runtime override capability
         const varInputs = Array.from(document.querySelectorAll(WFR.VAR_INPUT)) as HTMLInputElement[];
         const wsUrlInput = varInputs[0];
-        if (wsUrlInput) wsUrlInput.focus();
-        await ctx.delay(500);
+        if (wsUrlInput) { wsUrlInput.focus(); await ctx.delay(400); }
+        // Show that you can type a different URL to override the workflow definition
+        await ctx.fill(WFR.VAR_INPUT, 'ws://staging.example.com/ws');
+        await ctx.delay(800);
+        // Restore original value
+        await ctx.fill(WFR.VAR_INPUT, 'ws://localhost:9876');
+        await ctx.delay(300);
       },
       highlight: WFR.VAR_ROW,
       pauseAfter: true,

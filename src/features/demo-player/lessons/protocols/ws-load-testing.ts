@@ -45,10 +45,7 @@ async function ensureTestResults(ctx: DemoActionContext): Promise<void> {
   const startBtn = document.querySelector(WS.LT_START_BTN) as HTMLButtonElement | null;
   if (!startBtn || startBtn.disabled) return;
   startBtn.click(); // quiet — no ripple needed in guard
-  await ctx.delay(5000); // 3s test + 2s buffer
-  if (!document.querySelector(WS.LT_RESULTS)) {
-    await ctx.waitFor(WS.LT_RESULTS);
-  }
+  await ctx.waitFor(WS.LT_RESULTS, 8000); // 3s test + 5s buffer (Rule 5)
 }
 
 /** Cleanup: stop any running load test, clear results, disconnect, stop mock. */
@@ -265,10 +262,17 @@ After completion, see a full results dashboard:
         'The test completes automatically after 5 seconds.',
       highlight: WS.LT_START_BTN,
       preAction: async (ctx) => {
-        // Ensure config form is visible
-        if (!document.querySelector(WS.LT_CONFIG)) {
+        // Navigate to Load Test tab if neither config nor results are visible
+        if (!document.querySelector(WS.LT_CONFIG) && !document.querySelector(WS.LT_RESULTS)) {
           await ctx.click(WS.RIGHT_TAB_LOADTEST);
           await ctx.delay(400);
+        }
+        // If a previous test result is showing, clear it so the config form is visible
+        // (user may have skipped here from step 6 or 7 — Rule 4 guard)
+        // Re-query DOM here so we pick up any changes from the tab navigation above
+        if (!document.querySelector(WS.LT_CONFIG) && document.querySelector(WS.LT_CLEAR_BTN)) {
+          await ctx.click(WS.LT_CLEAR_BTN);
+          await ctx.waitFor(WS.LT_CONFIG, 2000); // wait for React to re-render the config form
         }
         // Ensure template has content
         const ta = document.querySelector(WS.LT_MESSAGE_TEMPLATE) as HTMLTextAreaElement | null;
@@ -290,8 +294,10 @@ After completion, see a full results dashboard:
         if (!startBtn || startBtn.disabled) return;
         // Use ctx.click for the ripple — user sees the Start button press
         await ctx.click(WS.LT_START_BTN);
-        // Wait for the 5s test to run + buffer to see live metrics count up
-        await ctx.delay(7000);
+        // Wait for the test to finish naturally — results appear when done (Rule 5)
+        // User watches live metrics count up for ~5s while waitFor polls
+        await ctx.waitFor(WS.LT_RESULTS, 12000);
+        await ctx.delay(800); // brief pause so user sees results render before spotlight changes
       },
       verify: WS.LT_RESULTS,
       pauseAfter: true,

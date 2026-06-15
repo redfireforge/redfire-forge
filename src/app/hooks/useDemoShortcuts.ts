@@ -9,7 +9,7 @@ export function useDemoShortcuts(
   demoHub: {
     state: {
       view: string;
-      selectedLesson?: { initialTab?: string } | null;
+      selectedLesson?: { initialTab?: string; allowedTabs?: string[] } | null;
     };
     exitLiveDemo: () => void;
     nextStep: () => void;
@@ -19,11 +19,14 @@ export function useDemoShortcuts(
   activeTab: Tab,
   setActiveTab: (tab: Tab) => void,
 ) {
-  // Auto-exit live demo when user manually navigates away from the target tab
+  // Auto-exit live demo when user manually navigates away from the target tab.
+  // Lessons that navigate to additional tabs declare them in `allowedTabs` to
+  // suppress the auto-exit guard for those destinations.
   useEffect(() => {
     if (demoHub.state.view === 'live' && demoHub.state.selectedLesson?.initialTab) {
       const targetTab = demoHub.state.selectedLesson.initialTab;
-      if (activeTab !== targetTab) {
+      const allowedTabs = demoHub.state.selectedLesson.allowedTabs ?? [];
+      if (activeTab !== targetTab && !allowedTabs.includes(activeTab)) {
         demoHub.exitLiveDemo();
       }
     }

@@ -16,6 +16,41 @@ vi.mock('./KafkaSchemaRegistryPage', () => ({
   KafkaSchemaRegistryPage: () => <div>Schema Registry Page</div>,
 }));
 
+// Default synchronous mock for useKafkaTemplates — prevents async useEffect from causing
+// "not wrapped in act()" warnings in tests that do not need custom template behavior.
+vi.mock('../../app/hooks/useKafkaTemplates', () => ({
+  useKafkaTemplates: () => ({
+    publishTemplates: [],
+    consumeTemplates: [],
+    templatesLoading: false,
+    templateError: null,
+    savePublishTemplate: vi.fn().mockResolvedValue(undefined),
+    loadPublishTemplate: vi.fn().mockReturnValue(null),
+    deletePublishTemplate: vi.fn().mockResolvedValue(undefined),
+    saveConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+    loadConsumeTemplate: vi.fn().mockReturnValue(null),
+    deleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+// Default synchronous mock for useKafkaStreamMode — prevents async polling effects from
+// causing "not wrapped in act()" warnings.
+vi.mock('../../app/hooks/useKafkaStreamMode', () => ({
+  useKafkaStreamMode: () => ({
+    isStreaming: false,
+    streamMessages: [],
+    streamError: null,
+    streamSubscriptionId: null,
+    cursorGap: false,
+    startStream: vi.fn().mockResolvedValue(undefined),
+    stopStream: vi.fn().mockResolvedValue(undefined),
+    clearStreamMessages: vi.fn(),
+    selectedStreamIndex: null,
+    selectedStreamMessage: null,
+    selectStreamMessage: vi.fn(),
+  }),
+}));
+
 function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {
   return {
     loaded: true,
@@ -59,7 +94,7 @@ describe('KafkaMessageStudioPage', () => {
     expect(screen.getByText('Loading Kafka settings…')).toBeTruthy();
   });
 
-  it('shows guard when disconnected', () => {
+  it('shows tab bar and publish form when disconnected (not full-screen guard)', () => {
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState({
@@ -70,11 +105,15 @@ describe('KafkaMessageStudioPage', () => {
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
-    // Guard should render — no clusters configured
-    expect(screen.getByText('No clusters configured')).toBeTruthy();
+    // Tab bar is always visible when loaded, even when disconnected
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Consume' })).toBeTruthy();
+    // Guard is shown on Topics tab, not on Publish tab by default
+    expect(screen.queryByText('No clusters configured')).toBeNull();
   });
 
-  it('shows guard when state=error', () => {
+  it('shows guard on Topics tab when state=error', async () => {
+    const user = userEvent.setup();
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState({
@@ -85,10 +124,15 @@ describe('KafkaMessageStudioPage', () => {
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
+    // Publish tab is shown by default (no guard)
+    expect(screen.queryByText('Cluster connection error')).toBeNull();
+    // Navigate to Topics tab to see the guard
+    await user.click(screen.getByRole('button', { name: 'Topics' }));
     expect(screen.getByText('Cluster connection error')).toBeTruthy();
   });
 
-  it('shows guard when state=testing', () => {
+  it('shows guard on Topics tab when state=testing', async () => {
+    const user = userEvent.setup();
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState({
@@ -99,6 +143,7 @@ describe('KafkaMessageStudioPage', () => {
         onNavigateToKafkaSettings={vi.fn()}
       />,
     );
+    await user.click(screen.getByRole('button', { name: 'Topics' }));
     expect(screen.getByText('Connecting to cluster…')).toBeTruthy();
   });
 
@@ -163,14 +208,17 @@ describe('KafkaMessageStudioPage', () => {
     expect(screen.getByTestId('schema-registry-page')).toBeTruthy();
   });
 
-  it('passes onNavigateToKafkaSettings to guard', () => {
+  it('passes onNavigateToKafkaSettings to guard (visible on Topics tab when disconnected)', async () => {
     const onNav = vi.fn();
+    const user = userEvent.setup();
     render(
       <KafkaMessageStudioPage
         kafkaState={makeKafkaState({ loaded: true, clusters: [], connection: { state: 'disconnected' } })}
         onNavigateToKafkaSettings={onNav}
       />,
     );
+    // Switch to Topics tab to see the guard
+    await user.click(screen.getByRole('button', { name: 'Topics' }));
     // Action button should be present in guard
     expect(screen.getByTestId('guard-action-btn')).toBeTruthy();
   });
