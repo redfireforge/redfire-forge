@@ -111,7 +111,19 @@ function getWorkflowFromStorage(page: Page) {
 }
 
 test.describe('Workflow persistence across hard refresh', () => {
-  test('nodes added from BLOCKS palette persist after reload', async ({ page }) => {
+  test('nodes added from BLOCKS palette persist after reload', async ({ page, context }) => {
+    // Delete IDB and wait for completion before seeding, to avoid stale data from parallel tests
+    await context.clearCookies();
+    await page.goto('http://localhost:5173');
+    await page.evaluate(() =>
+      new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('redfireforge');
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      }),
+    );
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await seedPersistenceData(page);
     await gotoAppTab(page, 'workflow');
 
@@ -144,7 +156,18 @@ test.describe('Workflow persistence across hard refresh', () => {
     expect(after?.nodeCount).toBe(4);
   });
 
-  test('nodes added from REQUESTS palette persist after reload', async ({ page }) => {
+  test('nodes added from REQUESTS palette persist after reload', async ({ page, context }) => {
+    await context.clearCookies();
+    await page.goto('http://localhost:5173');
+    await page.evaluate(() =>
+      new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('redfireforge');
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      }),
+    );
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await seedPersistenceData(page);
     await gotoAppTab(page, 'workflow');
 
@@ -183,7 +206,18 @@ test.describe('Workflow persistence across hard refresh', () => {
     expect(after?.nodeCount).toBe(4);
   });
 
-  test('rapidly added nodes from palette all persist', async ({ page }) => {
+  test('rapidly added nodes from palette all persist', async ({ page, context }) => {
+    await context.clearCookies();
+    await page.goto('http://localhost:5173');
+    await page.evaluate(() =>
+      new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('redfireforge');
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      }),
+    );
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await seedPersistenceData(page);
     await page.goto('http://localhost:5173/?tab=workflow');
 

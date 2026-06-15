@@ -194,7 +194,12 @@ export class WebSocketMockService {
     if (!this.wss) return;
     for (const client of this.clients.values()) {
       try {
+        // Send close frame then immediately terminate the underlying socket.
+        // Using close() alone is insufficient: the server may be destroyed
+        // (via wss.close()) before the close handshake completes, causing the
+        // browser's WebSocket to never receive the close and stay "Connected".
         client.ws.close(1001, 'Mock server stopping');
+        client.ws.terminate();
       } catch { /* already closed */ }
     }
     this.clients.clear();

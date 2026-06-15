@@ -165,21 +165,21 @@ test.describe('New Node Types — Config Modals', () => {
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
     // Modal title
-    await expect(page.locator('#wf-config-modal-title')).toContainText('SWITCH');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Switch');
   });
 
   test('opens Loop config modal with mode selector', async ({ page }) => {
     await page.locator('.wf-node-loop .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('LOOP');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Loop');
   });
 
   test('opens SetVariable config modal', async ({ page }) => {
     await page.locator('.wf-node-setVariable .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('SETVARIABLE');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Set Variable');
   });
 
   test('opens Aggregate config modal', async ({ page }) => {
@@ -188,7 +188,7 @@ test.describe('New Node Types — Config Modals', () => {
     await aggNode.locator('.wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Aggregate');
   });
 
   test('Switch config modal closes on Close', async ({ page }) => {

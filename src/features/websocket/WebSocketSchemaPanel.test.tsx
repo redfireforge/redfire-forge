@@ -34,7 +34,7 @@ describe('WebSocketSchemaPanel', () => {
   it('renders empty state when no schemas', () => {
     render(<WebSocketSchemaPanel {...defaultProps} />);
     expect(screen.getByTestId('ws-schema-empty')).toBeInTheDocument();
-    expect(screen.getByText(/No schemas defined/)).toBeInTheDocument();
+    expect(screen.getByText(/No Schemas Defined/)).toBeInTheDocument();
   });
 
   it('renders schema cards', () => {

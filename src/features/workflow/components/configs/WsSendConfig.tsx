@@ -32,7 +32,7 @@ export default function WsSendConfig({
 
   return (
     <div className="wf-config-body" data-testid="ws-send-config">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
@@ -43,7 +43,7 @@ export default function WsSendConfig({
         availableConnectionIds={availableConnectionIds}
       />
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Message Type</label>
         <select value={data.messageType} onChange={(e) => update({ messageType: e.target.value as 'text' | 'binary' })}>
           {MSG_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -81,7 +81,7 @@ export default function WsSendConfig({
           </label>
         </div>
         {data.waitForResponse && (
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Response Timeout (ms)</label>
             <input
               type="number"

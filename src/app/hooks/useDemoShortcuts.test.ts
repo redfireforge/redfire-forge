@@ -178,6 +178,18 @@ describe('useDemoShortcuts', () => {
     document.body.removeChild(textarea);
   });
 
+  it('ignores keyboard events marked as demo-synthetic (__demoAction=true)', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    // Simulate the ArrowRight event that step 3 (pu-kbd-arrow) dispatches
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+    (event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).not.toHaveBeenCalled();
+  });
+
   it('ignores unrecognized keys in live mode', () => {
     const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));

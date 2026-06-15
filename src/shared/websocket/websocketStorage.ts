@@ -1,10 +1,9 @@
 import { readKey, writeKey } from '../utils/storage';
-import type { AuthConfig } from '../types';
+import { clampInt, sanitizeAuthConfig, sanitizeKeyValueEntries } from '../utils/persistSanitizers';
 import type {
   WsConnectionHistoryEntry,
   WsConnectionProfile,
   WsFilterPreset,
-  WsKeyValueEntry,
   WsMessageTemplate,
   WsMockRule,
   WsPersistedTab,
@@ -39,34 +38,6 @@ function isValidProfile(entry: unknown): entry is WsConnectionProfile {
 const VALID_PROTOCOL_MODES = new Set(['auto', 'raw', 'socket-io', 'stomp', 'graphql-ws']);
 const VALID_BACKOFF_MULTIPLIERS = new Set([1, 1.5, 2]);
 const VALID_TEMPLATE_FORMATS = new Set(['text', 'json', 'binary']);
-
-function clampInt(val: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(val)) return fallback;
-  return Math.max(min, Math.min(max, Math.round(val)));
-}
-
-const VALID_AUTH_TYPES = new Set(['none', 'inherit', 'basic', 'bearer', 'apikey', 'digest', 'oauth2']);
-
-/** Corrupt-safe sanitizer for a persisted WsKeyValueEntry[] (headers/params). */
-function sanitizeKeyValueEntries(value: unknown): WsKeyValueEntry[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((e): e is Record<string, unknown> => typeof e === 'object' && e !== null)
-    .map((e) => ({
-      key: typeof e.key === 'string' ? e.key : '',
-      value: typeof e.value === 'string' ? e.value : '',
-      enabled: typeof e.enabled === 'boolean' ? e.enabled : true,
-    }));
-}
-
-/** Corrupt-safe sanitizer for a persisted AuthConfig. Returns undefined for
- * missing/invalid data so an absent auth stays absent. */
-function sanitizeAuthConfig(value: unknown): AuthConfig | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  const v = value as Record<string, unknown>;
-  if (typeof v.type !== 'string' || !VALID_AUTH_TYPES.has(v.type)) return undefined;
-  return value as AuthConfig;
-}
 
 function normalizeProfile(p: WsConnectionProfile): WsConnectionProfile {
   const rawBackoff = (p as unknown as Record<string, unknown>).backoffMultiplier;

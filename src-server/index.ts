@@ -16,6 +16,7 @@ import { getAppDataPath } from './file-storage.js';
 import { initScheduler, stopScheduler } from './cron-scheduler.js';
 import { createCorrelationStore } from './correlation-store-factory.js';
 import { setCorrelationStore } from './correlation-handler.js';
+import { wsMockService } from './websocket/websocket-mock-service.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
@@ -52,7 +53,22 @@ async function startServer() {
 
       // Initialize cron scheduler after server starts
       await initScheduler();
-      
+
+      // Auto-start the built-in WS echo mock server so workflows using
+      // ws://localhost:9876 work immediately without needing a demo player.
+      try {
+        await wsMockService.start({ port: 9876, rules: [], fallback: 'echo' });
+        console.log('  ✅ WS echo mock server listening on ws://127.0.0.1:9876');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // EADDRINUSE means another process already has the port — treat as OK
+        if (msg.includes('EADDRINUSE')) {
+          console.log('  ⚠️  ws://127.0.0.1:9876 already in use — skipping mock server start');
+        } else {
+          console.warn('  ⚠️  WS echo mock server failed to start:', msg);
+        }
+      }
+
       console.log('═══════════════════════════════════════════════════════════');
       console.log('  Press Ctrl+C to stop');
       console.log('═══════════════════════════════════════════════════════════\n');
@@ -81,6 +97,9 @@ async function stopServer() {
     
     // Stop scheduler first
     stopScheduler();
+
+    // Stop the WS echo mock server
+    try { wsMockService.stop(); } catch { /* ignore */ }
 
     // Stop cleanup interval
     if (cleanupInterval) {

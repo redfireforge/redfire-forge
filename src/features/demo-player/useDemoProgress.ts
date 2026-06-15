@@ -1,4 +1,4 @@
-/** Demo Progress v2 — localStorage persistence hook */
+/** Demo Progress — localStorage persistence hook */
 import { useState, useCallback } from 'react';
 import type { DemoProgress, SpeedMultiplier } from './types';
 

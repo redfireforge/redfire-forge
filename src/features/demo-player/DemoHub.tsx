@@ -1,4 +1,4 @@
-/** Demo Hub v2 — full-panel tab content */
+/** Demo Hub — full-panel tab content */
 import DemoHubHeader from './DemoHubHeader';
 import DomainSelector from './DomainSelector';
 import LessonList from './LessonList';

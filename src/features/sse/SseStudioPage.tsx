@@ -192,11 +192,12 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
   const reconnectSection = (
     <div className="sse-config-section">
       <span className="sse-config-section-title">Reconnect</span>
-      <div className="sse-reconnect-card">
+      <div className="sse-reconnect-card" data-testid="sse-reconnect-card">
         <label className="sse-toggle-row">
           <input
             type="checkbox"
             className="sse-toggle-checkbox"
+            data-testid="sse-reconnect-toggle"
             checked={config.autoReconnect}
             onChange={(e) => setConfig({ autoReconnect: e.target.checked })}
             disabled={isBusy}
