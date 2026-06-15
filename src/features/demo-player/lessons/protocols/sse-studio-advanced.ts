@@ -208,7 +208,7 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
           const starBtn = thirdRow.querySelector('.sse-bookmark-btn') as HTMLElement | null;
           if (starBtn) {
             starBtn.click();
-            await ctx.delay(400);
+            await ctx.delay(600);
           }
         }
       },
@@ -264,23 +264,31 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       title: 'Auto-Reconnect',
       description:
         'The **Connect** tab\'s Reconnect section controls whether SSE Studio automatically retries after an unexpected disconnect. The **Auto-reconnect** toggle turns this on or off. When enabled, you\'ll see the retry interval and maximum attempts — these come from the server\'s retry field and ensure your stream recovers without manual intervention.',
-      highlight: SSE.LEFT_TAB_CONNECT,
+      highlight: SSE.RECONNECT_CARD,
       preAction: async (ctx) => {
+        // The reconnect toggle is disabled while connected — disconnect first so
+        // the viewer can see the toggle change in the action phase.
+        const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
+        if (connectBtn?.textContent?.includes('Disconnect')) {
+          connectBtn.click();
+          await ctx.delay(600);
+        }
+        // Navigate to the Connect tab to reveal the reconnect card
         await ctx.click(SSE.LEFT_TAB_CONNECT);
-        await ctx.delay(300);
+        await ctx.delay(400);
       },
       action: async (ctx) => {
-        // Toggle auto-reconnect to demonstrate the setting
-        const checkbox = document.querySelector('.sse-reconnect-card input[type="checkbox"]') as HTMLInputElement | null;
+        // Toggle auto-reconnect using ctx.click() so the viewer sees the ripple
+        const checkbox = document.querySelector(SSE.RECONNECT_TOGGLE) as HTMLInputElement | null;
         if (checkbox) {
-          // If already on, toggle off then back on to show the change clearly
           if (checkbox.checked) {
-            checkbox.click();
+            // Toggle off then back on to show the change clearly
+            await ctx.click(SSE.RECONNECT_TOGGLE);
             await ctx.delay(800);
-            checkbox.click();
+            await ctx.click(SSE.RECONNECT_TOGGLE);
             await ctx.delay(800);
           } else {
-            checkbox.click();
+            await ctx.click(SSE.RECONNECT_TOGGLE);
             await ctx.delay(800);
           }
         }

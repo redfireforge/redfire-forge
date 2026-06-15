@@ -2165,7 +2165,7 @@ describe('ws-workflow-builder lesson', () => {
     expect(wsWorkflowBuilderLesson.id).toBe('ws-workflow-builder');
     expect(wsWorkflowBuilderLesson.domainId).toBe('protocols');
     expect(wsWorkflowBuilderLesson.name).toBe('Workflow Builder');
-    expect(wsWorkflowBuilderLesson.steps.length).toBe(9);
+    expect(wsWorkflowBuilderLesson.steps.length).toBe(11);
     expect(wsWorkflowBuilderLesson.concept.title).toBeTruthy();
     expect(wsWorkflowBuilderLesson.concept.body).toBeTruthy();
     expect(wsWorkflowBuilderLesson.initialTab).toBe('workflow');
@@ -2212,8 +2212,9 @@ describe('ws-workflow-builder lesson', () => {
     const ids = wsWorkflowBuilderLesson.steps.map(s => s.id);
     expect(ids).toEqual([
       'wf-create', 'wf-palette', 'wf-add-connect', 'wf-config-connect',
+      'wf-define-variable',
       'wf-add-send', 'wf-config-send', 'wf-add-receive', 'wf-config-receive',
-      'wf-quick-test',
+      'wf-quick-test', 'wf-runner-variable',
     ]);
   });
 
@@ -2223,8 +2224,8 @@ describe('ws-workflow-builder lesson', () => {
 
   it('interactive steps have actions', () => {
     const actionSteps = wsWorkflowBuilderLesson.steps.filter(s => s.action);
-    // Steps 1 (create), 3 (add connect), 4 (config connect), 5 (add send), 6 (config send), 7 (add receive), 8 (config receive), 9 (quick test)
-    expect(actionSteps.length).toBe(8);
+    // Steps 1 (create), 3 (add connect), 4 (config connect), 4b (define variable), 5 (add send), 6 (config send), 7 (add receive), 8 (config receive), 9 (quick test), 10 (runner variable)
+    expect(actionSteps.length).toBe(10);
   });
 
   it('palette step is observation-only', () => {
@@ -2260,8 +2261,25 @@ describe('ws-workflow-builder lesson', () => {
     document.body.innerHTML = '<div class="react-flow__node-wsConnect"></div>';
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!;
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{{wsUrl}}');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+  });
+
+  it('define-variable step opens Variables modal and adds wsUrl', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="wf-toolbar-variables-btn"></button>
+      <div class="wf-defaults-modal">
+        <input class="wf-var-key-input" placeholder="name" />
+        <div class="wf-var-new-row-value"><input class="wf-var-value-input" placeholder="value" /></div>
+        <div class="wf-config-vars"><div></div><button type="button">+</button></div>
+        <button class="btn-primary" type="button">Save</button>
+      </div>
+    `;
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-define-variable')!;
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('wf-var-key-input'), 'wsUrl');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('wf-var-value-input'), 'ws://localhost:9876');
   });
 
   it('config-send step fills message and saves', async () => {
@@ -5277,35 +5295,68 @@ describe('sse-studio-advanced lesson', () => {
 
   // ─── Step: sse-adv-reconnect ──────────────────────────────
 
-  it('step sse-adv-reconnect highlights Connect tab', () => {
+  it('step sse-adv-reconnect highlights reconnect card', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-reconnect')!;
-    expect(step.highlight).toContain('sse-left-tab-connect');
+    expect(step.highlight).toContain('sse-reconnect-card');
   });
 
-  it('step sse-adv-reconnect preAction switches to Connect tab', async () => {
+  it('step sse-adv-reconnect preAction disconnects when connected, then navigates to Connect tab', async () => {
+    // Simulate connected state
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'sse-connect-btn');
+    btn.textContent = 'Disconnect';
+    document.body.appendChild(btn);
+
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-reconnect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+
+    // Should navigate to Connect tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-left-tab-connect'));
   });
 
-  it('step sse-adv-reconnect action toggles the checkbox', async () => {
-    // Build mock DOM with reconnect checkbox
-    const card = document.createElement('div');
-    card.className = 'sse-reconnect-card';
+  it('step sse-adv-reconnect preAction skips disconnect when already disconnected', async () => {
+    // No connect button with "Disconnect" text → already disconnected
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-reconnect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    // Should still navigate to Connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-left-tab-connect'));
+  });
+
+  it('step sse-adv-reconnect action toggles the checkbox via ctx.click with ripple', async () => {
+    // Build mock DOM with reconnect toggle using testid (checked → toggles off then on)
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
+    checkbox.setAttribute('data-testid', 'sse-reconnect-toggle');
     checkbox.checked = true;
-    checkbox.onclick = vi.fn();
-    card.appendChild(checkbox);
-    document.body.appendChild(card);
+    document.body.appendChild(checkbox);
 
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-reconnect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // Checkbox was toggled (clicked twice: off then on)
-    expect(checkbox.onclick).toHaveBeenCalledTimes(2);
+    // Action uses ctx.click (with ripple) twice: toggle off then back on
+    const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: string[]) => c[0].includes('sse-reconnect-toggle'));
+    expect(clicks.length).toBe(2);
+  });
+
+  it('step sse-adv-reconnect action clicks once when checkbox is unchecked', async () => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.setAttribute('data-testid', 'sse-reconnect-toggle');
+    checkbox.checked = false;
+    document.body.appendChild(checkbox);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-reconnect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    const clicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: string[]) => c[0].includes('sse-reconnect-toggle'));
+    expect(clicks.length).toBe(1);
   });
 
   // ─── Step: sse-adv-last-event-id ──────────────────────────
