@@ -294,6 +294,7 @@ export default function WorkflowToolbar({
             <span className="wf-toolbar-divider" />
 
             <button
+              data-testid="wf-toolbar-services-btn"
               className="btn btn-sm wf-toolbar-btn wf-toolbar-services-btn"
               onClick={onOpenServices}
               disabled={isRunning}
@@ -305,6 +306,7 @@ export default function WorkflowToolbar({
             </button>
 
             <button
+              data-testid="wf-toolbar-variables-btn"
               className="btn btn-sm wf-toolbar-btn wf-toolbar-variables-btn"
               onClick={onOpenDefaults}
               disabled={isRunning}

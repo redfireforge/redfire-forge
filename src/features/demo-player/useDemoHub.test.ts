@@ -334,6 +334,24 @@ describe('useDemoHub (async execution)', () => {
     expect(result.current.state.stepIndex).toBe(0);
   });
 
+  it('goToStep marks lesson complete when navigating to last step', async () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson(); // 3 steps (indices 0-2)
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    // Navigate directly to the last step (index 2)
+    await act(async () => {
+      const p = result.current.goToStep(2);
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    expect(result.current.progress.completedLessons).toContain(lesson.id);
+  });
+
   it('nextStep marks lesson complete at last step', async () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     const lesson = makeLesson({

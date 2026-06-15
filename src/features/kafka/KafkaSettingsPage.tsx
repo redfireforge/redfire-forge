@@ -442,6 +442,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     className="btn btn-sm kafka-btn-soft-blue"
                     onClick={() => void testSelectedClusterConnection()}
                     disabled={!canRunConnectionAction || connection.state === 'testing'}
+                    data-testid="kafka-test-btn"
                   >
                     Test Connection
                   </button>
@@ -450,6 +451,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     className="btn btn-sm"
                     onClick={() => void connectSelectedCluster()}
                     disabled={!canRunConnectionAction || connection.state === 'testing' || (connection.state === 'connected' && connection.clusterId === selectedClusterId)}
+                    data-testid="kafka-connect-btn"
                   >
                     Connect
                   </button>
@@ -458,6 +460,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     className="btn btn-sm"
                     onClick={() => void disconnectActiveCluster()}
                     disabled={!canDisconnect}
+                    data-testid="kafka-disconnect-btn"
                   >
                     Disconnect
                   </button>

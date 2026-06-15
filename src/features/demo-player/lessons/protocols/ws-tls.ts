@@ -19,10 +19,16 @@ const WSS_ECHO_URL = 'wss://echo.websocket.org';
 // ── Guard helpers ──────────────────────────────────────────────────
 
 /**
- * Silently ensures the Connect tab is active and a wss:// URL is filled
- * so the TLS configuration panel renders in the DOM.
+ * Silently ensures the studio is in client mode, the Connect tab is active,
+ * and a wss:// URL is filled so the TLS configuration panel renders in the DOM.
+ *
+ * Without switching to client mode first, the left-tab buttons and Connect
+ * panel are not in the DOM (they only render in client mode), so all
+ * subsequent clicks and fills would silently do nothing.
  */
 async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(200);
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
   const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
@@ -57,6 +63,12 @@ async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<vo
 
 async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(500);
+
+  // Switch to client mode first — left-tab buttons and Connect panel only exist
+  // in client mode; in mock/saved mode all subsequent clicks fail silently.
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(300);
+
   await disconnectWebSocket(ctx);
   await closeExtraConnectionTabs(ctx);
   await clearEvents(ctx);
@@ -78,9 +90,22 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
+  // Ensure client mode so DISCONNECT_BTN, URL input, and TLS panel are in DOM.
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(300);
+
+  // Switch to Connect tab — the studio may have auto-navigated to Compose after
+  // the last step's connection, leaving the URL input and TLS panel out of the DOM.
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+
   await disconnectWebSocket(ctx);
   await clearEvents(ctx);
+
+  // Expand TLS panel (if URL still wss://) then reset skip-cert before clearing URL.
+  await ensureTlsPanelExpanded(ctx);
   await setSkipCert(ctx, false);
+
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
   await closeExtraConnectionTabs(ctx);
@@ -254,15 +279,16 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'For development servers with self-signed certificates, check "Skip certificate validation." This sets rejectUnauthorized to false, accepting any certificate. It\'s essential for internal staging environments but should never be used in production. Note: in the browser, this requires the Proxy transport — the browser\'s own TLS stack always validates.',
       highlight: WS.TLS_SKIP_CERT,
       preAction: async (ctx) => {
-        // Disconnect first so skip-cert can be changed while disconnected
-        const discBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-        if (discBtn && !discBtn.disabled) {
-          discBtn.click();
-          await ctx.delay(500);
-        }
-        // Ensure Connect tab + wss:// URL (so TLS panel renders)
+        // Navigate to Connect tab FIRST — DISCONNECT_BTN is only in the DOM when the
+        // Connect panel is rendered. After the previous step (tls-send), the studio
+        // auto-switches to Compose tab on connection, so we must switch back before
+        // trying to disconnect. ensureTlsPanelReady handles mode + tab + URL.
         await ensureTlsPanelReady(ctx);
-        // Ensure TLS panel is expanded
+        // Now disconnect while the Connect panel (and its DISCONNECT_BTN) is visible.
+        // The skip-cert checkbox is disabled while connected; we must disconnect first.
+        await disconnectWebSocket(ctx);
+        await ctx.delay(300);
+        // Ensure TLS panel is expanded so the checkbox is in the DOM
         await ensureTlsPanelExpanded(ctx);
       },
       action: async (ctx) => {
@@ -303,16 +329,26 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'RedfireForge selects the transport automatically. In the browser: Direct mode for standard wss:// (browser handles TLS), Proxy mode when you set custom TLS options (Node.js applies them). On Tauri desktop: Native mode always — rustls handles TLS directly with full support for skip-cert, custom CA, and mTLS without needing a proxy.',
       highlight: WS.TRANSPORT_BADGE,
       preAction: async (ctx) => {
+        // The transport badge lives inside the Connect panel — it only renders in the
+        // DOM when the Connect tab is active. Switch there first so setSkipCert and
+        // the subsequent highlight can find their targets.
+        await ensureTlsPanelReady(ctx);
+        // Ensure TLS panel is expanded so the skip-cert checkbox is in the DOM
+        await ensureTlsPanelExpanded(ctx);
         // Reset skip-cert so the connection uses Direct (not Proxy) transport
         await setSkipCert(ctx, false);
         await ctx.delay(300);
         // Ensure connected so the transport badge is visible and showing "Direct"
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (!isConnected) {
-          await ensureTlsPanelReady(ctx);
           await ctx.click(WS.CONNECT_BTN);
           await ctx.delay(2500);
         }
+        // After connecting the studio auto-switches to Compose tab. Switch back to the
+        // Connect tab so the transport badge (inside the Connect panel) is in the DOM
+        // for the spotlight and action.
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(300);
       },
       action: async (ctx) => {
         // Draw the viewer's eye to the transport badge showing "Direct"

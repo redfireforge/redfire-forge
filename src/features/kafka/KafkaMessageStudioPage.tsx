@@ -66,18 +66,7 @@ export function KafkaMessageStudioPage({
     );
   }
 
-  if (kafkaState.connection.state !== 'connected') {
-    return (
-      <div className="kafka-message-studio-page">
-        <KafkaStudioGuard
-          connection={kafkaState.connection}
-          hasClusters={kafkaState.clusters.length > 0}
-          onNavigateToSettings={onNavigateToKafkaSettings}
-        />
-      </div>
-    );
-  }
-
+  const isConnected = kafkaState.connection.state === 'connected';
   const clusterId = kafkaState.selectedClusterId ?? '';
 
   return (
@@ -87,6 +76,7 @@ export function KafkaMessageStudioPage({
           type="button"
           className={`builder-tab ${activeTab === 'publish' ? 'active' : ''}`}
           onClick={() => setActiveTab('publish')}
+          data-testid="tab-publish"
         >
           Publish
         </button>
@@ -94,6 +84,7 @@ export function KafkaMessageStudioPage({
           type="button"
           className={`builder-tab ${activeTab === 'consume' ? 'active' : ''}`}
           onClick={() => setActiveTab('consume')}
+          data-testid="tab-consume"
         >
           Consume
         </button>
@@ -130,6 +121,7 @@ export function KafkaMessageStudioPage({
             onLoadTemplate={handleLoadPublishTemplate}
             onDeleteTemplate={templates.deletePublishTemplate}
             lastWorkflowOutput={lastWorkflowOutput}
+            connected={isConnected}
           />
         )}
         {activeTab === 'consume' && (
@@ -143,12 +135,20 @@ export function KafkaMessageStudioPage({
             onDeleteConsumeTemplate={templates.deleteConsumeTemplate}
             streamMode={streamMode}
             onUseAsWorkflowInput={onUseAsWorkflowInput}
+            connected={isConnected}
           />
         )}
-        {activeTab === 'topics' && (
+        {(activeTab === 'topics' || activeTab === 'schema') && !isConnected && (
+          <KafkaStudioGuard
+            connection={kafkaState.connection}
+            hasClusters={kafkaState.clusters.length > 0}
+            onNavigateToSettings={onNavigateToKafkaSettings}
+          />
+        )}
+        {activeTab === 'topics' && isConnected && (
           <KafkaTopicExplorerContent kafkaState={kafkaState} />
         )}
-        {activeTab === 'schema' && (
+        {activeTab === 'schema' && isConnected && (
           <KafkaSchemaRegistryContent kafkaState={kafkaState} />
         )}
       </div>

@@ -53,6 +53,9 @@ export interface DemoLesson {
   description: string;
   estimatedMinutes: number;
   initialTab?: string;
+  /** Additional tabs the lesson may navigate to without triggering the auto-exit guard.
+   *  Use when a lesson spans multiple app tabs (e.g. Workflow Builder → Workflow Runner). */
+  allowedTabs?: string[];
   concept: ConceptContent;
   steps: DemoStep[];
   /** Runs once before step 0 — start servers, reset state, etc. */

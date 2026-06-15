@@ -2,6 +2,29 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { SSE } from '../../../../shared/selectors';
 
+// ── Constants ──────────────────────────────────────────────────────
+const SSE_TEST_URL = 'http://localhost:3001/api/sse-test';
+
+/** CSS selector for the connected-state indicator. Used by waitFor and replay guards. */
+const SSE_CONNECTED_DOT = '.sse-state-dot.sse-state-connected';
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Guard used by preActions of steps 3+ to ensure the SSE connection is
+ * established before the spotlight tries to read elements that only render
+ * when connected/events-tab is active.
+ * Idempotent — returns immediately if already connected.
+ */
+async function ensureSseConnected(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(SSE_CONNECTED_DOT)) return;
+  await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+  await ctx.delay(200);
+  await ctx.click(SSE.CONNECT_BTN);
+  await ctx.waitFor(SSE_CONNECTED_DOT);
+  await ctx.delay(500); // brief pause for first events to arrive
+}
+
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
 /** Setup: navigate to SSE Studio and ensure clean state. */
@@ -146,10 +169,17 @@ export const sseStudioLesson: DemoLesson = {
         'Enter the SSE endpoint URL and click Connect. The backend includes a built-in test SSE server that sends events every second — perfect for learning.',
       highlight: SSE.URL_INPUT,
       action: async (ctx) => {
-        await ctx.fill(SSE.URL_INPUT, 'http://localhost:3001/api/sse-test');
+        // Replay guard: if already connected, disconnect first so the user
+        // sees the full connect flow again from the beginning.
+        if (document.querySelector(SSE_CONNECTED_DOT)) {
+          await ctx.click(SSE.CONNECT_BTN); // disconnect
+          await ctx.delay(400);
+        }
+        await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
         await ctx.delay(300);
         await ctx.click(SSE.CONNECT_BTN);
-        await ctx.delay(2500);
+        await ctx.waitFor(SSE_CONNECTED_DOT); // wait for green dot (Rule 5)
+        await ctx.delay(600); // brief pause so first events visibly arrive
       },
       pauseAfter: true,
     },
@@ -161,9 +191,12 @@ export const sseStudioLesson: DemoLesson = {
       description:
         'Events appear in real-time as they arrive. Each event shows its type badge (message, update, status), timestamp, and a preview of the data payload. The status bar shows connection state and event count.',
       highlight: SSE.MESSAGE_LOG,
+      // preAction ensures we are connected AND on the Events tab, since MESSAGE_LOG is
+      // only rendered inside the right-panel Events view (Rule 4: guard for skip-to-step).
       preAction: async (ctx) => {
-        // Wait a bit for more events to arrive
-        await ctx.delay(2000);
+        await ensureSseConnected(ctx);
+        await ctx.click(SSE.RIGHT_TAB_EVENTS);
+        await ctx.delay(1500); // let a few events arrive so the log looks lively
       },
       pauseAfter: true,
     },
@@ -175,6 +208,13 @@ export const sseStudioLesson: DemoLesson = {
       description:
         'Click any event to see its full payload — the detail panel shows the event ID, type, timestamp, and complete JSON data. Use ↑↓ arrow keys to navigate between events.',
       highlight: SSE.EVENT_ROW,
+      // preAction ensures we are connected AND on the Events tab so EVENT_ROW is in the DOM
+      // for the spotlight (Rule 4: guard for skip-to-step).
+      preAction: async (ctx) => {
+        await ensureSseConnected(ctx);
+        await ctx.click(SSE.RIGHT_TAB_EVENTS);
+        await ctx.delay(300);
+      },
       action: async (ctx) => {
         // Click the first event row — ctx.click shows the visual ripple
         await ctx.click(SSE.EVENT_ROW);
@@ -190,6 +230,13 @@ export const sseStudioLesson: DemoLesson = {
       description:
         'Search across event data with the search bar. Use the type filter dropdown to show only specific event types (message, update, status). Filters compose — search text AND event type.',
       highlight: SSE.SEARCH_INPUT,
+      // preAction ensures we are connected AND on the Events tab so SEARCH_INPUT is in the
+      // DOM for the spotlight (Rule 4: guard for skip-to-step).
+      preAction: async (ctx) => {
+        await ensureSseConnected(ctx);
+        await ctx.click(SSE.RIGHT_TAB_EVENTS);
+        await ctx.delay(300);
+      },
       action: async (ctx) => {
         await ctx.fill(SSE.SEARCH_INPUT, 'greeting');
         await ctx.delay(800);
@@ -205,7 +252,10 @@ export const sseStudioLesson: DemoLesson = {
         'The Console tab shows connection lifecycle events and supports commands: /connect, /disconnect, /clear, and /help. Since SSE is one-way, there\'s no /send command.',
       highlight: SSE.RIGHT_TAB_CONSOLE,
       preAction: async (ctx) => {
-        // Clear search
+        // Ensure we are connected so the console has lifecycle entries to show (Rule 4).
+        await ensureSseConnected(ctx);
+        // Clear any stale search text — SEARCH_INPUT is only in DOM on Events tab, so this
+        // is silently idempotent when already on Console tab (ctx.fill does nothing gracefully).
         await ctx.fill(SSE.SEARCH_INPUT, '');
         await ctx.delay(200);
       },
@@ -223,13 +273,18 @@ export const sseStudioLesson: DemoLesson = {
       description:
         'Click the Disconnect button (or type /disconnect in the console) to close the SSE connection. The browser\'s EventSource handles reconnection automatically — but here we\'re closing intentionally.',
       highlight: SSE.CONNECT_BTN,
-      action: async (ctx) => {
-        // Switch back to events to show final state
+      // preAction ensures we are connected so the action will always show a Disconnect click,
+      // not accidentally re-connect (Rule 4: guard for skip-to-step).
+      preAction: async (ctx) => {
+        await ensureSseConnected(ctx);
+        // Navigate to Events tab so the user sees the final event list before disconnecting.
         await ctx.click(SSE.RIGHT_TAB_EVENTS);
-        await ctx.delay(200);
+        await ctx.delay(300);
+      },
+      action: async (ctx) => {
         // Disconnect — ctx.click shows the visual ripple
         await ctx.click(SSE.CONNECT_BTN);
-        await ctx.delay(500);
+        await ctx.delay(800);
       },
       pauseAfter: true,
     },
