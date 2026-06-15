@@ -159,10 +159,11 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
     return;
   }
 
-  // Create default cluster if none exist
-  const newClusterBtn = document.querySelector(KAFKA.NEW_CLUSTER_BTN) as HTMLElement | null;
-  if (newClusterBtn) {
-    newClusterBtn.click();
+  // Create default cluster only if none exist yet (target the empty-state button only,
+  // NOT the always-visible "+ New" button which would create a duplicate on repeated runs)
+  const emptyCreateBtn = document.querySelector<HTMLElement>('[data-testid="kafka-empty-create-btn"]');
+  if (emptyCreateBtn) {
+    emptyCreateBtn.click();
     await ctx.delay(500);
 
     // Fill cluster name (defaults to auto-generated "New Cluster N" — use "Demo Cluster")
