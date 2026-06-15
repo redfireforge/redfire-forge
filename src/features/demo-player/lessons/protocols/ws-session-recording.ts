@@ -12,7 +12,7 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WS } from '../../../../shared/selectors';
-import { wsSetup, wsCleanup } from '../setup-helpers';
+import { wsSetup, wsCleanup, closeExtraConnectionTabs } from '../setup-helpers';
 
 // ── Constants ──────────────────────────────────────────────────
 const MOCK_URL = 'ws://localhost:9876';
@@ -28,7 +28,14 @@ function buildDemoRecording(): string {
   const msg = (ms: number, dir: 'sent' | 'received', data: string) => ({
     type: 'message' as const,
     relativeMs: ms,
-    frame: { direction: dir, data, timestamp: base + ms, size: data.length, opcode: 1 },
+    frame: {
+      id: `demo-rec-${ms}-${dir}`,
+      direction: dir,
+      type: 'text' as const,
+      data,
+      size: data.length,
+      timestamp: new Date(base + ms).toISOString(),
+    },
   });
   return JSON.stringify({
     _format: 'ws-recording-v1',
@@ -91,10 +98,14 @@ async function injectRecordingFile(ctx: DemoActionContext): Promise<void> {
 
 /** Ensure the WebSocket is connected (no-op if already connected). */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
-  const alreadyConnected = !!document.querySelector(WS.DISCONNECT_BTN);
+  // The Disconnect button is always in the DOM (just disabled when not connected),
+  // so we must check !disabled rather than mere presence.
+  const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+  const alreadyConnected = !!disconnectBtn && !disconnectBtn.disabled;
   if (!alreadyConnected) {
     await ctx.click(WS.LEFT_TAB_CONNECT);
-    await ctx.delay(300);
+    await ctx.waitFor(WS.URL_INPUT);
+    await ctx.delay(200);
     await ctx.fill(WS.URL_INPUT, MOCK_URL);
     await ctx.delay(200);
     await ctx.click(WS.CONNECT_BTN);
@@ -123,7 +134,13 @@ async function ensureNotReplaying(ctx: DemoActionContext): Promise<void> {
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
 async function recordingSetup(ctx: DemoActionContext): Promise<void> {
+  // Wait for the WebSocket studio to fully mount before interacting with it.
+  await ctx.waitFor(WS.CONN_TAB_BAR);
   await ctx.delay(400);
+  // Close any extra connection tabs left behind by previous lessons (e.g. ws-power-user).
+  // Multiple tabs mean document.querySelector hits the wrong (hidden) panel.
+  await closeExtraConnectionTabs(ctx);
+  await ctx.delay(200);
   await wsSetup(ctx);
   await ctx.delay(200);
   // Clear stale protocol state
@@ -294,9 +311,12 @@ During replay, the Compose panel is hidden since you're watching a recording, no
         await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
-        for (let i = 0; i < 3; i++) {
+        // The message input clears after each send, so we must re-fill before every click.
+        for (let i = 1; i <= 3; i++) {
+          await ctx.fill(WS.MESSAGE_INPUT, `{"action":"demo","seq":${i}}`);
+          await ctx.delay(150);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(400);
+          await ctx.delay(600);
         }
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(800);
@@ -388,27 +408,42 @@ During replay, the Compose panel is hidden since you're watching a recording, no
       highlight: WS.REPLAY_EXIT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // By the time this step starts the 4.9-second replay from rec-play will
-        // often have already completed (reading + action of that step takes ~32 s).
-        // Inject a fresh recording and start a new replay if needed, then
-        // immediately pause it — this keeps the ✕ Exit button visible throughout
-        // the entire reading phase so the spotlight is never empty.
+        // By the time this step starts, the 4.9-second replay from rec-play may
+        // have already completed. Ensure a replay is active and paused so the
+        // ✕ Exit button remains visible throughout the entire reading phase.
         const exitBtn = document.querySelector(WS.REPLAY_EXIT);
         if (!exitBtn) {
+          // Replay has auto-completed (or was never started).
           await ensureNotRecording(ctx);
-          await injectRecordingFile(ctx);
-          await ctx.delay(300);
-          const playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+          // After auto-completion, loadedRecording is cleared → Play button is gone.
+          // Inject a fresh recording so Play reappears.
+          let playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+          if (!playBtn) {
+            await injectRecordingFile(ctx);
+            await ctx.delay(400);
+            playBtn = document.querySelector(WS.REPLAY_START_BTN) as HTMLElement | null;
+          }
           if (playBtn) {
             playBtn.click();
-            await ctx.delay(500); // Let a couple of events stream in
+            // Wait for the replay bar to mount, then pause immediately.
+            // We just started replay so it is guaranteed to be playing.
+            await ctx.waitFor(WS.REPLAY_BAR);
+            await ctx.delay(200);
+            const pauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+            if (pauseBtn) {
+              pauseBtn.click();
+              await ctx.delay(300);
+            }
           }
-        }
-        // Pause so the replay bar (and ✕ Exit) stays visible during reading
-        const playpauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
-        if (playpauseBtn && playpauseBtn.textContent?.trim() === '⏸') {
-          playpauseBtn.click();
-          await ctx.delay(300);
+        } else {
+          // Replay is still active from step 6. Pause if currently playing.
+          // Use includes('▶') — the paused state — rather than exact '⏸' comparison
+          // to avoid any Unicode encoding mismatch across source files.
+          const playpauseBtn = document.querySelector(WS.REPLAY_PLAYPAUSE) as HTMLElement | null;
+          if (playpauseBtn && !playpauseBtn.textContent?.includes('▶')) {
+            playpauseBtn.click();
+            await ctx.delay(300);
+          }
         }
       },
       action: async (ctx: DemoActionContext) => {

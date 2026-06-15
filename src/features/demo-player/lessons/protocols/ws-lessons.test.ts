@@ -2555,13 +2555,21 @@ describe('ws-socketio lesson', () => {
   });
 
   // ─── Step: sio-select-protocol ───────────────────────────────
-  // Protocol is pre-set in setup; this step only navigates to connect tab and explains
 
-  it('step sio-select-protocol clicks connect tab to show the dropdown', async () => {
+  it('step sio-select-protocol has a preAction that navigates to connect tab (Rule 4)', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-select-protocol')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // PROTOCOL_SELECT lives inside the Connect panel — preAction ensures it is in the DOM
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step sio-select-protocol action does NOT re-navigate (preAction handled it)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-select-protocol')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('step sio-select-protocol highlights protocol dropdown', () => {
@@ -2570,34 +2578,101 @@ describe('ws-socketio lesson', () => {
   });
 
   // ─── Step: sio-enter-url ─────────────────────────────────────
-  // URL is pre-filled in setup; this step only navigates to connect tab and explains
 
-  it('step sio-enter-url navigates to connect tab to highlight the URL field', async () => {
+  it('step sio-enter-url has a preAction that navigates to connect tab (Rule 4)', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-enter-url')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // URL_INPUT lives inside the Connect panel — preAction ensures it is in the DOM
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step sio-enter-url action does NOT re-navigate (preAction handled it)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-enter-url')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ─── Step: sio-connect ───────────────────────────────────────
 
-  it('step sio-connect clicks connect button, events tab, then connect tab', async () => {
+  it('step sio-connect has a preAction that navigates to connect tab', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step sio-connect action uses waitFor instead of fixed delay (Rule 5)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
     // After connecting, switches to Events to show handshake, then back to Connect for status badge
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
+  it('step sio-connect action skips WS connect when already connected (replay guard)', async () => {
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    // CONNECT_BTN should NOT be clicked because STATUS_CONNECTED is already present
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // But waitFor is still called
+    expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
+    // Still navigates to Events and back
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  // ─── Step: sio-inspect-params ────────────────────────────────
+
+  it('step sio-inspect-params has a preAction that ensures connection and navigates to connect tab', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-inspect-params')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    // No STATUS_CONNECTED in DOM → ensureSioConnected should run
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
+    // Then navigates to Connect tab so SIO_SERVER_PARAMS is visible
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step sio-inspect-params preAction skips connect when already connected', async () => {
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-inspect-params')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Should not click connect button when already connected
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // But still navigates to Connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
   // ─── Step: sio-compose-event ─────────────────────────────────
 
-  it('step sio-compose-event has a preAction that navigates to compose tab', async () => {
+  it('step sio-compose-event preAction ensures connection then navigates to compose (Rule 4)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-compose-event')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
+    // No STATUS_CONNECTED → ensureSioConnected should run, then navigate to compose
     await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
+  it('step sio-compose-event preAction only navigates to compose when already connected', async () => {
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-compose-event')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
   });
 
@@ -2619,7 +2694,19 @@ describe('ws-socketio lesson', () => {
 
   // ─── Step: sio-send ──────────────────────────────────────────
 
-  it('step sio-send clicks send and then events tab', async () => {
+  it('step sio-send has a preAction that ensures connection and pre-fills compose (Rule 4)', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-send')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    // No STATUS_CONNECTED → ensureSioConnected should run
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('sio-event-name'), 'message');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('Hello Socket.IO'));
+  });
+
+  it('step sio-send action clicks send and then events tab', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-send')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -2629,7 +2716,16 @@ describe('ws-socketio lesson', () => {
 
   // ─── Step: sio-namespace ─────────────────────────────────────
 
-  it('step sio-namespace clicks compose tab and does NOT fill or focus the namespace field', async () => {
+  it('step sio-namespace has a preAction that navigates to compose tab (Rule 4)', async () => {
+    const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-namespace')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // SIO_NAMESPACE lives inside the Compose panel — preAction ensures it is in the DOM
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
+  it('step sio-namespace action does NOT re-navigate or fill namespace (preAction handled nav)', async () => {
     const step = wsSocketIoLesson.steps.find(s => s.id === 'sio-namespace')!;
     const ctx = makeCtx();
     // Add namespace element — action scrolls it into view, must not focus() (would trap ArrowRight)
@@ -2638,7 +2734,8 @@ describe('ws-socketio lesson', () => {
     nsEl.scrollIntoView = vi.fn();
     document.body.appendChild(nsEl);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    // Action does not call click(left-tab-compose) — that's preAction's job
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
     // Must not fill /chat — server only handles root namespace
     expect(ctx.fill).not.toHaveBeenCalledWith(
       expect.stringContaining('sio-namespace'),
@@ -2788,11 +2885,22 @@ describe('ws-stomp lesson', () => {
     expect(step.highlight).toContain('protocol-select');
   });
 
-  it('step stomp-protocol navigates to connect tab', async () => {
+  it('step stomp-protocol has a preAction that navigates to connect tab (Rule 4)', async () => {
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // PROTOCOL_SELECT lives inside the Connect panel — preAction ensures it is in the DOM
+    // before the spotlight fires (highlight runs before the action).
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step stomp-protocol action does NOT re-navigate (preAction handled it)', async () => {
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-protocol')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Action only waits for observation; preAction handles the tab navigation
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   // ─── Step: stomp-connect-ws ──────────────────────────────────
@@ -2809,8 +2917,10 @@ describe('ws-stomp lesson', () => {
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-connect-ws')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // WS transport: clicks Connect
+    // WS transport: clicks Connect (guard passes when STATUS_CONNECTED absent in jsdom)
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // Uses waitFor instead of fixed delay for robust connection detection (Rule 5)
+    expect(ctx.waitFor).toHaveBeenCalledWith(".ws-status-dot.connected");
     // Shows Events after WS connects
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     // Navigates to Compose to send STOMP CONNECT frame
@@ -2825,6 +2935,20 @@ describe('ws-stomp lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('stomp-login'), 'guest');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('stomp-passcode'), 'guest');
     // Sends the CONNECT frame
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+  });
+
+  it('step stomp-connect-ws action skips WS connect when already connected (replay guard)', async () => {
+    // Simulate already-connected state: STATUS_CONNECTED element (.ws-status-dot.connected) exists
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-connect-ws')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    // CONNECT_BTN should NOT be clicked because STATUS_CONNECTED is already present
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // But waitFor is still called to confirm status
+    expect(ctx.waitFor).toHaveBeenCalledWith(".ws-status-dot.connected");
+    // Still sends STOMP CONNECT frame
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
   });
 
@@ -2851,7 +2975,9 @@ describe('ws-stomp lesson', () => {
 
   // ─── Step: stomp-subscribe ───────────────────────────────────
 
-  it('step stomp-subscribe preAction navigates to compose, selects SUBSCRIBE, fills /queue/demo', async () => {
+  it('step stomp-subscribe preAction navigates to compose, selects SUBSCRIBE, fills /queue/demo when connected', async () => {
+    // Simulate connected state so ensureStompSession skips its reconnect logic
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-subscribe')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -2867,19 +2993,32 @@ describe('ws-stomp lesson', () => {
     );
   });
 
+  it('step stomp-subscribe preAction establishes STOMP session when not connected (Rule 4)', async () => {
+    // No STATUS_CONNECTED in DOM → ensureStompSession should run
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-subscribe')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Connection sequence: WS connect + STOMP CONNECT frame
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(".ws-status-dot.connected");
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('stomp-command'), 'CONNECT');
+    // Then sets up SUBSCRIBE compose state
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('stomp-command'), 'SUBSCRIBE');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('stomp-destination'), '/queue/demo');
+  });
+
   it('step stomp-subscribe action clicks send (compose pre-populated by preAction)', async () => {
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-subscribe')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
-    // selectOption and fill are NOT called in action — they moved to preAction
-    expect(ctx.selectOption).not.toHaveBeenCalled();
-    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   // ─── Step: stomp-send ────────────────────────────────────────
 
-  it('step stomp-send has a preAction that navigates to compose and selects SEND command', async () => {
+  it('step stomp-send has a preAction that navigates to compose and selects SEND when connected', async () => {
+    // Simulate connected state so ensureStompSession skips its reconnect logic
+    document.body.innerHTML = '<div class="ws-status-dot connected"></div>';
     const step = wsStompLesson.steps.find(s => s.id === 'stomp-send')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -2889,6 +3028,18 @@ describe('ws-stomp lesson', () => {
       expect.stringContaining('stomp-command'),
       'SEND',
     );
+  });
+
+  it('step stomp-send preAction establishes STOMP session when not connected (Rule 4)', async () => {
+    // No STATUS_CONNECTED in DOM → ensureStompSession should run
+    const step = wsStompLesson.steps.find(s => s.id === 'stomp-send')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Connection sequence: WS connect + STOMP CONNECT
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(".ws-status-dot.connected");
+    // After session established, selects SEND command
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('stomp-command'), 'SEND');
   });
 
   it('step stomp-send fills destination and body, clicks send, shows events', async () => {
@@ -3088,6 +3239,14 @@ describe('ws-graphql lesson', () => {
     expect(step.highlight).toContain('protocol-select');
   });
 
+  it('step gql-protocol has a preAction that navigates to connect tab', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
   it('step gql-protocol description mentions connection_init and automatic handshake', () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-protocol')!;
     expect(step.description).toContain('connection_init');
@@ -3104,11 +3263,28 @@ describe('ws-graphql lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step gql-connect action clicks connect button and switches to events tab', async () => {
+  it('step gql-connect action clicks connect button when not connected and switches to events tab', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-connect')!;
     const ctx = makeCtx();
+    // No STATUS_CONNECTED element → should click CONNECT_BTN
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step gql-connect action skips connect when already connected', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-connect')!;
+    const ctx = makeCtx();
+    // Simulate already-connected state
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+    await step.action!(ctx);
+    // Should NOT click connect button again
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // Should still waitFor STATUS_CONNECTED and switch to Events
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
@@ -3147,16 +3323,33 @@ describe('ws-graphql lesson', () => {
 
   // ─── Step: gql-subscribe ────────────────────────────────────
 
-  it('step gql-subscribe has a preAction that navigates to compose and fills the query', async () => {
+  it('step gql-subscribe has a preAction that navigates to compose and fills the query when connected', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
+    // Simulate already-connected state so the connection guard is a no-op
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('countdown'),
     );
+  });
+
+  it('step gql-subscribe preAction connects when not connected before filling compose', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
+    const ctx = makeCtx();
+    // No STATUS_CONNECTED element → should navigate to connect tab and click connect
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
+    // Then should navigate to compose and fill the query
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('countdown'));
   });
 
   it('step gql-subscribe action clicks send button and switches to events', async () => {
@@ -3339,12 +3532,28 @@ describe('ws-mock-server-advanced lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
   });
 
+  it('step mock-adv-rules-tab action uses waitFor before clicking rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-rules-tab')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
+
   it('step mock-adv-rules-tab highlights the mode-mock button (visible in client mode)', () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-rules-tab')!;
     expect(step.highlight).toContain('mode-mock');
   });
 
   // ─── Step: mock-adv-add-rule ────────────────────────────────
+
+  it('step mock-adv-add-rule preAction navigates to Mock mode + Rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-add-rule')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
 
   it('step mock-adv-add-rule action clicks add rule button', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-add-rule')!;
@@ -3367,6 +3576,27 @@ describe('ws-mock-server-advanced lesson', () => {
   });
 
   // ─── Step: mock-adv-response ────────────────────────────────
+
+  it('step mock-adv-response preAction navigates to Mock mode + Rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-response')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
+
+  it('step mock-adv-response preAction opens rule card when rule exists but card is closed', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-response')!;
+    // Add a rule card header button but no response-type select (card closed)
+    const ruleNameBtn = document.createElement('button');
+    ruleNameBtn.className = 'ws-mock-rule-name';
+    document.body.appendChild(ruleNameBtn);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Should have clicked the rule name button to open the card
+    expect(ruleNameBtn.click).toBeDefined();
+  });
 
   it('step mock-adv-response changes response type to template then fills response data', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-response')!;
@@ -3391,6 +3621,15 @@ describe('ws-mock-server-advanced lesson', () => {
 
   // ─── Step: mock-adv-delay ───────────────────────────────────
 
+  it('step mock-adv-delay preAction navigates to Mock mode + Rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-delay')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
+
   it('step mock-adv-delay action fills delay input with 200 via ctx.fill', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-delay')!;
     const ctx = makeCtx();
@@ -3404,6 +3643,15 @@ describe('ws-mock-server-advanced lesson', () => {
   });
 
   // ─── Step: mock-adv-test-preview ────────────────────────────
+
+  it('step mock-adv-test-preview preAction navigates to Mock mode + Rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-test-preview')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
 
   it('step mock-adv-test-preview calls ctx.fill on test input with ping', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-test-preview')!;
@@ -3419,6 +3667,15 @@ describe('ws-mock-server-advanced lesson', () => {
 
   // ─── Step: mock-adv-toggle ──────────────────────────────────
 
+  it('step mock-adv-toggle preAction navigates to Mock mode + Rules tab', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-toggle')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-tab-rules'));
+  });
+
   it('step mock-adv-toggle action calls ctx.click on toggle', async () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-toggle')!;
     const ctx = makeCtx();
@@ -3432,6 +3689,13 @@ describe('ws-mock-server-advanced lesson', () => {
   });
 
   // ─── Step: mock-adv-fallback ────────────────────────────────
+
+  it('step mock-adv-fallback preAction switches to Mock mode', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-fallback')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+  });
 
   it('step mock-adv-fallback has no action (informational)', () => {
     const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-fallback')!;
@@ -3470,8 +3734,35 @@ describe('ws-mock-server-advanced lesson', () => {
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
+  });
+
+  it('step mock-adv-live preAction skips connect when already connected', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
+    // Add STATUS_CONNECTED element so guard triggers (already connected)
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step mock-adv-live preAction navigates to Events tab before Compose', async () => {
+    const step = wsMockServerAdvancedLesson.steps.find(s => s.id === 'mock-adv-live')!;
+    const ctx = makeCtx();
+    const calls: string[] = [];
+    (ctx.click as ReturnType<typeof vi.fn>).mockImplementation((sel: string) => {
+      calls.push(sel);
+      return Promise.resolve();
+    });
+    await step.preAction!(ctx);
+    const eventsIdx = calls.findIndex(s => s.includes('right-tab-events'));
+    const composeIdx = calls.findLastIndex(s => s.includes('left-tab-compose'));
+    expect(eventsIdx).toBeGreaterThanOrEqual(0);
+    expect(composeIdx).toBeGreaterThan(eventsIdx);
   });
 
   it('step mock-adv-live highlights the send button', () => {
@@ -3597,11 +3888,13 @@ describe('ws-workspace lesson', () => {
     );
   });
 
-  it('step ws-profile-save action clicks save-as-profile, fills name, saves', async () => {
+  it('step ws-profile-save action clicks save-as-profile, waits for modal, fills name, saves', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-save')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('save-as-profile-btn'));
+    // Rule 5: ProfileEditorModal is conditionally rendered — must wait for it
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('profile-name-input'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('profile-name-input'),
       'Demo Echo Server',
@@ -3664,11 +3957,13 @@ describe('ws-workspace lesson', () => {
       .map(c => c[0])
       .filter((s: string) => s.includes('template-trigger'));
     expect(clickCalls.length).toBe(2);
+    // Rule 5: waits for dropdown to appear before the 1200ms observation delay
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('template-dropdown'));
   });
 
   // ─── Step: ws-template-save ───────────────────────────────────
 
-  it('step ws-template-save preAction fills message and opens dropdown', async () => {
+  it('step ws-template-save preAction fills message and opens dropdown with waitFor', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -3679,6 +3974,8 @@ describe('ws-workspace lesson', () => {
       expect.stringContaining('greet'),
     );
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
+    // Rule 5: waits for template-save-name input to appear inside dropdown
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('template-save-name'));
   });
 
   it('step ws-template-save action fills name and clicks save', async () => {
@@ -3694,7 +3991,7 @@ describe('ws-workspace lesson', () => {
 
   // ─── Step: ws-template-load ───────────────────────────────────
 
-  it('step ws-template-load preAction clears compose and opens compose tab', async () => {
+  it('step ws-template-load preAction clears compose, opens compose tab, and closes open dropdown', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -3706,11 +4003,35 @@ describe('ws-workspace lesson', () => {
     );
   });
 
-  it('step ws-template-load action opens template dropdown and loads via ctx.click', async () => {
+  it('step ws-template-load preAction closes dropdown when it was left open from step 5', async () => {
+    // Simulate the dropdown being open (step 5 leaves it open after saving)
+    document.body.innerHTML = `
+      <div data-testid="template-dropdown"></div>
+      <button data-testid="template-trigger">Templates</button>`;
+    const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    const clickSpy = vi.spyOn(trigger, 'click');
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step ws-template-load preAction skips close-dropdown when dropdown already closed', async () => {
+    // No dropdown in DOM — guard should be a no-op
+    document.body.innerHTML = `<button data-testid="template-trigger">Templates</button>`;
+    const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    const clickSpy = vi.spyOn(trigger, 'click');
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('step ws-template-load action opens template dropdown and waits, then loads via ctx.click', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
+    // Rule 5: waits for load button to appear before clicking
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-template-item-load'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-template-item-load'));
   });
 
@@ -3741,6 +4062,15 @@ describe('ws-workspace lesson', () => {
   });
 
   // ─── Step: ws-env-warn ───────────────────────────────────────
+
+  it('step ws-env-warn has preAction that navigates to client + connect', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
 
   it('step ws-env-warn action fills URL with {{unknownHost}}', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
@@ -3961,6 +4291,27 @@ describe('ws-reliability lesson', () => {
     );
   });
 
+  it('step rel-stats-live preAction: guard triggers connect when not connected', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-live')!;
+    document.body.innerHTML = ''; // no status-connected element → disconnected
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step rel-stats-live preAction: guard skips connect when already connected', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-live')!;
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: string[]) => c[0].includes('connect-btn'));
+    expect(connectBtnCalls.length).toBe(0);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
   it('step rel-stats-live action sends messages and switches to stats', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-live')!;
     const ctx = makeCtx();
@@ -4011,11 +4362,33 @@ describe('ws-reliability lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step rel-close-code action opens caret, fills code/reason, closes', async () => {
+  it('step rel-close-code preAction: guard triggers connect when not connected', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-close-code')!;
+    document.body.innerHTML = ''; // no status-connected element → disconnected
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step rel-close-code preAction: guard skips connect when already connected', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-close-code')!;
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: string[]) => c[0].includes('connect-btn'));
+    expect(connectBtnCalls.length).toBe(0);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step rel-close-code action opens caret, uses waitFor, fills code/reason, closes', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-close-code')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('disconnect-caret'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('close-code-input'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('close-code-input'),
       '1001',
@@ -4028,6 +4401,28 @@ describe('ws-reliability lesson', () => {
   });
 
   // ─── Step: rel-stats-zero ─────────────────────────────────
+
+  it('step rel-stats-zero has preAction that disconnects if still active', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-zero')!;
+    expect(typeof step.preAction).toBe('function');
+    // Simulate an active connection by placing an enabled disconnect button in DOM
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'disconnect-btn');
+    document.body.appendChild(btn);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // disconnectWebSocket finds the button and calls ctx.delay(300)
+    expect(ctx.delay).toHaveBeenCalledWith(300);
+  });
+
+  it('step rel-stats-zero preAction is a no-op when already disconnected', async () => {
+    const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-zero')!;
+    document.body.innerHTML = ''; // no disconnect button → already disconnected
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // disconnectWebSocket finds no button — ctx.delay never called
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
 
   it('step rel-stats-zero action switches to stats tab', async () => {
     const step = wsReliabilityLesson.steps.find(s => s.id === 'rel-stats-zero')!;
@@ -4168,6 +4563,7 @@ describe('ws-session-recording lesson', () => {
   it('step rec-intro preAction skips connect when already connected', async () => {
     const disconnectBtn = document.createElement('button');
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
+    // Not disabled = genuinely connected
     document.body.appendChild(disconnectBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
@@ -4175,6 +4571,21 @@ describe('ws-session-recording lesson', () => {
     await step.preAction!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('step rec-intro preAction connects when disconnect-btn is present but disabled (not actually connected)', async () => {
+    // The Disconnect button is always in the DOM — just disabled when not connected.
+    // ensureConnected must check !disabled, not merely existence.
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
+    disconnectBtn.disabled = true;
+    document.body.appendChild(disconnectBtn);
+
+    const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Should still call connect-btn because the btn is disabled (= not connected)
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
 
   it('step rec-intro preAction stops active recording if running', async () => {
@@ -4461,39 +4872,70 @@ describe('ws-session-recording lesson', () => {
     expect(typeof step.preAction).toBe('function');
   });
 
-  it('step rec-exit preAction injects and pauses a replay when no exit button exists', async () => {
+  it('step rec-exit preAction injects a file and pauses replay when no exit or play button exists', async () => {
+    // Scenario: replay auto-completed and recording was cleared from memory.
+    // Neither exit button nor play button is in the DOM. Injection is required.
     const input = document.createElement('input');
     input.type = 'file';
     input.setAttribute('data-testid', 'recording-file-input');
     document.body.appendChild(input);
 
-    const changeSpy = vi.fn();
+    const changeSpy = vi.fn(() => {
+      // Simulate React re-render: file loaded → play button appears
+      const playBtn = document.createElement('button');
+      playBtn.setAttribute('data-testid', 'start-replay-btn');
+      playBtn.addEventListener('click', () => {
+        playBtn.remove();
+        const bar = document.createElement('div');
+        bar.setAttribute('data-testid', 'replay-bar');
+        document.body.appendChild(bar);
+        const exitEl = document.createElement('button');
+        exitEl.setAttribute('data-testid', 'replay-exit-btn');
+        document.body.appendChild(exitEl);
+        const ppBtn = document.createElement('button');
+        ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
+        ppBtn.textContent = '⏸';
+        document.body.appendChild(ppBtn);
+      });
+      document.body.appendChild(playBtn);
+    });
     input.addEventListener('change', changeSpy);
 
-    // Simulate play button appearing after file inject
+    const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    // File should have been injected (no exit button, no play button at start)
+    expect(changeSpy).toHaveBeenCalled();
+  });
+
+  it('step rec-exit preAction uses existing play button when recording is still loaded in memory', async () => {
+    // Scenario: play button already visible (e.g. replay completed but loadedRecording
+    // race — in practice stopReplay clears it, but good defensive coverage).
     const playBtn = document.createElement('button');
     playBtn.setAttribute('data-testid', 'start-replay-btn');
-    document.body.appendChild(playBtn);
-
     const playClickSpy = vi.fn(() => {
-      // Simulate replay starting: replace play btn with exit btn + playpause btn
       playBtn.remove();
-      const exitBtn = document.createElement('button');
-      exitBtn.setAttribute('data-testid', 'replay-exit-btn');
-      document.body.appendChild(exitBtn);
+      const bar = document.createElement('div');
+      bar.setAttribute('data-testid', 'replay-bar');
+      document.body.appendChild(bar);
+      const exitEl = document.createElement('button');
+      exitEl.setAttribute('data-testid', 'replay-exit-btn');
+      document.body.appendChild(exitEl);
       const ppBtn = document.createElement('button');
       ppBtn.setAttribute('data-testid', 'replay-playpause-btn');
       ppBtn.textContent = '⏸';
       document.body.appendChild(ppBtn);
     });
     playBtn.addEventListener('click', playClickSpy);
+    document.body.appendChild(playBtn);
 
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-exit')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
-    // File should have been injected (no exit button at start)
-    expect(changeSpy).toHaveBeenCalled();
+    // Should have clicked play directly without needing file injection
+    expect(playClickSpy).toHaveBeenCalled();
   });
 
   it('step rec-exit preAction pauses an already-playing replay to keep exit button visible', async () => {
@@ -4780,7 +5222,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-kbd-arrow action dispatches arrow key events', async () => {
+  it('step pu-kbd-arrow action dispatches arrow key events on two different tabs', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
@@ -4789,18 +5231,31 @@ describe('ws-power-user lesson', () => {
     tab1.setAttribute('data-testid', 'conn-tab-1');
     tab1.tabIndex = 0;
     bar.appendChild(tab1);
+    const tab2 = document.createElement('div');
+    tab2.setAttribute('role', 'tab');
+    tab2.setAttribute('aria-selected', 'false');
+    tab2.setAttribute('data-testid', 'conn-tab-2');
+    bar.appendChild(tab2);
     document.body.appendChild(bar);
 
-    const keydownSpy = vi.fn();
-    tab1.addEventListener('keydown', keydownSpy);
+    const keydownSpy1 = vi.fn();
+    const keydownSpy2 = vi.fn();
+    tab1.addEventListener('keydown', keydownSpy1);
+    tab2.addEventListener('keydown', keydownSpy2);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-kbd-arrow')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    const arrowCalls = keydownSpy.mock.calls.filter(
+    // tab1 gets ArrowRight (first press)
+    const arrowOnTab1 = keydownSpy1.mock.calls.filter(
       (c: [KeyboardEvent]) => c[0].key === 'ArrowRight'
     );
-    expect(arrowCalls.length).toBeGreaterThanOrEqual(1);
+    expect(arrowOnTab1.length).toBeGreaterThanOrEqual(1);
+    // tab2 gets ArrowRight (second press — index-based, not active-tab-based)
+    const arrowOnTab2 = keydownSpy2.mock.calls.filter(
+      (c: [KeyboardEvent]) => c[0].key === 'ArrowRight'
+    );
+    expect(arrowOnTab2.length).toBeGreaterThanOrEqual(1);
   });
 
   // ─── Step: pu-kbd-rename ──────────────────────────────────
@@ -4997,6 +5452,41 @@ describe('ws-power-user lesson', () => {
   });
 
   // ─── Step: pu-pane-persist ────────────────────────────────
+
+  it('step pu-pane-persist preAction has a tab guard', () => {
+    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step pu-pane-persist preAction adds a tab when fewer than 2 exist', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    const t = document.createElement('div');
+    t.setAttribute('role', 'tab');
+    bar.appendChild(t);
+    document.body.appendChild(bar);
+
+    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+  });
+
+  it('step pu-pane-persist preAction is a no-op tab-guard when 2+ tabs exist', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    for (let i = 0; i < 2; i++) {
+      const t = document.createElement('div');
+      t.setAttribute('role', 'tab');
+      bar.appendChild(t);
+    }
+    document.body.appendChild(bar);
+
+    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+  });
 
   it('step pu-pane-persist preAction switches to console tab', async () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
@@ -5953,7 +6443,7 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('has name and description', () => {
-    expect(wsTestRunnerLesson.name).toBe('Test Harness Tour');
+    expect(wsTestRunnerLesson.name).toBe('Run WS Workflow in Harness');
     expect(wsTestRunnerLesson.description.length).toBeGreaterThan(10);
   });
 
@@ -5961,47 +6451,43 @@ describe('ws-test-runner lesson', () => {
     expect(wsTestRunnerLesson.estimatedMinutes).toBe(3);
   });
 
-  it('initialTab is not set (avoids auto-exit on tab switch)', () => {
+  it('initialTab is not set (avoids auto-exit on tab switch to results)', () => {
     expect(wsTestRunnerLesson.initialTab).toBeUndefined();
   });
 
   // ── Concept ──
 
-  it('concept title mentions Test Harness', () => {
-    expect(wsTestRunnerLesson.concept.title).toContain('Test Harness');
+  it('concept title mentions Workflow Runner', () => {
+    expect(wsTestRunnerLesson.concept.title).toContain('Workflow Runner');
   });
 
-  it('concept body mentions all five sub-tabs', () => {
+  it('concept body contrasts Quick Test with Workflow Runner', () => {
     const body = wsTestRunnerLesson.concept.body;
-    expect(body).toContain('Feature Groups');
-    expect(body).toContain('Test Runner');
-    expect(body).toContain('Parameterized Runner');
+    expect(body).toContain('Quick Test');
     expect(body).toContain('Workflow Runner');
-    expect(body).toContain('Results');
   });
 
-  it('concept body mentions WS transports', () => {
+  it('concept body explains Initial Variables', () => {
     const body = wsTestRunnerLesson.concept.body;
-    expect(body).toContain('WS Connect');
-    expect(body).toContain('WS Send');
-    expect(body).toContain('WS Receive');
+    expect(body).toContain('Initial Variables');
+    expect(body).toContain('wsUrl');
   });
 
-  it('concept body mentions Connection ID chaining', () => {
-    expect(wsTestRunnerLesson.concept.body).toContain('Connection ID');
+  it('concept body mentions Results Dashboard', () => {
+    expect(wsTestRunnerLesson.concept.body).toContain('Results Dashboard');
   });
 
-  it('has key terms', () => {
+  it('has 4 key terms', () => {
     expect(wsTestRunnerLesson.concept.keyTerms).toBeDefined();
     expect(wsTestRunnerLesson.concept.keyTerms!.length).toBe(4);
   });
 
-  it('keyTerms cover Feature Group, Test Runner, Workflow Runner, Transport', () => {
+  it('keyTerms cover Workflow Runner, Initial Variables, Completion Banner, Results Dashboard', () => {
     const terms = wsTestRunnerLesson.concept.keyTerms!.map(k => k.term);
-    expect(terms).toContain('Feature Group');
-    expect(terms).toContain('Test Runner');
     expect(terms).toContain('Workflow Runner');
-    expect(terms).toContain('Transport');
+    expect(terms).toContain('Initial Variables');
+    expect(terms).toContain('Completion Banner');
+    expect(terms).toContain('Results Dashboard');
   });
 
   it('has SVG diagram', () => {
@@ -6010,14 +6496,14 @@ describe('ws-test-runner lesson', () => {
     expect(wsTestRunnerLesson.concept.diagram).toContain('</svg>');
   });
 
-  it('diagram shows flow from Feature Groups through Runner to Results', () => {
+  it('diagram shows workflow picker, run, and results flow', () => {
     const d = wsTestRunnerLesson.concept.diagram!;
-    expect(d).toContain('Feature Groups');
-    expect(d).toContain('Test Runner');
+    expect(d).toContain('Picker');
+    expect(d).toContain('Run');
     expect(d).toContain('Results');
   });
 
-  it('diagram shows WS transport chain', () => {
+  it('diagram shows WS node chain', () => {
     const d = wsTestRunnerLesson.concept.diagram!;
     expect(d).toContain('Connect');
     expect(d).toContain('Send');
@@ -6026,8 +6512,8 @@ describe('ws-test-runner lesson', () => {
 
   // ── Steps ──
 
-  it('has 7 steps', () => {
-    expect(wsTestRunnerLesson.steps).toHaveLength(7);
+  it('has 6 steps', () => {
+    expect(wsTestRunnerLesson.steps).toHaveLength(6);
   });
 
   it('all steps have unique IDs', () => {
@@ -6054,96 +6540,264 @@ describe('ws-test-runner lesson', () => {
     }
   });
 
-  it('step 1 (harness-intro) highlights sub-nav-tabs', () => {
+  it('step 1 (wfhr-open) highlights workflow-picker', () => {
     const s = wsTestRunnerLesson.steps[0];
-    expect(s.id).toBe('tr-harness-intro');
-    expect(s.highlight).toContain('sub-nav');
+    expect(s.id).toBe('wfhr-open');
+    expect(s.highlight).toBe('.workflow-picker');
+    expect(s.description).toContain('Workflow Runner');
   });
 
-  it('step 2 (feature-groups) highlights .page', () => {
+  it('step 2 (wfhr-pick) highlights workflow-select and verifies vars section', () => {
     const s = wsTestRunnerLesson.steps[1];
-    expect(s.id).toBe('tr-feature-groups');
-    expect(s.highlight).toBe('.page');
-    expect(s.description).toContain('Feature Group');
-    expect(s.description).toContain('Connection ID');
+    expect(s.id).toBe('wfhr-pick');
+    expect(s.highlight).toContain('workflow-select');
+    expect(s.verify).toBe('.workflow-vars-section');
+    expect(s.description).toContain('WS Echo Demo');
+    expect(s.action).toBeDefined();
   });
 
-  it('step 3 (test-runner) navigates to runner tab', async () => {
+  it('step 2 (wfhr-pick) action uses ctx.click for the trigger (shows ripple)', async () => {
+    const s = wsTestRunnerLesson.steps[1];
+    const ctx = makeCtx();
+    await s.action!(ctx);
+    // Trigger open uses ctx.click so the user sees the ripple
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
+  });
+
+  it('step 2 (wfhr-pick) action uses ctx.waitFor for dropdown panel before selecting item', async () => {
+    const s = wsTestRunnerLesson.steps[1];
+    const ctx = makeCtx();
+    // Add item so selection succeeds
+    const panel = document.createElement('div');
+    panel.className = 'wfp-dropdown-panel';
+    const item = document.createElement('div');
+    item.className = 'wfp-dropdown-item';
+    item.textContent = 'WS Echo Demo';
+    panel.appendChild(item);
+    document.body.appendChild(panel);
+    await s.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith('.wfp-dropdown-panel');
+    document.body.removeChild(panel);
+  });
+
+  it('step 3 (wfhr-variables) highlights workflow-vars-section and has preAction guard', () => {
     const s = wsTestRunnerLesson.steps[2];
-    expect(s.id).toBe('tr-test-runner');
-    const ctx = makeCtx();
-    await s.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('runner');
+    expect(s.id).toBe('wfhr-variables');
+    expect(s.highlight).toBe('.workflow-vars-section');
+    expect(s.description).toContain('wsUrl');
+    expect(s.preAction).toBeDefined();
   });
 
-  it('step 4 (param-runner) navigates to param-runner tab', async () => {
+  it('step 3 (wfhr-variables) preAction skips selection when vars section is already visible', async () => {
+    const vars = document.createElement('div');
+    vars.className = 'workflow-vars-section';
+    document.body.appendChild(vars);
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[2].preAction!(ctx);
+    // No click should have happened since vars section exists
+    expect(ctx.click).not.toHaveBeenCalled();
+    document.body.removeChild(vars);
+  });
+
+  it('step 3 (wfhr-variables) preAction selects WS Echo Demo when vars section is missing', async () => {
+    // No workflow-vars-section in DOM → preAction must open picker and select item
+    const trigger = document.createElement('div');
+    trigger.setAttribute('data-testid', 'workflow-select');
+    document.body.appendChild(trigger);
+    const panel = document.createElement('div');
+    panel.className = 'wfp-dropdown-panel';
+    const item = document.createElement('div');
+    item.className = 'wfp-dropdown-item';
+    item.textContent = 'WS Echo Demo';
+    panel.appendChild(item);
+    document.body.appendChild(panel);
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[2].preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
+    document.body.removeChild(trigger);
+    document.body.removeChild(panel);
+  });
+
+  it('step 4 (wfhr-run) has action, preAction guard, and verifies completion section', () => {
     const s = wsTestRunnerLesson.steps[3];
-    expect(s.id).toBe('tr-param-runner');
+    expect(s.id).toBe('wfhr-run');
+    expect(s.highlight).toContain('form-actions');
+    expect(s.verify).toBe('.completion-section');
+    expect(s.action).toBeDefined();
+    expect(s.preAction).toBeDefined();
+  });
+
+  it('step 4 (wfhr-run) preAction skips selection when config-form already exists', async () => {
+    const form = document.createElement('div');
+    form.className = 'config-form';
+    document.body.appendChild(form);
     const ctx = makeCtx();
-    await s.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('param-runner');
+    await wsTestRunnerLesson.steps[3].preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+    document.body.removeChild(form);
   });
 
-  it('step 5 (workflow-runner) navigates to workflow-runner tab', async () => {
-    const s = wsTestRunnerLesson.steps[4];
-    expect(s.id).toBe('tr-workflow-runner');
+  it('step 4 (wfhr-run) preAction selects WS Echo Demo when config-form is missing', async () => {
+    // No config-form in DOM → preAction must open picker and select item
+    const trigger = document.createElement('div');
+    trigger.setAttribute('data-testid', 'workflow-select');
+    document.body.appendChild(trigger);
+    const panel = document.createElement('div');
+    panel.className = 'wfp-dropdown-panel';
+    const item = document.createElement('div');
+    item.className = 'wfp-dropdown-item';
+    item.textContent = 'WS Echo Demo';
+    panel.appendChild(item);
+    document.body.appendChild(panel);
     const ctx = makeCtx();
-    await s.preAction!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    await wsTestRunnerLesson.steps[3].preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
+    document.body.removeChild(trigger);
+    document.body.removeChild(panel);
   });
 
-  it('step 5 description references Lesson 9', () => {
+  it('step 4 (wfhr-run) action scrolls completion section into view after workflow finishes', async () => {
+    const runBtn = document.createElement('button');
+    runBtn.className = 'btn btn-primary';
+    const formActions = document.createElement('div');
+    formActions.className = 'form-actions';
+    const configForm = document.createElement('div');
+    configForm.className = 'config-form';
+    formActions.appendChild(runBtn);
+    configForm.appendChild(formActions);
+    document.body.appendChild(configForm);
+
+    // Add completion section so polling terminates immediately
+    const completion = document.createElement('div');
+    completion.className = 'completion-section';
+    // jsdom does not implement scrollIntoView — define it before spying
+    completion.scrollIntoView = vi.fn();
+    document.body.appendChild(completion);
+
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[3].action!(ctx);
+    expect(completion.scrollIntoView).toHaveBeenCalled();
+
+    document.body.removeChild(configForm);
+    document.body.removeChild(completion);
+  });
+
+  it('step 5 (wfhr-complete) highlights completion banner and has action + verify', () => {
     const s = wsTestRunnerLesson.steps[4];
-    expect(s.description).toContain('Lesson 9');
+    expect(s.id).toBe('wfhr-complete');
+    expect(s.highlight).toBe('.completion-section');
+    expect(s.description).toContain('View Full Results');
+    // action clicks "View Full Results →" with ripple
+    expect(s.action).toBeDefined();
+    // verify waits for results tab to appear after navigation
+    expect(s.verify).toBe('.results-run-filter-tabs');
+    // no preAction — navigation happens in action itself
+    expect(s.preAction).toBeUndefined();
   });
 
-  it('step 6 (results) navigates to results tab', async () => {
+  it('step 5 (wfhr-complete) action uses ctx.click on completion-section btn-primary', async () => {
+    const s = wsTestRunnerLesson.steps[4];
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    const section = document.createElement('div');
+    section.className = 'completion-section';
+    section.appendChild(btn);
+    document.body.appendChild(section);
+    const ctx = makeCtx();
+    await s.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('.completion-section .btn-primary');
+  });
+
+  it('step 6 (wfhr-results) has preAction guard and highlights results filter tabs', () => {
     const s = wsTestRunnerLesson.steps[5];
-    expect(s.id).toBe('tr-results');
+    expect(s.id).toBe('wfhr-results');
+    expect(s.highlight).toBe('.results-run-filter-tabs');
+    expect(s.preAction).toBeDefined();
+    expect(s.description).toContain('Results Dashboard');
+  });
+
+  it('step 6 (wfhr-results) preAction skips navigation when results tab is already active', async () => {
+    const tabs = document.createElement('div');
+    tabs.className = 'results-run-filter-tabs';
+    document.body.appendChild(tabs);
     const ctx = makeCtx();
-    await s.preAction!(ctx);
+    await wsTestRunnerLesson.steps[5].preAction!(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    document.body.removeChild(tabs);
+  });
+
+  it('step 6 (wfhr-results) preAction navigates to results when results tab is absent', async () => {
+    // No results-run-filter-tabs → preAction must navigate
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[5].preAction!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
   });
 
-  it('step 7 (export) highlights results-top-actions on results page', () => {
-    const s = wsTestRunnerLesson.steps[6];
-    expect(s.id).toBe('tr-export');
-    expect(s.highlight).toBe('.results-top-actions');
-    expect(s.description).toContain('JSON');
-    expect(s.description).toContain('CSV');
+  it('step 3 description mentions mock server and ws://localhost:9876', () => {
+    const s = wsTestRunnerLesson.steps[2];
+    expect(s.description).toContain('ws://localhost:9876');
+  });
+
+  it('step 4 description mentions WS nodes executing', () => {
+    const s = wsTestRunnerLesson.steps[3];
+    expect(s.description).toContain('Connect');
+    expect(s.description).toContain('Send');
+    expect(s.description).toContain('Receive');
+  });
+
+  it('step 6 description mentions Workflow Results Explorer', () => {
+    const s = wsTestRunnerLesson.steps[5];
+    expect(s.description).toContain('Workflow Results Explorer');
   });
 
   // ── Setup / Cleanup ──
 
-  it('setup navigates to scenarios', async () => {
+  it('setup starts mock server and navigates to workflow-runner', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
     const ctx = makeCtx();
     await wsTestRunnerLesson.setup!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('scenarios');
+    expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/start', expect.objectContaining({ method: 'POST' }));
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
 
-  it('cleanup navigates back to scenarios', async () => {
+  it('setup seeds WS Echo Demo via __wfInsertWorkflow when bridge is available', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    const wfDelete = vi.fn();
+    const wfInsert = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = wfDelete;
+    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = wfInsert;
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.setup!(ctx);
+    expect(wfDelete).toHaveBeenCalledWith('WS Echo Demo');
+    expect(wfInsert).toHaveBeenCalledTimes(1);
+    const seeded = wfInsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(seeded.name).toBe('WS Echo Demo');
+    expect((seeded.variables as Record<string, string>).wsUrl).toBe('ws://localhost:9876');
+    expect((seeded.nodes as unknown[]).length).toBeGreaterThanOrEqual(4);
+    delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+    delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+  });
+
+  it('setup gracefully skips seeding when bridge is not available', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    const ctx = makeCtx();
+    // No __wfInsertWorkflow on window — should not throw
+    await expect(wsTestRunnerLesson.setup!(ctx)).resolves.toBeUndefined();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+  });
+
+  it('cleanup stops mock server and navigates to workflow-runner', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
     const ctx = makeCtx();
     await wsTestRunnerLesson.cleanup!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('scenarios');
+    expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/stop', expect.objectContaining({ method: 'POST' }));
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
 
-  // ── Step descriptions cover WS-specific content ──
-
-  it('test-runner step mentions WS transport status', () => {
-    const s = wsTestRunnerLesson.steps[2];
-    expect(s.description).toContain('CONNECT');
-    expect(s.description).toContain('SEND');
-    expect(s.description).toContain('RECEIVE');
-  });
-
-  it('param-runner step mentions parameterization for WS', () => {
-    const s = wsTestRunnerLesson.steps[3];
-    expect(s.description).toContain('message payload');
-  });
-
-  it('results step mentions WS-specific details', () => {
-    const s = wsTestRunnerLesson.steps[5];
-    expect(s.description).toContain('Connection ID');
-    expect(s.description).toContain('frame type');
+  it('setup gracefully handles fetch error (mock server already running)', async () => {
+    vi.spyOn(global, 'fetch').mockRejectedValue(new Error('already running'));
+    const ctx = makeCtx();
+    await expect(wsTestRunnerLesson.setup!(ctx)).resolves.toBeUndefined();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
 });

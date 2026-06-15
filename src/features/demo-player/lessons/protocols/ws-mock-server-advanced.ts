@@ -110,7 +110,9 @@ Switch to **Mock mode**, then click the **Rules** tab in the right panel. You'll
       pauseAfter: true,
       action: async (ctx) => {
         await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(400);
+        // MOCK_TAB_RULES only renders in Mock mode — wait before clicking
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.delay(400); // let user observe the mode switch
         await ctx.click(WS.MOCK_TAB_RULES);
         await ctx.delay(300);
       },
@@ -127,6 +129,14 @@ Switch to **Mock mode**, then click the **Rules** tab in the right panel. You'll
 Change the **Match type** dropdown to **Contains**, then type \`ping\` in the **Pattern** field. The rule will fire whenever any client sends a message containing "ping".`,
       highlight: WS.MOCK_ADD_RULE,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: ensure Mock mode + Rules tab active for direct navigation
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.click(WS.MOCK_TAB_RULES);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.click(WS.MOCK_ADD_RULE);
         await ctx.delay(800); // let the user see the card expand
@@ -150,6 +160,31 @@ Change the **Match type** dropdown to **Contains**, then type \`ping\` in the **
 \`{{timestamp}}\` is replaced with the current Unix timestamp every time the rule fires — so each response is unique. Other built-in variables: \`{{uuid}}\`, \`{{message}}\` (echoes the raw input), \`{{rand}}\` (random number).`,
       highlight: WS.MOCK_RULE_RESPONSE_TYPE_FIRST,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: ensure Mock mode + Rules tab + rule card open
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.click(WS.MOCK_TAB_RULES);
+        await ctx.delay(200);
+        if (!document.querySelector(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
+          // Rule card closed or no rule — open/create one
+          const ruleNameBtn = document.querySelector('.ws-mock-rule-name') as HTMLElement | null;
+          if (ruleNameBtn) {
+            ruleNameBtn.click();
+            await ctx.delay(200);
+          } else {
+            const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+            if (addBtn) { addBtn.click(); await ctx.delay(200); }
+            const matchSel = document.querySelector(WS.MOCK_RULE_MATCH_TYPE_FIRST) as HTMLSelectElement | null;
+            if (matchSel) {
+              matchSel.value = 'contains';
+              matchSel.dispatchEvent(new Event('change', { bubbles: true }));
+              await ctx.delay(200);
+            }
+          }
+        }
+      },
       action: async (ctx) => {
         // Change response type from 'echo' → 'template' so the data textarea appears in the DOM
         await ctx.selectOption(WS.MOCK_RULE_RESPONSE_TYPE_FIRST, 'template');
@@ -170,6 +205,30 @@ This is useful for:
 - Reproducing race conditions`,
       highlight: WS.MOCK_RULE_DELAY_FIRST,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: ensure Mock mode + Rules tab + rule card open (delay input is inside isOpen block)
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.click(WS.MOCK_TAB_RULES);
+        await ctx.delay(200);
+        if (!document.querySelector(WS.MOCK_RULE_RESPONSE_TYPE_FIRST)) {
+          const ruleNameBtn = document.querySelector('.ws-mock-rule-name') as HTMLElement | null;
+          if (ruleNameBtn) {
+            ruleNameBtn.click();
+            await ctx.delay(200);
+          } else {
+            const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+            if (addBtn) { addBtn.click(); await ctx.delay(200); }
+            const matchSel = document.querySelector(WS.MOCK_RULE_MATCH_TYPE_FIRST) as HTMLSelectElement | null;
+            if (matchSel) {
+              matchSel.value = 'contains';
+              matchSel.dispatchEvent(new Event('change', { bubbles: true }));
+              await ctx.delay(200);
+            }
+          }
+        }
+      },
       action: async (ctx) => {
         await ctx.fill(WS.MOCK_RULE_DELAY_FIRST, '200');
         await ctx.delay(600); // let user read the filled value
@@ -185,6 +244,14 @@ Type \`ping\` in the test input and watch the preview show your rule's response 
 **Fix problems before they reach clients** — no trial-and-error debugging.`,
       highlight: WS.MOCK_TEST_SECTION,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: ensure Mock mode + Rules tab (test section is always in the rules pane)
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.click(WS.MOCK_TAB_RULES);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.fill(WS.MOCK_TEST_INPUT, 'ping');
         await ctx.delay(1200); // let user see and read the preview result
@@ -198,6 +265,18 @@ Type \`ping\` in the test input and watch the preview show your rule's response 
 This is much safer than deleting a rule you might need again. Toggle the rule off and back on to confirm it works.`,
       highlight: WS.MOCK_RULE_TOGGLE_LABEL_FIRST,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: ensure Mock mode + Rules tab + at least one rule (toggle needs a rule card)
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+        await ctx.waitFor(WS.MOCK_TAB_RULES);
+        await ctx.click(WS.MOCK_TAB_RULES);
+        await ctx.delay(200);
+        if (!document.querySelector(WS.MOCK_RULE_TOGGLE_LABEL_FIRST)) {
+          const addBtn = document.querySelector(WS.MOCK_ADD_RULE) as HTMLButtonElement | null;
+          if (addBtn) { addBtn.click(); await ctx.delay(200); }
+        }
+      },
       action: async (ctx) => {
         // Click the visible toggle label (not the CSS-hidden checkbox) for correct ripple positioning
         await ctx.click(WS.MOCK_RULE_TOGGLE_LABEL_FIRST);
@@ -220,6 +299,11 @@ This is much safer than deleting a rule you might need again. Toggle the rule of
 Leave it on \`echo\` — unmatched messages still get a response, so your app won't silently hang.`,
       highlight: WS.MOCK_FALLBACK_SELECT,
       pauseAfter: true,
+      preAction: async (ctx) => {
+        // Guard: MOCK_FALLBACK_SELECT only renders in Mock mode
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+      },
     },
     {
       id: 'mock-adv-live',
@@ -247,9 +331,19 @@ Watch the Events panel to see rule-matched vs fallback responses side by side.`,
         await ctx.click(WS.MODE_CLIENT);
         await ctx.delay(300);
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        // Wait for the URL input to be in the DOM before filling
+        await ctx.waitFor(WS.URL_INPUT);
         await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1500); // wait for connection to establish
+        // Only click Connect if not already connected (guard for replay)
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+        }
+        // Wait for connection (more robust than fixed delay)
+        await ctx.waitFor(WS.STATUS_CONNECTED);
+        await ctx.delay(300);
+        // Navigate to Events tab so user sees messages arrive in real time
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(200);
         await ctx.click(WS.LEFT_TAB_COMPOSE);
       },
       action: async (ctx) => {

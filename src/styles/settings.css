@@ -727,12 +727,14 @@
 }
 
 .kafka-topic-chip {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 999px;
   padding: 4px 10px;
-  background: var(--surface);
+  background: rgba(255,255,255,0.06);
   color: var(--text-muted);
   font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
 .kafka-topic-chip.active {
@@ -805,8 +807,8 @@
 .kafka-topic-kind-badge {
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-hover);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
   color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 600;
@@ -2078,9 +2080,12 @@ label.kafka-editor-checkbox {
 }
 
 .kafka-explorer-list-card {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  background: var(--surface, #1e2430);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
+    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
+    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2104,10 +2109,10 @@ label.kafka-editor-checkbox {
 
 .kafka-explorer-search {
   width: 100%;
-  padding: 7px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border, #2a3142);
-  background: var(--surface-raised, #141a24);
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary, #e0e6f0);
   font-size: 0.82rem;
 }
@@ -2125,8 +2130,8 @@ label.kafka-editor-checkbox {
 .kafka-explorer-filter-row select {
   padding: 5px 10px;
   border-radius: 5px;
-  border: 1px solid var(--border, #2a3142);
-  background: var(--surface-raised, #141a24);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary, #e0e6f0);
   font-size: 0.78rem;
 }
@@ -2177,7 +2182,7 @@ label.kafka-editor-checkbox {
   text-align: left;
   font-weight: 600;
   padding: 8px 10px;
-  background: var(--surface, #1e2430);
+  background: rgba(12,18,33,0.98);
   border-bottom: 1px solid rgba(255,255,255,0.1);
   color: var(--text-muted, #7a8ea8);
   font-size: 0.75rem;
@@ -2203,9 +2208,12 @@ label.kafka-editor-checkbox {
 /* ── Detail card ── */
 
 .kafka-explorer-detail-card {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  background: var(--surface, #1e2430);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
+    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
+    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2278,7 +2286,7 @@ label.kafka-editor-checkbox {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 6px;
   padding: 10px 12px;
-  background: var(--surface-raised, #141a24);
+  background: rgba(255,255,255,0.04);
   text-align: center;
 }
 
@@ -2607,8 +2615,11 @@ label.kafka-editor-checkbox {
 }
 
 .kafka-schema-list-card {
-  background: var(--card-bg, #1a2233);
-  border: 1px solid var(--card-border, rgba(255,255,255,0.06));
+  background:
+    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
+    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
+    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -2616,8 +2627,11 @@ label.kafka-editor-checkbox {
 }
 
 .kafka-schema-detail-card {
-  background: var(--card-bg, #1a2233);
-  border: 1px solid var(--card-border, rgba(255,255,255,0.06));
+  background:
+    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
+    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
+    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -2642,10 +2656,10 @@ label.kafka-editor-checkbox {
 
 .kafka-schema-url-input {
   flex: 1;
-  padding: 7px 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  background: rgba(0,0,0,0.2);
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary, #e0e6f0);
   font-size: 0.82rem;
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
@@ -2653,23 +2667,23 @@ label.kafka-editor-checkbox {
   transition: border-color 0.15s;
 }
 .kafka-schema-url-input:focus {
-  border-color: var(--accent, #4fc3f7);
+  border-color: rgba(95,177,255,0.45);
 }
 
 .kafka-schema-connect-btn {
-  padding: 7px 14px;
+  padding: 6px 18px;
   border: none;
   border-radius: 6px;
-  background: var(--accent, #4fc3f7);
-  color: #0d1117;
-  font-size: 0.8rem;
+  background: var(--accent, #5fb1ff);
+  color: #fff;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: background 0.15s;
 }
 .kafka-schema-connect-btn:hover:not(:disabled) {
-  opacity: 0.85;
+  background: #82c4ff;
 }
 .kafka-schema-connect-btn:disabled {
   opacity: 0.45;
@@ -2683,17 +2697,17 @@ label.kafka-editor-checkbox {
 
 .kafka-schema-auth-input {
   flex: 1;
-  padding: 6px 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  background: rgba(0,0,0,0.15);
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary, #e0e6f0);
   font-size: 0.78rem;
   outline: none;
   transition: border-color 0.15s;
 }
 .kafka-schema-auth-input:focus {
-  border-color: var(--accent, #4fc3f7);
+  border-color: rgba(95,177,255,0.45);
 }
 
 /* ── Error banner ── */
@@ -2738,10 +2752,10 @@ label.kafka-editor-checkbox {
   color: var(--text-primary, #e0e6f0);
 }
 .kafka-schema-subject-table tbody tr:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(95,177,255,0.06);
 }
 .kafka-schema-subject-table tbody tr.selected {
-  background: rgba(79,195,247,0.08);
+  background: rgba(95,177,255,0.12);
 }
 .kafka-schema-subject-name {
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
@@ -2807,16 +2821,16 @@ label.kafka-editor-checkbox {
 
 .kafka-schema-version-select {
   padding: 5px 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary, #e0e6f0);
   font-size: 0.8rem;
   outline: none;
   cursor: pointer;
 }
 .kafka-schema-version-select:focus {
-  border-color: var(--accent, #4fc3f7);
+  border-color: rgba(95,177,255,0.45);
 }
 
 /* ── Schema content ── */
@@ -2830,7 +2844,7 @@ label.kafka-editor-checkbox {
   font-size: 0.78rem;
   line-height: 1.55;
   color: var(--text-primary, #e0e6f0);
-  background: rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.03);
   white-space: pre-wrap;
   word-break: break-word;
 }

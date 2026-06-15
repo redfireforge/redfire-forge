@@ -1,7 +1,7 @@
 # Demo Hub — WebSocket Demo Lessons Plan
 
 > **Created:** 2026-06-14
-> **Updated:** 2026-06-15 — All 12 lessons shipped; v1 code deleted; coverage gap analysis added
+> **Updated:** 2026-06-15 — All 20 lessons shipped; Lesson 20 rewritten as hands-on Workflow Runner demo (not tour); __wfInsertWorkflow bridge added
 > **Branch:** `feature/websocket-demo-hub`
 > **Lessons (v2):** `src/features/demo-player/lessons/` — **used by Learning Hub UI**
 > **Suites (v1 legacy):** ~~`src/features/demo-player/suites/`~~ — **DELETED** (all 5 v1 files removed 2026-06-15)
@@ -19,7 +19,7 @@
 | **Suites (v1)** | ~~`suites/`~~ | ~~`allDemoSuites`~~ | ~~`DemoPlayer.tsx`~~ | **✅ Deleted 2026-06-15** |
 
 The Learning Hub UI shows **4 domain cards**:
-- **Protocols** — 12 lessons ✅ All shipped (9 standalone + 3 Docker)
+- **Protocols** — 20 lessons ✅ All shipped (17 standalone + 3 Docker)
 - **API Testing** — Coming Soon (`available: false`)
 - **Workflows** — Coming Soon (`available: false`)
 - **Test Harness** — Coming Soon (`available: false`)
@@ -31,6 +31,28 @@ The Learning Hub UI shows **4 domain cards**:
 - Domain card UI: `src/features/demo-player/DomainSelector.tsx`
 - Lesson player: `src/features/demo-player/DemoHub.tsx`
 - Selectors: `src/shared/selectors.ts` — `WS.*` and `DEMO.*` constants
+
+### `useDemoWorkflowBridge` — window bridges for demo lessons
+
+`src/app/hooks/useDemoWorkflowBridge.ts` exposes helper functions on `window` so demo lesson setup/cleanup callbacks can manipulate React workflow state without being inside the React component tree.
+
+**Bridges exposed:**
+- `window.__wfDeleteByName(name: string)` — finds a workflow by name in `useWorkflows().workflows` and removes it. Used by Lesson 8 setup/cleanup to remove stale "WS Echo Demo" copies.
+- `window.__wfInsertWorkflow(wf: Workflow)` — calls `useWorkflows().insert(wf)` to add a new workflow to React state. Exposed only when the hook receives an `insert` callback (introduced for Lesson 20 seeding). *(Added 2026-06-15)*
+
+**Hook signature:**
+```typescript
+export function useDemoWorkflowBridge(
+  workflows: Array<{ id: string; name: string }>,
+  remove: (id: string) => void,
+  insert?: (wf: Workflow) => void,  // optional — only needed when lessons seed workflows
+): void
+```
+
+**`App.tsx` call site:**
+```typescript
+useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
+```
 
 > **Note:** `protocolsDomain` already defines `categories`: `kafka`, `websocket`, `sse`. New lessons should set `category` accordingly (e.g. `category: 'sse'` for SSE Studio, `category: 'websocket'` for all WS lessons).
 
@@ -49,11 +71,12 @@ The lesson order follows a **learner-first progression** — not the E2E test fi
 5. **Auth & Transport** → intermediate: TLS, headers, subprotocols (connection configuration) ✅
 6. **Filtering, Diff & Schema** → power-user analysis tools (needs comfort with message flow first) ✅
 7. **Load Testing** → stress testing capstone of the WS core arc ✅
-8. **Workflow Builder** → visual automation overview (observation-only, ties it all together) ✅
+8. **Workflow Builder** → visual automation (hands-on build: Connect → Send → Receive → Quick Test) ✅
 9. **SSE Studio** → "there's more than WebSocket" — natural transition to other protocols ✅
 10–12. **Docker tier** → Socket.IO → STOMP → GraphQL ✅
+13–20. **Phase 2 tier** → Advanced Mock → Workspace → Reliability → Session Recording → Power User → SSE Advanced → TLS → Workflow Runner ✅
 
-### Protocols Domain (Active — 12/12 lessons shipped)
+### Protocols Domain (Active — 20/20 lessons shipped)
 
 | # | Lesson | Status | Steps | Source E2E | Priority | Docker |
 |---|---|---|---|---|---|---|
@@ -64,23 +87,31 @@ The lesson order follows a **learner-first progression** — not the E2E test fi
 | 5 | Auth & Transport | ✅ Shipped | 9 | ws-core-connect, ws-protocols-transport | — | No |
 | **6** | **Filtering, Diff & Schema** | ✅ Shipped | 9 | ws-filter-diff-schema-test | **P4** | No |
 | **7** | **Load Testing** | ✅ Shipped | 7 | ws-load-test | **P5** | No |
-| **8** | **Workflow Builder** | ✅ Shipped | 9 | — (observation-only) | **P7** | No |
+| **8** | **Workflow Builder** | ✅ Shipped | 11 | — (hands-on build) | **P7** | No |
 | **9** | **SSE Studio** | ✅ Shipped | 7 | sse-studio | **P6** | No |
 | **10** | **Socket.IO** | ✅ Shipped | 9 | ws-protocols-socketio | **P8** | 🐳 Yes |
 | **11** | **STOMP / RabbitMQ** | ✅ Shipped | 8 | ws-protocols-stomp | **P9** | 🐳 Yes |
 | **12** | **GraphQL Subscriptions** | ✅ Shipped | 7 | ws-protocols-graphql | **P10** | 🐳 Yes |
+| **13** | **Advanced Mock Server** | ✅ Shipped | 8 | ws-mock-server-advanced | **P1** | No |
+| **14** | **Workspace: Profiles, Templates & Env Vars** | ✅ Shipped | 8 | ws-workspace | **P2** | No |
+| **15** | **Reliability: Auto-Reconnect & Stats** | ✅ Shipped | 7 | ws-reliability | **P3** | No |
+| **16** | **Session Recording & Replay** | ✅ Shipped | 7 | ws-session-recording | **P4** | No |
+| **17** | **Power User: Tabs & Keyboard** | ✅ Shipped | 7 | ws-power-user | **P5** | No |
+| **18** | **SSE Advanced Features** | ✅ Shipped | 7 | sse-studio-advanced | **P6** | No |
+| **19** | **Secure WebSocket (wss:// & TLS)** | ✅ Shipped | 7 | ws-tls | **P7** | No |
+| **20** | **Run WS Workflow in Harness** | ✅ Shipped | 6 | ws-test-runner | **P8** | No |
 
-> **All 12 lessons shipped.** Docker lessons 10–12 use `PrerequisiteGate` component + `checkEndpoint` utility with auto-polling. The `tag` field and `dockerEndpoint`/`dockerCommand` fields are implemented on `DemoLesson`.
+> **All 20 lessons shipped.** Docker lessons 10–12 use `PrerequisiteGate` component + `checkEndpoint` utility with auto-polling. The `tag` field and `dockerEndpoint`/`dockerCommand` fields are implemented on `DemoLesson`.
 
 ### Workflows Domain (Not used — Workflow Builder moved to Protocols domain)
 
-> Lesson 9 (Workflow Builder) was placed in the Protocols domain under the `websocket` category rather than creating a separate Workflows domain. This keeps all WS-related lessons together and avoids a single-lesson domain.
+> Lesson 8 (Workflow Builder) was placed in the Protocols domain under the `websocket` category rather than creating a separate Workflows domain. This keeps all WS-related lessons together and avoids a single-lesson domain.
 
 ### API Testing & Test Harness Domains
 
 No WS-specific lessons planned. These domains will be populated with HTTP/harness lessons in future branches.
 
-**Current:** 12/12 lessons shipped | All Docker lessons live | v1 code deleted
+**Current:** 20/20 lessons shipped | All Docker lessons live | v1 code deleted | All Phase 2 lessons shipped
 
 ### Legacy Suites (v1) — ✅ DELETED 2026-06-15
 
@@ -330,7 +361,52 @@ LT_EXPORT_BTN, LT_NEW_TEST_BTN, LT_ERROR, LT_HISTOGRAM
 
 ---
 
-## Lesson 8: SSE Studio (P6) ✅ Shipped
+## Lesson 8: WS Workflow Builder (P7) ✅ Shipped
+
+**Why:** Hands-on build lesson that introduces the visual workflow designer. Users create a full WS workflow (Connect → Send → Receive) from scratch, configure each node, and run it. Demonstrates deep integration of WS testing with drag-and-drop automation.
+
+**File:** `src/features/demo-player/lessons/protocols/ws-workflow-builder.ts`
+**Export:** `wsWorkflowBuilderLesson`
+**Icon:** 🔀 | **Est. time:** 3 min | **initialTab:** `workflow`
+**Category:** `websocket` (in Protocols domain, not a separate Workflows domain)
+
+### Steps (11 steps — shipped)
+
+| # | Step ID | Title | Highlight | Action |
+|---|---|---|---|---|
+| 1 | `wf-create` | Create a New Workflow | `WF.TOOLBAR` | Creates blank workflow |
+| 2 | `wf-palette` | Node Palette | `WF.PALETTE` | (observation) |
+| 3 | `wf-add-connect` | Add WS Connect Node | `WF.CANVAS` | Drags WS Connect from palette |
+| 4 | `wf-config-connect` | Configure Connect | `WF.WS_CONNECT_CFG` | Fills URL ({{wsUrl}}) |
+| 5 | `wf-define-variable` | Define wsUrl Variable | `WF.VARIABLES_BTN` | Opens variables panel, adds wsUrl |
+| 6 | `wf-add-send` | Add WS Send Node | `WF.CANVAS` | Drags WS Send |
+| 7 | `wf-config-send` | Configure Send | `WF.WS_SEND_CFG` | Fills message payload |
+| 8 | `wf-add-receive` | Add WS Receive Node | `WF.CANVAS` | Drags WS Receive |
+| 9 | `wf-config-receive` | Configure Receive | `WF.WS_RECEIVE_CFG` | Sets timeout |
+| 10 | `wf-quick-test` | Quick Test | `WF.QUICK_TEST_BTN` | Runs the workflow in the Designer |
+| 11 | `wf-runner-variable` | Workflow Runner Variable | `WF.VARIABLES_BTN` | Shows variable override before running |
+
+**Selectors added to `selectors.ts` → `WF` export (18 total):**
+```ts
+DESIGNER, TOOLBAR, TOOLBAR_SELECT, QUICK_TEST_BTN, PALETTE, CANVAS,
+CONTROLS, NODE_CONFIG, CFG_CLOSE, CONSOLE, EXEC_SUMMARY, TPL_BROWSE,
+WS_CONNECT_CFG, WS_SEND_CFG, WS_RECEIVE_CFG, SERVICES_BTN,
+VARIABLES_BTN
+```
+
+**Setup:** Simple 300ms delay (no workflow needs to be loaded)
+**Cleanup:** Close any open node config modals; delete "WS Echo Demo" workflow via `__wfDeleteByName`
+
+### Implementation Notes
+- **Hands-on build (not observation-only):** Original plan described an observation-only lesson. Revised to be a hands-on build: user creates a full WS workflow. Lessons 10–12 demonstrate how well the builder handles protocol-specific nodes.
+- **Placed in Protocols domain:** Original plan had this in a separate `workflowDomain` and `lessons/workflows/` directory. Moved to `lessons/protocols/ws-workflow-builder.ts` under `category: 'websocket'` to keep all WS-related lessons together. This avoids a single-lesson Workflows domain.
+- **Concept page with SVG diagram:** The concept includes a Mermaid-style SVG showing Palette → Canvas (Connect → Send → Receive) → Run panel with Quick Test and Debug buttons.
+- **`wf-runner-variable` step:** Added to demonstrate variable overrides in the Workflow Runner — this sets up the user for Lesson 20 (running the workflow in the Test Harness).
+- **11 steps vs. original 9:** Two steps added (variable definition + runner variable) to complete the hands-on flow.
+
+---
+
+## Lesson 9: SSE Studio (P6) ✅ Shipped
 
 **Why:** SSE is a distinct protocol with its own Studio page. Users need to know how to find it, connect, and monitor events. Currently exists as v1 suite but not in Learning Hub.
 
@@ -371,48 +447,16 @@ BOOKMARK_BTN, CLEAR_BTN, EXPORT_BTN, EVENT_COUNT
 
 ---
 
-## Lesson 9: WS Workflow Builder (P7) ✅ Shipped
-
-**Why:** Observation-only lesson that introduces the visual workflow designer. Shows how WS testing integrates with drag-and-drop automation — tying together everything learned in earlier lessons.
-
-**File:** `src/features/demo-player/lessons/protocols/ws-workflow-builder.ts`
-**Export:** `wsWorkflowBuilderLesson`
-**Icon:** 🔀 | **Est. time:** 3 min | **initialTab:** `workflow`
-**Category:** `websocket` (in Protocols domain, not a separate Workflows domain)
-
-### Steps (9 steps — shipped)
-
-| # | Step ID | Title | Highlight | Action |
-|---|---|---|---|---|
-| 1 | `wf-overview` / `wf-create` | Create/Overview | `WF.DESIGNER` | Creates blank workflow |
-| 2 | `wf-palette` | Node Palette | `WF.PALETTE` | (observation) |
-| 3 | `wf-add-connect` | Add WS Connect Node | `WF.CANVAS` | Drags WS Connect from palette |
-| 4 | `wf-config-connect` | Configure Connect | `WF.WS_CONNECT_CFG` | Fills URL |
-| 5 | `wf-add-send` | Add WS Send Node | `WF.CANVAS` | Drags WS Send |
-| 6 | `wf-config-send` | Configure Send | `WF.WS_SEND_CFG` | Fills message payload |
-| 7 | `wf-add-receive` | Add WS Receive Node | `WF.CANVAS` | Drags WS Receive |
-| 8 | `wf-config-receive` | Configure Receive | `WF.WS_RECEIVE_CFG` | Sets timeout |
-| 9 | `wf-quick-test` | Quick Test | `WF.QUICK_TEST_BTN` | Runs the workflow |
-
-**Selectors added to `selectors.ts` → `WF` export (18 total):**
-```ts
-DESIGNER, TOOLBAR, TOOLBAR_SELECT, QUICK_TEST_BTN, PALETTE, CANVAS,
-CONTROLS, NODE_CONFIG, CFG_CLOSE, CONSOLE, EXEC_SUMMARY, TPL_BROWSE,
-WS_CONNECT_CFG, WS_SEND_CFG, WS_RECEIVE_CFG, SERVICES_BTN,
-VARIABLES_BTN
-```
-
-**Setup:** Simple 300ms delay (no workflow needs to be loaded)
-**Cleanup:** Close any open node config modals
-
-### Implementation Notes
-- **Observation-only pattern:** All 7 steps have no actions — just highlights with descriptions. This is the first lesson to use this pattern. When no workflow is loaded, the designer shows an empty state, so most highlight targets (palette, canvas, toolbar) don't exist in the DOM. The demo player gracefully falls back to "📖 Guide" mode (no spotlight ring) when highlight targets are missing.
-- **Placed in Protocols domain:** Original plan had this in a separate `workflowDomain` and `lessons/workflows/` directory. Moved to `lessons/protocols/ws-workflow-builder.ts` under `category: 'websocket'` to keep all WS-related lessons together. This avoids a single-lesson Workflows domain.
-- **Concept page with SVG diagram:** The concept includes a Mermaid-style SVG showing Palette → Canvas (Connect → Send → Receive) → Run panel with Quick Test and Debug buttons — helps users visualize the workflow designer layout before seeing the real UI.
-- **14 unit tests:** Cover structure, step IDs, pauseAfter on all steps, key terms, diagram, category, observation-only steps (no actions), cleanup, setup.
-- **Visually verified:** All 7 steps advance correctly via arrow keys. Step descriptions are clear and educational.
-
 ---
+
+## Lesson 9: SSE Studio (P6) ✅ Shipped
+
+**Why:** SSE is a distinct protocol with its own Studio page. Users need to know how to find it, connect, and monitor events. Currently exists as v1 suite but not in Learning Hub.
+
+**File:** `src/features/demo-player/lessons/protocols/sse-studio.ts`
+**Export:** `sseStudioLesson`
+**Icon:** 📡 | **Est. time:** 2 min | **initialTab:** `sse-studio`
+**Category:** `sse`
 
 ## Implementation Checklist (per lesson)
 
@@ -801,9 +845,9 @@ All items completed when Docker lessons (10–12) were shipped:
 
 ---
 
-## Lesson 9 Bug Fixes (Post-Ship)
+## Lesson 8 Bug Fixes (Post-Ship)
 
-Five bugs were discovered and fixed after initial shipping of Lesson 9 (WS Workflow Builder):
+Five bugs were discovered and fixed after initial shipping of Lesson 8 (WS Workflow Builder):
 
 | # | Bug | Fix |
 |---|---|---|
@@ -848,16 +892,17 @@ Implemented after initial feature-branch work on the WebSocket Demo Hub:
 
 ## Success Criteria
 
-- [x] 12 lessons shipped in `protocolsDomain.lessons[]` (9 standalone + 3 Docker)
-- [x] 84 total steps across 12 lessons (7+9+9+8+9+9+7+9+7+9+8+7)
+- [x] 20 lessons shipped in `protocolsDomain.lessons[]` (17 standalone + 3 Docker)
+- [x] 157 total steps across 20 lessons (7+9+9+8+9+9+7+11+7+9+8+7+8+8+7+7+7+7+7+6)
 - [x] Every lesson plays start-to-finish without errors
 - [x] Docker lessons work in live mode (containers up); PrerequisiteGate blocks until ready
-- [x] Protocols domain card shows "12 lessons"
+- [x] Protocols domain card shows "20 lessons"
 - [x] All spotlight highlights point to visible, existing elements (or graceful fallback to Guide mode)
 - [x] Step descriptions are understandable by first-time users
 - [x] No hardcoded selector strings — all via `selectors.ts`
-- [x] 488 unit tests passing for demo-player module (as of 2026-06-15)
+- [x] 860 unit tests passing for demo-player module (653 ws-lessons.test.ts + 207 other)
 - [x] v1 code deleted; `npx tsc --noEmit` — 0 errors
+- [x] Lesson 20: workflow seeded automatically via `__wfInsertWorkflow` — no dependency on Lesson 8
 - [ ] Fallback screenshot mode (21 PNGs) — not implemented
 - [ ] "Continue with screenshots" toggle for offline Docker use — not implemented
 
@@ -873,51 +918,53 @@ Each gap area is assigned to a proposed Phase 2 lesson (13–20) or deferred:
 
 | Feature Area | Test Scenarios | → Proposed Lesson |
 |---|---|---|
-| **Mock Server Rules** | WM-10–18 (response rules, reorder, delay, templates, enable/disable) | **L13** Advanced Mock Server |
-| **Saved Connection Profiles** | WC-25–29 (save, load, delete, import/export, duplicate, paste JSON) | **L14** Workspace & Profiles |
-| **Message Templates** | WC-31–35 (save, load, delete, persist, dropdown) | **L14** Workspace & Profiles |
-| **Environment Variables in URLs** | WC-40–43 (`{{wsBaseUrl}}`, env selector, unresolved warning) | **L14** Workspace & Profiles |
-| **Auto-Reconnect** | WC-36–39 (settings, triggers, close with code, banner) | **L15** Reliability & Stats |
-| **Stats Tab** | WT-32–35 (live metrics, sparkline, per-tab, zeroes on disconnect) | **L15** Reliability & Stats |
-| **Connection History detail** | WT-11–15 (URL history, row details, global history, clear) | **L15** Reliability & Stats |
-| **Session Recording & Replay** | WT-24–31 (record, stop, save, import, play, pause, exit) | **L16** Session Recording |
-| **Tab Drag Reorder** | WT-36–38 (drag feedback, position preserved) | **L17** Power User Tips |
-| **Tab Keyboard Nav** | WT-39–42 (arrow, Enter, Delete/F2 rename) | **L17** Power User Tips |
-| **Auth + Tab/Console Persistence** | WT-43–45 (auth draft, console settings, split pane) | **L17** Power User Tips |
-| **SSE Bookmarks** | SE-11 (star message, filter Bookmarked) | **L18** SSE Advanced |
-| **SSE Auto-Reconnect** | SE-12 (reconnect settings, retry banner) | **L18** SSE Advanced |
-| **SSE Last-Event-ID** | SE-13 (browser sends `Last-Event-ID` header on reconnect) | **L18** SSE Advanced |
-| **SSE Stats Footer** | SE-14 (event count, bytes, elapsed, reconnect count) | **L18** SSE Advanced |
-| **TLS / wss:// + TLS panel UI** | WP-16–18, WP-30 (`wss://echo.websocket.org`, rejectUnauthorized) | **L19** Secure WebSocket |
-| **Workflow Test Harness & Runner** | WR-14–28 (Harness transport, WS test scenarios, assertions, results page) | **L20** Workflow Test Runner |
+| **Mock Server Rules** | WM-10–18 (response rules, reorder, delay, templates, enable/disable) | **✅ L13** Advanced Mock Server |
+| **Saved Connection Profiles** | WC-25–29 (save, load, delete, import/export, duplicate, paste JSON) | **✅ L14** Workspace & Profiles |
+| **Message Templates** | WC-31–35 (save, load, delete, persist, dropdown) | **✅ L14** Workspace & Profiles |
+| **Environment Variables in URLs** | WC-40–43 (`{{wsBaseUrl}}`, env selector, unresolved warning) | **✅ L14** Workspace & Profiles |
+| **Auto-Reconnect** | WC-36–39 (settings, triggers, close with code, banner) | **✅ L15** Reliability & Stats |
+| **Stats Tab** | WT-32–35 (live metrics, sparkline, per-tab, zeroes on disconnect) | **✅ L15** Reliability & Stats |
+| **Connection History detail** | WT-11–15 (URL history, row details, global history, clear) | **✅ L15** Reliability & Stats |
+| **Session Recording & Replay** | WT-24–31 (record, stop, save, import, play, pause, exit) | **✅ L16** Session Recording |
+| **Tab Drag Reorder** | WT-36–38 (drag feedback, position preserved) | **✅ L17** Power User Tips |
+| **Tab Keyboard Nav** | WT-39–42 (arrow, Enter, Delete/F2 rename) | **✅ L17** Power User Tips |
+| **Auth + Tab/Console Persistence** | WT-43–45 (auth draft, console settings, split pane) | **✅ L17** Power User Tips |
+| **SSE Bookmarks** | SE-11 (star message, filter Bookmarked) | **✅ L18** SSE Advanced |
+| **SSE Auto-Reconnect** | SE-12 (reconnect settings, retry banner) | **✅ L18** SSE Advanced |
+| **SSE Last-Event-ID** | SE-13 (browser sends `Last-Event-ID` header on reconnect) | **✅ L18** SSE Advanced |
+| **SSE Stats Footer** | SE-14 (event count, bytes, elapsed, reconnect count) | **✅ L18** SSE Advanced |
+| **TLS / wss:// + TLS panel UI** | WP-16–18, WP-30 (`wss://echo.websocket.org`, rejectUnauthorized) | **✅ L19** Secure WebSocket |
+| **Workflow Test Harness & Runner** | WR-14–28 (Harness transport, WS test scenarios, assertions, results page) | **✅ L20** Run WS Workflow in Harness |
 | **Auth with Socket.IO / STOMP / GraphQL** | WP-A04–A06 | Deferred — extend L10/11/12 steps |
 | **Tauri Native Transport** | WP-19–23 (tokio-tungstenite, Rust commands, desktop TLS) | Deferred — desktop-only track |
 | **mTLS** | WP-21 (cert files, rustls) | Deferred — requires cert infrastructure |
 
 ---
 
-## Phase 2 Lessons (Planned) — Lessons 13–20
+## Phase 2 Lessons — Lessons 13–20 ✅ All Shipped
 
-> **Status:** 🔲 Not started. All pending implementation on a future feature branch.
-> **Pre-requisite:** All 12 Phase 1 lessons ship, branch `feature/websocket-demo-hub` merges to develop first.
+> **Status:** ✅ All shipped (2026-06-15). Lessons 13–20 completed on branch `feature/websocket-demo-hub`.
+> **Phase 1 pre-requisite:** All 12 Phase 1 lessons shipped first.
 
 ### Phase 2 Lesson Overview
 
-| # | Lesson | Features | Docker? | ~Steps | Priority |
+| # | Lesson | Features | Docker? | Steps | Priority |
 |---|---|---|---|---|---|
-| **13** | **Advanced Mock Server** | Rules, reorder, delay, template vars, enable/disable, preview | No | 8 | P1 |
+| **13** | **Advanced Mock Server** | Rules, reorder, delay, template vars, enable/disable, preview | No | 8 | P1 ✅ |
 | **14** | **Workspace: Profiles, Templates & Env Vars** | Saved profiles, message templates, env var interpolation | No | 8 | P2 ✅ |
 | **15** | **Reliability: Auto-Reconnect & Stats** | Auto-reconnect settings, stats tab (sparkline), close-with-code, URL history | No | 7 | P3 ✅ |
 | **16** | **Session Recording & Replay** | Record session, save file, import, replay with timing, exit | No | 7 | P4 ✅ |
 | **17** | **Power User: Tabs & Keyboard** | Drag reorder, keyboard nav (arrow/Delete/F2), auth per-tab, split pane | No | 7 | P5 ✅ |
-| **18** | **SSE Advanced Features** | Bookmarks, auto-reconnect, Last-Event-ID, stats footer | No | 7 | P6 |
-| **19** | **Secure WebSocket (wss:// & TLS)** | TLS panel, `rejectUnauthorized` toggle, proxy-only banner, public wss:// echo | No | 7 | P7 |
-| **20** | **Workflow Test Harness & Runner** | Harness transport, WS test scenarios, assertions, Test Runner, results page | No | 9 | P8 |
+| **18** | **SSE Advanced Features** | Bookmarks, auto-reconnect, Last-Event-ID, stats footer | No | 7 | P6 ✅ |
+| **19** | **Secure WebSocket (wss:// & TLS)** | TLS panel, `rejectUnauthorized` toggle, proxy-only banner, public wss:// echo | No | 7 | P7 ✅ |
+| **20** | **Run WS Workflow in Harness** | Workflow Runner: pick, variables, run, completion banner, results | No | 6 | P8 ✅ |
 
 **Deferred (no lesson slot yet):**
 - Auth with protocols (WP-A04–A06) → extend L10/11/12 with a new step each
 - Tauri Native Transport (WP-19–23) → separate desktop-only demo track
 - mTLS (WP-21) → infrastructure-gated; add to L19 when cert tooling exists
+
+> **All Phase 2 lessons shipped.** The deferred items above remain out-of-scope for this branch.
 
 ---
 
@@ -1224,35 +1271,114 @@ TRANSPORT_BADGE
 
 ---
 
-### Lesson 20: Test Harness Tour (P8 — Phase 2) ✅ Shipped
+### Lesson 20: Run WS Workflow in Harness (P8 — Phase 2) ✅ Shipped
 
-**Why:** Lesson 9 (Workflow Builder) demos the designer and Quick Test. This lesson gives users a guided tour of the full Test Harness — its 5 sub-tabs (Feature Groups, Test Runner, Parameterized Runner, Workflow Runner, Results), how WS tests fit in, and export capabilities.
+**Why:** Lesson 8 (Workflow Builder) builds the WS Echo Demo workflow in the Designer. This lesson shows how to run that same workflow in the Test Harness Workflow Runner — where runs are tracked, variables can be overridden before each run, and results are persisted to the Results Dashboard.
 
 **File:** `src/features/demo-player/lessons/protocols/ws-test-runner.ts`
-**Export:** `wsTestRunnerLesson` | **initialTab:** `scenarios`
+**Export:** `wsTestRunnerLesson` | **`initialTab` intentionally NOT set** — see Design notes
 **Source:** WR-14–28
 
 #### Design notes
 
-- **Harness is its own domain** in the activity bar (click `button[title="Harness"]`), NOT a tab within the Workflow page.
-- **No Browser/Proxy/Tauri dropdown in Harness** — the transport selector in Test Editor is the action type (HTTP / WS Connect / WS Send / WS Receive / Kafka).
-- **Guided tour approach**: Instead of creating FGs/tests from scratch (too many modals and fragile), the lesson navigates through all 5 Harness sub-tabs, highlighting key UI at each stop.
-- **No mock server needed** — the lesson doesn't execute tests, it shows the UI structure.
-- **No data dependency** — lesson works regardless of whether the user has existing data.
-- Uses `ctx.navigateToTab` for reliable tab navigation.
-- Almost no `data-testid` on Harness elements — uses CSS classes and text selectors.
+- **Hands-on demo, not a tour.** The original plan described a 7-step guided tour through all 5 Harness sub-tabs. The actual implementation is a 6-step hands-on demo: the lesson seeds the "WS Echo Demo" workflow, the user picks it, inspects variables, runs it, reads the completion banner, and navigates to Results.
+- **`initialTab` intentionally omitted.** The `useDemoShortcuts` auto-exit hook fires when `activeTab !== initialTab`. This lesson navigates from `workflow-runner` → `results` on the final step. If `initialTab: 'workflow-runner'` were set, arriving on the results tab would trigger auto-exit. Instead, setup navigates to the Workflow Runner tab directly.
+- **Workflow seeding.** Lesson 20 requires "WS Echo Demo" to exist in the workflow list. Rather than forcing users to complete Lesson 8 first, setup automatically seeds the workflow via `__wfInsertWorkflow` (a window bridge exposed by `useDemoWorkflowBridge`). Setup always calls `__wfDeleteByName('WS Echo Demo')` first to avoid duplicates, then inserts a fresh copy via `createWsEchoDemoWorkflow()`.
+- **`createWsEchoDemoWorkflow()` factory** — creates a minimal 4-node workflow: `Start → WsConnect ({{wsUrl}}) → WsSend → WsReceive`. `schemaVersion: 6`, `connectionId: 'ws1'`, `wsUrl: 'ws://localhost:9876'` (pre-set to mock server).
+- **`useDemoWorkflowBridge` extension.** To support `__wfInsertWorkflow`, the hook was extended with an optional `insert?: (wf: Workflow) => void` parameter. `App.tsx` now passes `wfHook.insert` as the third argument. The bridge exposes it on `window.__wfInsertWorkflow` and cleans it up on unmount. See the bridge section in the implementation notes below.
+- **Mock server required.** Setup starts the mock server at `ws://localhost:9876` before navigating to the Workflow Runner. Cleanup stops it.
+- **No live navigation to Harness activity bar icon.** The lesson navigates within the app using `ctx.navigateToTab` (tab identifiers), not by clicking the Harness icon in the sidebar activity bar.
 
-#### Finalized steps (7)
+#### Finalized steps (6)
 
 | # | Step ID | Title | Highlights | Notes |
 |---|---|---|---|---|
-| 1 | `tr-harness-intro` | The Test Harness | `button[title="Harness"]` | action: click Harness in activity bar, land on Feature Groups |
-| 2 | `tr-feature-groups` | Feature Groups | `.page-header` | highlight the Feature Groups page structure |
-| 3 | `tr-test-runner` | Test Runner | `.sub-nav-tab` (Test Runner) | action: click Test Runner sub-tab |
-| 4 | `tr-param-runner` | Parameterized Runner | `.sub-nav-tab` (Param Runner) | action: click Parameterized Runner sub-tab |
-| 5 | `tr-workflow-runner` | Workflow Runner | `.sub-nav-tab` (Workflow Runner) | action: click Workflow Runner sub-tab |
-| 6 | `tr-results` | Results Dashboard | `.sub-nav-tab` (Results) | action: click Results sub-tab |
-| 7 | `tr-export` | Export & Reporting | `.page-header` | highlight export/report buttons in Results |
+| 1 | `wfhr-open` | The Workflow Runner Tab | `.sub-nav-tab[data-tab="workflow-runner"]` | (orientation — setup already navigated here) |
+| 2 | `wfhr-pick` | Select WS Echo Demo | `.workflow-run-picker` | action: select "WS Echo Demo" from picker; note: workflow was seeded by setup automatically |
+| 3 | `wfhr-variables` | Initial Variables | `.variables-editor` | (observation — wsUrl = ws://localhost:9876 pre-set) |
+| 4 | `wfhr-run` | ▶ Run Workflow | `.run-workflow-btn` | action: ctx.click → workflow executes against mock server; verify completion banner |
+| 5 | `wfhr-complete` | Completion Banner | `.completion-section .btn-primary` | action: ctx.click "View Full Results →" → navigates to results tab |
+| 6 | `wfhr-results` | Results Dashboard | `.results-run-filter-tabs` | (observation — "Workflow Runs" tab filtered, ⚡ WS Echo Demo entry visible) |
+
+#### `createWsEchoDemoWorkflow()` factory (implementation detail)
+
+```typescript
+function createWsEchoDemoWorkflow(): Record<string, unknown> {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    name: 'WS Echo Demo',
+    schemaVersion: 6,
+    variables: { wsUrl: 'ws://localhost:9876' },
+    services: [], hostProfiles: [], authProfiles: [],
+    nodes: [
+      { id: startId,   type: 'start',     position: { x: 250, y: 50  }, data: { label: 'Start', inputVariables: {} } },
+      { id: connectId, type: 'wsConnect', position: { x: 250, y: 160 }, data: { label: 'WS Connect', url: '{{wsUrl}}', connectionId: 'ws1', ... } },
+      { id: sendId,    type: 'wsSend',    position: { x: 250, y: 270 }, data: { label: 'WS Send', connectionId: 'ws1', message: '...', ... } },
+      { id: receiveId, type: 'wsReceive', position: { x: 250, y: 380 }, data: { label: 'WS Receive', connectionId: 'ws1', timeoutMs: 5000, ... } },
+    ],
+    edges: [ /* start→connect, connect→send, send→receive */ ],
+    createdAt: now, updatedAt: now,
+  };
+}
+```
+
+#### `useDemoWorkflowBridge` changes
+
+The hook `src/app/hooks/useDemoWorkflowBridge.ts` was extended to support workflow seeding:
+
+```typescript
+export function useDemoWorkflowBridge(
+  workflows: Array<{ id: string; name: string }>,
+  remove: (id: string) => void,
+  insert?: (wf: Workflow) => void,   // ← NEW optional parameter
+): void {
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = (name: string) => {
+      const wf = workflows.find((w) => w.name === name);
+      if (wf) remove(wf.id);
+    };
+    if (insert) {
+      (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insert;  // ← NEW
+    }
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+      delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;    // ← NEW cleanup
+    };
+  }, [workflows, remove, insert]);
+}
+```
+
+`App.tsx` call site: `useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert)` (third arg added).
+
+#### Setup / Cleanup
+
+**Setup (`harnessRunSetup`):**
+1. Call `__wfDeleteByName('WS Echo Demo')` if bridge available (idempotent — no-op if doesn't exist)
+2. Call `__wfInsertWorkflow(createWsEchoDemoWorkflow())` if bridge available
+3. `POST /api/ws/mock/start` to `localhost:3001` (start mock server)
+4. `ctx.navigateToTab('workflow-runner')` (navigate to Workflow Runner tab)
+
+**Cleanup (`harnessRunCleanup`):**
+1. `POST /api/ws/mock/stop` to `localhost:3001` (stop mock server)
+2. `ctx.navigateToTab('workflow-runner')` (return to Workflow Runner tab)
+
+---
+
+### Lesson 20 Post-Ship Bug Fixes
+
+Six bugs were discovered and fixed after initial shipping of Lesson 20 (ws-test-runner):
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Concept body `*ad hoc exploration*` rendered with literal asterisks — renderer doesn't support single-asterisk italic | Removed asterisks, plain text instead |
+| 2 | Step 2 description said "the workflow you built in **Lesson 9**" (wrong) | Changed to "Lesson 8" (Workflow Builder is Lesson 8 in the UI) |
+| 3 | **Critical**: Workflow Runner shows "No workflows available" if user hasn't completed Lesson 8 | Added `createWsEchoDemoWorkflow()` factory + `__wfInsertWorkflow` window bridge; setup always seeds the workflow — step 2 now says "seeds it automatically in setup" |
+| 4 | Initial implementation described as "Test Harness Tour" with 7-step navigation tour | Completely replaced with 6-step hands-on demo (pick → variables → run → completion → results) |
+| 5 | `initialTab: 'scenarios'` set in original plan — would trigger auto-exit when reaching Results step | `initialTab` intentionally not set; setup navigates directly to workflow-runner |
+| 6 | `useDemoWorkflowBridge` only had `__wfDeleteByName` — no insert capability | Extended with optional `insert` param + `__wfInsertWorkflow` window bridge |
+
+All 6 bugs fixed; all 6 steps visually verified in browser (workflow ran, 3 requests, 0% errors, results visible).
 
 ---
 
@@ -1269,8 +1395,16 @@ TRANSPORT_BADGE
 | Auth (Bearer token, proxy) | WC-A01–A03 | Lesson 5 (9 steps) |
 | Search / filter / diff / schema | WF-01–50 | Lesson 6 (9 steps) |
 | Load testing | WL-01–15 | Lesson 7 (7 steps) |
-| SSE core | SE-01–10 | Lesson 8 (SSE, 7 steps) |
-| Workflow designer + Quick Test | WR-01–14 | Lesson 9 (9 steps) |
+| Workflow designer + Quick Test | WR-01–14 | Lesson 8 (11 steps) |
+| SSE core | SE-01–10 | Lesson 9 (SSE, 7 steps) |
 | Socket.IO protocol | WP-04–07 | Lesson 10 (9 steps) |
 | STOMP protocol | WP-08–11 | Lesson 11 (8 steps) |
 | GraphQL-WS protocol | WP-12–15 | Lesson 12 (7 steps) |
+| Advanced Mock Server rules | WM-10–18 | Lesson 13 (8 steps) |
+| Workspace: profiles, templates, env vars | WC-25–43 | Lesson 14 (8 steps) |
+| Reliability: auto-reconnect & stats | WC-36–39, WT-32–35 | Lesson 15 (7 steps) |
+| Session Recording & Replay | WT-24–31 | Lesson 16 (7 steps) |
+| Power User: keyboard & tab tricks | WT-36–45 | Lesson 17 (7 steps) |
+| SSE advanced: bookmarks, reconnect, LEI | SE-11–14 | Lesson 18 (7 steps) |
+| TLS / wss:// | WP-16–18, WP-30 | Lesson 19 (7 steps) |
+| Workflow Runner in Test Harness | WR-14–28 | Lesson 20 (6 steps) |

@@ -26,6 +26,20 @@ async function resetProtocol(ctx: DemoActionContext) {
   await ctx.delay(200);
 }
 
+/**
+ * Guard used by preActions of steps 5+ to ensure the Socket.IO connection is
+ * established before the spotlight/action tries to read SIO-specific UI elements
+ * (SIO_SERVER_PARAMS, compose fields, etc.) that only render when connected.
+ */
+async function ensureSioConnected(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+  await ctx.click(WS.CONNECT_BTN);
+  await ctx.waitFor(WS.STATUS_CONNECTED);
+  await ctx.delay(300);
+}
+
 // ── Setup / Cleanup ────────────────────────────────────────────
 
 async function sioSetup(ctx: DemoActionContext): Promise<void> {
@@ -140,8 +154,12 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: 'The **Protocol** dropdown is set to **Socket.IO**. This mode wraps every outgoing message in Engine.IO framing — `42["eventName", data]` — and decodes incoming packets back into clean event names. Without this mode, you\'d see raw framing like `42["message",{"text":"..."}]` in the event log instead of just `EVENT: message`.',
       highlight: WS.PROTOCOL_SELECT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction ensures Connect tab is active so PROTOCOL_SELECT is in the DOM
+      // before the spotlight renders (it lives inside the conditionally-rendered Connect panel).
+      preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
       },
     },
@@ -151,8 +169,12 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: `The URL ends with two query parameters. **EIO=4** selects Engine.IO version 4 — required by Socket.IO v4. **transport=websocket** skips HTTP long-polling and opens a direct WebSocket connection. This is the correct mode for testing: our echo server has polling disabled anyway, so this forces the fastest path.`,
       highlight: WS.URL_INPUT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction ensures Connect tab is active so URL_INPUT is in the DOM
+      // before the spotlight renders (it lives inside the conditionally-rendered Connect panel).
+      preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
       },
     },
@@ -166,9 +188,17 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       // valid both before (empty) and after (showing handshake) the connection fires.
       highlight: WS.RIGHT_TAB_EVENTS,
       pauseAfter: true,
+      // preAction navigates to Connect tab so CONNECT_BTN is in the DOM when the action fires.
+      preAction: async (ctx: DemoActionContext) => {
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+      },
       action: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1500);
+        // Replay guard: skip WS connect if already open from a prior pass.
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+        }
+        await ctx.waitFor(WS.STATUS_CONNECTED); // wait for green dot (Rule 5)
+        await ctx.delay(400);
         // Show Events so the user sees the handshake packets
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(800);
@@ -183,8 +213,15 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: 'Look at the **status line** at the bottom of the Connect panel — there\'s a `ping Xs / timeout Ys` widget. That is the heartbeat schedule the server negotiated on connect. Hover it to see the full **SID** (session identifier). Every Socket.IO connection gets a unique SID — useful when debugging reconnects or tracing server logs.',
       highlight: WS.SIO_SERVER_PARAMS,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction ensures the connection is established AND the Connect tab is visible.
+      // SIO_SERVER_PARAMS renders only when isConnected && sioServerParams — both require
+      // a successful Socket.IO handshake (Rule 4: guard for skip-to-step).
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureSioConnected(ctx);
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(600);
       },
     },
@@ -194,9 +231,10 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: 'In the **Compose** tab, notice two Socket.IO-specific fields above the message area: **Event Name** and **Namespace**. The demo fills in `message` as the event name and `{"text": "Hello Socket.IO!"}` as the payload. RedfireForge will encode this as `42["message",{"text":"Hello Socket.IO!"}]` on the wire — you never type the raw framing.',
       highlight: WS.SIO_COMPOSE_FIELDS,
       pauseAfter: true,
-      // preAction navigates to Compose BEFORE the spotlight phase so the
-      // sio-compose-fields element is in DOM when the highlight box is drawn.
+      // preAction ensures connection is active (SIO fields are disabled when not connected),
+      // then navigates to Compose so SIO_COMPOSE_FIELDS is in the DOM for the spotlight.
       preAction: async (ctx: DemoActionContext) => {
+        await ensureSioConnected(ctx); // Rule 4: guard for skip-to-step
         await ctx.click(WS.LEFT_TAB_COMPOSE);
       },
       action: async (ctx: DemoActionContext) => {
@@ -214,6 +252,17 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: 'The demo clicks **Send**. Watch the Events log — two `EVENT: message` rows appear: one **outgoing** (↑) and one **incoming echo** (↓). The echo server reflects the event back with the same name and payload. That\'s Socket.IO in action — no raw EIO bytes, just clean event names.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
+      // preAction ensures connection is active — SEND_BTN does nothing when disconnected.
+      // Also re-fills event name so the message is ready if user skipped step 6 (Rule 4).
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureSioConnected(ctx);
+        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.delay(150);
+        await ctx.fill(WS.SIO_EVENT_NAME, 'message');
+        await ctx.delay(150);
+        await ctx.fill(WS.MESSAGE_INPUT, '{"text": "Hello Socket.IO!"}');
+        await ctx.delay(150);
+      },
       action: async (ctx: DemoActionContext) => {
         await ctx.click(WS.SEND_BTN);
         await ctx.delay(1200);
@@ -227,8 +276,12 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       description: 'Back in Compose, see the **Namespace** field — currently `/` (the root). In production Socket.IO APIs, namespaces partition event streams on one connection: `/admin`, `/chat`, `/metrics`. Each is independent — a message sent to `/chat` never reaches a listener on `/admin`. Our echo server only handles root `/`, but the field is always here waiting when your server supports named namespaces.',
       highlight: WS.SIO_NAMESPACE,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction navigates to Compose BEFORE the spotlight so SIO_NAMESPACE is in the DOM
+      // when the highlight box renders (it lives inside the Socket.IO compose panel).
+      preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_COMPOSE);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(500);
         // Scroll the namespace field into view so the highlight box is visible.
         // Do NOT focus() it — an INPUT with focus blocks ArrowRight keyboard navigation.

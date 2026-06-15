@@ -179,8 +179,11 @@ GraphQL-WS needs two settings:
       description: 'With **Protocol: GraphQL-WS** selected, RedfireForge handles the entire handshake automatically — sending `connection_init` the moment the WebSocket opens and labeling each message by its type: `connection_init`, `connection_ack`, `subscribe`, `next`, `error`, and `complete`. Instead of raw JSON blobs you see clean, labeled rows in the Events log.',
       highlight: WS.PROTOCOL_SELECT,
       pauseAfter: true,
-      action: async (ctx: DemoActionContext) => {
+      // preAction ensures Connect panel (which contains PROTOCOL_SELECT) is in the DOM before spotlight
+      preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+      },
+      action: async (ctx: DemoActionContext) => {
         await ctx.delay(300);
       },
     },
@@ -194,9 +197,13 @@ GraphQL-WS needs two settings:
         await ctx.click(WS.LEFT_TAB_CONNECT);
       },
       action: async (ctx: DemoActionContext) => {
-        // Open WebSocket transport — connection_init is auto-sent
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1500); // allow WS open + connection_init + connection_ack round-trip
+        // Skip CONNECT_BTN if already connected (replay guard)
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+        }
+        // Wait for WS to open (more robust than fixed 1500ms delay)
+        await ctx.waitFor(WS.STATUS_CONNECTED);
+        await ctx.delay(500); // allow connection_init / connection_ack round-trip to complete
         // Show Events tab to reveal the handshake frames
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(700);
@@ -222,8 +229,16 @@ GraphQL-WS needs two settings:
       description: 'The query `subscription { countdown(from: 5) }` is pre-filled and ready in the Compose panel. Clicking **Send** wraps it in a `subscribe` frame with the current Op ID, sends it to the server, then switches to the Events tab to watch the countdown arrive. The server streams back six **next** frames — `5, 4, 3, 2, 1, 0` — one every 500ms, then a **complete** to signal end of stream.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
-      // preAction sets up the Compose panel with the subscription query before the spotlight
+      // preAction ensures connection + sets up the Compose panel with the subscription query
       preAction: async (ctx: DemoActionContext) => {
+        // Ensure WebSocket is connected before trying to send (skip-to-step guard)
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.LEFT_TAB_CONNECT);
+          await ctx.delay(200);
+          await ctx.click(WS.CONNECT_BTN);
+          await ctx.waitFor(WS.STATUS_CONNECTED);
+          await ctx.delay(300);
+        }
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(200);
         await ctx.fill(WS.MESSAGE_INPUT, 'subscription { countdown(from: 5) }');
