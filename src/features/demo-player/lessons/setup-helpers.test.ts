@@ -12,6 +12,9 @@ import {
   wsSetup,
   wsCleanup,
   wsAuthCleanup,
+  closeExtraConnectionTabs,
+  fillControlledInput,
+  connectToMockServer,
 } from './setup-helpers';
 import type { DemoActionContext } from '../types';
 
@@ -32,29 +35,37 @@ describe('setup-helpers', () => {
   });
 
   describe('startMockServer', () => {
-    it('clicks mock mode and start button', async () => {
+    it('clicks mock mode and start button when enabled', async () => {
       const btn = document.createElement('button');
       btn.setAttribute('data-testid', 'mock-start-btn');
-      btn.className = 'ws-mock-start-btn';
       document.body.appendChild(btn);
+      const clickSpy = vi.spyOn(btn, 'click');
 
       const ctx = makeCtx();
       await startMockServer(ctx);
       expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
+      expect(clickSpy).toHaveBeenCalled();
+      expect(ctx.delay).toHaveBeenCalledWith(1000);
     });
 
     it('does not click disabled start button', async () => {
       const btn = document.createElement('button');
-      btn.className = 'ws-mock-start-btn';
+      btn.setAttribute('data-testid', 'mock-start-btn');
       btn.disabled = true;
       document.body.appendChild(btn);
+      const clickSpy = vi.spyOn(btn, 'click');
 
       const ctx = makeCtx();
       await startMockServer(ctx);
-      // The querySelector may or may not find the button depending on selector;
-      // just verify it doesn't throw
       expect(ctx.click).toHaveBeenCalled();
+      expect(clickSpy).not.toHaveBeenCalled();
+    });
+
+    it('handles missing start button', async () => {
+      const ctx = makeCtx();
+      await startMockServer(ctx);
+      expect(ctx.click).toHaveBeenCalled();
+      expect(ctx.delay).toHaveBeenCalledWith(400);
     });
   });
 
@@ -200,6 +211,158 @@ describe('setup-helpers', () => {
       expect(ctx.click).toHaveBeenCalled();
       expect(ctx.selectOption).toHaveBeenCalled();
       expect(ctx.delay).toHaveBeenCalled();
+    });
+  });
+
+  describe('closeExtraConnectionTabs', () => {
+    it('does nothing when only 1 tab exists', async () => {
+      const tabBar = document.createElement('div');
+      tabBar.setAttribute('data-testid', 'conn-tab-bar');
+      const tab = document.createElement('div');
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('data-testid', 'conn-tab-1');
+      tabBar.appendChild(tab);
+      document.body.appendChild(tabBar);
+
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx);
+      expect(ctx.delay).not.toHaveBeenCalled();
+    });
+
+    it('closes extra tabs when multiple exist', async () => {
+      const tabBar = document.createElement('div');
+      tabBar.setAttribute('data-testid', 'conn-tab-bar');
+      const tab1 = document.createElement('div');
+      tab1.setAttribute('role', 'tab');
+      tab1.setAttribute('data-testid', 'conn-tab-1');
+      const tab2 = document.createElement('div');
+      tab2.setAttribute('role', 'tab');
+      tab2.setAttribute('data-testid', 'conn-tab-2');
+      const closeBtn = document.createElement('button');
+      closeBtn.setAttribute('data-testid', 'conn-tab-close-2');
+      closeBtn.addEventListener('click', () => tab2.remove());
+      tabBar.appendChild(tab1);
+      tabBar.appendChild(tab2);
+      document.body.appendChild(tabBar);
+      document.body.appendChild(closeBtn);
+
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx, 3);
+      expect(ctx.delay).toHaveBeenCalledWith(300);
+      expect(tabBar.querySelectorAll('[role="tab"]').length).toBe(1);
+    });
+
+    it('stops when close button is not found', async () => {
+      const tabBar = document.createElement('div');
+      tabBar.setAttribute('data-testid', 'conn-tab-bar');
+      const tab1 = document.createElement('div');
+      tab1.setAttribute('role', 'tab');
+      tab1.setAttribute('data-testid', 'conn-tab-1');
+      const tab2 = document.createElement('div');
+      tab2.setAttribute('role', 'tab');
+      tab2.setAttribute('data-testid', 'conn-tab-2');
+      tabBar.appendChild(tab1);
+      tabBar.appendChild(tab2);
+      document.body.appendChild(tabBar);
+
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx);
+      expect(ctx.delay).not.toHaveBeenCalled();
+    });
+
+    it('handles tab without data-testid', async () => {
+      const tabBar = document.createElement('div');
+      tabBar.setAttribute('data-testid', 'conn-tab-bar');
+      const tab1 = document.createElement('div');
+      tab1.setAttribute('role', 'tab');
+      tab1.setAttribute('data-testid', 'conn-tab-1');
+      const tab2 = document.createElement('div');
+      tab2.setAttribute('role', 'tab');
+      tabBar.appendChild(tab1);
+      tabBar.appendChild(tab2);
+      document.body.appendChild(tabBar);
+
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx, 2);
+      expect(ctx.delay).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when no tab bar exists', async () => {
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx);
+      expect(ctx.delay).not.toHaveBeenCalled();
+    });
+
+    it('closes multiple tabs in sequence', async () => {
+      const tabBar = document.createElement('div');
+      tabBar.setAttribute('data-testid', 'conn-tab-bar');
+      const tab1 = document.createElement('div');
+      tab1.setAttribute('role', 'tab');
+      tab1.setAttribute('data-testid', 'conn-tab-1');
+      const tab2 = document.createElement('div');
+      tab2.setAttribute('role', 'tab');
+      tab2.setAttribute('data-testid', 'conn-tab-2');
+      const tab3 = document.createElement('div');
+      tab3.setAttribute('role', 'tab');
+      tab3.setAttribute('data-testid', 'conn-tab-3');
+      const closeBtn3 = document.createElement('button');
+      closeBtn3.setAttribute('data-testid', 'conn-tab-close-3');
+      closeBtn3.addEventListener('click', () => { tab3.remove(); closeBtn3.remove(); });
+      const closeBtn2 = document.createElement('button');
+      closeBtn2.setAttribute('data-testid', 'conn-tab-close-2');
+      closeBtn2.addEventListener('click', () => { tab2.remove(); closeBtn2.remove(); });
+      tabBar.appendChild(tab1);
+      tabBar.appendChild(tab2);
+      tabBar.appendChild(tab3);
+      document.body.appendChild(tabBar);
+      document.body.appendChild(closeBtn2);
+      document.body.appendChild(closeBtn3);
+
+      const ctx = makeCtx();
+      await closeExtraConnectionTabs(ctx, 5);
+      expect(tabBar.querySelectorAll('[role="tab"]').length).toBe(1);
+      expect(ctx.delay).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('fillControlledInput', () => {
+    it('sets native value and dispatches events', () => {
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+
+      const inputHandler = vi.fn();
+      const changeHandler = vi.fn();
+      input.addEventListener('input', inputHandler);
+      input.addEventListener('change', changeHandler);
+
+      fillControlledInput(input, 'test-value');
+      expect(input.value).toBe('test-value');
+      expect(inputHandler).toHaveBeenCalled();
+      expect(changeHandler).toHaveBeenCalled();
+    });
+  });
+
+  describe('connectToMockServer', () => {
+    it('navigates to connect tab, fills URL, and clicks connect', async () => {
+      const ctx = makeCtx();
+      await connectToMockServer(ctx);
+      expect(ctx.click).toHaveBeenCalledTimes(2);
+      expect(ctx.fill).toHaveBeenCalled();
+      expect(ctx.delay).toHaveBeenCalled();
+    });
+
+    it('uses custom URL when provided', async () => {
+      const ctx = makeCtx();
+      await connectToMockServer(ctx, 'ws://custom:1234');
+      const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
+      expect(fillCalls[0][1]).toBe('ws://custom:1234');
+    });
+
+    it('uses custom delay when provided', async () => {
+      const ctx = makeCtx();
+      await connectToMockServer(ctx, 'ws://localhost:9876', 500);
+      const delayCalls = (ctx.delay as ReturnType<typeof vi.fn>).mock.calls;
+      expect(delayCalls.some((c: number[]) => c[0] === 500)).toBe(true);
     });
   });
 });

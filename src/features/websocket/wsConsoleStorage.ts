@@ -7,6 +7,7 @@
  */
 
 import { readKey, writeKey } from '../../shared/utils/storage';
+import { clampInt } from '../../shared/utils/persistSanitizers';
 import type {
   WsConsoleCategoryFilter,
   WsConsoleLevelFilter,
@@ -25,11 +26,6 @@ export const SSE_CONSOLE_SETTINGS_KEY = 'redfire-sse-console-settings-v1';
 const VIEWS = new Set<WsConsoleView>(['structured', 'raw']);
 const LEVELS = new Set<string>(WS_CONSOLE_LEVELS);
 const CATEGORIES = new Set<string>(WS_CONSOLE_CATEGORIES);
-
-function clampInt(val: unknown, min: number, max: number, fallback: number): number {
-  if (typeof val !== 'number' || !Number.isFinite(val)) return fallback;
-  return Math.max(min, Math.min(max, Math.round(val)));
-}
 
 /** Corrupt-safe sanitizer: unknown JSON → a complete, valid settings object. */
 export function sanitizeConsoleSettings(value: unknown): WsConsoleSettings {

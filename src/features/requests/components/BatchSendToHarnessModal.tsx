@@ -5,6 +5,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { collectAllRequestsFromCollection } from '../utils/requestTree';
 import { CascadeSelect } from './CascadeSelect';
 import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';
+import { useHarnessEnvironmentCascade } from '../hooks/useHarnessEnvironmentCascade';
 
 export interface BatchSendToHarnessPayload {
   collectionId: string;
@@ -38,24 +39,11 @@ export default function BatchSendToHarnessModal({ collection, environments, micr
   const allSelected = selectedIds.size === allRequests.length;
   const noneSelected = selectedIds.size === 0;
 
-  const envOptions = useMemo(() => {
-    const opts = environments.map(e => ({ id: e.id, name: e.name }));
-    for (const svc of microservices) {
-      for (const ce of (svc.customEnvs ?? [])) {
-        if (!opts.some(o => o.id === ce.id)) {
-          opts.push({ id: ce.id, name: `${ce.name} (${svc.name})` });
-        }
-      }
-    }
-    return opts;
-  }, [environments, microservices]);
-
-  const filteredMicroservices = useMemo(() => {
-    if (!envId) return microservices;
-    return microservices.filter(s =>
-      envId in s.baseUrls || (s.customEnvs ?? []).some(ce => ce.id === envId)
-    );
-  }, [envId, microservices]);
+  const { envOptions, filteredMicroservices } = useHarnessEnvironmentCascade(
+    environments,
+    microservices,
+    envId,
+  );
 
   const handleEnvChange = (id: string) => {
     setEnvId(id);

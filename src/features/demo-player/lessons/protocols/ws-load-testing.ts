@@ -1,19 +1,7 @@
 /** Lesson 7: Load Testing — configure profiles, run a load test, and analyze results */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import { wsSetup, wsCleanup, disconnectWebSocket, clearEvents, connectToMockServer } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-/** Connect to mock server via Connect panel. */
-async function connectToMock(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(200);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
-  await ctx.delay(200);
-  await ctx.click(WS.CONNECT_BTN);
-  await ctx.delay(1500);
-}
 
 /** Setup: start mock, connect, stay on Events tab so step 1 visibly opens Load Test. */
 async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
@@ -24,7 +12,7 @@ async function loadTestSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(200);
   await wsSetup(ctx);
   await ctx.delay(300);
-  await connectToMock(ctx);
+  await connectToMockServer(ctx);
   // Stay on Events tab — step 1's preAction will navigate here reliably before action fires
   await ctx.delay(300);
 }

@@ -232,6 +232,20 @@ export const WS = {
   URL_HISTORY_TRIGGER:  '[data-testid="url-history-trigger"]',
   URL_HISTORY_DROPDOWN: '[data-testid="url-history-dropdown"]',
 
+  // TLS / mTLS (Connect panel, visible only for wss:// URLs)
+  TLS_PANEL:          '[data-testid="tls-panel"]',
+  TLS_TOGGLE:         '[data-testid="tls-toggle"]',
+  TLS_BODY:           '[data-testid="tls-body"]',
+  TLS_INDICATOR:      '[data-testid="tls-indicator"]',
+  TLS_PROXY_NOTICE:   '[data-testid="tls-proxy-notice"]',
+  TLS_SKIP_CERT:      '[data-testid="tls-reject-unauthorized"]',
+  TLS_CA_CERT:        '[data-testid="tls-ca-cert"]',
+  TLS_CLIENT_CERT:    '[data-testid="tls-client-cert"]',
+  TLS_CLIENT_KEY:     '[data-testid="tls-client-key"]',
+
+  // Transport badge (shown when connected)
+  TRANSPORT_BADGE:    '[data-testid="transport-badge"]',
+
   // Status indicators
   STATUS_LABEL:      '.ws-messages-status-label',
   STATUS_CONNECTED:  '.ws-status-dot.connected',
