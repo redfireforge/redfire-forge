@@ -383,12 +383,12 @@ describe('WebSocketMessageLog', () => {
   describe('message list', () => {
     it('shows empty state when no messages', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      expect(screen.getByTestId('empty-state').textContent).toContain('No messages yet');
+      expect(screen.getByTestId('empty-state').textContent).toContain('No Messages Yet');
     });
 
     it('shows filter empty state when filtered to zero', () => {
       render(<WebSocketMessageLog {...defaultProps({ totalCount: 5 })} />);
-      expect(screen.getByTestId('empty-state').textContent).toContain('No messages match filters');
+      expect(screen.getByTestId('empty-state').textContent).toContain('No Results');
     });
 
     it('renders message rows', () => {

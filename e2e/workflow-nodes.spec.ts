@@ -129,7 +129,7 @@ test.describe('Workflow - Log/Debug, Error Handler, Wait for Condition nodes', (
     await logNode.dispatchEvent('dblclick');
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('LOGDEBUG');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Log Debug');
   });
 
   test('opens Wait for Condition config modal on double-click', async ({ page }) => {
@@ -138,6 +138,6 @@ test.describe('Workflow - Log/Debug, Error Handler, Wait for Condition nodes', (
     await waitNode.dispatchEvent('dblclick');
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('WAITFORCONDITION');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Wait For Condition');
   });
 });

@@ -11,6 +11,7 @@ import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useDemoShortcuts } from './hooks/useDemoShortcuts';
+import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
@@ -125,10 +126,11 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  const demoHub = useDemoHub({ navigateToTab: (t) => setActiveTab(t as Tab) });
+  const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
+  const demoHub = useDemoHub({ navigateToTab });
 
-  // Demo Hub keyboard shortcuts + auto-exit
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
+  useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);

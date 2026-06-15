@@ -21,7 +21,15 @@ export default function DemoSpotlight({ selector, active }: SpotlightProps) {
     if (!active || !selector) { setRect(null); return; }
 
     const track = () => {
-      const el = document.querySelector(selector);
+      // Find the first visible match — handles multi-tab scenarios where the
+      // same testid appears once per connection tab (active has size, inactive has 0×0)
+      const all = document.querySelectorAll(selector);
+      const el = all.length > 0
+        ? Array.from(all).find(e => {
+            const r = e.getBoundingClientRect();
+            return r.width > 0 || r.height > 0;
+          }) ?? null
+        : null;
       if (el) {
         const r = el.getBoundingClientRect();
         setRect({
