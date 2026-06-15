@@ -126,7 +126,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (el) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
-        el.value = value;
+        const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
@@ -162,7 +163,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     selectOption: async (selector: string, value: string) => {
       const el = document.querySelector(selector) as HTMLSelectElement | null;
       if (el) {
-        el.value = value;
+        const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
