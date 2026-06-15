@@ -253,7 +253,10 @@ export default function WorkflowNodeConfigModal({
   });
 
   const nodeTypeLabel = formatNodeTypeLabel(node.type);
-  const nodeUserLabel = (draft as HttpNodeData).label?.trim();
+  const rawLabel = (draft as HttpNodeData).label?.trim();
+  // When the user has explicitly set an empty label, fall back to "Step Config"
+  // so the modal title still identifies the node's purpose.
+  const nodeUserLabel = rawLabel === '' ? 'Step Config' : rawLabel;
   const title = nodeUserLabel && nodeUserLabel !== nodeTypeLabel
     ? `${nodeTypeLabel} — ${nodeUserLabel}`
     : nodeTypeLabel;

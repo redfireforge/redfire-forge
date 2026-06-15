@@ -68,6 +68,11 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       title: '/connect Command',
       description: 'Type /connect ws://localhost:9876 in the command line to connect directly from the console. Watch lifecycle events appear: connection opened, handshake details, and protocol info.',
       highlight: WS.CONSOLE_CMD_INPUT,
+      preAction: async (ctx) => {
+        // Guard: ensure Console tab is active so the command input is in the DOM
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(300);
+      },
       action: async (ctx) => {
         await ctx.fill(WS.CONSOLE_CMD_INPUT, '/connect ws://localhost:9876');
         const input = document.querySelector(WS.CONSOLE_CMD_INPUT) as HTMLInputElement | null;
@@ -82,12 +87,25 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       title: 'Lifecycle Events',
       description: 'The console captured the entire connection flow — open event, handshake headers, protocol negotiation. These lifecycle entries are invaluable for debugging connection issues.',
       highlight: WS.CONSOLE_ENTRY,
+      preAction: async (ctx) => {
+        // Guard: ensure Console tab is active and has entries from the /connect action
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
+        // If no entries yet, briefly wait for the connection lifecycle to appear
+        if (!document.querySelector(WS.CONSOLE_ENTRY)) {
+          await ctx.delay(1000);
+        }
+      },
     },
     {
       id: 'console-categories',
       title: 'Category Filter',
       description: 'Use the category dropdown to filter by event type. Try selecting "Lifecycle" to see only connection open/close events, or "Handshake" to see protocol negotiation details.',
       highlight: WS.CONSOLE_CATEGORY,
+      preAction: async (ctx) => {
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.selectOption(WS.CONSOLE_CATEGORY, 'lifecycle');
       },
@@ -98,7 +116,9 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       description: 'Type /send followed by a message to send data through the WebSocket — right from the console. The command is echoed, and you can see the result in both Console and Events tabs.',
       highlight: WS.CONSOLE_CMD_INPUT,
       preAction: async (ctx) => {
-        // Reset category filter to see all entries
+        // Ensure Console tab is active and reset category filter to see all entries
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
         await ctx.selectOption(WS.CONSOLE_CATEGORY, 'all');
         await ctx.delay(200);
       },
@@ -115,6 +135,10 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       title: '/help Command',
       description: 'Type /help to see all available slash commands. Each command shows its usage and description — /send, /connect, /disconnect, /ping, /close, /clear, and /template.',
       highlight: WS.CONSOLE_CMD_INPUT,
+      preAction: async (ctx) => {
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.fill(WS.CONSOLE_CMD_INPUT, '/help');
         const input = document.querySelector(WS.CONSOLE_CMD_INPUT) as HTMLInputElement | null;
@@ -128,12 +152,20 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       title: '/clear Command',
       description: 'Type /clear or click the Clear button to wipe the console log. This is useful when you want a clean slate before testing a specific scenario.',
       highlight: WS.CONSOLE_CLEAR,
+      preAction: async (ctx) => {
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
+      },
     },
     {
       id: 'console-search',
       title: 'Search Console',
       description: 'The console has its own search bar, independent from the Events search. Type a keyword to instantly filter the log entries. The counter shows how many entries match.',
       highlight: WS.CONSOLE_SEARCH,
+      preAction: async (ctx) => {
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.fill(WS.CONSOLE_SEARCH, 'connect');
       },
@@ -144,7 +176,9 @@ When debugging WebSocket issues, you need more than just message payloads. The C
       description: 'Toggle between Structured view (severity badges, categories, expandable details) and Raw view (plain text timeline, ideal for copy-paste). Try clicking Raw to see the difference.',
       highlight: WS.CONSOLE_VIEW_RAW,
       preAction: async (ctx) => {
-        // Clear search so all entries are visible for view comparison
+        // Ensure Console tab is active and clear search so all entries are visible
+        await ctx.click(WS.RIGHT_TAB_CONSOLE);
+        await ctx.delay(200);
         await ctx.fill(WS.CONSOLE_SEARCH, '');
         await ctx.delay(200);
       },

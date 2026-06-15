@@ -913,26 +913,31 @@
   color: var(--primary, #818cf8);
 }
 
-/* ─── Steps Overview Drawer ──────────────────────────────────── */
-.demo-overview-drawer {
+/* ─── Steps Overview — independent draggable + resizable modal ── */
+.demo-overview-modal {
   position: fixed;
-  bottom: calc(24px + var(--demo-panel-height, 220px) + 8px);
-  right: 24px;
+  top: 80px;
+  left: 40px;
+  bottom: auto;
+  right: auto;
   z-index: 10112;
-  width: 400px;
+  /* width & height are overridden by inline styles from useResizable */
   max-width: calc(100vw - 48px);
-  max-height: min(60vh, 520px);
+  max-height: calc(100vh - 48px);
+  min-width: 280px;
+  min-height: 300px;
   background: var(--surface, #1e293b);
   border: 1px solid var(--border, #3b4a60);
   border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: demo-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.demo-overview-header {
+/* ── Header / drag handle ── */
+.demo-overview-modal-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -940,25 +945,43 @@
   border-bottom: 1px solid var(--border, #3b4a60);
   flex-shrink: 0;
 }
+.demo-overview-modal-header--draggable {
+  cursor: grab;
+  user-select: none;
+}
+.demo-overview-modal-header--draggable:active { cursor: grabbing; }
 
-.demo-overview-title {
+.demo-overview-drag-handle {
+  font-size: 14px;
+  color: var(--text-muted, #a8b8cc);
+  opacity: 0.4;
+  letter-spacing: -1px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.demo-overview-modal-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text, #f1f5f9);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
-.demo-overview-title svg {
+.demo-overview-modal-title svg {
   width: 13px;
   height: 13px;
+  flex-shrink: 0;
   color: var(--primary, #818cf8);
 }
 
-.demo-overview-progress-label {
+.demo-overview-modal-counter {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted, #a8b8cc);
@@ -966,57 +989,62 @@
   border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 20px;
   padding: 2px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.demo-overview-close-btn {
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.05);
+.demo-overview-modal-close {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-muted, #a8b8cc);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1;
 }
-.demo-overview-close-btn svg { width: 10px; height: 10px; }
-.demo-overview-close-btn:hover {
+.demo-overview-modal-close:hover {
   background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
   color: #ef4444;
 }
 
-.demo-overview-progress-bar {
+/* ── Progress bar ── */
+.demo-overview-modal-progress-bar {
   height: 2px;
   background: rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
-.demo-overview-progress-fill {
+.demo-overview-modal-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--primary, #6366f1), var(--accent, #8b5cf6));
   transition: width 0.4s ease;
 }
 
-.demo-overview-list {
+/* ── Step list ── */
+.demo-overview-modal-list {
   flex: 1;
   overflow-y: auto;
   padding: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
 }
-.demo-overview-list::-webkit-scrollbar { width: 4px; }
-.demo-overview-list::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 2px; }
-.demo-overview-list::-webkit-scrollbar-track { background: transparent; }
+.demo-overview-modal-list::-webkit-scrollbar { width: 4px; }
+.demo-overview-modal-list::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 2px; }
+.demo-overview-modal-list::-webkit-scrollbar-track { background: transparent; }
 
-.demo-overview-item {
+.demo-overview-modal-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -1028,20 +1056,18 @@
   position: relative;
   margin-bottom: 2px;
 }
-.demo-overview-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
+.demo-overview-modal-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
 }
-.demo-overview-item.active {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
+.demo-overview-modal-item.active {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.38);
 }
-.demo-overview-item.done {
-  opacity: 0.65;
-}
-.demo-overview-item.done:hover { opacity: 1; }
+.demo-overview-modal-item.done { opacity: 0.65; }
+.demo-overview-modal-item.done:hover { opacity: 1; }
 
-.demo-overview-item-num {
+.demo-overview-modal-item-num {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -1057,12 +1083,12 @@
   margin-top: 1px;
   transition: background 0.12s, border-color 0.12s;
 }
-.demo-overview-item.active .demo-overview-item-num {
+.demo-overview-modal-item.active .demo-overview-modal-item-num {
   background: rgba(99, 102, 241, 0.25);
   border-color: rgba(99, 102, 241, 0.6);
   color: var(--primary, #818cf8);
 }
-.demo-overview-item.done .demo-overview-item-num {
+.demo-overview-modal-item.done .demo-overview-modal-item-num {
   background: rgba(34, 197, 94, 0.12);
   border-color: rgba(34, 197, 94, 0.3);
   color: #22c55e;
@@ -1074,7 +1100,7 @@
   stroke: #22c55e;
 }
 
-.demo-overview-item-body {
+.demo-overview-modal-item-body {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1082,30 +1108,31 @@
   gap: 3px;
 }
 
-.demo-overview-item-title {
-  font-size: 12.5px;
+.demo-overview-modal-item-title {
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text, #f1f5f9);
-  line-height: 1.3;
+  line-height: 1.35;
 }
-.demo-overview-item.done .demo-overview-item-title {
+.demo-overview-modal-item.done .demo-overview-modal-item-title {
   color: var(--text-muted, #a8b8cc);
 }
 
-.demo-overview-item-desc {
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: rgba(168, 184, 204, 0.7);
+.demo-overview-modal-item-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(200, 215, 230, 0.85);
 }
-.demo-overview-item-desc p { margin: 0; }
-.demo-overview-item-desc code {
-  font-size: 10.5px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 1px 4px;
+.demo-overview-modal-item-desc p { margin: 0; }
+.demo-overview-modal-item-desc code {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 1px 5px;
   border-radius: 3px;
+  color: #93c5fd;
 }
 
-.demo-overview-current-dot {
+.demo-overview-modal-current-dot {
   position: absolute;
   right: 10px;
   top: 50%;
@@ -1123,7 +1150,42 @@
   50%       { box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1); }
 }
 
-.demo-overview-footer {
+/* ── Resize handle ── */
+.demo-overview-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 10;
+  /* Diagonal grip lines via gradient */
+  background:
+    linear-gradient(
+      -45deg,
+      transparent 0%,
+      transparent 30%,
+      rgba(148, 163, 184, 0.28) 30%,
+      rgba(148, 163, 184, 0.28) 36%,
+      transparent 36%,
+      transparent 50%,
+      rgba(148, 163, 184, 0.28) 50%,
+      rgba(148, 163, 184, 0.28) 56%,
+      transparent 56%,
+      transparent 70%,
+      rgba(148, 163, 184, 0.28) 70%,
+      rgba(148, 163, 184, 0.28) 76%,
+      transparent 76%
+    );
+  border-bottom-right-radius: 14px;
+  transition: opacity 0.15s;
+  opacity: 0.6;
+}
+.demo-overview-resize-handle:hover {
+  opacity: 1;
+}
+
+.demo-overview-modal-footer {
   padding: 8px 14px;
   border-top: 1px solid var(--border, #3b4a60);
   font-size: 10px;

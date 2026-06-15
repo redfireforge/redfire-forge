@@ -1,5 +1,5 @@
-/** StepOverviewModal — independent draggable floating modal showing all lesson steps.
- *  Can be repositioned freely while the demo is running. */
+/** StepOverviewModal — independent draggable + resizable floating modal showing all lesson steps.
+ *  Can be repositioned and resized freely while the demo is running. */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { DemoLesson } from './types';
 import { renderMarkdown } from './ConceptSlide';
@@ -51,10 +51,43 @@ function useDraggableModal(ref: React.RefObject<HTMLDivElement | null>) {
   return { dragStyle: style, onDragMouseDown: onMouseDown };
 }
 
+const MIN_W = 280;
+const MAX_W = 720;
+const MIN_H = 300;
+const MAX_H = 900;
+
+function useResizable(defaultWidth: number, defaultHeight: number) {
+  const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
+  const startRef = useRef({ mx: 0, my: 0, w: defaultWidth, h: defaultHeight });
+
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startRef.current = { mx: e.clientX, my: e.clientY, w: size.width, h: size.height };
+
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(MIN_W, Math.min(MAX_W, startRef.current.w + ev.clientX - startRef.current.mx));
+      const newH = Math.max(MIN_H, Math.min(MAX_H, startRef.current.h + ev.clientY - startRef.current.my));
+      setSize({ width: newW, height: newH });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [size]);
+
+  return { size, onResizeMouseDown };
+}
+
 export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const { dragStyle, onDragMouseDown } = useDraggableModal(modalRef);
+  const { size, onResizeMouseDown } = useResizable(360, 500);
 
   // Scroll current step into view on open
   useEffect(() => {
@@ -76,7 +109,7 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     <div
       className="demo-overview-modal"
       ref={modalRef}
-      style={dragStyle}
+      style={{ ...dragStyle, width: size.width, height: size.height }}
       role="dialog"
       aria-label="All steps overview"
       aria-modal="false"
@@ -160,8 +193,16 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
 
       {/* ── Footer hint ── */}
       <div className="demo-overview-modal-footer">
-        Click any step to jump · Drag to reposition · Esc to close
+        Click to jump · Drag header to reposition · Esc to close
       </div>
+
+      {/* ── Resize handle (bottom-right corner) ── */}
+      <div
+        className="demo-overview-resize-handle"
+        onMouseDown={onResizeMouseDown}
+        aria-label="Resize panel"
+        title="Drag to resize"
+      />
     </div>
   );
 }
