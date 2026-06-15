@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** 🔨 In Progress — K2 (Publish Studio), K5 (Templates) shipped; K1, K3–K4, K6–K13 pending
+> **Status:** 🔨 In Progress — K2 (Publish Studio), K3 (Consume Studio), K5 (Templates) shipped; K1, K4, K6–K13 pending
 
 ---
 
@@ -218,7 +218,7 @@ Lessons are ordered to build intuition progressively — not by implementation p
 |---|---|---|---|---|---|---|---|
 | K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | 🔲 Not started | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
 | K2 | Publish Studio | `kafka-publish` | `kafka-publish.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K5 | Templates | `kafka-templates` | `kafka-templates.ts` | ✅ Done (2026-06-15) | 7 | — | No |
 | K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
@@ -379,18 +379,59 @@ After exit: lesson shows green ✓ checkmark, "Restart" button, Kafka category s
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `con-intro` | The Consume Tab | `KAFKA_CONSUME_TAB` | Clicks Consume tab — shows all fields |
-| 2 | `con-topic` | Set the Topic | `KAFKA_CON_TOPIC_INPUT` | preAction: fills `orders.created` (from Lesson K2) |
-| 3 | `con-position` | Start from Earliest | `KAFKA_CON_POSITION_SELECT` | preAction: sets Start Position to "Earliest" |
-| 4 | `con-max` | Limit Messages | `KAFKA_CON_MAX_INPUT` | preAction: sets Max Messages to `5` |
-| 5 | `con-consume` | Consume Once | `KAFKA_CON_CONSUME_BTN` | Clicks "Consume Once" — waits for results table |
-| 6 | `con-table` | The Results Table | `KAFKA_CON_RESULTS_ZONE` | Shows row count, offset/partition/key/value columns |
-| 7 | `con-row` | Click a Row | `KAFKA_CON_RESULTS_ZONE` | preAction: clicks first row — detail pane slides in |
-| 8 | `con-detail` | The Detail Pane | `KAFKA_CON_DETAIL_PANE` | Shows pretty-printed payload, Copy Key, Copy Payload |
-| 9 | `con-export` | Export the Result Set | `KAFKA_CON_EXPORT_BTN` | Clicks "Export Result Set" — downloads JSON file |
+| 1 | `con-intro` | The Consume Tab | `KAFKA.CONSUME_TAB` | **preAction**: clicks Consume tab + delay(300) — MUST be preAction (not action) |
+| 2 | `con-topic` | Set the Topic | `KAFKA.CON_TOPIC_INPUT` | **action**: fills `orders.created` |
+| 3 | `con-position` | Start from Earliest | `KAFKA.CON_POSITION_SELECT` | **action**: selectOption `earliest` |
+| 4 | `con-max` | Limit the Batch Size | `KAFKA.CON_MAX_INPUT` | **action**: fills `5` |
+| 5 | `con-consume` | Consume Once | `KAFKA.CON_CONSUME_BTN` | **action**: clicks Consume Once; verify: `KAFKA.CON_RESULTS_ZONE` |
+| 6 | `con-table` | The Results Table | `KAFKA.CON_RESULTS_ZONE` | Informational — no action |
+| 7 | `con-row` | Click a Row | `KAFKA.CON_RESULTS_ZONE` | **action**: clicks `[data-testid="con-row-0"]` — detail pane slides in |
+| 8 | `con-detail` | The Detail Pane | `KAFKA.CON_DETAIL_PANE` | Informational — no action |
+| 9 | `con-export` | Export the Result Set | `KAFKA.CON_EXPORT_BTN` | **action**: clicks Export Result Set button |
 
-**Setup:** `kafkaSetup` (PrerequisiteGate: plaintext broker). Pre-seeds `orders.created` topic with 3 messages via rpk (in setup action, not shown as a step).
+**Setup:** `kafkaPublishSetup` (auto-creates "Demo Cluster" if none, connects, returns to `kafka-message-studio`).
 **Cleanup:** `kafkaCleanup`.
+**allowedTabs:** `['kafka-settings']` — prevents auto-exit when setup navigates to Kafka Settings.
+
+#### Success Criteria
+- [x] 9 steps with unique IDs
+- [x] `allowedTabs: ['kafka-settings']` declared
+- [x] Step 1 uses `preAction` for tab switch (not `action`) — runs before reading phase
+- [x] Steps 2-4 use `action` (visible fills/select with ripple)
+- [x] Step 5 clicks Consume Once, verifies `CON_RESULTS_ZONE` appears
+- [x] Step 7 clicks `[data-testid="con-row-0"]` — detail pane opens
+- [x] Step 9 clicks Export button
+- [x] 21 unit tests pass — all green
+- [x] Visual validation: all 9 steps confirmed, 5 messages from `orders.created` (max reached), detail pane opened, Kafka shows 2/3
+
+#### Implementation Notes (2026-06-15)
+
+**Design decision — Step 1 uses `preAction` not `action`:**
+The Consume tab click MUST be `preAction`, not `action`. The `action` callback only runs after the reading phase begins. If the user presses ArrowRight before reading completes, `action` is skipped and all subsequent steps would see the Publish tab instead of Consume. `preAction` runs before the reading phase displays, so it's guaranteed to execute. This is the canonical pattern for ALL tab navigation steps.
+
+**Bug fixed — `selectOption` in `buildContext` did not trigger React state updates:**
+`el.value = value` bypasses React's synthetic event system. Fixed by using `HTMLSelectElement.prototype` native setter (same approach as `fill` for inputs):
+```typescript
+const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+nativeSet?.call(el, value);
+el.dispatchEvent(new Event('change', { bubbles: true }));
+```
+This is a system-level fix in `useDemoHub.ts` affecting ALL `selectOption` calls (both `buildContext` and `buildQuietContext`). Unit test confirmed: `'buildContext selectOption sets select value'` passes.
+
+**Reuse of `kafkaPublishSetup`:** K3 reuses K2's setup helper (same broker requirements, same pattern). No new setup helper needed.
+
+**Visual re-evaluation pass (2026-06-15):**
+Full end-to-end walkthrough confirmed all 9 steps correct:
+- Step 1: Consume tab highlighted (blue border), Consume form visible ✓
+- Step 2: Topic filled `orders.created` ✓
+- Step 3: Start Position → Earliest (confirmed via selectOption native setter fix) ✓
+- Step 4: Max Messages → 5 ✓
+- Step 5: Consume Once clicked → "5 messages (max reached)", table populated ✓
+- Step 6: Results zone highlighted (informational) ✓
+- Step 7: First row clicked → Detail Pane slides in with `{"test":"schema-passthrough"}` ✓
+- Step 8: Detail pane highlighted (informational) ✓
+- Step 9: Export Result Set button highlighted ✓
+After exit: lesson shows ✓ Completed, "Restart" button, Kafka **2/3** ✓
 
 ---
 
