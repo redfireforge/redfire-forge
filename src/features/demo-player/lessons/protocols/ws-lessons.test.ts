@@ -5087,8 +5087,8 @@ describe('sse-studio-advanced lesson', () => {
     ]);
   });
 
-  it('estimated time is 3 minutes', () => {
-    expect(sseStudioAdvancedLesson.estimatedMinutes).toBe(3);
+  it('estimated time is 4 minutes', () => {
+    expect(sseStudioAdvancedLesson.estimatedMinutes).toBe(4);
   });
 
   // ─── Step: sse-adv-intro ──────────────────────────────────
@@ -5109,11 +5109,56 @@ describe('sse-studio-advanced lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
+  it('step sse-adv-intro preAction skips connect when already connected', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
   // ─── Step: sse-adv-bookmark ───────────────────────────────
 
   it('step sse-adv-bookmark highlights event row', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
     expect(step.highlight).toContain('sse-event-row');
+  });
+
+  it('step sse-adv-bookmark preAction connects if not already connected', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('sse-url-input'),
+      expect.stringContaining('sse-test'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
+  });
+
+  it('step sse-adv-bookmark preAction skips connect when already connected with events', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
   it('step sse-adv-bookmark action clicks bookmark star', async () => {
@@ -5153,6 +5198,56 @@ describe('sse-studio-advanced lesson', () => {
     expect(step.highlight).toContain('sse-bookmark-filter');
   });
 
+  it('step sse-adv-bookmark-filter preAction ensures connection', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark-filter')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+  });
+
+  it('step sse-adv-bookmark-filter preAction clicks unbookmarked star when present', async () => {
+    // Set up a connected SSE with an event row that has an inactive bookmark star
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    const star = document.createElement('button');
+    star.className = 'sse-bookmark-btn'; // no 'active' class — not yet bookmarked
+    star.onclick = vi.fn();
+    row.appendChild(star);
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark-filter')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(star.onclick).toHaveBeenCalled();
+  });
+
+  it('step sse-adv-bookmark-filter preAction skips star when already bookmarked', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    const star = document.createElement('button');
+    star.className = 'sse-bookmark-btn active'; // already bookmarked
+    star.onclick = vi.fn();
+    row.appendChild(star);
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark-filter')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(star.onclick).not.toHaveBeenCalled();
+  });
+
   it('step sse-adv-bookmark-filter action toggles filter on and off', async () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-bookmark-filter')!;
     const ctx = makeCtx();
@@ -5171,6 +5266,13 @@ describe('sse-studio-advanced lesson', () => {
   it('step sse-adv-stats has no action', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-stats')!;
     expect(step.action).toBeUndefined();
+  });
+
+  it('step sse-adv-stats preAction ensures Events tab is active', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-stats')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
   });
 
   // ─── Step: sse-adv-reconnect ──────────────────────────────
@@ -5213,11 +5315,36 @@ describe('sse-studio-advanced lesson', () => {
     expect(step.highlight).toContain('sse-state-label');
   });
 
-  it('step sse-adv-last-event-id preAction switches to Events tab', async () => {
+  it('step sse-adv-last-event-id preAction switches to Events tab and connects if needed', async () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    // No connect btn with "Disconnect" → should trigger connection
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('sse-url-input'),
+      expect.stringContaining('sse-test'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
+  });
+
+  it('step sse-adv-last-event-id preAction skips connect when already connected', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-last-event-id')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
   it('step sse-adv-last-event-id action clicks an event row', async () => {
@@ -5239,6 +5366,37 @@ describe('sse-studio-advanced lesson', () => {
   it('step sse-adv-clear highlights clear button', () => {
     const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
     expect(step.highlight).toContain('sse-clear-btn');
+  });
+
+  it('step sse-adv-clear preAction ensures Events tab and connection', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    // No connected button in DOM → should attempt to connect
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('sse-url-input'),
+      expect.stringContaining('sse-test'),
+    );
+  });
+
+  it('step sse-adv-clear preAction skips connect when already connected', async () => {
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'sse-connect-btn');
+    connectBtn.textContent = 'Disconnect';
+    document.body.appendChild(connectBtn);
+
+    const row = document.createElement('div');
+    row.setAttribute('data-testid', 'sse-event-row');
+    document.body.appendChild(row);
+
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-clear')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-right-tab-events'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
   });
 
   it('step sse-adv-clear action exports then clears', async () => {
@@ -5372,8 +5530,8 @@ describe('ws-tls lesson', () => {
     ]);
   });
 
-  it('estimated time is 3 minutes', () => {
-    expect(wsTlsLesson.estimatedMinutes).toBe(3);
+  it('estimated time is 4 minutes', () => {
+    expect(wsTlsLesson.estimatedMinutes).toBe(4);
   });
 
   // ─── Step: tls-intro ──────────────────────────────────────
@@ -5398,6 +5556,31 @@ describe('ws-tls lesson', () => {
   it('step tls-panel highlights TLS toggle', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
     expect(step.highlight).toContain('tls-toggle');
+  });
+
+  it('step tls-panel preAction switches to Connect tab and fills wss:// URL', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+  });
+
+  it('step tls-panel preAction skips fill when wss:// URL already set', async () => {
+    const urlInput = document.createElement('input');
+    urlInput.setAttribute('aria-label', 'WebSocket URL');
+    urlInput.value = 'wss://echo.websocket.org';
+    document.body.appendChild(urlInput);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-panel')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it('step tls-panel action expands TLS panel', async () => {
@@ -5435,6 +5618,30 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('connect-btn');
   });
 
+  it('step tls-connect preAction fills wss:// URL and ensures disconnected', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+  });
+
+  it('step tls-connect preAction clicks disconnect btn if present', async () => {
+    const discBtn = document.createElement('button');
+    discBtn.setAttribute('data-testid', 'disconnect-btn');
+    discBtn.onclick = vi.fn();
+    document.body.appendChild(discBtn);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(discBtn.onclick).toHaveBeenCalled();
+  });
+
   it('step tls-connect action clicks connect', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
     const ctx = makeCtx();
@@ -5461,6 +5668,32 @@ describe('ws-tls lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
   });
 
+  it('step tls-send preAction connects if not already connected', async () => {
+    // No ws-status-dot.connected in DOM → connection guard triggers
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+  });
+
+  it('step tls-send preAction skips connection when already connected', async () => {
+    const statusDot = document.createElement('div');
+    statusDot.className = 'ws-status-dot connected';
+    document.body.appendChild(statusDot);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
   it('step tls-send action fills message and sends', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
     const ctx = makeCtx();
@@ -5479,7 +5712,7 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('tls-reject-unauthorized');
   });
 
-  it('step tls-skip-cert preAction disconnects and switches to connect tab', async () => {
+  it('step tls-skip-cert preAction disconnects, fills wss:// URL, and expands TLS panel', async () => {
     const discBtn = document.createElement('button');
     discBtn.setAttribute('data-testid', 'disconnect-btn');
     discBtn.onclick = vi.fn();
@@ -5497,6 +5730,10 @@ describe('ws-tls lesson', () => {
 
     expect(discBtn.onclick).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
     expect(tlsToggle.onclick).toHaveBeenCalled();
   });
 
@@ -5525,6 +5762,39 @@ describe('ws-tls lesson', () => {
     expect(step.highlight).toContain('tls-body');
   });
 
+  it('step tls-certs preAction fills wss:// URL and expands TLS panel', async () => {
+    const tlsToggle = document.createElement('button');
+    tlsToggle.setAttribute('data-testid', 'tls-toggle');
+    tlsToggle.setAttribute('aria-expanded', 'false');
+    tlsToggle.onclick = vi.fn();
+    document.body.appendChild(tlsToggle);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+    expect(tlsToggle.onclick).toHaveBeenCalled();
+  });
+
+  it('step tls-certs preAction skips panel expand when already open', async () => {
+    const tlsToggle = document.createElement('button');
+    tlsToggle.setAttribute('data-testid', 'tls-toggle');
+    tlsToggle.setAttribute('aria-expanded', 'true');
+    tlsToggle.onclick = vi.fn();
+    document.body.appendChild(tlsToggle);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(tlsToggle.onclick).not.toHaveBeenCalled();
+  });
+
   it('step tls-certs action focuses CA cert textarea', async () => {
     const caCert = document.createElement('textarea');
     caCert.setAttribute('data-testid', 'tls-ca-cert');
@@ -5540,9 +5810,9 @@ describe('ws-tls lesson', () => {
 
   // ─── Step: tls-transport ──────────────────────────────────
 
-  it('step tls-transport highlights status bar', () => {
+  it('step tls-transport highlights transport badge', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
-    expect(step.highlight).toContain('status-bar');
+    expect(step.highlight).toContain('transport-badge');
   });
 
   it('step tls-transport preAction dispatches click to reset skip-cert', async () => {
@@ -5556,9 +5826,42 @@ describe('ws-tls lesson', () => {
     label.appendChild(checkbox);
     document.body.appendChild(label);
 
+    // Simulate connected status so preAction skips reconnect
+    const statusEl = document.createElement('span');
+    statusEl.className = 'ws-status-dot connected';
+    document.body.appendChild(statusEl);
+
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+
+    expect(spy).toHaveBeenCalled();
+    // Should NOT click Connect because already connected
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step tls-transport preAction connects when disconnected', async () => {
+    // No status-connected element → disconnected state
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    // Should click Connect tab and Connect button
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  it('step tls-transport action dispatches mouseover on transport badge', async () => {
+    const badge = document.createElement('span');
+    badge.setAttribute('data-testid', 'transport-badge');
+    const spy = vi.fn();
+    badge.addEventListener('mouseover', spy);
+    document.body.appendChild(badge);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
 
     expect(spy).toHaveBeenCalled();
   });
@@ -5751,10 +6054,10 @@ describe('ws-test-runner lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
   });
 
-  it('step 7 (export) highlights page-header on results page', () => {
+  it('step 7 (export) highlights results-top-actions on results page', () => {
     const s = wsTestRunnerLesson.steps[6];
     expect(s.id).toBe('tr-export');
-    expect(s.highlight).toBe('.page-header');
+    expect(s.highlight).toBe('.results-top-actions');
     expect(s.description).toContain('JSON');
     expect(s.description).toContain('CSV');
   });
