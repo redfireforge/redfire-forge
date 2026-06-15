@@ -22,6 +22,7 @@ import { wsTlsLesson } from './protocols/ws-tls';
 import { wsTestRunnerLesson } from './protocols/ws-test-runner';
 import { kafkaTemplatesLesson } from './protocols/kafka-templates';
 import { kafkaPublishLesson } from './protocols/kafka-publish';
+import { kafkaConsumeLesson } from './protocols/kafka-consume';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export const protocolsDomain: DemoDomain = {
     { id: 'websocket', label: 'WebSocket', icon: '🔌' },
     { id: 'sse',       label: 'SSE',       icon: '📡' },
   ],
-  lessons: [kafkaPublishLesson, kafkaTemplatesLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTestRunnerLesson],
+  lessons: [kafkaPublishLesson, kafkaConsumeLesson, kafkaTemplatesLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTestRunnerLesson],
 };
 
 export const apiDomain: DemoDomain = {
