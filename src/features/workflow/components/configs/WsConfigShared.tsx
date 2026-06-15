@@ -88,7 +88,7 @@ export function WsConnectionIdField({
   );
 
   return (
-    <div className="wf-config-field">
+    <div className="wf-config-field--row">
       <label>Connection ID</label>
       {availableConnectionIds.length > 0 && (
         <select
@@ -113,7 +113,6 @@ export function WsConnectionIdField({
           placeholder="ws1"
         />
       )}
-      <span className="wf-config-hint">References the Connection ID of a WS Connect node.</span>
     </div>
   );
 }

@@ -26,12 +26,12 @@ export default function WsTriggerConfig({
 
   return (
     <div className="wf-config-body" data-testid="ws-trigger-config">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>URL</label>
         <InsertVarField
           onRequestVariableInsert={onRequestVariableInsert}
@@ -45,10 +45,9 @@ export default function WsTriggerConfig({
             variableHints={hintSet}
           />
         </InsertVarField>
-        <span className="wf-config-hint">WebSocket endpoint to listen on for trigger messages.</span>
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Connection ID</label>
         <input
           value={data.connectionId}

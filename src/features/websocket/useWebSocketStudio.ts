@@ -21,11 +21,12 @@ import {
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
 import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
+import { parseSubprotocolList, encodeWsMessageData, createSystemConnectFrame, runEarlyProtocolDetection, buildConnectHeadersMap } from './wsConnectionHelpers';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
 import type { GlobalAuthProfile } from '../../shared/types';
 import { toErrorMessage } from '../../shared/utils/helpers';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { detectProtocol, resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
   applyFilters,
   annotateSentFrame,
@@ -202,12 +203,33 @@ export function useWebSocketStudio(
         const env = await dispatchWsOperation<{
           messages: Array<{ data: string; type: string; receivedAt: string; size: number }>;
           cursor: number;
+          state?: string;
+          closeCode?: number;
+          closeReason?: string;
         }>('messages', {
           connectionId,
           sinceCursor: proxyCursorRef.current,
         });
 
         if (!mountedRef.current) return;
+
+        // Check if the server-side connection has been closed (e.g. mock server stopped).
+        // The messages response now includes the connection state so we can detect
+        // disconnects without waiting for a poll failure.
+        if (env.data?.state && env.data.state !== 'connected') {
+          const code = env.data.closeCode ?? 1006;
+          const reason = env.data.closeReason || undefined;
+          const ackMsg = formatCloseFrame('ACK', code, reason);
+          appendMessage(createFrame('received', 'close', ackMsg));
+          failProxyConnection({
+            state: env.data.state === 'error' ? 'error' : 'disconnected',
+            closeCode: code,
+            closeReason: reason,
+            closedAt: new Date().toISOString(),
+          });
+          return;
+        }
+
         if (env.data && env.data.messages.length > 0) {
           const allFrames: WsFrame[] = [];
 
@@ -258,7 +280,7 @@ export function useWebSocketStudio(
         }
       }
     }, PROXY_POLL_INTERVAL_MS);
-  }, [stopProxyPolling, appendMessages, failProxyConnection, updateDetectedProtocol]);
+  }, [stopProxyPolling, appendMessage, appendMessages, failProxyConnection, updateDetectedProtocol]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {
     stopNativeListeners();
@@ -368,17 +390,12 @@ export function useWebSocketStudio(
     messageDetectionDoneRef.current = false;
     const connectStart = Date.now();
 
-    const protocols = draftRef.current.subprotocols
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    const protocols = parseSubprotocolList(draftRef.current.subprotocols);
 
-    if (protocolModeRef.current === 'auto') {
-      const earlyResult = detectProtocol(effectiveUrl, protocols);
-      if (earlyResult.protocol !== 'raw') {
-        updateDetectedProtocol(earlyResult);
-        messageDetectionDoneRef.current = true;
-      }
+    const earlyDetect = runEarlyProtocolDetection(protocolModeRef.current, effectiveUrl, protocols);
+    if (earlyDetect) {
+      updateDetectedProtocol(earlyDetect);
+      messageDetectionDoneRef.current = true;
     }
 
     let ws: WebSocket;
@@ -407,10 +424,7 @@ export function useWebSocketStudio(
       });
       startUptimeTimer();
 
-      const sysProto = proto || 'none';
-      const sysFrame = createFrame('received', 'text', `Connected to ${effectiveUrl} (protocol: ${sysProto})`);
-      (sysFrame as WsFrame & { isSystem?: boolean }).isSystem = true;
-      appendMessage(sysFrame);
+      appendMessage(createSystemConnectFrame(effectiveUrl, proto));
 
       const effectiveOnOpen = resolveEffectiveProtocol(protocolModeRef.current, detectedProtocolRef.current);
       if (effectiveOnOpen === 'graphql-ws') {
@@ -422,21 +436,7 @@ export function useWebSocketStudio(
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      let data: string;
-      let isBinary = false;
-      if (typeof event.data === 'string') {
-        data = event.data;
-      } else if (event.data instanceof ArrayBuffer) {
-        isBinary = true;
-        const bytes = new Uint8Array(event.data);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        data = btoa(binary);
-      } else {
-        data = String(event.data);
-      }
+      const { data, isBinary } = encodeWsMessageData(event.data);
       const result = processReceivedMessage(
         data, isBinary,
         protocolModeRef.current, detectedProtocolRef.current,
@@ -520,23 +520,10 @@ export function useWebSocketStudio(
     setTransportMode(isTauri() ? 'native' : 'proxy');
     messageDetectionDoneRef.current = false;
 
-    const headersMap: Record<string, string> = {};
-    for (const h of currentDraft.headers) {
-      if (h.enabled && h.key.trim().length > 0) {
-        const resolvedKey = resolveEnvVars(h.key.trim(), evm);
-        headersMap[resolvedKey] = resolveEnvVars(h.value, evm);
-      }
-    }
-    // Auth headers are applied last so an explicit auth config wins over a
-    // manually-typed header of the same name.
-    for (const ah of resolvedAuthRef.current.headers) {
-      headersMap[ah.key] = ah.value;
-    }
-
-    const subprotocols = currentDraft.subprotocols
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    const headersMap = buildConnectHeadersMap(
+      currentDraft.headers, evm, resolvedAuthRef.current.headers, resolveEnvVars,
+    );
+    const subprotocols = parseSubprotocolList(currentDraft.subprotocols);
 
     const tlsPayload = effectiveUrl.toLowerCase().startsWith('wss://') ? tlsConfigRef.current : undefined;
 
@@ -560,15 +547,12 @@ export function useWebSocketStudio(
         connectedAtRef.current = Date.now();
         cancelReconnect();
 
-        if (protocolModeRef.current === 'auto') {
-          const earlyResult = detectProtocol(effectiveUrl, subprotocols);
-          if (earlyResult.protocol !== 'raw') {
-            updateDetectedProtocol(earlyResult);
-            messageDetectionDoneRef.current = true;
-          }
+        const earlyDetectProxy = runEarlyProtocolDetection(protocolModeRef.current, effectiveUrl, subprotocols);
+        if (earlyDetectProxy) {
+          updateDetectedProtocol(earlyDetectProxy);
+          messageDetectionDoneRef.current = true;
         }
 
-        const proto = env.data.protocol || 'none';
         setConnection({
           state: 'connected',
           url: effectiveUrl,
@@ -584,9 +568,7 @@ export function useWebSocketStudio(
           startProxyPolling(env.data.connectionId);
         }
 
-        const proxySysFrame = createFrame('received', 'text', `Connected to ${effectiveUrl} (protocol: ${proto || 'none'})`);
-        (proxySysFrame as WsFrame & { isSystem?: boolean }).isSystem = true;
-        appendMessage(proxySysFrame);
+        appendMessage(createSystemConnectFrame(effectiveUrl, env.data.protocol));
 
         const effectiveOnProxy = resolveEffectiveProtocol(protocolModeRef.current, detectedProtocolRef.current);
         if (effectiveOnProxy === 'graphql-ws') {

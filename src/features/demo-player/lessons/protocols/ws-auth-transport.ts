@@ -1,7 +1,24 @@
 /** Lesson: Auth & Transport — authentication and connection modes */
-import type { DemoLesson } from '../../types';
-import { wsSetup, wsAuthCleanup } from '../setup-helpers';
+import type { DemoActionContext, DemoLesson } from '../../types';
+import { wsSetup, wsAuthCleanup, resetAuth, disconnectWebSocket, clearEvents } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
+
+/** Setup: reset auth state, disconnect, clear events, then start mock + switch to client. */
+async function authSetup(ctx: DemoActionContext): Promise<void> {
+  // Wait for UI to render
+  await ctx.delay(500);
+  // Disconnect any active connection first
+  await disconnectWebSocket(ctx);
+  await ctx.delay(200);
+  // Clear events from previous runs
+  await clearEvents(ctx);
+  await ctx.delay(200);
+  // Reset auth to "No Auth" so Bearer selection is visible on replay
+  await resetAuth(ctx);
+  await ctx.delay(200);
+  // Standard setup: start mock + switch to client
+  await wsSetup(ctx);
+}
 
 export const wsAuthTransportLesson: DemoLesson = {
   id: 'ws-auth-transport',
@@ -12,7 +29,7 @@ export const wsAuthTransportLesson: DemoLesson = {
   estimatedMinutes: 4,
   initialTab: 'websocket-studio',
 
-  setup: wsSetup,
+  setup: authSetup,
   cleanup: wsAuthCleanup,
   concept: {
     title: 'Authentication & Transport Modes',
@@ -63,6 +80,7 @@ export const wsAuthTransportLesson: DemoLesson = {
 </svg>`,
   },
   steps: [
+    // ── 1. Auth Tab Introduction ─────────────────────────────────
     {
       id: 'auth-intro',
       title: 'Authentication Overview',
@@ -70,8 +88,12 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.LEFT_TAB_AUTH,
       action: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_AUTH);
+        await ctx.delay(300);
       },
+      pauseAfter: true,
     },
+
+    // ── 2. Select Bearer Token ───────────────────────────────────
     {
       id: 'auth-type-selector',
       title: 'Choose an Auth Type',
@@ -79,17 +101,22 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.AUTH_TYPE_SELECT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_AUTH);
+        await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
+        await ctx.delay(500);
       },
+      pauseAfter: true,
     },
+
+    // ── 3. Fill Bearer Token ─────────────────────────────────────
     {
       id: 'auth-bearer',
       title: 'Enter a Bearer Token',
       description: 'Fill in the token field with your JWT or API token. This gets sent as "Authorization: Bearer <token>" in the handshake headers. We\'ll use a demo token here.',
       highlight: WS.AUTH_PANEL,
-      action: async (_ctx) => {
+      action: async (ctx) => {
         const inputs = document.querySelectorAll(WS.AUTH_PANE_INPUTS);
         if (inputs[0]) {
           const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -97,14 +124,21 @@ export const wsAuthTransportLesson: DemoLesson = {
           inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
           inputs[0].dispatchEvent(new Event('change', { bubbles: true }));
         }
+        await ctx.delay(500);
       },
+      pauseAfter: true,
     },
+
+    // ── 4. Proxy Callout ─────────────────────────────────────────
     {
       id: 'auth-callout',
       title: 'Browser Transport Callout',
       description: 'See the info callout? Because Bearer auth requires custom HTTP headers, the app automatically routes through a Proxy transport. This is transparent — you don\'t need to configure anything extra.',
       highlight: WS.AUTH_CALLOUT,
+      pauseAfter: true,
     },
+
+    // ── 5. Fill URL ──────────────────────────────────────────────
     {
       id: 'auth-connect-setup',
       title: 'Set Up the Connection',
@@ -112,11 +146,16 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.URL_INPUT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+        await ctx.delay(300);
       },
+      pauseAfter: true,
     },
+
+    // ── 6. Connect ───────────────────────────────────────────────
     {
       id: 'auth-connect',
       title: 'Connect with Auth',
@@ -124,26 +163,37 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
+        await ctx.delay(1500);
       },
       verify: WS.STATUS_CONNECTED,
+      pauseAfter: true,
     },
+
+    // ── 7. Send a Message ────────────────────────────────────────
     {
       id: 'auth-compose-send',
       title: 'Send an Authenticated Message',
       description: 'Switch to Compose, write a message, and send it. The echo server mirrors it back — proving the authenticated connection works end-to-end.',
-      highlight: WS.SEND_BTN,
+      highlight: WS.LEFT_TAB_COMPOSE,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_COMPOSE);
-        await ctx.fill(WS.MESSAGE_INPUT, '{"action": "greet", "user": "demo-admin"}');
+        await ctx.delay(300);
       },
       action: async (ctx) => {
+        await ctx.fill(WS.MESSAGE_INPUT, '{"action": "greet", "user": "demo-admin"}');
+        await ctx.delay(500);
         await ctx.click(WS.SEND_BTN);
+        await ctx.delay(1000);
       },
       verify: WS.MESSAGE_ROW,
+      pauseAfter: true,
     },
+
+    // ── 8. Check Events ──────────────────────────────────────────
     {
       id: 'auth-events',
       title: 'Verify in Events',
@@ -151,8 +201,12 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.RIGHT_TAB_EVENTS,
       action: async (ctx) => {
         await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(500);
       },
+      pauseAfter: true,
     },
+
+    // ── 9. Protocol Selector ─────────────────────────────────────
     {
       id: 'auth-protocol',
       title: 'Protocol Selector',
@@ -160,7 +214,9 @@ export const wsAuthTransportLesson: DemoLesson = {
       highlight: WS.PROTOCOL_SELECT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
       },
+      pauseAfter: true,
     },
   ],
 };

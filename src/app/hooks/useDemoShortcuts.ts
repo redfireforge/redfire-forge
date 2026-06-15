@@ -32,6 +32,11 @@ export function useDemoShortcuts(
   // Cmd+Shift+D navigates to Demo Hub tab; live mode shortcuts
   useEffect(() => {
     const handleDemoShortcut = (e: KeyboardEvent) => {
+      // Ignore keyboard events that were synthetically dispatched by demo action
+      // scripts (e.g. pressKeyOnTab in ws-power-user.ts). Those events are marked
+      // with __demoAction=true so the shortcut handler does not confuse them with
+      // real user input and accidentally advances/reverses the demo step.
+      if ((e as KeyboardEvent & { __demoAction?: boolean }).__demoAction) return;
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 

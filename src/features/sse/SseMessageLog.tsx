@@ -194,10 +194,18 @@ export function SseMessageLog({
           })}
         </div>
         {filteredEvents.length === 0 && events.length > 0 && (
-          <div className="sse-empty-filtered">No events match the current filters</div>
+          <div className="sse-empty-filtered">
+            <span className="sse-empty-icon">🔍</span>
+            <span className="sse-empty-title">No Matching Events</span>
+            <span className="sse-empty-text">No events match the current filters. Try adjusting your search or type filter.</span>
+          </div>
         )}
         {events.length === 0 && (
-          <div className="sse-empty">Waiting for events…</div>
+          <div className="sse-empty">
+            <span className="sse-empty-icon">📡</span>
+            <span className="sse-empty-title">Waiting for Events</span>
+            <span className="sse-empty-text">Connect to an SSE endpoint to start receiving server-sent events in real time.</span>
+          </div>
         )}
       </div>
 

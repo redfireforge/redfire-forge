@@ -64,6 +64,45 @@ export async function resetAuth(ctx: DemoActionContext) {
   await ctx.delay(200);
 }
 
+/** Close extra connection tabs until only 1 remains. */
+export async function closeExtraConnectionTabs(ctx: DemoActionContext, maxIterations = 7) {
+  for (let i = 0; i < maxIterations; i++) {
+    const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+    if (tabs.length <= 1) break;
+    const lastTab = tabs[tabs.length - 1] as HTMLElement;
+    const tabId = lastTab.getAttribute('data-testid')?.replace('conn-tab-', '') ?? '';
+    const closeBtn = document.querySelector(`[data-testid="conn-tab-close-${tabId}"]`) as HTMLElement | null;
+    if (closeBtn) {
+      closeBtn.click();
+      await ctx.delay(300);
+    } else {
+      break;
+    }
+  }
+}
+
+/** Fill a React-controlled input by setting the native value property. */
+export function fillControlledInput(el: HTMLInputElement, value: string) {
+  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  nativeSet?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** Connect to the mock server (fill URL, click Connect, wait for connection). */
+export async function connectToMockServer(
+  ctx: DemoActionContext,
+  url = 'ws://localhost:9876',
+  delayMs = 1500,
+) {
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+  await ctx.fill(WS.URL_INPUT, url);
+  await ctx.delay(200);
+  await ctx.click(WS.CONNECT_BTN);
+  await ctx.delay(delayMs);
+}
+
 // ─── Composed Flows ─────────────────────────────────────────────
 
 /** Common WS setup: ensure mock server is running, switch to client mode. */
