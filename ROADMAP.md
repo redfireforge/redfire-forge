@@ -60,7 +60,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 23,000+ unit tests + 656+ Rust tests (99.51% coverage all files), 719 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 23,000+ unit tests + 656+ Rust tests (99.51% coverage all files), 971 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
 | ~~No request chaining~~ | **RESOLVED** | 19 node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
@@ -836,4 +836,4 @@ Phase 25 (Run Comparison)  →  Phase 27 (Distributed Execution)
 
 ---
 
-_Last updated: 2026-06-07 (v0.6.0 on `develop`; 301/337 items done (89.3%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); 99.51% code coverage; 23,000+ unit tests, 719 E2E tests, 656+ Rust tests; Kafka integration phases 1–10 merged; KafkaService modularized (660+ → 464 lines); gallery node factories extracted)_
+_Last updated: 2026-06-16 (v0.6.0 on `feature/kafka-demo-hub`; 301/337 items done (89.3%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); 99.51% code coverage; 23,000+ unit tests, 971 E2E tests, 656+ Rust tests; Kafka Demo Hub 13 lessons (K1–K13) implemented; WebSocket TLS/mTLS panel redesigned as modal; Docker-conditional E2E strategy)_

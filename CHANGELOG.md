@@ -9,6 +9,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Kafka Demo Hub — 13 Interactive Lessons (K1–K13)** — Full guided lesson system for the Kafka domain: K1 Quick Start, K2 Publish Studio, K3 Consume Studio, K4 Headers & Filters, K5 Key/Value Serde (String/JSON/Base64/Hex), K6 Topic Explorer, K7 Schema Registry, K8 Consumer Groups, K9 KPIs & Metrics, K10 SASL Security, K11 SASL E2E, K12 TLS Security, K13 Harness Integration. Each lesson has a concept panel, step-by-step live demo with spotlight, PrerequisiteGate auto-polling for Docker-backed lessons, and keyboard navigation. Lessons use real Kafka clusters via Docker compose stacks.
+- **Kafka: Key/Value Serde Format Selector** — Publish and Consume panels now expose a format selector (String, JSON, Base64, Hex) for both keys and values, stored per-cluster.
+- **Kafka: Test Connection** — New "Test Connection" button probes the broker/SASL/TLS credentials without persisting or overwriting the existing connection. Shows live success/error feedback inline.
+- **WebSocket TLS/mTLS Modal** — Converted TLS configuration from an inline collapsible panel to a draggable, resizable modal dialog (`AppModalFrame`). Modal opens via a "Configure" trigger row, supports Cancel (revert) / Save / Close, shows mode badge (Skip Verify / Custom CA / mTLS), and renders a proxy-mode notice in web context.
+- **WS TLS Local Lesson** — `ws-tls-local.ts` demo lesson covering the full TLS setup sequence in the WebSocket Studio.
+- **E2E: Docker-Conditional Test Strategy** — Playwright projects split into `chromium` (default, no Docker) and `docker` (`E2E_WITH_DOCKER=1` only). New `test:e2e:docker` and `test:e2e:all` npm scripts. `e2e/README.md` documents the strategy and required Docker compose stacks per test file.
+
+### Fixed
+- **workflow-persistence E2E flakiness** — Rewrote `clearRedfireIDB` helper to use a version-bump strategy (open at v9999 → force `onversionchange` → wait for `deleteDatabase().onsuccess`), ensuring IDB is truly deleted before the promise resolves. Refactored test setup to use `addInitScript` for atomic cleanup + data seeding before any app code runs.
+- **ws-tls-demo-regression E2E** — Updated helpers to work with the new modal TLS panel: `openTlsModal` (idempotent) and `closeTlsModal` always close the dialog before URL clear/refill, eliminating overlay intercept timeouts.
+- **demo-selector-guard E2E flakiness** — Bumped `connectMock`/`startMock` timeouts from 5 s to 15 s to survive parallel-worker load.
+- **kafkaPublishSetup** — Setup helper no longer creates a new cluster when one is already present; uses the empty-state button only.
+- **K6–K13 Kafka lesson bugs** — Fixed 6 implementation bugs across Topic Explorer, Schema Registry, Consumer Groups, KPIs, SASL, and Harness integration lessons.
+- **pub-pretty-format-badge testid** — Renamed from `pub-pretty-badge` to match the component; updated all selectors and E2E specs.
+
+### Changed
+- **TLS panel UX** — Redesigned with section-based layout (Server Verification, CA Certificate, Client Identity / mTLS), breathing room, and active-state badge on the trigger row.
+
+### Added
 - **Learning Hub — 20 WebSocket/SSE Demo Lessons** — Full interactive guided lesson system for the Protocols domain: 20 lessons covering Mock Server, WS Basics, Console & Debugging, Tabs, Auth & Transport, Filtering/Diff/Schema, Load Testing, Workflow Builder, SSE Studio, Socket.IO (🐳), STOMP/RabbitMQ (🐳), GraphQL Subscriptions (🐳), Advanced Mock Server, Workspace, Reliability, Session Recording, Power User, SSE Advanced, wss:// TLS, and Workflow Runner in Harness. Each lesson has a concept panel, step-by-step live demo with spotlight, progress tracking, and keyboard shortcuts (Esc, Space, arrows). Docker-backed lessons use `PrerequisiteGate` with `checkEndpoint` auto-polling.
 - **Demo Player enhancements** — `StepOverviewDrawer` (collapsible step TOC), `useDemoShortcuts` (keyboard navigation), `useDemoWorkflowBridge` / `__wfInsertWorkflow` window bridge for seeding demo workflows. Lesson 20 seeds "WS Echo Demo" workflow automatically so users don't need to complete Lesson 8 first.
 - **WS workflow node configs: variable hints** — `InsertVarField` + `variableHints` added to `WsConnectConfig`, `WsSendConfig`, `WsReceiveConfig`, `WsTriggerConfig`, `WsConfigShared`, and `WorkflowNodeConfigModal` for `{{variable}}` insertion support.
@@ -43,11 +62,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **ESLint Errors** — Removed 4 unused-var imports across kafka modules.
 - **E2E Test Fixes** — Fixed bugs across 10 E2E spec files (`response-detail-modal`, `results-console`, `run-comparison`, `run-in-harness`, `structure-history`, `sub-workflow-drilldown`, `training-tracks`, `trash-box`, `validation-dsl-roundtrip`, `validation-mapper-source-sync`).
 
-### Metrics (as of 2026-06-07)
-- **99.51% overall line coverage** (830 files)
+### Metrics (as of 2026-06-16)
+- **99.10% overall line coverage** (1,147 test files; 98.12% stmts, 93.00% branches, 98.45% funcs)
 - **0 files under 90% coverage**
-- **0 monolithic classes** (largest: `KafkaService` at 464 lines)
-- **719 E2E tests passing**
+- **0 monolithic classes**
+- **971 E2E tests passing** (0 failed, 0 flaky; Docker tests excluded from default run)
+- **28,993 unit tests passing** (0 failures)
 - **0 TypeScript errors, 0 ESLint errors**
 
 ---
