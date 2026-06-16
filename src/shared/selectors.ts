@@ -509,8 +509,9 @@ export const KAFKA = {
   VERSIONS_ERROR:           '[data-testid="versions-error"]',
 
   // ── Workflow Kafka Nodes ──────────────────────────────────────
-  NODE_PRODUCE:             '.node-type-kafkaProduce',
-  NODE_CONSUME:             '.node-type-kafkaConsume',
+  NODE_PRODUCE:             '.wf-node-kafkaProduce',
+  NODE_CONSUME:             '.wf-node-kafkaConsume',
+  NODE_WAIT:                '.wf-node-kafkaWait',
   TRIGGER_CONFIG:           '[data-testid="kafka-trigger-config"]',
   WAIT_CONFIG:              '[data-testid="kafka-wait-config"]',
   NODE_TOPIC_INPUT:         'input[placeholder="orders.events"]',

@@ -215,7 +215,7 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       id: 'wp-canvas',
       title: 'The Produce Demo Workflow',
       description:
-        'The **Kafka Produce Demo** workflow is a three-node chain: Start → kafkaProduce → End. The `kafkaProduce` node in the middle is the one you\'ll configure. Double-click it to open the config panel.',
+        'The **Kafka Produce Demo** workflow is a three-node chain: Start → kafkaProduce → End. The `kafkaProduce` node in the middle is the one you\'ll configure. Click it to open the config panel.',
       highlight: KAFKA.NODE_PRODUCE,
     },
 

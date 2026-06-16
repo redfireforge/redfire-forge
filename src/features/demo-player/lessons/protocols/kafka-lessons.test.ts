@@ -433,25 +433,31 @@ describe('kafka-quick-start lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('step ks-create action clicks empty-state btn if present, else add-cluster btn', async () => {
+  it('step ks-create action clicks empty-state btn when present (first run)', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-create')!;
     const ctx = makeCtx();
 
-    // Case 1: empty-state button present — should click it
     const emptyBtn = document.createElement('button');
     emptyBtn.setAttribute('data-testid', 'kafka-empty-create-btn');
     document.body.appendChild(emptyBtn);
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalled();
-    document.body.innerHTML = '';
-    vi.clearAllMocks();
+  });
 
-    // Case 2: no empty-state btn, only add-cluster btn
+  it('step ks-create is a no-op when clusters already exist (no emptyBtn)', async () => {
+    // On repeat runs the empty-state button is gone (clusters exist).
+    // Falling back to "+ New" would create a duplicate cluster ID and break
+    // subsequent steps, so the action must be a safe no-op.
+    const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-create')!;
+    const ctx = makeCtx();
+    document.body.innerHTML = '';
+    // Only the toolbar "+ New" button is in DOM (clusters exist)
     const addBtn = document.createElement('button');
     addBtn.setAttribute('data-testid', 'kafka-add-cluster-btn');
     document.body.appendChild(addBtn);
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    // Must NOT click addBtn and must NOT call delay
+    expect(ctx.delay).not.toHaveBeenCalled();
   });
 
   it('step ks-create does nothing when no btn is in DOM', async () => {
@@ -483,7 +489,7 @@ describe('kafka-quick-start lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('kafka-connect-btn'), 3000);
-    expect(ctx.delay).toHaveBeenCalledWith(800);
+    expect(ctx.delay).toHaveBeenCalledWith(1200);
   });
 
   it('step ks-connect skips click if connect btn is disabled', async () => {
@@ -499,9 +505,11 @@ describe('kafka-quick-start lesson', () => {
     expect(ctx.delay).not.toHaveBeenCalledWith(800);
   });
 
-  it('step ks-connect has a verify selector', () => {
+  it('step ks-connect verify waits for the Disconnect button (confirms actual connection)', () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-connect')!;
-    expect(step.verify).toContain('kafka-settings-list');
+    // Must wait for kafka-disconnect-btn (only rendered when connected), not
+    // kafka-settings-list which is already present the moment a cluster exists.
+    expect(step.verify).toContain('kafka-disconnect-btn');
   });
 
   it('step ks-status has highlight and no action (informational)', () => {
@@ -594,11 +602,13 @@ describe('kafka-consume lesson', () => {
     expect(typeof kafkaConsumeLesson.cleanup).toBe('function');
   });
 
-  it('step con-intro preAction clicks the Consume tab', async () => {
+  it('step con-intro preAction clicks the Consume tab and ensures Consume Once mode', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
+    // Also resets to "Consume Once" mode so con-consume-btn is always in DOM.
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-mode-once'));
   });
 
   it('step con-topic action fills the topic input', async () => {
@@ -651,11 +661,12 @@ describe('kafka-consume lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('step con-row action clicks the first result row', async () => {
+  it('step con-row action clicks the first result row and verifies the detail pane appears', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-row')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-row-0'));
+    expect(step.verify).toContain('con-detail-pane');
   });
 
   it('step con-detail has highlight and no action (informational)', () => {
@@ -795,11 +806,12 @@ describe('kafka-headers-filters lesson', () => {
     expect(step.action).toBeUndefined();
   });
 
-  it('step hf-filter-intro preAction clicks consume tab', async () => {
+  it('step hf-filter-intro preAction clicks consume tab and resets to Consume Once mode', async () => {
     const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-filter-intro')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('consume'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-mode-once'));
   });
 
   it('step hf-key-filter has both preAction and action', async () => {
@@ -838,11 +850,13 @@ describe('kafka-headers-filters lesson', () => {
     expect(jsonvalFill).toBeDefined();
   });
 
-  it('step hf-detail action clicks first result row and waits for detail pane', async () => {
+  it('step hf-detail action clicks con-row-0 (not thead) and waits for detail pane', async () => {
     const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-detail')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    // Must target the first *data* row by testid — tr:first-child matches the
+    // <thead> column-header row which has no onClick and would leave the pane closed.
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="con-row-0"]');
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('detail-pane'), expect.any(Number));
   });
 });
@@ -1118,7 +1132,7 @@ describe('kafka-secure lesson', () => {
     expect(kafkaSecureLesson.domainId).toBe('protocols');
     expect(kafkaSecureLesson.category).toBe('kafka');
     expect(kafkaSecureLesson.estimatedMinutes).toBeGreaterThan(0);
-    expect(kafkaSecureLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaSecureLesson.initialTab).toBe('kafka-settings');
     expect(kafkaSecureLesson.allowedTabs).toContain('kafka-settings');
   });
 
@@ -1192,7 +1206,7 @@ describe('kafka-tls lesson', () => {
     expect(kafkaTlsLesson.domainId).toBe('protocols');
     expect(kafkaTlsLesson.category).toBe('kafka');
     expect(kafkaTlsLesson.estimatedMinutes).toBeGreaterThan(0);
-    expect(kafkaTlsLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaTlsLesson.initialTab).toBe('kafka-settings');
     expect(kafkaTlsLesson.allowedTabs).toContain('kafka-settings');
   });
 
