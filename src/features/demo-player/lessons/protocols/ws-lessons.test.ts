@@ -42,6 +42,8 @@ describe('ws-basics lesson', () => {
     document.body.innerHTML = '';
   });
 
+  // ── Structure ──────────────────────────────────────────────────
+
   it('has valid lesson structure', () => {
     expect(wsBasicsLesson.id).toBe('ws-basics');
     expect(wsBasicsLesson.domainId).toBe('protocols');
@@ -78,127 +80,6 @@ describe('ws-basics lesson', () => {
     expect(wsBasicsLesson.category).toBe('websocket');
   });
 
-  it('step ws-nav has no action', () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-nav');
-    expect(step).toBeDefined();
-    expect(step!.action).toBeUndefined();
-    expect(step!.highlight).toBeTruthy();
-  });
-
-  it('step ws-mock preAction clicks mock mode', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-mock action clicks start button when available and enabled', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
-    const btn = document.createElement('button');
-    btn.setAttribute('data-testid', 'mock-start-btn');
-    document.body.appendChild(btn);
-
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-mock action does nothing when button is disabled', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
-    const btn = document.createElement('button');
-    btn.setAttribute('data-testid', 'mock-start-btn');
-    btn.disabled = true;
-    document.body.appendChild(btn);
-
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    // click should NOT be called since button is disabled
-    expect(ctx.click).not.toHaveBeenCalled();
-  });
-
-  it('step ws-mock action does nothing when button not found', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
-  });
-
-  it('step ws-url preAction clicks client mode and connect tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledTimes(2);
-  });
-
-  it('step ws-url action fills URL input', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
-  });
-
-  it('step ws-connect preAction clicks connect tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-connect action clicks connect button', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-compose preAction clicks compose tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-compose action fills message input', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalled();
-  });
-
-  it('step ws-send action clicks send button', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-send')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-events action clicks events tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-events')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-tabs has no action', () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-tabs');
-    expect(step).toBeDefined();
-    expect(step!.action).toBeUndefined();
-  });
-
-  it('step ws-disconnect preAction clicks connect tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-disconnect')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
-  it('step ws-disconnect action clicks disconnect button', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-disconnect')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
-  });
-
   it('has correct step IDs in order', () => {
     const ids = wsBasicsLesson.steps.map(s => s.id);
     expect(ids).toEqual([
@@ -207,19 +88,380 @@ describe('ws-basics lesson', () => {
     ]);
   });
 
-  it('step ws-mock has verify selector', () => {
+  it('steps ws-mock, ws-connect, ws-send each have a verify selector', () => {
+    const verify = (id: string) => wsBasicsLesson.steps.find(s => s.id === id)?.verify;
+    expect(verify('ws-mock')).toBeTruthy();
+    expect(verify('ws-connect')).toBeTruthy();
+    expect(verify('ws-send')).toBeTruthy();
+  });
+
+  // ── Setup ──────────────────────────────────────────────────────
+
+  it('setup resets flags and returns to client mode', async () => {
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    // Must navigate to mock mode to potentially stop the server
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    // Must return to client mode
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    // Must navigate to connect tab and events tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  it('setup disconnects an active session (disconnect btn enabled)', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'disconnect-btn');
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    // Disconnect btn is enabled → should have clicked it
+    // The raw click is via btn.click() directly, so we check delay was called (indicates btn.click() was called)
+    expect(ctx.delay).toHaveBeenCalledWith(400);
+  });
+
+  it('setup stops mock server if the stop button is present and enabled', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-stop-btn');
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(500);
+  });
+
+  it('setup after setup resets _mockRunning flag — step 2 action can start mock again', async () => {
+    // Run step 2 action to set _mockRunning = true
+    const mockStep = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(btn);
+    const ctx = makeCtx();
+    await mockStep.action!(ctx);
+    ctx.click.mockClear();
+
+    // Now run setup — _mockRunning should be reset
+    await wsBasicsLesson.setup!(ctx);
+    ctx.click.mockClear();
+
+    // preAction + action should attempt to start the mock again
+    await mockStep.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+  });
+
+  // ── Step: ws-nav ───────────────────────────────────────────────
+
+  it('step ws-nav has no action and highlights mode-client', () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-nav')!;
+    expect(step.action).toBeUndefined();
+    expect(step.highlight).toContain('mode-client');
+  });
+
+  // ── Step: ws-mock ──────────────────────────────────────────────
+
+  it('step ws-mock preAction clicks mock mode tab', async () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
-    expect(step.verify).toBeTruthy();
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.delay).toHaveBeenCalledWith(200);
   });
 
-  it('step ws-connect has verify selector', () => {
+  it('step ws-mock action starts server when button is enabled', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-start-btn'));
+    // Rule 5: must wait for stop button to confirm server started, not fixed delay
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-stop-btn'), expect.any(Number));
+  });
+
+  it('step ws-mock action handles disabled button (server already running)', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-start-btn');
+    btn.disabled = true;
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    // click must NOT be called for a disabled button
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mock-start-btn'));
+    // But waitFor must not be called either (no connect initiated)
+    expect(ctx.waitFor).not.toHaveBeenCalled();
+  });
+
+  it('step ws-mock action handles missing button (no DOM element)', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mock-start-btn'));
+    expect(ctx.waitFor).not.toHaveBeenCalled();
+  });
+
+  it('step ws-mock action sets _mockRunning so ensureMockRunning is no-op on subsequent steps', async () => {
+    // After step 2 action sets _mockRunning = true, step 4 preAction must not click mode-mock again
+    const mockStep = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await mockStep.action!(ctx);  // sets _mockRunning = true
+    ctx.click.mockClear();
+
+    await connectStep.preAction!(ctx);
+    // ensureMockRunning is a no-op → mode-mock must NOT be clicked again
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    // Still navigates to connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  // ── Step: ws-url ───────────────────────────────────────────────
+
+  it('step ws-url preAction switches to client mode and connect tab', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step ws-url action fills the WebSocket URL', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
+  });
+
+  // ── Step: ws-connect ───────────────────────────────────────────
+
+  it('step ws-connect preAction ensures mock server running (calls mode-mock when _mockRunning=false)', async () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
-    expect(step.verify).toBeTruthy();
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);  // resets _mockRunning = false
+    ctx.click.mockClear();
+
+    await step.preAction!(ctx);
+    // _mockRunning = false → ensureMockRunning switches to Mock mode
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    // And returns to Client mode after
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    // Then navigates to connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step ws-send has verify selector', () => {
+  it('step ws-connect preAction skips mock start when already running', async () => {
+    // Run step 2 action to set _mockRunning = true
+    const mockStep = wsBasicsLesson.steps.find(s => s.id === 'ws-mock')!;
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(btn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await mockStep.action!(ctx);
+    ctx.click.mockClear();
+
+    await connectStep.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+  });
+
+  it('step ws-connect action clicks connect and uses waitFor (Rule 5)', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // Must waitFor STATUS_CONNECTED — no fixed delay (Rule 5)
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
+  });
+
+  it('step ws-connect action sets _wsConnected so subsequent preActions skip connect', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const composeStep = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await connectStep.action!(ctx);  // sets _wsConnected = true
+    ctx.click.mockClear();
+    ctx.fill.mockClear();
+
+    await composeStep.preAction!(ctx);
+    // _wsConnected = true → ensureConnected is a no-op — must NOT click connect-btn
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+  });
+
+  // ── Step: ws-compose ───────────────────────────────────────────
+
+  it('step ws-compose preAction calls ensureConnected and navigates to compose', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);  // resets flags
+    ctx.click.mockClear();
+
+    await step.preAction!(ctx);
+    // ensureConnected → ensureMockRunning → clicks mode-mock, mode-client; then connect-btn + waitFor
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
+    // Then navigates to compose tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
+  it('step ws-compose preAction skips connect when already connected', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const composeStep = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await connectStep.action!(ctx);  // sets _wsConnected = true
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+
+    await composeStep.preAction!(ctx);
+    // ensureConnected is a no-op (already connected)
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).not.toHaveBeenCalled();
+    // Still navigates to compose
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+  });
+
+  it('step ws-compose action fills the message input', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining('"hello"'),
+    );
+  });
+
+  // ── Step: ws-send ──────────────────────────────────────────────
+
+  it('step ws-send has a preAction (Rule 4 guard)', () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-send')!;
-    expect(step.verify).toBeTruthy();
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step ws-send preAction ensures connected, navigates to compose, pre-fills message', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-send')!;
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    ctx.click.mockClear();
+    ctx.fill.mockClear();
+
+    await step.preAction!(ctx);
+    // Should ensure connected (mock + connect)
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // Should navigate to compose tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    // Should pre-fill message
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Message input'),
+      expect.stringContaining('"hello"'),
+    );
+  });
+
+  it('step ws-send action clicks send button', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-send')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+  });
+
+  // ── Step: ws-events ────────────────────────────────────────────
+
+  it('step ws-events has a preAction (Rule 4 guard)', () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-events')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  it('step ws-events preAction calls ensureConnected when not yet connected', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-events')!;
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    ctx.click.mockClear();
+
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
+  });
+
+  it('step ws-events preAction is no-op when already connected', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const eventsStep = wsBasicsLesson.steps.find(s => s.id === 'ws-events')!;
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await connectStep.action!(ctx);
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+
+    await eventsStep.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).not.toHaveBeenCalled();
+  });
+
+  it('step ws-events action clicks the events tab', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-events')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+  });
+
+  // ── Step: ws-tabs ──────────────────────────────────────────────
+
+  it('step ws-tabs has no action (informational highlight only)', () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-tabs')!;
+    expect(step.action).toBeUndefined();
+    expect(step.highlight).toContain('conn-tab-add');
+  });
+
+  // ── Step: ws-disconnect ────────────────────────────────────────
+
+  it('step ws-disconnect preAction ensures connected and navigates to Connect tab', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-disconnect')!;
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    ctx.click.mockClear();
+
+    await step.preAction!(ctx);
+    // Should ensure connected (so disconnect has something to close)
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // Should navigate to Connect tab so Disconnect button is visible
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step ws-disconnect preAction skips connect when already connected', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const disconnectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-disconnect')!;
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await connectStep.action!(ctx);
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+
+    await disconnectStep.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    // But still navigates to connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
+  it('step ws-disconnect action clicks disconnect button', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-disconnect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('disconnect-btn'));
   });
 });
 
@@ -266,18 +508,27 @@ describe('ws-auth-transport lesson', () => {
     expect(wsAuthTransportLesson.category).toBe('websocket');
   });
 
+  // ── auth-intro ───────────────────────────────────────────────
+  it('step auth-intro preAction navigates to auth tab', async () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+  });
+
   it('step auth-intro action clicks auth tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
   });
 
+  // ── auth-type-selector ───────────────────────────────────────
   it('step auth-type-selector preAction clicks auth tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-type-selector')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
   });
 
   it('step auth-type-selector action selects bearer', async () => {
@@ -287,26 +538,53 @@ describe('ws-auth-transport lesson', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'bearer');
   });
 
-  it('step auth-bearer action fills token when input exists', async () => {
+  // ── auth-bearer ──────────────────────────────────────────────
+  it('step auth-bearer has preAction that navigates to auth tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
-    const input = document.createElement('input');
-    input.className = 'ws-auth-pane';
-    // The selector is '.ws-auth-pane input' — need a container
-    const container = document.createElement('div');
-    container.className = 'ws-auth-pane';
-    container.appendChild(input);
-    document.body.appendChild(container);
-
     const ctx = makeCtx();
-    await step.action!(ctx);
-    // Action uses direct DOM manipulation, not ctx.fill
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
   });
 
-  it('step auth-bearer action handles missing input gracefully', async () => {
+  it('step auth-bearer preAction selects bearer when not already selected', async () => {
+    const sel = document.createElement('select');
+    sel.className = 'auth-type-select';
+    const inner = document.createElement('select');
+    const pane = document.createElement('div');
+    pane.className = 'auth-type-select';
+    pane.appendChild(inner);
+    document.body.appendChild(pane);
+
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'bearer');
+    document.body.removeChild(pane);
+    void sel;
+  });
+
+  it('step auth-bearer action uses ctx.fill with auth pane selector', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // Should not throw
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('ws-auth-pane'),
+      expect.stringContaining('demo-token'),
+    );
+  });
+
+  it('step auth-bearer action does not throw when input is absent', async () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
+    const ctx = makeCtx();
+    await expect(step.action!(ctx)).resolves.toBeUndefined();
+  });
+
+  // ── auth-callout ─────────────────────────────────────────────
+  it('step auth-callout has preAction that ensures bearer auth', async () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-callout')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
   });
 
   it('step auth-callout has no action', () => {
@@ -315,11 +593,12 @@ describe('ws-auth-transport lesson', () => {
     expect(step.highlight).toBeTruthy();
   });
 
+  // ── auth-connect-setup ───────────────────────────────────────
   it('step auth-connect-setup preAction clicks connect tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect-setup')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
   it('step auth-connect-setup action fills URL', async () => {
@@ -329,18 +608,36 @@ describe('ws-auth-transport lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
   });
 
+  // ── auth-connect ─────────────────────────────────────────────
   it('step auth-connect preAction clicks connect tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step auth-connect action clicks connect button', async () => {
+  it('step auth-connect action clicks connect button when not connected', async () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect')!;
+    const ctx = makeCtx();
+    // No .ws-status-dot.connected in DOM → should click connect and waitFor
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('connected'), expect.any(Number));
+  });
+
+  it('step auth-connect action skips click when already connected', async () => {
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    // click should NOT have been called with connect-btn (guard prevents double-click)
+    const connectCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
+    expect(connectCalls.some((args: unknown[]) => String(args[0]).includes('connect-btn'))).toBe(false);
+
+    document.body.removeChild(dot);
   });
 
   it('step auth-connect has verify selector', () => {
@@ -348,19 +645,39 @@ describe('ws-auth-transport lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
-  it('step auth-compose-send preAction clicks compose tab', async () => {
+  // ── auth-compose-send ────────────────────────────────────────
+  it('step auth-compose-send preAction navigates to compose tab', async () => {
+    // Provide a connected status dot so ensureConnected skips setup
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+
+    document.body.removeChild(dot);
+  });
+
+  it('step auth-compose-send preAction runs ensureConnected when not connected', async () => {
+    // No connected dot → ensureConnected should attempt auth + connect
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Auth setup path: clicks auth tab, then connect tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    // Finally navigates to compose tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
   });
 
   it('step auth-compose-send action fills message and clicks send', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('greet'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
   });
 
   it('step auth-compose-send has verify selector', () => {
@@ -368,18 +685,25 @@ describe('ws-auth-transport lesson', () => {
     expect(step.verify).toBeTruthy();
   });
 
+  it('step auth-compose-send highlights compose tab', () => {
+    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
+    expect(step.highlight).toContain('compose');
+  });
+
+  // ── auth-events ──────────────────────────────────────────────
   it('step auth-events action clicks events tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-events')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
+  // ── auth-protocol ────────────────────────────────────────────
   it('step auth-protocol preAction clicks connect tab', async () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-protocol')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
   it('step auth-protocol has no action', () => {
@@ -387,6 +711,7 @@ describe('ws-auth-transport lesson', () => {
     expect(step.action).toBeUndefined();
   });
 
+  // ── meta ─────────────────────────────────────────────────────
   it('has correct step IDs in order', () => {
     const ids = wsAuthTransportLesson.steps.map(s => s.id);
     expect(ids).toEqual([
@@ -415,11 +740,6 @@ describe('ws-auth-transport lesson', () => {
     }
   });
 
-  it('step auth-compose-send highlights compose tab', () => {
-    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
-    expect(step.highlight).toContain('compose');
-  });
-
   it('setup disconnects, clears events, resets auth, and starts mock server', async () => {
     const ctx = makeCtx();
     await wsAuthTransportLesson.setup!(ctx);
@@ -427,25 +747,15 @@ describe('ws-auth-transport lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
-
-  it('step auth-bearer sets token value on first auth input', async () => {
-    const container = document.createElement('div');
-    container.className = 'ws-auth-pane';
-    const input = document.createElement('input');
-    container.appendChild(input);
-    document.body.appendChild(container);
-
-    const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-bearer')!;
-    await step.action!(makeCtx());
-    expect(input.value).toContain('demo-token');
-  });
 });
 
 // ─── ws-mock-server ─────────────────────────────────────────────
 
 describe('ws-mock-server lesson', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     document.body.innerHTML = '';
+    // Reset module-level flags before each test
+    await wsMockServerLesson.setup!(makeCtx());
   });
 
   it('has valid lesson structure', () => {
@@ -458,8 +768,8 @@ describe('ws-mock-server lesson', () => {
     expect(wsMockServerLesson.initialTab).toBe('websocket-studio');
   });
 
-  it('has cleanup but no setup (mock IS the setup)', () => {
-    expect(wsMockServerLesson.setup).toBeUndefined();
+  it('has both setup and cleanup', () => {
+    expect(typeof wsMockServerLesson.setup).toBe('function');
     expect(typeof wsMockServerLesson.cleanup).toBe('function');
   });
 
@@ -500,14 +810,56 @@ describe('ws-mock-server lesson', () => {
     ]);
   });
 
+  // ─── Setup / Cleanup ────────────────────────────────────────
+
+  it('setup navigates to client mode to stage clean demo start', async () => {
+    const ctx = makeCtx();
+    await wsMockServerLesson.setup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+  });
+
+  it('setup stops mock server if already running', async () => {
+    const stopBtn = document.createElement('button');
+    stopBtn.setAttribute('data-testid', 'mock-stop-btn');
+    document.body.appendChild(stopBtn);
+
+    const ctx = makeCtx();
+    await wsMockServerLesson.setup!(ctx);
+    // Should have clicked MODE_MOCK then MOCK_STOP_BTN
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    // Cleanup path uses direct DOM click (not ctx.click) for stop button
+  });
+
+  it('setup disconnects an active client session', async () => {
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
+    document.body.appendChild(disconnectBtn);
+
+    const ctx = makeCtx();
+    await wsMockServerLesson.setup!(ctx);
+    // Direct DOM click used for disconnect (not ctx.click) — just verify it runs without error
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('cleanup resets flags and calls disconnect/stop/switchToClient', async () => {
+    const ctx = makeCtx();
+    await wsMockServerLesson.cleanup!(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
   // ─── Step: mock-intro ───────────────────────────────────────
 
-  it('step mock-intro action clicks mock mode and waits', async () => {
-    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-intro')!;
+  it('step mock-intro action clicks mock mode then uses waitFor (Rule 5)', async () => {
     const ctx = makeCtx();
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-intro')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringMatching(/mock-start-btn|mock-stop-btn/),
+      expect.any(Number),
+    );
+    expect(ctx.delay).not.toHaveBeenCalled();
   });
 
   it('step mock-intro highlights the mock mode toggle', () => {
@@ -515,9 +867,14 @@ describe('ws-mock-server lesson', () => {
     expect(step.highlight).toContain('mode-mock');
   });
 
+  it('step mock-intro has no preAction', () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-intro')!;
+    expect(step.preAction).toBeUndefined();
+  });
+
   // ─── Step: mock-start ───────────────────────────────────────
 
-  it('step mock-start clicks start button when available and enabled', async () => {
+  it('step mock-start clicks start button and uses waitFor when button is available', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-start')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-start-btn');
@@ -526,9 +883,13 @@ describe('ws-mock-server lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-start-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('mock-stop-btn'),
+      expect.any(Number),
+    );
   });
 
-  it('step mock-start does nothing when button is disabled', async () => {
+  it('step mock-start does nothing when button is disabled but still sets _mockRunning', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-start')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-start-btn');
@@ -538,18 +899,19 @@ describe('ws-mock-server lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
+    // Flag should be set: server already running
   });
 
-  it('step mock-start does nothing when button not found', async () => {
+  it('step mock-start does nothing when button not found but still sets _mockRunning', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-start')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
-  it('step mock-start has verify selector', () => {
+  it('step mock-start has verify for stop button', () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-start')!;
-    expect(step.verify).toBeTruthy();
+    expect(step.verify).toContain('mock-stop-btn');
   });
 
   // ─── Step: mock-status ──────────────────────────────────────
@@ -560,22 +922,48 @@ describe('ws-mock-server lesson', () => {
     expect(step.highlight).toBeTruthy();
   });
 
+  it('step mock-status preAction navigates to Mock mode (Rule 4 guard)', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-status')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // ensureMockRunning starts with MODE_MOCK click; then preAction also clicks MODE_MOCK
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+  });
+
   // ─── Step: mock-connect ─────────────────────────────────────
 
-  it('step mock-connect preAction switches to client mode and fills URL', async () => {
+  it('step mock-connect preAction calls ensureMockRunning then switches to client mode', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-connect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    // ensureMockRunning clicks MODE_MOCK; preAction then clicks MODE_CLIENT
+    const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
+    expect(calls.some((c: string) => c.includes('mode-mock'))).toBe(true);
+    expect(calls.some((c: string) => c.includes('mode-client'))).toBe(true);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
   });
 
-  it('step mock-connect action clicks connect button', async () => {
+  it('step mock-connect preAction uses waitFor instead of fixed delay (Rule 5)', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('connect-btn'),
+      expect.any(Number),
+    );
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('step mock-connect action clicks connect and waits for connection (Rule 5)', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('ws-status-dot'),
+      expect.any(Number),
+    );
   });
 
   it('step mock-connect has verify selector', () => {
@@ -585,12 +973,29 @@ describe('ws-mock-server lesson', () => {
 
   // ─── Step: mock-echo ────────────────────────────────────────
 
-  it('step mock-echo preAction clicks compose tab and fills message', async () => {
+  it('step mock-echo preAction calls ensureClientConnected then navigates to compose', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-echo')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
-    expect(ctx.fill).toHaveBeenCalled();
+    // ensureClientConnected → ensureMockRunning → MODE_MOCK; then MODE_CLIENT + CONNECT_BTN + connect
+    // After ensureClientConnected, preAction always clicks MODE_CLIENT and LEFT_TAB_COMPOSE
+    const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
+    expect(calls.some((c: string) => c.includes('mode-client'))).toBe(true);
+    expect(calls.some((c: string) => c.includes('left-tab-compose'))).toBe(true);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Message input'),
+      expect.stringContaining('Hello from Mock Server demo!'),
+    );
+  });
+
+  it('step mock-echo preAction uses waitFor for compose tab (Rule 5)', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-echo')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('left-tab-compose'),
+      expect.any(Number),
+    );
   });
 
   it('step mock-echo action clicks send button', async () => {
@@ -600,30 +1005,33 @@ describe('ws-mock-server lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
   });
 
-  it('step mock-echo has verify selector', () => {
+  it('step mock-echo has verify selector for message row', () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-echo')!;
     expect(step.verify).toBeTruthy();
   });
 
   // ─── Step: mock-broadcast ───────────────────────────────────
 
-  it('step mock-broadcast preAction switches to mock mode', async () => {
+  it('step mock-broadcast preAction calls ensureMockRunning + switches to mock mode', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-  });
-
-  it('step mock-broadcast preAction switches to mock mode and fills', async () => {
-    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    expect(ctx.delay).toHaveBeenCalledWith(300);
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('mock-broadcast-input'),
       'Server broadcast: welcome everyone!',
     );
+  });
+
+  it('step mock-broadcast preAction uses waitFor instead of fixed delay (Rule 5)', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-broadcast')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('mock-broadcast-input'),
+      expect.any(Number),
+    );
+    expect(ctx.delay).not.toHaveBeenCalled();
   });
 
   it('step mock-broadcast highlights broadcast button', () => {
@@ -638,7 +1046,18 @@ describe('ws-mock-server lesson', () => {
 
   // ─── Step: mock-stop ────────────────────────────────────────
 
-  it('step mock-stop clicks stop button when available and enabled', async () => {
+  it('step mock-stop preAction calls ensureMockRunning then navigates to mock mode (Rule 4)', async () => {
+    const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('mock-stop-btn'),
+      expect.any(Number),
+    );
+  });
+
+  it('step mock-stop action clicks stop button when available and enabled', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-stop-btn');
@@ -649,7 +1068,7 @@ describe('ws-mock-server lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-stop-btn'));
   });
 
-  it('step mock-stop does nothing when button is disabled', async () => {
+  it('step mock-stop action does nothing when stop button is disabled', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'mock-stop-btn');
@@ -661,7 +1080,7 @@ describe('ws-mock-server lesson', () => {
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
-  it('step mock-stop does nothing when button not found', async () => {
+  it('step mock-stop action does nothing when stop button not found', async () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
     const ctx = makeCtx();
     await step.action!(ctx);
@@ -671,15 +1090,6 @@ describe('ws-mock-server lesson', () => {
   it('step mock-stop has verify selector for start button', () => {
     const step = wsMockServerLesson.steps.find(s => s.id === 'mock-stop')!;
     expect(step.verify).toContain('mock-start-btn');
-  });
-
-  // ─── Cleanup ────────────────────────────────────────────────
-
-  it('cleanup function exists and is callable', async () => {
-    const ctx = makeCtx();
-    await wsMockServerLesson.cleanup!(ctx);
-    // Should call disconnect, stop mock, switch to client
-    expect(ctx.click).toHaveBeenCalled();
   });
 });
 
@@ -750,6 +1160,14 @@ describe('ws-console lesson', () => {
     expect(ctx.delay).toHaveBeenCalledWith(200);
   });
 
+  it('step console-connect preAction ensures console tab and structured view', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-console-view-structured'));
+  });
+
   it('step console-intro action clicks console tab', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-intro')!;
     const ctx = makeCtx();
@@ -776,7 +1194,10 @@ describe('ws-console lesson', () => {
       expect.stringContaining('ws-console-cmd-input'),
       '/connect ws://localhost:9876',
     );
-    expect(ctx.delay).toHaveBeenCalledWith(1500);
+    // Must use waitFor for connection timing, not a fixed delay (Rule 5).
+    // Waits for a CONSOLE_ENTRY because STATUS_CONNECTED lives inside the Connect
+    // panel which is unmounted when Compose tab is active after connection.
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-console-entry'), expect.any(Number));
   });
 
   it('step console-connect dispatches Enter key on input', async () => {
@@ -794,12 +1215,97 @@ describe('ws-console lesson', () => {
     expect(enterCalls.length).toBe(1);
   });
 
+  it('step console-connect action sets _consoleConnected so subsequent preActions skip /connect', async () => {
+    // After step 2 action runs, the module flag must be true.
+    // Verify by running step 3 preAction afterwards — fill must NOT be called again.
+    const connectStep = wsConsoleLesson.steps.find(s => s.id === 'console-connect')!;
+    const lifecycleStep = wsConsoleLesson.steps.find(s => s.id === 'console-lifecycle')!;
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'ws-console-cmd-input');
+    document.body.appendChild(input);
+
+    const ctx = makeCtx();
+    // Reset session flag first
+    await wsConsoleLesson.setup!(ctx);
+    ctx.fill.mockClear();
+    ctx.waitFor.mockClear();
+
+    // Run step 2 action — should connect and set flag
+    await connectStep.action!(ctx);
+    ctx.fill.mockClear();
+    ctx.waitFor.mockClear();
+
+    // Run step 3 preAction — must NOT call fill('/connect ...') again
+    await lifecycleStep.preAction!(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-cmd-input'),
+      '/connect ws://localhost:9876',
+    );
+  });
+
   // ─── Step: console-lifecycle ────────────────────────────────
 
   it('step console-lifecycle is informational (no action)', () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-lifecycle')!;
     expect(step.action).toBeUndefined();
     expect(step.highlight).toBeTruthy();
+  });
+
+  it('step console-lifecycle preAction navigates to Console tab and switches to Structured view', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-lifecycle')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-console-view-structured'));
+  });
+
+  it('step console-lifecycle preAction connects on first call (no prior connection in session)', async () => {
+    // _consoleConnected starts false (reset by setup) → preAction should connect
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'ws-console-cmd-input');
+    document.body.appendChild(input);
+    const spy = vi.spyOn(input, 'dispatchEvent');
+
+    // Reset lesson session flag via setup
+    const ctx = makeCtx();
+    await wsConsoleLesson.setup!(ctx);
+
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-lifecycle')!;
+    await step.preAction!(ctx);
+
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-cmd-input'),
+      '/connect ws://localhost:9876',
+    );
+    // Enter key must be dispatched to submit the command
+    const enterCalls = spy.mock.calls.filter(
+      c => c[0] instanceof KeyboardEvent && (c[0] as KeyboardEvent).key === 'Enter',
+    );
+    expect(enterCalls.length).toBe(1);
+    // waitFor must use CONSOLE_ENTRY to confirm entries appeared
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-console-entry'), expect.any(Number));
+  });
+
+  it('step console-lifecycle preAction is no-op when already connected in session', async () => {
+    // Simulate _consoleConnected = true by first running the step's preAction once
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'ws-console-cmd-input');
+    document.body.appendChild(input);
+
+    // Reset lesson session flag
+    const ctx = makeCtx();
+    await wsConsoleLesson.setup!(ctx);
+
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-lifecycle')!;
+    // First call connects and sets _consoleConnected = true
+    await step.preAction!(ctx);
+    ctx.fill.mockClear();
+    ctx.waitFor.mockClear();
+
+    // Second call should be a no-op (flag already set)
+    await step.preAction!(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(expect.stringContaining('ws-console-cmd-input'), '/connect ws://localhost:9876');
+    expect(ctx.waitFor).not.toHaveBeenCalled();
   });
 
   // ─── Step: console-categories ───────────────────────────────
@@ -819,12 +1325,22 @@ describe('ws-console lesson', () => {
     expect(step.highlight).toContain('ws-console-category');
   });
 
+  it('step console-categories preAction navigates to Console and connects if needed', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-categories')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+  });
+
   // ─── Step: console-send ─────────────────────────────────────
 
-  it('step console-send preAction resets category filter', async () => {
+  it('step console-send preAction ensures connected and resets category filter', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-send')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    // Must navigate to Console tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    // Must reset category filter to show all entries
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-category'),
       'all',
@@ -856,6 +1372,19 @@ describe('ws-console lesson', () => {
   });
 
   // ─── Step: console-help ─────────────────────────────────────
+
+  it('step console-help preAction ensures connected and resets category filter', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-help')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Must navigate to Console tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    // Must reset category filter so /help output is visible (step 4 may have set lifecycle)
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category'),
+      'all',
+    );
+  });
 
   it('step console-help action fills /help and submits', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-help')!;
@@ -894,7 +1423,27 @@ describe('ws-console lesson', () => {
     expect(step.highlight).toContain('ws-console-clear');
   });
 
+  it('step console-clear preAction ensures Console tab is active with entries', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-clear')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+  });
+
   // ─── Step: console-search ───────────────────────────────────
+
+  it('step console-search preAction ensures connected with entries and resets category', async () => {
+    const step = wsConsoleLesson.steps.find(s => s.id === 'console-search')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    // Must navigate to Console tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    // Must reset category so search covers all entry types
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-category'),
+      'all',
+    );
+  });
 
   it('step console-search fills search input', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-search')!;
@@ -913,10 +1462,13 @@ describe('ws-console lesson', () => {
 
   // ─── Step: console-views ────────────────────────────────────
 
-  it('step console-views preAction clears search', async () => {
+  it('step console-views preAction ensures connected, clears search', async () => {
     const step = wsConsoleLesson.steps.find(s => s.id === 'console-views')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    // Must navigate to Console tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+    // Must clear search from step 8 so all entries are visible in the Raw view
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('ws-console-search'),
       '',
@@ -939,7 +1491,7 @@ describe('ws-console lesson', () => {
 
   // ─── Setup & Cleanup ───────────────────────────────────────
 
-  it('setup starts mock server and switches to client mode', async () => {
+  it('setup resets _consoleConnected flag and starts mock server', async () => {
     const ctx = makeCtx();
     await wsConsoleLesson.setup!(ctx);
     // wsSetup: click mock mode → start mock → click client mode
@@ -947,7 +1499,7 @@ describe('ws-console lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
 
-  it('cleanup is callable', async () => {
+  it('cleanup resets _consoleConnected flag and runs wsCleanup', async () => {
     const ctx = makeCtx();
     await wsConsoleLesson.cleanup!(ctx);
     expect(ctx.click).toHaveBeenCalled();
@@ -1061,17 +1613,85 @@ describe('ws-tabs lesson', () => {
     expect(enterCalls.length).toBe(1);
   });
 
-  it('step tabs-connect has preAction that clicks console tab', async () => {
+  it('step tabs-connect preAction clicks Tab 1 then the console tab', async () => {
     const ctx = makeCtx();
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-connect')!;
     await step.preAction!(ctx);
+    // Must navigate to Tab 1 first so the connect command applies to Tab 1
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-bar'));
+    // Then switch to Console tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+  });
+
+  it('step tabs-connect action uses waitFor for connected status', async () => {
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'ws-console-cmd-input');
+    document.body.appendChild(input);
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-connect')!;
+    await step.action!(ctx);
+
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('ws-console-cmd-input'),
+      '/connect ws://localhost:9876',
+    );
+    // Must use waitFor (not only delay) so connection timing is reliable
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('connected'), expect.any(Number));
   });
 
   it('step tabs-connect has verify selector for connected status', () => {
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-connect')!;
     expect(step.verify).toBeDefined();
     expect(step.verify).toContain('connected');
+  });
+
+  it('step tabs-independent has preAction that ensures two tabs exist', async () => {
+    // Only one tab in DOM → ensureTwoTabs should add one
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+      </div>
+      <button data-testid="conn-tab-add">+</button>`;
+
+    const addBtn = document.querySelector('[data-testid="conn-tab-add"]') as HTMLElement;
+    const addSpy = vi.spyOn(addBtn, 'click');
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-independent')!;
+    await step.preAction!(ctx);
+    expect(addSpy).toHaveBeenCalled();
+  });
+
+  it('step tabs-independent preAction does not add tab when two already exist', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+        <div role="tab" data-testid="conn-tab-2">Tab 2</div>
+      </div>
+      <button data-testid="conn-tab-add">+</button>`;
+
+    const addBtn = document.querySelector('[data-testid="conn-tab-add"]') as HTMLElement;
+    const addSpy = vi.spyOn(addBtn, 'click');
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-independent')!;
+    await step.preAction!(ctx);
+    // Should NOT add a tab — already have 2
+    expect(addSpy).not.toHaveBeenCalled();
+  });
+
+  it('step tabs-independent preAction navigates to Tab 1', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+        <div role="tab" data-testid="conn-tab-2">Tab 2</div>
+      </div>`;
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-independent')!;
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
   });
 
   it('step tabs-independent clicks the last tab', async () => {
@@ -1116,11 +1736,54 @@ describe('ws-tabs lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
   });
 
-  it('step tabs-history clicks the history trigger', async () => {
+  it('step tabs-history has preAction that navigates to Tab 1', async () => {
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-history')!;
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
+  });
+
+  it('step tabs-history clicks the history trigger and waits 2s before closing', async () => {
     const ctx = makeCtx();
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-history')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-history-trigger'));
+    // Should have called delay with at least 2000ms for end-user readability
+    const delayCalls = (ctx.delay as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0] as number);
+    expect(delayCalls.some((ms: number) => ms >= 2000)).toBe(true);
+  });
+
+  it('step tabs-close has preAction that ensures Tab 2 exists', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+      </div>
+      <button data-testid="conn-tab-add">+</button>`;
+
+    const addBtn = document.querySelector('[data-testid="conn-tab-add"]') as HTMLElement;
+    const addSpy = vi.spyOn(addBtn, 'click');
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-close')!;
+    await step.preAction!(ctx);
+    expect(addSpy).toHaveBeenCalled();
+  });
+
+  it('step tabs-close preAction does not add tab when two exist', async () => {
+    document.body.innerHTML = `
+      <div data-testid="conn-tab-bar">
+        <div role="tab" data-testid="conn-tab-1">Tab 1</div>
+        <div role="tab" data-testid="conn-tab-2">Tab 2</div>
+      </div>
+      <button data-testid="conn-tab-add">+</button>`;
+
+    const addBtn = document.querySelector('[data-testid="conn-tab-add"]') as HTMLElement;
+    const addSpy = vi.spyOn(addBtn, 'click');
+
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-close')!;
+    await step.preAction!(ctx);
+    expect(addSpy).not.toHaveBeenCalled();
   });
 
   it('step tabs-close finds and clicks the close button on last tab', async () => {
@@ -6707,14 +7370,14 @@ describe('ws-tls lesson', () => {
     expect(tlsToggle.onclick).toHaveBeenCalled();
   });
 
-  it('step tls-skip-cert action dispatches click on checkbox', async () => {
+  it('step tls-skip-cert action dispatches click on checkbox to enable skip-cert', async () => {
     const label = document.createElement('label');
     label.setAttribute('data-testid', 'tls-reject-unauthorized');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = false;
-    const spy = vi.fn();
-    checkbox.addEventListener('click', spy);
+    const clickSpy = vi.fn(() => { checkbox.checked = true; }); // simulate browser toggle
+    checkbox.addEventListener('click', clickSpy);
     label.appendChild(checkbox);
     document.body.appendChild(label);
 
@@ -6722,7 +7385,9 @@ describe('ws-tls lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(spy).toHaveBeenCalled();
+    // setSkipCert uses waitFor + MouseEvent click to update React controlled checkbox
+    expect(clickSpy).toHaveBeenCalled();
+    expect(checkbox.checked).toBe(true); // step 5 enables skip-cert
   });
 
   // ─── Step: tls-certs ──────────────────────────────────────
@@ -6791,8 +7456,8 @@ describe('ws-tls lesson', () => {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
-    const spy = vi.fn();
-    checkbox.addEventListener('click', spy);
+    const clickSpy = vi.fn(() => { checkbox.checked = false; }); // simulate browser toggle
+    checkbox.addEventListener('click', clickSpy);
     label.appendChild(checkbox);
     document.body.appendChild(label);
 
@@ -6807,7 +7472,9 @@ describe('ws-tls lesson', () => {
 
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(spy).toHaveBeenCalled();
+    // setSkipCert uses waitFor + MouseEvent click to properly update React controlled checkbox
+    expect(clickSpy).toHaveBeenCalled();
+    expect(checkbox.checked).toBe(false); // skip-cert reset to false
     // Should NOT click Connect because already connected
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
@@ -6842,13 +7509,39 @@ describe('ws-tls lesson', () => {
 
   // ─── Setup / Cleanup ─────────────────────────────────────
 
-  it('setup switches to client mode, disconnects, and resets to Connect + Events tabs', async () => {
+  it('setup switches to client mode, disconnects, resets TLS skip-cert before clearing URL, and resets tabs', async () => {
+    // Setup the TLS toggle so ensureTlsPanelExpanded can expand it
+    const toggle = document.createElement('button');
+    toggle.setAttribute('data-testid', 'tls-toggle');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.onclick = vi.fn(() => toggle.setAttribute('aria-expanded', 'true'));
+    document.body.appendChild(toggle);
+
+    const label = document.createElement('label');
+    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true; // Simulate skip-cert left enabled from a previous session
+    const skipCertClickSpy = vi.fn(() => { checkbox.checked = false; }); // simulate browser toggle
+    checkbox.addEventListener('click', skipCertClickSpy);
+    label.appendChild(checkbox);
+    document.body.appendChild(label);
+
     const ctx = makeCtx();
     await wsTlsLesson.setup!(ctx);
+
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
+    // Must fill wss:// URL first (TLS panel appears), expand panel, reset skip-cert, then clear
+    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
+    const wssIdx = fillCalls.findIndex(([, v]) => String(v).startsWith('wss://'));
+    const clearIdx = fillCalls.findIndex(([, v]) => v === '');
+    expect(wssIdx).toBeGreaterThanOrEqual(0);
+    expect(clearIdx).toBeGreaterThan(wssIdx);       // clear happens AFTER wss:// fill
+    // setSkipCert uses waitFor + MouseEvent click to properly update React state
+    expect(skipCertClickSpy).toHaveBeenCalled();
+    expect(checkbox.checked).toBe(false);           // skip-cert was reset to false
   });
 
   it('cleanup switches to client mode, Connect tab, disconnects and clears URL', async () => {

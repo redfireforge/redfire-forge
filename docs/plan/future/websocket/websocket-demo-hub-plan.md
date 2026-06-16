@@ -1,7 +1,7 @@
 # Demo Hub — WebSocket Demo Lessons Plan
 
 > **Created:** 2026-06-14
-> **Updated:** 2026-06-15 — All 20 lessons shipped; Lesson 20 rewritten as hands-on Workflow Runner demo (not tour); __wfInsertWorkflow bridge added
+> **Updated:** 2026-06-16 — Lesson 21 added: Local TLS Echo Server (Docker) with 3-phase TLS education (skip-cert, CA cert, mTLS); generate-client-cert.sh + docker-compose.mtls.yml + nginx-mtls.conf added; 9 E2E tests pass; all 8 steps live-validated with Playwright MCP; dockerCommand updated to include idempotent cert generation
 > **Branch:** `feature/websocket-demo-hub`
 > **Lessons (v2):** `src/features/demo-player/lessons/` — **used by Learning Hub UI**
 > **Suites (v1 legacy):** ~~`src/features/demo-player/suites/`~~ — **DELETED** (all 5 v1 files removed 2026-06-15)
@@ -19,7 +19,7 @@
 | **Suites (v1)** | ~~`suites/`~~ | ~~`allDemoSuites`~~ | ~~`DemoPlayer.tsx`~~ | **✅ Deleted 2026-06-15** |
 
 The Learning Hub UI shows **4 domain cards**:
-- **Protocols** — 20 lessons ✅ All shipped (17 standalone + 3 Docker)
+- **Protocols** — 21 lessons ✅ All shipped (17 standalone + 4 Docker)
 - **API Testing** — Coming Soon (`available: false`)
 - **Workflows** — Coming Soon (`available: false`)
 - **Test Harness** — Coming Soon (`available: false`)
@@ -100,8 +100,9 @@ The lesson order follows a **learner-first progression** — not the E2E test fi
 | **18** | **SSE Advanced Features** | ✅ Shipped | 7 | sse-studio-advanced | **P6** | No |
 | **19** | **Secure WebSocket (wss:// & TLS)** | ✅ Shipped | 7 | ws-tls | **P7** | No |
 | **20** | **Run WS Workflow in Harness** | ✅ Shipped | 6 | ws-test-runner | **P8** | No |
+| **21** | **Local TLS Echo Server (Docker)** | ✅ Shipped | 8 | ws-tls-local-demo | **P9** | 🐳 Yes |
 
-> **All 20 lessons shipped.** Docker lessons 10–12 use `PrerequisiteGate` component + `checkEndpoint` utility with auto-polling. The `tag` field and `dockerEndpoint`/`dockerCommand` fields are implemented on `DemoLesson`.
+> **All 21 lessons shipped.** Docker lessons 10–12 + 21 use `PrerequisiteGate` component + `checkEndpoint` utility with auto-polling. The `tag` field and `dockerEndpoint`/`dockerCommand` fields are implemented on `DemoLesson`.
 
 ### Workflows Domain (Not used — Workflow Builder moved to Protocols domain)
 
@@ -111,7 +112,7 @@ The lesson order follows a **learner-first progression** — not the E2E test fi
 
 No WS-specific lessons planned. These domains will be populated with HTTP/harness lessons in future branches.
 
-**Current:** 20/20 lessons shipped | All Docker lessons live | v1 code deleted | All Phase 2 lessons shipped
+**Current:** 21/21 lessons shipped | All Docker lessons live | v1 code deleted | All Phase 2 lessons shipped | Phase 3 (mTLS) shipped in Lesson 21
 
 ### Legacy Suites (v1) — ✅ DELETED 2026-06-15
 
@@ -1365,6 +1366,108 @@ export function useDemoWorkflowBridge(
 
 ---
 
+---
+
+## Lesson 21: Local TLS Echo Server (Docker) — Phase 3 (P9)
+
+**Why:** The Lesson 19 TLS demo uses `wss://echo.websocket.org` (external, unreliable). This lesson replaces the external dependency with a **real local Docker stack** and extends TLS education to three phases: skip-cert validation, CA certificate chain validation, and Mutual TLS (mTLS) with client certificates.
+
+**File:** `src/features/demo-player/lessons/protocols/ws-tls-local.ts`
+**Export:** `wsTlsLocalLesson`
+**Tag:** 🐳 Docker | **Est. time:** 8 min | **initialTab:** `websocket-studio`
+**Category:** `websocket`
+
+### Three-Phase TLS Education
+
+| Phase | Step IDs | Approach | Server Port | Use Case |
+|-------|----------|----------|-------------|----------|
+| 1 | 1–3 | Skip certificate validation (`rejectUnauthorized: false`) | 8766 | Local dev, quick iteration |
+| 2 | 4–5 | CA Certificate (paste root CA PEM, full chain validation) | 8766 | Staging / internal PKI |
+| 3 | 6–8 | Mutual TLS (client cert + key, nginx `ssl_verify_client on`) | 8768 | High-security APIs, client identity |
+
+### Docker Stack
+
+| Service | File | Port | Description |
+|---------|------|------|-------------|
+| `ws-echo-tls` (jmalloc/echo-server) | `docker-compose.tls.yml` | 8767 (health) | Plain WS echo, Phase 1+2 backend |
+| `ws-tls-proxy` (nginx) | `docker-compose.tls.yml` | 8766 (wss) | TLS termination with self-signed cert |
+| `ws-echo-mtls` (jmalloc/echo-server) | `docker-compose.mtls.yml` | 8769 (health) | Plain WS echo, Phase 3 backend |
+| `ws-mtls-proxy` (nginx) | `docker-compose.mtls.yml` | 8768 (wss+mTLS) | TLS+client-cert verification |
+
+### Certificate Infrastructure
+
+| Script | Output | Purpose |
+|--------|--------|---------|
+| `./generate-cert.sh` | `certs/ca.crt`, `certs/ca.key`, `certs/server.crt`, `certs/server.key` | Root CA + server leaf cert |
+| `./generate-client-cert.sh` | `certs/client.crt`, `certs/client.key` | Client leaf cert (signed by CA, `clientAuth` EKU) |
+
+The lesson **embeds the cert content** directly in `ws-tls-local.ts` so the demo auto-pastes them into the TLS panel without manual file copy.
+
+### Steps (8 steps)
+
+| # | Step ID | Title | Phase | Highlight |
+|---|---------|-------|-------|-----------|
+| 1 | `local-tls-url` | Phase 1 — The Local TLS Server | 1 | TLS panel (appears on wss:// URL) |
+| 2 | `local-tls-skip-cert` | Skip Certificate Validation | 1 | Skip-cert checkbox → Proxy badge |
+| 3 | `local-tls-connect` | Connect & Echo — Phase 1 Confirmed | 1 | Connect button + echo send |
+| 4 | `local-tls-ca-intro` | Phase 2 — CA Certificate Validation | 2 | TLS body (CA cert textarea) |
+| 5 | `local-tls-ca-connect` | Connect with CA Certificate | 2 | Connect button |
+| 6 | `local-tls-mtls-intro` | Phase 3 — Mutual TLS (mTLS) | 3 | URL input (switch to 8768) |
+| 7 | `local-tls-mtls-creds` | Client Certificate & Private Key | 3 | TLS body (client cert + key fields) |
+| 8 | `local-tls-mtls-connect` | Connect via mTLS — Phase 3 Confirmed | 3 | Connect button |
+
+### Setup / Cleanup
+
+**Setup (`localTlsSetup`):**
+1. Switch to Client mode
+2. Disconnect and close extra tabs
+3. Clear events
+4. `resetAuth(ctx)` — auth type → "none" (prevents proxy trigger)
+5. `clearCustomHeaders(ctx)` — remove all header rows (prevents proxy trigger)
+6. Fill `wss://localhost:8766`, expand TLS panel, reset skip-cert, clear cert fields
+7. **Clear URL** — so Step 1 shows the "wss:// → TLS panel appears" moment visually
+
+**Cleanup (`localTlsCleanup`):**
+1. Disconnect and clear events
+2. Restore URL → expand TLS → reset state → clear URL
+
+### PrerequisiteGate
+
+- `dockerEndpoint: 'http://localhost:8767'` — health probe for Phase 1+2 stack
+- `dockerCommand`: `cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh && docker compose -f docker-compose.tls.yml -f docker-compose.mtls.yml up -d`
+  - `generate-cert.sh` and `generate-client-cert.sh` are **idempotent** — they skip if certs already exist, so the full command is safe to run repeatedly.
+- The gate auto-polls and unlocks when Docker is ready. Only Lesson 21 requires BOTH TLS and mTLS stacks.
+
+### E2E Tests
+
+**File:** `e2e/ws-tls-local-demo.spec.ts` (9 tests, 1 skipped when Docker UP)
+
+| # | Test | Docker Required |
+|---|------|-----------------|
+| 1 | Lesson visible with 🐳 tag | No |
+| 2 | PrerequisiteGate disables Start Demo (Docker DOWN) | No (skipped when UP) |
+| 3 | `localTlsSetup` clears skip-cert and CA cert | TLS (8767) |
+| 4 | `localTlsSetup` clears custom headers | TLS (8767) |
+| 5 | skip-cert → Proxy transport → Connected 8766 | TLS (8767) |
+| 6 | Echo round-trip over skip-cert TLS | TLS (8767) |
+| 7 | CA cert → Proxy → Connected 8766 (no skip-cert) | TLS (8767) |
+| 8 | Client cert+key → Proxy → Connected 8768 (mTLS) | TLS (8767) + mTLS (8769) |
+| 9 | mTLS server rejects connection without client cert | mTLS (8769) |
+
+**Verified 2026-06-16:** 8/8 pass (1 skipped), 0 flakes, Docker stacks confirmed:
+- TLS: `Verify return code: 0 (ok)` via openssl
+- mTLS: `Peer signature type: rsa_pss_rsae_sha256, Verify return code: 0 (ok)` via openssl
+
+**Live Playwright Visual Validation 2026-06-16:** All 8 steps validated end-to-end through Playwright MCP:
+- Step 1 (Phase 1 intro): URL `wss://localhost:8766` filled, TLS panel appeared ✓
+- Step 2 (Skip cert): checkbox checked, Proxy transport badge confirmed ✓
+- Step 3 (Phase 1 connect): Connected via skip-cert, echo `{ "phase": 1, "method": "skip-cert" }` round-trip ✓
+- Step 4 (Phase 2 intro): Disconnected, CA cert pasted into textarea ✓
+- Step 5 (Phase 2 connect): Connected via CA chain, echo `{ "phase": 2, "method": "ca-cert", "msg": "Chain validated!" }` ✓
+- Step 6 (Phase 3 intro): URL switched to `wss://localhost:8768`, CA cert re-pasted ✓
+- Step 7 (Client creds): Client cert + key pasted into mTLS fields ✓
+- Step 8 (Phase 3 connect): Connected to mTLS server, echo `{ "phase": 3, "method": "mtls", "msg": "Both sides authenticated!" }` ✓
+
 ### Lesson 20 Post-Ship Bug Fixes
 
 Six bugs were discovered and fixed after initial shipping of Lesson 20 (ws-test-runner):
@@ -1408,3 +1511,4 @@ All 6 bugs fixed; all 6 steps visually verified in browser (workflow ran, 3 requ
 | SSE advanced: bookmarks, reconnect, LEI | SE-11–14 | Lesson 18 (7 steps) |
 | TLS / wss:// | WP-16–18, WP-30 | Lesson 19 (7 steps) |
 | Workflow Runner in Test Harness | WR-14–28 | Lesson 20 (6 steps) |
+| Local TLS: skip-cert / CA cert / mTLS | WP-19–21 | Lesson 21 (8 steps, 🐳 Docker) |
