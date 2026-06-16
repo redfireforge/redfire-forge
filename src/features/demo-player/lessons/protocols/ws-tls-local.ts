@@ -117,14 +117,33 @@ iAU+tJGKIkZm8s8ILh0GJWVcfQ==
 // ── Guard helpers ──────────────────────────────────────────────────
 
 /**
- * Ensures the TLS accordion panel is expanded.
- * Waits for the toggle element (only present when URL is wss://) before acting.
+ * Opens the TLS modal if it is not already open.
+ *
+ * The Configure button (`data-testid="tls-toggle"`) never receives an
+ * `aria-expanded` attribute, so checking that property always returns null.
+ * Instead we check whether the modal body (`data-testid="tls-body"`) is
+ * already present in the DOM — if so, the modal is open and we skip the click.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
-  const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
-  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
-    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  const alreadyOpen = !!document.querySelector(WS.TLS_BODY);
+  if (!alreadyOpen) {
+    const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+    if (toggle) {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await ctx.delay(300);
+    }
+  }
+}
+
+/**
+ * Closes the TLS modal if it is currently open, by clicking its Close button.
+ * Must be called before connecting so the Connect tab is fully visible.
+ */
+async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
+  const closeBtn = document.querySelector('[data-testid="tls-close"]') as HTMLElement | null;
+  if (closeBtn) {
+    closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await ctx.delay(300);
   }
 }
@@ -407,28 +426,40 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-connect',
       title: 'Connect & Echo — Phase 1 Confirmed',
       description:
-        'Click **Connect**. The Node.js proxy opens a TLS connection with `rejectUnauthorized: false`, accepts the self-signed cert, and bridges messages to the browser. Status shows **Connected** and transport shows **Proxy**. Send a message — the echo server reflects it back, proving the encrypted round-trip.',
+        'Click **Connect**. The proxy accepts the self-signed cert and the connection establishes — the studio automatically switches to the **Compose** tab so you can immediately send a message. The echo server reflects it back, proving the encrypted round-trip. The demo then returns to the Connect tab so you can see the **Connected** status and the **Proxy** transport badge.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
+        // Wait for the connection — the WS Studio auto-switches to Compose on connect.
+        // We embrace that auto-switch and send the echo from the Compose tab.
         await ctx.delay(2500);
-        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.delay(1500);
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Already on Compose tab (auto-switched) — fill and send the echo
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":1,"method":"skip-cert","msg":"Hello over local TLS!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch to Connect tab to show the Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
+        }
+        // Briefly outline the transport badge so viewers see the Proxy label
+        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        if (badge) {
+          badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          badge.style.outline = '2px solid var(--accent-primary, #e96b3a)';
+          badge.style.borderRadius = '4px';
+          await ctx.delay(800);
+          badge.style.outline = '';
+          badge.style.borderRadius = '';
         }
       },
       verify: WS.STATUS_CONNECTED,
@@ -469,30 +500,30 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-ca-connect',
       title: 'Connect with CA Certificate',
       description:
-        'Click **Connect**. The Node.js proxy validates the server\'s leaf cert against your pasted CA — chain verifies, connection succeeds. Transport badge shows **Proxy**. The key difference from Phase 1: certificate chain integrity is enforced, so a rogue server with a different cert would be rejected.',
+        'Click **Connect**. The proxy validates the server\'s leaf cert against your pasted Root CA — the chain verifies and the connection succeeds. The studio auto-switches to **Compose** so you can send an echo; the demo then returns to the Connect tab to show the **Connected** status and **Proxy** badge. Key difference from Phase 1: certificate chain integrity is enforced — a rogue server with a different cert would be rejected.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
+        // Wait for connection — WS Studio auto-switches to Compose on connect
         await ctx.delay(2500);
-        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.delay(1500);
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Already on Compose tab (auto-switched) — send echo
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":2,"method":"ca-cert","msg":"Chain validated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
         }
-        // Highlight transport badge
         const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
         if (badge) badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         await ctx.delay(400);
@@ -558,28 +589,29 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-mtls-connect',
       title: 'Connect via mTLS — Phase 3 Confirmed',
       description:
-        'Click **Connect**. The proxy presents the client cert to the mTLS server, which verifies it against the CA — mutual authentication complete. Status shows **Connected**, transport shows **Proxy**. Both sides have been authenticated: you know the server is genuine (CA cert) and the server knows you are genuine (client cert).',
+        'Click **Connect**. The proxy presents the client cert to the mTLS server — it verifies it against the CA, and mutual authentication completes. The studio auto-switches to **Compose** to send an echo; the demo returns to Connect tab to show **Connected** status and **Proxy** badge. Both sides authenticated: you trust the server (CA cert) and the server trusts you (client cert).',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
+        // Wait for connection — WS Studio auto-switches to Compose on connect
         await ctx.delay(2500);
-        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.delay(1500);
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Already on Compose tab (auto-switched) — send echo
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":3,"method":"mtls","msg":"Both sides authenticated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
         }
         // Highlight transport badge
         const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
