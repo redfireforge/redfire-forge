@@ -575,6 +575,24 @@
   background: rgba(59, 130, 246, 0.2);
 }
 
+.demo-concept-code {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: var(--surface-3, #131c28);
+  border-radius: 8px;
+  border: 1px solid var(--border, #3b4a60);
+  overflow-x: auto;
+}
+
+.demo-concept-code code {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-muted, #a8b8cc);
+  background: none;
+  padding: 0;
+}
+
 .demo-concept-diagram {
   margin-top: 24px;
   padding: 16px 20px;
@@ -592,7 +610,6 @@
 .demo-concept-diagram svg {
   width: 100%;
   height: auto;
-  max-height: 160px;
 }
 
 .demo-start-btn {
