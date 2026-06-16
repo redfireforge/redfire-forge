@@ -161,7 +161,7 @@ export function WebSocketTlsPanel({
             <span className="ws-tls-section-tag">Optional</span>
           </div>
           <p className="ws-tls-section-desc">
-            Provide a custom Certificate Authority to trust — required when your server uses a private or self-signed CA.
+            Provide a custom Certificate Authority to trust — required when your server uses a private or self-signed CA. Also needed for mTLS when the server cert is not publicly trusted.
           </p>
           <div className="ws-tls-field">
             <div className="ws-tls-field-header">
@@ -189,7 +189,7 @@ export function WebSocketTlsPanel({
             <span className="ws-tls-section-tag ws-tls-section-tag--mtls">mTLS</span>
           </div>
           <p className="ws-tls-section-desc">
-            Mutual TLS — present a client certificate so the server can authenticate you, not just you authenticating the server.
+            Mutual TLS — the server requires you to present a certificate proving your identity. Both fields below are required. If the server uses a private CA, also fill in the CA Certificate above.
           </p>
           <div className="ws-tls-field">
             <div className="ws-tls-field-header">
