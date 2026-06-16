@@ -83,16 +83,25 @@ async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
   }
   // Start mock server so the workflow has a live endpoint to connect to
   try {
-    await fetch('/api/ws/mock/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: 9876 }) });
-  } catch { /* server may already be running */ }
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 3000);
+    await fetch('/api/ws/mock/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: 9876 }), signal: abort.signal });
+    clearTimeout(timer);
+  } catch { /* server may already be running or unreachable */ }
   await ctx.delay(400);
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(600);
 }
 
 async function harnessRunCleanup(ctx: DemoActionContext): Promise<void> {
-  try { await fetch('/api/ws/mock/stop', { method: 'POST' }); } catch { /* ignore */ }
-  ctx.navigateToTab('workflow-runner');
+  // Stop the mock server with an explicit timeout so cleanup never hangs.
+  try {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 3000);
+    await fetch('/api/ws/mock/stop', { method: 'POST', signal: abort.signal });
+    clearTimeout(timer);
+  } catch { /* ignore — server may already be stopped or unreachable */ }
+  // No navigateToTab here — App.tsx calls setActiveTab('demo-hub') after cleanup resolves.
   await ctx.delay(300);
 }
 
