@@ -133,6 +133,10 @@ export class WebSocketProxyService {
 
     if (request.tls) {
       wsOptions.agent = this.buildTlsAgent(request.tls, url);
+    } else if (url.toLowerCase().startsWith('wss://')) {
+      // Even without explicit TLS config, create an agent for wss:// localhost
+      // connections to bypass corporate proxy env vars (HTTP_PROXY / HTTPS_PROXY).
+      wsOptions.agent = this.buildTlsAgent({ rejectUnauthorized: true }, url);
     }
 
     const protocols = Array.isArray(request.subprotocols)
@@ -217,7 +221,19 @@ export class WebSocketProxyService {
   buildTlsAgent(tls: WsTlsConfig, url: string): https.Agent | undefined {
     if (!url.toLowerCase().startsWith('wss://')) return undefined;
     const agentOptions: https.AgentOptions = {};
+
+    // Detect localhost/loopback — self-signed certs are expected here.
+    let isLocal = false;
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    } catch { /* handled elsewhere */ }
+
     if (tls.rejectUnauthorized === false) {
+      agentOptions.rejectUnauthorized = false;
+    } else if (isLocal && !tls.caCert) {
+      // Localhost with no CA cert provided — skip validation by default since
+      // self-signed certs are the norm for local dev/Docker servers.
       agentOptions.rejectUnauthorized = false;
     }
     if (tls.caCert) {
@@ -228,6 +244,11 @@ export class WebSocketProxyService {
     }
     if (tls.clientKey) {
       agentOptions.key = tls.clientKey;
+    }
+    // Bypass corporate HTTP proxy for localhost/loopback — prevents VPN/proxy
+    // interference with local dev servers (e.g. Docker TLS echo containers).
+    if (isLocal) {
+      (agentOptions as Record<string, unknown>).proxy = false;
     }
     return new https.Agent(agentOptions);
   }

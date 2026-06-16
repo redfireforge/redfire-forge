@@ -489,7 +489,10 @@ export function useWebSocketStudio(
         ws.onerror = null;
         wsRef.current = null;
         resetConnectionTiming();
-        const errMsg = 'Connection failed — check URL, network, or CORS policy';
+        const isWss = effectiveUrl.toLowerCase().startsWith('wss://');
+        const errMsg = isWss
+          ? 'Connection failed — self-signed or untrusted certificate? Configure TLS settings (Skip Verify or CA cert) to connect via proxy'
+          : 'Connection failed — check URL, network, or CORS policy';
         lastReconnectErrorRef.current = errMsg;
         setConnection({
           state: 'error',
@@ -616,8 +619,15 @@ export function useWebSocketStudio(
         connectProxy();
         return;
       }
+      // wss://localhost and wss://127.0.0.1 with self-signed certs always fail
+      // in the browser's Direct transport (the browser rejects untrusted certs).
+      // Route through the Node.js proxy so TLS options can be applied server-side.
+      // This also avoids corporate proxy / VPN interference with localhost.
+      const isLocalWss = resolvedEffective.startsWith('wss://') &&
+        /^wss:\/\/(localhost|127\.0\.0\.1)([:/?#]|$)/i.test(resolvedEffective);
       const needsProxy = hasCustomHeaders(draftRef.current) ||
         resolvedAuth.headers.length > 0 ||
+        isLocalWss ||
         (resolvedEffective.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
       if (needsProxy) {
         connectProxy();
