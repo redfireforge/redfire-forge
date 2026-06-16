@@ -17,7 +17,7 @@ export const kafkaTlsLesson: DemoLesson = {
   description:
     'Add TLS encryption on top of SASL authentication: enable the TLS toggle, skip certificate verification for the self-signed demo cert, and confirm a successful encrypted publish.',
   estimatedMinutes: 5,
-  initialTab: 'kafka-message-studio',
+  initialTab: 'kafka-settings',
   allowedTabs: ['kafka-settings', 'kafka-message-studio'],
 
   dockerEndpoint: 'http://localhost:19648',

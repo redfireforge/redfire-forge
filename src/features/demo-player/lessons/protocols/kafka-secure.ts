@@ -17,7 +17,7 @@ export const kafkaSecureLesson: DemoLesson = {
   description:
     'Configure a SASL/SCRAM-256 authenticated Kafka cluster, test the connection, save, connect, and publish a message — no plain-text traffic.',
   estimatedMinutes: 5,
-  initialTab: 'kafka-message-studio',
+  initialTab: 'kafka-settings',
   allowedTabs: ['kafka-settings', 'kafka-message-studio'],
 
   dockerEndpoint: 'http://localhost:19645',
