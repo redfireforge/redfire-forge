@@ -417,9 +417,10 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
-        // Send a quick echo message to demonstrate the live connection
+        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
+          await ctx.delay(1500);
           await ctx.click(WS.LEFT_TAB_COMPOSE);
           await ctx.delay(300);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":1,"method":"skip-cert","msg":"Hello over local TLS!"}');
@@ -478,8 +479,10 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
+        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
+          await ctx.delay(1500);
           await ctx.click(WS.LEFT_TAB_COMPOSE);
           await ctx.delay(300);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":2,"method":"ca-cert","msg":"Chain validated!"}');
@@ -565,8 +568,10 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
+        // Pause so the user can see the Connected status on the Connect tab
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
+          await ctx.delay(1500);
           await ctx.click(WS.LEFT_TAB_COMPOSE);
           await ctx.delay(300);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":3,"method":"mtls","msg":"Both sides authenticated!"}');
