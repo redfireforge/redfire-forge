@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** 🔨 In Progress — K1 (Quick Start), K2 (Publish Studio), K3 (Consume Studio), K4 (Headers & Filters), K5 (Templates) shipped; K6–K13 pending
+> **Status:** ✅ Complete — all 13 lessons (K1–K13) implemented, tested, and committed on `feature/kafka-demo-hub`. Pending merge to `develop`.
 
 ---
 
@@ -1157,8 +1157,8 @@ The table below shows which existing E2E specs validate the underlying feature e
 | K8 | Stream mode (start/stop/export) | `kafka-live.spec.ts` | ✅ |
 | K9 | kafkaProduce node in workflow | `kafka-desktop.spec.ts` | ✅ |
 | K10 | kafkaConsume + kafkaWait nodes | `kafka-desktop.spec.ts` | ✅ |
-| K11 | SASL/SCRAM cluster + workflow | Validated manually (see `kafka-secure-tls-stream-test-scenarios.md`) | ☐ |
-| K12 | TLS cluster + workflow | Validated manually (see `kafka-secure-tls-stream-test-scenarios.md`) | ☐ |
+| K11 | SASL/SCRAM cluster + workflow | `kafka-secure.spec.ts` — 9 tests (empty state, editor, SCRAM fields revealed, test-connection pass/fail, save, connect, publish, disconnect) | ✅ |
+| K12 | TLS cluster + workflow | `kafka-tls.spec.ts` — 9 tests (empty state, editor, TLS toggle, test-connection pass/fail, save, connect, publish, disconnect) | ✅ |
 | K13 | Harness Workflow Runner + PRODUCE badges | `kafka-live.spec.ts` | ✅ |
 
 ---
@@ -1200,21 +1200,21 @@ Recommended implementation sequence (short lessons and no-Docker first):
 |---|---|---|
 | 1 | ~~K5 Templates~~ ✅ Done | No Docker, pure UI — fast to implement and test |
 | 2 | ~~K2 Publish Studio~~ ✅ Done | Core feature, rich selectors already exist |
-| 3 | **K3 Consume Studio** ← next | Builds directly on K2 selectors |
-| 4 | K4 Headers & Filters | Extends K2+K3 patterns |
-| 5 | K1 Quick Start | Docker, but simple step flow |
-| 6 | K6 Topic Explorer | Reuses existing explorer data-testids |
-| 7 | K8 Stream Mode | Stream data-testids well defined |
-| 8 | K9 Workflow: Produce | Needs `__wfInsertWorkflow`; verify bridge first |
-| 9 | K10 Workflow: Consume & Wait | Depends on K9 pattern |
-| 10 | K7 Schema Registry | Needs SR Docker stack running |
-| 11 | K13 Harness Run | Depends on K9 seeding pattern |
-| 12 | K11 Secure Cluster | Docker-heavy; implement after all plaintext lessons |
-| 13 | K12 TLS Cluster | Most complex Docker setup — implement last |
+| 3 | ~~K3 Consume Studio~~ ✅ Done | Builds directly on K2 selectors |
+| 4 | ~~K4 Headers & Filters~~ ✅ Done | Extends K2+K3 patterns |
+| 5 | ~~K1 Quick Start~~ ✅ Done | Docker, but simple step flow |
+| 6 | ~~K6 Topic Explorer~~ ✅ Done | Reuses existing explorer data-testids |
+| 7 | ~~K8 Stream Mode~~ ✅ Done | Stream data-testids well defined |
+| 8 | ~~K9 Workflow: Produce~~ ✅ Done | Needs `__wfInsertWorkflow`; verify bridge first |
+| 9 | ~~K10 Workflow: Consume & Wait~~ ✅ Done | Depends on K9 pattern |
+| 10 | ~~K7 Schema Registry~~ ✅ Done | Needs SR Docker stack running |
+| 11 | ~~K13 Harness Run~~ ✅ Done | Depends on K9 seeding pattern |
+| 12 | ~~K11 Secure Cluster~~ ✅ Done | Docker-heavy; implement after all plaintext lessons |
+| 13 | ~~K12 TLS Cluster~~ ✅ Done | Most complex Docker setup — implement last |
 
 ---
 
-*Last updated: 2026-06-16 — Selectors section fully audited against TSX source; `dockerDescription` field removed (not on `DemoLesson` type); stream/schema/settings selectors corrected to use verified `data-testid` values; Open Question #2 resolved (stream-producer.sh confirmed present).*
+*Last updated: 2026-06-16 — All 13 lessons complete and committed (`7333bed`). 169 unit tests passing, 0 TypeScript errors. 6 post-implementation bugs fixed (selector names, initialTab UX flash, React input setter, highlight mismatch). Uncommitted working-tree improvements to K1–K4 and demo UX (restart button, mode-reset guard, header selector fix) pending commit before merge. E2E coverage: ✅ K11 covered by `kafka-secure.spec.ts` (9 tests), K12 covered by `kafka-tls.spec.ts` (9 tests) — both use live Docker skip guards. All 13 lessons now have E2E specs. Feature branch `feature/kafka-demo-hub` pending merge to `develop`.*
 
 ---
 
@@ -1249,5 +1249,29 @@ All 8 remaining Kafka lessons implemented and registered in `src/features/demo-p
 - Setup calls `kafkaPublishSetup` to ensure cluster is connected before the run
 
 ### Tests
-- 168 total tests passing (was 108 before K6–K13)
-- 60 new tests added across 8 new `describe` blocks in `kafka-lessons.test.ts`
+- **169 total tests passing** (was 108 before K6–K13; +1 after K6–K13 bug-fix pass)
+- 61 new tests added across 8 new `describe` blocks in `kafka-lessons.test.ts`
+- TypeScript: 0 errors (`npx tsc --noEmit` clean on commit `7333bed`)
+
+### Bug fixes applied post-implementation (commit `7333bed`)
+
+| # | Bug | File | Fix |
+|---|---|---|---|
+| 1 | `KAFKA.NODE_PRODUCE` / `NODE_CONSUME` used `.node-type-*` — class doesn't exist in DOM | `selectors.ts` | Changed to `.wf-node-kafkaProduce` / `.wf-node-kafkaConsume`; added `NODE_WAIT` |
+| 2 | K10 `cw-wait-node` used hardcoded wrong selector `'.node-type-kafkaWait'` | `kafka-workflow-consume-wait.ts` | Use `KAFKA.NODE_WAIT` |
+| 3 | K10 `cw-wait-config` highlighted `WAIT_SAMPLE_TEXTAREA` while describing Correlation Expression | `kafka-workflow-consume-wait.ts` | Changed to `KAFKA.WAIT_CONFIG` |
+| 4 | K9 `wp-canvas` description said "Double-click" but action used single click | `kafka-workflow-produce.ts` | Changed to "Click" |
+| 5 | K11 + K12 had `initialTab: 'kafka-message-studio'` causing visible UX flash before settings | `kafka-secure.ts`, `kafka-tls.ts` | Changed `initialTab` to `'kafka-settings'` |
+| 6 | K13 `kr-iterations` set `.value = '3'` directly, bypassing React synthetic events | `kafka-test-runner.ts` | Replaced with `ctx.fill()` (native setter) |
+
+### Uncommitted improvements (working tree — pending commit before merge)
+
+| File | Change |
+|---|---|
+| `kafka-consume.ts` (K3) | Step 1 preAction resets Stream→Once mode; step 7 adds `verify: KAFKA.CON_DETAIL_PANE`; loading delay tuned |
+| `kafka-headers-filters.ts` (K4) | Selector `:first-child` → `:last-child` for header rows; stale rows cleared at start; `pauseAfter: true` on send step |
+| `kafka-quick-start.ts` (K1) | Minor description polish |
+| `kafka-publish.ts` (K2) | Minor description polish |
+| `useDemoHub.ts` | Removes `prevStep` / `setSpeed`; adds `restartDemo` (runs cleanup + setup + resets to step 0) |
+| `LiveDemo.tsx` | Removes ← prev button and speed selector; adds ↺ restart button; locks → next while action is executing |
+| `DemoHub.tsx` / `App.tsx` | Prop cleanup matching `LiveDemo` changes |
