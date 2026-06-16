@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { WsTlsConfig } from '../../shared/websocket/types';
 import { isTauri } from '../../shared/utils/platform';
@@ -20,6 +20,38 @@ export function WebSocketTlsPanel({
   disabled = false,
 }: WebSocketTlsPanelProps) {
   const [open, setOpen] = useState(false);
+  /** Snapshot of config when modal opened — used by Cancel to revert */
+  const snapshotRef = useRef<WsTlsConfig | null>(null);
+  /** Track whether any field was modified since opening */
+  const [dirty, setDirty] = useState(false);
+
+  const handleOpen = useCallback(() => {
+    snapshotRef.current = { ...tlsConfig };
+    setDirty(false);
+    setOpen(true);
+  }, [tlsConfig]);
+
+  const handleTlsChange = useCallback((patch: Partial<WsTlsConfig>) => {
+    setDirty(true);
+    onTlsChange(patch);
+  }, [onTlsChange]);
+
+  const handleCancel = useCallback(() => {
+    if (snapshotRef.current) {
+      onTlsChange(snapshotRef.current);
+    }
+    setOpen(false);
+  }, [onTlsChange]);
+
+  const handleSave = useCallback(() => {
+    // Changes are already applied via onTlsChange — just update snapshot
+    snapshotRef.current = { ...tlsConfig };
+    setDirty(false);
+  }, [tlsConfig]);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
 
   const skipCert = tlsConfig.rejectUnauthorized === false;
   const hasCaCert = !!tlsConfig.caCert;
@@ -47,7 +79,7 @@ export function WebSocketTlsPanel({
       )}
       <button
         className="ws-tls-trigger-btn"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         data-testid="tls-toggle"
         aria-haspopup="dialog"
       >
@@ -64,23 +96,31 @@ export function WebSocketTlsPanel({
           <span aria-hidden="true">🔒</span> TLS / mTLS Configuration
         </span>
       }
-      onClose={() => setOpen(false)}
+      onClose={handleClose}
       overlayClassName="ws-tls-overlay"
       dialogClassName="ws-tls-modal"
       headerClassName="ws-tls-modal-header modal-header"
       bodyClassName="ws-tls-modal-body"
       footerClassName="ws-tls-modal-footer"
       titleId="ws-tls-modal-title"
-      showExpandButton={true}
-      showResizeHandles={true}
+      showExpandButton={false}
+      showResizeHandles={false}
+      closeButtonKind="none"
       minWidth={460}
       minHeight={320}
       footer={
-        <button className="ws-connect-btn ws-connect-btn-primary" onClick={() => setOpen(false)}>
-          Done
-        </button>
+        <>
+          <button className="ws-connect-btn" onClick={handleCancel} data-testid="tls-cancel">
+            Cancel
+          </button>
+          <button className="ws-connect-btn ws-connect-btn-primary" onClick={handleSave} disabled={!dirty} data-testid="tls-save">
+            Save
+          </button>
+          <button className="ws-connect-btn" onClick={handleClose} data-testid="tls-close">
+            Close
+          </button>
+        </>
       }
-      data-testid="tls-body"
     >
       <div data-testid="tls-body">
 
@@ -102,7 +142,7 @@ export function WebSocketTlsPanel({
               <input
                 type="checkbox"
                 checked={skipCert}
-                onChange={(e) => onTlsChange({ rejectUnauthorized: !e.target.checked })}
+                onChange={(e) => handleTlsChange({ rejectUnauthorized: !e.target.checked })}
                 disabled={disabled}
               />
             </div>
@@ -132,7 +172,7 @@ export function WebSocketTlsPanel({
               id="tls-ca-cert-input"
               className="ws-tls-textarea"
               value={tlsConfig.caCert ?? ''}
-              onChange={(e) => onTlsChange({ caCert: e.target.value || undefined })}
+              onChange={(e) => handleTlsChange({ caCert: e.target.value || undefined })}
               placeholder={"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
               rows={5}
               disabled={disabled}
@@ -160,7 +200,7 @@ export function WebSocketTlsPanel({
               id="tls-client-cert-input"
               className="ws-tls-textarea"
               value={tlsConfig.clientCert ?? ''}
-              onChange={(e) => onTlsChange({ clientCert: e.target.value || undefined })}
+              onChange={(e) => handleTlsChange({ clientCert: e.target.value || undefined })}
               placeholder={"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
               rows={5}
               disabled={disabled}
@@ -177,7 +217,7 @@ export function WebSocketTlsPanel({
               id="tls-client-key-input"
               className="ws-tls-textarea"
               value={tlsConfig.clientKey ?? ''}
-              onChange={(e) => onTlsChange({ clientKey: e.target.value || undefined })}
+              onChange={(e) => handleTlsChange({ clientKey: e.target.value || undefined })}
               placeholder={"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"}
               rows={5}
               disabled={disabled}

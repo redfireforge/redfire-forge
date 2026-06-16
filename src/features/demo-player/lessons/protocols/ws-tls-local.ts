@@ -236,23 +236,66 @@ The browser's native TLS stack validates certificates against the OS trust store
 
 All three require **Proxy transport** in the browser — the Node.js proxy applies your TLS settings server-side. On Tauri desktop, the Native transport handles them natively without a proxy.
 
-**Architecture**
-
-\`\`\`
-Browser
-  └─ /api/ws/connect  (Node.js proxy, port 3001 — npm run server)
-       │
-       ├─ Phase 1+2 → nginx TLS proxy  (wss://localhost:8766)  ← docker-compose.tls.yml
-       │                └─ jmalloc/echo-server  (ws://localhost:8080)
-       │
-       └─ Phase 3   → nginx mTLS proxy (wss://localhost:8768)  ← docker-compose.mtls.yml
-                        ssl_verify_client on
-                        └─ jmalloc/echo-server  (ws://localhost:8080)
-\`\`\`
-
 **Prerequisites**
 1. \`npm run server\` — starts Node.js proxy on port 3001 (required for Proxy transport)
 2. \`cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh && docker compose -f docker-compose.tls.yml -f docker-compose.mtls.yml up -d\` — generates certs (idempotent) and starts both Docker stacks`,
+    diagram: `<svg viewBox="0 -10 680 345" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="tls-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--primary)"/>
+    </marker>
+    <marker id="tls-arrow-warn" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--warning, #f59e0b)"/>
+    </marker>
+  </defs>
+
+  <!-- Browser box -->
+  <rect x="20" y="125" width="120" height="55" rx="6" fill="var(--primary)" opacity="0.15" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="80" y="150" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Browser</text>
+  <text x="80" y="168" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">/api/ws/connect</text>
+
+  <!-- Arrow: Browser → Proxy -->
+  <line x1="140" y1="152" x2="220" y2="152" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
+
+  <!-- Node.js proxy box -->
+  <rect x="220" y="115" width="160" height="80" rx="6" fill="rgba(59,130,246,0.08)" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <text x="300" y="140" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Node.js Proxy</text>
+  <text x="300" y="158" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">npm run server</text>
+  <text x="300" y="174" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">port 3001</text>
+  <text x="300" y="190" text-anchor="middle" fill="var(--primary)" font-size="9" font-family="system-ui" opacity="0.7">TLS settings applied here</text>
+
+  <!-- Phase 1+2 branch (top) -->
+  <line x1="380" y1="138" x2="450" y2="70" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
+  <text x="402" y="96" fill="var(--text-muted)" font-size="9" font-family="system-ui" transform="rotate(-32 402 96)">wss://</text>
+
+  <!-- Phase 1+2 badge (above box) -->
+  <rect x="452" y="18" width="60" height="18" rx="9" fill="var(--primary)" opacity="0.2"/>
+  <text x="482" y="31" text-anchor="middle" fill="var(--primary)" font-size="10" font-weight="600">Phase 1+2</text>
+
+  <!-- nginx TLS proxy box -->
+  <rect x="450" y="42" width="200" height="62" rx="6" fill="var(--accent, #8b5cf6)" opacity="0.12" stroke="var(--accent, #8b5cf6)" stroke-width="1.5"/>
+  <text x="550" y="64" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">nginx TLS Proxy</text>
+  <text x="550" y="82" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">wss://localhost:8766</text>
+  <text x="550" y="98" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.tls.yml</text>
+
+  <!-- Phase 3 branch (bottom) -->
+  <line x1="380" y1="168" x2="450" y2="230" stroke="var(--warning, #f59e0b)" stroke-width="1.5" marker-end="url(#tls-arrow-warn)"/>
+  <text x="402" y="210" fill="var(--text-muted)" font-size="9" font-family="system-ui" transform="rotate(32 402 210)">wss://</text>
+
+  <!-- Phase 3 badge (above box) -->
+  <rect x="452" y="195" width="50" height="18" rx="9" fill="var(--warning, #f59e0b)" opacity="0.2"/>
+  <text x="477" y="208" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="10" font-weight="600">Phase 3</text>
+
+  <!-- nginx mTLS proxy box -->
+  <rect x="450" y="218" width="200" height="78" rx="6" fill="var(--warning, #f59e0b)" opacity="0.1" stroke="var(--warning, #f59e0b)" stroke-width="1.5"/>
+  <text x="550" y="240" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">nginx mTLS Proxy</text>
+  <text x="550" y="258" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">wss://localhost:8768</text>
+  <text x="550" y="275" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="10" font-family="system-ui" font-weight="500">ssl_verify_client on</text>
+  <text x="550" y="291" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.mtls.yml</text>
+
+  <!-- Echo server label (shared, bottom) -->
+  <text x="550" y="314" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">&#x2193; jmalloc/echo-server (ws://localhost:8080)</text>
+</svg>`,
   },
 
   steps: [
