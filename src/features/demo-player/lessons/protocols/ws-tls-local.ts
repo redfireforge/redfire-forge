@@ -568,7 +568,11 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-mtls-creds',
       title: 'Client Certificate & Private Key',
       description:
-        'Paste the **Client Certificate** and **Client Private Key** into the mTLS fields. These were signed by the same Dev Root CA that the mTLS server trusts. The Node.js proxy will present them during the TLS handshake — the server verifies the cert, authenticating your client at the transport layer.',
+        'Paste the **Client Certificate** and **Client Private Key** — both are required for mTLS. These were signed by the same Dev Root CA that the mTLS server trusts, so the server can verify them.\n\n' +
+        '**Do you need all three fields?**\n' +
+        '- **Skip certificate validation** — ❌ Never use with mTLS. It disables server verification, defeating the mutual-trust model.\n' +
+        '- **CA Certificate** — ✅ Required here because our nginx server uses a self-signed cert not in the OS trust store. With a publicly-trusted server cert (e.g. Let\'s Encrypt), this is optional.\n' +
+        '- **Client Certificate + Private Key** — ✅ Always required for mTLS. These are what the server uses to authenticate you at the transport layer.',
       highlight: WS.TLS_BODY,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
