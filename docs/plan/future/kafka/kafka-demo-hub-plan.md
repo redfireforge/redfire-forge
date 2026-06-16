@@ -221,14 +221,14 @@ Lessons are ordered to build intuition progressively — not by implementation p
 | K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K5 | Templates | `kafka-templates` | `kafka-templates.ts` | ✅ Done (2026-06-15) | 7 | — | No |
-| K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K7 | Schema Registry | `kafka-schema-registry` | `kafka-schema-registry.ts` | 🔲 Not started | 9 | `kafka-schema.spec.ts` | 🐳 SR |
-| K8 | Stream Mode | `kafka-stream-mode` | `kafka-stream-mode.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K9 | Workflow: Produce | `kafka-workflow-produce` | `kafka-workflow-produce.ts` | 🔲 Not started | 9 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
-| K10 | Workflow: Consume & Wait | `kafka-workflow-consume-wait` | `kafka-workflow-consume-wait.ts` | 🔲 Not started | 10 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
-| K11 | Secure Cluster | `kafka-secure` | `kafka-secure.ts` | 🔲 Not started | 9 | — (manual) | 🐳 Secure |
-| K12 | TLS Cluster | `kafka-tls` | `kafka-tls.ts` | 🔲 Not started | 9 | — (manual) | 🐳 TLS |
-| K13 | Harness Run | `kafka-test-runner` | `kafka-test-runner.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | ✅ Done (2026-06-16) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K7 | Schema Registry | `kafka-schema-registry` | `kafka-schema-registry.ts` | ✅ Done (2026-06-16) | 9 | `kafka-schema.spec.ts` | 🐳 SR |
+| K8 | Stream Mode | `kafka-stream-mode` | `kafka-stream-mode.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K9 | Workflow: Produce | `kafka-workflow-produce` | `kafka-workflow-produce.ts` | ✅ Done (2026-06-16) | 9 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K10 | Workflow: Consume & Wait | `kafka-workflow-consume-wait` | `kafka-workflow-consume-wait.ts` | ✅ Done (2026-06-16) | 10 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K11 | Secure Cluster | `kafka-secure` | `kafka-secure.ts` | ✅ Done (2026-06-16) | 9 | — (manual) | 🐳 Secure |
+| K12 | TLS Cluster | `kafka-tls` | `kafka-tls.ts` | ✅ Done (2026-06-16) | 9 | — (manual) | 🐳 TLS |
+| K13 | Harness Run | `kafka-test-runner` | `kafka-test-runner.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
 
 **Total planned:** 13 lessons, 111 steps (sum of per-lesson estimates)
 
@@ -1215,3 +1215,39 @@ Recommended implementation sequence (short lessons and no-Docker first):
 ---
 
 *Last updated: 2026-06-16 — Selectors section fully audited against TSX source; `dockerDescription` field removed (not on `DemoLesson` type); stream/schema/settings selectors corrected to use verified `data-testid` values; Open Question #2 resolved (stream-producer.sh confirmed present).*
+
+---
+
+## K6–K13 Implementation Notes (2026-06-16)
+
+All 8 remaining Kafka lessons implemented and registered in `src/features/demo-player/lessons/index.ts`.
+
+### K8 (Stream Mode)
+- `concept.diagram` SVG updated to show Consume Once vs Stream mode side-by-side
+- Step `sm-row` uses a DOM querySelector fallback (3 selector patterns) for the first stream result row since stream rows don't have a stable single testid
+
+### K9 (Workflow: Produce Node)
+- `kafkaWorkflowProduceSetup` chains `kafkaPublishSetup` (ensures cluster is connected) then seeds the workflow via `__wfInsertWorkflow`
+- `initialTab` intentionally not set — setup navigates to `'workflow'` directly so the lesson doesn't trigger auto-exit when moving between workflow and results tabs
+- Seeded workflow has 3 nodes: Start → kafkaProduce (with `{{topic}}` variable and `sentPartition` output binding) → End
+
+### K10 (Workflow: Consume & Wait)
+- Seeded workflow has 5 nodes: Start → kafkaProduce → kafkaConsume → kafkaWait → End
+- kafkaWait configured with `auto-resume` mode + sample payload so Quick Test resolves instantly without a live `payments.confirmed` event
+- `highlight: WF.NODE_CONFIG` used for the Wait node steps (no separate WAIT_CONFIG selector in shared selectors)
+
+### K11 (Secure Cluster) + K12 (TLS Cluster)
+- Both use `kafkaSetup` (navigate to kafka-message-studio only) — no cluster is pre-created
+- Steps walk through the full Cluster Editor form (name → broker → auth → [TLS] → test → save → connect)
+- TLS lesson additionally clicks the TLS toggle and unchecks certificate verification for the self-signed demo cert
+- `dockerCommand` provided for each; docker stacks at `docker/kafka/secure` and `docker/kafka/tls`
+
+### K13 (Harness Run)
+- Follows the `ws-test-runner.ts` pattern exactly
+- `initialTab` intentionally not set; `allowedTabs: ['results']` prevents auto-exit when navigating to results dashboard
+- Seeded workflow: Start → kafkaProduce (topic `{{topic}}`, body with `{{runId}}`) → End
+- Setup calls `kafkaPublishSetup` to ensure cluster is connected before the run
+
+### Tests
+- 168 total tests passing (was 108 before K6–K13)
+- 60 new tests added across 8 new `describe` blocks in `kafka-lessons.test.ts`
