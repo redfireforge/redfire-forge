@@ -45,7 +45,7 @@ export default function PrerequisiteGate({ endpoint, dockerCommand, onServerRead
     intervalRef.current = setInterval(probe, 3000);
     return () => {
       mountedRef.current = false;
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      clearInterval(intervalRef.current!);
     };
   }, [probe]);
 

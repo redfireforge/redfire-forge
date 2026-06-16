@@ -71,6 +71,26 @@ export async function executeProduce(
         case 'json-schema': valueEncoding = 'json-schema'; break;
         default:            valueEncoding = 'avro';        break;
       }
+    } else {
+      // Raw binary encoding — decode base64/hex strings to Buffers before sending.
+      const bodyFmt = request.bodyFormat ?? 'json';
+      const keyFmt = request.keyFormat ?? 'string';
+      if (bodyFmt === 'base64' || bodyFmt === 'hex' || keyFmt === 'base64' || keyFmt === 'hex') {
+        messagesToSend = request.messages.map((msg) => {
+          const encodedValue =
+            bodyFmt === 'base64' ? Buffer.from(msg.value, 'base64')
+            : bodyFmt === 'hex'  ? Buffer.from(msg.value.replace(/\s/g, ''), 'hex')
+            : msg.value;
+          const encodedKey =
+            msg.key != null && (keyFmt === 'base64' || keyFmt === 'hex')
+              ? keyFmt === 'base64' ? Buffer.from(msg.key, 'base64') : Buffer.from(msg.key.replace(/\s/g, ''), 'hex')
+              : msg.key;
+          return { ...msg, value: encodedValue, ...(encodedKey !== msg.key ? { key: encodedKey } : {}) };
+        });
+        if (bodyFmt === 'base64' || bodyFmt === 'hex') {
+          valueEncoding = bodyFmt;
+        }
+      }
     }
 
     const records = await withTimeout(

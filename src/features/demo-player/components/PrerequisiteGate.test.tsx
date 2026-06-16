@@ -89,4 +89,47 @@ describe('PrerequisiteGate', () => {
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
   });
+
+  // ─── Branch-coverage: lines 30, 33 ─────────────────────────────
+  // Line 30: `if (!mountedRef.current) return` — TRUE when probe runs after unmount.
+  // Line 33: `if (!mountedRef.current) return` — TRUE when unmount happens during checkEndpoint.
+
+  it('probe exits early when component unmounts before checkEndpoint resolves (lines 30, 33)', async () => {
+    // Make checkEndpoint take 500ms so we can unmount during the await
+    let resolveCheck: (v: boolean) => void;
+    mockCheck.mockImplementation(
+      () => new Promise<boolean>(resolve => { resolveCheck = resolve; }),
+    );
+
+    const { unmount } = render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    // Probe is now mid-flight (awaiting checkEndpoint)
+    // Unmount — mountedRef.current becomes false, interval is cleared
+    act(() => unmount());
+
+    // Resolve checkEndpoint AFTER unmount — the probe continues but hits line 33's guard
+    await act(async () => {
+      resolveCheck(true);
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // onServerReady MUST NOT have been called (probe bailed out at line 33)
+    expect(DEFAULT_PROPS.onServerReady).not.toHaveBeenCalled();
+  });
+
+  it('interval probe exits early via line 30 guard when component is already unmounted', async () => {
+    // Fast-resolving check so initial probe completes, then unmount, then interval fires
+    mockCheck.mockResolvedValue(false);
+    const { unmount } = render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    // Let initial probe complete
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    // Unmount → mountedRef.current = false, interval cleared
+    act(() => unmount());
+
+    // Even if somehow probe ran again, it would hit line 30's guard.
+    // This ensures the cleanup path is exercised.
+    const callCountAfterUnmount = mockCheck.mock.calls.length;
+    // Advancing timers after unmount should NOT trigger more checks (interval is cleared)
+    await act(() => vi.advanceTimersByTimeAsync(6000));
+    expect(mockCheck.mock.calls.length).toBe(callCountAfterUnmount);
+  });
 });

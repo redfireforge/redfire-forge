@@ -95,7 +95,7 @@ export default function WorkflowDetailModal({
                 onClick={() => setPretty(p => !p)}
                 title={pretty ? 'Show raw value' : 'Format JSON with indentation'}
               >
-                {pretty ? '{ } Raw' : '{ } Pretty Format'}
+                {pretty ? 'Raw' : 'Pretty Format'}
               </button>
             </div>
           )}

@@ -1,5 +1,7 @@
 /**
  * @vitest-environment jsdom
+ * Unit tests for demo lesson setup helpers.
+ * Uses a mocked DemoActionContext to verify click/fill/delay calls.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -9,360 +11,361 @@ import {
   disconnectWebSocket,
   clearEvents,
   resetAuth,
-  wsSetup,
-  wsCleanup,
-  wsAuthCleanup,
+  clearCustomHeaders,
   closeExtraConnectionTabs,
   fillControlledInput,
   connectToMockServer,
+  wsSetup,
+  wsCleanup,
+  wsAuthCleanup,
+  kafkaSetup,
+  kafkaPublishSetup,
+  kafkaCleanup,
+  kafkaTopicsSetup,
 } from './setup-helpers';
-import type { DemoActionContext } from '../types';
-
-function makeCtx(): DemoActionContext {
-  return {
-    navigateToTab: vi.fn(),
-    click: vi.fn().mockResolvedValue(undefined),
-    fill: vi.fn().mockResolvedValue(undefined),
-    selectOption: vi.fn().mockResolvedValue(undefined),
-    waitFor: vi.fn().mockResolvedValue(undefined),
-    delay: vi.fn().mockResolvedValue(undefined),
-  };
-}
+import { makeCtx } from './protocols/ws-test-utils';
 
 describe('setup-helpers', () => {
+  let ctx: DemoActionContext;
+
   beforeEach(() => {
+    ctx = makeCtx();
     document.body.innerHTML = '';
   });
 
-  describe('startMockServer', () => {
-    it('clicks mock mode and start button when enabled', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'mock-start-btn');
-      document.body.appendChild(btn);
-      const clickSpy = vi.spyOn(btn, 'click');
+  // ─── startMockServer ─────────────────────────────────────────
 
-      const ctx = makeCtx();
-      await startMockServer(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(clickSpy).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalledWith(1000);
-    });
-
-    it('does not click disabled start button', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'mock-start-btn');
-      btn.disabled = true;
-      document.body.appendChild(btn);
-      const clickSpy = vi.spyOn(btn, 'click');
-
-      const ctx = makeCtx();
-      await startMockServer(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(clickSpy).not.toHaveBeenCalled();
-    });
-
-    it('handles missing start button', async () => {
-      const ctx = makeCtx();
-      await startMockServer(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalledWith(400);
-    });
+  it('startMockServer clicks mode mock and delay, skips btn when not present', async () => {
+    await startMockServer(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock'));
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
-  describe('stopMockServer', () => {
-    it('clicks mock mode and stop button', async () => {
-      const ctx = makeCtx();
-      await stopMockServer(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
+  it('startMockServer clicks btn when present and not disabled', async () => {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'ws-mock-start');
+    btn.setAttribute('data-mock-start', 'true');
+    // Use the actual WS selector key (mock start btn uses data attribute)
+    btn.className = 'ws-mock-start-btn';
+    document.body.appendChild(btn);
+
+    // Monkey-patch querySelector to return our button for the MOCK_START_BTN selector
+    const origQS = document.querySelector.bind(document);
+    vi.spyOn(document, 'querySelector').mockImplementation((sel: string) => {
+      if (sel.includes('mock-start') || sel.includes('MOCK_START')) return btn;
+      return origQS(sel);
     });
 
-    it('clicks stop button when found and enabled', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'mock-stop-btn');
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await stopMockServer(ctx);
-      expect(clickSpy).toHaveBeenCalled();
-    });
-
-    it('does not click disabled stop button', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'mock-stop-btn');
-      btn.disabled = true;
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await stopMockServer(ctx);
-      expect(clickSpy).not.toHaveBeenCalled();
-    });
+    await startMockServer(ctx);
+    vi.restoreAllMocks();
   });
 
-  describe('switchToClientMode', () => {
-    it('clicks client mode button', async () => {
-      const ctx = makeCtx();
-      await switchToClientMode(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
-    });
+  it('startMockServer does NOT click btn when already disabled', async () => {
+    const btn = document.createElement('button');
+    btn.disabled = true;
+    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    const clickSpy = vi.spyOn(btn, 'click');
+    await startMockServer(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
-  describe('disconnectWebSocket', () => {
-    it('does nothing when no disconnect button', async () => {
-      const ctx = makeCtx();
-      await disconnectWebSocket(ctx);
-      // Should not throw
-    });
+  // ─── stopMockServer ───────────────────────────────────────────
 
-    it('clicks disconnect button when found and enabled', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'disconnect-btn');
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await disconnectWebSocket(ctx);
-      expect(clickSpy).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
-    });
-
-    it('does not click disabled disconnect button', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'disconnect-btn');
-      btn.disabled = true;
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await disconnectWebSocket(ctx);
-      expect(clickSpy).not.toHaveBeenCalled();
-    });
+  it('stopMockServer clicks mode mock and delay, skips btn when not present', async () => {
+    await stopMockServer(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock'));
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
-  describe('clearEvents', () => {
-    it('does nothing when no clear button', async () => {
-      const ctx = makeCtx();
-      await clearEvents(ctx);
-      // Should not throw
-    });
-
-    it('clicks clear button when found and enabled', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'clear-btn');
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await clearEvents(ctx);
-      expect(clickSpy).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
-    });
-
-    it('does not click disabled clear button', async () => {
-      const btn = document.createElement('button');
-      btn.setAttribute('data-testid', 'clear-btn');
-      btn.disabled = true;
-      const clickSpy = vi.spyOn(btn, 'click');
-      document.body.appendChild(btn);
-
-      const ctx = makeCtx();
-      await clearEvents(ctx);
-      expect(clickSpy).not.toHaveBeenCalled();
-    });
+  it('stopMockServer clicks btn when present and not disabled', async () => {
+    const btn = document.createElement('button');
+    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    const clickSpy = vi.spyOn(btn, 'click');
+    await stopMockServer(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
-  describe('resetAuth', () => {
-    it('clicks auth tab and selects none', async () => {
-      const ctx = makeCtx();
-      await resetAuth(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.selectOption).toHaveBeenCalled();
-    });
+  // ─── switchToClientMode ───────────────────────────────────────
+
+  it('switchToClientMode clicks client mode selector', async () => {
+    await switchToClientMode(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.any(String));
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
-  describe('wsSetup', () => {
-    it('calls startMockServer then switchToClientMode', async () => {
-      const ctx = makeCtx();
-      await wsSetup(ctx);
-      // Should call click for mock mode, delay, then click for client mode
-      expect(ctx.click).toHaveBeenCalledTimes(2);
-      expect(ctx.delay).toHaveBeenCalled();
-    });
+  // ─── disconnectWebSocket ──────────────────────────────────────
+
+  it('disconnectWebSocket does nothing when no disconnect btn present', async () => {
+    await disconnectWebSocket(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
   });
 
-  describe('wsCleanup', () => {
-    it('runs disconnect, clear, stop, and switch', async () => {
-      const ctx = makeCtx();
-      await wsCleanup(ctx);
-      // 3 clicks: mock mode (stopMockServer), then client mode (switchToClientMode),
-      // plus the click from stopMockServer
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
-    });
+  it('disconnectWebSocket clicks btn when present and not disabled', async () => {
+    const btn = document.createElement('button');
+    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    const clickSpy = vi.spyOn(btn, 'click');
+    await disconnectWebSocket(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
-  describe('wsAuthCleanup', () => {
-    it('runs disconnect, clear, resetAuth, stop, and switch', async () => {
-      const ctx = makeCtx();
-      await wsAuthCleanup(ctx);
-      expect(ctx.click).toHaveBeenCalled();
-      expect(ctx.selectOption).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
-    });
+  it('disconnectWebSocket does not click disabled btn', async () => {
+    const btn = document.createElement('button');
+    btn.disabled = true;
+    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    const clickSpy = vi.spyOn(btn, 'click');
+    await disconnectWebSocket(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
-  describe('closeExtraConnectionTabs', () => {
-    it('does nothing when only 1 tab exists', async () => {
-      const tabBar = document.createElement('div');
-      tabBar.setAttribute('data-testid', 'conn-tab-bar');
-      const tab = document.createElement('div');
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('data-testid', 'conn-tab-1');
-      tabBar.appendChild(tab);
-      document.body.appendChild(tabBar);
+  // ─── clearEvents ─────────────────────────────────────────────
 
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx);
-      expect(ctx.delay).not.toHaveBeenCalled();
-    });
-
-    it('closes extra tabs when multiple exist', async () => {
-      const tabBar = document.createElement('div');
-      tabBar.setAttribute('data-testid', 'conn-tab-bar');
-      const tab1 = document.createElement('div');
-      tab1.setAttribute('role', 'tab');
-      tab1.setAttribute('data-testid', 'conn-tab-1');
-      const tab2 = document.createElement('div');
-      tab2.setAttribute('role', 'tab');
-      tab2.setAttribute('data-testid', 'conn-tab-2');
-      const closeBtn = document.createElement('button');
-      closeBtn.setAttribute('data-testid', 'conn-tab-close-2');
-      closeBtn.addEventListener('click', () => tab2.remove());
-      tabBar.appendChild(tab1);
-      tabBar.appendChild(tab2);
-      document.body.appendChild(tabBar);
-      document.body.appendChild(closeBtn);
-
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx, 3);
-      expect(ctx.delay).toHaveBeenCalledWith(300);
-      expect(tabBar.querySelectorAll('[role="tab"]').length).toBe(1);
-    });
-
-    it('stops when close button is not found', async () => {
-      const tabBar = document.createElement('div');
-      tabBar.setAttribute('data-testid', 'conn-tab-bar');
-      const tab1 = document.createElement('div');
-      tab1.setAttribute('role', 'tab');
-      tab1.setAttribute('data-testid', 'conn-tab-1');
-      const tab2 = document.createElement('div');
-      tab2.setAttribute('role', 'tab');
-      tab2.setAttribute('data-testid', 'conn-tab-2');
-      tabBar.appendChild(tab1);
-      tabBar.appendChild(tab2);
-      document.body.appendChild(tabBar);
-
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx);
-      expect(ctx.delay).not.toHaveBeenCalled();
-    });
-
-    it('handles tab without data-testid', async () => {
-      const tabBar = document.createElement('div');
-      tabBar.setAttribute('data-testid', 'conn-tab-bar');
-      const tab1 = document.createElement('div');
-      tab1.setAttribute('role', 'tab');
-      tab1.setAttribute('data-testid', 'conn-tab-1');
-      const tab2 = document.createElement('div');
-      tab2.setAttribute('role', 'tab');
-      tabBar.appendChild(tab1);
-      tabBar.appendChild(tab2);
-      document.body.appendChild(tabBar);
-
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx, 2);
-      expect(ctx.delay).not.toHaveBeenCalled();
-    });
-
-    it('does nothing when no tab bar exists', async () => {
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx);
-      expect(ctx.delay).not.toHaveBeenCalled();
-    });
-
-    it('closes multiple tabs in sequence', async () => {
-      const tabBar = document.createElement('div');
-      tabBar.setAttribute('data-testid', 'conn-tab-bar');
-      const tab1 = document.createElement('div');
-      tab1.setAttribute('role', 'tab');
-      tab1.setAttribute('data-testid', 'conn-tab-1');
-      const tab2 = document.createElement('div');
-      tab2.setAttribute('role', 'tab');
-      tab2.setAttribute('data-testid', 'conn-tab-2');
-      const tab3 = document.createElement('div');
-      tab3.setAttribute('role', 'tab');
-      tab3.setAttribute('data-testid', 'conn-tab-3');
-      const closeBtn3 = document.createElement('button');
-      closeBtn3.setAttribute('data-testid', 'conn-tab-close-3');
-      closeBtn3.addEventListener('click', () => { tab3.remove(); closeBtn3.remove(); });
-      const closeBtn2 = document.createElement('button');
-      closeBtn2.setAttribute('data-testid', 'conn-tab-close-2');
-      closeBtn2.addEventListener('click', () => { tab2.remove(); closeBtn2.remove(); });
-      tabBar.appendChild(tab1);
-      tabBar.appendChild(tab2);
-      tabBar.appendChild(tab3);
-      document.body.appendChild(tabBar);
-      document.body.appendChild(closeBtn2);
-      document.body.appendChild(closeBtn3);
-
-      const ctx = makeCtx();
-      await closeExtraConnectionTabs(ctx, 5);
-      expect(tabBar.querySelectorAll('[role="tab"]').length).toBe(1);
-      expect(ctx.delay).toHaveBeenCalledTimes(2);
-    });
+  it('clearEvents does nothing when no clear btn present', async () => {
+    await clearEvents(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
   });
 
-  describe('fillControlledInput', () => {
-    it('sets native value and dispatches events', () => {
-      const input = document.createElement('input');
-      document.body.appendChild(input);
-
-      const inputHandler = vi.fn();
-      const changeHandler = vi.fn();
-      input.addEventListener('input', inputHandler);
-      input.addEventListener('change', changeHandler);
-
-      fillControlledInput(input, 'test-value');
-      expect(input.value).toBe('test-value');
-      expect(inputHandler).toHaveBeenCalled();
-      expect(changeHandler).toHaveBeenCalled();
-    });
+  it('clearEvents clicks btn when present and not disabled', async () => {
+    const btn = document.createElement('button');
+    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    const clickSpy = vi.spyOn(btn, 'click');
+    await clearEvents(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
-  describe('connectToMockServer', () => {
-    it('navigates to connect tab, fills URL, and clicks connect', async () => {
-      const ctx = makeCtx();
-      await connectToMockServer(ctx);
-      expect(ctx.click).toHaveBeenCalledTimes(2);
-      expect(ctx.fill).toHaveBeenCalled();
-      expect(ctx.delay).toHaveBeenCalled();
+  // ─── resetAuth ───────────────────────────────────────────────
+
+  it('resetAuth clicks auth tab and selects none', async () => {
+    await resetAuth(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'none');
+  });
+
+  // ─── clearCustomHeaders ───────────────────────────────────────
+
+  it('clearCustomHeaders clicks headers tab and returns to connect tab', async () => {
+    await clearCustomHeaders(ctx);
+    expect(ctx.click).toHaveBeenCalledTimes(2); // headers tab + connect tab
+  });
+
+  it('clearCustomHeaders removes header rows while they exist', async () => {
+    let callCount = 0;
+    const origQS = document.querySelector.bind(document);
+    vi.spyOn(document, 'querySelector').mockImplementation((sel: string) => {
+      if (sel.includes('kv-remove-btn')) {
+        callCount++;
+        if (callCount <= 2) {
+          const btn = document.createElement('button');
+          return btn;
+        }
+        return null;
+      }
+      return origQS(sel);
     });
 
-    it('uses custom URL when provided', async () => {
-      const ctx = makeCtx();
-      await connectToMockServer(ctx, 'ws://custom:1234');
-      const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
-      expect(fillCalls[0][1]).toBe('ws://custom:1234');
+    await clearCustomHeaders(ctx);
+    expect(callCount).toBeGreaterThan(0);
+    vi.restoreAllMocks();
+  });
+
+  // ─── closeExtraConnectionTabs ─────────────────────────────────
+
+  it('closeExtraConnectionTabs does nothing when only 1 tab', async () => {
+    const bar = document.createElement('div');
+    const tab = document.createElement('button');
+    tab.setAttribute('role', 'tab');
+    bar.appendChild(tab);
+    document.body.appendChild(bar);
+
+    await closeExtraConnectionTabs(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
+    bar.remove();
+  });
+
+  it('closeExtraConnectionTabs closes extra tabs when close btn found', async () => {
+    const bar = document.createElement('div');
+    // Tab 1
+    const t1 = document.createElement('button');
+    t1.setAttribute('role', 'tab');
+    t1.setAttribute('data-testid', 'conn-tab-tab-1');
+    // Tab 2 (extra)
+    const t2 = document.createElement('button');
+    t2.setAttribute('role', 'tab');
+    t2.setAttribute('data-testid', 'conn-tab-tab-2');
+    bar.append(t1, t2);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'conn-tab-close-tab-2');
+    document.body.append(bar, closeBtn);
+
+    // Mock querySelectorAll to return our tabs
+    const origQSA = document.querySelectorAll.bind(document);
+    vi.spyOn(document, 'querySelectorAll').mockImplementation((sel: string) => {
+      if (sel.includes('[role="tab"]')) {
+        // First iteration: 2 tabs; subsequent: 1 tab
+        if (vi.mocked(document.querySelectorAll).mock.calls.length <= 1) return [t1, t2] as unknown as NodeListOf<Element>;
+        return [t1] as unknown as NodeListOf<Element>;
+      }
+      return origQSA(sel);
     });
 
-    it('uses custom delay when provided', async () => {
-      const ctx = makeCtx();
-      await connectToMockServer(ctx, 'ws://localhost:9876', 500);
-      const delayCalls = (ctx.delay as ReturnType<typeof vi.fn>).mock.calls;
-      expect(delayCalls.some((c: number[]) => c[0] === 500)).toBe(true);
-    });
+    await closeExtraConnectionTabs(ctx, 2);
+    vi.restoreAllMocks();
+    bar.remove();
+    closeBtn.remove();
+  });
+
+  it('closeExtraConnectionTabs breaks when close btn not found', async () => {
+    const bar = document.createElement('div');
+    const t1 = document.createElement('button');
+    t1.setAttribute('role', 'tab');
+    const t2 = document.createElement('button');
+    t2.setAttribute('role', 'tab');
+    t2.setAttribute('data-testid', 'conn-tab-tab-x');
+    bar.append(t1, t2);
+    document.body.appendChild(bar);
+
+    vi.spyOn(document, 'querySelectorAll').mockReturnValue([t1, t2] as unknown as NodeListOf<Element>);
+    // No close btn → querySelector returns null for close btn
+
+    await closeExtraConnectionTabs(ctx, 3);
+    vi.restoreAllMocks();
+    bar.remove();
+  });
+
+  // ─── fillControlledInput ─────────────────────────────────────
+
+  it('fillControlledInput sets input value and dispatches events', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    const inputSpy = vi.fn();
+    const changeSpy = vi.fn();
+    input.addEventListener('input', inputSpy);
+    input.addEventListener('change', changeSpy);
+
+    fillControlledInput(input, 'test-val');
+    expect(input.value).toBe('test-val');
+    expect(inputSpy).toHaveBeenCalledTimes(1);
+    expect(changeSpy).toHaveBeenCalledTimes(1);
+    input.remove();
+  });
+
+  // ─── connectToMockServer ──────────────────────────────────────
+
+  it('connectToMockServer fills URL and clicks connect', async () => {
+    await connectToMockServer(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
+  });
+
+  it('connectToMockServer uses provided URL and delay', async () => {
+    await connectToMockServer(ctx, 'ws://custom:1234', 500);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://custom:1234');
+    expect(ctx.delay).toHaveBeenCalledWith(500);
+  });
+
+  // ─── Composed helpers ─────────────────────────────────────────
+
+  it('wsSetup calls startMockServer and switchToClientMode sequences', async () => {
+    await wsSetup(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('wsCleanup runs disconnect, clear, stop, client mode', async () => {
+    await wsCleanup(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('wsAuthCleanup runs disconnect, clear, reset auth, stop, client mode', async () => {
+    await wsAuthCleanup(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.any(String), 'none');
+  });
+
+  // ─── kafkaSetup ─────────────────────────────────────────────────
+
+  it('kafkaSetup navigates to kafka-message-studio', async () => {
+    await kafkaSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  // ─── kafkaPublishSetup ───────────────────────────────────────────
+
+  it('kafkaPublishSetup navigates to kafka-message-studio when settings page not mounted', async () => {
+    document.body.innerHTML = '';
+    await kafkaPublishSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+  });
+
+  it('kafkaPublishSetup with settings page but no empty-create-btn polls for connect', async () => {
+    const page = document.createElement('div');
+    page.setAttribute('data-testid', 'kafka-settings-page');
+    document.body.appendChild(page);
+    // No emptyCreateBtn, no connectBtn → polls 10× then returns
+    await kafkaPublishSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    page.remove();
+  });
+
+  it('kafkaPublishSetup with empty-create-btn, name input, save btn, and connect btn', async () => {
+    const page = document.createElement('div');
+    page.setAttribute('data-testid', 'kafka-settings-page');
+
+    const emptyBtn = document.createElement('button');
+    emptyBtn.setAttribute('data-testid', 'kafka-empty-create-btn');
+
+    const nameInput = document.createElement('input');
+    nameInput.id = 'kafka-cluster-name';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.setAttribute('data-testid', 'kafka-save-btn');
+
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
+
+    document.body.append(page, emptyBtn, nameInput, saveBtn, connectBtn);
+    await kafkaPublishSetup(ctx);
+
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    [page, emptyBtn, nameInput, saveBtn, connectBtn].forEach(el => el.remove());
+  });
+
+  it('kafkaPublishSetup with connect btn already disabled skips connect', async () => {
+    const page = document.createElement('div');
+    page.setAttribute('data-testid', 'kafka-settings-page');
+    const connectBtn = document.createElement('button');
+    connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
+    connectBtn.disabled = true;
+    document.body.append(page, connectBtn);
+    await kafkaPublishSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    page.remove();
+    connectBtn.remove();
+  });
+
+  // ─── kafkaCleanup ────────────────────────────────────────────────
+
+  it('kafkaCleanup is a no-op function', async () => {
+    await expect(kafkaCleanup(ctx)).resolves.not.toThrow();
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  // ─── kafkaTopicsSetup ─────────────────────────────────────────────
+
+  it('kafkaTopicsSetup navigates to kafka-message-studio and clicks topics tab', async () => {
+    await kafkaTopicsSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
   });
 });

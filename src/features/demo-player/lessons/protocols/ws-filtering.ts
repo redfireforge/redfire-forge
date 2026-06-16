@@ -16,6 +16,87 @@ async function sendMessage(ctx: DemoActionContext, message: string): Promise<voi
 }
 
 /**
+ * Guard: ensure the Events tab is visible (search bar present).
+ * Used by multiple preActions — skipping to any Events-based step
+ * from Schema tab or another context would otherwise leave the toolbar
+ * buttons inaccessible.
+ */
+async function ensureEventsTab(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(WS.SEARCH_INPUT)) {
+    await ctx.click(WS.RIGHT_TAB_EVENTS);
+    await ctx.delay(300);
+  }
+}
+
+/**
+ * Guard: close the diff modal and exit compare mode silently.
+ * Used by steps that need a clean state before navigating away from Events.
+ */
+async function closeDiffAndCompare(ctx: DemoActionContext): Promise<void> {
+  const diffClose = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+  if (diffClose) {
+    diffClose.click();
+    await ctx.delay(300);
+  }
+  const cancelBtn = document.querySelector(WS.COMPARE_CANCEL) as HTMLButtonElement | null;
+  if (cancelBtn) {
+    cancelBtn.click();
+    await ctx.delay(200);
+  }
+}
+
+/**
+ * Guard: ensure compare mode is active and the diff modal is open.
+ * Used by diff-view and diff-close preActions so skipping to those steps
+ * always shows a real diff rather than an empty state.
+ */
+async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
+  await ensureEventsTab(ctx);
+  // Close filter bar if open — rows must be fully visible for row clicks
+  if (document.querySelector(WS.FILTER_BAR)) {
+    await ctx.click(WS.FILTER_TOGGLE_BTN);
+    await ctx.delay(200);
+  }
+  // Clear any active search so all 9 rows are visible.
+  // After clearing, wait for the virtualizer to re-render all rows — 150ms is
+  // not enough when switching from a filtered view (e.g. 2 rows) to unfiltered
+  // (9 rows), because the virtual list needs a layout recalc before rows appear.
+  const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+  if (searchEl && searchEl.value) {
+    await ctx.fill(WS.SEARCH_INPUT, '');
+    await ctx.delay(400); // allow virtualizer to recalculate and render all rows
+  }
+  // If diff already open, nothing to do
+  if (document.querySelector(WS.DIFF_MODAL)) return;
+  // Enter compare mode if not already active.
+  // The unconditional delay gives React a macrotask cycle to commit any pending
+  // state changes (e.g. stepIndex update from goToStep) before el.click() fires —
+  // without it the state update from toggleCompare can be lost in concurrent mode.
+  if (!document.querySelector(WS.COMPARE_BANNER)) {
+    await ctx.delay(200);
+    await ctx.click(WS.COMPARE_BTN);
+    await ctx.waitFor(WS.COMPARE_BANNER, 3000);
+  }
+  // Wait for the virtualizer to render at least 6 rows before clicking.
+  // The message list is virtualised — after a search clear or tab switch, not all
+  // rows may be in the DOM immediately. Polling here avoids the fragile
+  // index-out-of-bounds case where rows[5] is undefined.
+  const rowStart = Date.now();
+  while (Date.now() - rowStart < 3000) {
+    if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+    await ctx.delay(100);
+  }
+  // Click the two greeting rows (rows[1] and rows[5]) to open the diff
+  const rows = document.querySelectorAll(WS.MESSAGE_ROW);
+  if (rows.length >= 6) {
+    (rows[1] as HTMLElement).click();
+    await ctx.delay(600); // allow React to register first selection before second click
+    (rows[5] as HTMLElement).click();
+    await ctx.waitFor(WS.DIFF_MODAL, 4000);
+  }
+}
+
+/**
  * Setup: start mock, connect, send 4 varied messages for filtering/diff demos.
  * Messages have different structures to make search/filter/diff interesting.
  */
@@ -179,8 +260,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       highlight: WS.SEARCH_MODE_PILLS,
       preAction: async (ctx) => {
         // Ensure we're on Events tab
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(200);
+        await ensureEventsTab(ctx);
       },
       action: async (ctx) => {
         // Type a search term
@@ -197,6 +277,10 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       description:
         'Filter messages by direction — show only sent (↑), received (↓), or bookmarked messages. Combined with search, this lets you quickly isolate exactly the traffic you need.',
       highlight: WS.DIRECTION_FILTER,
+      preAction: async (ctx) => {
+        // Ensure we're on Events tab so the direction filter is accessible
+        await ensureEventsTab(ctx);
+      },
       action: async (ctx) => {
         // Select "Sent" to show only sent messages
         await ctx.selectOption(WS.DIRECTION_FILTER, 'sent');
@@ -213,6 +297,8 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         'Click "Filters" to expand the filter bar with size, time range, and content type filters. These compose with search and direction — think of them as AND conditions.',
       highlight: WS.FILTER_TOGGLE_BTN,
       preAction: async (ctx) => {
+        // Ensure Events tab is visible before touching toolbar controls
+        await ensureEventsTab(ctx);
         // Reset direction filter to "All" and clear search
         await ctx.selectOption(WS.DIRECTION_FILTER, 'all');
         await ctx.delay(200);
@@ -236,9 +322,10 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         'Click "Compare" to enter compare mode. Then click any two messages to see a side-by-side structural diff — perfect for spotting changes between similar responses.',
       highlight: WS.COMPARE_BTN,
       preAction: async (ctx) => {
+        // Ensure Events tab is visible so the toolbar is accessible
+        await ensureEventsTab(ctx);
         // Close filter bar if open
-        const filterBar = document.querySelector(WS.FILTER_BAR);
-        if (filterBar) {
+        if (document.querySelector(WS.FILTER_BAR)) {
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(300);
         }
@@ -259,17 +346,58 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       description:
         'Click two messages to compare them. The diff modal shows structural changes: additions in green, removals in red, and modifications in yellow. You can swap sides or copy the unified diff.',
       highlight: WS.COMPARE_BANNER,
+      preAction: async (ctx) => {
+        // Guard: ensure Events tab, close any existing diff, enter compare mode.
+        // Handles skip-to-step from any earlier or later step. (Rule 4)
+        await ensureEventsTab(ctx);
+        // Close filter bar if open — rows must be unobstructed
+        if (document.querySelector(WS.FILTER_BAR)) {
+          await ctx.click(WS.FILTER_TOGGLE_BTN);
+          await ctx.delay(200);
+        }
+        // Clear search so all 9 rows are visible (row indices must match expectations).
+        // Use a 400ms delay — the virtualizer needs time to recalculate row layout
+        // after switching from a filtered view back to the full unfiltered list.
+        const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
+        if (searchEl && searchEl.value) {
+          await ctx.fill(WS.SEARCH_INPUT, '');
+          await ctx.delay(400);
+        }
+        // Close diff if already open — viewer should see the selection, not a stale diff
+        if (document.querySelector(WS.DIFF_MODAL)) {
+          const closeBtn = document.querySelector(WS.DIFF_CLOSE) as HTMLButtonElement | null;
+          if (closeBtn) closeBtn.click();
+          await ctx.delay(300);
+        }
+        // Ensure compare mode is active so row clicks select for comparison.
+        // The unconditional delay gives React a macrotask cycle to commit any
+        // pending stepIndex state before the compare button click fires.
+        if (!document.querySelector(WS.COMPARE_BANNER)) {
+          await ctx.delay(200);
+          await ctx.click(WS.COMPARE_BTN);
+          await ctx.waitFor(WS.COMPARE_BANNER, 3000);
+        }
+      },
       action: async (ctx) => {
         // Click two "greeting" message rows to compare them.
         // After setup, message order is: Connected, sent#1, echo#1, sent#2, echo#2, sent#3, echo#3, sent#4, echo#4
-        // row[1] = sent greeting "Hello WebSocket!"  (index 1)
-        // row[5] = sent greeting "Hello again!"      (index 5)
+        // rows[1] = sent greeting "Hello WebSocket!"
+        // rows[5] = sent greeting "Hello again!"
+        // Wait for the virtualizer to render at least 6 rows — without this the
+        // querySelectorAll may return fewer items and rows[5] would be undefined.
+        const rowStart = Date.now();
+        while (Date.now() - rowStart < 3000) {
+          if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+          await ctx.delay(100);
+        }
         const rows = document.querySelectorAll(WS.MESSAGE_ROW);
         if (rows.length >= 6) {
           (rows[1] as HTMLElement).click();
           await ctx.delay(600);
           (rows[5] as HTMLElement).click();
-          await ctx.delay(1000);
+          // Wait for diff modal to appear — more robust than a fixed delay (Rule 5)
+          await ctx.waitFor(WS.DIFF_MODAL, 5000);
+          await ctx.delay(600); // brief pause so user sees the diff rendered
         }
       },
       verify: WS.DIFF_MODAL,
@@ -283,6 +411,11 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       description:
         'Close the diff modal to return to the message list. You can also press Escape. Closing the diff exits compare mode automatically.',
       highlight: WS.DIFF_CLOSE,
+      preAction: async (ctx) => {
+        // Guard: if user skipped step 5, the diff modal may not be open.
+        // Silently set up compare mode and open a diff so the close button exists. (Rule 4)
+        await ensureDiffOpen(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(WS.DIFF_CLOSE);
         await ctx.delay(500);
@@ -300,6 +433,10 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         'enabled, every message gets a live ✓ or ✗ badge. We have no schemas yet — ' +
         'let\'s enable validation first, then add one.',
       highlight: WS.RIGHT_TAB_SCHEMA,
+      preAction: async (ctx) => {
+        // Guard: close any open diff and exit compare mode before switching tabs. (Rule 4)
+        await closeDiffAndCompare(ctx);
+      },
       action: async (ctx) => {
         // Navigate to Schema tab with ripple — user sees the empty schema panel
         await ctx.click(WS.RIGHT_TAB_SCHEMA);
@@ -327,6 +464,17 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         '`required: [type, message]` plus `enum: ["greeting"]` ensures only greeting ' +
         'messages pass. Hit **Add** to save.',
       highlight: WS.SCHEMA_ADD_BTN,
+      preAction: async (ctx) => {
+        // Guard: close diff/compare, navigate to Schema tab, enable validation toggle. (Rule 4)
+        await closeDiffAndCompare(ctx);
+        await ctx.click(WS.RIGHT_TAB_SCHEMA);
+        await ctx.waitFor(WS.VALIDATION_TOGGLE);
+        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        if (toggle && !toggle.checked) {
+          await ctx.click(WS.VALIDATION_TOGGLE);
+          await ctx.delay(300);
+        }
+      },
       action: async (ctx) => {
         // Open the Add Schema form — user sees the empty editor
         await ctx.click(WS.SCHEMA_ADD_BTN);
@@ -379,11 +527,19 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
       preAction: async (ctx) => {
         // Guard: if user skipped steps 7–8 (clicked Next during reading),
         // the schema may not exist. Create it quietly so this step works.
-        if (!document.querySelector(WS.SCHEMA_CARD)) {
+        // Also ensure the validation toggle is enabled even if schema already exists.
+        if (!document.querySelector(WS.VALIDATION_TOGGLE)) {
           await ctx.click(WS.RIGHT_TAB_SCHEMA);
           await ctx.waitFor(WS.VALIDATION_TOGGLE);
-          const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
-          if (toggle && !toggle.checked) await ctx.click(WS.VALIDATION_TOGGLE);
+        }
+        // Enable validation toggle regardless of whether schema exists
+        const toggle = document.querySelector(WS.VALIDATION_TOGGLE) as HTMLInputElement | null;
+        if (toggle && !toggle.checked) {
+          await ctx.click(WS.VALIDATION_TOGGLE);
+          await ctx.delay(300);
+        }
+        // Create schema if absent
+        if (!document.querySelector(WS.SCHEMA_CARD)) {
           await ctx.click(WS.SCHEMA_ADD_BTN);
           await ctx.waitFor(WS.SCHEMA_NAME_INPUT);
           await ctx.fill(WS.SCHEMA_NAME_INPUT, 'Greeting Schema');
@@ -398,6 +554,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
           }, null, 2);
           await ctx.fill(WS.SCHEMA_TEXTAREA, schema);
           await ctx.click(WS.SCHEMA_SAVE_BTN);
+          await ctx.waitFor(WS.SCHEMA_CARD, 3000);
         }
       },
       action: async (ctx) => {

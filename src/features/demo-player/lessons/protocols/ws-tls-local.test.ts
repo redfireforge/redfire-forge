@@ -1,0 +1,358 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { wsTlsLocalLesson } from './ws-tls-local';
+import { makeCtx } from './ws-test-utils';
+
+describe('ws-tls-local lesson', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.clearAllMocks();
+  });
+
+  // ── Structure ────────────────────────────────────────────────────
+
+  it('has valid lesson structure', () => {
+    expect(wsTlsLocalLesson.id).toBe('ws-tls-local');
+    expect(wsTlsLocalLesson.domainId).toBe('protocols');
+    expect(wsTlsLocalLesson.category).toBe('websocket');
+    expect(wsTlsLocalLesson.name).toBeTruthy();
+    expect(wsTlsLocalLesson.initialTab).toBe('websocket-studio');
+  });
+
+  it('has concept with title and body', () => {
+    expect(wsTlsLocalLesson.concept.title).toBeTruthy();
+    expect(wsTlsLocalLesson.concept.body).toBeTruthy();
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof wsTlsLocalLesson.setup).toBe('function');
+    expect(typeof wsTlsLocalLesson.cleanup).toBe('function');
+  });
+
+  it('has at least 6 steps covering 3 TLS phases', () => {
+    expect(wsTlsLocalLesson.steps.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('all steps have required fields', () => {
+    for (const step of wsTlsLocalLesson.steps) {
+      expect(step.id).toBeTruthy();
+      expect(step.title).toBeTruthy();
+      expect(step.description).toBeTruthy();
+    }
+  });
+
+  it('step IDs contain local-tls prefix', () => {
+    for (const step of wsTlsLocalLesson.steps) {
+      expect(step.id).toContain('local-tls');
+    }
+  });
+
+  it('has dockerEndpoint and dockerCommand (requires Docker)', () => {
+    expect(wsTlsLocalLesson.dockerEndpoint).toBeTruthy();
+    expect(wsTlsLocalLesson.dockerCommand).toBeTruthy();
+  });
+
+  // ── Setup / cleanup ──────────────────────────────────────────────
+
+  it('setup runs without throwing when DOM is empty', async () => {
+    const ctx = makeCtx();
+    await expect(wsTlsLocalLesson.setup!(ctx)).resolves.not.toThrow();
+  });
+
+  it('cleanup runs without throwing when DOM is empty', async () => {
+    const ctx = makeCtx();
+    await expect(wsTlsLocalLesson.cleanup!(ctx)).resolves.not.toThrow();
+  });
+
+  // ── Step actions ─────────────────────────────────────────────────
+
+  it('step 1 (local-tls-url) preAction clicks mode client and connect tab', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-url');
+    expect(step).toBeDefined();
+    if (step?.preAction) await step.preAction(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('step 1 (local-tls-url) action fills URL with wss://localhost', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-url');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.fill).toHaveBeenCalled();
+    const fillCalls = vi.mocked(ctx.fill).mock.calls;
+    expect(fillCalls.some(([, val]) => val.includes('localhost'))).toBe(true);
+  });
+
+  it('step 2 (local-tls-skip-cert) preAction runs without throwing', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-skip-cert');
+    expect(step).toBeDefined();
+    if (step?.preAction) await step.preAction(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step 3 (local-tls-connect) action clicks connect button', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step 4 (local-tls-ca-intro) action fills CA cert text', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.fill).toHaveBeenCalled();
+  });
+
+  it('step 5 (local-tls-ca-connect) action reconnects with CA cert', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-connect');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step 6 (local-tls-mtls-intro) fills mTLS URL', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-intro');
+    if (step?.action) await step.action(ctx);
+    // May fill or click
+    expect(ctx.fill.mock.calls.length + ctx.click.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('step 7 (local-tls-mtls-creds) fills client cert and key', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.fill).toHaveBeenCalled();
+  });
+
+  it('step 8 (local-tls-mtls-connect) connects with mTLS', async () => {
+    const ctx = makeCtx();
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-connect');
+    if (step?.action) await step.action(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+
+  it('step highlights reference valid DOM selectors', () => {
+    for (const step of wsTlsLocalLesson.steps) {
+      if (step.highlight) {
+        expect(step.highlight).toBeTruthy();
+        expect(typeof step.highlight).toBe('string');
+      }
+    }
+  });
+
+  it('all step preActions run without throwing', async () => {
+    for (const step of wsTlsLocalLesson.steps) {
+      const ctx = makeCtx();
+      if (step.preAction) await expect(step.preAction(ctx)).resolves.not.toThrow();
+    }
+  });
+
+  it('all step actions run without throwing', async () => {
+    for (const step of wsTlsLocalLesson.steps) {
+      const ctx = makeCtx();
+      if (step.action) await expect(step.action(ctx)).resolves.not.toThrow();
+    }
+  });
+
+  it('setup with DOM elements present runs skip-cert branch', async () => {
+    const ctx = makeCtx();
+    const skipCert = document.createElement('input');
+    skipCert.type = 'checkbox';
+    skipCert.setAttribute('data-testid', 'tls-skip-cert');
+    skipCert.checked = true;
+    document.body.appendChild(skipCert);
+    await expect(wsTlsLocalLesson.setup!(ctx)).resolves.not.toThrow();
+    skipCert.remove();
+  });
+
+  it('at least one step calls ctx.fill during action', async () => {
+    let fillCalled = false;
+    for (const step of wsTlsLocalLesson.steps) {
+      const ctx = makeCtx();
+      if (step.action) {
+        await step.action(ctx);
+        if (vi.mocked(ctx.fill).mock.calls.length > 0) { fillCalled = true; break; }
+      }
+    }
+    expect(fillCalled).toBe(true);
+  });
+
+  // ─── Branch: local-tls-connect isConnected = true ──────────
+
+  it('local-tls-connect action sends echo message when connected', async () => {
+    // Simulate STATUS_CONNECTED element → isConnected = true
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('phase":1'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+
+    dot.remove();
+  });
+
+  // ─── Branch: transport badge mouseover highlight ─────────────
+
+  it('local-tls-skip-cert action highlights transport badge when present', async () => {
+    // Create a transport badge element so the badge mouseover branch runs
+    const badge = document.createElement('span');
+    badge.setAttribute('data-testid', 'transport-badge');
+    const mouseoverSpy = vi.fn();
+    badge.addEventListener('mouseover', mouseoverSpy);
+    document.body.appendChild(badge);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-skip-cert')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    // Badge mouseover should have been dispatched
+    expect(mouseoverSpy).toHaveBeenCalled();
+
+    badge.remove();
+  });
+
+  it('local-tls-ca-connect action highlights transport badge when present', async () => {
+    // Simulate connected + badge present
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    const badge = document.createElement('span');
+    badge.setAttribute('data-testid', 'transport-badge');
+    const mouseoverSpy = vi.fn();
+    badge.addEventListener('mouseover', mouseoverSpy);
+    document.body.append(dot, badge);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(mouseoverSpy).toHaveBeenCalled();
+
+    dot.remove();
+    badge.remove();
+  });
+
+  it('local-tls-mtls-connect action highlights transport badge when present', async () => {
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    const badge = document.createElement('span');
+    badge.setAttribute('data-testid', 'transport-badge');
+    const mouseoverSpy = vi.fn();
+    badge.addEventListener('mouseover', mouseoverSpy);
+    document.body.append(dot, badge);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(mouseoverSpy).toHaveBeenCalled();
+
+    dot.remove();
+    badge.remove();
+  });
+
+  // ─── Branch: isConnected = true (local-tls-ca-connect) ──────
+
+  it('local-tls-ca-connect action navigates to compose and sends message when connected', async () => {
+    // Simulate STATUS_CONNECTED element present → isConnected = true
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    // When connected, action navigates to compose, fills message, sends, then returns to connect
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('ca-cert'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+
+    dot.remove();
+  });
+
+  // ─── Branch: isConnected = true (local-tls-mtls-connect) ────
+
+  // ─── Branch: ensureTlsPanelExpanded — toggle not expanded (lines 127-128) ──
+  // The setup function calls ensureTlsPanelExpanded. When toggle exists and
+  // aria-expanded !== 'true', the function dispatches a click to expand it.
+
+  it('setup clicks tls-toggle when it exists and aria-expanded is false', async () => {
+    const toggle = document.createElement('div');
+    toggle.setAttribute('data-testid', 'tls-toggle');
+    toggle.setAttribute('aria-expanded', 'false');
+    const clickSpy = vi.spyOn(toggle, 'dispatchEvent');
+    document.body.appendChild(toggle);
+
+    const ctx = makeCtx();
+    await wsTlsLocalLesson.setup!(ctx);
+
+    // The toggle should have received a click MouseEvent
+    const clickEvents = clickSpy.mock.calls.filter(
+      c => c[0] instanceof MouseEvent,
+    );
+    expect(clickEvents.length).toBeGreaterThan(0);
+    toggle.remove();
+  });
+
+  // ─── Branch: setSkipCert — checkbox state differs from desired (lines 141-142) ──
+  // When checkbox.checked !== the desired value, the function clicks the checkbox.
+
+  it('setup clicks skip-cert checkbox when its state differs from desired', async () => {
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('data-testid', 'tls-reject-unauthorized');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true; // start checked, setup wants it unchecked (false)
+    wrapper.appendChild(cb);
+    const clickSpy = vi.spyOn(cb, 'dispatchEvent');
+    document.body.appendChild(wrapper);
+
+    const ctx = makeCtx();
+    await wsTlsLocalLesson.setup!(ctx);
+
+    // checkbox should have been clicked to toggle state
+    const mouseClicks = clickSpy.mock.calls.filter(c => c[0] instanceof MouseEvent);
+    expect(mouseClicks.length).toBeGreaterThan(0);
+    wrapper.remove();
+  });
+
+  it('local-tls-mtls-connect action navigates to compose and sends message when connected', async () => {
+    // Simulate STATUS_CONNECTED element present → isConnected = true
+    const dot = document.createElement('div');
+    dot.className = 'ws-status-dot connected';
+    document.body.appendChild(dot);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    // When connected, action navigates to compose, fills mtls message, sends, then returns to connect
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('mtls'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+
+    dot.remove();
+  });
+});

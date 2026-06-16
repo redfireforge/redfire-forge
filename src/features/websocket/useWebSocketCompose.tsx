@@ -151,7 +151,7 @@ export function useWebSocketCompose({
     [handleSend],
   );
 
-  const handleBeautify = useCallback(() => {
+  const handlePrettyFormat = useCallback(() => {
     if (composeFormat !== 'json') return;
     try {
       const parsed = JSON.parse(composeText);
@@ -344,13 +344,13 @@ export function useWebSocketCompose({
             </select>
             {composeFormat === 'json' && (
               <button
-                className="ws-beautify-btn"
-                onClick={handleBeautify}
+                className="ws-pretty-format-btn"
+                onClick={handlePrettyFormat}
                 disabled={!composeText.trim() || !isJsonValidVal}
-                title="Beautify JSON"
-                data-testid="beautify-btn"
+                title="Pretty Format JSON"
+                data-testid="pretty-format-btn"
               >
-                {'{ } Beautify'}
+                Pretty Format
               </button>
             )}
           </>

@@ -362,7 +362,7 @@ export default function TestEditorValidationTab({
               type="button"
               className="btn btn-xs"
               style={{ marginLeft: 8 }}
-              title="Format JSON with indentation"
+              title="Pretty Format JSON"
               disabled={!draft.validation.expectedJson?.trim()}
               onClick={() => {
                 const raw = draft.validation.expectedJson?.trim();

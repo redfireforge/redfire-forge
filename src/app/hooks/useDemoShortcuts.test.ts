@@ -5,12 +5,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useDemoShortcuts } from './useDemoShortcuts';
 import type { Tab } from '../utils/appTabUtils';
+import type { StepPhase } from '../../features/demo-player/types';
 
 function makeDemoHub(overrides: Partial<{
   state: { view: string; selectedLesson?: { initialTab?: string } | null };
+  stepPhase: StepPhase;
   exitLiveDemo: () => void;
   nextStep: () => void;
-  prevStep: () => void;
   toggleAutoPlay: () => void;
 }> = {}) {
   return {
@@ -18,9 +19,9 @@ function makeDemoHub(overrides: Partial<{
       view: 'domains',
       selectedLesson: null,
     },
+    stepPhase: 'done' as StepPhase,
     exitLiveDemo: vi.fn(),
     nextStep: vi.fn(),
-    prevStep: vi.fn(),
     toggleAutoPlay: vi.fn(),
     ...overrides,
   };
@@ -102,30 +103,54 @@ describe('useDemoShortcuts', () => {
     expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
   });
 
-  it('ArrowRight in live mode calls nextStep', () => {
-    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+  it('ArrowRight in live mode calls nextStep when in reading phase', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
+      stepPhase: 'reading',
+    });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
 
-    const event = new KeyboardEvent('keydown', {
-      key: 'ArrowRight',
-      bubbles: true,
-    });
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
     window.dispatchEvent(event);
 
     expect(hub.nextStep).toHaveBeenCalled();
   });
 
-  it('ArrowLeft in live mode calls prevStep', () => {
+  it('ArrowRight in live mode calls nextStep when in done phase', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
+      stepPhase: 'done',
+    });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).toHaveBeenCalled();
+  });
+
+  it('ArrowRight in live mode does NOT call nextStep during action phase', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
+      stepPhase: 'action',
+    });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).not.toHaveBeenCalled();
+  });
+
+  it('ArrowLeft in live mode is no longer handled (back navigation removed)', () => {
     const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
 
-    const event = new KeyboardEvent('keydown', {
-      key: 'ArrowLeft',
-      bubbles: true,
-    });
+    const event = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true });
     window.dispatchEvent(event);
 
-    expect(hub.prevStep).toHaveBeenCalled();
+    // Back navigation has been removed — nextStep should not be called either
+    expect(hub.nextStep).not.toHaveBeenCalled();
   });
 
   it('Space in live mode calls toggleAutoPlay', () => {
@@ -199,7 +224,6 @@ describe('useDemoShortcuts', () => {
 
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
     expect(hub.nextStep).not.toHaveBeenCalled();
-    expect(hub.prevStep).not.toHaveBeenCalled();
     expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
   });
 
@@ -214,7 +238,6 @@ describe('useDemoShortcuts', () => {
 
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
     expect(hub.nextStep).not.toHaveBeenCalled();
-    expect(hub.prevStep).not.toHaveBeenCalled();
     expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
   });
 

@@ -36,14 +36,12 @@ vi.mock('./LessonList', () => ({
   ),
 }));
 vi.mock('./LessonPlayer', () => ({
-  default: ({ lesson, onStartDemo, onSetSpeed, onBack }: {
-    lesson: DemoLesson; onStartDemo: () => void; onSetSpeed: (s: number) => void; onBack: () => void;
+  default: ({ lesson, onStartDemo }: {
+    lesson: DemoLesson; onStartDemo: () => void;
   }) => (
     <div data-testid="lesson-player">
       <span>{lesson.name}</span>
       <button onClick={onStartDemo}>Start</button>
-      <button onClick={() => onSetSpeed(2)}>Speed</button>
-      <button onClick={onBack}>Back</button>
     </div>
   ),
 }));
@@ -102,9 +100,8 @@ function makeHub(overrides: Partial<ReturnType<typeof useDemoHub>> = {}): Return
     exitLiveDemo: vi.fn(),
     goToStep: vi.fn(),
     nextStep: vi.fn(),
-    prevStep: vi.fn(),
     toggleAutoPlay: vi.fn(),
-    setSpeed: vi.fn(),
+    restartDemo: vi.fn(),
     skipReading: vi.fn(),
     ...overrides,
   } as ReturnType<typeof useDemoHub>;

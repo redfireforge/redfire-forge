@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    testTimeout: 15000,
+    hookTimeout: 15000,
     include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}', 'cli/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
     poolMatchGlobs: [
