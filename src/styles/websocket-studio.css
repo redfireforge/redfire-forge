@@ -2817,66 +2817,141 @@
   white-space: nowrap;
 }
 
-/* ── TLS Panel ─────────────────────────────────────────────────────── */
+/* ── TLS Trigger Row ──────────────────────────────────────────────── */
 
-.ws-tls-panel {
-  margin-top: 12px;
-  border: 1px solid var(--border-primary, #45475a);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--bg-base, #181825);
-  transition: border-color 0.15s ease;
-}
-
-.ws-tls-panel--active {
-  border-color: rgba(137, 180, 250, 0.4);
-}
-
-/* ── Header toggle ────────────────────────────────────────────────── */
-.ws-tls-toggle {
+.ws-tls-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
+  margin-top: 10px;
+  padding: 8px 12px;
   background: var(--bg-surface, #1e1e2e);
-  border: none;
-  color: var(--text-secondary, #a6adc8);
-  cursor: pointer;
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 7px;
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-align: left;
-  transition: background 0.12s ease;
+  transition: border-color 0.15s ease;
 }
 
-.ws-tls-toggle:hover {
-  background: var(--bg-hover, #313244);
-  color: var(--text-primary, #cdd6f4);
+.ws-tls-trigger--active {
+  border-color: rgba(137, 180, 250, 0.4);
 }
 
-.ws-tls-toggle-chevron {
-  font-size: 10px;
-  width: 12px;
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.ws-tls-toggle-icon-lock {
+.ws-tls-trigger-icon {
   font-size: 13px;
   line-height: 1;
   flex-shrink: 0;
 }
 
-.ws-tls-toggle-label {
-  flex: 1;
+.ws-tls-trigger-label {
+  font-weight: 600;
+  color: var(--text-secondary, #a6adc8);
+  letter-spacing: 0.03em;
 }
 
-.ws-tls-toggle-hint {
+.ws-tls-trigger-hint {
+  flex: 1;
   font-size: 11px;
-  font-weight: 400;
   color: var(--text-tertiary, #6c7086);
+}
+
+.ws-tls-trigger-btn {
   margin-left: auto;
+  padding: 4px 12px;
+  background: var(--bg-hover, #313244);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 5px;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.ws-tls-trigger-btn:hover {
+  background: rgba(137, 180, 250, 0.12);
+  border-color: rgba(137, 180, 250, 0.4);
+  color: #89b4fa;
+}
+
+.ws-tls-trigger-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Header toggle ────────────────────────────────────────────────── */
+/* ── TLS Modal overlay + dialog ───────────────────────────────────── */
+
+.ws-tls-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.ws-tls-modal.modal {
+  width: min(540px, 100%);
+  max-width: 540px;
+  max-height: 90vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.ws-tls-modal-header.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-primary, #45475a);
+  background: var(--bg-base, #181825);
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.ws-tls-modal-header.modal-header:active {
+  cursor: grabbing;
+}
+
+.ws-tls-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary, #cdd6f4);
+  letter-spacing: 0.02em;
+}
+
+.ws-tls-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ws-tls-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-primary, #45475a);
+  background: var(--bg-base, #181825);
+  flex-shrink: 0;
 }
 
 /* Mode badge in header */
@@ -2910,14 +2985,6 @@
   border: 1px solid rgba(249, 226, 175, 0.25);
 }
 
-/* ── Body ─────────────────────────────────────────────────────────── */
-.ws-tls-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border-top: 1px solid var(--border-primary, #45475a);
-}
-
 /* ── Proxy notice banner ──────────────────────────────────────────── */
 .ws-tls-notice {
   display: flex;
@@ -2946,6 +3013,7 @@
 
 .ws-tls-section:last-child {
   border-bottom: none;
+  border-radius: 0 0 7px 7px;
 }
 
 .ws-tls-section--mtls {

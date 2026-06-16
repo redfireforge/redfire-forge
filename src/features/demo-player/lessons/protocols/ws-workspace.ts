@@ -33,16 +33,14 @@ async function clearSavedProfiles(ctx: DemoActionContext): Promise<void> {
     if (!card) break;
     card.click();
     await ctx.delay(300);
-    const id = card.getAttribute('data-testid')?.replace('profile-card-', '') ?? '';
+    const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
     const deleteBtn = document.querySelector(`[data-testid="delete-btn-${id}"]`) as HTMLElement | null;
     if (deleteBtn) {
       deleteBtn.click();
       await ctx.delay(200);
       const confirm = document.querySelector(`[data-testid="confirm-delete-${id}"]`) as HTMLElement | null;
-      if (confirm) {
-        confirm.click();
-        await ctx.delay(300);
-      }
+      confirm?.click();
+      await ctx.delay(300);
     }
   }
 }
@@ -64,12 +62,12 @@ async function clearTemplates(ctx: DemoActionContext): Promise<void> {
   for (let i = 0; i < 10; i++) {
     const delBtn = document.querySelector('[data-testid^="template-delete-"]') as HTMLElement | null;
     if (!delBtn) break;
-    const btnTestId = delBtn.getAttribute('data-testid') ?? '';
+    const btnTestId = delBtn.getAttribute('data-testid')!;
     delBtn.click();
     // Wait until this specific button is removed from the DOM (confirms React re-rendered)
     for (let w = 0; w < 30; w++) {
       await ctx.delay(100);
-      if (!btnTestId || !document.querySelector(`[data-testid="${btnTestId}"]`)) break;
+      if (!document.querySelector(`[data-testid="${btnTestId}"]`)) break;
     }
   }
   // Close dropdown if it is still open
@@ -247,7 +245,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         // Click the first profile card to select it (with visual ripple)
         const card = document.querySelector('[data-testid^="profile-card-"]') as HTMLElement | null;
         if (!card) return;
-        const id = card.getAttribute('data-testid')?.replace('profile-card-', '') ?? '';
+        const id = card.getAttribute('data-testid')!.replace('profile-card-', '');
         await ctx.click(`[data-testid="profile-card-${id}"]`);
         await ctx.delay(500);
         // Click "Load & Connect" (with visual ripple)

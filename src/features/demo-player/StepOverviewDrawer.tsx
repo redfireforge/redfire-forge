@@ -94,11 +94,17 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, []);
 
-  // Close on Escape
+  // Close on Escape — use capture phase with stopImmediatePropagation so the
+  // global demo shortcut handler (useDemoShortcuts) doesn't also exit the demo.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [onClose]);
 
   const completedCount = currentStepIndex;
