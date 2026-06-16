@@ -886,7 +886,7 @@ export default function App() {
           onTogglePlay={demoHub.toggleAutoPlay}
           onSkipReading={demoHub.skipReading}
           onRestart={demoHub.restartDemo}
-          onExit={() => { demoHub.exitLiveDemo(); setActiveTab('demo-hub'); }}
+          onExit={() => { void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub')); }}
         />
       )}
 
