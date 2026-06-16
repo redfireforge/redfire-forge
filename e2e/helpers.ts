@@ -290,3 +290,63 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
     });
   }, runs);
 }
+
+/**
+ * Reliably delete the redfireforge IndexedDB.
+ *
+ * Strategy: open the DB at a very high version (9999) to force a `versionchange`
+ * event on every existing connection. The app's `onversionchange` handler
+ * (in idbOpen.ts) responds by calling `db.close()`, which unblocks any pending
+ * `deleteDatabase`. Once our high-version open succeeds we close it and issue
+ * the delete — by then no other connection is open, so `onsuccess` fires
+ * immediately.
+ *
+ * We deliberately do NOT resolve inside `onblocked`. The IDB spec guarantees
+ * that `del.onsuccess` fires once all connections handle `versionchange` and
+ * close. Resolving early (before onsuccess) is the classic flakiness bug:
+ * the promise resolves before the database is actually gone.
+ */
+export async function clearRedfireIDB(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+
+      // Safety: give up after 5 s so a hung IDB never freezes the test suite.
+      const safeguard = setTimeout(done, 5000);
+
+      // Open at a high version to trigger `versionchange` on the app's existing
+      // connection, forcing it to close (app's onversionchange: db.close()).
+      const bump = indexedDB.open('redfireforge', 9999);
+
+      bump.onupgradeneeded = () => { /* intentional no-op */ };
+
+      bump.onsuccess = () => {
+        bump.result.close();
+        const del = indexedDB.deleteDatabase('redfireforge');
+        del.onsuccess = () => { clearTimeout(safeguard); done(); };
+        del.onerror   = () => { clearTimeout(safeguard); done(); };
+        // onblocked: intentionally empty.
+        // The IDB spec guarantees del.onsuccess fires once all connections
+        // handle versionchange and close — no manual retry needed.
+      };
+
+      // bump itself blocked: an existing open() is racing us; wait for it to settle.
+      bump.onblocked = () => {
+        // onsuccess will still fire once the blocker clears; nothing to do here.
+      };
+
+      bump.onerror = () => {
+        // Couldn't bump the version — just try a direct delete as fallback.
+        clearTimeout(safeguard);
+        const del = indexedDB.deleteDatabase('redfireforge');
+        del.onsuccess = done;
+        del.onerror   = done;
+        // Again, do not resolve in onblocked; wait for onsuccess.
+        const fallbackSafeguard = setTimeout(done, 3000);
+        del.onsuccess = () => { clearTimeout(fallbackSafeguard); done(); };
+        del.onerror   = () => { clearTimeout(fallbackSafeguard); done(); };
+      };
+    }),
+  );
+}

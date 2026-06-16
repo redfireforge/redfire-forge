@@ -36,6 +36,22 @@ async function tabsCleanup(ctx: DemoActionContext): Promise<void> {
   await switchToClientMode(ctx);
 }
 
+/**
+ * Ensure at least two connection tabs exist.
+ * If only one tab is present, silently adds a second.
+ * Used as a preAction guard for steps that depend on Tab 2 existing.
+ */
+async function ensureTwoTabs(ctx: DemoActionContext): Promise<void> {
+  const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+  if (tabs.length < 2) {
+    const addBtn = document.querySelector(WS.CONN_TAB_ADD) as HTMLElement | null;
+    if (addBtn) {
+      addBtn.click();
+      await ctx.delay(400);
+    }
+  }
+}
+
 export const wsTabsLesson: DemoLesson = {
   id: 'ws-tabs',
   domainId: 'protocols',
@@ -155,7 +171,10 @@ Real-world debugging often involves comparing traffic across environments — pr
         'Let\'s connect this tab to the mock server. Type /connect in the console to establish a WebSocket connection. Watch the tab indicator turn green.',
       highlight: WS.CONSOLE_CMD_INPUT,
       preAction: async (ctx) => {
-        // Ensure we're on Console tab
+        // Ensure we're on Tab 1 before connecting (not Tab 2)
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(200);
+        // Switch to Console tab so the input is visible
         await ctx.click(WS.RIGHT_TAB_CONSOLE);
         await ctx.delay(200);
       },
@@ -166,7 +185,9 @@ Real-world debugging often involves comparing traffic across environments — pr
         if (input) {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         }
-        await ctx.delay(1500);
+        // Wait for connected status rather than a fixed delay (Rule 5)
+        await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+        await ctx.delay(300);
       },
       verify: WS.STATUS_CONNECTED,
       pauseAfter: true,
@@ -179,6 +200,27 @@ Real-world debugging often involves comparing traffic across environments — pr
       description:
         'Switch to Tab 2 — it\'s still disconnected! Each tab maintains its own connection state. You can connect them to different servers or the same server with different settings.',
       highlight: WS.CONN_TAB_LAST,
+      preAction: async (ctx) => {
+        // Ensure Tab 2 exists (handles skip-to-step when only Tab 1 is present)
+        await ensureTwoTabs(ctx);
+        // Silently connect Tab 1 if not already (so the independence contrast is visible)
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(150);
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.LEFT_TAB_CONNECT);
+          await ctx.delay(150);
+          await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+          await ctx.delay(150);
+          const connectBtn = document.querySelector(WS.CONNECT_BTN) as HTMLButtonElement | null;
+          if (connectBtn && !connectBtn.disabled) {
+            connectBtn.click();
+            await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+          }
+        }
+        // End on Tab 1 so the visible action of "switching to Tab 2" is meaningful
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(150);
+      },
       action: async (ctx) => {
         // Use querySelectorAll to reliably find the last tab
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
@@ -231,10 +273,16 @@ Real-world debugging often involves comparing traffic across environments — pr
       description:
         'The ▾ dropdown shows your recently connected URLs. Click any entry to open a new tab with that URL pre-filled — great for quickly reconnecting to familiar servers.',
       highlight: WS.CONN_TAB_HISTORY,
+      preAction: async (ctx) => {
+        // Ensure we're on Tab 1 — the connected tab that has URL history entries
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.click(WS.CONN_TAB_HISTORY);
-        await ctx.delay(1000);
-        // Close it after showing
+        // Give end users 2 seconds to read the history entries (was 1s — too fast)
+        await ctx.delay(2000);
+        // Close the dropdown
         await ctx.click(WS.CONN_TAB_HISTORY);
         await ctx.delay(300);
       },
@@ -248,6 +296,10 @@ Real-world debugging often involves comparing traffic across environments — pr
       description:
         'Click the × on any tab to close it. If the tab has an active connection, you\'ll see a confirmation dialog first. Keyboard shortcut: select a tab and press Delete.',
       highlight: WS.CONN_TAB_LAST,
+      preAction: async (ctx) => {
+        // Ensure Tab 2 exists so there is something to close
+        await ensureTwoTabs(ctx);
+      },
       action: async (ctx) => {
         // Find the close button on the last (disconnected) tab via querySelectorAll
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);

@@ -222,7 +222,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
   it('opens template dropdown and shows empty state', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    expect(screen.getByText('No saved templates')).toBeTruthy();
+    expect(screen.getByText('No saved templates yet')).toBeTruthy();
   });
 
   it('loads a template when clicked from dropdown', () => {
@@ -487,7 +487,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('opens save input when Save button clicked', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Template name\u2026')).toBeTruthy();
   });
 
   it('confirm button disabled when save name is empty', () => {
@@ -499,7 +499,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('updates save name when typing in save input', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Preset' } });
     expect((input as HTMLInputElement).value).toBe('My Preset');
   });
@@ -508,7 +508,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'My Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
   });
@@ -517,7 +517,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Preset' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
@@ -526,16 +526,16 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('closes save input on Escape key', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('cancel button closes save input', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
     fireEvent.click(screen.getByText('✕'));
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('calls onDeleteConsumeTemplate when delete button clicked on template item', async () => {
@@ -545,7 +545,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     ];
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    fireEvent.click(screen.getByTitle('Delete template'));
+    fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteConsumeTemplate).toHaveBeenCalledWith('tpl-1'));
   });
 });

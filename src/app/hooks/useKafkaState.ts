@@ -50,6 +50,7 @@ export interface UseKafkaStateReturn {
   connectSelectedCluster: () => Promise<boolean>;
   disconnectActiveCluster: () => Promise<boolean>;
   testSelectedClusterConnection: () => Promise<boolean>;
+  lastTestResult: { ok: boolean; clusterId: string } | null;
   refreshConnectionStatus: (options?: { force?: boolean }) => Promise<void>;
   refreshTopics: () => Promise<void>;
   setConnectionState: (state: KafkaConnectionState, options?: { clusterId?: string; lastError?: string; connectedAt?: string; lastErrorDetail?: KafkaUiSafeError | null }) => void;
@@ -115,6 +116,7 @@ export function useKafkaState(): UseKafkaStateReturn {
   const [topicsError, setTopicsError] = useState<KafkaUiSafeError | null>(null);
   const [includeInternalTopics, setIncludeInternalTopicsState] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [lastTestResult, setLastTestResult] = useState<{ ok: boolean; clusterId: string } | null>(null);
 
   const selectedCluster = useMemo(
     () => clusters.find((cluster) => cluster.clusterId === selectedClusterId) ?? null,
@@ -129,6 +131,7 @@ export function useKafkaState(): UseKafkaStateReturn {
   const statusPollFailureStreakRef = useRef(0);
   const startupAutoConnectAttemptedRef = useRef(false);
   const connectOperationInFlightRef = useRef(false);
+  const testResultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearPollTimer = useCallback(() => {
     if (pollTimerRef.current) {
@@ -263,6 +266,14 @@ export function useKafkaState(): UseKafkaStateReturn {
       clearPollTimer();
     };
   }, [clearPollTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (testResultTimerRef.current) {
+        clearTimeout(testResultTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!hydratedRef.current) {
@@ -505,8 +516,40 @@ export function useKafkaState(): UseKafkaStateReturn {
   }, [bumpRefreshNonce, connection.clusterId, selectedClusterId, updateFailureStreak]);
 
   const testSelectedClusterConnection = useCallback(async () => {
-    return connectSelectedCluster();
-  }, [connectSelectedCluster]);
+    if (testResultTimerRef.current) {
+      clearTimeout(testResultTimerRef.current);
+      testResultTimerRef.current = null;
+    }
+
+    if (!selectedCluster) {
+      setLastError('No Kafka cluster is selected');
+      setLastErrorDetail({
+        kind: 'validation',
+        code: 'KAFKA_NO_CLUSTER_SELECTED',
+        message: 'No Kafka cluster is selected',
+        retryable: false,
+      });
+      return false;
+    }
+
+    // Already connected to this exact cluster — just verify via status refresh (non-destructive)
+    if (connection.state === 'connected' && connection.clusterId === selectedCluster.clusterId) {
+      await refreshConnectionStatus({ force: true });
+      setLastTestResult({ ok: true, clusterId: selectedCluster.clusterId });
+      testResultTimerRef.current = setTimeout(() => setLastTestResult(null), 5_000);
+      return true;
+    }
+
+    // Probe: connect → brief visual pause → disconnect (does not persist the connection)
+    const ok = await connectSelectedCluster();
+    setLastTestResult({ ok, clusterId: selectedCluster.clusterId });
+    if (ok) {
+      await new Promise<void>((resolve) => { setTimeout(resolve, 800); });
+      await disconnectActiveCluster();
+    }
+    testResultTimerRef.current = setTimeout(() => setLastTestResult(null), ok ? 5_000 : 10_000);
+    return ok;
+  }, [connection, connectSelectedCluster, disconnectActiveCluster, refreshConnectionStatus, selectedCluster]);
 
   useEffect(() => {
     if (!loaded || startupAutoConnectAttemptedRef.current) {
@@ -566,6 +609,7 @@ export function useKafkaState(): UseKafkaStateReturn {
     connectSelectedCluster,
     disconnectActiveCluster,
     testSelectedClusterConnection,
+    lastTestResult,
     refreshConnectionStatus,
     refreshTopics,
     setConnectionState,

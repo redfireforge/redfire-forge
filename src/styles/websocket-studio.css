@@ -1973,7 +1973,7 @@
   outline: none;
 }
 
-.ws-beautify-btn {
+.ws-pretty-format-btn {
   padding: 4px 10px;
   font-size: 11px;
   background: var(--input-bg, #1e1e1e);
@@ -1987,13 +1987,13 @@
   transition: all 0.15s;
 }
 
-.ws-beautify-btn:hover:not(:disabled) {
+.ws-pretty-format-btn:hover:not(:disabled) {
   background: var(--hover-bg, #2a2d2e);
   color: var(--text-primary, #e0e0e0);
   border-color: var(--text-secondary, #999);
 }
 
-.ws-beautify-btn:disabled {
+.ws-pretty-format-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -2817,108 +2817,390 @@
   white-space: nowrap;
 }
 
-/* ── TLS Panel ─────────────────────────────────────────────────────── */
+/* ── TLS Trigger Row ──────────────────────────────────────────────── */
 
-.ws-tls-panel {
-  margin-top: 8px;
-  border: 1px solid var(--border-primary, #45475a);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.ws-tls-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--bg-surface, #1e1e2e);
-  border: none;
-  color: var(--text-secondary, #a6adc8);
-  cursor: pointer;
-  font-size: 12px;
-  text-align: left;
-}
-
-.ws-tls-toggle:hover {
-  background: var(--bg-hover, #313244);
-}
-
-.ws-tls-toggle-icon {
-  font-size: 10px;
-  width: 12px;
-}
-
-.ws-tls-toggle-label {
-  flex: 1;
-  font-weight: 500;
-}
-
-.ws-tls-indicator {
-  color: #f9e2af;
-  font-size: 8px;
-}
-
-.ws-tls-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-top: 1px solid var(--border-primary, #45475a);
-}
-
-.ws-tls-info-banner {
-  padding: 8px 10px;
-  background: rgba(137, 180, 250, 0.08);
-  border: 1px solid rgba(137, 180, 250, 0.2);
-  border-radius: 4px;
-  color: var(--text-secondary, #a6adc8);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.ws-tls-checkbox-row {
+.ws-tls-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 7px;
   font-size: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.ws-tls-trigger--active {
+  border-color: rgba(137, 180, 250, 0.4);
+}
+
+.ws-tls-trigger-icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ws-tls-trigger-label {
+  font-weight: 600;
   color: var(--text-secondary, #a6adc8);
+  letter-spacing: 0.03em;
+}
+
+.ws-tls-trigger-hint {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-tertiary, #6c7086);
+}
+
+.ws-tls-trigger-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: var(--bg-hover, #313244);
+  border: 1px solid var(--border-primary, #45475a);
+  border-radius: 5px;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.ws-tls-trigger-btn:hover {
+  background: rgba(137, 180, 250, 0.12);
+  border-color: rgba(137, 180, 250, 0.4);
+  color: #89b4fa;
+}
+
+.ws-tls-trigger-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Header toggle ────────────────────────────────────────────────── */
+/* ── TLS Modal overlay + dialog ───────────────────────────────────── */
+
+.ws-tls-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  left: 0;
+  top: 0;
+  z-index: 10200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.ws-tls-modal.modal {
+  width: min(540px, 100%);
+  max-width: 540px;
+  max-height: 90vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #252525);
+  border: 1px solid var(--border, #444);
+  border-radius: var(--radius, 10px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.ws-tls-modal-header.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border, #333);
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.ws-tls-modal-header.modal-header:active {
+  cursor: grabbing;
+}
+
+.ws-tls-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+  letter-spacing: 0.02em;
+}
+
+.ws-tls-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ws-tls-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border, #333);
+  flex-shrink: 0;
+}
+
+/* Mode badge in header */
+.ws-tls-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.ws-tls-mode-badge--mtls {
+  background: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+  border: 1px solid rgba(203, 166, 247, 0.3);
+}
+
+.ws-tls-mode-badge--ca {
+  background: rgba(137, 180, 250, 0.12);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.25);
+}
+
+.ws-tls-mode-badge--skip {
+  background: rgba(249, 226, 175, 0.12);
+  color: #f9e2af;
+  border: 1px solid rgba(249, 226, 175, 0.25);
+}
+
+/* ── Proxy notice banner ──────────────────────────────────────────── */
+.ws-tls-notice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 16px;
+  background: rgba(137, 180, 250, 0.06);
+  border-bottom: 1px solid rgba(137, 180, 250, 0.15);
+  font-size: 11.5px;
+  color: var(--text-secondary, #a6adc8);
+  line-height: 1.5;
+}
+
+.ws-tls-notice-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #89b4fa;
+  line-height: 1.4;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────── */
+.ws-tls-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-primary, #45475a);
+}
+
+.ws-tls-section:last-child {
+  border-bottom: none;
+  border-radius: 0 0 7px 7px;
+}
+
+.ws-tls-section--mtls {
+  background: rgba(203, 166, 247, 0.03);
+}
+
+.ws-tls-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ws-tls-section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-primary, #cdd6f4);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ws-tls-section-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(166, 173, 200, 0.1);
+  color: var(--text-tertiary, #6c7086);
+  border: 1px solid rgba(166, 173, 200, 0.15);
+}
+
+.ws-tls-section-tag--mtls {
+  background: rgba(203, 166, 247, 0.12);
+  color: #cba6f7;
+  border-color: rgba(203, 166, 247, 0.25);
+}
+
+.ws-tls-section-desc {
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  color: var(--text-tertiary, #6c7086);
+  line-height: 1.5;
+}
+
+/* ── Skip-cert option row ─────────────────────────────────────────── */
+.ws-tls-option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid var(--border-primary, #45475a);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ws-tls-option-row:hover {
+  border-color: rgba(166, 173, 200, 0.4);
+  background: var(--bg-hover, #313244);
+}
+
+.ws-tls-option-row--warn {
+  background: rgba(249, 226, 175, 0.05);
+  border-color: rgba(249, 226, 175, 0.3);
+}
+
+.ws-tls-option-row--warn:hover {
+  border-color: rgba(249, 226, 175, 0.5);
+  background: rgba(249, 226, 175, 0.08);
+}
+
+.ws-tls-option-check {
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.ws-tls-option-check input[type="checkbox"] {
+  accent-color: #f9e2af;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
 }
 
-.ws-tls-checkbox-row input[type="checkbox"] {
-  accent-color: #f38ba8;
+.ws-tls-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
+.ws-tls-option-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #cdd6f4);
+  line-height: 1.3;
+}
+
+.ws-tls-option-desc {
+  font-size: 11px;
+  color: var(--text-tertiary, #6c7086);
+  line-height: 1.4;
+}
+
+.ws-tls-warn-badge {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #f9e2af;
+  line-height: 1.3;
+  align-self: center;
+}
+
+/* ── Individual fields ────────────────────────────────────────────── */
 .ws-tls-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+.ws-tls-field + .ws-tls-field {
+  margin-top: 14px;
+}
+
+.ws-tls-field-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ws-tls-field-label {
-  font-size: 11px;
-  color: var(--text-tertiary, #6c7086);
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #a6adc8);
+  letter-spacing: 0.02em;
+}
+
+.ws-tls-field-set-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(166, 227, 161, 0.12);
+  color: #a6e3a1;
+  border: 1px solid rgba(166, 227, 161, 0.25);
 }
 
 .ws-tls-textarea {
   width: 100%;
-  min-height: 80px;
-  padding: 8px;
-  background: var(--bg-input, #1e1e2e);
+  min-height: 96px;
+  padding: 10px 12px;
+  background: var(--bg-input, #11111b);
   color: var(--text-primary, #cdd6f4);
   border: 1px solid var(--border-primary, #45475a);
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 11px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  line-height: 1.55;
   resize: vertical;
+  transition: border-color 0.12s ease;
+  box-sizing: border-box;
+}
+
+.ws-tls-textarea::placeholder {
+  color: var(--text-tertiary, #6c7086);
+  opacity: 0.7;
 }
 
 .ws-tls-textarea:focus {
   border-color: var(--accent-primary, #89b4fa);
   outline: none;
+  background: var(--bg-input-focus, #13131f);
 }
+
+.ws-tls-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
 /* ── GraphQL-WS message types ──────────────────────────────────────── */
 

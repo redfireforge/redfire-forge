@@ -78,18 +78,18 @@ describe('WorkflowDetailModal', () => {
         variableValue='{"a":1}'
       />,
     );
-    const toggle = screen.getByText('{ } Pretty Format');
+    const toggle = screen.getByText('Pretty Format');
     fireEvent.click(toggle);
-    expect(screen.getByText('{ } Raw')).toBeTruthy();
+    expect(screen.getByText('Raw')).toBeTruthy();
     expect(document.querySelector('.wf-detail-modal-pretty')).not.toBeNull();
     // toggle back to raw
-    fireEvent.click(screen.getByText('{ } Raw'));
+    fireEvent.click(screen.getByText('Raw'));
     expect(document.querySelector('.wf-detail-modal-textarea')).not.toBeNull();
   });
 
   it('does not show pretty toggle for non-JSON variable value', () => {
     render(<WorkflowDetailModal {...baseProps} variableMode variableValue="notjson" />);
-    expect(screen.queryByText('{ } Pretty Format')).toBeNull();
+    expect(screen.queryByText('Pretty Format')).toBeNull();
   });
 
   it('calls clipboard.writeText on Copy (variable mode)', () => {

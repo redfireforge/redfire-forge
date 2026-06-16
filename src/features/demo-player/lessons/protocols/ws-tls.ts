@@ -11,7 +11,7 @@
  * Uses public wss://echo.websocket.org for live demo — no Docker required.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents, resetAuth, clearCustomHeaders } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 const WSS_ECHO_URL = 'wss://echo.websocket.org';
@@ -19,10 +19,16 @@ const WSS_ECHO_URL = 'wss://echo.websocket.org';
 // ── Guard helpers ──────────────────────────────────────────────────
 
 /**
- * Silently ensures the Connect tab is active and a wss:// URL is filled
- * so the TLS configuration panel renders in the DOM.
+ * Silently ensures the studio is in client mode, the Connect tab is active,
+ * and a wss:// URL is filled so the TLS configuration panel renders in the DOM.
+ *
+ * Without switching to client mode first, the left-tab buttons and Connect
+ * panel are not in the DOM (they only render in client mode), so all
+ * subsequent clicks and fills would silently do nothing.
  */
 async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(200);
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
   const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
@@ -34,9 +40,11 @@ async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
 
 /**
  * Silently ensures the TLS accordion panel is expanded (aria-expanded="true").
- * No-op if the TLS toggle doesn't exist or is already open.
+ * Waits for the toggle to appear in the DOM first (it only renders when the
+ * URL starts with wss://), so it is safe to call immediately after a URL fill.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(WS.TLS_TOGGLE, 2000);
   const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
   if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -44,24 +52,48 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Set the skip-cert checkbox to the desired state via click dispatch. */
+/**
+ * Set the skip-cert checkbox to the desired state via a click dispatch.
+ *
+ * React controlled checkboxes respond to click events: the click toggles the
+ * DOM checked property and React's onClick/onChange handlers fire, calling
+ * onTlsChange({ rejectUnauthorized: !e.target.checked }) and updating state.
+ *
+ * We waitFor the checkbox (not just assume the TLS panel is expanded) so this
+ * is safe to call even when React hasn't flushed the TLS panel render yet.
+ */
 async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<void> {
+  await ctx.waitFor(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`, 2000);
   const checkbox = document.querySelector(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`) as HTMLInputElement | null;
-  if (checkbox && checkbox.checked !== checked) {
-    checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await ctx.delay(200);
-  }
+  if (!checkbox || checkbox.checked === checked) return;
+  checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  await ctx.delay(200);
 }
 
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
 async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(500);
+
+  // Switch to client mode first — left-tab buttons and Connect panel only exist
+  // in client mode; in mock/saved mode all subsequent clicks fail silently.
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(300);
+
   await disconnectWebSocket(ctx);
   await closeExtraConnectionTabs(ctx);
   await clearEvents(ctx);
 
-  // Ensure Connect tab is active
+  // Clear any auth and custom headers that would force proxy mode.
+  //
+  // The browser WebSocket transport cannot set custom headers, and any auth that
+  // resolves to headers (Bearer token, API key, etc.) also forces proxy mode.
+  // In web mode the proxy backend is not running → 504 Gateway Timeout.
+  // We must clear both before connecting so the demo uses Direct transport.
+  await resetAuth(ctx);         // sets auth type → "none"
+  await clearCustomHeaders(ctx); // removes all header rows, returns to Connect tab
+
+  // Ensure Connect tab is active (clearCustomHeaders returns to Connect but be explicit)
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
 
@@ -69,18 +101,50 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.RIGHT_TAB_EVENTS);
   await ctx.delay(200);
 
-  // Clear the URL to start fresh
+  // Reset TLS skip-cert BEFORE clearing the URL.
+  //
+  // Critical ordering: the TLS panel only renders when the URL starts with wss://.
+  // If we clear the URL first, isWss becomes false, the TLS panel unmounts, and
+  // setSkipCert finds no checkbox — the reset silently does nothing.
+  //
+  // When skip-cert is left enabled (rejectUnauthorized === false), hasTlsOverrides()
+  // returns true and the studio routes the next connection through the proxy backend
+  // (/api/ws/connect). In web mode the proxy backend is not running → 504.
+  //
+  // We use waitFor (not delay) so the TLS panel + checkbox are guaranteed to be
+  // in the DOM before we try to interact with them. A fixed delay is a race
+  // condition when React's scheduler is under load.
+  await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+  await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
+  await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
+
+  // Now clear the URL to leave a blank slate for step 1
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
-
-  // Reset TLS config: uncheck skip-cert if it was checked
-  await setSkipCert(ctx, false);
 }
 
 async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
+  // Ensure client mode so DISCONNECT_BTN, URL input, and TLS panel are in DOM.
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(300);
+
+  // Switch to Connect tab — the studio may have auto-navigated to Compose after
+  // the last step's connection, leaving the URL input and TLS panel out of the DOM.
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+
   await disconnectWebSocket(ctx);
   await clearEvents(ctx);
-  await setSkipCert(ctx, false);
+
+  // CRITICAL: Ensure a wss:// URL is filled BEFORE trying to expand the TLS panel.
+  // The TLS toggle only renders when isWss=true (URL starts with wss://).
+  // If a demo step left the URL empty or ws://, the TLS panel never mounts,
+  // ensureTlsPanelExpanded times out silently, setSkipCert never fires,
+  // and skip-cert=true is left in React state — causing 504 on the next connect.
+  await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+  await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
+  await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
+
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
   await closeExtraConnectionTabs(ctx);
@@ -254,15 +318,16 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'For development servers with self-signed certificates, check "Skip certificate validation." This sets rejectUnauthorized to false, accepting any certificate. It\'s essential for internal staging environments but should never be used in production. Note: in the browser, this requires the Proxy transport — the browser\'s own TLS stack always validates.',
       highlight: WS.TLS_SKIP_CERT,
       preAction: async (ctx) => {
-        // Disconnect first so skip-cert can be changed while disconnected
-        const discBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
-        if (discBtn && !discBtn.disabled) {
-          discBtn.click();
-          await ctx.delay(500);
-        }
-        // Ensure Connect tab + wss:// URL (so TLS panel renders)
+        // Navigate to Connect tab FIRST — DISCONNECT_BTN is only in the DOM when the
+        // Connect panel is rendered. After the previous step (tls-send), the studio
+        // auto-switches to Compose tab on connection, so we must switch back before
+        // trying to disconnect. ensureTlsPanelReady handles mode + tab + URL.
         await ensureTlsPanelReady(ctx);
-        // Ensure TLS panel is expanded
+        // Now disconnect while the Connect panel (and its DISCONNECT_BTN) is visible.
+        // The skip-cert checkbox is disabled while connected; we must disconnect first.
+        await disconnectWebSocket(ctx);
+        await ctx.delay(300);
+        // Ensure TLS panel is expanded so the checkbox is in the DOM
         await ensureTlsPanelExpanded(ctx);
       },
       action: async (ctx) => {
@@ -303,16 +368,26 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'RedfireForge selects the transport automatically. In the browser: Direct mode for standard wss:// (browser handles TLS), Proxy mode when you set custom TLS options (Node.js applies them). On Tauri desktop: Native mode always — rustls handles TLS directly with full support for skip-cert, custom CA, and mTLS without needing a proxy.',
       highlight: WS.TRANSPORT_BADGE,
       preAction: async (ctx) => {
+        // The transport badge lives inside the Connect panel — it only renders in the
+        // DOM when the Connect tab is active. Switch there first so setSkipCert and
+        // the subsequent highlight can find their targets.
+        await ensureTlsPanelReady(ctx);
+        // Ensure TLS panel is expanded so the skip-cert checkbox is in the DOM
+        await ensureTlsPanelExpanded(ctx);
         // Reset skip-cert so the connection uses Direct (not Proxy) transport
         await setSkipCert(ctx, false);
         await ctx.delay(300);
         // Ensure connected so the transport badge is visible and showing "Direct"
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (!isConnected) {
-          await ensureTlsPanelReady(ctx);
           await ctx.click(WS.CONNECT_BTN);
           await ctx.delay(2500);
         }
+        // After connecting the studio auto-switches to Compose tab. Switch back to the
+        // Connect tab so the transport badge (inside the Connect panel) is in the DOM
+        // for the spotlight and action.
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(300);
       },
       action: async (ctx) => {
         // Draw the viewer's eye to the transport badge showing "Direct"

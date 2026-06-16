@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** 📋 Planning — no lessons shipped yet
+> **Status:** ✅ Complete — all 13 lessons (K1–K13) implemented, tested, and committed on `feature/kafka-demo-hub`. Pending merge to `develop`.
 
 ---
 
@@ -216,19 +216,19 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 | # | Lesson | ID | File | Status | Steps | E2E Source | Docker |
 |---|---|---|---|---|---|---|---|
-| K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | 🔲 Not started | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
-| K2 | Publish Studio | `kafka-publish` | `kafka-publish.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K5 | Templates | `kafka-templates` | `kafka-templates.ts` | 🔲 Not started | 7 | — | No |
-| K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K7 | Schema Registry | `kafka-schema-registry` | `kafka-schema-registry.ts` | 🔲 Not started | 9 | `kafka-schema.spec.ts` | 🐳 SR |
-| K8 | Stream Mode | `kafka-stream-mode` | `kafka-stream-mode.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K9 | Workflow: Produce | `kafka-workflow-produce` | `kafka-workflow-produce.ts` | 🔲 Not started | 9 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
-| K10 | Workflow: Consume & Wait | `kafka-workflow-consume-wait` | `kafka-workflow-consume-wait.ts` | 🔲 Not started | 10 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
-| K11 | Secure Cluster | `kafka-secure` | `kafka-secure.ts` | 🔲 Not started | 9 | — (manual) | 🐳 Secure |
-| K12 | TLS Cluster | `kafka-tls` | `kafka-tls.ts` | 🔲 Not started | 9 | — (manual) | 🐳 TLS |
-| K13 | Harness Run | `kafka-test-runner` | `kafka-test-runner.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | ✅ Done (2026-06-15) | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K2 | Publish Studio | `kafka-publish` | `kafka-publish.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K5 | Templates | `kafka-templates` | `kafka-templates.ts` | ✅ Done (2026-06-15) | 7 | — | No |
+| K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | ✅ Done (2026-06-16) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K7 | Schema Registry | `kafka-schema-registry` | `kafka-schema-registry.ts` | ✅ Done (2026-06-16) | 9 | `kafka-schema.spec.ts` | 🐳 SR |
+| K8 | Stream Mode | `kafka-stream-mode` | `kafka-stream-mode.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K9 | Workflow: Produce | `kafka-workflow-produce` | `kafka-workflow-produce.ts` | ✅ Done (2026-06-16) | 9 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K10 | Workflow: Consume & Wait | `kafka-workflow-consume-wait` | `kafka-workflow-consume-wait.ts` | ✅ Done (2026-06-16) | 10 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
+| K11 | Secure Cluster | `kafka-secure` | `kafka-secure.ts` | ✅ Done (2026-06-16) | 9 | — (manual) | 🐳 Secure |
+| K12 | TLS Cluster | `kafka-tls` | `kafka-tls.ts` | ✅ Done (2026-06-16) | 9 | — (manual) | 🐳 TLS |
+| K13 | Harness Run | `kafka-test-runner` | `kafka-test-runner.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
 
 **Total planned:** 13 lessons, 111 steps (sum of per-lesson estimates)
 
@@ -242,8 +242,13 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 **File:** `src/features/demo-player/lessons/protocols/kafka-quick-start.ts`
 **Export:** `kafkaQuickStartLesson`
-**Icon:** ⚡ | **Est. time:** 3 min | **initialTab:** `kafka-message-studio`
+**Icon:** ⚡ | **Est. time:** 3 min | **initialTab:** `kafka-settings`
 **Category:** `kafka` | **Docker:** 🐳 Plaintext (`http://localhost:18080`)
+**allowedTabs:** `['kafka-settings', 'kafka-message-studio']`
+
+> **Note:** `initialTab` is `kafka-settings` because the first lesson step IS the settings page.
+> `allowedTabs` must include both tabs to prevent the auto-exit guard from firing during
+> the final `navigateToTab('kafka-message-studio')` in step 7.
 
 #### Concept
 - Kafka broker vs cluster ID vs topic
@@ -254,23 +259,51 @@ Lessons are ordered to build intuition progressively — not by implementation p
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `ks-intro` | Welcome to Kafka in RedfireForge | `KAFKA_STUDIO_TAB` | Informational — shows the Protocols → Kafka nav |
-| 2 | `ks-settings` | Configure a Cluster | `KAFKA_SETTINGS_LINK` | Navigates to Settings → Kafka (link in guard panel) |
-| 3 | `ks-create` | Create Your First Cluster | `KAFKA_NEW_CLUSTER_BTN` | Clicks "+ New Cluster" (or "Create First Cluster") |
-| 4 | `ks-fill` | Fill in Broker Details | `KAFKA_BROKER_INPUT` | preAction: fills Name="Local Plaintext", Broker="127.0.0.1:19092", Auth=None |
-| 5 | `ks-save` | Save the Cluster | `KAFKA_SAVE_BTN` | Clicks Save Cluster |
-| 6 | `ks-connect` | Connect | `KAFKA_CONNECT_BTN` | Clicks Connect → waits for status badge to show "connected" |
-| 7 | `ks-studio` | Back to the Studio | `KAFKA_STUDIO_TAB` | Navigates to Protocols → Kafka; shows the 4 tabs (Publish/Consume/Topics/Schema Registry) |
+| 1 | `ks-intro` | Welcome to Kafka in RedfireForge | `KAFKA.SETTINGS_PAGE` | Informational — Kafka Cluster Studio overview |
+| 2 | `ks-create` | Create Your First Cluster | `KAFKA.EMPTY_CREATE_BTN` | **action**: clicks `KAFKA.EMPTY_CREATE_BTN` (empty state) or `KAFKA.ADD_CLUSTER_BTN` (if clusters exist) — editor opens |
+| 3 | `ks-fill` | Fill in Broker Details | `KAFKA.BROKER_INPUT` | **action**: fills `#kafka-cluster-name` with `Demo Cluster`, verifies broker = `127.0.0.1:19092`, auth = None |
+| 4 | `ks-save` | Save the Cluster | `KAFKA.SAVE_BTN` | **action**: clicks `KAFKA.SAVE_BTN` — cluster card appears in list |
+| 5 | `ks-connect` | Connect to the Broker | `KAFKA.CONNECT_BTN` | **action**: clicks `KAFKA.CONNECT_BTN` — waits for "Connected" badge |
+| 6 | `ks-status` | Connection Status | `KAFKA.SETTINGS_LIST` | Informational — explains Connected badge, cluster list, selected profile |
+| 7 | `ks-studio` | Back to the Studio | `KAFKA.PUBLISH_TAB` | **preAction**: `navigateToTab('kafka-message-studio')` + delay(400) — shows 4 tabs |
 
-**Setup:** Navigate to `kafka-message-studio` tab; show `PrerequisiteGate` for plaintext broker.
-**Cleanup:** No-op (cluster config persists intentionally — needed by all subsequent lessons).
+**Setup:** No-op — lesson starts directly on `kafka-settings`.
+**Cleanup:** No-op (cluster config persists intentionally — needed by K2/K3/K4 onwards).
 
 **PrerequisiteGate config:**
 ```typescript
 dockerEndpoint: 'http://localhost:18080',
 dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
-// No dockerDescription field — DemoLesson type only has dockerEndpoint and dockerCommand
 ```
+
+#### Implementation Notes (2026-06-15)
+
+**Design decision — no setup/cleanup functions:**
+K1 starts directly on `kafka-settings` via `initialTab: 'kafka-settings'` — no setup navigation needed. Cluster config persists to localStorage so K2/K3/K4 (which use `kafkaPublishSetup`) find the cluster already saved.
+
+**Step 2 dual-button strategy (no duplicate clusters):**
+Step 2 action checks for `[data-testid="kafka-empty-create-btn"]` first (empty state), falls back to `[data-testid="kafka-add-cluster-btn"]` (toolbar, shown when ≥1 cluster). This avoids the duplicate-cluster bug that was previously fixed in `kafkaPublishSetup`.
+
+**Step 3 only fills cluster name:**
+The broker field already shows `127.0.0.1:19092` by default. `ctx.fill('#kafka-cluster-name', 'Demo Cluster')` is sufficient — the React state auto-derives Cluster ID to `demo-cluster`.
+
+**Step 7 uses `preAction` for tab navigation:**
+All tab navigation uses `preAction` (runs before reading phase). `action` is skipped if user presses ArrowRight early. `preAction` is guaranteed to execute. The `allowedTabs` includes both `kafka-settings` and `kafka-message-studio` to prevent the auto-exit guard from firing during step 7 navigation.
+
+**Visual validation pass (2026-06-15):**
+- Step 1: Settings page highlighted, no clusters yet ✓
+- Step 2: Empty-state "Create First Cluster" clicked → editor opened ✓
+- Step 3: Cluster name filled → "Demo Cluster", Cluster ID auto → "demo-cluster" ✓
+- Step 4: Save Cluster clicked → Demo Cluster card appeared in list as "Connected" ✓
+- Step 5: Connect btn was already disabled (save auto-connected) — action correctly skipped the click ✓
+- Step 6: Connection status highlighted, "Connected to demo-cluster" text visible ✓
+- Step 7: preAction navigated to `kafka-message-studio` — Publish/Consume/Topics/Schema Registry tabs shown ✓
+After exit: Quick Start shows ✓ Completed, Kafka counter shows **3/4** (K1+K2+K3 done) ✓
+
+**22 unit tests added (85 total):**
+K1 test suite follows same pattern as K2/K3 (~21 tests). Added in `kafka-lessons.test.ts`. All 85 tests pass.
+
+**TypeScript:** 0 errors.
 
 ---
 
@@ -292,18 +325,71 @@ dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `pub-intro` | The Publish Tab | `KAFKA_PUBLISH_TAB` | Informational — overview of all fields |
-| 2 | `pub-topic` | Set the Topic | `KAFKA_PUB_TOPIC_INPUT` | preAction: fills `orders.created` |
-| 3 | `pub-body` | Write the Message Body | `KAFKA_PUB_BODY_TEXTAREA` | preAction: fills `{"orderId":"DEMO-001","status":"CREATED","amount":99.99}` |
-| 4 | `pub-key` | Add a Message Key | `KAFKA_PUB_KEY_INPUT` | preAction: fills `order-demo-001` — explains partition affinity |
-| 5 | `pub-acks` | Choose Ack Level | `KAFKA_PUB_ACKS_SELECT` | Informational — explains -1 / 1 / 0 options |
-| 6 | `pub-format` | Validate & Format JSON | `KAFKA_PUB_FORMAT_BTN` | Clicks "Validate & Format JSON" → body pretty-prints |
-| 7 | `pub-send` | Send Once | `KAFKA_PUB_SEND_BTN` | Clicks "Send Once" — waits for result section to appear |
-| 8 | `pub-result` | Inspect the Result | `KAFKA_PUB_RESULT` | Shows partition, offset, timestamp in success panel |
-| 9 | `pub-clear` | Clear the Result | `KAFKA_PUB_CLEAR_BTN` | Clicks "Clear" — result disappears |
+| 1 | `pub-intro` | The Publish Tab | `KAFKA.PUBLISH_TAB` | Informational — overview of all fields |
+| 2 | `pub-topic` | Set the Topic | `KAFKA.PUB_TOPIC_INPUT` | **action**: fills `#kms-pub-topic` with `orders.created` |
+| 3 | `pub-body` | Write the Message Body | `KAFKA.PUB_BODY_TEXTAREA` | **action**: fills `#kms-pub-body` with `{"orderId":"DEMO-001","status":"CREATED","amount":99.99}` |
+| 4 | `pub-key` | Add a Message Key | `KAFKA.PUB_KEY_INPUT` | **action**: fills `#kms-pub-key` with `order-demo-001` — explains partition affinity |
+| 5 | `pub-acks` | Choose Ack Level | `KAFKA.PUB_ACKS_SELECT` | Informational — explains -1 / 1 / 0 options |
+| 6 | `pub-format` | Validate & Format JSON | `KAFKA.PUB_FORMAT_BTN` | **action**: clicks format button → body pretty-prints |
+| 7 | `pub-send` | Send Once | `KAFKA.PUB_SEND_BTN` | **action**: clicks "Send Once" — verify: `KAFKA.PUB_RESULT` appears |
+| 8 | `pub-result` | Inspect the Result | `KAFKA.PUB_RESULT` | Informational — shows partition, offset, timestamp |
+| 9 | `pub-clear` | Clear the Result | `KAFKA.PUB_CLEAR_BTN` | **action**: clicks "Clear" — result disappears |
 
-**Setup:** `kafkaSetup` (navigate to Protocols → Kafka → Publish tab; PrerequisiteGate: plaintext broker).
+**Setup:** `kafkaPublishSetup` (auto-creates "Demo Cluster" if none exists, connects to `127.0.0.1:19092`, returns to message studio).
 **Cleanup:** `kafkaCleanup`.
+
+#### Success Criteria
+- [x] 9 steps with unique IDs
+- [x] `allowedTabs: ['kafka-settings']` declared so setup navigation does not trigger auto-exit
+- [x] All fill steps use `action` (visible ripple) — not `preAction`
+- [x] Step 7 verify selector `KAFKA.PUB_RESULT` waits for success panel
+- [x] `data-testid="pub-format-btn"` added to KafkaPublishStudio.tsx
+- [x] `data-testid="pub-clear-btn"` added to KafkaPublishStudio.tsx
+- [x] `data-testid="kafka-connect-btn"` added to KafkaSettingsPage.tsx
+- [x] `kafkaPublishSetup` helper created in setup-helpers.ts
+- [x] 21 unit tests pass — all green (including allowedTabs test)
+- [x] Visual validation: all 9 steps verified in browser (sent to partition 1, offset 75–76)
+- [x] Lesson completes correctly — shows "Restart" + green ✓ after reaching step 9
+
+#### Implementation Notes (2026-06-15)
+
+**Bug fixed — demo auto-exited during setup (`useDemoShortcuts`):**
+`kafkaPublishSetup` navigates to `kafka-settings` to create and connect the cluster. The `useDemoShortcuts` hook watches `activeTab` and calls `exitLiveDemo()` whenever `activeTab !== initialTab && !allowedTabs.includes(activeTab)`. With `allowedTabs` empty, the settings navigation killed the demo.
+
+Fixed by adding `allowedTabs: ['kafka-settings']` to the lesson definition — the auto-exit guard now skips when setup is navigating to settings.
+
+**`kafkaPublishSetup` design:**
+Chose a dedicated setup helper rather than reusing `kafkaSetup` because K2 needs:
+1. Auto-create a "Demo Cluster" pointing at `127.0.0.1:19092` if none exist
+2. Auto-connect so `canSend = !topicEmpty && !publishLoading && connected` becomes true when topic is filled
+3. Navigate back to `kafka-message-studio` after connection
+
+The existing `kafkaSetup` only navigates to the publish tab and does not manage cluster creation.
+
+**`data-testid` additions:**
+- `KafkaPublishStudio.tsx`: `pub-format-btn`, `pub-clear-btn` (were missing despite selectors existing)
+- `KafkaSettingsPage.tsx`: `kafka-connect-btn`, `kafka-test-btn`, `kafka-disconnect-btn`
+
+**Design decision — fill steps use `action` not `preAction`:**
+Same rule as K5: `action` for visible user-facing fills (ripple + 400ms delay), `preAction` only for silent navigation/reset.
+
+**Bug fixed — lesson not marked complete on manual navigation (`goToStep`):**
+`goToStep()` in `useDemoHub.ts` only called `progress.setLessonStep()` but never `progress.markLessonComplete()`. Manually navigating to step 9/9 left the lesson in "Resume" state instead of "Restart". Auto-play and pressing → from the last step (via `nextStep()`) already called `markLessonComplete`, so only the `goToStep` path was broken.
+
+Fixed by adding `if (clamped >= lesson.steps.length - 1) { progress.markLessonComplete(lesson.id); }` at the end of `goToStep`. This is a system-level fix in `useDemoHub.ts` affecting ALL lessons. Unit test added: `'goToStep marks lesson complete when navigating to last step'` in `useDemoHub.test.ts` (50/50 pass).
+
+**Visual re-evaluation pass (2026-06-15):**
+Full end-to-end walkthrough confirmed all 9 steps correct:
+- Step 1: Publish tab spotlight ✓
+- Step 2: Topic filled `orders.created` → Send Once enabled ✓
+- Step 3: Body filled with JSON payload ✓
+- Step 4: Key filled `order-demo-001` ✓
+- Step 5: Acks dropdown highlighted ✓
+- Step 6: JSON pretty-printed correctly ✓
+- Step 7: Message sent → "✓ Sent 1 message to orders.created partition 1, offset 76" ✓
+- Step 8: Result panel highlighted, offset explanation ✓
+- Step 9: Clear clicked → result panel removed ✓
+After exit: lesson shows green ✓ checkmark, "Restart" button, Kafka category shows "1/2" ✓
 
 ---
 
@@ -326,18 +412,59 @@ dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `con-intro` | The Consume Tab | `KAFKA_CONSUME_TAB` | Clicks Consume tab — shows all fields |
-| 2 | `con-topic` | Set the Topic | `KAFKA_CON_TOPIC_INPUT` | preAction: fills `orders.created` (from Lesson K2) |
-| 3 | `con-position` | Start from Earliest | `KAFKA_CON_POSITION_SELECT` | preAction: sets Start Position to "Earliest" |
-| 4 | `con-max` | Limit Messages | `KAFKA_CON_MAX_INPUT` | preAction: sets Max Messages to `5` |
-| 5 | `con-consume` | Consume Once | `KAFKA_CON_CONSUME_BTN` | Clicks "Consume Once" — waits for results table |
-| 6 | `con-table` | The Results Table | `KAFKA_CON_RESULTS_ZONE` | Shows row count, offset/partition/key/value columns |
-| 7 | `con-row` | Click a Row | `KAFKA_CON_RESULTS_ZONE` | preAction: clicks first row — detail pane slides in |
-| 8 | `con-detail` | The Detail Pane | `KAFKA_CON_DETAIL_PANE` | Shows pretty-printed payload, Copy Key, Copy Payload |
-| 9 | `con-export` | Export the Result Set | `KAFKA_CON_EXPORT_BTN` | Clicks "Export Result Set" — downloads JSON file |
+| 1 | `con-intro` | The Consume Tab | `KAFKA.CONSUME_TAB` | **preAction**: clicks Consume tab + delay(300) — MUST be preAction (not action) |
+| 2 | `con-topic` | Set the Topic | `KAFKA.CON_TOPIC_INPUT` | **action**: fills `orders.created` |
+| 3 | `con-position` | Start from Earliest | `KAFKA.CON_POSITION_SELECT` | **action**: selectOption `earliest` |
+| 4 | `con-max` | Limit the Batch Size | `KAFKA.CON_MAX_INPUT` | **action**: fills `5` |
+| 5 | `con-consume` | Consume Once | `KAFKA.CON_CONSUME_BTN` | **action**: clicks Consume Once; verify: `KAFKA.CON_RESULTS_ZONE` |
+| 6 | `con-table` | The Results Table | `KAFKA.CON_RESULTS_ZONE` | Informational — no action |
+| 7 | `con-row` | Click a Row | `KAFKA.CON_RESULTS_ZONE` | **action**: clicks `[data-testid="con-row-0"]` — detail pane slides in |
+| 8 | `con-detail` | The Detail Pane | `KAFKA.CON_DETAIL_PANE` | Informational — no action |
+| 9 | `con-export` | Export the Result Set | `KAFKA.CON_EXPORT_BTN` | **action**: clicks Export Result Set button |
 
-**Setup:** `kafkaSetup` (PrerequisiteGate: plaintext broker). Pre-seeds `orders.created` topic with 3 messages via rpk (in setup action, not shown as a step).
+**Setup:** `kafkaPublishSetup` (auto-creates "Demo Cluster" if none, connects, returns to `kafka-message-studio`).
 **Cleanup:** `kafkaCleanup`.
+**allowedTabs:** `['kafka-settings']` — prevents auto-exit when setup navigates to Kafka Settings.
+
+#### Success Criteria
+- [x] 9 steps with unique IDs
+- [x] `allowedTabs: ['kafka-settings']` declared
+- [x] Step 1 uses `preAction` for tab switch (not `action`) — runs before reading phase
+- [x] Steps 2-4 use `action` (visible fills/select with ripple)
+- [x] Step 5 clicks Consume Once, verifies `CON_RESULTS_ZONE` appears
+- [x] Step 7 clicks `[data-testid="con-row-0"]` — detail pane opens
+- [x] Step 9 clicks Export button
+- [x] 21 unit tests pass — all green
+- [x] Visual validation: all 9 steps confirmed, 5 messages from `orders.created` (max reached), detail pane opened, Kafka shows 2/3
+
+#### Implementation Notes (2026-06-15)
+
+**Design decision — Step 1 uses `preAction` not `action`:**
+The Consume tab click MUST be `preAction`, not `action`. The `action` callback only runs after the reading phase begins. If the user presses ArrowRight before reading completes, `action` is skipped and all subsequent steps would see the Publish tab instead of Consume. `preAction` runs before the reading phase displays, so it's guaranteed to execute. This is the canonical pattern for ALL tab navigation steps.
+
+**Bug fixed — `selectOption` in `buildContext` did not trigger React state updates:**
+`el.value = value` bypasses React's synthetic event system. Fixed by using `HTMLSelectElement.prototype` native setter (same approach as `fill` for inputs):
+```typescript
+const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+nativeSet?.call(el, value);
+el.dispatchEvent(new Event('change', { bubbles: true }));
+```
+This is a system-level fix in `useDemoHub.ts` affecting ALL `selectOption` calls (both `buildContext` and `buildQuietContext`). Unit test confirmed: `'buildContext selectOption sets select value'` passes.
+
+**Reuse of `kafkaPublishSetup`:** K3 reuses K2's setup helper (same broker requirements, same pattern). No new setup helper needed.
+
+**Visual re-evaluation pass (2026-06-15):**
+Full end-to-end walkthrough confirmed all 9 steps correct:
+- Step 1: Consume tab highlighted (blue border), Consume form visible ✓
+- Step 2: Topic filled `orders.created` ✓
+- Step 3: Start Position → Earliest (confirmed via selectOption native setter fix) ✓
+- Step 4: Max Messages → 5 ✓
+- Step 5: Consume Once clicked → "5 messages (max reached)", table populated ✓
+- Step 6: Results zone highlighted (informational) ✓
+- Step 7: First row clicked → Detail Pane slides in with `{"test":"schema-passthrough"}` ✓
+- Step 8: Detail pane highlighted (informational) ✓
+- Step 9: Export Result Set button highlighted ✓
+After exit: lesson shows ✓ Completed, "Restart" button, Kafka **2/3** ✓
 
 ---
 
@@ -368,8 +495,29 @@ dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 | 7 | `hf-jsonpath` | JSONPath Filter | `KAFKA_CON_JSONPATH_INPUT` | preAction: clears key filter, sets JSONPath=`$.status`, JSONPath Equals=`CREATED`; clicks "Consume Once" |
 | 8 | `hf-detail` | Headers in the Detail Pane | `KAFKA_CON_DETAIL_PANE` | Clicks a result row — shows headers table in detail pane with `traceId: abc-001` |
 
-**Setup:** `kafkaSetup` (PrerequisiteGate: plaintext broker + topic `headers.demo` created by setup).
-**Cleanup:** `kafkaCleanup`.
+**Setup:** `kafkaPublishSetup` (creates cluster + connects; returns to `kafka-message-studio`).
+**Cleanup:** `kafkaCleanup` (no-op).
+
+#### Success Criteria
+- [x] 8 steps with unique IDs in exact specified order
+- [x] Step 1 has `preAction` to navigate to publish tab; no `action`
+- [x] Step 2 `action` clicks `KAFKA.PUB_HEADER_ADD_BTN`
+- [x] Step 3 `preAction` fills header key/value + topic + message key + body; no `action`
+- [x] Step 4 `action` sends the message and waits for `KAFKA.PUB_RESULT`
+- [x] Step 5 `preAction` navigates to consume tab; no `action`
+- [x] Step 6 has both `preAction` (fills form) and `action` (clicks Consume Once + waits for results zone)
+- [x] Step 7 has both `preAction` (clears key filter, sets JSONPath) and `action` (clicks Consume Once)
+- [x] Step 8 `action` clicks first result row and waits for `KAFKA.CON_DETAIL_PANE`
+- [x] 20 unit tests pass (108 total in kafka-lessons.test.ts — all green)
+- [x] Visual validation: lesson #4 appears in Kafka category with correct name + description
+
+#### Implementation Notes (2026-06-16)
+
+**Header row fill selectors:** After clicking `+ Add`, rows use `.kafka-ms-kv-row:first-child input[placeholder="key"]` and `.kafka-ms-kv-row:first-child input[placeholder="value"]` (first child, not last child) since the header list only contains the freshly added row at that point.
+
+**`kafkaPublishSetup` reused instead of `kafkaSetup`:** The plan referenced `kafkaSetup`; actual implementation uses `kafkaPublishSetup` (same as K2/K3) which creates a cluster, connects, and returns to `kafka-message-studio`. This is correct since K4 needs a connected broker for both publish and consume steps.
+
+**DEMO_KEY vs keyEquals:** The plan called `HDR-001` the "entity key" in the filter — this is the message key set via `KAFKA.PUB_KEY_INPUT`, not the header key. The header key is `traceId`. This distinction is documented in step descriptions.
 
 ---
 
@@ -391,16 +539,52 @@ dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
 | # | Step ID | Title | Highlight | Action |
 |---|---|---|---|---|
-| 1 | `tmpl-intro` | Saving a Publish Template | `KAFKA_PUB_SAVE_BTN` | Publish tab — informational about the Save button |
-| 2 | `tmpl-fill-pub` | Fill a Publish Form | `KAFKA_PUB_TOPIC_INPUT` | preAction: fills topic=`orders.events`, body=`{"type":"test"}` |
-| 3 | `tmpl-save-pub` | Save as "Orders Template" | `KAFKA_PUB_SAVE_BTN` | Clicks Save → name input appears → types "Orders Template" → presses Enter |
-| 4 | `tmpl-load-pub` | Load ▾ the Template | `KAFKA_PUB_LOAD_BTN` | Clicks "Load ▾" → dropdown shows "Orders Template" → clicks it → form refills |
-| 5 | `tmpl-delete-pub` | Delete the Template | `KAFKA_PUB_LOAD_BTN` | Opens dropdown again → clicks × next to "Orders Template" → "No saved templates" |
-| 6 | `tmpl-consume` | Consume Templates Work the Same | `KAFKA_CON_SAVE_BTN` | Switches to Consume tab — shows Save/Load buttons for consume |
-| 7 | `tmpl-persist` | Templates Persist | `KAFKA_PUB_LOAD_BTN` | Informational — note about localStorage persistence; demonstrates reload survives |
+| 1 | `tmpl-intro` | Saving a Publish Template | `KAFKA.PUB_SAVE_BTN` | Informational — spotlight on Save button |
+| 2 | `tmpl-fill-pub` | Fill a Publish Form | `KAFKA.PUB_TOPIC_INPUT` | **action** (visible): fills topic=`orders.events`, delay(400), body=`{"type":"test"}`, delay(300) |
+| 3 | `tmpl-save-pub` | Save as "Orders Template" | `KAFKA.PUB_SAVE_BTN` | action: click Save → delay(500) → fill name input → delay(300) → click ✓ confirm btn |
+| 4 | `tmpl-load-pub` | Load ▾ the Template | `KAFKA.PUB_LOAD_BTN` | action: click Load ▾ → delay(400) → click template item → form refills |
+| 5 | `tmpl-delete-pub` | Delete the Template | `KAFKA.PUB_LOAD_BTN` | action: click Load ▾ → delay(400) → click × delete btn → "No saved templates" |
+| 6 | `tmpl-consume` | Consume Templates Work the Same | `KAFKA.CON_SAVE_BTN` | preAction: click CONSUME_TAB → delay(300); informational |
+| 7 | `tmpl-persist` | Templates Persist Across Reloads | `KAFKA.PUB_LOAD_BTN` | preAction: click PUBLISH_TAB → delay(300); informational |
 
-**Setup:** Navigate to Protocols → Kafka → Publish. No Docker needed.
-**Cleanup:** Remove any saved templates created during the demo (via `localStorage.removeItem`).
+**Setup:** Uses `initialTab: 'kafka-message-studio'` — navigates automatically on lesson start. No Docker needed.
+**Cleanup:** Removes any saved "Orders Template" from `KAFKA_PUBLISH_TEMPLATES_KEY` in localStorage (in case lesson was abandoned mid-way).
+
+#### Success Criteria
+- [x] 7 steps with unique IDs
+- [x] No `dockerEndpoint` — no PrerequisiteGate shown
+- [x] Step 2 uses `action` (not `preAction`) so fills are visible to the user
+- [x] Step 3 saves template to localStorage (verified via `localStorage.getItem`)
+- [x] Step 4 loads template and repopulates form (topic + body confirmed)
+- [x] Step 5 deletes template — localStorage empty after action
+- [x] Steps 6-7 navigate via preAction (quiet, no ripple)
+- [x] 20 unit tests pass — all green
+- [x] Visual validation: all 7 steps verified in browser at 2x speed
+
+#### Implementation Notes (2026-06-15)
+
+**Bug fixed — `KafkaMessageStudioPage` early return blocked template controls:**
+The original code had `if (connection.state !== 'connected') return <KafkaStudioGuard/>` — a full-page early return that hid all template controls when no broker was connected. Fixed by:
+1. Removing the early return
+2. Adding `const isConnected = connection.state === 'connected'`
+3. Publish/Consume tabs always render; Topics/Schema tabs gate on `isConnected`
+4. Added `connected?: boolean` prop to both `KafkaPublishStudio` and `KafkaConsumeStudio` — disables Send/Consume buttons when false but keeps templates accessible
+5. Added `data-testid="tab-publish"` and `data-testid="tab-consume"` to tab buttons
+
+**Design decision — Step 2 uses `action` not `preAction`:**
+Fill actions belong in `action` (visible ripple + 400ms delay) so the user sees the form fill animated in real-time. `preAction` is silent and instant — reserved for navigation/reset only.
+
+**File-private selectors (corrected 2026-06-16):**
+```typescript
+const SAVE_INPUT = '.kafka-ms-template-save-input';
+const SAVE_CONFIRM_BTN = '.kafka-ms-template-confirm-btn';   // fixed: was wrong class
+const TEMPLATE_ITEM = '.kafka-ms-template-item';
+const TEMPLATE_DELETE_BTN = '.kafka-ms-template-item-delete';
+```
+
+**Bug fixed (2026-06-16) — wrong confirm button class:** The original `SAVE_CONFIRM_BTN` used selector `.kafka-ms-template-save-row .kafka-ms-template-btn:not(.kafka-ms-template-btn-cancel)` which did not match the actual DOM class `kafka-ms-template-confirm-btn`. The save action would click Save and fill the name but silently fail on the ✓ confirm click, leaving the template unsaved. Fixed to `.kafka-ms-template-confirm-btn`. Unit test updated to assert the correct class.
+
+**Unit tests:** `kafka-lessons.test.ts` — 172 tests, all green. Tests cover: valid structure, step count, no dockerEndpoint, cleanup behavior (removes Orders Template, no-op when empty, handles malformed JSON), step action/preAction classification, and correct confirm button selector class.
 
 ---
 
@@ -975,8 +1159,8 @@ The table below shows which existing E2E specs validate the underlying feature e
 | K8 | Stream mode (start/stop/export) | `kafka-live.spec.ts` | ✅ |
 | K9 | kafkaProduce node in workflow | `kafka-desktop.spec.ts` | ✅ |
 | K10 | kafkaConsume + kafkaWait nodes | `kafka-desktop.spec.ts` | ✅ |
-| K11 | SASL/SCRAM cluster + workflow | Validated manually (see `kafka-secure-tls-stream-test-scenarios.md`) | ☐ |
-| K12 | TLS cluster + workflow | Validated manually (see `kafka-secure-tls-stream-test-scenarios.md`) | ☐ |
+| K11 | SASL/SCRAM cluster + workflow | `kafka-secure.spec.ts` — 9 tests (empty state, editor, SCRAM fields revealed, test-connection pass/fail, save, connect, publish, disconnect) | ✅ |
+| K12 | TLS cluster + workflow | `kafka-tls.spec.ts` — 9 tests (empty state, editor, TLS toggle, test-connection pass/fail, save, connect, publish, disconnect) | ✅ |
 | K13 | Harness Workflow Runner + PRODUCE badges | `kafka-live.spec.ts` | ✅ |
 
 ---
@@ -1016,20 +1200,80 @@ Recommended implementation sequence (short lessons and no-Docker first):
 
 | Order | Lesson | Why first |
 |---|---|---|
-| 1 | K5 Templates | No Docker, pure UI — fast to implement and test |
-| 2 | K2 Publish Studio | Core feature, rich selectors already exist |
-| 3 | K3 Consume Studio | Builds directly on K2 selectors |
-| 4 | K4 Headers & Filters | Extends K2+K3 patterns |
-| 5 | K1 Quick Start | Docker, but simple step flow |
-| 6 | K6 Topic Explorer | Reuses existing explorer data-testids |
-| 7 | K8 Stream Mode | Stream data-testids well defined |
-| 8 | K9 Workflow: Produce | Needs `__wfInsertWorkflow`; verify bridge first |
-| 9 | K10 Workflow: Consume & Wait | Depends on K9 pattern |
-| 10 | K7 Schema Registry | Needs SR Docker stack running |
-| 11 | K13 Harness Run | Depends on K9 seeding pattern |
-| 12 | K11 Secure Cluster | Docker-heavy; implement after all plaintext lessons |
-| 13 | K12 TLS Cluster | Most complex Docker setup — implement last |
+| 1 | ~~K5 Templates~~ ✅ Done | No Docker, pure UI — fast to implement and test |
+| 2 | ~~K2 Publish Studio~~ ✅ Done | Core feature, rich selectors already exist |
+| 3 | ~~K3 Consume Studio~~ ✅ Done | Builds directly on K2 selectors |
+| 4 | ~~K4 Headers & Filters~~ ✅ Done | Extends K2+K3 patterns |
+| 5 | ~~K1 Quick Start~~ ✅ Done | Docker, but simple step flow |
+| 6 | ~~K6 Topic Explorer~~ ✅ Done | Reuses existing explorer data-testids |
+| 7 | ~~K8 Stream Mode~~ ✅ Done | Stream data-testids well defined |
+| 8 | ~~K9 Workflow: Produce~~ ✅ Done | Needs `__wfInsertWorkflow`; verify bridge first |
+| 9 | ~~K10 Workflow: Consume & Wait~~ ✅ Done | Depends on K9 pattern |
+| 10 | ~~K7 Schema Registry~~ ✅ Done | Needs SR Docker stack running |
+| 11 | ~~K13 Harness Run~~ ✅ Done | Depends on K9 seeding pattern |
+| 12 | ~~K11 Secure Cluster~~ ✅ Done | Docker-heavy; implement after all plaintext lessons |
+| 13 | ~~K12 TLS Cluster~~ ✅ Done | Most complex Docker setup — implement last |
 
 ---
 
-*Last updated: 2026-06-16 — Selectors section fully audited against TSX source; `dockerDescription` field removed (not on `DemoLesson` type); stream/schema/settings selectors corrected to use verified `data-testid` values; Open Question #2 resolved (stream-producer.sh confirmed present).*
+*Last updated: 2026-06-16 — All 13 lessons complete and committed (`7333bed`). 169 unit tests passing, 0 TypeScript errors. 6 post-implementation bugs fixed (selector names, initialTab UX flash, React input setter, highlight mismatch). Uncommitted working-tree improvements to K1–K4 and demo UX (restart button, mode-reset guard, header selector fix) pending commit before merge. E2E coverage: ✅ K11 covered by `kafka-secure.spec.ts` (9 tests), K12 covered by `kafka-tls.spec.ts` (9 tests) — both use live Docker skip guards. All 13 lessons now have E2E specs. Feature branch `feature/kafka-demo-hub` pending merge to `develop`.*
+
+---
+
+## K6–K13 Implementation Notes (2026-06-16)
+
+All 8 remaining Kafka lessons implemented and registered in `src/features/demo-player/lessons/index.ts`.
+
+### K8 (Stream Mode)
+- `concept.diagram` SVG updated to show Consume Once vs Stream mode side-by-side
+- Step `sm-row` uses a DOM querySelector fallback (3 selector patterns) for the first stream result row since stream rows don't have a stable single testid
+
+### K9 (Workflow: Produce Node)
+- `kafkaWorkflowProduceSetup` chains `kafkaPublishSetup` (ensures cluster is connected) then seeds the workflow via `__wfInsertWorkflow`
+- `initialTab` intentionally not set — setup navigates to `'workflow'` directly so the lesson doesn't trigger auto-exit when moving between workflow and results tabs
+- Seeded workflow has 3 nodes: Start → kafkaProduce (with `{{topic}}` variable and `sentPartition` output binding) → End
+
+### K10 (Workflow: Consume & Wait)
+- Seeded workflow has 5 nodes: Start → kafkaProduce → kafkaConsume → kafkaWait → End
+- kafkaWait configured with `auto-resume` mode + sample payload so Quick Test resolves instantly without a live `payments.confirmed` event
+- `highlight: WF.NODE_CONFIG` used for the Wait node steps (no separate WAIT_CONFIG selector in shared selectors)
+
+### K11 (Secure Cluster) + K12 (TLS Cluster)
+- Both use `kafkaSetup` (navigate to kafka-message-studio only) — no cluster is pre-created
+- Steps walk through the full Cluster Editor form (name → broker → auth → [TLS] → test → save → connect)
+- TLS lesson additionally clicks the TLS toggle and unchecks certificate verification for the self-signed demo cert
+- `dockerCommand` provided for each; docker stacks at `docker/kafka/secure` and `docker/kafka/tls`
+
+### K13 (Harness Run)
+- Follows the `ws-test-runner.ts` pattern exactly
+- `initialTab` intentionally not set; `allowedTabs: ['results']` prevents auto-exit when navigating to results dashboard
+- Seeded workflow: Start → kafkaProduce (topic `{{topic}}`, body with `{{runId}}`) → End
+- Setup calls `kafkaPublishSetup` to ensure cluster is connected before the run
+
+### Tests
+- **169 total tests passing** (was 108 before K6–K13; +1 after K6–K13 bug-fix pass)
+- 61 new tests added across 8 new `describe` blocks in `kafka-lessons.test.ts`
+- TypeScript: 0 errors (`npx tsc --noEmit` clean on commit `7333bed`)
+
+### Bug fixes applied post-implementation (commit `7333bed`)
+
+| # | Bug | File | Fix |
+|---|---|---|---|
+| 1 | `KAFKA.NODE_PRODUCE` / `NODE_CONSUME` used `.node-type-*` — class doesn't exist in DOM | `selectors.ts` | Changed to `.wf-node-kafkaProduce` / `.wf-node-kafkaConsume`; added `NODE_WAIT` |
+| 2 | K10 `cw-wait-node` used hardcoded wrong selector `'.node-type-kafkaWait'` | `kafka-workflow-consume-wait.ts` | Use `KAFKA.NODE_WAIT` |
+| 3 | K10 `cw-wait-config` highlighted `WAIT_SAMPLE_TEXTAREA` while describing Correlation Expression | `kafka-workflow-consume-wait.ts` | Changed to `KAFKA.WAIT_CONFIG` |
+| 4 | K9 `wp-canvas` description said "Double-click" but action used single click | `kafka-workflow-produce.ts` | Changed to "Click" |
+| 5 | K11 + K12 had `initialTab: 'kafka-message-studio'` causing visible UX flash before settings | `kafka-secure.ts`, `kafka-tls.ts` | Changed `initialTab` to `'kafka-settings'` |
+| 6 | K13 `kr-iterations` set `.value = '3'` directly, bypassing React synthetic events | `kafka-test-runner.ts` | Replaced with `ctx.fill()` (native setter) |
+
+### Uncommitted improvements (working tree — pending commit before merge)
+
+| File | Change |
+|---|---|
+| `kafka-consume.ts` (K3) | Step 1 preAction resets Stream→Once mode; step 7 adds `verify: KAFKA.CON_DETAIL_PANE`; loading delay tuned |
+| `kafka-headers-filters.ts` (K4) | Selector `:first-child` → `:last-child` for header rows; stale rows cleared at start; `pauseAfter: true` on send step |
+| `kafka-quick-start.ts` (K1) | Minor description polish |
+| `kafka-publish.ts` (K2) | Minor description polish |
+| `useDemoHub.ts` | Removes `prevStep` / `setSpeed`; adds `restartDemo` (runs cleanup + setup + resets to step 0) |
+| `LiveDemo.tsx` | Removes ← prev button and speed selector; adds ↺ restart button; locks → next while action is executing |
+| `DemoHub.tsx` / `App.tsx` | Prop cleanup matching `LiveDemo` changes |

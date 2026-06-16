@@ -85,4 +85,67 @@ describe('checkEndpoint', () => {
     expect(await promise).toBe(true);
     expect(spy).toHaveBeenCalledWith('http://localhost:4100/health', expect.any(Object));
   });
+
+  it('settle guard prevents double-resolve when both timeout and open fire', async () => {
+    mockFetchReject();
+
+    class FakeWS {
+      onopen:  (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(_url: string) {
+        // Fire onopen at 50ms AND the timeout at 100ms — settle must only resolve once
+        setTimeout(() => this.onopen?.(), 50);
+      }
+      close() {}
+    }
+    vi.stubGlobal('WebSocket', FakeWS);
+
+    const promise = checkEndpoint('ws://localhost:3100/', 100);
+    // Advance past both the onopen timer (50ms) and the settle timer (100ms)
+    await vi.advanceTimersByTimeAsync(300);
+    // Should resolve true (from onopen) — settle guard prevents second resolve from timeout
+    expect(await promise).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it('settle guard fires when onopen and onerror both fire in same tick (line 32 true branch)', async () => {
+    mockFetchReject();
+
+    class FakeWS {
+      onopen:  (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(_url: string) {
+        // Fire both callbacks in the same tick — second settle call must hit the guard
+        setTimeout(() => {
+          this.onopen?.();   // settle(true) — settled = true
+          this.onerror?.();  // settle(false) — if (settled) return; (line 32 true branch)
+        }, 50);
+      }
+      close() {}
+    }
+    vi.stubGlobal('WebSocket', FakeWS);
+
+    const promise = checkEndpoint('ws://localhost:3100/', 3000);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(await promise).toBe(true); // resolves from onopen
+    vi.unstubAllGlobals();
+  });
+
+  it('ignores ws.close() throwing (defensive catch branch)', async () => {
+    mockFetchReject();
+
+    class FakeWS {
+      onopen:  (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(_url: string) { setTimeout(() => this.onerror?.(), 50); }
+      close() { throw new Error('already closed'); }
+    }
+    vi.stubGlobal('WebSocket', FakeWS);
+
+    const promise = checkEndpoint('ws://localhost:3100/', 3000);
+    await vi.advanceTimersByTimeAsync(200);
+    // ws.close() throws but the error is swallowed — should still resolve false
+    expect(await promise).toBe(false);
+    vi.unstubAllGlobals();
+  });
 });

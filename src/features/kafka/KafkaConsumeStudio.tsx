@@ -5,6 +5,7 @@ import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMod
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
+import { KafkaTemplateControls } from './KafkaTemplateControls';
 
 type ConsumeMode = 'once' | 'stream';
 
@@ -18,6 +19,9 @@ interface KafkaConsumeStudioProps {
   onDeleteConsumeTemplate: (id: string) => Promise<void>;
   streamMode: UseKafkaStreamModeReturn;
   onUseAsWorkflowInput?: (payload: string, meta: { topic: string; partition: number; offset: string }) => void;
+  /** When false, the Consume/Stream buttons are disabled and a connection notice is shown.
+   *  Templates are always accessible regardless of connection state. */
+  connected?: boolean;
 }
 
 export function KafkaConsumeStudio({
@@ -30,6 +34,7 @@ export function KafkaConsumeStudio({
   onDeleteConsumeTemplate,
   streamMode,
   onUseAsWorkflowInput,
+  connected = true,
 }: KafkaConsumeStudioProps) {
   const {
     consumeDraft, setConsumeDraft,
@@ -42,26 +47,10 @@ export function KafkaConsumeStudio({
   const [mode, setMode] = useState<ConsumeMode>('once');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const topicEmpty = consumeDraft.topic.trim() === '';
-  const canConsume = !topicEmpty && !consumeLoading;
+  const canConsume = !topicEmpty && !consumeLoading && connected;
 
-  // ── Template dropdown state ──────────────────────────────────────────────
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showSaveInput, setShowSaveInput] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const streamListRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => { document.removeEventListener('mousedown', handler); };
-  }, [dropdownOpen]);
 
   // Auto-scroll stream list to bottom when new messages arrive
   useEffect(() => {
@@ -83,30 +72,6 @@ export function KafkaConsumeStudio({
       userScrolledRef.current = false;
     }
   }, [streamMode.isStreaming]);
-
-  const handleSaveSubmit = useCallback(async () => {
-    const name = saveName.trim();
-    if (!name) return;
-    await onSaveConsumeTemplate(name);
-    setSaveName('');
-    setShowSaveInput(false);
-  }, [saveName, onSaveConsumeTemplate]);
-
-  const handleSaveKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') void handleSaveSubmit();
-      if (e.key === 'Escape') { setSaveName(''); setShowSaveInput(false); }
-    },
-    [handleSaveSubmit],
-  );
-
-  const handleDeleteTemplate = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      void onDeleteConsumeTemplate(id);
-    },
-    [onDeleteConsumeTemplate],
-  );
 
   const handleConsume = useCallback(() => {
     void consumeOnce();
@@ -225,70 +190,14 @@ export function KafkaConsumeStudio({
           <span className="kafka-ms-card-title">Consume</span>
           <span className="kafka-ms-card-subtitle">Fetch messages from a topic</span>
         </div>
-        <div className="kafka-ms-template-controls">
-          <div className="kafka-ms-template-dropdown-anchor" ref={dropdownRef}>
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setDropdownOpen((o) => !o)}
-              disabled={templatesLoading}
-              title="Load a saved template"
-            >
-              Load ▾
-            </button>
-            {dropdownOpen && (
-              <div className="kafka-ms-template-dropdown">
-                {consumeTemplates.length === 0 ? (
-                  <div className="kafka-ms-template-empty">No saved templates</div>
-                ) : (
-                  consumeTemplates.map((t) => (
-                    <div
-                      key={t.id}
-                      className="kafka-ms-template-item"
-                      onClick={() => { onLoadConsumeTemplate(t.id); setDropdownOpen(false); }}
-                    >
-                      <span className="kafka-ms-template-item-name">{t.name}</span>
-                      <button
-                        className="kafka-ms-template-item-delete"
-                        onClick={(e) => handleDeleteTemplate(e, t.id)}
-                        title="Delete template"
-                      >×</button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          {showSaveInput ? (
-            <div className="kafka-ms-template-save-row">
-              <input
-                className="kafka-ms-template-save-input"
-                type="text"
-                placeholder="Template name"
-                value={saveName}
-                autoFocus
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={handleSaveKeyDown}
-              />
-              <button
-                className="kafka-ms-template-btn"
-                onClick={() => void handleSaveSubmit()}
-                disabled={!saveName.trim()}
-              >✓</button>
-              <button
-                className="kafka-ms-template-btn kafka-ms-template-btn-cancel"
-                onClick={() => { setSaveName(''); setShowSaveInput(false); }}
-              >✕</button>
-            </div>
-          ) : (
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setShowSaveInput(true)}
-              title="Save current settings as a template"
-            >
-              Save
-            </button>
-          )}
-        </div>
+        <KafkaTemplateControls
+          templates={consumeTemplates}
+          templatesLoading={templatesLoading}
+          onLoad={onLoadConsumeTemplate}
+          onSave={onSaveConsumeTemplate}
+          onDelete={onDeleteConsumeTemplate}
+          testIdPrefix="con"
+        />
       </div>
 
       <div className="kafka-ms-body">
@@ -568,7 +477,7 @@ export function KafkaConsumeStudio({
               {!streamMode.isStreaming ? (
                 <button
                   className="kafka-ms-primary-btn"
-                  disabled={topicEmpty}
+                  disabled={topicEmpty || !connected}
                   onClick={handleStartStream}
                   data-testid="stream-start-btn"
                 >

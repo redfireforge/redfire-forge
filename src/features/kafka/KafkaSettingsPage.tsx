@@ -46,6 +46,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
     disconnectActiveCluster,
     refreshConnectionStatus,
     testSelectedClusterConnection,
+    lastTestResult,
   } = kafkaState;
   const [editorMode, setEditorMode] = useState<'create' | 'edit' | null>(null);
   const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
@@ -442,14 +443,24 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     className="btn btn-sm kafka-btn-soft-blue"
                     onClick={() => void testSelectedClusterConnection()}
                     disabled={!canRunConnectionAction || connection.state === 'testing'}
+                    data-testid="kafka-test-btn"
                   >
                     Test Connection
                   </button>
+                  {lastTestResult && (
+                    <span
+                      className={`kafka-test-result ${lastTestResult.ok ? 'kafka-test-result--ok' : 'kafka-test-result--fail'}`}
+                      data-testid="kafka-test-result"
+                    >
+                      {lastTestResult.ok ? '✓ Verified' : '✗ Failed'}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="btn btn-sm"
                     onClick={() => void connectSelectedCluster()}
                     disabled={!canRunConnectionAction || connection.state === 'testing' || (connection.state === 'connected' && connection.clusterId === selectedClusterId)}
+                    data-testid="kafka-connect-btn"
                   >
                     Connect
                   </button>
@@ -458,6 +469,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
                     className="btn btn-sm"
                     onClick={() => void disconnectActiveCluster()}
                     disabled={!canDisconnect}
+                    data-testid="kafka-disconnect-btn"
                   >
                     Disconnect
                   </button>
