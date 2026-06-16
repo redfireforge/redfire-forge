@@ -631,7 +631,10 @@ After Phases 2–5 are verified, update the existing test-scenarios file with re
 | RabbitMQ STOMP WS | 15674 | STOMP 1.2 over WS |
 | RabbitMQ Management | 15672 | HTTP (debug) |
 | GraphQL-WS | 4100 | graphql-transport-ws |
-| TLS echo (existing) | 8766 | WSS via nginx |
+| TLS echo (Phase 1+2) | 8766 | WSS via nginx |
+| TLS health probe | 8767 | HTTP (echo-server) |
+| mTLS echo (Phase 3) | 8768 | WSS + client cert required |
+| mTLS health probe | 8769 | HTTP (echo-server) |
 | Mock echo (existing) | 9876 | Raw WS |
 | Backend (existing) | 3001 | HTTP + WS proxy |
 | Vite (existing) | 5173 | HTTP |

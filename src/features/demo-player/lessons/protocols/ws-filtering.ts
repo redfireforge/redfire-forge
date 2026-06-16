@@ -57,24 +57,40 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
     await ctx.click(WS.FILTER_TOGGLE_BTN);
     await ctx.delay(200);
   }
-  // Clear any active search so all 9 rows are visible
+  // Clear any active search so all 9 rows are visible.
+  // After clearing, wait for the virtualizer to re-render all rows — 150ms is
+  // not enough when switching from a filtered view (e.g. 2 rows) to unfiltered
+  // (9 rows), because the virtual list needs a layout recalc before rows appear.
   const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
   if (searchEl && searchEl.value) {
     await ctx.fill(WS.SEARCH_INPUT, '');
-    await ctx.delay(150);
+    await ctx.delay(400); // allow virtualizer to recalculate and render all rows
   }
   // If diff already open, nothing to do
   if (document.querySelector(WS.DIFF_MODAL)) return;
-  // Enter compare mode if not already active
+  // Enter compare mode if not already active.
+  // The unconditional delay gives React a macrotask cycle to commit any pending
+  // state changes (e.g. stepIndex update from goToStep) before el.click() fires —
+  // without it the state update from toggleCompare can be lost in concurrent mode.
   if (!document.querySelector(WS.COMPARE_BANNER)) {
+    await ctx.delay(200);
     await ctx.click(WS.COMPARE_BTN);
-    await ctx.delay(400);
+    await ctx.waitFor(WS.COMPARE_BANNER, 3000);
+  }
+  // Wait for the virtualizer to render at least 6 rows before clicking.
+  // The message list is virtualised — after a search clear or tab switch, not all
+  // rows may be in the DOM immediately. Polling here avoids the fragile
+  // index-out-of-bounds case where rows[5] is undefined.
+  const rowStart = Date.now();
+  while (Date.now() - rowStart < 3000) {
+    if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+    await ctx.delay(100);
   }
   // Click the two greeting rows (rows[1] and rows[5]) to open the diff
   const rows = document.querySelectorAll(WS.MESSAGE_ROW);
   if (rows.length >= 6) {
     (rows[1] as HTMLElement).click();
-    await ctx.delay(400);
+    await ctx.delay(600); // allow React to register first selection before second click
     (rows[5] as HTMLElement).click();
     await ctx.waitFor(WS.DIFF_MODAL, 4000);
   }
@@ -339,11 +355,13 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
           await ctx.click(WS.FILTER_TOGGLE_BTN);
           await ctx.delay(200);
         }
-        // Clear search so all 9 rows are visible (row indices must match expectations)
+        // Clear search so all 9 rows are visible (row indices must match expectations).
+        // Use a 400ms delay — the virtualizer needs time to recalculate row layout
+        // after switching from a filtered view back to the full unfiltered list.
         const searchEl = document.querySelector(WS.SEARCH_INPUT) as HTMLInputElement | null;
         if (searchEl && searchEl.value) {
           await ctx.fill(WS.SEARCH_INPUT, '');
-          await ctx.delay(150);
+          await ctx.delay(400);
         }
         // Close diff if already open — viewer should see the selection, not a stale diff
         if (document.querySelector(WS.DIFF_MODAL)) {
@@ -351,10 +369,13 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
           if (closeBtn) closeBtn.click();
           await ctx.delay(300);
         }
-        // Ensure compare mode is active so row clicks select for comparison
+        // Ensure compare mode is active so row clicks select for comparison.
+        // The unconditional delay gives React a macrotask cycle to commit any
+        // pending stepIndex state before the compare button click fires.
         if (!document.querySelector(WS.COMPARE_BANNER)) {
+          await ctx.delay(200);
           await ctx.click(WS.COMPARE_BTN);
-          await ctx.delay(400);
+          await ctx.waitFor(WS.COMPARE_BANNER, 3000);
         }
       },
       action: async (ctx) => {
@@ -362,6 +383,13 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // After setup, message order is: Connected, sent#1, echo#1, sent#2, echo#2, sent#3, echo#3, sent#4, echo#4
         // rows[1] = sent greeting "Hello WebSocket!"
         // rows[5] = sent greeting "Hello again!"
+        // Wait for the virtualizer to render at least 6 rows — without this the
+        // querySelectorAll may return fewer items and rows[5] would be undefined.
+        const rowStart = Date.now();
+        while (Date.now() - rowStart < 3000) {
+          if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
+          await ctx.delay(100);
+        }
         const rows = document.querySelectorAll(WS.MESSAGE_ROW);
         if (rows.length >= 6) {
           (rows[1] as HTMLElement).click();

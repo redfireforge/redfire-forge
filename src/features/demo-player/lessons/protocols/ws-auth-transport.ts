@@ -20,6 +20,58 @@ async function authSetup(ctx: DemoActionContext): Promise<void> {
   await wsSetup(ctx);
 }
 
+/**
+ * Ensure Auth tab is active and bearer auth is selected.
+ * Used as a preAction guard for steps that require the auth panel to be visible.
+ */
+async function ensureBearerAuth(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(WS.LEFT_TAB_AUTH);
+  await ctx.delay(200);
+  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  if (!sel || sel.value !== 'bearer') {
+    await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
+    await ctx.delay(200);
+  }
+}
+
+/**
+ * Ensure the WebSocket is connected to the mock server.
+ * Called silently in preActions for steps that require an active connection.
+ * If already connected, this is a fast no-op.
+ */
+async function ensureConnected(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WS.STATUS_CONNECTED)) return;
+
+  // Silently set up bearer auth if not already configured
+  await ctx.click(WS.LEFT_TAB_AUTH);
+  await ctx.delay(150);
+  const sel = document.querySelector(WS.AUTH_TYPE_DROPDOWN) as HTMLSelectElement | null;
+  if (!sel || sel.value !== 'bearer') {
+    await ctx.selectOption(WS.AUTH_TYPE_DROPDOWN, 'bearer');
+    await ctx.delay(150);
+  }
+  // Fill bearer token if the field is empty
+  const tokenInput = document.querySelector(WS.AUTH_PANE_INPUTS) as HTMLInputElement | null;
+  if (tokenInput && !tokenInput.value) {
+    const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    nativeSet?.call(tokenInput, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-token');
+    tokenInput.dispatchEvent(new Event('input', { bubbles: true }));
+    tokenInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await ctx.delay(150);
+  }
+
+  // Navigate to Connect tab, fill URL, and connect
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(150);
+  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  await ctx.delay(150);
+  const connectBtn = document.querySelector(WS.CONNECT_BTN) as HTMLButtonElement | null;
+  if (connectBtn && !connectBtn.disabled) {
+    connectBtn.click();
+    await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+  }
+}
+
 export const wsAuthTransportLesson: DemoLesson = {
   id: 'ws-auth-transport',
   domainId: 'protocols',
@@ -86,6 +138,11 @@ export const wsAuthTransportLesson: DemoLesson = {
       title: 'Authentication Overview',
       description: 'WebSocket auth is tricky — browsers can\'t set custom HTTP headers on WebSocket handshakes. RedfireForge solves this with a proxy transport that relays your auth headers. Let\'s set it up.',
       highlight: WS.LEFT_TAB_AUTH,
+      preAction: async (ctx) => {
+        // Ensure Auth tab is active so the spotlight lands correctly
+        await ctx.click(WS.LEFT_TAB_AUTH);
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_AUTH);
         await ctx.delay(300);
@@ -116,14 +173,13 @@ export const wsAuthTransportLesson: DemoLesson = {
       title: 'Enter a Bearer Token',
       description: 'Fill in the token field with your JWT or API token. This gets sent as "Authorization: Bearer <token>" in the handshake headers. We\'ll use a demo token here.',
       highlight: WS.AUTH_PANEL,
+      preAction: async (ctx) => {
+        // Ensure Auth tab is active and bearer is selected before the action fills the input
+        await ensureBearerAuth(ctx);
+      },
       action: async (ctx) => {
-        const inputs = document.querySelectorAll(WS.AUTH_PANE_INPUTS);
-        if (inputs[0]) {
-          const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-          nativeSet?.call(inputs[0], 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-token');
-          inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-          inputs[0].dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        // Use ctx.fill for the visual ripple effect on the first auth input
+        await ctx.fill(WS.AUTH_PANE_INPUTS, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo-token');
         await ctx.delay(500);
       },
       pauseAfter: true,
@@ -135,6 +191,10 @@ export const wsAuthTransportLesson: DemoLesson = {
       title: 'Browser Transport Callout',
       description: 'See the info callout? Because Bearer auth requires custom HTTP headers, the app automatically routes through a Proxy transport. This is transparent — you don\'t need to configure anything extra.',
       highlight: WS.AUTH_CALLOUT,
+      preAction: async (ctx) => {
+        // .ws-auth-callout only appears when header-based auth (e.g. bearer) is active
+        await ensureBearerAuth(ctx);
+      },
       pauseAfter: true,
     },
 
@@ -166,8 +226,13 @@ export const wsAuthTransportLesson: DemoLesson = {
         await ctx.delay(200);
       },
       action: async (ctx) => {
-        await ctx.click(WS.CONNECT_BTN);
-        await ctx.delay(1500);
+        // Guard: skip click if already connected to avoid toggling disconnect
+        if (!document.querySelector(WS.STATUS_CONNECTED)) {
+          await ctx.click(WS.CONNECT_BTN);
+          // Wait for the status dot to appear rather than using a fixed delay
+          await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+        }
+        await ctx.delay(300);
       },
       verify: WS.STATUS_CONNECTED,
       pauseAfter: true,
@@ -180,6 +245,8 @@ export const wsAuthTransportLesson: DemoLesson = {
       description: 'Switch to Compose, write a message, and send it. The echo server mirrors it back — proving the authenticated connection works end-to-end.',
       highlight: WS.LEFT_TAB_COMPOSE,
       preAction: async (ctx) => {
+        // Ensure connection is live before attempting to send (handles skip-to-step)
+        await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.delay(300);
       },

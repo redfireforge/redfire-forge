@@ -186,12 +186,12 @@ describe('WebSocketMessageLog', () => {
     it('shows beautify button in JSON mode', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
       fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
-      expect(screen.getByTestId('beautify-btn')).toBeTruthy();
+      expect(screen.getByTestId('pretty-format-btn')).toBeTruthy();
     });
 
     it('hides beautify button in text mode', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      expect(screen.queryByTestId('beautify-btn')).toBeNull();
+      expect(screen.queryByTestId('pretty-format-btn')).toBeNull();
     });
 
     it('beautifies valid JSON', () => {
@@ -199,7 +199,7 @@ describe('WebSocketMessageLog', () => {
       fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
       const input = screen.getByLabelText('Message input') as HTMLTextAreaElement;
       fireEvent.change(input, { target: { value: '{"a":1}' } });
-      fireEvent.click(screen.getByTestId('beautify-btn'));
+      fireEvent.click(screen.getByTestId('pretty-format-btn'));
       expect(input.value).toBe('{\n  "a": 1\n}');
     });
 
@@ -246,7 +246,7 @@ describe('WebSocketMessageLog', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
       fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: '{broken' } });
-      expect((screen.getByTestId('beautify-btn') as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId('pretty-format-btn') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('does not show base64 hint for empty input in binary mode', () => {
