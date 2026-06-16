@@ -365,12 +365,13 @@ describe('ws-test-runner lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
 
-  it('cleanup stops mock server and navigates to workflow-runner', async () => {
+  it('cleanup stops mock server (App.tsx handles navigation, no navigateToTab in cleanup)', async () => {
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
     const ctx = makeCtx();
     await wsTestRunnerLesson.cleanup!(ctx);
     expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/stop', expect.objectContaining({ method: 'POST' }));
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    // App.tsx navigates to demo-hub after cleanup; cleanup itself does not call navigateToTab.
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
   it('setup gracefully handles fetch error (mock server already running)', async () => {
