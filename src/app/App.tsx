@@ -881,15 +881,11 @@ export default function App() {
           lesson={demoHub.state.selectedLesson}
           stepIndex={demoHub.state.stepIndex}
           isPlaying={demoHub.state.isPlaying}
-          speed={demoHub.state.speed}
-          progress={demoHub.progress}
           stepPhase={demoHub.stepPhase}
           onNext={demoHub.nextStep}
-          onPrev={demoHub.prevStep}
-          onGoToStep={demoHub.goToStep}
           onTogglePlay={demoHub.toggleAutoPlay}
-          onSetSpeed={demoHub.setSpeed}
           onSkipReading={demoHub.skipReading}
+          onRestart={demoHub.restartDemo}
           onExit={() => { demoHub.exitLiveDemo(); setActiveTab('demo-hub'); }}
         />
       )}

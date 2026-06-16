@@ -10,7 +10,7 @@ import DemoHubHeader from './DemoHubHeader';
 import LessonPlayer from './LessonPlayer';
 import LessonList from './LessonList';
 import LiveDemo from './LiveDemo';
-import type { ConceptContent, DemoDomain, DemoLesson, DemoProgress, SpeedMultiplier } from './types';
+import type { ConceptContent, DemoDomain, DemoLesson, DemoProgress } from './types';
 
 vi.mock('./utils/checkEndpoint', () => ({
   checkEndpoint: vi.fn().mockResolvedValue(false),
@@ -398,10 +398,7 @@ describe('LessonPlayer', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
-        speed={1 as SpeedMultiplier}
         onStartDemo={vi.fn()}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
     expect(screen.getByText('Concept Title')).toBeTruthy();
@@ -409,18 +406,15 @@ describe('LessonPlayer', () => {
     expect(screen.getByText(/Step 2/)).toBeTruthy();
   });
 
-  it('renders speed selector buttons', () => {
+  it('does not render speed selector buttons', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
-        speed={1 as SpeedMultiplier}
         onStartDemo={vi.fn()}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
-    expect(screen.getByText('1x')).toBeTruthy();
-    expect(screen.getByText('2x')).toBeTruthy();
+    expect(screen.queryByText('1x')).toBeNull();
+    expect(screen.queryByText('2x')).toBeNull();
   });
 
   it('calls onStartDemo when Start Demo is clicked', () => {
@@ -428,29 +422,11 @@ describe('LessonPlayer', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
-        speed={1 as SpeedMultiplier}
         onStartDemo={onStart}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByText('Start Demo →'));
     expect(onStart).toHaveBeenCalled();
-  });
-
-  it('calls onSetSpeed when speed button is clicked', () => {
-    const onSetSpeed = vi.fn();
-    render(
-      <LessonPlayer
-        lesson={makeLesson()}
-        speed={1 as SpeedMultiplier}
-        onStartDemo={vi.fn()}
-        onSetSpeed={onSetSpeed}
-        onBack={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByText('2x'));
-    expect(onSetSpeed).toHaveBeenCalledWith(2);
   });
 
   it('disables start button when lesson has dockerEndpoint and gate not cleared', () => {
@@ -458,10 +434,7 @@ describe('LessonPlayer', () => {
     render(
       <LessonPlayer
         lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/socket.io/?EIO=4' })}
-        speed={1 as SpeedMultiplier}
         onStartDemo={onStart}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
     const startBtn = screen.getByText(/Waiting for Docker/);
@@ -478,10 +451,7 @@ describe('LessonPlayer', () => {
           dockerEndpoint: 'ws://localhost:3100/test',
           dockerCommand: 'docker compose up test',
         })}
-        speed={1 as SpeedMultiplier}
         onStartDemo={vi.fn()}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
     const gateEl = document.querySelector('.prereq-gate');
@@ -492,10 +462,7 @@ describe('LessonPlayer', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
-        speed={1 as SpeedMultiplier}
         onStartDemo={vi.fn()}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
     expect(document.querySelector('.prereq-gate')).toBeNull();
@@ -510,10 +477,7 @@ describe('LessonPlayer', () => {
     render(
       <LessonPlayer
         lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/test' })}
-        speed={1 as SpeedMultiplier}
         onStartDemo={onStart}
-        onSetSpeed={vi.fn()}
-        onBack={vi.fn()}
       />,
     );
 
@@ -631,15 +595,11 @@ describe('LiveDemo', () => {
     lesson: makeLesson(),
     stepIndex: 0,
     isPlaying: false,
-    speed: 1 as SpeedMultiplier,
-    progress: baseProgress,
     stepPhase: 'done' as const,
     onNext: vi.fn(),
-    onPrev: vi.fn(),
-    onGoToStep: vi.fn(),
     onTogglePlay: vi.fn(),
-    onSetSpeed: vi.fn(),
     onSkipReading: vi.fn(),
+    onRestart: vi.fn(),
     onExit: vi.fn(),
   };
 
@@ -664,17 +624,23 @@ describe('LiveDemo', () => {
     expect(screen.getByTitle('Pause (Space)')).toBeTruthy();
   });
 
-  it('disables prev button on first step', () => {
-    const { container } = render(<LiveDemo {...liveProps} />);
-    const prevBtn = container.querySelector('.demo-live-btn:first-child') as HTMLButtonElement;
-    expect(prevBtn?.disabled).toBe(true);
-  });
-
   it('disables next button on last step', () => {
     render(<LiveDemo {...liveProps} stepIndex={1} />);
     // stepIndex 1 is the last step (2 steps total)
     expect(screen.getByText('2 / 2')).toBeTruthy();
     expect(screen.getByTitle('Next (→)')).toHaveProperty('disabled', true);
+  });
+
+  it('disables next button when action is executing (non-reading phase)', () => {
+    render(<LiveDemo {...liveProps} stepPhase="action" stepIndex={0} />);
+    const nextBtn = screen.getByTitle('Please wait — action in progress');
+    expect(nextBtn).toHaveProperty('disabled', true);
+  });
+
+  it('enables next button during reading phase', () => {
+    render(<LiveDemo {...liveProps} stepPhase="reading" stepIndex={0} />);
+    const nextBtn = screen.getByTitle('Next (→)');
+    expect(nextBtn).toHaveProperty('disabled', false);
   });
 
   it('calls onExit when exit button is clicked', () => {
@@ -715,7 +681,7 @@ describe('LiveDemo', () => {
 
   it('renders keyboard hints', () => {
     render(<LiveDemo {...liveProps} />);
-    expect(screen.getByText(/navigate/)).toBeTruthy();
+    expect(screen.getByText(/play\/pause/)).toBeTruthy();
   });
 
   it('returns null when step is undefined', () => {
@@ -730,34 +696,28 @@ describe('LiveDemo', () => {
     expect(screen.getByText('Lesson 1')).toBeTruthy();
   });
 
-  it('calls onPrev when prev button is clicked', () => {
-    const onPrev = vi.fn();
-    render(<LiveDemo {...liveProps} stepIndex={1} onPrev={onPrev} />);
-    fireEvent.click(screen.getByTitle('Previous (←)'));
-    expect(onPrev).toHaveBeenCalled();
-  });
-
-  it('calls onNext when next button is clicked', () => {
+  it('calls onNext when next button is clicked during reading phase', () => {
     const onNext = vi.fn();
-    render(<LiveDemo {...liveProps} onNext={onNext} />);
+    render(<LiveDemo {...liveProps} stepPhase="reading" onNext={onNext} />);
     fireEvent.click(screen.getByTitle('Next (→)'));
     expect(onNext).toHaveBeenCalled();
   });
 
-  it('renders speed buttons with active state on current speed', () => {
-    render(<LiveDemo {...liveProps} speed={1.5 as SpeedMultiplier} />);
-    const btn = screen.getByRole('button', { name: '1.5× speed' });
-    expect(btn).toBeTruthy();
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
-    // other speeds rendered but not active
-    expect(screen.getByRole('button', { name: '0.5× speed' }).getAttribute('aria-pressed')).toBe('false');
+  it('calls onRestart when restart button is clicked', () => {
+    const onRestart = vi.fn();
+    render(<LiveDemo {...liveProps} onRestart={onRestart} />);
+    fireEvent.click(screen.getByTitle('Restart demo from beginning'));
+    expect(onRestart).toHaveBeenCalled();
   });
 
-  it('calls onSetSpeed when a speed button is clicked', () => {
-    const onSetSpeed = vi.fn();
-    render(<LiveDemo {...liveProps} onSetSpeed={onSetSpeed} />);
-    fireEvent.click(screen.getByRole('button', { name: '2× speed' }));
-    expect(onSetSpeed).toHaveBeenCalledWith(2);
+  it('does not render speed selector buttons', () => {
+    render(<LiveDemo {...liveProps} />);
+    expect(screen.queryByRole('group', { name: 'Playback speed' })).toBeNull();
+  });
+
+  it('does not render back button', () => {
+    render(<LiveDemo {...liveProps} stepIndex={1} />);
+    expect(screen.queryByTitle('Previous (←)')).toBeNull();
   });
 
   it('shows Guide mode badge when no highlight target found', () => {
@@ -922,16 +882,6 @@ describe('LiveDemo', () => {
     render(<LiveDemo {...liveProps} stepPhase="action" onSkipReading={onSkipReading} />);
     fireEvent.click(screen.getByText(/Acting/));
     expect(onSkipReading).not.toHaveBeenCalled();
-  });
-
-  it('renders all four speed options (0.5×, 1×, 1.5×, 2×)', () => {
-    render(<LiveDemo {...liveProps} />);
-    const group = screen.getByRole('group', { name: 'Playback speed' });
-    expect(group).toBeTruthy();
-    (['0.5× speed', '1× speed', '1.5× speed', '2× speed'] as const).forEach(label => {
-      expect(screen.getByRole('button', { name: label })).toBeTruthy();
-    });
-    expect(screen.getByRole('button', { name: '1× speed' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('drag handle starts drag on mousedown and moves panel', () => {

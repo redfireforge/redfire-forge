@@ -64,6 +64,32 @@ export async function resetAuth(ctx: DemoActionContext) {
   await ctx.delay(200);
 }
 
+/**
+ * Remove all enabled custom headers from the Headers tab.
+ *
+ * The browser WebSocket transport cannot set custom headers — they force proxy
+ * mode (/api/ws/connect). If a user has headers configured from their normal
+ * workflow (or a saved profile), they will trigger proxy mode and cause a 504
+ * Gateway Timeout in web mode even when skip-cert and TLS options are clean.
+ *
+ * We click the remove button on every enabled non-empty header row, then return
+ * to the Connect tab so the caller can continue with a clean draft.
+ */
+export async function clearCustomHeaders(ctx: DemoActionContext) {
+  await ctx.click(WS.LEFT_TAB_HEADERS);
+  await ctx.delay(200);
+  // Remove all rows that have a non-empty key. We loop up to 20 times to handle
+  // multiple headers; each click removes one row.
+  for (let i = 0; i < 20; i++) {
+    const removeBtn = document.querySelector<HTMLButtonElement>('.ws-connect-kv-remove-btn');
+    if (!removeBtn) break;
+    removeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await ctx.delay(150);
+  }
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+}
+
 /** Close extra connection tabs until only 1 remains. */
 export async function closeExtraConnectionTabs(ctx: DemoActionContext, maxIterations = 7) {
   for (let i = 0; i < maxIterations; i++) {
@@ -194,9 +220,10 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
   }
   if (connectBtn && !connectBtn.disabled) {
     connectBtn.click();
-    // Wait up to 5 s for connection to establish
-    await ctx.waitFor('[data-testid="kafka-cluster-editor"]', 5000);
-    await ctx.delay(1000);
+    // Wait for the Disconnect button to appear — it only shows when the cluster
+    // is actually connected, so this correctly blocks until the connection succeeds.
+    await ctx.waitFor(KAFKA.DISCONNECT_BTN, 8000);
+    await ctx.delay(600);
   }
 
   // ── Step 4: Return to message studio ────────────────────────────────────

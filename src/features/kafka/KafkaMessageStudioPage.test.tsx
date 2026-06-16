@@ -268,7 +268,7 @@ describe('KafkaMessageStudioPage', () => {
     render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
     // Open publish template save input and type a name
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'Integration Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'Integration Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(savePublish).toHaveBeenCalledWith('Integration Preset', expect.any(Object)));
     spy.mockRestore();
@@ -321,7 +321,7 @@ describe('KafkaMessageStudioPage', () => {
     render(<KafkaMessageStudioPage kafkaState={makeKafkaState()} onNavigateToKafkaSettings={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: 'Consume' }));
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'Consume Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'Consume Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(saveConsume).toHaveBeenCalledWith('Consume Preset', expect.any(Object)));
     spy.mockRestore();

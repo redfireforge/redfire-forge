@@ -67,7 +67,7 @@ export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTex
                 className="body-code-btn"
                 onClick={handleFormat}
                 disabled={!value.trim() || !isValid}
-                title="Format JSON with indentation"
+                title="Pretty Format JSON"
               >
                 Pretty Format
               </button>

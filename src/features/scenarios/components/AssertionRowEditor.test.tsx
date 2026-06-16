@@ -381,7 +381,7 @@ describe('AssertionRowEditor', () => {
 
     it('pretty formats schema', () => {
       render(<AssertionRowEditor assertion={schemaAssertion} {...baseProps} />);
-      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      fireEvent.click(screen.getByTitle('Pretty Format JSON'));
       expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({ schema: expect.stringContaining('{\n') }));
     });
 

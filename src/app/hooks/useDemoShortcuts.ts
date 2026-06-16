@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { Tab } from '../utils/appTabUtils';
+import type { StepPhase } from '../../features/demo-player/types';
 
 /**
  * Keyboard shortcuts and auto-exit behaviour for the Demo Hub.
@@ -11,9 +12,9 @@ export function useDemoShortcuts(
       view: string;
       selectedLesson?: { initialTab?: string; allowedTabs?: string[] } | null;
     };
+    stepPhase: StepPhase;
     exitLiveDemo: () => void;
     nextStep: () => void;
-    prevStep: () => void;
     toggleAutoPlay: () => void;
   },
   activeTab: Tab,
@@ -58,12 +59,12 @@ export function useDemoShortcuts(
             setActiveTab('demo-hub');
             break;
           case 'ArrowRight':
-            e.preventDefault();
-            demoHub.nextStep();
-            break;
-          case 'ArrowLeft':
-            e.preventDefault();
-            demoHub.prevStep();
+            // Only allow skipping to next step during reading or done phases;
+            // action/verify/pre phases must not be interrupted by keyboard.
+            if (demoHub.stepPhase === 'reading' || demoHub.stepPhase === 'done') {
+              e.preventDefault();
+              demoHub.nextStep();
+            }
             break;
           case ' ':
             e.preventDefault();
