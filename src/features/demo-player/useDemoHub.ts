@@ -295,6 +295,9 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     if (!lesson) return;
 
+    // Capture the generation counter so we can detect if exit/restart fires during setup.
+    const gen = autoPlayGenRef.current;
+
     // Navigate to the lesson's initial tab and wait for DOM
     if (lesson.initialTab) navigateToTab(lesson.initialTab);
 
@@ -308,6 +311,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const ctx = buildQuietContext();
       try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
     }
+
+    // Guard: if exitLiveDemo / restartDemo was called during setup, bail out.
+    // exitLiveDemo and restartDemo both increment autoPlayGenRef so this is
+    // a safe "was exit triggered?" check even before executeCurrentStep starts.
+    if (autoPlayGenRef.current !== gen) return;
 
     if (isMountedRef.current && lesson.steps[0]) {
       await executeCurrentStep(lesson.steps[0], state.speed);
@@ -447,6 +455,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     abortRef.current?.abort();
     setState(prev => ({ ...prev, stepIndex: 0, isPlaying: false }));
     setStepPhase('done');
+    const gen = autoPlayGenRef.current; // capture after increment
     const ctx = buildQuietContext();
     if (lesson.cleanup) {
       try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
@@ -456,6 +465,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     if (lesson.setup) {
       try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
     }
+    // Guard: if exit/restart was called again during setup, bail out.
+    if (autoPlayGenRef.current !== gen) return;
     if (isMountedRef.current && lesson.steps[0]) {
       await executeCurrentStep(lesson.steps[0], state.speed);
       progress.setLessonStep(lesson.id, 0);
