@@ -269,7 +269,7 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
         'The **kafkaWait** node blocks execution until a message matching the correlation expression arrives. Click it to see its config: it listens on `payments.confirmed` and waits for a message where `$.orderId` equals `{{orderId}}`.',
       highlight: WF.NODE_CONFIG,
       action: async (ctx) => {
-        const node = document.querySelector<HTMLElement>('.node-type-kafkaWait, [class*="kafkaWait"]');
+        const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
         if (node) {
           node.click();
           await ctx.delay(400);
@@ -283,7 +283,7 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       title: 'Correlation Expression',
       description:
         'The **Correlation Expression** is `{{orderId}}` — the value of the `orderId` workflow variable. The **Correlation Source** is `body`, and the **JSONPath** is `$.orderId`. This means: "wait for a message on `payments.confirmed` where the body\'s `orderId` field matches the current order."',
-      highlight: KAFKA.WAIT_SAMPLE_TEXTAREA,
+      highlight: KAFKA.WAIT_CONFIG,
     },
 
     // Step 6: Sample payload

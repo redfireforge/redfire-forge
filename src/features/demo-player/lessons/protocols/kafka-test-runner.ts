@@ -291,27 +291,17 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
         'Set **Iterations** to **3** and **Concurrency** to **1**. This will produce 3 messages sequentially — enough to see multiple result rows in the dashboard without flooding the topic.',
       highlight: '.wfp-iterations-input, [data-testid="wfp-iterations"], input[placeholder*="Iter"]',
       preAction: async (ctx) => {
-        // Fill iterations and concurrency
-        const iterInput = document.querySelector<HTMLInputElement>(
+        // Use ctx.fill for React-controlled inputs (native setter)
+        await ctx.fill(
           '.wfp-iterations-input, [data-testid="wfp-iterations"], input[placeholder*="Iter"]',
+          '3',
         );
-        if (iterInput) {
-          iterInput.focus();
-          iterInput.value = '3';
-          iterInput.dispatchEvent(new Event('input', { bubbles: true }));
-          iterInput.dispatchEvent(new Event('change', { bubbles: true }));
-          await ctx.delay(200);
-        }
-        const concInput = document.querySelector<HTMLInputElement>(
+        await ctx.delay(100);
+        await ctx.fill(
           '.wfp-concurrency-input, [data-testid="wfp-concurrency"], input[placeholder*="Conc"]',
+          '1',
         );
-        if (concInput) {
-          concInput.focus();
-          concInput.value = '1';
-          concInput.dispatchEvent(new Event('input', { bubbles: true }));
-          concInput.dispatchEvent(new Event('change', { bubbles: true }));
-          await ctx.delay(100);
-        }
+        await ctx.delay(100);
       },
     },
 
