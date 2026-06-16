@@ -180,7 +180,7 @@ test.describe('STOMP Live (WP-08–11)', () => {
     await gotoWsStudio(page);
     await connectToStomp(page);
 
-    // Switch to Compose tab
+    // Switch to Send tab
     await switchLeftTab(page, 'send');
 
     // STOMP compose fields should be visible
