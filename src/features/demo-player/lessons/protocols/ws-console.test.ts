@@ -118,7 +118,7 @@ describe('ws-console lesson', () => {
     );
     // Must use waitFor for connection timing, not a fixed delay (Rule 5).
     // Waits for a CONSOLE_ENTRY because STATUS_CONNECTED lives inside the Connect
-    // panel which is unmounted when Compose tab is active after connection.
+    // panel which is unmounted when Send tab is active after connection.
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-console-entry'), expect.any(Number));
   });
 

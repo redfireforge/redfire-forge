@@ -189,7 +189,7 @@ describe('WebSocketStudioPage', () => {
 
   it('switches to the Compose left tab', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
@@ -201,7 +201,7 @@ describe('WebSocketStudioPage', () => {
     mockReturn = makeStudioReturn({ messages: [msg] });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    expect(screen.getByTestId('left-tab-compose').textContent).toContain('1');
+    expect(screen.getByTestId('left-tab-send').textContent).toContain('1');
   });
 
   it('Client mode + Connect left tab are active by default', async () => {
@@ -259,7 +259,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.getByTestId('template-trigger')).toBeTruthy();
   });
 
@@ -269,7 +269,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.getByTestId('format-select')).toBeTruthy();
   });
 
@@ -314,8 +314,8 @@ describe('WebSocketStudioPage', () => {
 
   it('switches back to the Connect left tab when handleSwitchToConnect fires', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
-    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-send'));
+    expect(screen.getByTestId('left-tab-send').className).toContain('active');
     fireEvent.click(screen.getByTestId('left-tab-connect'));
     expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
@@ -326,7 +326,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
@@ -366,8 +366,8 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
-    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-send'));
+    expect(screen.getByTestId('left-tab-send').className).toContain('active');
     fireEvent.click(screen.getByTestId('left-tab-connect'));
     expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
@@ -578,7 +578,7 @@ describe('WebSocketStudioPage', () => {
       });
       await renderStudioPage();
       // The messages viewTab maps to Client mode + Compose left tab.
-      const composeTab = screen.getByTestId('left-tab-compose');
+      const composeTab = screen.getByTestId('left-tab-send');
       expect(composeTab.className).toContain('active');
     });
 
@@ -843,7 +843,7 @@ describe('WebSocketStudioPage', () => {
       await renderStudioPage();
       saveSpy.mockClear();
       // Switch the left tab in the shell content.
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      fireEvent.click(screen.getByTestId('left-tab-send'));
       vi.advanceTimersByTime(400);
       expect(saveSpy).toHaveBeenCalled();
       vi.useRealTimers();
@@ -949,7 +949,7 @@ describe('WebSocketStudioPage', () => {
     it('seeds shell mode from persisted studio-layout fields', async () => {
       vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue({
         tabs: [
-          { id: 'ws-tab-200', label: 'Mock', url: 'ws://m', viewTab: 'mock', mode: 'mock', leftTab: 'compose', rightTab: 'events' },
+          { id: 'ws-tab-200', label: 'Mock', url: 'ws://m', viewTab: 'mock', mode: 'mock', leftTab: 'send', rightTab: 'events' },
         ],
         activeTabId: 'ws-tab-200',
         renamedTabIds: [],
@@ -983,7 +983,7 @@ describe('WebSocketStudioPage', () => {
       fireEvent.click(screen.getByTestId('right-tab-stats'));
       expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
       // Change the (orthogonal) left tab — right tab must not reset.
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      fireEvent.click(screen.getByTestId('left-tab-send'));
       expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
       // Round-trip through another mode and back — right tab must persist.
       fireEvent.click(screen.getByTestId('mode-saved'));
@@ -1013,7 +1013,7 @@ describe('WebSocketStudioPage', () => {
 
     it('shows the relocated composer on the Compose left tab', async () => {
       await renderStudioPage();
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      fireEvent.click(screen.getByTestId('left-tab-send'));
       // Compose tab maps to the messages view: exactly one composer (the
       // relocated standalone pane) and no connect/headers/params config.
       expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);

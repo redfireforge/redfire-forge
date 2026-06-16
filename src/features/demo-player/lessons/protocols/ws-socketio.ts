@@ -228,14 +228,14 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
     {
       id: 'sio-compose-event',
       title: 'Composing a Named Event',
-      description: 'In the **Compose** tab, notice two Socket.IO-specific fields above the message area: **Event Name** and **Namespace**. The demo fills in `message` as the event name and `{"text": "Hello Socket.IO!"}` as the payload. RedfireForge will encode this as `42["message",{"text":"Hello Socket.IO!"}]` on the wire — you never type the raw framing.',
+      description: 'In the **Send** tab, notice two Socket.IO-specific fields above the message area: **Event Name** and **Namespace**. The demo fills in `message` as the event name and `{"text": "Hello Socket.IO!"}` as the payload. RedfireForge will encode this as `42["message",{"text":"Hello Socket.IO!"}]` on the wire — you never type the raw framing.',
       highlight: WS.SIO_COMPOSE_FIELDS,
       pauseAfter: true,
       // preAction ensures connection is active (SIO fields are disabled when not connected),
       // then navigates to Compose so SIO_COMPOSE_FIELDS is in the DOM for the spotlight.
       preAction: async (ctx: DemoActionContext) => {
         await ensureSioConnected(ctx); // Rule 4: guard for skip-to-step
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(400);
@@ -256,7 +256,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       // Also re-fills event name so the message is ready if user skipped step 6 (Rule 4).
       preAction: async (ctx: DemoActionContext) => {
         await ensureSioConnected(ctx);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(150);
         await ctx.fill(WS.SIO_EVENT_NAME, 'message');
         await ctx.delay(150);
@@ -279,7 +279,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       // preAction navigates to Compose BEFORE the spotlight so SIO_NAMESPACE is in the DOM
       // when the highlight box renders (it lives inside the Socket.IO compose panel).
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(500);

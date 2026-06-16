@@ -288,7 +288,7 @@ export interface WsPersistedTabState {
  * union types below are derived and which the Phase 1 persistence validators
  * iterate over. */
 export const WS_STUDIO_MODES = ['client', 'mock', 'saved'] as const;
-export const WS_LEFT_TABS = ['connect', 'params', 'auth', 'headers', 'compose'] as const;
+export const WS_LEFT_TABS = ['connect', 'params', 'auth', 'headers', 'send'] as const;
 export const WS_RIGHT_TABS = ['events', 'console', 'stats', 'loadtest', 'schema'] as const;
 
 export type WsStudioMode = (typeof WS_STUDIO_MODES)[number];
@@ -330,7 +330,7 @@ export function mapViewTabToStudioLocation(viewTab: WsViewTab): WsStudioLocation
     case 'connect':
       return { mode: 'client', leftTab: 'connect', rightTab: 'events' };
     case 'messages':
-      return { mode: 'client', leftTab: 'compose', rightTab: 'events' };
+      return { mode: 'client', leftTab: 'send', rightTab: 'events' };
     case 'saved':
       return { mode: 'saved', leftTab: WS_DEFAULT_LEFT_TAB, rightTab: WS_DEFAULT_RIGHT_TAB };
     case 'mock':
@@ -350,7 +350,7 @@ export function mapViewTabToStudioLocation(viewTab: WsViewTab): WsStudioLocation
 export function deriveViewTabFromStudio(mode: WsStudioMode, leftTab: WsLeftTab): WsViewTab {
   if (mode === 'mock') return 'mock';
   if (mode === 'saved') return 'saved';
-  return leftTab === 'compose' ? 'messages' : 'connect';
+  return leftTab === 'send' ? 'messages' : 'connect';
 }
 
 // ── Connection History ───────────────────────────────────────────────

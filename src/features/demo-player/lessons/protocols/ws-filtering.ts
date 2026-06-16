@@ -7,7 +7,7 @@ import { WS } from '../../../../shared/selectors';
 
 /** Send a message via the Compose panel and wait for echo. */
 async function sendMessage(ctx: DemoActionContext, message: string): Promise<void> {
-  await ctx.click(WS.LEFT_TAB_COMPOSE);
+  await ctx.click(WS.LEFT_TAB_SEND);
   await ctx.delay(200);
   await ctx.fill(WS.MESSAGE_INPUT, message);
   await ctx.delay(100);
