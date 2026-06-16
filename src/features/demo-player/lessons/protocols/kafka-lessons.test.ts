@@ -6,6 +6,7 @@ import { kafkaTemplatesLesson } from './kafka-templates';
 import { kafkaPublishLesson } from './kafka-publish';
 import { kafkaConsumeLesson } from './kafka-consume';
 import { kafkaQuickStartLesson } from './kafka-quick-start';
+import { kafkaHeadersFiltersLesson } from './kafka-headers-filters';
 import type { DemoActionContext } from '../../types';
 
 function makeCtx(): DemoActionContext {
@@ -662,3 +663,175 @@ describe('kafka-consume lesson', () => {
 });
 
 
+
+// ─── K4: kafka-headers-filters ──────────────────────────────────
+
+describe('kafka-headers-filters lesson', () => {
+  it('has valid lesson structure', () => {
+    expect(kafkaHeadersFiltersLesson.id).toBe('kafka-headers-filters');
+    expect(kafkaHeadersFiltersLesson.domainId).toBe('protocols');
+    expect(kafkaHeadersFiltersLesson.category).toBe('kafka');
+    expect(kafkaHeadersFiltersLesson.name).toBe('Headers & Filters');
+    expect(kafkaHeadersFiltersLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaHeadersFiltersLesson.initialTab).toBe('kafka-message-studio');
+  });
+
+  it('has allowedTabs including kafka-settings', () => {
+    expect(kafkaHeadersFiltersLesson.allowedTabs).toContain('kafka-settings');
+  });
+
+  it('has a dockerEndpoint and dockerCommand', () => {
+    expect(kafkaHeadersFiltersLesson.dockerEndpoint).toBeTruthy();
+    expect(kafkaHeadersFiltersLesson.dockerCommand).toBeTruthy();
+  });
+
+  it('has a setup function (kafkaPublishSetup)', () => {
+    expect(typeof kafkaHeadersFiltersLesson.setup).toBe('function');
+  });
+
+  it('has a cleanup function', () => {
+    expect(typeof kafkaHeadersFiltersLesson.cleanup).toBe('function');
+  });
+
+  it('has concept with title, body, and key terms', () => {
+    expect(kafkaHeadersFiltersLesson.concept.title).toBeTruthy();
+    expect(kafkaHeadersFiltersLesson.concept.body).toBeTruthy();
+    expect(kafkaHeadersFiltersLesson.concept.keyTerms).toBeDefined();
+    expect(kafkaHeadersFiltersLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+  });
+
+  it('has an SVG diagram', () => {
+    expect(kafkaHeadersFiltersLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 8 steps', () => {
+    expect(kafkaHeadersFiltersLesson.steps.length).toBe(8);
+  });
+
+  it('all steps have required fields (id, title, description)', () => {
+    for (const step of kafkaHeadersFiltersLesson.steps) {
+      expect(step.id).toBeTruthy();
+      expect(step.title).toBeTruthy();
+      expect(step.description).toBeTruthy();
+    }
+  });
+
+  it('step IDs are unique', () => {
+    const ids = kafkaHeadersFiltersLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has expected step IDs in order', () => {
+    const ids = kafkaHeadersFiltersLesson.steps.map((s) => s.id);
+    expect(ids).toEqual([
+      'hf-headers-intro',
+      'hf-add-header',
+      'hf-fill-header',
+      'hf-send-header',
+      'hf-filter-intro',
+      'hf-key-filter',
+      'hf-jsonpath',
+      'hf-detail',
+    ]);
+  });
+
+  it('step hf-headers-intro has highlight and preAction but no action', () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-headers-intro')!;
+    expect(step.highlight).toBeTruthy();
+    expect(typeof step.preAction).toBe('function');
+    expect(step.action).toBeUndefined();
+  });
+
+  it('step hf-headers-intro preAction navigates to publish tab', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-headers-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('pub'));
+  });
+
+  it('step hf-add-header action clicks the add-header button', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-add-header')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('add-btn'));
+  });
+
+  it('step hf-fill-header has preAction that fills header + topic + key + body', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-fill-header')!;
+    expect(typeof step.preAction).toBe('function');
+    expect(step.action).toBeUndefined();
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[1]);
+    expect(fillCalls).toContain('traceId');
+    expect(fillCalls).toContain('abc-001');
+    expect(fillCalls).toContain('headers.demo');
+    expect(fillCalls).toContain('HDR-001');
+    expect(fillCalls).toEqual(expect.arrayContaining([expect.stringContaining('"orderId"')]));
+  });
+
+  it('step hf-send-header action clicks send and waits for result', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-send-header')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+    expect(ctx.waitFor).toHaveBeenCalled();
+  });
+
+  it('step hf-filter-intro has preAction to navigate to consume tab, no action', () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-filter-intro')!;
+    expect(typeof step.preAction).toBe('function');
+    expect(step.action).toBeUndefined();
+  });
+
+  it('step hf-filter-intro preAction clicks consume tab', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-filter-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('consume'));
+  });
+
+  it('step hf-key-filter has both preAction and action', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-key-filter')!;
+    expect(typeof step.preAction).toBe('function');
+    expect(typeof step.action).toBe('function');
+  });
+
+  it('step hf-key-filter preAction fills topic, position, and key filter', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-key-filter')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const fillSelectors = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0]);
+    expect(fillSelectors.some((s: string) => s.includes('con-topic'))).toBe(true);
+    expect(fillSelectors.some((s: string) => s.includes('con-key'))).toBe(true);
+  });
+
+  it('step hf-key-filter action clicks consume and waits for results', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-key-filter')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('consume-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('results-zone'), expect.any(Number));
+  });
+
+  it('step hf-jsonpath preAction clears key filter and sets JSONPath fields', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-jsonpath')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const fillArgs = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
+    const keyFilterClear = fillArgs.find((c: unknown[]) => (c[0] as string).includes('con-key') && c[1] === '');
+    expect(keyFilterClear).toBeDefined();
+    const jsonpathFill = fillArgs.find((c: unknown[]) => (c[1] as string).includes('$.status'));
+    expect(jsonpathFill).toBeDefined();
+    const jsonvalFill = fillArgs.find((c: unknown[]) => c[1] === 'CREATED');
+    expect(jsonvalFill).toBeDefined();
+  });
+
+  it('step hf-detail action clicks first result row and waits for detail pane', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-detail')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('detail-pane'), expect.any(Number));
+  });
+});
