@@ -187,7 +187,7 @@ test.describe('Protocol Compose Fields', () => {
     // SIO compose fields — only visible if Socket.IO protocol is selected
     const _sioBadge = page.locator('[data-testid="sio-mode-badge"]');
     // This may or may not be visible depending on current protocol
-    // Just verify compose tab is functional
+    // Just verify Send tab is functional
     const composeInput = page.locator('.ws-compose-input');
     await expect(composeInput).toBeVisible();
   });

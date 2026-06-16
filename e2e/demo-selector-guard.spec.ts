@@ -68,7 +68,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await expect(page.locator(WS.MOCK_START_BTN).or(page.locator(WS.MOCK_STOP_BTN))).toBeVisible();
   });
 
-  test('compose panel elements appear after connect', async ({ page }) => {
+  test('send panel elements appear after connect', async ({ page }) => {
     await gotoWsStudio(page);
     await startMock(page);
     await connectMock(page);

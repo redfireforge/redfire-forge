@@ -119,7 +119,7 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     // Count messages before sending subscription
     const rowsBefore = await page.locator('.ws-message-row').count();
 
-    // Switch to Compose tab
+    // Switch to Send tab
     await switchLeftTab(page, 'send');
 
     // GQL compose fields should be visible
@@ -165,7 +165,7 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     await gotoWsStudio(page);
     await connectToGql(page);
 
-    // Switch to Compose tab
+    // Switch to Send tab
     await switchLeftTab(page, 'send');
 
     // GQL compose fields should be visible

@@ -111,7 +111,7 @@ test.describe('Socket.IO Live (WP-04–07)', () => {
     // Count messages before send (handshake messages)
     const rowsBefore = await page.locator('.ws-message-row').count();
 
-    // Switch to Compose tab
+    // Switch to Send tab
     await switchLeftTab(page, 'send');
 
     // SIO compose fields should be visible
