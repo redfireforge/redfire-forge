@@ -267,6 +267,17 @@ describe('DomainSelector', () => {
     const text = container.querySelector('.demo-progress-ring text');
     expect(text?.textContent).toBe('100%');
   });
+
+  it('renders domain with no lessons: pct=0 and empty lesson count string (lines 20,32 false branches)', () => {
+    const emptyDomain = makeDomain({ lessons: [] });
+    const { container } = render(
+      <DomainSelector domains={[emptyDomain]} progress={baseProgress} onSelect={vi.fn()} />,
+    );
+    // No lesson count text shown when 0 lessons
+    expect(container.textContent).not.toMatch(/\d+ lesson/);
+    // Progress ring still renders (pct=0)
+    expect(container.querySelector('.demo-progress-ring')).toBeTruthy();
+  });
 });
 
 // ── DemoSpotlight ───────────────────────────────────────────────
@@ -349,12 +360,109 @@ describe('DemoSpotlight', () => {
     document.body.removeChild(target);
   });
 
+  it('sets rect when visible element found: covers if(el) true branch (line 42)', async () => {
+    vi.useFakeTimers();
+    const target = document.createElement('div');
+    target.className = 'spotlight-visible-test';
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 100, left: 200, width: 80, height: 40,
+      right: 280, bottom: 140, x: 200, y: 100, toJSON: () => ({}),
+    });
+    document.body.appendChild(target);
+
+    let rafCb: FrameRequestCallback | null = null;
+    const origRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => { rafCb = cb; return 2; };
+    const origCAF = window.cancelAnimationFrame;
+    window.cancelAnimationFrame = vi.fn();
+
+    const { container } = render(
+      <DemoSpotlight selector=".spotlight-visible-test" active={true} />,
+    );
+
+    // Fire the 200ms setup timeout so RAF is scheduled
+    await act(async () => { vi.advanceTimersByTime(250); });
+    // Execute the RAF callback so track() runs and setRect({...}) is called
+    await act(async () => { if (rafCb) { rafCb(0); rafCb = null; } });
+
+    window.requestAnimationFrame = origRAF;
+    window.cancelAnimationFrame = origCAF;
+    vi.useRealTimers();
+
+    const ring = container.querySelector('.demo-spotlight-ring');
+    expect(ring).toBeTruthy();
+    document.body.removeChild(target);
+  });
+
   it('sets rect to null when element not found during tracking', () => {
     const { container, rerender } = render(<DemoSpotlight selector=".missing" active={true} />);
     // Initially null → no ring
     expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
     // Re-render with inactive → still null
     rerender(<DemoSpotlight selector=".missing" active={false} />);
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+  });
+
+  it('calls setRect(null) when elements exist but all have zero dimensions (lines 28-30 coverage)', async () => {
+    vi.useFakeTimers();
+
+    // Add an element that matches but has 0x0 dimensions (jsdom default)
+    const target = document.createElement('div');
+    target.className = 'zero-dim-target';
+    // No mock for getBoundingClientRect → jsdom returns {width:0, height:0}
+    document.body.appendChild(target);
+
+    let rafCb: FrameRequestCallback | null = null;
+    const origRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => { rafCb = cb; return 4; };
+    const origCAF = window.cancelAnimationFrame;
+    window.cancelAnimationFrame = vi.fn();
+
+    const { container } = render(
+      <DemoSpotlight selector=".zero-dim-target" active={true} />,
+    );
+
+    // Fire the 200ms setup timeout
+    await act(async () => { vi.advanceTimersByTime(250); });
+    // Execute the RAF callback — find returns undefined (all elements have 0 dimensions)
+    await act(async () => { if (rafCb) { rafCb(0); rafCb = null; } });
+
+    window.requestAnimationFrame = origRAF;
+    window.cancelAnimationFrame = origCAF;
+    vi.useRealTimers();
+
+    // No spotlight ring (el was null → setRect(null))
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+    document.body.removeChild(target);
+  });
+
+  it('calls setRect(null) when track fires but element is not found (line 42 false branch)', async () => {
+    vi.useFakeTimers();
+
+    let rafCb: FrameRequestCallback | null = null;
+    const origRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => { rafCb = cb; return 3; };
+    const origCAF = window.cancelAnimationFrame;
+    window.cancelAnimationFrame = vi.fn();
+
+    // Render with selector that won't match any element → track() runs → el=null → setRect(null)
+    const { container } = render(
+      <DemoSpotlight selector=".never-exists-in-dom" active={true} />,
+    );
+
+    // No spotlight ring before RAF fires
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+
+    // Fire 200ms setup timeout so RAF is scheduled
+    await act(async () => { vi.advanceTimersByTime(250); });
+    // Execute the RAF callback so track() runs and setRect(null) is called
+    await act(async () => { if (rafCb) { rafCb(0); rafCb = null; } });
+
+    window.requestAnimationFrame = origRAF;
+    window.cancelAnimationFrame = origCAF;
+    vi.useRealTimers();
+
+    // Still no spotlight ring (setRect(null) means no ring shown)
     expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
   });
 });
@@ -466,6 +574,24 @@ describe('LessonPlayer', () => {
       />,
     );
     expect(document.querySelector('.prereq-gate')).toBeNull();
+  });
+
+  it('collapses sidebar step when clicked while already expanded', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson()}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    const buttons = document.querySelectorAll('.demo-sidebar-step-header');
+    expect(buttons.length).toBeGreaterThan(0);
+    const firstBtn = buttons[0] as HTMLElement;
+    // First click: expand
+    fireEvent.click(firstBtn);
+    expect(firstBtn.getAttribute('aria-expanded')).toBe('true');
+    // Second click: collapse (covers isExpanded ? null : idx → null branch)
+    fireEvent.click(firstBtn);
+    expect(firstBtn.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('enables start button when docker gate becomes ready', async () => {

@@ -52,24 +52,18 @@ function getTabByIndex(index: number): HTMLElement | null {
   return (tabs[index] as HTMLElement) ?? null;
 }
 
-/** Get the currently active tab element */
-function getActiveTab(): HTMLElement | null {
-  return document.querySelector(`${WS.CONN_TAB_BAR} [role="tab"][aria-selected="true"]`) as HTMLElement | null;
-}
-
 /** Focus a tab and dispatch a keyboard event on it */
-async function pressKeyOnTab(ctx: DemoActionContext, key: string, tab?: HTMLElement | null): Promise<void> {
-  const target = tab ?? getActiveTab();
-  if (!target) return;
-  target.click();
+async function pressKeyOnTab(ctx: DemoActionContext, key: string, tab: HTMLElement | null): Promise<void> {
+  if (!tab) return;
+  tab.click();
   await ctx.delay(200);
-  target.focus();
+  tab.focus();
   await ctx.delay(100);
   // Mark as demo-synthetic so useDemoShortcuts ignores it and does not
   // accidentally advance/reverse the lesson step.
   const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
   (event as KeyboardEvent & { __demoAction?: boolean }).__demoAction = true;
-  target.dispatchEvent(event);
+  tab.dispatchEvent(event);
   await ctx.delay(300);
 }
 
