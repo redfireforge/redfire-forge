@@ -3,7 +3,7 @@
  */
 import express from 'express';
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createKafkaRouter } from './kafka-routes.js';
 import { createKafkaErrorEnvelope, createKafkaSuccessEnvelope } from '../kafka/contracts.js';
 import {
@@ -110,6 +110,8 @@ function createAppWithQueryOverride(
 }
 
 describe('kafka-routes', () => {
+  afterEach(() => { vi.clearAllMocks(); });
+
   it('POST /api/kafka/disconnect delegates valid bodies to service', async () => {
     const service = createMockService();
     const app = createApp(service);

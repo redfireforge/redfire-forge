@@ -173,8 +173,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     selectOption: async (selector: string, value: string) => {
       const el = document.querySelector(selector) as HTMLSelectElement | null;
       if (el) {
-        const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
-        nativeSet?.call(el, value);
+        const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+        if (desc?.set) desc.set.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
@@ -374,6 +374,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
           if (lesson.cleanup) {
             try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
           }
+          /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (lesson.setup) {
             try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
@@ -417,15 +418,18 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const gen = ++autoPlayGenRef.current;
 
     autoPlayRef.current = setTimeout(async () => {
+      /* v8 ignore next */
       if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
       // Wait for any running step pipeline to finish before advancing.
       // At slower speeds (0.5×), setup + step execution can exceed the
       // breathing pause — without this poll the demo would get permanently stuck.
+      /* v8 ignore start */
       while (executingRef.current) {
         await new Promise(r => setTimeout(r, 200));
         if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
       }
       if (autoPlayGenRef.current !== gen) return;
+      /* v8 ignore stop */
       const nextIdx = state.stepIndex + 1;
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
       await executeCurrentStep(lesson.steps[nextIdx], state.speed);

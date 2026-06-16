@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { createWebSocketMockRouter } from './websocket-mock-routes.js';
@@ -25,6 +25,8 @@ function createApp(service: ReturnType<typeof createMockService>) {
 describe('websocket-mock-routes', () => {
   let service: ReturnType<typeof createMockService>;
   let app: express.Express;
+
+  afterEach(() => { vi.clearAllMocks(); });
 
   beforeEach(() => {
     service = createMockService();
