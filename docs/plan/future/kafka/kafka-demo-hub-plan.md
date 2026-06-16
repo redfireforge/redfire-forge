@@ -6,7 +6,7 @@
 > **Lesson files:** `src/features/demo-player/lessons/protocols/kafka-*.ts`
 > **Unit tests:** `src/features/demo-player/lessons/protocols/kafka-lessons.test.ts`
 > **Existing WS plan reference:** `docs/plan/future/websocket/websocket-demo-hub-plan.md`
-> **Status:** 🔨 In Progress — K1 (Quick Start), K2 (Publish Studio), K3 (Consume Studio), K5 (Templates) shipped; K4, K6–K13 pending
+> **Status:** 🔨 In Progress — K1 (Quick Start), K2 (Publish Studio), K3 (Consume Studio), K4 (Headers & Filters), K5 (Templates) shipped; K6–K13 pending
 
 ---
 
@@ -219,7 +219,7 @@ Lessons are ordered to build intuition progressively — not by implementation p
 | K1 | Quick Start | `kafka-quick-start` | `kafka-quick-start.ts` | ✅ Done (2026-06-15) | 7 | `kafka-desktop.spec.ts` | 🐳 Plaintext |
 | K2 | Publish Studio | `kafka-publish` | `kafka-publish.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K3 | Consume Studio | `kafka-consume` | `kafka-consume.ts` | ✅ Done (2026-06-15) | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
-| K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | 🔲 Not started | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
+| K4 | Headers & Filters | `kafka-headers-filters` | `kafka-headers-filters.ts` | ✅ Done (2026-06-16) | 8 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K5 | Templates | `kafka-templates` | `kafka-templates.ts` | ✅ Done (2026-06-15) | 7 | — | No |
 | K6 | Topic Explorer | `kafka-topic-explorer` | `kafka-topic-explorer.ts` | 🔲 Not started | 9 | `kafka-live.spec.ts` | 🐳 Plaintext |
 | K7 | Schema Registry | `kafka-schema-registry` | `kafka-schema-registry.ts` | 🔲 Not started | 9 | `kafka-schema.spec.ts` | 🐳 SR |
@@ -495,8 +495,29 @@ After exit: lesson shows ✓ Completed, "Restart" button, Kafka **2/3** ✓
 | 7 | `hf-jsonpath` | JSONPath Filter | `KAFKA_CON_JSONPATH_INPUT` | preAction: clears key filter, sets JSONPath=`$.status`, JSONPath Equals=`CREATED`; clicks "Consume Once" |
 | 8 | `hf-detail` | Headers in the Detail Pane | `KAFKA_CON_DETAIL_PANE` | Clicks a result row — shows headers table in detail pane with `traceId: abc-001` |
 
-**Setup:** `kafkaSetup` (PrerequisiteGate: plaintext broker + topic `headers.demo` created by setup).
-**Cleanup:** `kafkaCleanup`.
+**Setup:** `kafkaPublishSetup` (creates cluster + connects; returns to `kafka-message-studio`).
+**Cleanup:** `kafkaCleanup` (no-op).
+
+#### Success Criteria
+- [x] 8 steps with unique IDs in exact specified order
+- [x] Step 1 has `preAction` to navigate to publish tab; no `action`
+- [x] Step 2 `action` clicks `KAFKA.PUB_HEADER_ADD_BTN`
+- [x] Step 3 `preAction` fills header key/value + topic + message key + body; no `action`
+- [x] Step 4 `action` sends the message and waits for `KAFKA.PUB_RESULT`
+- [x] Step 5 `preAction` navigates to consume tab; no `action`
+- [x] Step 6 has both `preAction` (fills form) and `action` (clicks Consume Once + waits for results zone)
+- [x] Step 7 has both `preAction` (clears key filter, sets JSONPath) and `action` (clicks Consume Once)
+- [x] Step 8 `action` clicks first result row and waits for `KAFKA.CON_DETAIL_PANE`
+- [x] 20 unit tests pass (108 total in kafka-lessons.test.ts — all green)
+- [x] Visual validation: lesson #4 appears in Kafka category with correct name + description
+
+#### Implementation Notes (2026-06-16)
+
+**Header row fill selectors:** After clicking `+ Add`, rows use `.kafka-ms-kv-row:first-child input[placeholder="key"]` and `.kafka-ms-kv-row:first-child input[placeholder="value"]` (first child, not last child) since the header list only contains the freshly added row at that point.
+
+**`kafkaPublishSetup` reused instead of `kafkaSetup`:** The plan referenced `kafkaSetup`; actual implementation uses `kafkaPublishSetup` (same as K2/K3) which creates a cluster, connects, and returns to `kafka-message-studio`. This is correct since K4 needs a connected broker for both publish and consume steps.
+
+**DEMO_KEY vs keyEquals:** The plan called `HDR-001` the "entity key" in the filter — this is the message key set via `KAFKA.PUB_KEY_INPUT`, not the header key. The header key is `traceId`. This distinction is documented in step descriptions.
 
 ---
 
