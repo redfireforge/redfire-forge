@@ -65,8 +65,18 @@ const TLS_BROKER = '127.0.0.1:19095';
 const TLS_CLUSTER_NAME = 'TLS Demo';
 const TLS_USERNAME = 'redfireforge-app';
 const TLS_PASSWORD = 'app-password';
-const TLS_MECHANISM = 'SCRAM-SHA-256';
+// Must match the <option value="scram-sha-256"> in KafkaClusterEditor
+const TLS_MECHANISM_VALUE = 'scram-sha-256';
 const TLS_TOPIC = 'redfireforge.workflow.test'; // pre-created by init container
+
+// ── Helper: save cluster and verify it appears in list ───────────────────────
+// The Test Connection / Connect buttons are rendered only when
+// clusters.length > 0 in the left panel. Save must precede testing.
+async function saveCluster(page: Page): Promise<void> {
+  await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
+  await page.waitForTimeout(800);
+  await expect(page.locator(`text=${TLS_CLUSTER_NAME}`)).toBeVisible({ timeout: 6000 });
+}
 
 // ── Helper: navigate to Kafka Settings ────────────────────────────────────────
 
@@ -105,10 +115,10 @@ async function fillTlsClusterForm(page: Page): Promise<void> {
   await brokerInput.fill(TLS_BROKER);
   await page.waitForTimeout(200);
 
-  // Auth Mode → SCRAM-SHA-256
+  // Auth Mode → scram-sha-256 (matches the option value attribute, not label text)
   const authSelect = editor.locator('#kafka-auth-mode');
   await expect(authSelect).toBeVisible({ timeout: 5000 });
-  await authSelect.selectOption(TLS_MECHANISM);
+  await authSelect.selectOption(TLS_MECHANISM_VALUE);
   await page.waitForTimeout(300);
 
   // Username + password
@@ -186,6 +196,8 @@ test.describe('Kafka TLS-Encrypted Cluster — TLS + SASL/SCRAM-256 (Live Docker
     await gotoKafkaSettings(page);
     await openClusterEditor(page);
     await fillTlsClusterForm(page);
+    // Save first — Test Connection button only visible when clusters.length > 0
+    await saveCluster(page);
 
     await page.locator('[data-testid="kafka-test-btn"]').click();
 
@@ -200,9 +212,12 @@ test.describe('Kafka TLS-Encrypted Cluster — TLS + SASL/SCRAM-256 (Live Docker
     await openClusterEditor(page);
     await fillTlsClusterForm(page);
 
-    // Override with a wrong password
+    // Override with a wrong password before saving
     await page.locator('#kafka-auth-password').fill('definitely-wrong');
     await page.waitForTimeout(200);
+
+    // Save first — Test Connection button only visible when clusters.length > 0
+    await saveCluster(page);
 
     await page.locator('[data-testid="kafka-test-btn"]').click();
 

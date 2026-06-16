@@ -59,8 +59,19 @@ const SASL_BROKER = '127.0.0.1:19093';
 const SASL_CLUSTER_NAME = 'Secure Demo';
 const SASL_USERNAME = 'redfireforge-app';
 const SASL_PASSWORD = 'app-password';
-const SASL_MECHANISM = 'SCRAM-SHA-256';
+// Must match the <option value="scram-sha-256"> in KafkaClusterEditor
+const SASL_MECHANISM_VALUE = 'scram-sha-256';
 const SASL_TOPIC = 'redfireforge.debug.consume'; // pre-created by init container
+
+// ── Helper: save cluster and wait for it to appear in the list ───────────────
+// The Test Connection and Connect buttons are only rendered when
+// clusters.length > 0 (left panel). Save must come before testing/connecting.
+async function saveCluster(page: Page): Promise<void> {
+  await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
+  await page.waitForTimeout(800);
+  // Cluster card should now be visible in the list
+  await expect(page.locator(`text=${SASL_CLUSTER_NAME}`)).toBeVisible({ timeout: 6000 });
+}
 
 // ── Helper: navigate to Kafka Settings ────────────────────────────────────────
 
@@ -99,10 +110,10 @@ async function fillSaslClusterForm(page: Page): Promise<void> {
   await brokerInput.fill(SASL_BROKER);
   await page.waitForTimeout(200);
 
-  // Auth Mode → SCRAM-SHA-256
+  // Auth Mode → scram-sha-256 (matches the option value attribute, not label text)
   const authSelect = editor.locator('#kafka-auth-mode');
   await expect(authSelect).toBeVisible({ timeout: 5000 });
-  await authSelect.selectOption(SASL_MECHANISM);
+  await authSelect.selectOption(SASL_MECHANISM_VALUE);
   await page.waitForTimeout(300);
 
   // Username + password (revealed after selecting SCRAM)
@@ -141,7 +152,7 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     await openClusterEditor(page);
 
     const authSelect = page.locator('#kafka-auth-mode');
-    await authSelect.selectOption(SASL_MECHANISM);
+    await authSelect.selectOption(SASL_MECHANISM_VALUE);
     await page.waitForTimeout(300);
 
     await expect(page.locator('#kafka-auth-username')).toBeVisible({ timeout: 3000 });
@@ -153,6 +164,8 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     await gotoKafkaSettings(page);
     await openClusterEditor(page);
     await fillSaslClusterForm(page);
+    // Save first — Test Connection button is only visible when clusters.length > 0
+    await saveCluster(page);
 
     await page.locator('[data-testid="kafka-test-btn"]').click();
 
@@ -168,9 +181,12 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     await openClusterEditor(page);
     await fillSaslClusterForm(page);
 
-    // Override password with a wrong value
+    // Override password with a wrong value before saving
     await page.locator('#kafka-auth-password').fill('wrong-password');
     await page.waitForTimeout(200);
+
+    // Save first — Test Connection button only appears after a cluster exists
+    await saveCluster(page);
 
     await page.locator('[data-testid="kafka-test-btn"]').click();
 

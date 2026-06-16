@@ -261,6 +261,7 @@ export function KafkaClusterEditor({
                     <label className="kafka-editor-checkbox">
                       <input
                         type="checkbox"
+                        data-testid="kafka-tls-toggle"
                         checked={draft.tlsEnabled}
                         onChange={(event) => updateDraft({ tlsEnabled: event.target.checked })}
                       />
@@ -271,6 +272,7 @@ export function KafkaClusterEditor({
                     >
                       <input
                         type="checkbox"
+                        data-testid="kafka-tls-verify-toggle"
                         checked={draft.tlsRejectUnauthorized}
                         onChange={(event) =>
                           updateDraft({ tlsRejectUnauthorized: event.target.checked })
