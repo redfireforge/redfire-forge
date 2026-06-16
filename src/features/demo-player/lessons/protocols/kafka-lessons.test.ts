@@ -7,6 +7,14 @@ import { kafkaPublishLesson } from './kafka-publish';
 import { kafkaConsumeLesson } from './kafka-consume';
 import { kafkaQuickStartLesson } from './kafka-quick-start';
 import { kafkaHeadersFiltersLesson } from './kafka-headers-filters';
+import { kafkaTopicExplorerLesson } from './kafka-topic-explorer';
+import { kafkaSchemaRegistryLesson } from './kafka-schema-registry';
+import { kafkaStreamModeLesson } from './kafka-stream-mode';
+import { kafkaWorkflowProduceLesson } from './kafka-workflow-produce';
+import { kafkaWorkflowConsumeWaitLesson } from './kafka-workflow-consume-wait';
+import { kafkaSecureLesson } from './kafka-secure';
+import { kafkaTlsLesson } from './kafka-tls';
+import { kafkaTestRunnerLesson } from './kafka-test-runner';
 import type { DemoActionContext } from '../../types';
 
 function makeCtx(): DemoActionContext {
@@ -270,11 +278,14 @@ describe('kafka-publish lesson', () => {
     expect(typeof kafkaPublishLesson.cleanup).toBe('function');
   });
 
-  it('step pub-intro has highlight and no action', () => {
+  it('step pub-intro has highlight, a preAction to switch to Publish tab, and no action', async () => {
     const step = kafkaPublishLesson.steps.find((s) => s.id === 'pub-intro')!;
     expect(step.highlight).toBeTruthy();
     expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(typeof step.preAction).toBe('function');
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
   });
 
   it('step pub-topic action fills the topic input', async () => {
@@ -833,5 +844,457 @@ describe('kafka-headers-filters lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalled();
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('detail-pane'), expect.any(Number));
+  });
+});
+
+// ─── K6: kafka-topic-explorer ───────────────────────────────────
+
+describe('kafka-topic-explorer lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaTopicExplorerLesson.id).toBe('kafka-topic-explorer');
+    expect(kafkaTopicExplorerLesson.domainId).toBe('protocols');
+    expect(kafkaTopicExplorerLesson.category).toBe('kafka');
+    expect(kafkaTopicExplorerLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaTopicExplorerLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaTopicExplorerLesson.allowedTabs).toContain('kafka-settings');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaTopicExplorerLesson.concept.title).toBeTruthy();
+    expect(kafkaTopicExplorerLesson.concept.body).toBeTruthy();
+    expect(kafkaTopicExplorerLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaTopicExplorerLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has at least 7 steps', () => {
+    expect(kafkaTopicExplorerLesson.steps.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('all steps have required fields and unique IDs', () => {
+    for (const step of kafkaTopicExplorerLesson.steps) {
+      expect(step.id).toBeTruthy();
+      expect(step.title).toBeTruthy();
+      expect(step.description).toBeTruthy();
+    }
+    const ids = kafkaTopicExplorerLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has dockerEndpoint configured', () => {
+    expect(kafkaTopicExplorerLesson.dockerEndpoint).toBeTruthy();
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaTopicExplorerLesson.setup).toBe('function');
+    expect(typeof kafkaTopicExplorerLesson.cleanup).toBe('function');
+  });
+
+  it('step te-intro has a preAction that clicks topics tab', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-intro')!;
+    expect(step).toBeDefined();
+    const ctx = makeCtx();
+    if (step.preAction) await step.preAction(ctx);
+    expect(ctx.click).toHaveBeenCalled();
+  });
+});
+
+// ─── K7: kafka-schema-registry ──────────────────────────────────
+
+describe('kafka-schema-registry lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaSchemaRegistryLesson.id).toBe('kafka-schema-registry');
+    expect(kafkaSchemaRegistryLesson.domainId).toBe('protocols');
+    expect(kafkaSchemaRegistryLesson.category).toBe('kafka');
+    expect(kafkaSchemaRegistryLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaSchemaRegistryLesson.initialTab).toBe('kafka-message-studio');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaSchemaRegistryLesson.concept.title).toBeTruthy();
+    expect(kafkaSchemaRegistryLesson.concept.body).toBeTruthy();
+    expect(kafkaSchemaRegistryLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaSchemaRegistryLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has at least 7 steps with unique IDs', () => {
+    expect(kafkaSchemaRegistryLesson.steps.length).toBeGreaterThanOrEqual(7);
+    const ids = kafkaSchemaRegistryLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaSchemaRegistryLesson.setup).toBe('function');
+    expect(typeof kafkaSchemaRegistryLesson.cleanup).toBe('function');
+  });
+
+  it('has dockerEndpoint configured', () => {
+    expect(kafkaSchemaRegistryLesson.dockerEndpoint).toBeTruthy();
+  });
+
+  it('step sr-connect action clicks connect button', async () => {
+    const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-connect')!;
+    expect(step).toBeDefined();
+    if (step.action) {
+      const ctx = makeCtx();
+      await step.action(ctx);
+      expect(ctx.click).toHaveBeenCalled();
+    }
+  });
+});
+
+// ─── K8: kafka-stream-mode ──────────────────────────────────────
+
+describe('kafka-stream-mode lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaStreamModeLesson.id).toBe('kafka-stream-mode');
+    expect(kafkaStreamModeLesson.domainId).toBe('protocols');
+    expect(kafkaStreamModeLesson.category).toBe('kafka');
+    expect(kafkaStreamModeLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaStreamModeLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaStreamModeLesson.allowedTabs).toContain('kafka-settings');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaStreamModeLesson.concept.title).toBeTruthy();
+    expect(kafkaStreamModeLesson.concept.body).toBeTruthy();
+    expect(kafkaStreamModeLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaStreamModeLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 8 steps with unique IDs', () => {
+    expect(kafkaStreamModeLesson.steps.length).toBe(8);
+    const ids = kafkaStreamModeLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has expected step IDs in order', () => {
+    const ids = kafkaStreamModeLesson.steps.map((s) => s.id);
+    expect(ids).toEqual(['sm-intro', 'sm-topic', 'sm-start', 'sm-live', 'sm-scroll', 'sm-row', 'sm-stop', 'sm-export']);
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaStreamModeLesson.setup).toBe('function');
+    expect(typeof kafkaStreamModeLesson.cleanup).toBe('function');
+  });
+
+  it('step sm-intro has preAction that clicks consume tab', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('consume'));
+  });
+
+  it('step sm-topic has preAction that selects stream mode, fills topic and position', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-topic')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('stream'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('con-topic'), expect.stringContaining('redfireforge'));
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('con-pos'), 'latest');
+  });
+
+  it('step sm-start action clicks start stream button', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-start')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('stream-start'));
+  });
+
+  it('step sm-stop action clicks stop stream button', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-stop')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('stream-stop'));
+  });
+
+  it('step sm-export action clicks export stream button', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-export')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('stream-export'));
+  });
+});
+
+// ─── K9: kafka-workflow-produce ─────────────────────────────────
+
+describe('kafka-workflow-produce lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaWorkflowProduceLesson.id).toBe('kafka-workflow-produce');
+    expect(kafkaWorkflowProduceLesson.domainId).toBe('protocols');
+    expect(kafkaWorkflowProduceLesson.category).toBe('kafka');
+    expect(kafkaWorkflowProduceLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaWorkflowProduceLesson.initialTab).toBeUndefined();
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaWorkflowProduceLesson.concept.title).toBeTruthy();
+    expect(kafkaWorkflowProduceLesson.concept.body).toBeTruthy();
+    expect(kafkaWorkflowProduceLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaWorkflowProduceLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has at least 8 steps with unique IDs', () => {
+    expect(kafkaWorkflowProduceLesson.steps.length).toBeGreaterThanOrEqual(8);
+    const ids = kafkaWorkflowProduceLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaWorkflowProduceLesson.setup).toBe('function');
+    expect(typeof kafkaWorkflowProduceLesson.cleanup).toBe('function');
+  });
+
+  it('has dockerEndpoint configured', () => {
+    expect(kafkaWorkflowProduceLesson.dockerEndpoint).toBeTruthy();
+  });
+
+  it('step wp-quicktest action clicks quick test button', async () => {
+    const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-quicktest')!;
+    expect(step).toBeDefined();
+    if (step.action) {
+      const ctx = makeCtx();
+      await step.action(ctx);
+      expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('quick-test'));
+    }
+  });
+});
+
+// ─── K10: kafka-workflow-consume-wait ───────────────────────────
+
+describe('kafka-workflow-consume-wait lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.id).toBe('kafka-workflow-consume-wait');
+    expect(kafkaWorkflowConsumeWaitLesson.domainId).toBe('protocols');
+    expect(kafkaWorkflowConsumeWaitLesson.category).toBe('kafka');
+    expect(kafkaWorkflowConsumeWaitLesson.estimatedMinutes).toBeGreaterThan(0);
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.concept.title).toBeTruthy();
+    expect(kafkaWorkflowConsumeWaitLesson.concept.body).toBeTruthy();
+    expect(kafkaWorkflowConsumeWaitLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaWorkflowConsumeWaitLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 10 steps with unique IDs', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.steps.length).toBe(10);
+    const ids = kafkaWorkflowConsumeWaitLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaWorkflowConsumeWaitLesson.setup).toBe('function');
+    expect(typeof kafkaWorkflowConsumeWaitLesson.cleanup).toBe('function');
+  });
+
+  it('step cw-quicktest action clicks quick test button', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-quicktest')!;
+    expect(step).toBeDefined();
+    if (step.action) {
+      const ctx = makeCtx();
+      await step.action(ctx);
+      expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('quick-test'));
+    }
+  });
+});
+
+// ─── K11: kafka-secure ──────────────────────────────────────────
+
+describe('kafka-secure lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaSecureLesson.id).toBe('kafka-secure');
+    expect(kafkaSecureLesson.domainId).toBe('protocols');
+    expect(kafkaSecureLesson.category).toBe('kafka');
+    expect(kafkaSecureLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaSecureLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaSecureLesson.allowedTabs).toContain('kafka-settings');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaSecureLesson.concept.title).toBeTruthy();
+    expect(kafkaSecureLesson.concept.body).toBeTruthy();
+    expect(kafkaSecureLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaSecureLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 9 steps with unique IDs', () => {
+    expect(kafkaSecureLesson.steps.length).toBe(9);
+    const ids = kafkaSecureLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has expected step IDs in order', () => {
+    const ids = kafkaSecureLesson.steps.map((s) => s.id);
+    expect(ids).toEqual(['sec-intro', 'sec-new', 'sec-broker', 'sec-auth', 'sec-creds', 'sec-test', 'sec-save', 'sec-publish', 'sec-result']);
+  });
+
+  it('has dockerEndpoint and dockerCommand', () => {
+    expect(kafkaSecureLesson.dockerEndpoint).toBeTruthy();
+    expect(kafkaSecureLesson.dockerCommand).toContain('secure');
+  });
+
+  it('step sec-intro has preAction navigating to kafka-settings', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('step sec-auth action selects SCRAM-SHA-256', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-auth')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'SCRAM-SHA-256');
+  });
+
+  it('step sec-creds preAction fills username and password', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-creds')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
+  });
+
+  it('step sec-test action clicks test button', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-test')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('test-btn'));
+  });
+
+  it('step sec-publish action clicks send button', async () => {
+    const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-publish')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+  });
+});
+
+// ─── K12: kafka-tls ─────────────────────────────────────────────
+
+describe('kafka-tls lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaTlsLesson.id).toBe('kafka-tls');
+    expect(kafkaTlsLesson.domainId).toBe('protocols');
+    expect(kafkaTlsLesson.category).toBe('kafka');
+    expect(kafkaTlsLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaTlsLesson.initialTab).toBe('kafka-message-studio');
+    expect(kafkaTlsLesson.allowedTabs).toContain('kafka-settings');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaTlsLesson.concept.title).toBeTruthy();
+    expect(kafkaTlsLesson.concept.body).toBeTruthy();
+    expect(kafkaTlsLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaTlsLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 9 steps with unique IDs', () => {
+    expect(kafkaTlsLesson.steps.length).toBe(9);
+    const ids = kafkaTlsLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has expected step IDs in order', () => {
+    const ids = kafkaTlsLesson.steps.map((s) => s.id);
+    expect(ids).toEqual(['tls-intro', 'tls-new', 'tls-broker', 'tls-auth', 'tls-enable', 'tls-ca', 'tls-test', 'tls-save', 'tls-publish']);
+  });
+
+  it('has dockerEndpoint and dockerCommand', () => {
+    expect(kafkaTlsLesson.dockerEndpoint).toBeTruthy();
+    expect(kafkaTlsLesson.dockerCommand).toContain('tls');
+  });
+
+  it('step tls-intro has preAction navigating to kafka-settings', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('step tls-auth action selects SCRAM-SHA-256 and fills credentials', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-auth')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'SCRAM-SHA-256');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
+  });
+
+  it('step tls-test action clicks test button', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-test')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('test-btn'));
+  });
+
+  it('step tls-publish action clicks send button', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-publish')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('send-btn'));
+  });
+});
+
+// ─── K13: kafka-test-runner ─────────────────────────────────────
+
+describe('kafka-test-runner lesson', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('has valid lesson structure', () => {
+    expect(kafkaTestRunnerLesson.id).toBe('kafka-test-runner');
+    expect(kafkaTestRunnerLesson.domainId).toBe('protocols');
+    expect(kafkaTestRunnerLesson.category).toBe('kafka');
+    expect(kafkaTestRunnerLesson.estimatedMinutes).toBeGreaterThan(0);
+    expect(kafkaTestRunnerLesson.initialTab).toBeUndefined();
+    expect(kafkaTestRunnerLesson.allowedTabs).toContain('results');
+  });
+
+  it('has concept with title, body, keyTerms, and SVG diagram', () => {
+    expect(kafkaTestRunnerLesson.concept.title).toBeTruthy();
+    expect(kafkaTestRunnerLesson.concept.body).toBeTruthy();
+    expect(kafkaTestRunnerLesson.concept.keyTerms!.length).toBeGreaterThan(0);
+    expect(kafkaTestRunnerLesson.concept.diagram).toContain('<svg');
+  });
+
+  it('has exactly 8 steps with unique IDs', () => {
+    expect(kafkaTestRunnerLesson.steps.length).toBe(8);
+    const ids = kafkaTestRunnerLesson.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has expected step IDs in order', () => {
+    const ids = kafkaTestRunnerLesson.steps.map((s) => s.id);
+    expect(ids).toEqual(['kr-intro', 'kr-pick', 'kr-vars', 'kr-iterations', 'kr-run', 'kr-results', 'kr-dashboard', 'kr-badges']);
+  });
+
+  it('has setup and cleanup functions', () => {
+    expect(typeof kafkaTestRunnerLesson.setup).toBe('function');
+    expect(typeof kafkaTestRunnerLesson.cleanup).toBe('function');
+  });
+
+  it('has dockerEndpoint configured', () => {
+    expect(kafkaTestRunnerLesson.dockerEndpoint).toBeTruthy();
+  });
+
+  it('step kr-pick action attempts to open workflow dropdown', async () => {
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-pick')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalled();
   });
 });
