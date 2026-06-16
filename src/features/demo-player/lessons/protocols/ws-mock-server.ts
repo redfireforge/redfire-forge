@@ -1,7 +1,44 @@
 /** Lesson 1: Mock Server — zero-friction start, instant WebSocket success */
-import type { DemoLesson } from '../../types';
+import type { DemoLesson, DemoActionContext } from '../../types';
 import { switchToClientMode, disconnectWebSocket, stopMockServer } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
+
+// ─── Module-level state flags ────────────────────────────────────────────────
+// Reset in setup so each lesson run starts clean and skip-to-step works reliably.
+let _mockRunning = false;
+let _clientConnected = false;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Silently ensures the mock server is running. Leaves UI in Mock mode. */
+async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
+  if (_mockRunning) return;
+  await ctx.click(WS.MODE_MOCK);
+  // Wait for mock panel to render (start OR stop button visible)
+  await ctx.waitFor(WS.MOCK_BTN_ANY, 2000);
+  const startBtn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
+  if (startBtn && !startBtn.disabled) {
+    await ctx.click(WS.MOCK_START_BTN);
+    await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
+  }
+  // If MOCK_START_BTN is absent the server was already running
+  _mockRunning = true;
+}
+
+/** Silently ensures mock server is running AND client is connected. */
+async function ensureClientConnected(ctx: DemoActionContext): Promise<void> {
+  await ensureMockRunning(ctx);
+  if (_clientConnected) return;
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.waitFor(WS.CONNECT_BTN, 2000);
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  await ctx.click(WS.CONNECT_BTN);
+  await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+  _clientConnected = true;
+}
+
+// ─── Lesson definition ───────────────────────────────────────────────────────
 
 export const wsMockServerLesson: DemoLesson = {
   id: 'ws-mock-server',
@@ -12,8 +49,32 @@ export const wsMockServerLesson: DemoLesson = {
   estimatedMinutes: 2,
   initialTab: 'websocket-studio',
 
-  /* No setup needed — mock server IS the setup for this lesson */
+  /** Ensure a clean slate so step 1 can visibly demonstrate switching to Mock mode. */
+  setup: async (ctx) => {
+    _mockRunning = false;
+    _clientConnected = false;
+    // Disconnect any active client session
+    const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+    if (disconnectBtn && !disconnectBtn.disabled) {
+      disconnectBtn.click();
+      await ctx.delay(300);
+    }
+    // Navigate to Mock mode and stop the server if it's already running
+    await ctx.click(WS.MODE_MOCK);
+    await ctx.delay(200);
+    const stopBtn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
+    if (stopBtn && !stopBtn.disabled) {
+      stopBtn.click();
+      await ctx.delay(400);
+    }
+    // Return to Client mode so step 1 can demonstrate the switch
+    await ctx.click(WS.MODE_CLIENT);
+    await ctx.delay(200);
+  },
+
   cleanup: async (ctx) => {
+    _mockRunning = false;
+    _clientConnected = false;
     await disconnectWebSocket(ctx);
     await stopMockServer(ctx);
     await switchToClientMode(ctx);
@@ -67,7 +128,8 @@ You'll switch between them during this lesson.`,
       highlight: WS.MODE_MOCK,
       action: async (ctx) => {
         await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(400);
+        // Wait for the mock panel to confirm the mode switch — Rule 5
+        await ctx.waitFor(WS.MOCK_BTN_ANY, 2000);
       },
     },
     {
@@ -79,7 +141,10 @@ You'll switch between them during this lesson.`,
         const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_START_BTN);
+          await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
         }
+        // Server is now running (started or was already running)
+        _mockRunning = true;
       },
       verify: WS.MOCK_STOP_BTN,
     },
@@ -88,6 +153,13 @@ You'll switch between them during this lesson.`,
       title: 'Server Status',
       description: 'The status indicator shows the server is Listening on port 9876 with 0 connected clients. The client count updates in real-time as connections come and go.',
       highlight: WS.MOCK_STATUS_LABEL,
+      // Rule 4: ensure mock server is running and we're in Mock mode if this step is skipped to
+      preAction: async (ctx) => {
+        await ensureMockRunning(ctx);
+        // ensureMockRunning leaves in Mock mode; re-click to handle the case where
+        // _mockRunning was already true and we came from Client mode
+        await ctx.click(WS.MODE_MOCK);
+      },
     },
     {
       id: 'mock-connect',
@@ -95,13 +167,19 @@ You'll switch between them during this lesson.`,
       description: 'Now switch to Client mode and connect to your mock server. The URL is pre-filled with ws://localhost:9876. Click Connect — the status dot turns green and your mock server shows "1 client".',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
+        // Rule 4: ensure mock server is running before we try to connect
+        await ensureMockRunning(ctx);
         await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(300);
+        // Rule 5: wait for connect button instead of fixed delay
+        await ctx.waitFor(WS.CONNECT_BTN, 2000);
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
+        // Rule 5: wait for confirmed connection instead of relying solely on verify
+        await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+        _clientConnected = true;
       },
       verify: WS.STATUS_CONNECTED,
     },
@@ -111,6 +189,13 @@ You'll switch between them during this lesson.`,
       description: 'Send any message and watch it appear twice in the Events panel: once as sent (↑) and once as received (↓). The mock server echoes every message right back — instant verification that your connection works.',
       highlight: WS.SEND_BTN,
       preAction: async (ctx) => {
+        // Rule 4: ensure mock server running AND client connected before trying to send
+        await ensureClientConnected(ctx);
+        // Always switch to Client mode explicitly — we may be coming from Mock-mode steps
+        // (e.g. steps 3/6 click MODE_MOCK) and ensureClientConnected exits early when
+        // _clientConnected is already true, skipping the MODE_CLIENT click.
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.waitFor(WS.LEFT_TAB_COMPOSE, 1500);
         await ctx.click(WS.LEFT_TAB_COMPOSE);
         await ctx.fill(WS.MESSAGE_INPUT, '{"greeting": "Hello from Mock Server demo!"}');
       },
@@ -125,8 +210,12 @@ You'll switch between them during this lesson.`,
       description: 'Switch to Mock mode to see the broadcast panel. Type a message and click Broadcast — it\'s sent to ALL connected clients. This is great for simulating server-push scenarios like notifications or live updates.',
       highlight: WS.MOCK_BROADCAST_BTN,
       preAction: async (ctx) => {
+        // Rule 4: server must be running to access broadcast panel
+        await ensureMockRunning(ctx);
+        // Ensure we're in Mock mode even if _mockRunning was already true
         await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(300);
+        // Rule 5: wait for broadcast input to appear instead of fixed delay
+        await ctx.waitFor(WS.MOCK_BROADCAST_INPUT, 2000);
         await ctx.fill(WS.MOCK_BROADCAST_INPUT, 'Server broadcast: welcome everyone!');
       },
     },
@@ -135,10 +224,19 @@ You'll switch between them during this lesson.`,
       title: 'Stop the Server',
       description: 'Click Stop to shut down the mock server. Any connected client is automatically disconnected. Your message history is preserved — you can restart and reconnect anytime.',
       highlight: WS.MOCK_STOP_BTN,
+      // Rule 4: server must be running to demo stopping it
+      preAction: async (ctx) => {
+        await ensureMockRunning(ctx);
+        // Ensure we're in Mock mode so the stop button is visible
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.waitFor(WS.MOCK_STOP_BTN, 2000);
+      },
       action: async (ctx) => {
         const btn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_STOP_BTN);
+          _mockRunning = false;
+          _clientConnected = false;
         }
       },
       verify: WS.MOCK_START_BTN,

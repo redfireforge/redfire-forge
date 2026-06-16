@@ -144,7 +144,7 @@ describe('useWebSocketCompose', () => {
     it('shows beautify button for json format', () => {
       renderCompose();
       fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
-      expect(screen.getByTestId('beautify-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('pretty-format-btn')).toBeInTheDocument();
     });
 
     it('beautify formats valid JSON', () => {
@@ -152,7 +152,7 @@ describe('useWebSocketCompose', () => {
       fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: '{"a":1}' } });
-      fireEvent.click(screen.getByTestId('beautify-btn'));
+      fireEvent.click(screen.getByTestId('pretty-format-btn'));
       expect(input).toHaveValue('{\n  "a": 1\n}');
     });
 

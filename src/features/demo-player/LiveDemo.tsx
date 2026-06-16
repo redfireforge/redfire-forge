@@ -1,6 +1,6 @@
 /** Live Demo — floating narration panel during live step execution */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DemoLesson, DemoProgress, SpeedMultiplier, StepPhase } from './types';
+import type { DemoLesson, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
@@ -9,15 +9,11 @@ interface LiveDemoProps {
   lesson: DemoLesson;
   stepIndex: number;
   isPlaying: boolean;
-  speed: SpeedMultiplier;
-  progress: DemoProgress;
   stepPhase: StepPhase;
   onNext: () => void;
-  onPrev: () => void;
-  onGoToStep: (index: number) => void;
   onTogglePlay: () => void;
-  onSetSpeed: (speed: SpeedMultiplier) => void;
   onSkipReading: () => void;
+  onRestart: () => void;
   onExit: () => void;
 }
 
@@ -70,14 +66,11 @@ export default function LiveDemo({
   lesson,
   stepIndex,
   isPlaying,
-  speed,
   stepPhase,
   onNext,
-  onPrev,
-  onGoToStep,
   onTogglePlay,
-  onSetSpeed,
   onSkipReading,
+  onRestart,
   onExit,
 }: LiveDemoProps) {
   const step = lesson.steps[stepIndex];
@@ -125,8 +118,10 @@ export default function LiveDemo({
 
   const totalSteps = lesson.steps.length;
   const progressPct = ((stepIndex + 1) / totalSteps) * 100;
-  const isFirst = stepIndex === 0;
   const isLast = stepIndex >= totalSteps - 1;
+  // Lock next/arrow navigation while an action is actively executing;
+  // only allow advancement during reading pause or when a step is idle.
+  const canNavigate = stepPhase === 'reading' || stepPhase === 'done';
 
   // Phase label for user feedback
   const phaseLabel = stepPhase === 'reading' ? '👀 Reading'
@@ -141,12 +136,11 @@ export default function LiveDemo({
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 
-      {/* Steps overview — independent draggable modal */}
+      {/* Steps overview — read-only floating modal, no jump-to-step */}
       {overviewOpen && (
         <StepOverviewDrawer
           lesson={lesson}
           currentStepIndex={stepIndex}
-          onGoToStep={onGoToStep}
           onClose={() => setOverviewOpen(false)}
         />
       )}
@@ -197,12 +191,12 @@ export default function LiveDemo({
 
         <div className="demo-live-panel-controls">
           <button
-            className="demo-live-btn"
-            onClick={onPrev}
-            disabled={isFirst}
-            title="Previous (←)"
+            className="demo-live-btn demo-live-restart-btn"
+            onClick={onRestart}
+            title="Restart demo from beginning"
+            aria-label="Restart demo"
           >
-            ◀
+            ↺
           </button>
           <button
             className="demo-live-btn demo-live-play-btn"
@@ -211,24 +205,12 @@ export default function LiveDemo({
           >
             {isPlaying ? '⏸' : '▶'}
           </button>
-          <div className="demo-live-speed" role="group" aria-label="Playback speed">
-            {([0.5, 1, 1.5, 2] as SpeedMultiplier[]).map(s => (
-              <button
-                key={s}
-                className={`demo-live-speed-btn${speed === s ? ' active' : ''}`}
-                onClick={() => onSetSpeed(s)}
-                aria-label={`${s}× speed`}
-                aria-pressed={speed === s}
-              >
-                {s}×
-              </button>
-            ))}
-          </div>
           <button
             className="demo-live-btn"
             onClick={onNext}
-            disabled={isLast}
-            title="Next (→)"
+            disabled={isLast || !canNavigate}
+            title={canNavigate ? 'Next (→)' : 'Please wait — action in progress'}
+            aria-label="Next step"
           >
             ▶
           </button>
@@ -242,7 +224,7 @@ export default function LiveDemo({
         </div>
 
         <div className="demo-live-keyboard-hints">
-          ← → navigate · Space play/pause · Esc exit
+          Space play/pause · → next · Esc exit
         </div>
       </div>
     </>

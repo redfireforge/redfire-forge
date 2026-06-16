@@ -6,7 +6,6 @@ interface DemoHubHeaderProps {
   domain: DemoDomain | null;
   lesson: DemoLesson | null;
   onBack: () => void;
-  onClose?: () => void;
 }
 
 export default function DemoHubHeader({ view, domain, lesson, onBack }: DemoHubHeaderProps) {

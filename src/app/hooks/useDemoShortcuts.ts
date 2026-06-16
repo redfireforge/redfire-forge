@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { Tab } from '../utils/appTabUtils';
+import type { StepPhase } from '../../features/demo-player/types';
 
 /**
  * Keyboard shortcuts and auto-exit behaviour for the Demo Hub.
@@ -9,21 +10,24 @@ export function useDemoShortcuts(
   demoHub: {
     state: {
       view: string;
-      selectedLesson?: { initialTab?: string } | null;
+      selectedLesson?: { initialTab?: string; allowedTabs?: string[] } | null;
     };
+    stepPhase: StepPhase;
     exitLiveDemo: () => void;
     nextStep: () => void;
-    prevStep: () => void;
     toggleAutoPlay: () => void;
   },
   activeTab: Tab,
   setActiveTab: (tab: Tab) => void,
 ) {
-  // Auto-exit live demo when user manually navigates away from the target tab
+  // Auto-exit live demo when user manually navigates away from the target tab.
+  // Lessons that navigate to additional tabs declare them in `allowedTabs` to
+  // suppress the auto-exit guard for those destinations.
   useEffect(() => {
     if (demoHub.state.view === 'live' && demoHub.state.selectedLesson?.initialTab) {
       const targetTab = demoHub.state.selectedLesson.initialTab;
-      if (activeTab !== targetTab) {
+      const allowedTabs = demoHub.state.selectedLesson.allowedTabs ?? [];
+      if (activeTab !== targetTab && !allowedTabs.includes(activeTab)) {
         demoHub.exitLiveDemo();
       }
     }
@@ -55,12 +59,12 @@ export function useDemoShortcuts(
             setActiveTab('demo-hub');
             break;
           case 'ArrowRight':
-            e.preventDefault();
-            demoHub.nextStep();
-            break;
-          case 'ArrowLeft':
-            e.preventDefault();
-            demoHub.prevStep();
+            // Only allow skipping to next step during reading or done phases;
+            // action/verify/pre phases must not be interrupted by keyboard.
+            if (demoHub.stepPhase === 'reading' || demoHub.stepPhase === 'done') {
+              e.preventDefault();
+              demoHub.nextStep();
+            }
             break;
           case ' ':
             e.preventDefault();

@@ -409,7 +409,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      fireEvent.click(screen.getByTitle('Pretty Format JSON'));
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'jsonSchema' });
@@ -601,7 +601,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      fireEvent.click(screen.getByTitle('Pretty Format JSON'));
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.expectedJson).toContain('\n');
@@ -635,7 +635,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const btn = screen.getByTitle('Format JSON with indentation');
+      const btn = screen.getByTitle('Pretty Format JSON');
       expect(btn).toBeDisabled();
     });
 
@@ -663,7 +663,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      fireEvent.click(screen.getByTitle('Pretty Format JSON'));
       expect(onDraftChange).not.toHaveBeenCalled();
     });
   });

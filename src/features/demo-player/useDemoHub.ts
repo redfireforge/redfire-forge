@@ -46,6 +46,15 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const executingRef = useRef(false);
   /** Resolve function for the reading-phase sleep — called by skipReading(). */
   const skipReadingRef = useRef<(() => void) | null>(null);
+  /**
+   * Monotone counter bumped whenever we want to cancel any pending auto-play
+   * callbacks. clearTimeout() only cancels timers that haven't fired yet; if a
+   * timer callback is already running asynchronously (after its 1500ms pause),
+   * clearTimeout is a no-op. By checking the generation at each await point
+   * inside the callback we guarantee that any already-running callback that
+   * belongs to a previous session exits cleanly instead of overwriting state.
+   */
+  const autoPlayGenRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -67,6 +76,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   const closeHub = useCallback(() => {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++;
     abortRef.current?.abort();
     setHubOpen(false);
     setState(prev => ({ ...prev, isPlaying: false }));
@@ -126,7 +136,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (el) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
-        el.value = value;
+        const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
@@ -162,7 +173,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     selectOption: async (selector: string, value: string) => {
       const el = document.querySelector(selector) as HTMLSelectElement | null;
       if (el) {
-        el.value = value;
+        const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+        if (desc?.set) desc.set.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
@@ -308,11 +320,18 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     if (!lesson) return;
     const clamped = Math.max(0, Math.min(index, lesson.steps.length - 1));
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     // Abort any running pipeline so it doesn't race with the new one
     abortRef.current?.abort();
     setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
     await executeCurrentStep(lesson.steps[clamped], state.speed);
     progress.setLessonStep(lesson.id, clamped);
+    // Mark the lesson complete when the last step is reached via manual navigation
+    // (auto-play marks complete through its own effect; nextStep marks complete
+    // when the user presses → again after already being on the last step)
+    if (clamped >= lesson.steps.length - 1) {
+      progress.markLessonComplete(lesson.id);
+    }
   }, [state.selectedLesson, state.speed, executeCurrentStep, progress]);
 
   const nextStep = useCallback(() => {
@@ -327,10 +346,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     goToStep(state.stepIndex + 1);
   }, [state.selectedLesson, state.stepIndex, goToStep, progress]);
 
-  const prevStep = useCallback(() => {
-    if (state.stepIndex <= 0) return;
-    goToStep(state.stepIndex - 1);
-  }, [state.stepIndex, goToStep]);
 
   const toggleAutoPlay = useCallback(() => {
     setState(prev => {
@@ -338,27 +353,33 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (!newPlaying && autoPlayRef.current) {
         clearTimeout(autoPlayRef.current);
         autoPlayRef.current = null;
+        autoPlayGenRef.current++; // invalidate any already-running callback
       }
       // If starting play at the last step, restart from step 0
       const lesson = prev.selectedLesson;
       const atEnd = lesson && prev.stepIndex >= lesson.steps.length - 1;
       if (newPlaying && atEnd && lesson) {
         const currentSpeed = prev.speed;
+        // Snapshot current generation so the async callback can detect if
+        // restart/exit was triggered while cleanup/setup was in progress.
+        const atEndGen = autoPlayGenRef.current;
         // Run cleanup → setup → step 0 action asynchronously after state update.
         // NOTE: isPlaying starts as false so the auto-play effect does NOT fire
         // concurrently with cleanup/setup (which would race against them switching
         // tabs and cause template/profile deletion to fail). isPlaying is re-enabled
         // inside the callback after setup completes.
         setTimeout(async () => {
-          if (!isMountedRef.current) return;
+          if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           const ctx = buildQuietContext();
           if (lesson.cleanup) {
             try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
           }
+          /* v8 ignore next */
+          if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (lesson.setup) {
             try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
           }
-          if (isMountedRef.current && lesson.steps[0]) {
+          if (isMountedRef.current && lesson.steps[0] && autoPlayGenRef.current === atEndGen) {
             // Re-enable auto-play now that setup is done, then execute step 0.
             setState(prev => ({ ...prev, isPlaying: true }));
             await executeCurrentStep(lesson.steps[0], currentSpeed);
@@ -391,16 +412,24 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     // Breathing room between steps — long enough to feel like a pause
     const breathingPause = Math.round(1500 / state.speed);
+    // Stamp this callback with the current generation so that if restart/exit
+    // bumps the counter while this callback is already executing, the callback
+    // can detect it is stale and bail out without overwriting state.
+    const gen = ++autoPlayGenRef.current;
 
     autoPlayRef.current = setTimeout(async () => {
-      if (!isMountedRef.current) return;
+      /* v8 ignore next */
+      if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
       // Wait for any running step pipeline to finish before advancing.
       // At slower speeds (0.5×), setup + step execution can exceed the
       // breathing pause — without this poll the demo would get permanently stuck.
+      /* v8 ignore start */
       while (executingRef.current) {
         await new Promise(r => setTimeout(r, 200));
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
       }
+      if (autoPlayGenRef.current !== gen) return;
+      /* v8 ignore stop */
       const nextIdx = state.stepIndex + 1;
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
       await executeCurrentStep(lesson.steps[nextIdx], state.speed);
@@ -410,14 +439,33 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
   }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep, progressMarkComplete]);
 
-  const setSpeed = useCallback((speed: SpeedMultiplier) => {
-    setState(prev => ({ ...prev, speed }));
-    progress.setSpeed(speed);
-  }, [progress]);
+  const restartDemo = useCallback(async () => {
+    const lesson = state.selectedLesson;
+    if (!lesson) return;
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++; // invalidate any already-running auto-play callback
+    abortRef.current?.abort();
+    setState(prev => ({ ...prev, stepIndex: 0, isPlaying: false }));
+    setStepPhase('done');
+    const ctx = buildQuietContext();
+    if (lesson.cleanup) {
+      try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
+    }
+    if (lesson.initialTab) navigateToTab(lesson.initialTab);
+    await new Promise(r => setTimeout(r, 350));
+    if (lesson.setup) {
+      try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
+    }
+    if (isMountedRef.current && lesson.steps[0]) {
+      await executeCurrentStep(lesson.steps[0], state.speed);
+      progress.setLessonStep(lesson.id, 0);
+    }
+  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, executeCurrentStep, progress]);
 
   // Exit live mode → run cleanup, then return to concept view
   const exitLiveDemo = useCallback(async () => {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     abortRef.current?.abort(); // stop any running step pipeline
 
     // Run lesson cleanup (stop servers, disconnect, reset UI) — quiet, no ripple
@@ -446,9 +494,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     exitLiveDemo,
     goToStep,
     nextStep,
-    prevStep,
     toggleAutoPlay,
-    setSpeed,
+    restartDemo,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
   };
 }

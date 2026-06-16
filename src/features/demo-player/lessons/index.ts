@@ -19,7 +19,21 @@ import { wsSessionRecordingLesson } from './protocols/ws-session-recording';
 import { wsPowerUserLesson } from './protocols/ws-power-user';
 import { sseStudioAdvancedLesson } from './protocols/sse-studio-advanced';
 import { wsTlsLesson } from './protocols/ws-tls';
+import { wsTlsLocalLesson } from './protocols/ws-tls-local';
 import { wsTestRunnerLesson } from './protocols/ws-test-runner';
+import { kafkaTemplatesLesson } from './protocols/kafka-templates';
+import { kafkaPublishLesson } from './protocols/kafka-publish';
+import { kafkaConsumeLesson } from './protocols/kafka-consume';
+import { kafkaQuickStartLesson } from './protocols/kafka-quick-start';
+import { kafkaHeadersFiltersLesson } from './protocols/kafka-headers-filters';
+import { kafkaTopicExplorerLesson } from './protocols/kafka-topic-explorer';
+import { kafkaSchemaRegistryLesson } from './protocols/kafka-schema-registry';
+import { kafkaStreamModeLesson } from './protocols/kafka-stream-mode';
+import { kafkaWorkflowProduceLesson } from './protocols/kafka-workflow-produce';
+import { kafkaWorkflowConsumeWaitLesson } from './protocols/kafka-workflow-consume-wait';
+import { kafkaSecureLesson } from './protocols/kafka-secure';
+import { kafkaTlsLesson } from './protocols/kafka-tls';
+import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -34,7 +48,7 @@ export const protocolsDomain: DemoDomain = {
     { id: 'websocket', label: 'WebSocket', icon: '🔌' },
     { id: 'sse',       label: 'SSE',       icon: '📡' },
   ],
-  lessons: [wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTestRunnerLesson],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson],
 };
 
 export const apiDomain: DemoDomain = {

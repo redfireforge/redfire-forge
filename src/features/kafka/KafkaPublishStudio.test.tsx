@@ -9,8 +9,8 @@ import type { KafkaPublishDraft } from './types';
 
 function basePublishDraft(): KafkaPublishDraft {
   return {
-    topic: 'orders.events', key: '', partition: '', acks: -1,
-    timeoutMs: '', headers: [], body: '{"hello":"world"}',
+    topic: 'orders.events', key: '', keyFormat: 'string', partition: '', acks: -1,
+    timeoutMs: '', headers: [], body: '{"hello":"world"}', bodyFormat: 'json',
   };
 }
 
@@ -169,7 +169,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-body-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Message Body (JSON)'));
+    fireEvent.blur(screen.getByLabelText('Message Body'));
     expect(screen.getByTestId('pub-body-hint').textContent).toBe('Message body is required');
   });
 
@@ -197,7 +197,7 @@ describe('KafkaPublishStudio', () => {
   it('shows "No saved templates" when list is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    expect(screen.getByText('No saved templates')).toBeTruthy();
+    expect(screen.getByText('No saved templates yet')).toBeTruthy();
   });
 });
 
@@ -277,7 +277,7 @@ describe('KafkaPublishStudio — Template Save', () => {
   it('opens save input when Save button clicked', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Template name\u2026')).toBeTruthy();
   });
 
   it('confirm button disabled when save name is empty', () => {
@@ -290,7 +290,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Publish Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'My Publish Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
   });
@@ -299,7 +299,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Publish Preset' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
@@ -308,16 +308,16 @@ describe('KafkaPublishStudio — Template Save', () => {
   it('closes save input on Escape key', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('cancel button closes save input', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
     fireEvent.click(screen.getByText('✕'));
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('calls onDeleteTemplate when delete button clicked on template item', async () => {
@@ -327,7 +327,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     ];
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    fireEvent.click(screen.getByTitle('Delete template'));
+    fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteTemplate).toHaveBeenCalledWith('pub-1'));
   });
 });
@@ -367,7 +367,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Message Body textarea changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Message Body (JSON)'), { target: { value: '{"new":"body"}' } });
+    fireEvent.change(screen.getByLabelText('Message Body'), { target: { value: '{"new":"body"}' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ body: '{"new":"body"}' });
   });
 });

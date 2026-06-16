@@ -1,13 +1,14 @@
 /** StepOverviewModal — independent draggable + resizable floating modal showing all lesson steps.
  *  Can be repositioned and resized freely while the demo is running. */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { DemoLesson } from './types';
 import { renderMarkdown } from './ConceptSlide';
 
 interface Props {
   lesson: DemoLesson;
   currentStepIndex: number;
-  onGoToStep: (index: number) => void;
+  /** When omitted the overview is read-only — step items are not clickable. */
+  onGoToStep?: (index: number) => void;
   onClose: () => void;
 }
 
@@ -85,20 +86,25 @@ function useResizable(defaultWidth: number, defaultHeight: number) {
 
 export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
-  const activeItemRef = useRef<HTMLButtonElement>(null);
   const { dragStyle, onDragMouseDown } = useDraggableModal(modalRef);
   const { size, onResizeMouseDown } = useResizable(360, 500);
 
-  // Scroll current step into view on open
-  useEffect(() => {
-    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Scroll current step into view on open using a callback ref
+  const activeItemCallbackRef = useCallback((el: HTMLElement | null) => {
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, []);
 
-  // Close on Escape
+  // Close on Escape — use capture phase with stopImmediatePropagation so the
+  // global demo shortcut handler (useDemoShortcuts) doesn't also exit the demo.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [onClose]);
 
   const completedCount = currentStepIndex;
@@ -151,15 +157,8 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
         {lesson.steps.map((step, idx) => {
           const isActive = idx === currentStepIndex;
           const isDone   = idx < currentStepIndex;
-
-          return (
-            <button
-              key={step.id}
-              ref={isActive ? activeItemRef : undefined}
-              className={`demo-overview-modal-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
-              onClick={() => { onGoToStep(idx); }}
-              aria-current={isActive ? 'step' : undefined}
-            >
+          const itemContent = (
+            <>
               <span className="demo-overview-modal-item-num">
                 {isDone
                   ? (
@@ -186,14 +185,35 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
                 />
               </span>
               {isActive && <span className="demo-overview-modal-current-dot" aria-hidden="true" />}
+            </>
+          );
+
+          return onGoToStep ? (
+            <button
+              key={step.id}
+              ref={isActive ? activeItemCallbackRef : undefined}
+              className={`demo-overview-modal-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
+              onClick={() => { onGoToStep(idx); }}
+              aria-current={isActive ? 'step' : undefined}
+            >
+              {itemContent}
             </button>
+          ) : (
+            <div
+              key={step.id}
+              ref={isActive ? activeItemCallbackRef : undefined}
+              className={`demo-overview-modal-item demo-overview-modal-item--readonly${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
+              aria-current={isActive ? 'step' : undefined}
+            >
+              {itemContent}
+            </div>
           );
         })}
       </div>
 
       {/* ── Footer hint ── */}
       <div className="demo-overview-modal-footer">
-        Click to jump · Drag header to reposition · Esc to close
+        {onGoToStep ? 'Click to jump · ' : ''}Drag header to reposition · Esc to close
       </div>
 
       {/* ── Resize handle (bottom-right corner) ── */}
