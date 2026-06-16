@@ -423,7 +423,7 @@ export default function AssertionRowEditor({
               type="button"
               className="btn btn-xs btn-outline assertion-schema-action"
               onClick={() => updateAssertion({ schema: prettyJson(a.schema) })}
-              title="Format JSON with indentation"
+              title="Pretty Format JSON"
             >
               Pretty Format
             </button>
