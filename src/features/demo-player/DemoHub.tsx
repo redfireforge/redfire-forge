@@ -22,7 +22,6 @@ export default function DemoHub({ hub }: DemoHubProps) {
         domain={state.selectedDomain}
         lesson={state.selectedLesson}
         onBack={hub.goBack}
-        onClose={() => {/* no-op: tab navigation handles closing */}}
       />
       <div className="demo-hub-body">
         {state.view === 'domains' && (
@@ -43,10 +42,7 @@ export default function DemoHub({ hub }: DemoHubProps) {
         {state.view === 'concept' && state.selectedLesson && (
           <LessonPlayer
             lesson={state.selectedLesson}
-            speed={state.speed}
             onStartDemo={hub.startLiveDemo}
-            onSetSpeed={hub.setSpeed}
-            onBack={hub.goBack}
           />
         )}
       </div>

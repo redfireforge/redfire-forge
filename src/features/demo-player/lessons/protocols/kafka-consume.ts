@@ -99,11 +99,15 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'The **Consume** tab is your Kafka consumer. Set a **Topic**, choose a **Start Position**, cap the batch with **Max Messages**, and click **Consume Once** to pull a snapshot of messages from the broker.',
       highlight: KAFKA.CONSUME_TAB,
-      // preAction: silently switch to Consume tab before the step description shows
-      // (must happen before any subsequent steps fill consume-form fields)
       preAction: async (ctx) => {
+        // Switch to the Consume tab first so the form is visible.
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
+        // Ensure "Consume Once" mode is active — if the user previously switched
+        // to Stream mode, con-consume-btn won't be in the DOM and the consume
+        // step would silently fail.
+        await ctx.click(KAFKA.CON_MODE_ONCE);
+        await ctx.delay(200);
       },
     },
 
@@ -112,7 +116,7 @@ export const kafkaConsumeLesson: DemoLesson = {
       id: 'con-topic',
       title: 'Set the Topic',
       description:
-        'Type `orders.created` — the same topic K2 published to. The Consumer Studio will read messages from this topic.',
+        'Type `orders.created` — the same topic the Publish lesson sent its demo message to. The Consume Studio will read messages from this topic.',
       highlight: KAFKA.CON_TOPIC_INPUT,
       action: async (ctx) => {
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, DEMO_TOPIC);
@@ -151,11 +155,12 @@ export const kafkaConsumeLesson: DemoLesson = {
       id: 'con-consume',
       title: 'Consume Once',
       description:
-        'Click **Consume Once** to pull messages from the broker. The button spins while the request is in flight — results appear as a table once the broker responds.',
+        'Click **Consume Once** to pull messages from the broker. Watch the button switch to **Consuming…** while the request is in flight — results appear as a table once the broker responds.',
       highlight: KAFKA.CON_CONSUME_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.delay(400);
+        // Give the "Consuming…" loading state enough screen time to be visible.
+        await ctx.delay(700);
       },
       verify: KAFKA.CON_RESULTS_ZONE,
     },
@@ -176,11 +181,14 @@ export const kafkaConsumeLesson: DemoLesson = {
       title: 'Click a Row',
       description:
         'Click the first result row to open the **Detail Pane**. It slides in alongside the table — showing the full message payload, key, partition, offset, and any headers.',
-      highlight: KAFKA.CON_RESULTS_ZONE,
+      // Spotlight the first row specifically so viewers know exactly what to click.
+      highlight: '[data-testid="con-row-0"]',
       action: async (ctx) => {
         await ctx.click('[data-testid="con-row-0"]');
         await ctx.delay(400);
       },
+      // Wait for the detail pane — con-detail spotlights it, so it must be in the DOM.
+      verify: KAFKA.CON_DETAIL_PANE,
     },
 
     // ── Step 8: Inspect the detail pane ─────────────────────────────────────
@@ -198,11 +206,11 @@ export const kafkaConsumeLesson: DemoLesson = {
       id: 'con-export',
       title: 'Export the Result Set',
       description:
-        'Click **Export** to download the full result set as a JSON file. Every row — offset, partition, key, value, headers — is included. Ideal for sharing evidence or feeding into other tools.',
+        'Click **Export Result Set** to download the full result set as a JSON file. Every row — offset, partition, key, value, headers — is included. Ideal for sharing evidence or feeding into other tools.',
       highlight: KAFKA.CON_EXPORT_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_EXPORT_BTN);
-        await ctx.delay(300);
+        await ctx.delay(400);
       },
     },
   ],

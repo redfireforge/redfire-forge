@@ -104,16 +104,17 @@ Once saved and connected, your cluster is available across the entire app: Publi
       id: 'ks-create',
       title: 'Create a Cluster Profile',
       description:
-        'Click **Create First Cluster** (if this is your first time) or **+ New** to open the editor. RedfireForge pre-fills the default broker address — you just need to name it.',
+        'Click **Create First Cluster** to open the editor. RedfireForge pre-fills the default broker address — you just need to name the profile. If you have already configured a cluster, this step is a quick preview.',
       highlight: KAFKA.CLUSTER_EDITOR,
       action: async (ctx) => {
-        // Use the empty-state button if present (first run), otherwise the toolbar "+ New" button.
-        // This prevents creating a duplicate cluster if one already exists.
+        // Only use the empty-state button (first run). Falling back to "+ New"
+        // when clusters already exist would open a blank editor and then fail
+        // to save because the "Demo Cluster" ID already exists — leaving the
+        // editor open with editorMode != null, which disables the Connect
+        // button and silently breaks every subsequent step on repeat runs.
         const emptyBtn = document.querySelector<HTMLElement>('[data-testid="kafka-empty-create-btn"]');
-        const addBtn = document.querySelector<HTMLElement>('[data-testid="kafka-add-cluster-btn"]');
-        const btn = emptyBtn ?? addBtn;
-        if (btn) {
-          btn.click();
+        if (emptyBtn) {
+          emptyBtn.click();
           await ctx.delay(400);
         }
       },
@@ -136,11 +137,12 @@ Once saved and connected, your cluster is available across the entire app: Publi
       id: 'ks-save',
       title: 'Save the Profile',
       description:
-        'Click **Save Cluster** to persist the profile. It will appear in the cluster list on the left — ready to connect.',
+        'Click **Save Cluster** to persist the profile. Watch the card appear in the cluster list on the left — it is now saved and ready to connect.',
       highlight: KAFKA.SAVE_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.SAVE_BTN);
-        await ctx.delay(400);
+        // Extra time to see the cluster card animate into the list.
+        await ctx.delay(700);
       },
     },
 
@@ -149,18 +151,21 @@ Once saved and connected, your cluster is available across the entire app: Publi
       id: 'ks-connect',
       title: 'Connect to the Broker',
       description:
-        'Click **Connect**. RedfireForge opens a connection to the broker and updates the badge to **Connected**. This connection is shared across Publish, Consume, Topics, and all Workflow nodes.',
+        'Click **Connect**. RedfireForge opens a connection to the broker and updates the status badge to **Connected**. This single connection is shared across Publish, Consume, Topics, and all Workflow nodes.',
       highlight: KAFKA.CONNECT_BTN,
       action: async (ctx) => {
-        // Poll briefly in case the button appears after cluster save animation
+        // Poll briefly in case the button appears after the cluster save animation.
         await ctx.waitFor(KAFKA.CONNECT_BTN, 3000);
         const btn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
         if (btn && !btn.disabled) {
           btn.click();
-          await ctx.delay(800);
+          // Give time for the status badge to transition idle → connecting → Connected.
+          await ctx.delay(1200);
         }
       },
-      verify: KAFKA.SETTINGS_LIST,
+      // Wait for the Disconnect button — it only renders when the cluster is
+      // actually connected, giving a strong post-condition for this step.
+      verify: KAFKA.DISCONNECT_BTN,
     },
 
     // ── Step 6: Connected status ─────────────────────────────────

@@ -101,12 +101,12 @@ describe('useDemoHub', () => {
     expect(result.current.state.view).toBe('lessons');
   });
 
-  it('setSpeed updates speed and persists', () => {
+  it('restartDemo is exposed on the hook and setSpeed/prevStep are not', () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
-    act(() => result.current.setSpeed(2));
-    expect(result.current.state.speed).toBe(2);
-    const stored = JSON.parse(localStorage.getItem('redfire-demo-progress-v2')!);
-    expect(stored.speed).toBe(2);
+    expect(typeof result.current.restartDemo).toBe('function');
+    const hub = result.current as Record<string, unknown>;
+    expect(hub['setSpeed']).toBeUndefined();
+    expect(hub['prevStep']).toBeUndefined();
   });
 
   it('hubVisible is true when hub is open and not in live view', () => {
@@ -157,18 +157,12 @@ describe('useDemoHub', () => {
     expect(result.current.state.isPlaying).toBe(false);
   });
 
-  it('prevStep does nothing at step 0', async () => {
+  it('restartDemo is exposed on the hook; setSpeed and prevStep are not', () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
-    const lesson = makeLesson();
-    act(() => result.current.selectLesson(lesson));
-    await act(async () => {
-      await result.current.startLiveDemo();
-    });
-    expect(result.current.state.stepIndex).toBe(0);
-    await act(async () => {
-      result.current.prevStep();
-    });
-    expect(result.current.state.stepIndex).toBe(0);
+    expect(typeof result.current.restartDemo).toBe('function');
+    const hub = result.current as Record<string, unknown>;
+    expect(hub['setSpeed']).toBeUndefined();
+    expect(hub['prevStep']).toBeUndefined();
   });
 
   it('startLiveDemo navigates to initialTab', async () => {
@@ -224,19 +218,6 @@ describe('useDemoHub', () => {
     expect(result.current.state.view).toBe('domains');
   });
 
-  it('prevStep does nothing at step index <= 0', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
-    act(() => { result.current.prevStep(); });
-    expect(result.current.state.stepIndex).toBe(0);
-  });
-
-  it('setSpeed persists to localStorage with 0.5', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
-    act(() => result.current.setSpeed(0.5));
-    expect(result.current.state.speed).toBe(0.5);
-    const stored = JSON.parse(localStorage.getItem('redfire-demo-progress-v2')!);
-    expect(stored.speed).toBe(0.5);
-  });
 });
 
 // ─── Tests with fake timers for async step execution ──────────
@@ -856,5 +837,46 @@ describe('useDemoHub (async execution)', () => {
 
     // Element found but hidden → not treated as visible
     div.remove();
+  });
+
+  it('restartDemo resets stepIndex to 0 and stops auto-play', async () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson();
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    expect(result.current.state.stepIndex).toBe(0);
+    await act(async () => {
+      const p = result.current.restartDemo();
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    expect(result.current.state.stepIndex).toBe(0);
+    expect(result.current.state.isPlaying).toBe(false);
+  });
+
+  it('restartDemo runs cleanup and setup then executes step 0', async () => {
+    const cleanup = vi.fn();
+    const setup = vi.fn();
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({ cleanup, setup });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    vi.clearAllMocks();
+    await act(async () => {
+      const p = result.current.restartDemo();
+      await vi.advanceTimersByTimeAsync(6000);
+      await p;
+    });
+    expect(cleanup).toHaveBeenCalled();
+    expect(setup).toHaveBeenCalled();
+    expect(result.current.state.stepIndex).toBe(0);
   });
 });

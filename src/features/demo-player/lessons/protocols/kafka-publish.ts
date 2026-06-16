@@ -104,9 +104,14 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-intro',
       title: 'The Publish Tab',
       description:
-        'The **Publish** tab is your Kafka producer. It has four main fields: **Topic** (the destination), **Key** (determines which partition), **Body** (the message payload), and **Acks** (durability guarantee). Fill them in and hit **Send Once**.',
+        'The **Publish** tab is your Kafka producer. It has four key fields: **Topic** (the destination), **Key** (determines which partition), **Body** (the message payload), and **Acks** (durability guarantee). The next steps will walk through each one.',
       highlight: KAFKA.PUBLISH_TAB,
-      // Informational — no action.
+      // Navigate to the Publish tab before spotlighting it — setup returns to the
+      // studio but doesn't guarantee the Publish tab is the active one.
+      preAction: async (ctx) => {
+        await ctx.click(KAFKA.PUBLISH_TAB);
+        await ctx.delay(300);
+      },
     },
     {
       id: 'pub-topic',
@@ -123,7 +128,7 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-body',
       title: 'Write the Message Body',
       description:
-        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. The body will be formatted automatically in the next step.',
+        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. We will format and validate it in a moment.',
       highlight: KAFKA.PUB_BODY_TEXTAREA,
       action: async (ctx) => {
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
@@ -153,22 +158,24 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-format',
       title: 'Validate & Format JSON',
       description:
-        'Click **Validate & Format JSON** to pretty-print the body and catch syntax errors before sending. The payload reformats with proper indentation — much easier to read.',
+        'Click **Validate & Format JSON** to pretty-print the body and catch syntax errors before sending. Watch the payload reformat with proper indentation — much easier to read at a glance.',
       highlight: KAFKA.PUB_FORMAT_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_FORMAT_BTN);
-        await ctx.delay(500);
+        await ctx.delay(600);
       },
+      // Pause long enough for viewers to see the reformatted JSON before moving on.
+      pauseAfter: true,
     },
     {
       id: 'pub-send',
       title: 'Send Once',
       description:
-        'Click **Send Once** to produce the message. The broker receives it, assigns it to a partition, and returns the **offset** — the permanent address of this message in the log.',
+        'Click **Send Once** to produce the message. Watch the button switch to **Sending…** while the broker processes the request, assigns it to a partition, and returns the **offset** — the message\'s permanent address in the log.',
       highlight: KAFKA.PUB_SEND_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_SEND_BTN);
-        await ctx.delay(600);
+        await ctx.delay(900);
       },
       verify: KAFKA.PUB_RESULT,
     },

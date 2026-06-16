@@ -7,7 +7,7 @@ import { KAFKA_PUBLISH_TEMPLATES_KEY } from '../../../../shared/kafka/kafkaStora
 const SAVE_INPUT = '.kafka-ms-template-save-input';
 
 /** Selector for the ✓ confirm button in the save row. */
-const SAVE_CONFIRM_BTN = '.kafka-ms-template-save-row .kafka-ms-template-btn:not(.kafka-ms-template-btn-cancel)';
+const SAVE_CONFIRM_BTN = '.kafka-ms-template-confirm-btn';
 
 /** Selector for the first template row item in the dropdown. */
 const TEMPLATE_ITEM = '.kafka-ms-template-item';

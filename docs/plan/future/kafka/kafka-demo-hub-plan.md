@@ -574,15 +574,17 @@ The original code had `if (connection.state !== 'connected') return <KafkaStudio
 **Design decision — Step 2 uses `action` not `preAction`:**
 Fill actions belong in `action` (visible ripple + 400ms delay) so the user sees the form fill animated in real-time. `preAction` is silent and instant — reserved for navigation/reset only.
 
-**File-private selectors:**
+**File-private selectors (corrected 2026-06-16):**
 ```typescript
 const SAVE_INPUT = '.kafka-ms-template-save-input';
-const SAVE_CONFIRM_BTN = '.kafka-ms-template-save-row .kafka-ms-template-btn:not(.kafka-ms-template-btn-cancel)';
+const SAVE_CONFIRM_BTN = '.kafka-ms-template-confirm-btn';   // fixed: was wrong class
 const TEMPLATE_ITEM = '.kafka-ms-template-item';
 const TEMPLATE_DELETE_BTN = '.kafka-ms-template-item-delete';
 ```
 
-**Unit tests:** `kafka-lessons.test.ts` — 20 tests, all green. Tests cover: valid structure, step count, no dockerEndpoint, cleanup behavior (removes Orders Template, no-op when empty, handles malformed JSON), step action/preAction classification.
+**Bug fixed (2026-06-16) — wrong confirm button class:** The original `SAVE_CONFIRM_BTN` used selector `.kafka-ms-template-save-row .kafka-ms-template-btn:not(.kafka-ms-template-btn-cancel)` which did not match the actual DOM class `kafka-ms-template-confirm-btn`. The save action would click Save and fill the name but silently fail on the ✓ confirm click, leaving the template unsaved. Fixed to `.kafka-ms-template-confirm-btn`. Unit test updated to assert the correct class.
+
+**Unit tests:** `kafka-lessons.test.ts` — 172 tests, all green. Tests cover: valid structure, step count, no dockerEndpoint, cleanup behavior (removes Orders Template, no-op when empty, handles malformed JSON), step action/preAction classification, and correct confirm button selector class.
 
 ---
 

@@ -1,6 +1,6 @@
 /* ============================================================
    Demo Hub v2 — Learning Hub UI
-   z-index: 10101 (spotlight), 10110 (live panel), 10115 (speed dropdown)
+   z-index: 10101 (spotlight), 10110 (live panel)
    ============================================================ */
 
 /* ─── Hub Pane (renders inside .app-tab-pane) ────────────────── */
@@ -460,7 +460,7 @@
 .demo-lesson-player-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding-top: 24px;
   margin-top: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -593,38 +593,6 @@
   width: 100%;
   height: auto;
   max-height: 160px;
-}
-
-/* ─── Speed Buttons (shared) ─────────────────────────────────── */
-.demo-speed-selector {
-  display: flex;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 6px;
-  padding: 2px;
-}
-
-.demo-speed-btn {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted, #a8b8cc);
-  background: transparent;
-  transition: all 0.15s ease;
-  font-family: inherit;
-}
-
-.demo-speed-btn:hover {
-  color: var(--text, #f1f5f9);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.demo-speed-btn.active {
-  color: #fff;
-  background: var(--primary, #3b82f6);
 }
 
 .demo-start-btn {
@@ -824,45 +792,14 @@
   box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
 }
 
-.demo-live-speed {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin: 0 auto;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 2px;
-}
-
-.demo-live-speed-btn {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
+.demo-live-restart-btn {
   color: var(--text-muted, #a8b8cc);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-  white-space: nowrap;
-  line-height: 1;
+  font-size: 18px;
 }
 
-.demo-live-speed-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text, #f1f5f9);
-}
-
-.demo-live-speed-btn.active {
-  background: var(--primary, #3b82f6);
-  color: #fff;
-  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.4);
-}
-
-/* keep old label rule name alive so nothing else breaks */
-.demo-live-speed-label {
-  display: none;
+.demo-live-restart-btn:hover {
+  color: var(--primary, #3b82f6);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .demo-live-exit-btn {
@@ -1066,6 +1003,15 @@
 }
 .demo-overview-modal-item.done { opacity: 0.65; }
 .demo-overview-modal-item.done:hover { opacity: 1; }
+/* Read-only variant: no pointer/hover affordance */
+.demo-overview-modal-item--readonly {
+  cursor: default;
+  user-select: none;
+}
+.demo-overview-modal-item--readonly:hover {
+  background: transparent;
+  border-color: transparent;
+}
 
 .demo-overview-modal-item-num {
   width: 22px;
