@@ -266,7 +266,7 @@ describe('ws-tls-local lesson', () => {
 
   // ─── Branch: isConnected = true (local-tls-ca-connect) ──────
 
-  it('local-tls-ca-connect action navigates to compose and sends message when connected', async () => {
+  it('local-tls-ca-connect action navigates to send tab and sends message when connected', async () => {
     // Simulate STATUS_CONNECTED element present → isConnected = true
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
@@ -276,7 +276,7 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // When connected, action navigates to compose, fills message, sends, then returns to connect
+    // When connected, action navigates to send tab, fills message, sends, then returns to connect
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
@@ -334,7 +334,7 @@ describe('ws-tls-local lesson', () => {
     wrapper.remove();
   });
 
-  it('local-tls-mtls-connect action navigates to compose and sends message when connected', async () => {
+  it('local-tls-mtls-connect action navigates to send tab and sends message when connected', async () => {
     // Simulate STATUS_CONNECTED element present → isConnected = true
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
@@ -344,7 +344,7 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // When connected, action navigates to compose, fills mtls message, sends, then returns to connect
+    // When connected, action navigates to send tab, fills mtls message, sends, then returns to connect
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),

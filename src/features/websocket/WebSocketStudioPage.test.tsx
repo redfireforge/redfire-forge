@@ -1011,10 +1011,10 @@ describe('WebSocketStudioPage', () => {
       expect(screen.queryByTestId('connect-btn')).toBeNull();
     });
 
-    it('shows the relocated composer on the Compose left tab', async () => {
+    it('shows the relocated composer on the Send left tab', async () => {
       await renderStudioPage();
       fireEvent.click(screen.getByTestId('left-tab-send'));
-      // Compose tab maps to the messages view: exactly one composer (the
+      // Send tab maps to the messages view: exactly one composer (the
       // relocated standalone pane) and no connect/headers/params config.
       expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
       expect(screen.getByTestId('ping-btn')).toBeTruthy();

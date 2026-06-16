@@ -98,7 +98,7 @@ describe('WebSocketStudioShell', () => {
     expect(screen.getByTestId('mode-saved')).toHaveTextContent('3');
   });
 
-  it('shows the message-count badge on the compose left tab', () => {
+  it('shows the message-count badge on the Send left tab', () => {
     render(<WebSocketStudioShell {...makeProps({ messageCount: 7 })} />);
     expect(screen.getByTestId('left-tab-send')).toHaveTextContent('7');
   });
