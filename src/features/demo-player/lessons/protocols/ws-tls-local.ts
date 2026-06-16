@@ -369,7 +369,16 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-skip-cert',
       title: 'Skip Certificate Validation',
       description:
-        'Check **Skip certificate validation** — this sets `rejectUnauthorized: false`. Notice the **transport badge** changes from **Direct** to **Proxy** immediately: the browser cannot apply custom TLS options, so the Node.js proxy takes over. Quick for dev, but use Phase 2 or 3 in production.',
+        'Check **Skip certificate validation** — this sets `rejectUnauthorized: false` on the TLS handshake.\n\n' +
+        '**What happens under the hood:**\n' +
+        'Normally, the TLS layer checks three things before a connection is allowed: (1) the certificate is signed by a trusted CA, (2) the hostname in the certificate matches the server address, and (3) the certificate hasn\'t expired. With `rejectUnauthorized: false` all three checks are skipped — the connection proceeds even if the cert is self-signed, expired, or for the wrong host.\n\n' +
+        '**Why the transport changes to Proxy:**\n' +
+        'Web browsers enforce TLS certificate validation at the OS/network layer — there is no JavaScript API to bypass it. RedfireForge detects that a TLS override is active and automatically routes through its **Node.js Proxy** (`npm run server`), which opens the connection server-side using Node\'s `ws` library where `rejectUnauthorized: false` is supported. Watch the **transport badge** change from **Direct → Proxy** the instant you check the box. On Tauri desktop, the Rust client handles this natively — no proxy switch occurs.\n\n' +
+        '**When to use it:**\n' +
+        '- Local dev with a self-signed cert and no CA file handy\n' +
+        '- Quick smoke-test of a new staging endpoint before certs are properly configured\n\n' +
+        '**When NOT to use it:**\n' +
+        'Never in production, and never when testing against a real server whose identity you should verify. A man-in-the-middle attacker can intercept all traffic when validation is disabled. Use **Phase 2 (CA Certificate)** to trust your own CA, or **Phase 3 (mTLS)** for mutual authentication.',
       highlight: WS.TLS_SKIP_CERT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
