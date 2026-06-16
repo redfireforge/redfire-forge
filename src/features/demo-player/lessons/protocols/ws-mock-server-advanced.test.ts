@@ -401,7 +401,7 @@ describe('ws-mock-server-advanced lesson', () => {
     });
     await step.preAction!(ctx);
     const eventsIdx = calls.findIndex(s => s.includes('right-tab-events'));
-    const composeIdx = calls.findLastIndex(s => s.includes('left-tab-compose'));
+    const composeIdx = calls.findLastIndex(s => s.includes('left-tab-send'));
     expect(eventsIdx).toBeGreaterThanOrEqual(0);
     expect(composeIdx).toBeGreaterThan(eventsIdx);
   });

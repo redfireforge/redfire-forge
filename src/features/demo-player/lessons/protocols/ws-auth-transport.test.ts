@@ -193,7 +193,7 @@ describe('ws-auth-transport lesson', () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
 
     document.body.removeChild(dot);
   });
@@ -207,7 +207,7 @@ describe('ws-auth-transport lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     // Finally navigates to compose tab
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('ensureConnected fills token when auth input exists with empty value', async () => {
@@ -280,7 +280,7 @@ describe('ws-auth-transport lesson', () => {
 
   it('step auth-compose-send highlights compose tab', () => {
     const step = wsAuthTransportLesson.steps.find(s => s.id === 'auth-compose-send')!;
-    expect(step.highlight).toContain('compose');
+    expect(step.highlight).toContain('send');
   });
 
   // ── auth-events ──────────────────────────────────────────────

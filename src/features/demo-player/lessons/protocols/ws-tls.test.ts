@@ -204,7 +204,7 @@ describe('ws-tls lesson', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step tls-send preAction connects if not already connected', async () => {
@@ -230,7 +230,7 @@ describe('ws-tls lesson', () => {
 
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step tls-send action fills message and sends', async () => {

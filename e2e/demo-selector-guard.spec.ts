@@ -47,7 +47,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await expect(page.locator(WS.MODE_CLIENT)).toBeVisible();
     await expect(page.locator(WS.MODE_MOCK)).toBeVisible();
     await expect(page.locator(WS.LEFT_TAB_CONNECT)).toBeVisible();
-    await expect(page.locator(WS.LEFT_TAB_COMPOSE)).toBeVisible();
+    await expect(page.locator(WS.LEFT_TAB_SEND)).toBeVisible();
     await expect(page.locator(WS.LEFT_TAB_AUTH)).toBeVisible();
   });
 
@@ -73,7 +73,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await startMock(page);
     await connectMock(page);
 
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await expect(page.locator(WS.SEND_BTN)).toBeVisible();
     await expect(page.locator(WS.MESSAGE_INPUT)).toBeVisible();
   });
@@ -114,7 +114,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await startMock(page);
     await connectMock(page);
 
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await page.fill(WS.MESSAGE_INPUT, 'guard-test');
     await page.click(WS.SEND_BTN);
 

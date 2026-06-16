@@ -210,7 +210,7 @@ describe('WsConnectionTabContent', () => {
     mockStudio = makeStudioReturn({ messages: msgs });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     render(<WsConnectionTabContent {...makeProps()} />);
-    expect(screen.getByTestId('left-tab-compose').textContent).toContain('3');
+    expect(screen.getByTestId('left-tab-send').textContent).toContain('3');
   });
 
   // ── Ref handle ───────────────────────────────────────────────────
@@ -257,7 +257,7 @@ describe('WsConnectionTabContent', () => {
     expect(onStateChange).toHaveBeenCalledWith('test-tab', 'connected', 'auto');
   });
 
-  it('auto-switches to the Compose tab on a successful connect', () => {
+  it('does not auto-switch to the Send tab on a successful connect', () => {
     const onLeftTabChange = vi.fn();
     const { rerender } = render(
       <WsConnectionTabContent {...makeProps({ onLeftTabChange })} />,
@@ -265,7 +265,7 @@ describe('WsConnectionTabContent', () => {
     mockStudio = makeStudioReturn({ connection: { state: 'connected' } });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockStudio);
     rerender(<WsConnectionTabContent {...makeProps({ onLeftTabChange })} />);
-    expect(onLeftTabChange).toHaveBeenCalledWith('compose');
+    expect(onLeftTabChange).not.toHaveBeenCalled();
   });
 
   it('does not switch tabs while merely connecting', () => {
@@ -539,7 +539,7 @@ describe('WsConnectionTabContent', () => {
     it('renders the composer in the Compose left tab alongside the events log on the right', () => {
       render(
         <WsConnectionTabContent
-          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'compose', controlledRightTab: 'events' })}
+          {...makeProps({ controlledMode: 'client', controlledLeftTab: 'send', controlledRightTab: 'events' })}
         />,
       );
       expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
@@ -651,8 +651,8 @@ describe('WsConnectionTabContent', () => {
       );
       fireEvent.click(screen.getByTestId('mode-saved'));
       expect(onModeChange).toHaveBeenCalledWith('saved');
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
-      expect(onLeftTabChange).toHaveBeenCalledWith('compose');
+      fireEvent.click(screen.getByTestId('left-tab-send'));
+      expect(onLeftTabChange).toHaveBeenCalledWith('send');
       fireEvent.click(screen.getByTestId('right-tab-stats'));
       expect(onRightTabChange).toHaveBeenCalledWith('stats');
     });

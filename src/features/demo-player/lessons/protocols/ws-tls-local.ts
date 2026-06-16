@@ -426,7 +426,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-connect',
       title: 'Connect & Echo — Phase 1 Confirmed',
       description:
-        'Click **Connect**. The proxy accepts the self-signed cert and the connection establishes — the studio automatically switches to the **Compose** tab so you can immediately send a message. The echo server reflects it back, proving the encrypted round-trip. The demo then returns to the Connect tab so you can see the **Connected** status and the **Proxy** transport badge.',
+        'Click **Connect**. The proxy accepts the self-signed cert and the connection establishes — status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo message that proves the encrypted round-trip, then returns here so you can see the connection details.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -437,17 +437,17 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
-        // Wait for the connection — the WS Studio auto-switches to Compose on connect.
-        // We embrace that auto-switch and send the echo from the Compose tab.
         await ctx.delay(2500);
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          // Already on Compose tab (auto-switched) — fill and send the echo
+          // Navigate to Send tab, send the echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":1,"method":"skip-cert","msg":"Hello over local TLS!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
           await ctx.delay(800);
-          // Switch to Connect tab to show the Connected status + transport badge
+          // Switch back to Connect tab to show the Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
           await ctx.delay(1500);
         }
@@ -500,7 +500,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-ca-connect',
       title: 'Connect with CA Certificate',
       description:
-        'Click **Connect**. The proxy validates the server\'s leaf cert against your pasted Root CA — the chain verifies and the connection succeeds. The studio auto-switches to **Compose** so you can send an echo; the demo then returns to the Connect tab to show the **Connected** status and **Proxy** badge. Key difference from Phase 1: certificate chain integrity is enforced — a rogue server with a different cert would be rejected.',
+        'Click **Connect**. The proxy validates the server\'s leaf cert against your pasted Root CA — the chain verifies and the connection succeeds. Status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo, then returns here. Key difference from Phase 1: certificate chain integrity is enforced — a rogue server with a different cert would be rejected.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -511,16 +511,17 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
-        // Wait for connection — WS Studio auto-switches to Compose on connect
         await ctx.delay(2500);
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          // Already on Compose tab (auto-switched) — send echo
+          // Navigate to Send tab, send echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":2,"method":"ca-cert","msg":"Chain validated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
           await ctx.delay(800);
-          // Switch to Connect tab to show Connected status + transport badge
+          // Switch back to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
           await ctx.delay(1500);
         }
@@ -593,7 +594,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       id: 'local-tls-mtls-connect',
       title: 'Connect via mTLS — Phase 3 Confirmed',
       description:
-        'Click **Connect**. The proxy presents the client cert to the mTLS server — it verifies it against the CA, and mutual authentication completes. The studio auto-switches to **Compose** to send an echo; the demo returns to Connect tab to show **Connected** status and **Proxy** badge. Both sides authenticated: you trust the server (CA cert) and the server trusts you (client cert).',
+        'Click **Connect**. The proxy presents the client cert to the mTLS server — it verifies it against the CA, and mutual authentication completes. Status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo, then returns here. Both sides authenticated: you trust the server (CA cert) and the server trusts you (client cert).',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -604,16 +605,17 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
-        // Wait for connection — WS Studio auto-switches to Compose on connect
         await ctx.delay(2500);
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          // Already on Compose tab (auto-switched) — send echo
+          // Navigate to Send tab, send echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":3,"method":"mtls","msg":"Both sides authenticated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
           await ctx.delay(800);
-          // Switch to Connect tab to show Connected status + transport badge
+          // Switch back to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
           await ctx.delay(1500);
         }

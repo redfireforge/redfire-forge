@@ -187,7 +187,7 @@ describe('ws-session-recording lesson', () => {
     const step = wsSessionRecordingLesson.steps.find(s => s.id === 'rec-capture')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('demo'),
@@ -206,7 +206,7 @@ describe('ws-session-recording lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step rec-capture action sends 3 messages and switches to events', async () => {
@@ -558,7 +558,7 @@ describe('ws-session-recording lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // Should still switch to compose and fill, but no startBtn click
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step rec-stop preAction skips start click when not recording and no startBtn (line 343 false)', async () => {

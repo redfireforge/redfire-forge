@@ -211,12 +211,12 @@ export const wsBasicsLesson: DemoLesson = {
     {
       id: 'ws-compose',
       title: 'Compose a Message',
-      description: 'Switch to the Compose tab to write messages. You can send plain text, JSON, or binary data. The format dropdown lets you switch between Text, Hex, and Base64 encoding.',
+      description: 'Switch to the Send tab to write messages. You can send plain text, JSON, or binary data. The format dropdown lets you switch between Text, Hex, and Base64 encoding.',
       highlight: WS.COMPOSE_INPUT,
       preAction: async (ctx) => {
         // Guard: ensure connected so the Compose panel is in its active send-ready state
         await ensureConnected(ctx);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
       },
       action: async (ctx) => {
         await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
@@ -232,7 +232,7 @@ export const wsBasicsLesson: DemoLesson = {
       preAction: async (ctx) => {
         // Guard: ensure connected + message pre-filled so Send is not a no-op on skip-to
         await ensureConnected(ctx);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(100);
         await ctx.fill(WS.MESSAGE_INPUT, '{"hello": "world", "demo": true}');
         await ctx.delay(100);

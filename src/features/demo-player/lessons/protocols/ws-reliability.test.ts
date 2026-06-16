@@ -125,7 +125,7 @@ describe('ws-reliability lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('ping'),
@@ -150,7 +150,7 @@ describe('ws-reliability lesson', () => {
     const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
       .filter((c: string[]) => c[0].includes('connect-btn'));
     expect(connectBtnCalls.length).toBe(0);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step rel-stats-live action sends messages and switches to stats', async () => {

@@ -217,7 +217,7 @@ GraphQL-WS needs two settings:
       pauseAfter: true,
       // preAction navigates to Compose before the spotlight so gql-compose-fields is in the DOM
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(500);
@@ -239,7 +239,7 @@ GraphQL-WS needs two settings:
           await ctx.waitFor(WS.STATUS_CONNECTED);
           await ctx.delay(300);
         }
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.fill(WS.MESSAGE_INPUT, 'subscription { countdown(from: 5) }');
         await ctx.delay(300);

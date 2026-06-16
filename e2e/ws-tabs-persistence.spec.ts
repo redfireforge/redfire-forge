@@ -86,7 +86,7 @@ async function switchRightTab(page: Page, tab: string) {
 }
 
 async function sendMessage(page: Page, msg: string) {
-  await switchLeftTab(page, 'compose');
+  await switchLeftTab(page, 'send');
   const pane = activePane(page);
   const input = pane.locator('.ws-compose-input');
   try {
@@ -94,7 +94,7 @@ async function sendMessage(page: Page, msg: string) {
   } catch {
     // Connection may have dropped — reconnect
     await connectTo(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     await expect(input).toBeEnabled({ timeout: 10000 });
   }
   await input.fill(msg);
