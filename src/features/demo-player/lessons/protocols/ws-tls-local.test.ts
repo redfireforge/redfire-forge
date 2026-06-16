@@ -195,7 +195,7 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('phase":1'),
@@ -277,7 +277,7 @@ describe('ws-tls-local lesson', () => {
     await step.action!(ctx);
 
     // When connected, action navigates to compose, fills message, sends, then returns to connect
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('ca-cert'),
@@ -345,7 +345,7 @@ describe('ws-tls-local lesson', () => {
     await step.action!(ctx);
 
     // When connected, action navigates to compose, fills mtls message, sends, then returns to connect
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('mtls'),

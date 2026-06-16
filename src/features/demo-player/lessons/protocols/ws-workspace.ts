@@ -49,7 +49,7 @@ async function clearSavedProfiles(ctx: DemoActionContext): Promise<void> {
 async function clearTemplates(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(300);
-  await ctx.click(WS.LEFT_TAB_COMPOSE);
+  await ctx.click(WS.LEFT_TAB_SEND);
   await ctx.delay(500);  // wait for Compose panel to mount and templates prop to populate
   // Wait up to 3 s for the trigger to appear (belt-and-suspenders)
   await ctx.waitFor(WS.TEMPLATE_TRIGGER);
@@ -263,7 +263,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
@@ -287,7 +287,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       highlight: WS.TEMPLATE_SAVE_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         // Fill the compose textarea with demo payload
         await ctx.fill(WS.MESSAGE_INPUT, DEMO_TEMPLATE_BODY);
@@ -316,7 +316,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         // Clear the compose area so the load is visible
         await ctx.fill(WS.MESSAGE_INPUT, '');

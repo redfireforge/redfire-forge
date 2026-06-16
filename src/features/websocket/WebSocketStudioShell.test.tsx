@@ -52,7 +52,7 @@ describe('WebSocketStudioShell', () => {
     const { rerender } = render(<WebSocketStudioShell {...makeProps({ mode: 'client' })} />);
     expect(screen.getByTestId('ws-studio-split')).toBeInTheDocument();
     expect(screen.getByTestId('ws-studio-divider')).toBeInTheDocument();
-    expect(screen.getByTestId('left-tab-compose')).toBeInTheDocument();
+    expect(screen.getByTestId('left-tab-send')).toBeInTheDocument();
     expect(screen.getByTestId('right-tab-events')).toBeInTheDocument();
 
     rerender(<WebSocketStudioShell {...makeProps({ mode: 'mock' })} />);
@@ -60,7 +60,7 @@ describe('WebSocketStudioShell', () => {
     // left-tab strip, and right pane are gone in non-client modes.
     expect(screen.getByTestId('ws-studio-split')).toBeInTheDocument();
     expect(screen.queryByTestId('ws-studio-divider')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('left-tab-compose')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('left-tab-send')).not.toBeInTheDocument();
     expect(screen.queryByTestId('right-tab-events')).not.toBeInTheDocument();
     expect(screen.getByTestId('shell-child')).toBeInTheDocument();
 
@@ -100,7 +100,7 @@ describe('WebSocketStudioShell', () => {
 
   it('shows the message-count badge on the compose left tab', () => {
     render(<WebSocketStudioShell {...makeProps({ messageCount: 7 })} />);
-    expect(screen.getByTestId('left-tab-compose')).toHaveTextContent('7');
+    expect(screen.getByTestId('left-tab-send')).toHaveTextContent('7');
   });
 
   it('updates the left width when dragging the divider', () => {
@@ -144,7 +144,7 @@ describe('WebSocketStudioShell', () => {
     expect(screen.getByTestId('ws-studio-divider')).toBeInTheDocument();
     expect(screen.getByTestId('shell-right')).toHaveTextContent('detail');
     // …but the shell tab strips stay client-only.
-    expect(screen.queryByTestId('left-tab-compose')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('left-tab-send')).not.toBeInTheDocument();
     expect(screen.queryByTestId('right-tab-events')).not.toBeInTheDocument();
   });
 
@@ -171,7 +171,7 @@ describe('WebSocketStudioShell', () => {
   it('links the left/right tab strips to their panels via roving tabindex', () => {
     render(<WebSocketStudioShell {...makeProps({ leftTab: 'auth', rightTab: 'stats' })} />);
     expect(screen.getByTestId('left-tab-auth')).toHaveAttribute('tabindex', '0');
-    expect(screen.getByTestId('left-tab-compose')).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByTestId('left-tab-send')).toHaveAttribute('tabindex', '-1');
     expect(screen.getByTestId('left-tab-auth')).toHaveAttribute('aria-controls', 'ws-studio-left-panel');
     expect(screen.getByTestId('right-tab-stats')).toHaveAttribute('tabindex', '0');
     expect(screen.getByTestId('right-tab-events')).toHaveAttribute('tabindex', '-1');

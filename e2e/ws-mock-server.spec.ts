@@ -231,7 +231,7 @@ test.describe('End-to-End (WM-19)', () => {
     await pane.locator('[data-testid="connect-btn"]').click();
     await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]').waitFor({ timeout: 10000 });
     // Send a message
-    await pane.locator('[data-testid="left-tab-compose"]').click();
+    await pane.locator('[data-testid="left-tab-send"]').click();
     await page.waitForTimeout(200);
     const composeInput = pane.locator('.ws-compose-input');
     await composeInput.fill('Hello mock');

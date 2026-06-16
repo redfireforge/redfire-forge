@@ -252,7 +252,7 @@ describe('websocketStorage — tab state', () => {
     mockRead.mockResolvedValue(JSON.stringify(state));
     const result = await loadWsTabState();
     expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'connect', rightTab: 'events' });
-    expect(result!.tabs[1]).toMatchObject({ mode: 'client', leftTab: 'compose', rightTab: 'events' });
+    expect(result!.tabs[1]).toMatchObject({ mode: 'client', leftTab: 'send', rightTab: 'events' });
     expect(result!.tabs[2]).toMatchObject({ mode: 'saved', leftTab: 'connect', rightTab: 'events' });
     expect(result!.tabs[3]).toMatchObject({ mode: 'mock', leftTab: 'connect', rightTab: 'events' });
   });
@@ -281,7 +281,7 @@ describe('websocketStorage — tab state', () => {
     mockRead.mockResolvedValue(JSON.stringify(state));
     const result = await loadWsTabState();
     // invalid mode/leftTab derive from viewTab 'messages'; valid rightTab kept
-    expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'compose', rightTab: 'stats' });
+    expect(result!.tabs[0]).toMatchObject({ mode: 'client', leftTab: 'send', rightTab: 'stats' });
   });
 
   it('round-trips studio-layout fields through save + load', async () => {

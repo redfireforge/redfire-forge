@@ -309,7 +309,7 @@ describe('studio layout constants', () => {
 
   it('exposes the expected values', () => {
     expect([...WS_STUDIO_MODES]).toEqual(['client', 'mock', 'saved']);
-    expect([...WS_LEFT_TABS]).toEqual(['connect', 'params', 'auth', 'headers', 'compose']);
+    expect([...WS_LEFT_TABS]).toEqual(['connect', 'params', 'auth', 'headers', 'send']);
     expect([...WS_RIGHT_TABS]).toEqual(['events', 'console', 'stats', 'loadtest', 'schema']);
   });
 });
@@ -318,7 +318,7 @@ describe('studio layout type guards', () => {
   it('isWsStudioMode accepts valid modes and rejects others', () => {
     for (const mode of WS_STUDIO_MODES) expect(isWsStudioMode(mode)).toBe(true);
     expect(isWsStudioMode('client ')).toBe(false);
-    expect(isWsStudioMode('compose')).toBe(false);
+    expect(isWsStudioMode('send')).toBe(false);
     expect(isWsStudioMode('')).toBe(false);
     expect(isWsStudioMode(undefined)).toBe(false);
     expect(isWsStudioMode(null)).toBe(false);
@@ -350,7 +350,7 @@ describe('mapViewTabToStudioLocation', () => {
 
   it('maps messages to client mode + Compose/Events panes', () => {
     expect(mapViewTabToStudioLocation('messages')).toEqual({
-      mode: 'client', leftTab: 'compose', rightTab: 'events',
+      mode: 'client', leftTab: 'send', rightTab: 'events',
     });
   });
 
@@ -385,17 +385,17 @@ describe('mapViewTabToStudioLocation', () => {
 
 describe('deriveViewTabFromStudio', () => {
   it('maps mock mode to the mock view tab', () => {
-    expect(deriveViewTabFromStudio('mock', 'compose')).toBe('mock');
+    expect(deriveViewTabFromStudio('mock', 'send')).toBe('mock');
     expect(deriveViewTabFromStudio('mock', 'auth')).toBe('mock');
   });
 
   it('maps saved mode to the saved view tab', () => {
-    expect(deriveViewTabFromStudio('saved', 'compose')).toBe('saved');
+    expect(deriveViewTabFromStudio('saved', 'send')).toBe('saved');
     expect(deriveViewTabFromStudio('saved', 'connect')).toBe('saved');
   });
 
   it('maps client mode with the compose left tab to messages', () => {
-    expect(deriveViewTabFromStudio('client', 'compose')).toBe('messages');
+    expect(deriveViewTabFromStudio('client', 'send')).toBe('messages');
   });
 
   it('maps client mode with a non-compose left tab to connect', () => {

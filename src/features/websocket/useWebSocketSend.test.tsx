@@ -2,9 +2,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { useWebSocketCompose, type UseWebSocketComposeOptions } from './useWebSocketCompose';
+import { useWebSocketSend, type UseWebSocketSendOptions } from './useWebSocketSend';
 
-function makeDefaultOptions(overrides: Partial<UseWebSocketComposeOptions> = {}): UseWebSocketComposeOptions {
+function makeDefaultOptions(overrides: Partial<UseWebSocketSendOptions> = {}): UseWebSocketSendOptions {
   return {
     isConnected: true,
     onSend: vi.fn(),
@@ -21,20 +21,20 @@ function makeDefaultOptions(overrides: Partial<UseWebSocketComposeOptions> = {})
 }
 
 /** Helper that renders the hook and also renders the composeBar JSX for interactive testing */
-function renderCompose(options: Partial<UseWebSocketComposeOptions> = {}) {
+function renderCompose(options: Partial<UseWebSocketSendOptions> = {}) {
   const opts = makeDefaultOptions(options);
   function Wrapper() {
-    const result = useWebSocketCompose(opts);
+    const result = useWebSocketSend(opts);
     return <div data-testid="compose-container">{result.composeBar}</div>;
   }
   const rendered = render(<Wrapper />);
   return { ...rendered, opts };
 }
 
-describe('useWebSocketCompose', () => {
+describe('useWebSocketSend', () => {
   describe('initial state', () => {
     it('returns empty compose text and text format', () => {
-      const { result } = renderHook(() => useWebSocketCompose(makeDefaultOptions()));
+      const { result } = renderHook(() => useWebSocketSend(makeDefaultOptions()));
       expect(result.current.composeText).toBe('');
       expect(result.current.composeFormat).toBe('text');
       expect(result.current.isJsonValid).toBe(false);
@@ -42,7 +42,7 @@ describe('useWebSocketCompose', () => {
     });
 
     it('renders a compose bar node', () => {
-      const { result } = renderHook(() => useWebSocketCompose(makeDefaultOptions()));
+      const { result } = renderHook(() => useWebSocketSend(makeDefaultOptions()));
       expect(result.current.composeBar).not.toBeNull();
     });
   });

@@ -243,11 +243,11 @@ export const wsAuthTransportLesson: DemoLesson = {
       id: 'auth-compose-send',
       title: 'Send an Authenticated Message',
       description: 'Switch to Compose, write a message, and send it. The echo server mirrors it back — proving the authenticated connection works end-to-end.',
-      highlight: WS.LEFT_TAB_COMPOSE,
+      highlight: WS.LEFT_TAB_SEND,
       preAction: async (ctx) => {
         // Ensure connection is live before attempting to send (handles skip-to-step)
         await ensureConnected(ctx);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(300);
       },
       action: async (ctx) => {

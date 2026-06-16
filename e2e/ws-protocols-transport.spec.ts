@@ -183,7 +183,7 @@ test.describe('Browser Transport (WP-22–23)', () => {
 test.describe('Protocol Compose Fields', () => {
   test('WP-04a: Socket.IO compose fields visible when SIO mode', async ({ page }) => {
     await gotoWsStudio(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     // SIO compose fields — only visible if Socket.IO protocol is selected
     const _sioBadge = page.locator('[data-testid="sio-mode-badge"]');
     // This may or may not be visible depending on current protocol
@@ -194,7 +194,7 @@ test.describe('Protocol Compose Fields', () => {
 
   test('WP-08a: STOMP compose fields layout', async ({ page }) => {
     await gotoWsStudio(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     // Verify compose area is functional
     const composeInput = page.locator('.ws-compose-input');
     await expect(composeInput).toBeVisible();

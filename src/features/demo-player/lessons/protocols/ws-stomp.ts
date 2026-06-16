@@ -41,7 +41,7 @@ async function ensureStompSession(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.STATUS_CONNECTED);
   await ctx.delay(300);
   // Send STOMP CONNECT frame so the broker accepts subsequent frames
-  await ctx.click(WS.LEFT_TAB_COMPOSE);
+  await ctx.click(WS.LEFT_TAB_SEND);
   await ctx.delay(200);
   await ctx.selectOption(WS.STOMP_COMMAND, 'CONNECT');
   await ctx.delay(200);
@@ -85,7 +85,7 @@ async function stompCleanup(ctx: DemoActionContext): Promise<void> {
   await clearEvents(ctx);
   // Reset STOMP command to SEND before resetting protocol to raw
   // (resetStompCommand needs protocol still set to stomp so compose fields are rendered)
-  await ctx.click(WS.LEFT_TAB_COMPOSE);
+  await ctx.click(WS.LEFT_TAB_SEND);
   await ctx.delay(200);
   await resetStompCommand(ctx);
   await ctx.delay(100);
@@ -248,7 +248,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(600);
         // ── Step 2: Send STOMP CONNECT frame ───────────────────────
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(300);
         // Select CONNECT command — triggers React re-render showing login/passcode fields
         await ctx.selectOption(WS.STOMP_COMMAND, 'CONNECT');
@@ -293,7 +293,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       // user reads the description while already seeing the correct compose state.
       preAction: async (ctx: DemoActionContext) => {
         await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.selectOption(WS.STOMP_COMMAND, 'SUBSCRIBE');
         await ctx.delay(300);
@@ -317,7 +317,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       // navigates to Compose and selects SEND command before the spotlight.
       preAction: async (ctx: DemoActionContext) => {
         await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.selectOption(WS.STOMP_COMMAND, 'SEND');
         await ctx.delay(300);

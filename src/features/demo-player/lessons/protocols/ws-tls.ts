@@ -297,7 +297,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
           await ctx.click(WS.CONNECT_BTN);
           await ctx.delay(2500);
         }
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(300);
       },
       action: async (ctx) => {
@@ -320,7 +320,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       preAction: async (ctx) => {
         // Navigate to Connect tab FIRST — DISCONNECT_BTN is only in the DOM when the
         // Connect panel is rendered. After the previous step (tls-send), the studio
-        // auto-switches to Compose tab on connection, so we must switch back before
+        // auto-switches to Send tab on connection, so we must switch back before
         // trying to disconnect. ensureTlsPanelReady handles mode + tab + URL.
         await ensureTlsPanelReady(ctx);
         // Now disconnect while the Connect panel (and its DISCONNECT_BTN) is visible.
@@ -383,7 +383,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
           await ctx.click(WS.CONNECT_BTN);
           await ctx.delay(2500);
         }
-        // After connecting the studio auto-switches to Compose tab. Switch back to the
+        // After connecting the studio auto-switches to Send tab. Switch back to the
         // Connect tab so the transport badge (inside the Connect panel) is in the DOM
         // for the spotlight and action.
         await ctx.click(WS.LEFT_TAB_CONNECT);

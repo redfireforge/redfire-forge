@@ -12,7 +12,7 @@ import { useWebSocketConsole } from './useWebSocketConsole';
 import { ConsolePanel } from './ConsolePanel';
 import { WebSocketConnectPanel } from './WebSocketConnectPanel';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
-import { WebSocketComposePane } from './WebSocketComposePane';
+import { WebSocketSendPane } from './WebSocketSendPane';
 import { WebSocketStudioShell } from './WebSocketStudioShell';
 import {
   WebSocketSavedRail,
@@ -80,7 +80,7 @@ export interface WsConnectionTabContentProps {
    * for whole-draft persistence restore. `initialUrl` still seeds the URL. */
   initialDraft?: Partial<WsConnectionDraft>;
   /** Selects which left-pane tab is shown (`connect` / `headers` / `params` /
-   * `compose` / `auth`). When omitted, defaults to `connect`. */
+   * `send` / `auth`). When omitted, defaults to `connect`. */
   controlledLeftTab?: WsLeftTab;
   /** Drives the redesigned `WebSocketStudioShell` this component renders
    * (composition inversion) so the studio-owning child can feed both panes from
@@ -211,17 +211,10 @@ export const WsConnectionTabContent = forwardRef<
   const prevConnStateRef = useRef(studio.connection.state);
   useEffect(() => {
     if (prevConnStateRef.current !== studio.connection.state) {
-      const prevState = prevConnStateRef.current;
       prevConnStateRef.current = studio.connection.state;
       const hint: ConnectionStateHint =
         studio.connection.state === 'closing' ? 'connected' : studio.connection.state;
       onConnectionStateChange(tabId, hint, studio.protocolMode);
-      // On a successful (re)connect, jump to the Compose tab so the user lands
-      // on the send screen — the setup tabs (Connect/Params/Auth/Headers) are
-      // only useful pre-connect.
-      if (studio.connection.state === 'connected' && prevState !== 'connected') {
-        onLeftTabChange?.('compose');
-      }
     }
   }, [studio.connection.state, tabId, onConnectionStateChange, studio.protocolMode, onLeftTabChange]);
 
@@ -568,8 +561,8 @@ export const WsConnectionTabContent = forwardRef<
     </>
   );
 
-  const composePaneNode = (
-    <WebSocketComposePane
+  const sendPaneNode = (
+    <WebSocketSendPane
       isConnected={isConnected}
       effectiveProtocol={effectiveProtocol}
       onSend={studio.send}
@@ -618,8 +611,8 @@ export const WsConnectionTabContent = forwardRef<
       <WebSocketMockClientsPane ui={mockUi} />
     ) : controlledMode === 'saved' ? (
       <WebSocketSavedRail ui={savedUi} />
-    ) : shellLeftTab === 'compose' ? (
-      <div className="ws-studio-content">{composePaneNode}</div>
+    ) : shellLeftTab === 'send' ? (
+      <div className="ws-studio-content">{sendPaneNode}</div>
     ) : shellLeftTab === 'params' ? (
       <div className="ws-studio-content">
         {lockBannerNode}

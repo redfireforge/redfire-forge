@@ -158,7 +158,7 @@ describe('ws-workspace lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step ws-template-intro highlights template trigger', () => {
@@ -185,7 +185,7 @@ describe('ws-workspace lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('greet'),
@@ -213,7 +213,7 @@ describe('ws-workspace lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       '',

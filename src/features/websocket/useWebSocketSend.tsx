@@ -7,7 +7,7 @@ import { encodeStompFrame } from '../../shared/websocket/protocols/stompCodec';
 import { encodeGqlWsSubscribe } from '../../shared/websocket/protocols/graphqlWsCodec';
 import { useDropdownClose } from './useDropdownClose';
 
-export interface UseWebSocketComposeOptions {
+export interface UseWebSocketSendOptions {
   isConnected: boolean;
   effectiveProtocol?: Exclude<WsProtocolMode, 'auto'>;
   onSend: (data: string, format?: WsMessageFormat) => void;
@@ -21,7 +21,7 @@ export interface UseWebSocketComposeOptions {
   maxMessages: number;
 }
 
-export interface UseWebSocketComposeReturn {
+export interface UseWebSocketSendReturn {
   composeBar: React.ReactNode;
   composeText: string;
   composeFormat: WsMessageFormat;
@@ -29,7 +29,7 @@ export interface UseWebSocketComposeReturn {
   isBase64Invalid: boolean;
 }
 
-export function useWebSocketCompose({
+export function useWebSocketSend({
   isConnected,
   effectiveProtocol,
   onSend,
@@ -41,7 +41,7 @@ export function useWebSocketCompose({
   transportMode,
   totalCount,
   maxMessages,
-}: UseWebSocketComposeOptions): UseWebSocketComposeReturn {
+}: UseWebSocketSendOptions): UseWebSocketSendReturn {
   const [composeText, setComposeText] = useState('');
   const [composeFormat, setComposeFormat] = useState<WsMessageFormat>('text');
   const [sioEventName, setSioEventName] = useState('');
