@@ -173,7 +173,7 @@ export function WebSocketTlsPanel({
               className="ws-tls-textarea"
               value={tlsConfig.caCert ?? ''}
               onChange={(e) => handleTlsChange({ caCert: e.target.value || undefined })}
-              placeholder={"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
+              placeholder="Paste your CA certificate in PEM format…"
               rows={5}
               disabled={disabled}
               data-testid="tls-ca-cert"
@@ -201,7 +201,7 @@ export function WebSocketTlsPanel({
               className="ws-tls-textarea"
               value={tlsConfig.clientCert ?? ''}
               onChange={(e) => handleTlsChange({ clientCert: e.target.value || undefined })}
-              placeholder={"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
+              placeholder="Paste your client certificate in PEM format…"
               rows={5}
               disabled={disabled}
               data-testid="tls-client-cert"
@@ -218,7 +218,7 @@ export function WebSocketTlsPanel({
               className="ws-tls-textarea"
               value={tlsConfig.clientKey ?? ''}
               onChange={(e) => handleTlsChange({ clientKey: e.target.value || undefined })}
-              placeholder={"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"}
+              placeholder="Paste your client private key in PEM format…"
               rows={5}
               disabled={disabled}
               data-testid="tls-client-key"
