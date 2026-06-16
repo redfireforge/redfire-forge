@@ -1973,7 +1973,7 @@
   outline: none;
 }
 
-.ws-beautify-btn {
+.ws-pretty-format-btn {
   padding: 4px 10px;
   font-size: 11px;
   background: var(--input-bg, #1e1e1e);
@@ -1987,13 +1987,13 @@
   transition: all 0.15s;
 }
 
-.ws-beautify-btn:hover:not(:disabled) {
+.ws-pretty-format-btn:hover:not(:disabled) {
   background: var(--hover-bg, #2a2d2e);
   color: var(--text-primary, #e0e0e0);
   border-color: var(--text-secondary, #999);
 }
 
-.ws-beautify-btn:disabled {
+.ws-pretty-format-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }

@@ -15,8 +15,10 @@ services:
   ws-echo-tls:
     image: jmalloc/echo-server
     container_name: ws-echo-tls
-    expose:
-      - "8080"
+    ports:
+      # Health probe port: curl http://localhost:8767 or the PrerequisiteGate
+      # probes this plain-HTTP endpoint to confirm the stack is up.
+      - "8767:8080"
     networks:
       - ws-tls-net
 

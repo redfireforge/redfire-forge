@@ -22,6 +22,16 @@ set -euo pipefail
 CERT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/certs"
 mkdir -p "$CERT_DIR"
 
+# Idempotent: skip if CA cert already exists.
+# The leaf certs embedded in ws-tls-local.ts were signed by the EXISTING CA.
+# Regenerating would create a NEW CA that doesn't match the embedded certs.
+# Re-run with FORCE=1 to regenerate (e.g. FORCE=1 ./generate-cert.sh).
+if [[ -f "$CERT_DIR/ca.crt" ]] && [[ "${FORCE:-0}" != "1" ]]; then
+  echo "Certs already exist in $CERT_DIR — skipping generation."
+  echo "To regenerate: FORCE=1 ./generate-cert.sh"
+  exit 0
+fi
+
 DAYS="${DAYS:-825}"
 
 # 1. Root CA

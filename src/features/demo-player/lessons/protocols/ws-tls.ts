@@ -11,7 +11,7 @@
  * Uses public wss://echo.websocket.org for live demo — no Docker required.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents } from '../setup-helpers';
+import { closeExtraConnectionTabs, disconnectWebSocket, clearEvents, resetAuth, clearCustomHeaders } from '../setup-helpers';
 import { WS } from '../../../../shared/selectors';
 
 const WSS_ECHO_URL = 'wss://echo.websocket.org';
@@ -40,9 +40,11 @@ async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
 
 /**
  * Silently ensures the TLS accordion panel is expanded (aria-expanded="true").
- * No-op if the TLS toggle doesn't exist or is already open.
+ * Waits for the toggle to appear in the DOM first (it only renders when the
+ * URL starts with wss://), so it is safe to call immediately after a URL fill.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(WS.TLS_TOGGLE, 2000);
   const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
   if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -50,13 +52,22 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Set the skip-cert checkbox to the desired state via click dispatch. */
+/**
+ * Set the skip-cert checkbox to the desired state via a click dispatch.
+ *
+ * React controlled checkboxes respond to click events: the click toggles the
+ * DOM checked property and React's onClick/onChange handlers fire, calling
+ * onTlsChange({ rejectUnauthorized: !e.target.checked }) and updating state.
+ *
+ * We waitFor the checkbox (not just assume the TLS panel is expanded) so this
+ * is safe to call even when React hasn't flushed the TLS panel render yet.
+ */
 async function setSkipCert(ctx: DemoActionContext, checked: boolean): Promise<void> {
+  await ctx.waitFor(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`, 2000);
   const checkbox = document.querySelector(`${WS.TLS_SKIP_CERT} input[type="checkbox"]`) as HTMLInputElement | null;
-  if (checkbox && checkbox.checked !== checked) {
-    checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await ctx.delay(200);
-  }
+  if (!checkbox || checkbox.checked === checked) return;
+  checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  await ctx.delay(200);
 }
 
 // ── Setup / Cleanup ────────────────────────────────────────────────
@@ -73,7 +84,16 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await closeExtraConnectionTabs(ctx);
   await clearEvents(ctx);
 
-  // Ensure Connect tab is active
+  // Clear any auth and custom headers that would force proxy mode.
+  //
+  // The browser WebSocket transport cannot set custom headers, and any auth that
+  // resolves to headers (Bearer token, API key, etc.) also forces proxy mode.
+  // In web mode the proxy backend is not running → 504 Gateway Timeout.
+  // We must clear both before connecting so the demo uses Direct transport.
+  await resetAuth(ctx);         // sets auth type → "none"
+  await clearCustomHeaders(ctx); // removes all header rows, returns to Connect tab
+
+  // Ensure Connect tab is active (clearCustomHeaders returns to Connect but be explicit)
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
 
@@ -81,12 +101,26 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.RIGHT_TAB_EVENTS);
   await ctx.delay(200);
 
-  // Clear the URL to start fresh
+  // Reset TLS skip-cert BEFORE clearing the URL.
+  //
+  // Critical ordering: the TLS panel only renders when the URL starts with wss://.
+  // If we clear the URL first, isWss becomes false, the TLS panel unmounts, and
+  // setSkipCert finds no checkbox — the reset silently does nothing.
+  //
+  // When skip-cert is left enabled (rejectUnauthorized === false), hasTlsOverrides()
+  // returns true and the studio routes the next connection through the proxy backend
+  // (/api/ws/connect). In web mode the proxy backend is not running → 504.
+  //
+  // We use waitFor (not delay) so the TLS panel + checkbox are guaranteed to be
+  // in the DOM before we try to interact with them. A fixed delay is a race
+  // condition when React's scheduler is under load.
+  await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+  await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
+  await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
+
+  // Now clear the URL to leave a blank slate for step 1
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
-
-  // Reset TLS config: uncheck skip-cert if it was checked
-  await setSkipCert(ctx, false);
 }
 
 async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
@@ -102,9 +136,14 @@ async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
   await disconnectWebSocket(ctx);
   await clearEvents(ctx);
 
-  // Expand TLS panel (if URL still wss://) then reset skip-cert before clearing URL.
-  await ensureTlsPanelExpanded(ctx);
-  await setSkipCert(ctx, false);
+  // CRITICAL: Ensure a wss:// URL is filled BEFORE trying to expand the TLS panel.
+  // The TLS toggle only renders when isWss=true (URL starts with wss://).
+  // If a demo step left the URL empty or ws://, the TLS panel never mounts,
+  // ensureTlsPanelExpanded times out silently, setSkipCert never fires,
+  // and skip-cert=true is left in React state — causing 504 on the next connect.
+  await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+  await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
+  await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
 
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
