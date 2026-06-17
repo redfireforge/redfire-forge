@@ -13,6 +13,17 @@ import type {
 import { calcReadingTime } from './types';
 import { useDemoProgress } from './useDemoProgress';
 
+/** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
+function firstVisible(selector: string): HTMLElement | null {
+  const all = document.querySelectorAll(selector);
+  for (const el of Array.from(all)) {
+    if (!(el instanceof HTMLElement)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return el;
+  }
+  return null;
+}
+
 const INITIAL_STATE: DemoHubState = {
   view: 'domains',
   selectedDomain: null,
@@ -109,8 +120,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const buildContext = useCallback((): DemoActionContext => ({
     navigateToTab,
     click: async (selector: string) => {
-      const el = document.querySelector(selector);
-      if (el instanceof HTMLElement) {
+      const el = firstVisible(selector);
+      if (el) {
         // Visual ripple so user sees what was clicked
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 400)); // let ripple show
@@ -118,7 +129,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     fill: async (selector: string, value: string) => {
-      const el = document.querySelector(selector);
+      const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
@@ -132,7 +143,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = document.querySelector(selector) as HTMLSelectElement | null;
+      const el = firstVisible(selector) as HTMLSelectElement | null;
       if (el) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
@@ -155,11 +166,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const buildQuietContext = useCallback((): DemoActionContext => ({
     navigateToTab,
     click: async (selector: string) => {
-      const el = document.querySelector(selector);
-      if (el instanceof HTMLElement) el.click();
+      const el = firstVisible(selector);
+      if (el) el.click();
     },
     fill: async (selector: string, value: string) => {
-      const el = document.querySelector(selector);
+      const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         const proto = el instanceof HTMLTextAreaElement
           ? HTMLTextAreaElement.prototype
@@ -171,7 +182,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = document.querySelector(selector) as HTMLSelectElement | null;
+      const el = firstVisible(selector) as HTMLSelectElement | null;
       if (el) {
         const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (desc?.set) desc.set.call(el, value);
@@ -383,6 +394,10 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
             try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
           }
           /* v8 ignore next */
+          if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
+          // Navigate back to the lesson's starting tab (same as restartDemo does).
+          if (lesson.initialTab) ctx.navigateToTab(lesson.initialTab);
+          await new Promise(r => setTimeout(r, 350));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (lesson.setup) {
             try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }

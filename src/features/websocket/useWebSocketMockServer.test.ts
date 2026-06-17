@@ -71,7 +71,7 @@ describe('useWebSocketMockServer', () => {
 
   // ── Initial state ──────────────────────────────────────────────────
   it('initializes with default state', () => {
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     expect(result.current.status.running).toBe(false);
     expect(result.current.logs).toEqual([]);
     expect(result.current.rules).toEqual([]);
@@ -84,7 +84,7 @@ describe('useWebSocketMockServer', () => {
     mockedLoadMockRules.mockResolvedValue(savedRules);
     mockedLoadMockConfig.mockResolvedValue({ port: 1234, fallback: 'ignore' });
 
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
 
     // Flush the async init effect
     await act(async () => {
@@ -97,26 +97,26 @@ describe('useWebSocketMockServer', () => {
 
   // ── setRules ───────────────────────────────────────────────────────
   it('setRules updates rules and saves to storage', async () => {
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     const newRules = [makeMockRule({ id: 'r2', name: 'New' })];
     act(() => { result.current.setRules(newRules); });
 
     expect(result.current.rules).toEqual(newRules);
-    expect(mockedSaveMockRules).toHaveBeenCalledWith(newRules);
+    expect(mockedSaveMockRules).toHaveBeenCalledWith(9876, newRules);
   });
 
   // ── setConfig ──────────────────────────────────────────────────────
   it('setConfig updates config and saves to storage', async () => {
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     const newConfig = { port: 5555, fallback: 'close' as const };
     act(() => { result.current.setConfig(newConfig); });
 
     expect(result.current.config).toEqual(newConfig);
-    expect(mockedSaveMockConfig).toHaveBeenCalledWith(newConfig);
+    expect(mockedSaveMockConfig).toHaveBeenCalledWith(9876, newConfig);
   });
 
   // ── start ──────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ describe('useWebSocketMockServer', () => {
         });
       vi.stubGlobal('fetch', fetchMock);
 
-      const { result } = renderHook(() => useWebSocketMockServer(false));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, false));
       await act(async () => { await vi.runAllTimersAsync(); });
 
       await act(async () => {
@@ -161,7 +161,7 @@ describe('useWebSocketMockServer', () => {
         return mockFetchResponse({});
       }));
 
-      const { result } = renderHook(() => useWebSocketMockServer(false));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, false));
       await act(async () => { await vi.runAllTimersAsync(); });
 
       let caught: Error | null = null;
@@ -191,7 +191,7 @@ describe('useWebSocketMockServer', () => {
         return mockFetchResponse({});
       }));
 
-      const { result } = renderHook(() => useWebSocketMockServer(false));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, false));
       await act(async () => { await vi.runAllTimersAsync(); });
 
       await act(async () => {
@@ -209,7 +209,7 @@ describe('useWebSocketMockServer', () => {
         return mockFetchResponse({});
       }));
 
-      const { result } = renderHook(() => useWebSocketMockServer(false));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, false));
       await act(async () => { await vi.runAllTimersAsync(); });
 
       await act(async () => {
@@ -230,7 +230,7 @@ describe('useWebSocketMockServer', () => {
       return mockFetchResponse({});
     }));
 
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     let count: number = 0;
@@ -243,7 +243,7 @@ describe('useWebSocketMockServer', () => {
 
   // ── clearLogs ──────────────────────────────────────────────────────
   it('clearLogs empties the logs array', async () => {
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     act(() => { result.current.clearLogs(); });
@@ -255,7 +255,7 @@ describe('useWebSocketMockServer', () => {
     const fetchMock = vi.fn().mockImplementation(() => mockFetchResponse({ count: 1 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     const rules = [makeMockRule()];
@@ -272,7 +272,7 @@ describe('useWebSocketMockServer', () => {
   it('pushRulesToServer silently catches errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
-    const { result } = renderHook(() => useWebSocketMockServer(false));
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
     await act(async () => { await vi.runAllTimersAsync(); });
 
     // Should not throw
@@ -297,7 +297,7 @@ describe('useWebSocketMockServer', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
 
-      const { result } = renderHook(() => useWebSocketMockServer(true));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, true));
 
       // Initial poll fires immediately on mount
       await waitFor(() => {
@@ -319,7 +319,7 @@ describe('useWebSocketMockServer', () => {
       vi.stubGlobal('fetch', fetchMock);
 
       const { result: _result, rerender } = renderHook(
-        ({ active }) => useWebSocketMockServer(active),
+        ({ active }) => useWebSocketMockServer(9876, active),
         { initialProps: { active: true } },
       );
 
@@ -355,7 +355,7 @@ describe('useWebSocketMockServer', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
 
-      const { result } = renderHook(() => useWebSocketMockServer(true));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, true));
 
       // First poll: running=true
       await waitFor(() => {
@@ -385,7 +385,7 @@ describe('useWebSocketMockServer', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
 
-      const { result } = renderHook(() => useWebSocketMockServer(true));
+      const { result } = renderHook(() => useWebSocketMockServer(9876, true));
 
       await waitFor(() => {
         expect(result.current.logs.length).toBeGreaterThanOrEqual(2);

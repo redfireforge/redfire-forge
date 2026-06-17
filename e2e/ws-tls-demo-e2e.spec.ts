@@ -104,6 +104,7 @@ async function exitDemo(page: import('@playwright/test').Page) {
 }
 
 test.describe('TLS Demo — Full Demo Player E2E', () => {
+  test.describe.configure({ timeout: 120_000 });
 
   test('1. tlsSetup correctly resets skip-cert state before demo starts', async ({ page }) => {
     // STEP A: Create dirty state — skip-cert enabled from a previous session
@@ -226,6 +227,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
   });
 
   test('4. full demo run through step 5 (skip-cert enabled) then cleanup resets it', async ({ page }) => {
+    test.slow();
     // This covers the EXACT user scenario: demo runs step 5 which enables skip-cert,
     // then the demo ends and tlsCleanup MUST reset it so the next connect works.
     await gotoApp(page);

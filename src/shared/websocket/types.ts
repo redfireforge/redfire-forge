@@ -269,6 +269,10 @@ export interface WsPersistedTab {
   headers?: WsKeyValueEntry[];
   queryParams?: WsKeyValueEntry[];
   auth?: AuthConfig;
+  /** Port assigned to this tab's mock server (e.g. 9876, 9877, …). Each tab
+   *  gets a unique port so mock servers are fully isolated. Defaults to 9876
+   *  for tabs that pre-date this field. */
+  mockPort?: number;
 }
 
 export interface WsPersistedTabState {

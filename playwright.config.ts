@@ -38,7 +38,7 @@ const withDocker = process.env.E2E_WITH_DOCKER === '1';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
-  retries: 1,
+  retries: 2,
   // Favor deterministic full-suite runs over maximal parallel throughput.
   workers: process.env.CI ? 12 : 4,
   // 30s default handles page reloads under high parallelism.

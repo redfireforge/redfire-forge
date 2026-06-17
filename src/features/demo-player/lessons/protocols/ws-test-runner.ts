@@ -70,6 +70,12 @@ function createWsEchoDemoWorkflow(): Record<string, unknown> {
 
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
+const DEMO_MOCK_PORT = 9876;
+
+/** True only if this lesson's setup actually started the mock server.
+ *  Cleanup skips the stop call when the server was already running before the demo. */
+let _runnerStartedMock = false;
+
 async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
   // Seed "WS Echo Demo" workflow so the Workflow Runner picker always has something to select.
   // If the user already built it via Lesson 8, delete the old copy and re-seed a fresh one
@@ -81,28 +87,53 @@ async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
     await ctx.delay(100); // let React flush the delete
     wfInsert(createWsEchoDemoWorkflow());
   }
-  // Start mock server so the workflow has a live endpoint to connect to
+  // Check whether the mock server is already running before starting it.
+  // Only start (and later stop) if it was NOT already running — this prevents the
+  // demo cleanup from destroying a server the user started independently.
+  _runnerStartedMock = false;
   try {
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), 3000);
-    await fetch('/api/ws/mock/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: 9876 }), signal: abort.signal });
-    clearTimeout(timer);
-  } catch { /* server may already be running or unreachable */ }
+    const statusAbort = new AbortController();
+    const statusTimer = setTimeout(() => statusAbort.abort(), 2000);
+    const res = await fetch(`/api/ws/mock/status?port=${DEMO_MOCK_PORT}`, { signal: statusAbort.signal });
+    clearTimeout(statusTimer);
+    const status = (await res.json()) as { running: boolean };
+    if (!status.running) {
+      _runnerStartedMock = true;
+      const startAbort = new AbortController();
+      const startTimer = setTimeout(() => startAbort.abort(), 3000);
+      await fetch('/api/ws/mock/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port: DEMO_MOCK_PORT }),
+        signal: startAbort.signal,
+      });
+      clearTimeout(startTimer);
+    }
+  } catch { /* server may be unreachable — proceed anyway */ }
   await ctx.delay(400);
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(600);
 }
 
-async function harnessRunCleanup(ctx: DemoActionContext): Promise<void> {
-  // Stop the mock server with an explicit timeout so cleanup never hangs.
-  try {
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), 3000);
-    await fetch('/api/ws/mock/stop', { method: 'POST', signal: abort.signal });
-    clearTimeout(timer);
-  } catch { /* ignore — server may already be stopped or unreachable */ }
+async function harnessRunCleanup(_ctx: DemoActionContext): Promise<void> {
+  // Only stop the mock server if this lesson started it.
+  // Skipping this preserves the user's running server when they were already using one.
+  if (_runnerStartedMock) {
+    _runnerStartedMock = false;
+    try {
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), 3000);
+      await fetch('/api/ws/mock/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port: DEMO_MOCK_PORT }),
+        signal: abort.signal,
+      });
+      clearTimeout(timer);
+    } catch { /* ignore — server may already be stopped or unreachable */ }
+  }
   // No navigateToTab here — App.tsx calls setActiveTab('demo-hub') after cleanup resolves.
-  await ctx.delay(300);
+  await new Promise<void>((r) => setTimeout(r, 300));
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

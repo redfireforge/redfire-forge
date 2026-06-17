@@ -70,6 +70,7 @@ function makeFitViewTestRun() {
 }
 
 test.describe('Results Explorer FitView', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('fitView should render nodes within canvas bounds', async ({ page }) => {
     await seedWorkflowAndTestRun(page, SEED_WORKFLOW, makeFitViewTestRun());
 

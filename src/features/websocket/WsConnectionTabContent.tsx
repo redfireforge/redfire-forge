@@ -69,6 +69,11 @@ export interface WsConnectionTabContentProps {
   globalAuthProfiles?: GlobalAuthProfile[];
   profilesHook: UseWebSocketProfilesReturn;
   templatesHook: UseWebSocketTemplatesReturn;
+  /** Unique port assigned to this tab's mock server (e.g. 9876, 9877, …).
+   *  Each tab gets its own port so mock servers are fully isolated. */
+  mockPort: number;
+  /** Called when the user changes the mock server port via the UI. */
+  onMockPortChange?: (tabId: string, newPort: number) => void;
   onConnectionStateChange: (tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => void;
   onUrlChange: (tabId: string, url: string) => void;
   /** Phase 8 — fires when persistable draft fields (subprotocols/headers/
@@ -101,6 +106,8 @@ export const WsConnectionTabContent = forwardRef<
 >(function WsConnectionTabContent(
   {
     tabId, envVarMap, globalAuthProfiles = [], profilesHook, templatesHook,
+    mockPort,
+    onMockPortChange,
     onConnectionStateChange, onUrlChange,
     onDraftChange,
     initialUrl, initialProtocol,
@@ -135,7 +142,16 @@ export const WsConnectionTabContent = forwardRef<
   const recording = useWebSocketRecording();
   const { recordMessage, recordStateChange, state: recordingState } = recording;
   const metrics = useWebSocketMetrics(studio.messages, studio.connection.state);
-  const mockServer = useWebSocketMockServer(viewTab === 'mock');
+  // Each tab has its own mock server scoped to its assigned port.
+  // The user may change the port while the server is stopped; we track it in local state
+  // so the hook immediately picks up the new port for polling and API calls.
+  const [localMockPort, setLocalMockPort] = useState(mockPort);
+  const handleMockPortChange = useCallback((newPort: number) => {
+    setLocalMockPort(newPort);
+    onMockPortChange?.(tabId, newPort);
+  }, [tabId, onMockPortChange]);
+
+  const mockServer = useWebSocketMockServer(localMockPort, viewTab === 'mock');
 
   const schemaHook = useWebSocketSchema();
 
@@ -704,7 +720,7 @@ export const WsConnectionTabContent = forwardRef<
         profileCount={profilesHook.profiles.length}
         messageCount={studio.messages.length}
         mockRunning={mockServer.status.running}
-        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} /> : undefined}
+        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} onPortChange={handleMockPortChange} /> : undefined}
         rightPane={rightBody}
       >
         {leftBody}

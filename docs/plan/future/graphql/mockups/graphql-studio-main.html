@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL Studio — Main View Mockup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e1e2e; color: #cdd6f4; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top Bar */
+.top-bar { display: flex; align-items: center; padding: 8px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.top-bar .tab-group { display: flex; gap: 2px; }
+.top-bar .tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; cursor: pointer; background: #1e1e2e; color: #6c7086; border: 1px solid transparent; }
+.top-bar .tab.active { background: #313244; color: #cdd6f4; border-color: #45475a; border-bottom-color: #313244; }
+.top-bar .tab:hover:not(.active) { background: #252536; }
+.app-tabs { display: flex; gap: 4px; margin-left: auto; }
+.app-tabs .app-tab { padding: 4px 10px; border-radius: 4px; font-size: 11px; background: #313244; color: #a6adc8; cursor: pointer; }
+.app-tabs .app-tab.active { background: #89b4fa; color: #1e1e2e; font-weight: 600; }
+
+/* Connection Bar */
+.connection-bar { display: flex; align-items: center; padding: 10px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.method-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: #a6e3a1; color: #1e1e2e; }
+.url-input { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+.url-input:focus { outline: none; border-color: #89b4fa; }
+.btn { padding: 7px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.btn-primary { background: #89b4fa; color: #1e1e2e; }
+.btn-primary:hover { background: #74c7ec; }
+.btn-secondary { background: #313244; color: #cdd6f4; border: 1px solid #45475a; }
+.btn-secondary:hover { background: #45475a; }
+.btn-success { background: #a6e3a1; color: #1e1e2e; }
+.btn-success:hover { background: #94e2d5; }
+.btn-warning { background: #f9e2af; color: #1e1e2e; }
+
+.auth-dropdown { padding: 7px 10px; border-radius: 6px; border: 1px solid #45475a; background: #313244; color: #cdd6f4; font-size: 12px; cursor: pointer; }
+.schema-status { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #a6e3a1; }
+.schema-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #a6e3a1; }
+
+/* Main Layout */
+.main-content { display: flex; flex: 1; overflow: hidden; }
+
+/* Schema Explorer (Left Panel) */
+.schema-panel { width: 240px; border-right: 1px solid #313244; display: flex; flex-direction: column; background: #181825; }
+.schema-panel .panel-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; justify-content: space-between; }
+.schema-panel .panel-header h3 { font-size: 12px; font-weight: 600; color: #89b4fa; text-transform: uppercase; letter-spacing: 0.5px; }
+.schema-search { margin: 8px; padding: 6px 10px; border-radius: 4px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 12px; width: calc(100% - 16px); }
+.schema-search:focus { outline: none; border-color: #89b4fa; }
+.schema-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+.tree-item { padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.tree-item:hover { background: #313244; }
+.tree-item.active { background: #313244; border-left: 2px solid #89b4fa; }
+.tree-item .icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; font-weight: 700; }
+.tree-item .icon.type { background: #89b4fa22; color: #89b4fa; }
+.tree-item .icon.field { background: #a6e3a122; color: #a6e3a1; }
+.tree-item .icon.arg { background: #f9e2af22; color: #f9e2af; }
+.tree-item .icon.enum { background: #cba6f722; color: #cba6f7; }
+.tree-item .icon.input { background: #fab38722; color: #fab387; }
+.tree-item .name { color: #cdd6f4; }
+.tree-item .type-hint { color: #6c7086; margin-left: auto; font-size: 11px; }
+.tree-item .add-btn { margin-left: auto; opacity: 0; color: #89b4fa; font-size: 14px; font-weight: 700; }
+.tree-item:hover .add-btn { opacity: 1; }
+.tree-section { padding: 6px 12px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c7086; letter-spacing: 0.8px; margin-top: 6px; }
+
+/* Editor Panel (Center) */
+.editor-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.editor-tabs { display: flex; align-items: center; padding: 4px 8px; background: #181825; border-bottom: 1px solid #313244; gap: 2px; }
+.editor-tab { padding: 5px 12px; border-radius: 4px 4px 0 0; font-size: 11px; cursor: pointer; background: transparent; color: #6c7086; display: flex; align-items: center; gap: 6px; }
+.editor-tab.active { background: #1e1e2e; color: #cdd6f4; }
+.editor-tab .close { font-size: 10px; opacity: 0.5; }
+.editor-tab .close:hover { opacity: 1; color: #f38ba8; }
+.editor-tab .op-type { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-weight: 700; }
+.editor-tab .op-type.query { background: #89b4fa33; color: #89b4fa; }
+.editor-tab .op-type.mutation { background: #f38ba833; color: #f38ba8; }
+.editor-tab .op-type.subscription { background: #a6e3a133; color: #a6e3a1; }
+.add-tab { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #6c7086; font-size: 16px; }
+.add-tab:hover { background: #313244; color: #cdd6f4; }
+
+.editor-area { flex: 1; display: flex; flex-direction: column; }
+.code-editor { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; overflow: auto; background: #1e1e2e; }
+.code-editor .line { display: flex; }
+.code-editor .line-num { width: 32px; text-align: right; color: #45475a; margin-right: 16px; user-select: none; }
+.code-editor .keyword { color: #cba6f7; }
+.code-editor .type-name { color: #89b4fa; }
+.code-editor .field-name { color: #cdd6f4; }
+.code-editor .arg-name { color: #f9e2af; }
+.code-editor .string { color: #a6e3a1; }
+.code-editor .variable { color: #fab387; }
+.code-editor .comment { color: #6c7086; font-style: italic; }
+.code-editor .punctuation { color: #6c7086; }
+.code-editor .directive { color: #f38ba8; }
+
+/* Bottom Panels */
+.bottom-panels { border-top: 1px solid #313244; height: 160px; display: flex; flex-direction: column; }
+.bottom-tabs { display: flex; padding: 0 8px; background: #181825; border-bottom: 1px solid #313244; }
+.bottom-tab { padding: 6px 12px; font-size: 11px; cursor: pointer; color: #6c7086; border-bottom: 2px solid transparent; }
+.bottom-tab.active { color: #cdd6f4; border-bottom-color: #89b4fa; }
+.bottom-content { flex: 1; padding: 10px 16px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #1e1e2e; }
+.var-editor .line { color: #cdd6f4; }
+
+/* Response Panel (Right) */
+.response-panel { width: 380px; border-left: 1px solid #313244; display: flex; flex-direction: column; background: #181825; }
+.response-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; gap: 8px; }
+.response-header h3 { font-size: 12px; font-weight: 600; color: #a6e3a1; }
+.status-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.status-badge.success { background: #a6e3a122; color: #a6e3a1; }
+.status-badge.error { background: #f38ba822; color: #f38ba8; }
+.latency-badge { font-size: 11px; color: #f9e2af; margin-left: auto; }
+.size-badge { font-size: 11px; color: #6c7086; }
+.response-tabs { display: flex; padding: 0 8px; border-bottom: 1px solid #313244; }
+.response-tab { padding: 6px 12px; font-size: 11px; cursor: pointer; color: #6c7086; border-bottom: 2px solid transparent; }
+.response-tab.active { color: #cdd6f4; border-bottom-color: #89b4fa; }
+.response-body { flex: 1; padding: 12px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; }
+.response-body .key { color: #89b4fa; }
+.response-body .string-val { color: #a6e3a1; }
+.response-body .number-val { color: #fab387; }
+.response-body .null-val { color: #6c7086; }
+.response-body .bool-val { color: #cba6f7; }
+
+/* Bottom Status Bar */
+.status-bar { display: flex; align-items: center; padding: 4px 12px; background: #11111b; border-top: 1px solid #313244; font-size: 11px; color: #6c7086; gap: 16px; }
+.status-bar .item { display: flex; align-items: center; gap: 4px; }
+.status-bar .dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-bar .dot.green { background: #a6e3a1; }
+.status-bar .dot.yellow { background: #f9e2af; }
+
+/* Tooltips */
+.tooltip { position: relative; }
+.tooltip::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding: 4px 8px; background: #45475a; color: #cdd6f4; font-size: 10px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.tooltip:hover::after { opacity: 1; }
+
+/* History sidebar overlay */
+.history-overlay { position: absolute; right: 390px; top: 120px; width: 280px; background: #181825; border: 1px solid #45475a; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 100; display: none; }
+.history-overlay.show { display: block; }
+.history-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; justify-content: space-between; }
+.history-header h4 { font-size: 12px; color: #cdd6f4; }
+.history-list { max-height: 300px; overflow-y: auto; }
+.history-item { padding: 8px 12px; border-bottom: 1px solid #313244; cursor: pointer; }
+.history-item:hover { background: #313244; }
+.history-item .op-name { font-size: 12px; color: #cdd6f4; font-weight: 500; }
+.history-item .op-meta { font-size: 10px; color: #6c7086; margin-top: 2px; display: flex; gap: 8px; }
+.history-item .op-badge { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-weight: 700; }
+
+/* Env Badge */
+.env-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; background: #45475a; color: #f9e2af; cursor: pointer; }
+.env-badge:hover { background: #585b70; }
+</style>
+</head>
+<body>
+<!-- Top Navigation Bar -->
+<div class="top-bar">
+  <div class="tab-group">
+    <div class="tab">WebSocket</div>
+    <div class="tab">Kafka</div>
+    <div class="tab">SSE</div>
+    <div class="tab active">GraphQL</div>
+  </div>
+  <div class="app-tabs">
+    <div class="app-tab">Test Runner</div>
+    <div class="app-tab">Workflows</div>
+    <div class="app-tab active">Protocols</div>
+    <div class="app-tab">Results</div>
+  </div>
+</div>
+
+<!-- Connection Bar -->
+<div class="connection-bar">
+  <span class="method-badge">GQL</span>
+  <input class="url-input" value="https://countries.trevorblades.com/graphql" placeholder="Enter GraphQL endpoint URL..." />
+  <select class="auth-dropdown">
+    <option>No Auth</option>
+    <option>Bearer Token</option>
+    <option>Basic Auth</option>
+    <option>API Key</option>
+    <option>OAuth 2.0</option>
+  </select>
+  <div class="env-badge">Production</div>
+  <button class="btn btn-secondary" title="Introspect Schema">⟳ Schema</button>
+  <button class="btn btn-primary">▶ Execute</button>
+  <div class="schema-status"><span class="dot"></span> Schema loaded (42 types)</div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <!-- Schema Explorer (Left) -->
+  <div class="schema-panel">
+    <div class="panel-header">
+      <h3>Schema Explorer</h3>
+      <span style="font-size: 11px; color: #6c7086;">⌘K</span>
+    </div>
+    <input class="schema-search" placeholder="Search types, fields..." />
+    <div class="schema-tree">
+      <div class="tree-section">Root Types</div>
+      <div class="tree-item active">
+        <span class="icon type">Q</span>
+        <span class="name">Query</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">M</span>
+        <span class="name">Mutation</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">S</span>
+        <span class="name">Subscription</span>
+      </div>
+      
+      <div class="tree-section">Query Fields</div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">countries</span>
+        <span class="type-hint">[Country!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">country</span>
+        <span class="type-hint">Country</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">continents</span>
+        <span class="type-hint">[Continent!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">continent</span>
+        <span class="type-hint">Continent</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">languages</span>
+        <span class="type-hint">[Language!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+
+      <div class="tree-section">Object Types</div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Country</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">code</span>
+        <span class="type-hint">ID!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">name</span>
+        <span class="type-hint">String!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">capital</span>
+        <span class="type-hint">String</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">currency</span>
+        <span class="type-hint">String</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">continent</span>
+        <span class="type-hint">Continent!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">languages</span>
+        <span class="type-hint">[Language!]!</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Continent</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Language</span>
+      </div>
+      
+      <div class="tree-section">Input Types</div>
+      <div class="tree-item">
+        <span class="icon input">I</span>
+        <span class="name">CountryFilterInput</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon input">I</span>
+        <span class="name">ContinentFilterInput</span>
+      </div>
+      
+      <div class="tree-section">Enums</div>
+      <div class="tree-item">
+        <span class="icon enum">E</span>
+        <span class="name">CacheControlScope</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor Panel (Center) -->
+  <div class="editor-panel">
+    <div class="editor-tabs">
+      <div class="editor-tab active">
+        <span class="op-type query">Q</span>
+        GetCountries
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type query">Q</span>
+        GetContinent
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type mutation">M</span>
+        CreateUser
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type subscription">S</span>
+        OnNotification
+        <span class="close">✕</span>
+      </div>
+      <div class="add-tab">+</div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">History</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">Collections</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">⟨/⟩ Code Gen</button>
+      </div>
+    </div>
+    <div class="editor-area">
+      <div class="code-editor">
+        <div class="line"><span class="line-num">1</span><span class="comment"># Fetch countries with filtering</span></div>
+        <div class="line"><span class="line-num">2</span><span class="keyword">query</span> <span class="type-name">GetCountries</span>(<span class="variable">$filter</span>: <span class="type-name">CountryFilterInput</span>) <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">3</span>&nbsp;&nbsp;<span class="field-name">countries</span>(<span class="arg-name">filter</span>: <span class="variable">$filter</span>) <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">4</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">code</span></div>
+        <div class="line"><span class="line-num">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">6</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">capital</span></div>
+        <div class="line"><span class="line-num">7</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">currency</span></div>
+        <div class="line"><span class="line-num">8</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">continent</span> <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">9</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">10</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">11</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">languages</span> <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">12</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">13</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">native</span></div>
+        <div class="line"><span class="line-num">14</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">15</span>&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">16</span><span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">17</span></div>
+      </div>
+    </div>
+    <!-- Bottom Panels (Variables / Headers / Scripts) -->
+    <div class="bottom-panels">
+      <div class="bottom-tabs">
+        <div class="bottom-tab active">Variables</div>
+        <div class="bottom-tab">Headers</div>
+        <div class="bottom-tab">Pre-Request Script</div>
+        <div class="bottom-tab">Environments</div>
+      </div>
+      <div class="bottom-content var-editor">
+        <div class="line"><span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;<span style="color: #89b4fa;">"filter"</span>: <span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #89b4fa;">"continent"</span>: <span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #89b4fa;">"eq"</span>: <span style="color: #a6e3a1;">"AS"</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line">&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="punctuation">}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Response Panel (Right) -->
+  <div class="response-panel">
+    <div class="response-header">
+      <h3>Response</h3>
+      <span class="status-badge success">200 OK</span>
+      <span class="latency-badge">142ms</span>
+      <span class="size-badge">2.4 KB</span>
+    </div>
+    <div class="response-tabs">
+      <div class="response-tab active">Body</div>
+      <div class="response-tab">Headers (8)</div>
+      <div class="response-tab">Tracing</div>
+      <div class="response-tab">Raw</div>
+    </div>
+    <div class="response-body">
+      <div><span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;<span class="key">"data"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"countries"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"code"</span>: <span class="string-val">"JP"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Japan"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"capital"</span>: <span class="string-val">"Tokyo"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"currency"</span>: <span class="string-val">"JPY"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"continent"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Asia"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"languages"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Japanese"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"native"</span>: <span class="string-val">"日本語"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"code"</span>: <span class="string-val">"KR"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"South Korea"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"capital"</span>: <span class="string-val">"Seoul"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"currency"</span>: <span class="string-val">"KRW"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"continent"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Asia"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"languages"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Korean"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"native"</span>: <span class="string-val">"한국어"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6c7086;">// ... 48 more countries</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div><span class="punctuation">}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="item"><span class="dot green"></span> Connected</div>
+  <div class="item">Schema: 42 types, 156 fields</div>
+  <div class="item">Last introspection: 2 min ago</div>
+  <div class="item" style="margin-left: auto;">Ln 3, Col 12</div>
+  <div class="item">UTF-8</div>
+  <div class="item">GraphQL</div>
+  <div class="item" style="color: #6c7086;">RedfireForge v0.8.x</div>
+</div>
+</body>
+</html>

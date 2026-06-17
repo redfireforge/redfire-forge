@@ -70,8 +70,36 @@ describe('kafka-quick-start lesson', () => {
     expect(kafkaQuickStartLesson.setup).toBeUndefined();
   });
 
-  it('has no cleanup function (cluster config persists for subsequent lessons)', () => {
-    expect(kafkaQuickStartLesson.cleanup).toBeUndefined();
+  it('has a cleanup function that deletes Demo Cluster so restart restores first-time experience', () => {
+    expect(typeof kafkaQuickStartLesson.cleanup).toBe('function');
+  });
+
+  it('cleanup navigates to kafka-settings and deletes Demo Cluster when present', async () => {
+    const ctx = makeCtx();
+
+    // Simulate DOM: a cluster card, the delete button, and confirm button
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
+    document.body.appendChild(card);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
+    document.body.appendChild(deleteBtn);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
+    document.body.appendChild(confirmBtn);
+
+    await kafkaQuickStartLesson.cleanup!(ctx);
+
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('cleanup is a no-op when no cluster cards exist (already clean)', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = ''; // No cluster cards
+    await expect(kafkaQuickStartLesson.cleanup!(ctx)).resolves.not.toThrow();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
   });
 
   it('step ks-intro has highlight and no action (informational)', () => {

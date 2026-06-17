@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsReliabilityLesson } from './ws-reliability';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-reliability lesson', () => {
   beforeEach(() => {
@@ -281,11 +281,13 @@ describe('ws-reliability lesson', () => {
     // Simulate an active connection by placing an enabled disconnect button in DOM
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'disconnect-btn');
+    makeVisible(btn);
     document.body.appendChild(btn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // disconnectWebSocket finds the button and calls ctx.delay(300)
     expect(ctx.delay).toHaveBeenCalledWith(300);
+    btn.remove();
   });
 
   it('step rel-stats-zero preAction is a no-op when already disconnected', async () => {

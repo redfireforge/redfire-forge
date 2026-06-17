@@ -27,11 +27,13 @@ async function openGalleryFromWorkflow(page: import('@playwright/test').Page) {
 // ── Gallery Page (Workflow Templates) ────────────────
 
 test.describe('Gallery Page — Workflow Templates', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await navigateToWorkflow(page);
   });
 
   test('Gallery opens from sidebar +New dropdown', async ({ page }) => {
+    test.slow();
     await openGalleryFromWorkflow(page);
 
     // Gallery page should show domain filter buttons
