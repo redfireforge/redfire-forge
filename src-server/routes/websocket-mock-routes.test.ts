@@ -120,6 +120,24 @@ describe('websocket-mock-routes', () => {
       expect(service.stop).toHaveBeenCalled();
       expect(service.getStatus).toHaveBeenCalled();
     });
+
+    it('returns stopped status when no service exists for port (pool miss)', async () => {
+      const poolApp = express();
+      poolApp.use(express.json());
+      poolApp.use(createWebSocketMockRouter());
+      const res = await request(poolApp)
+        .post('/api/ws/mock/stop')
+        .send({ port: 19999 });
+      expect(res.status).toBe(200);
+      expect(res.body.data.running).toBe(false);
+      expect(res.body.data.port).toBe(19999);
+    });
+
+    it('accepts numeric port in body', async () => {
+      const res = await request(app).post('/api/ws/mock/stop').send({ port: 9876 });
+      expect(res.status).toBe(200);
+      expect(service.stop).toHaveBeenCalled();
+    });
   });
 
   describe('GET /api/ws/mock/status', () => {
@@ -129,6 +147,22 @@ describe('websocket-mock-routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.running).toBe(true);
       expect(res.body.data.clientCount).toBe(3);
+    });
+
+    it('returns stopped status when no service exists for port (pool miss)', async () => {
+      const poolApp = express();
+      poolApp.use(express.json());
+      poolApp.use(createWebSocketMockRouter());
+      const res = await request(poolApp).get('/api/ws/mock/status?port=19999');
+      expect(res.status).toBe(200);
+      expect(res.body.data.running).toBe(false);
+      expect(res.body.data.port).toBe(19999);
+    });
+
+    it('accepts numeric port as query string', async () => {
+      service.getStatus.mockReturnValue({ running: false, port: 9876, clientCount: 0, clients: [] });
+      const res = await request(app).get('/api/ws/mock/status?port=9876');
+      expect(res.status).toBe(200);
     });
   });
 
@@ -163,6 +197,17 @@ describe('websocket-mock-routes', () => {
         .post('/api/ws/mock/broadcast')
         .send({});
       expect(res.status).toBe(400);
+    });
+
+    it('returns sent:0 when no service exists for port (pool miss)', async () => {
+      const poolApp = express();
+      poolApp.use(express.json());
+      poolApp.use(createWebSocketMockRouter());
+      const res = await request(poolApp)
+        .post('/api/ws/mock/broadcast')
+        .send({ port: 19999, data: 'hello' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.sent).toBe(0);
     });
   });
 
@@ -218,6 +263,25 @@ describe('websocket-mock-routes', () => {
       const res = await request(app).get('/api/ws/mock/log?sinceCursor=abc');
       expect(res.status).toBe(200);
       expect(service.getLogs).toHaveBeenCalledWith(undefined);
+    });
+
+    it('returns empty entries when no service exists for port (pool miss)', async () => {
+      const poolApp = express();
+      poolApp.use(express.json());
+      poolApp.use(createWebSocketMockRouter());
+      const res = await request(poolApp).get('/api/ws/mock/log?port=19999&sinceCursor=5');
+      expect(res.status).toBe(200);
+      expect(res.body.data.entries).toEqual([]);
+      expect(res.body.data.cursor).toBe(5);
+    });
+
+    it('returns cursor=0 when pool miss and no sinceCursor', async () => {
+      const poolApp = express();
+      poolApp.use(express.json());
+      poolApp.use(createWebSocketMockRouter());
+      const res = await request(poolApp).get('/api/ws/mock/log?port=19999');
+      expect(res.status).toBe(200);
+      expect(res.body.data.cursor).toBe(0);
     });
   });
 

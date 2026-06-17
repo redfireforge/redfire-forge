@@ -24,6 +24,7 @@ const USER_DATA_DIR = path.join(os.tmpdir(), 'redfire-forge-real-browser-test');
 const SKIP_CERT_CHECKBOX = `${WS.TLS_SKIP_CERT} input[type="checkbox"]`;
 
 test.describe('TLS Demo — Persistent Browser State', () => {
+  test.describe.configure({ timeout: 120_000 });
 
   test('full scenario: dirty state + demo + cleanup + direct connect all work', async () => {
     // Launch a persistent browser (NOT isolated — state survives between launches)

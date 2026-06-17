@@ -157,25 +157,156 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
       { term: 'Native DnD', definition: 'Tab reordering uses HTML5 drag-and-drop. The dragged tab fades (opacity) and drop indicators show before/after positions.' },
       { term: 'Per-Tab State', definition: 'Auth, URL draft, and shell tab selection (left/right pane) are stored independently for each connection tab.' },
     ],
-    diagram: `<pre>┌─────────────────────────────────────────────────┐
-│  Tab Bar                                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐  +  ▾  │
-│  │● Server A│ │● Server B│ │  Staging  │        │
-│  └──────────┘ └──────────┘ └──────────┘        │
-│       ↑             ↑                           │
-│   ← / → arrow keys move focus                  │
-│   F2 = rename  Delete = close                   │
-│   Drag to reorder (native DnD)                  │
-│                                                 │
-│  Per-Tab State:                                 │
-│  ┌─────────┬─────────────┬────────────┐         │
-│  │ Tab     │ Auth        │ Shell Tab  │         │
-│  ├─────────┼─────────────┼────────────┤         │
-│  │ Server A│ Bearer xxx  │ Console    │         │
-│  │ Server B│ None        │ Events     │         │
-│  │ Staging │ API Key yyy │ Connect    │         │
-│  └─────────┴─────────────┴────────────┘         │
-└─────────────────────────────────────────────────┘</pre>`,
+    diagram: `<svg viewBox="0 0 480 248" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif;display:block">
+  <defs>
+    <linearGradient id="activeTabGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4c3d8f"/>
+      <stop offset="100%" stop-color="#312b5c"/>
+    </linearGradient>
+    <linearGradient id="keyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38365a"/>
+      <stop offset="100%" stop-color="#26243e"/>
+    </linearGradient>
+    <filter id="keyShadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1" flood-color="#0008"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="248" rx="10" fill="#181825"/>
+
+  <!-- ══ Section 1: Tab Bar ══════════════════════════════════════ -->
+  <rect x="12" y="12" width="456" height="44" rx="6" fill="#1e1e2e" stroke="#2e2e4a" stroke-width="1"/>
+
+  <!-- Active tab: Server A -->
+  <rect x="18" y="17" width="112" height="34" rx="5" fill="url(#activeTabGrad)" stroke="#7c3aed" stroke-width="1.5"/>
+  <!-- Bottom accent line -->
+  <rect x="18" y="48" width="112" height="3" rx="1" fill="#7c3aed"/>
+  <circle cx="30" cy="34" r="4.5" fill="#22c55e"/>
+  <text x="40" y="38" fill="#e2e0f0" font-size="11.5" font-weight="600">Server A</text>
+  <!-- Keyboard focus ring -->
+  <rect x="17" y="16" width="114" height="36" rx="6" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
+
+  <!-- Tab: Server B -->
+  <rect x="136" y="17" width="112" height="34" rx="5" fill="#242438" stroke="#35354f" stroke-width="1"/>
+  <circle cx="148" cy="34" r="4.5" fill="#6b7280"/>
+  <text x="158" y="38" fill="#7d7d9e" font-size="11.5">Server B</text>
+
+  <!-- Tab: Staging -->
+  <rect x="254" y="17" width="100" height="34" rx="5" fill="#242438" stroke="#35354f" stroke-width="1"/>
+  <circle cx="266" cy="34" r="4.5" fill="#6b7280"/>
+  <text x="276" y="38" fill="#7d7d9e" font-size="11.5">Staging</text>
+
+  <!-- Add button -->
+  <rect x="362" y="20" width="28" height="28" rx="5" fill="#2e2e48" stroke="#45455f" stroke-width="1"/>
+  <text x="369" y="38" fill="#a78bfa" font-size="17" font-weight="200">+</text>
+
+  <!-- Focus annotation -->
+  <text x="400" y="31" fill="#6d5fe6" font-size="9" font-weight="600">FOCUSED</text>
+  <text x="400" y="43" fill="#6d5fe6" font-size="9" opacity="0.7">tabIndex=0</text>
+
+  <!-- ══ Section 2: Keyboard shortcuts (left) + Per-tab state (right) ══ -->
+
+  <!-- Left panel: Keyboard shortcuts -->
+  <rect x="12" y="64" width="222" height="116" rx="6" fill="#1e1e2e" stroke="#2e2e4a" stroke-width="1"/>
+  <text x="20" y="80" fill="#6d5fe6" font-size="9" font-weight="700" letter-spacing="1">KEYBOARD SHORTCUTS</text>
+
+  <!-- Row: ← → -->
+  <!-- Left key -->
+  <rect x="20" y="87" width="26" height="22" rx="4" fill="url(#keyGrad)" stroke="#4a4a6a" stroke-width="1" filter="url(#keyShadow)"/>
+  <rect x="20" y="87" width="26" height="20" rx="4" fill="#38365a"/>
+  <text x="28" y="103" fill="#c4b5fd" font-size="13">←</text>
+  <!-- Right key -->
+  <rect x="50" y="87" width="26" height="22" rx="4" fill="url(#keyGrad)" stroke="#4a4a6a" stroke-width="1" filter="url(#keyShadow)"/>
+  <rect x="50" y="87" width="26" height="20" rx="4" fill="#38365a"/>
+  <text x="58" y="103" fill="#c4b5fd" font-size="13">→</text>
+  <text x="82" y="101" fill="#9ca3af" font-size="10">Move focus between tabs</text>
+
+  <!-- Row: Home / End -->
+  <rect x="20" y="115" width="40" height="22" rx="4" fill="url(#keyGrad)" stroke="#4a4a6a" stroke-width="1" filter="url(#keyShadow)"/>
+  <rect x="20" y="115" width="40" height="20" rx="4" fill="#38365a"/>
+  <text x="27" y="130" fill="#c4b5fd" font-size="9.5" font-weight="600">Home</text>
+  <text x="82" y="129" fill="#9ca3af" font-size="10">Jump to first / last tab</text>
+
+  <!-- Row: F2 -->
+  <rect x="20" y="143" width="30" height="22" rx="4" fill="url(#keyGrad)" stroke="#4a4a6a" stroke-width="1" filter="url(#keyShadow)"/>
+  <rect x="20" y="143" width="30" height="20" rx="4" fill="#1e3a4a"/>
+  <text x="27" y="158" fill="#7dd3fc" font-size="10" font-weight="700">F2</text>
+  <text x="56" y="157" fill="#9ca3af" font-size="10">Inline rename</text>
+
+  <!-- Row: Delete -->
+  <rect x="20" y="164" width="42" height="22" rx="4" fill="url(#keyGrad)" stroke="#4a4a6a" stroke-width="1" filter="url(#keyShadow)"/>
+  <rect x="20" y="164" width="42" height="20" rx="4" fill="#3a1e2a"/>
+  <text x="25" y="179" fill="#fca5a5" font-size="9.5" font-weight="600">Delete</text>
+  <text x="68" y="178" fill="#9ca3af" font-size="10">Close focused tab</text>
+
+  <!-- Right panel: Per-tab state -->
+  <rect x="242" y="64" width="226" height="116" rx="6" fill="#1e1e2e" stroke="#2e2e4a" stroke-width="1"/>
+  <text x="250" y="80" fill="#6d5fe6" font-size="9" font-weight="700" letter-spacing="1">PER-TAB STATE</text>
+
+  <!-- Table header -->
+  <rect x="250" y="84" width="210" height="18" rx="3" fill="#252540"/>
+  <text x="258" y="96" fill="#6b7280" font-size="9" font-weight="600">TAB</text>
+  <text x="315" y="96" fill="#6b7280" font-size="9" font-weight="600">AUTH</text>
+  <text x="393" y="96" fill="#6b7280" font-size="9" font-weight="600">SHELL</text>
+
+  <!-- Row: Server A -->
+  <rect x="250" y="104" width="210" height="20" rx="2" fill="#252545"/>
+  <text x="258" y="118" fill="#a78bfa" font-size="10" font-weight="600">Server A</text>
+  <rect x="307" y="107" width="60" height="14" rx="3" fill="#1a3a2a"/>
+  <text x="312" y="118" fill="#4ade80" font-size="9">Bearer •••</text>
+  <rect x="385" y="107" width="48" height="14" rx="3" fill="#1a2535"/>
+  <text x="390" y="118" fill="#7dd3fc" font-size="9">Console</text>
+
+  <!-- Row: Server B -->
+  <rect x="250" y="126" width="210" height="20" rx="2" fill="#1e1e2e"/>
+  <text x="258" y="140" fill="#a78bfa" font-size="10">Server B</text>
+  <text x="315" y="140" fill="#6b7280" font-size="9">None</text>
+  <rect x="385" y="129" width="44" height="14" rx="3" fill="#1a2535"/>
+  <text x="390" y="140" fill="#7dd3fc" font-size="9">Events</text>
+
+  <!-- Row: Staging -->
+  <rect x="250" y="148" width="210" height="20" rx="2" fill="#252545"/>
+  <text x="258" y="162" fill="#a78bfa" font-size="10">Staging</text>
+  <rect x="307" y="151" width="54" height="14" rx="3" fill="#1a3530"/>
+  <text x="312" y="162" fill="#34d399" font-size="9">API Key</text>
+  <rect x="385" y="151" width="48" height="14" rx="3" fill="#1a2535"/>
+  <text x="390" y="162" fill="#7dd3fc" font-size="9">Connect</text>
+
+  <!-- Isolation icon -->
+  <text x="250" y="176" fill="#6b7280" font-size="9" font-style="italic">Each tab stores state independently</text>
+
+  <!-- ══ Section 3: Drag to Reorder ════════════════════════════ -->
+  <rect x="12" y="188" width="456" height="50" rx="6" fill="#1e1e2e" stroke="#2e2e4a" stroke-width="1"/>
+  <text x="20" y="203" fill="#6d5fe6" font-size="9" font-weight="700" letter-spacing="1">DRAG TO REORDER</text>
+
+  <!-- Source tab (being dragged — faded) -->
+  <rect x="20" y="208" width="96" height="24" rx="4" fill="#312b5c" stroke="#7c3aed" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="31" cy="220" r="3.5" fill="#22c55e" opacity="0.4"/>
+  <text x="40" y="224" fill="#c4b5fd" font-size="10" opacity="0.45">Server A</text>
+  <!-- Drag arrow -->
+  <text x="122" y="224" fill="#7c3aed" font-size="16">›</text>
+  <text x="134" y="224" fill="#7c3aed" font-size="16">›</text>
+
+  <!-- Target tab (drop zone with left-edge indicator) -->
+  <rect x="152" y="208" width="96" height="24" rx="4" fill="#242438" stroke="#45456a" stroke-width="1"/>
+  <rect x="152" y="208" width="3" height="24" rx="1" fill="#a78bfa"/>
+  <circle cx="163" cy="220" r="3.5" fill="#6b7280"/>
+  <text x="172" y="224" fill="#7d7d9e" font-size="10">Server B</text>
+
+  <!-- After-drop result -->
+  <text x="258" y="218" fill="#3a3a5a" font-size="18">→</text>
+  <rect x="276" y="208" width="96" height="24" rx="4" fill="#312b5c" stroke="#7c3aed" stroke-width="1.5"/>
+  <circle cx="287" cy="220" r="3.5" fill="#22c55e"/>
+  <text x="296" y="224" fill="#e2e0f0" font-size="10">Server A</text>
+  <rect x="378" y="208" width="80" height="24" rx="4" fill="#242438" stroke="#45456a" stroke-width="1"/>
+  <circle cx="389" cy="220" r="3.5" fill="#6b7280"/>
+  <text x="398" y="224" fill="#7d7d9e" font-size="10">Server B</text>
+
+  <!-- Saved badge -->
+  <rect x="380" y="189" width="80" height="16" rx="3" fill="#14532d" opacity="0.8"/>
+  <text x="388" y="200" fill="#4ade80" font-size="9">✓ Order saved</text>
+</svg>`,
   },
 
   steps: [

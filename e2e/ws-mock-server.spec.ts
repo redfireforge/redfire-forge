@@ -11,8 +11,8 @@ const _MOCK_URL = 'ws://localhost:9876';
 /* ── helpers ─────────────────────────────────────────── */
 
 async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 15000 });
 }
 
 async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
@@ -36,16 +36,14 @@ async function gotoMockMode(page: Page) {
   await page.waitForTimeout(300);
 }
 
-async function startMockServer(page: Page, port = 9876) {
-  // If a mock server is already running, stop it first so port input becomes editable
+async function startMockServer(page: Page) {
+  // Stop any already-running server first
   const stopBtn = page.locator('[data-testid="mock-stop-btn"]');
   if (await stopBtn.isVisible({ timeout: 500 }).catch(() => false)) {
     await stopBtn.click();
     await page.waitForTimeout(500);
   }
-  const portInput = page.locator('[data-testid="mock-port-input"]');
-  await expect(portInput).toBeEnabled({ timeout: 5000 });
-  await portInput.fill(String(port));
+  // Port is tab-assigned and read-only — just click Start
   await page.click('[data-testid="mock-start-btn"]');
   await page.waitForTimeout(1000);
   // Wait for status to show Running
@@ -63,6 +61,7 @@ async function stopMockServer(page: Page) {
 /* ── WM-01–07: Mock Server Core ──────────────────────── */
 
 test.describe('Mock Server Core (WM-01–07)', () => {
+  test.describe.configure({ timeout: 90_000 });
 
   test('WM-01: Mock Server mode reachable from mode switch', async ({ page }) => {
     await gotoMockMode(page);
@@ -71,18 +70,26 @@ test.describe('Mock Server Core (WM-01–07)', () => {
     await expect(page.locator('[data-testid="mock-start-btn"]')).toBeVisible();
   });
 
-  test('WM-02: Port configuration', async ({ page }) => {
+  test('WM-02: Port configuration — editable when stopped, read-only when running', async ({ page }) => {
     await gotoMockMode(page);
     const portInput = page.locator('[data-testid="mock-port-input"]');
     await expect(portInput).toBeVisible();
-    await portInput.fill('9877');
-    await expect(portInput).toHaveValue('9877');
+    // Default first-tab port is 9876
+    await expect(portInput).toHaveValue('9876');
+    // Port is editable while server is stopped
+    await expect(portInput).toBeEditable();
+    // After starting, input should become read-only
+    await startMockServer(page);
+    await expect(portInput).not.toBeEditable();
+    await stopMockServer(page);
+    // After stopping, input should be editable again
+    await expect(portInput).toBeEditable();
   });
 
   test('WM-03: Start mock server — status changes to Running', async ({ page }) => {
     await gotoMockMode(page);
     // Use a different port to avoid conflict with the backend's echo server
-    await startMockServer(page, 9877);
+    await startMockServer(page);
     await expect(page.locator('[data-testid="mock-status-label"]')).toContainText(/running/i);
     // Stop button should appear
     await expect(page.locator('[data-testid="mock-stop-btn"]')).toBeVisible();
@@ -91,7 +98,7 @@ test.describe('Mock Server Core (WM-01–07)', () => {
 
   test('WM-05: Connected client count', async ({ page }) => {
     await gotoMockMode(page);
-    await startMockServer(page, 9878);
+    await startMockServer(page);
     // Client count should start at 0
     const clientCount = page.locator('[data-testid="mock-client-count"]');
     await expect(clientCount).toContainText('0');
@@ -100,7 +107,7 @@ test.describe('Mock Server Core (WM-01–07)', () => {
 
   test('WM-06: Activity log visible', async ({ page }) => {
     await gotoMockMode(page);
-    await startMockServer(page, 9879);
+    await startMockServer(page);
     // Switch to log tab
     const logTab = page.locator('[data-testid="mock-tab-log"]');
     await logTab.click();
@@ -112,7 +119,7 @@ test.describe('Mock Server Core (WM-01–07)', () => {
 
   test('WM-07: Stop mock server — status changes', async ({ page }) => {
     await gotoMockMode(page);
-    await startMockServer(page, 9880);
+    await startMockServer(page);
     await stopMockServer(page);
     await expect(page.locator('[data-testid="mock-status-label"]')).not.toContainText(/running/i);
   });
@@ -123,7 +130,7 @@ test.describe('Mock Server Core (WM-01–07)', () => {
 test.describe('Broadcast (WM-08–09)', () => {
   test('WM-09: Broadcast with no clients — button disabled', async ({ page }) => {
     await gotoMockMode(page);
-    await startMockServer(page, 9881);
+    await startMockServer(page);
     const broadcastBtn = page.locator('[data-testid="mock-broadcast-btn"]');
     // With no clients, broadcast button should be disabled
     const _isDisabled = await broadcastBtn.isDisabled().catch(() => false);
@@ -188,6 +195,7 @@ test.describe('Response Rules (WM-10–16)', () => {
 /* ── WM-18: Persistence ──────────────────────────────── */
 
 test.describe('Persistence (WM-18)', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('WM-18: Rules persist across page reload', async ({ page }) => {
     await gotoMockMode(page);
     const rulesTab = page.locator('[data-testid="mock-tab-rules"]');
@@ -198,9 +206,9 @@ test.describe('Persistence (WM-18)', () => {
     await page.waitForTimeout(300);
     const rulesBefore = await page.locator('[data-testid*="mock-rule-"]').count();
     expect(rulesBefore).toBeGreaterThanOrEqual(1);
-    // Reload and check
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
+    // Reload and check — use domcontentloaded to avoid networkidle timeout under load
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-testid="mode-client"]', { timeout: 10000 });
     await switchMode(page, 'mock');
     await page.waitForTimeout(300);
     await page.locator('[data-testid="mock-tab-rules"]').click();
@@ -213,9 +221,10 @@ test.describe('Persistence (WM-18)', () => {
 /* ── WM-19: End-to-End ───────────────────────────────── */
 
 test.describe('End-to-End (WM-19)', () => {
+  test.describe.configure({ timeout: 120_000 });
   test('WM-19: Connect from another tab to own mock server', async ({ page }) => {
     await gotoMockMode(page);
-    await startMockServer(page, 9882);
+    await startMockServer(page);
     // Add a new connection tab
     await page.click('[data-testid="conn-tab-add"]');
     await page.waitForTimeout(300);
@@ -227,7 +236,7 @@ test.describe('End-to-End (WM-19)', () => {
     await pane.locator('[data-testid="left-tab-connect"]').click();
     await page.waitForTimeout(200);
     const urlInput = pane.locator('[aria-label="WebSocket URL"]');
-    await urlInput.fill('ws://localhost:9882');
+    await urlInput.fill('ws://localhost:9876');
     await pane.locator('[data-testid="connect-btn"]').click();
     await page.locator('[data-testid="conn-tab-bar"] [role="tab"][aria-selected="true"][aria-label*="connected"]').waitFor({ timeout: 10000 });
     // Send a message

@@ -405,6 +405,8 @@ export const KAFKA = {
   CONNECT_BTN:              '[data-testid="kafka-connect-btn"]',
   TEST_BTN:                 '[data-testid="kafka-test-btn"]',
   DISCONNECT_BTN:           '[data-testid="kafka-disconnect-btn"]',
+  DELETE_CLUSTER_BTN:       '[data-testid="kafka-delete-cluster-btn"]',
+  CONFIRM_DELETE_BTN:       '[data-testid="kafka-confirm-delete-btn"]',
   AUTO_CONNECT_TOGGLE:      '[data-testid="kafka-auto-connect-toggle"]',
   BROKER_INPUT:             'input[placeholder="127.0.0.1:19092"]',
   AUTH_TYPE_SELECT:         '#kafka-auth-mode',

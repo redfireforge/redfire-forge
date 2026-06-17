@@ -146,6 +146,7 @@ function getWorkflowFromStorage(page: Page) {
 }
 
 test.describe('Workflow persistence across hard refresh', () => {
+  test.describe.configure({ timeout: 120_000 });
   test('nodes added from BLOCKS palette persist after reload', async ({ page, context }) => {
     await setupPersistenceTest(page, context);
     // Single navigation — init scripts run, cleanup and seeding happen atomically

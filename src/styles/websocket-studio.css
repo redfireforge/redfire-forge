@@ -4737,6 +4737,14 @@
   cursor: default;
   user-select: text;
 }
+.ws-mock-port-input.editable {
+  border-color: var(--accent-color, #4a9eff);
+  cursor: text;
+}
+.ws-mock-port-input.editable:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.25);
+}
 .ws-mock-fallback-select {
   padding: 2px 6px;
   font-size: 11px;

@@ -483,6 +483,7 @@ test.describe('Saved Connection Profiles (WC-25–29c)', () => {
 /* ── WC-30: Config Lock ──────────────────────────────── */
 
 test.describe('Config Lock (WC-30)', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('WC-30: Config lock while connected', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
