@@ -8,28 +8,74 @@
 import type { DemoActionContext } from '../types';
 import { WS, KAFKA } from '../../../shared/selectors';
 
+/** Return the first DOM element matching `selector` that has a non-zero bounding box
+ *  (i.e. it is actually rendered and not hidden via display:none / visibility:hidden).
+ *  Mirrors the `firstVisible` logic in useDemoHub.ts — prevents targeting hidden
+ *  panels from inactive WebSocket tabs when multiple tabs are open. */
+export function firstVisibleEl<T extends HTMLElement = HTMLElement>(selector: string): T | null {
+  const all = document.querySelectorAll<T>(selector);
+  for (const el of Array.from(all)) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return el;
+  }
+  return null;
+}
+
 // ─── WebSocket Helpers ───────────────────────────────────────────
+
+/**
+ * Tracks whether the current demo session started the mock server.
+ * If the server was already running when the demo began, the demo must NOT stop it in cleanup
+ * — doing so would destroy the user's running server unexpectedly.
+ * Reset to false at the start of each startMockServer call.
+ */
+let _demoStartedMock = false;
 
 /** Start the built-in mock echo server (no-op if already running).
  * Waits for the Stop button to appear rather than a fixed delay so the
- * server is guaranteed to be listening before the caller proceeds. */
+ * server is guaranteed to be listening before the caller proceeds.
+ * Sets _demoStartedMock=true only when this call actually starts the server. */
 export async function startMockServer(ctx: DemoActionContext) {
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(400);
-  const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
-  if (btn && !btn.disabled) {
-    btn.click();
-    // Wait for the Stop button to appear — it only shows once the server is
-    // actually listening on its port. Fall back to a 2s cap if something goes wrong.
-    await ctx.waitFor(WS.MOCK_STOP_BTN, 5000).catch(() => ctx.delay(2000));
+  // Already running? Record that WE did not start it — cleanup must leave it alone.
+  if (firstVisibleEl(WS.MOCK_STOP_BTN)) {
+    _demoStartedMock = false;
+    return;
   }
+  _demoStartedMock = true;
+  // Click Start and wait (retry once if the first attempt doesn't take)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const btn = firstVisibleEl<HTMLButtonElement>(WS.MOCK_START_BTN);
+    if (btn && !btn.disabled) btn.click();
+    // Wait up to 5s for the Stop button (server listening confirmation)
+    const started = await new Promise<boolean>(resolve => {
+      const deadline = Date.now() + 5000;
+      const poll = () => {
+        if (firstVisibleEl(WS.MOCK_STOP_BTN)) return resolve(true);
+        if (Date.now() >= deadline) return resolve(false);
+        setTimeout(poll, 100);
+      };
+      poll();
+    });
+    if (started) return;
+    await ctx.delay(500);
+  }
+  // Last resort: give up but wait 2s so the caller isn't racing
+  await ctx.delay(2000);
 }
 
-/** Stop the mock echo server (no-op if already stopped). */
+/**
+ * Stop the mock echo server — but ONLY if the demo started it.
+ * If the server was already running before the demo began (_demoStartedMock === false),
+ * this is a no-op to protect the user's running server.
+ */
 export async function stopMockServer(ctx: DemoActionContext) {
+  if (!_demoStartedMock) return;
+  _demoStartedMock = false;
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(300);
-  const btn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
+  const btn = firstVisibleEl<HTMLButtonElement>(WS.MOCK_STOP_BTN);
   if (btn && !btn.disabled) {
     btn.click();
     await ctx.delay(500);
@@ -44,7 +90,7 @@ export async function switchToClientMode(ctx: DemoActionContext) {
 
 /** Disconnect the active WebSocket connection (no-op if already disconnected). */
 export async function disconnectWebSocket(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+  const btn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
   if (btn && !btn.disabled) {
     btn.click();
     await ctx.delay(300);
@@ -53,7 +99,7 @@ export async function disconnectWebSocket(ctx: DemoActionContext) {
 
 /** Clear the events/message log. */
 export async function clearEvents(ctx: DemoActionContext) {
-  const btn = document.querySelector(WS.CLEAR_BTN) as HTMLButtonElement | null;
+  const btn = firstVisibleEl<HTMLButtonElement>(WS.CLEAR_BTN);
   if (btn && !btn.disabled) {
     btn.click();
     await ctx.delay(200);
@@ -238,6 +284,42 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
 /** Kafka lessons require no broker teardown — this is a no-op for symmetry. */
 export async function kafkaCleanup(_ctx: DemoActionContext): Promise<void> {
   // No broker process to stop.
+}
+
+/**
+ * Cleanup for the Quick Start lesson (K1).
+ *
+ * Deletes the "Demo Cluster" profile that K1 creates so that restarting the
+ * lesson restores the empty-state view ("Create First Cluster" button).
+ *
+ * Without this cleanup, step 2 of K1 cannot open the cluster editor because
+ * the empty-state button is hidden once any cluster exists.
+ */
+export async function kafkaQuickStartCleanup(ctx: DemoActionContext): Promise<void> {
+  // Navigate to Kafka Settings where cluster management lives.
+  ctx.navigateToTab('kafka-settings');
+  await ctx.delay(500);
+
+  // If no clusters exist, nothing to clean up.
+  const clusterCard = document.querySelector<HTMLElement>('[data-testid^="kafka-cluster-card-"]');
+  if (!clusterCard) return;
+
+  // Select the cluster to open its editor.
+  clusterCard.click();
+  await ctx.delay(400);
+
+  // Click "Delete Cluster" to trigger the confirmation prompt.
+  const deleteBtn = document.querySelector<HTMLButtonElement>(KAFKA.DELETE_CLUSTER_BTN);
+  if (!deleteBtn) return;
+  deleteBtn.click();
+  await ctx.delay(300);
+
+  // Confirm the deletion.
+  const confirmBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONFIRM_DELETE_BTN);
+  if (confirmBtn) {
+    confirmBtn.click();
+    await ctx.delay(400);
+  }
 }
 
 /** Navigate to Protocols → Kafka → Topics tab. */

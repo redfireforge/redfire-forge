@@ -14,7 +14,6 @@ import {
   WS_PROFILES_KEY, WS_TEMPLATES_KEY,
   WS_TAB_STATE_KEY, WS_HISTORY_KEY,
   WS_FILTER_PRESETS_KEY, WS_SCHEMAS_KEY,
-  WS_MOCK_RULES_KEY, WS_MOCK_CONFIG_KEY,
   MAX_HISTORY_ENTRIES, MAX_FILTER_PRESETS, MAX_SCHEMAS_STORED,
 } from './websocketStorage';
 import type { WsPersistedTabState, WsConnectionHistoryEntry, WsFilterPreset, WsMockRule } from './types';
@@ -536,10 +535,12 @@ describe('websocketStorage — schemas', () => {
 // ── Mock Rules ────────────────────────────────────────────────────
 
 describe('websocketStorage — mock rules', () => {
+  const TEST_PORT = 9876;
+
   it('returns empty array when no data stored', async () => {
     mockRead.mockResolvedValue(null);
-    expect(await loadMockRules()).toEqual([]);
-    expect(mockRead).toHaveBeenCalledWith(WS_MOCK_RULES_KEY);
+    expect(await loadMockRules(TEST_PORT)).toEqual([]);
+    expect(mockRead).toHaveBeenCalledWith(`redfire-ws-mock-rules-v2-${TEST_PORT}`);
   });
 
   it('parses valid mock rules', async () => {
@@ -549,7 +550,7 @@ describe('websocketStorage — mock rules', () => {
       response: { type: 'static', body: 'world', delay: 0 },
     };
     mockRead.mockResolvedValue(JSON.stringify([rule]));
-    const result = await loadMockRules();
+    const result = await loadMockRules(TEST_PORT);
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('Echo');
   });
@@ -559,7 +560,7 @@ describe('websocketStorage — mock rules', () => {
     const noResponse = { id: 'r2', name: 'bad', enabled: true, match: { type: 'exact' } };
     const matchNull = { id: 'r3', name: 'bad', enabled: true, match: null, response: { type: 'static' } };
     mockRead.mockResolvedValue(JSON.stringify([noMatch, noResponse, matchNull]));
-    expect(await loadMockRules()).toEqual([]);
+    expect(await loadMockRules(TEST_PORT)).toEqual([]);
   });
 
   it('filters rules missing enabled boolean', async () => {
@@ -569,64 +570,66 @@ describe('websocketStorage — mock rules', () => {
       response: { type: 'static', body: 'b' },
     };
     mockRead.mockResolvedValue(JSON.stringify([noEnabled]));
-    expect(await loadMockRules()).toEqual([]);
+    expect(await loadMockRules(TEST_PORT)).toEqual([]);
   });
 
   it('saves mock rules', async () => {
     const rules = [{ id: 'r1', name: 'T', enabled: true, match: {}, response: {} }];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await saveMockRules(rules as any[]);
-    expect(mockWrite).toHaveBeenCalledWith(WS_MOCK_RULES_KEY, JSON.stringify(rules));
+    await saveMockRules(TEST_PORT, rules as any[]);
+    expect(mockWrite).toHaveBeenCalledWith(`redfire-ws-mock-rules-v2-${TEST_PORT}`, JSON.stringify(rules));
   });
 });
 
 // ── Mock Config ───────────────────────────────────────────────────
 
 describe('websocketStorage — mock config', () => {
+  const TEST_PORT = 9876;
+
   it('returns null when no data stored', async () => {
     mockRead.mockResolvedValue(null);
-    expect(await loadMockConfig()).toBeNull();
-    expect(mockRead).toHaveBeenCalledWith(WS_MOCK_CONFIG_KEY);
+    expect(await loadMockConfig(TEST_PORT)).toBeNull();
+    expect(mockRead).toHaveBeenCalledWith(`redfire-ws-mock-config-v2-${TEST_PORT}`);
   });
 
   it('parses valid config', async () => {
     const config = { port: 8080, fallback: 'echo' };
     mockRead.mockResolvedValue(JSON.stringify(config));
-    const result = await loadMockConfig();
+    const result = await loadMockConfig(TEST_PORT);
     expect(result).toEqual({ port: 8080, fallback: 'echo' });
   });
 
   it('accepts all valid fallback values: echo, ignore, close', async () => {
     for (const fallback of ['echo', 'ignore', 'close']) {
       mockRead.mockResolvedValue(JSON.stringify({ port: 3000, fallback }));
-      const result = await loadMockConfig();
+      const result = await loadMockConfig(TEST_PORT);
       expect(result?.fallback).toBe(fallback);
     }
   });
 
   it('returns null for invalid fallback', async () => {
     mockRead.mockResolvedValue(JSON.stringify({ port: 3000, fallback: 'reject' }));
-    expect(await loadMockConfig()).toBeNull();
+    expect(await loadMockConfig(TEST_PORT)).toBeNull();
   });
 
   it('returns null when port is not a number', async () => {
     mockRead.mockResolvedValue(JSON.stringify({ port: '3000', fallback: 'echo' }));
-    expect(await loadMockConfig()).toBeNull();
+    expect(await loadMockConfig(TEST_PORT)).toBeNull();
   });
 
   it('returns null for missing fallback', async () => {
     mockRead.mockResolvedValue(JSON.stringify({ port: 3000 }));
-    expect(await loadMockConfig()).toBeNull();
+    expect(await loadMockConfig(TEST_PORT)).toBeNull();
   });
 
   it('returns null for malformed JSON', async () => {
     mockRead.mockResolvedValue('not-json');
-    expect(await loadMockConfig()).toBeNull();
+    expect(await loadMockConfig(TEST_PORT)).toBeNull();
   });
 
   it('saves mock config', async () => {
     const config = { port: 9090, fallback: 'close' as const };
-    await saveMockConfig(config);
-    expect(mockWrite).toHaveBeenCalledWith(WS_MOCK_CONFIG_KEY, JSON.stringify(config));
+    await saveMockConfig(TEST_PORT, config);
+    expect(mockWrite).toHaveBeenCalledWith(`redfire-ws-mock-config-v2-${TEST_PORT}`, JSON.stringify(config));
   });
 });

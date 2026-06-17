@@ -28,14 +28,11 @@ export interface UseWebSocketMockServerReturn {
   pushRulesToServer: (rules: WsMockRule[], fallback: WsMockFallbackMode) => Promise<void>;
 }
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 500;
 
-const EMPTY_STATUS: WsMockStatus = {
-  running: false,
-  port: 9876,
-  clientCount: 0,
-  clients: [],
-};
+function emptyStatus(port: number): WsMockStatus {
+  return { running: false, port, clientCount: 0, clients: [] };
+}
 
 async function mockFetch<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const init: RequestInit = {
@@ -57,20 +54,36 @@ async function mockFetch<T>(method: 'GET' | 'POST', path: string, body?: unknown
   return parsed.data as T;
 }
 
-export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerReturn {
-  const [status, setStatus] = useState<WsMockStatus>(EMPTY_STATUS);
+/**
+ * Manages one mock server instance scoped to `port`.
+ * Each WebSocket tab calls this with its own assigned port so servers are isolated.
+ * `active` controls whether status/log polling runs (only poll when Mock Server tab is visible).
+ */
+export function useWebSocketMockServer(port: number, active: boolean): UseWebSocketMockServerReturn {
+  const [status, setStatus] = useState<WsMockStatus>(() => emptyStatus(port));
   const [logs, setLogs] = useState<WsMockLogEntry[]>([]);
   const [rules, setRulesState] = useState<WsMockRule[]>([]);
-  const [config, setConfigState] = useState<MockServerConfig>({ port: 9876, fallback: 'echo' });
+  const [config, setConfigState] = useState<MockServerConfig>({ port, fallback: 'echo' });
   const [starting, setStarting] = useState(false);
-  const logCursorRef = useRef(0);
+  const logCursorRef = useRef(-1);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollLogsInFlightRef = useRef(false);
 
+  // Sync config.port whenever the port prop changes (e.g. user edits port while server is stopped).
+  // The async load below may override this if there is a saved config for the new port.
+  useEffect(() => {
+    setConfigState((prev) => ({ ...prev, port }));
+    setStatus(emptyStatus(port));
+    setLogs([]);
+    logCursorRef.current = -1;
+  }, [port]);
+
+  // Load persisted rules + config for this port on mount or port change.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const savedRules = await loadMockRules();
-      const saved = await loadMockConfig();
+      const savedRules = await loadMockRules(port);
+      const saved = await loadMockConfig(port);
       if (cancelled) return;
       setRulesState(savedRules);
       if (saved) {
@@ -78,41 +91,45 @@ export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerR
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [port]);
 
   const setRules = useCallback((next: WsMockRule[]) => {
     setRulesState(next);
-    void saveMockRules(next);
-  }, []);
+    void saveMockRules(port, next);
+  }, [port]);
 
   const setConfig = useCallback((next: MockServerConfig) => {
     setConfigState(next);
-    void saveMockConfig(next);
-  }, []);
+    void saveMockConfig(port, next);
+  }, [port]);
 
   const pushRulesToServer = useCallback(async (nextRules: WsMockRule[], nextFallback: WsMockFallbackMode) => {
     try {
       await mockFetch<{ count: number }>('POST', '/api/ws/mock/rules', {
+        port,
         rules: nextRules,
         fallback: nextFallback,
       });
     } catch { /* server may not be running */ }
-  }, []);
+  }, [port]);
 
   const pollStatus = useCallback(async () => {
     try {
-      const s = await mockFetch<WsMockStatus>('GET', '/api/ws/mock/status');
+      const s = await mockFetch<WsMockStatus>('GET', `/api/ws/mock/status?port=${port}`);
       setStatus(s);
     } catch {
       setStatus((prev) => prev.running ? { ...prev, running: false, error: 'Backend unreachable' } : prev);
     }
-  }, []);
+  }, [port]);
 
   const pollLogs = useCallback(async () => {
+    // Prevent overlapping concurrent polls — avoids duplicate entries.
+    if (pollLogsInFlightRef.current) return;
+    pollLogsInFlightRef.current = true;
     try {
       const resp = await mockFetch<{ entries: WsMockLogEntry[]; cursor: number }>(
         'GET',
-        `/api/ws/mock/log?sinceCursor=${logCursorRef.current}`,
+        `/api/ws/mock/log?port=${port}&sinceCursor=${logCursorRef.current}`,
       );
       if (resp.entries.length > 0) {
         logCursorRef.current = resp.cursor;
@@ -122,7 +139,10 @@ export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerR
         });
       }
     } catch { /* ignore */ }
-  }, []);
+    finally {
+      pollLogsInFlightRef.current = false;
+    }
+  }, [port]);
 
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) return;
@@ -144,16 +164,19 @@ export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerR
       stopPolling();
       return;
     }
+    // Immediately fetch both status AND logs so the UI reflects current server state
+    // without waiting for the first interval tick (≤ POLL_INTERVAL_MS delay).
     pollStatus();
+    pollLogs();
     startPolling();
     return stopPolling;
-  }, [active, pollStatus, startPolling, stopPolling]);
+  }, [active, pollStatus, pollLogs, startPolling, stopPolling]);
 
   const start = useCallback(async () => {
     setStarting(true);
     try {
       const s = await mockFetch<WsMockStatus>('POST', '/api/ws/mock/start', {
-        port: config.port,
+        port,
         rules,
         fallback: config.fallback,
       });
@@ -167,21 +190,21 @@ export function useWebSocketMockServer(active: boolean): UseWebSocketMockServerR
     } finally {
       setStarting(false);
     }
-  }, [config, rules, pollLogs]);
+  }, [port, config.fallback, rules, pollLogs]);
 
   const stop = useCallback(async () => {
     try {
-      const s = await mockFetch<WsMockStatus>('POST', '/api/ws/mock/stop');
+      const s = await mockFetch<WsMockStatus>('POST', '/api/ws/mock/stop', { port });
       setStatus(s);
     } catch {
       setStatus((prev) => ({ ...prev, running: false, error: 'Failed to stop server — it may already be stopped' }));
     }
-  }, []);
+  }, [port]);
 
   const broadcast = useCallback(async (data: string): Promise<number> => {
-    const resp = await mockFetch<{ sent: number }>('POST', '/api/ws/mock/broadcast', { data });
+    const resp = await mockFetch<{ sent: number }>('POST', '/api/ws/mock/broadcast', { port, data });
     return resp.sent;
-  }, []);
+  }, [port]);
 
   const clearLogs = useCallback(() => {
     setLogs([]);

@@ -332,7 +332,16 @@ describe('ws-test-runner lesson', () => {
   // ── Setup / Cleanup ──
 
   it('setup starts mock server and navigates to workflow-runner', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    // Status check returns { running: false } so setup proceeds to call /start.
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: false }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    });
     const ctx = makeCtx();
     await wsTestRunnerLesson.setup!(ctx);
     expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/start', expect.objectContaining({ method: 'POST' }));
@@ -340,7 +349,14 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('setup seeds WS Echo Demo via __wfInsertWorkflow when bridge is available', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      if (String(url).includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    });
     const wfDelete = vi.fn();
     const wfInsert = vi.fn();
     (window as unknown as Record<string, unknown>).__wfDeleteByName = wfDelete;
@@ -358,7 +374,9 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('setup gracefully skips seeding when bridge is not available', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
+    );
     const ctx = makeCtx();
     // No __wfInsertWorkflow on window — should not throw
     await expect(wsTestRunnerLesson.setup!(ctx)).resolves.toBeUndefined();
@@ -366,7 +384,21 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('cleanup stops mock server (App.tsx handles navigation, no navigateToTab in cleanup)', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(new Response());
+    // First run setup so that _runnerStartedMock becomes true (server reported as not running).
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      if (String(url).includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: false }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    });
+    await wsTestRunnerLesson.setup!(makeCtx());
+
+    // Now cleanup should call /stop because setup started the server.
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
+    );
     const ctx = makeCtx();
     await wsTestRunnerLesson.cleanup!(ctx);
     expect(fetchSpy).toHaveBeenCalledWith('/api/ws/mock/stop', expect.objectContaining({ method: 'POST' }));

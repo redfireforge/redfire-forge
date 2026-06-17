@@ -363,6 +363,7 @@ export function KafkaClusterEditor({
                       <button
                         type="button"
                         className="btn btn-sm btn-danger-outline"
+                        data-testid="kafka-delete-cluster-btn"
                         onClick={() => setPendingDeleteClusterId(editingClusterId)}
                       >
                         Delete Cluster
@@ -374,6 +375,7 @@ export function KafkaClusterEditor({
                         <button
                           type="button"
                           className="btn btn-sm btn-danger"
+                          data-testid="kafka-confirm-delete-btn"
                           onClick={confirmDelete}
                         >
                           Confirm Delete

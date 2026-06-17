@@ -34,7 +34,7 @@ async function connectMock(page: import('@playwright/test').Page) {
   await page.click(WS.LEFT_TAB_CONNECT);
   await page.fill(WS.URL_INPUT, 'ws://localhost:9876');
   await page.click(WS.CONNECT_BTN);
-  await page.waitForSelector(WS.STATUS_CONNECTED, { timeout: 15000 });
+  await page.locator(WS.STATUS_CONNECTED).first().waitFor({ timeout: 15000 });
 }
 
 /* ── Guard tests: verify shared selectors exist on page ── */
@@ -106,7 +106,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await startMock(page);
     await connectMock(page);
 
-    await expect(page.locator(WS.STATUS_CONNECTED)).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(WS.STATUS_CONNECTED).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('message rows appear after sending', async ({ page }) => {

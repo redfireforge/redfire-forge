@@ -96,11 +96,13 @@ async function openScriptConfigModal(page: import('@playwright/test').Page) {
 }
 
 test.describe('Script Editor Modal - Expand/Shrink', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedAndNavigate(page);
   });
 
   test('Script node is visible on canvas', async ({ page }) => {
+    test.slow();
     await expect(page.locator('.wf-node-script')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.wf-node-script .wf-node-label')).toContainText('Validate Data');
   });

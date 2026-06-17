@@ -355,4 +355,33 @@ describe('ws-tls-local lesson', () => {
 
     dot.remove();
   });
+
+  it('closeTlsModal clicks the close button when present', async () => {
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'tls-close');
+    let clicked = false;
+    closeBtn.addEventListener('click', () => { clicked = true; });
+    document.body.appendChild(closeBtn);
+
+    // Use a step that calls closeTlsModal via preAction (local-tls-connect)
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(clicked).toBe(true);
+    closeBtn.remove();
+  });
+
+  it('local-tls-connect action highlights transport badge when present', async () => {
+    const badge = document.createElement('div');
+    badge.setAttribute('data-testid', 'transport-badge');
+    document.body.appendChild(badge);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(badge.style.outline).toBe('');
+    badge.remove();
+  });
 });

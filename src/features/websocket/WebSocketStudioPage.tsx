@@ -82,14 +82,30 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
   const templatesHook = useWebSocketTemplates();
   const historyHook = useWebSocketHistory();
 
+  // Per-tab mock server port assignment.
+  // Each tab gets a unique port (9876, 9877, …) so their mock servers are isolated.
+  const mockPorts = useRef<Record<string, number>>({});
+
+  /** Returns the set of ports currently assigned to any tab. */
+  const usedPorts = useCallback(() => new Set(Object.values(mockPorts.current)), []);
+
+  /** Finds the lowest port >= 9876 not already assigned to a tab. */
+  const assignNextPort = useCallback((): number => {
+    const used = usedPorts();
+    let p = 9876;
+    while (used.has(p)) p++;
+    return p;
+  }, [usedPorts]);
+
   // ── Load persisted tab state on mount ──────────────────────────────
 
   const createDefaultTab = useCallback(() => {
     const id = generateTabId();
+    mockPorts.current[id] = assignNextPort();
     setTabs([{ id, label: 'New Connection' }]);
     setActiveTabId(id);
     setConnectionStates({ [id]: 'disconnected' });
-  }, []);
+  }, [assignNextPort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +126,8 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
         const iUrls: Record<string, string> = {};
         const iDrafts: Record<string, Partial<WsConnectionDraft>> = {};
         const locs: Record<string, WsStudioLocation> = {};
+        // Assign mock ports sequentially, restoring any that were persisted.
+        const assignedPorts = new Set<number>();
         for (const t of state.tabs) {
           connStates[t.id] = 'disconnected';
           urls[t.id] = t.url;
@@ -128,6 +146,16 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
             leftTab: t.leftTab ?? derived.leftTab,
             rightTab: t.rightTab ?? derived.rightTab,
           };
+          // Restore persisted mockPort or assign a fresh one.
+          if (t.mockPort && !assignedPorts.has(t.mockPort)) {
+            mockPorts.current[t.id] = t.mockPort;
+            assignedPorts.add(t.mockPort);
+          } else {
+            let p = 9876;
+            while (assignedPorts.has(p)) p++;
+            mockPorts.current[t.id] = p;
+            assignedPorts.add(p);
+          }
         }
         tabUrls.current = urls;
         tabViewTabs.current = views;
@@ -213,6 +241,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
           mode,
           leftTab,
           rightTab,
+          mockPort: mockPorts.current[t.id],
           ...readTabDraftFields(t.id),
         };
       }),
@@ -257,10 +286,11 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
       return [...prev, { id, label: 'New Connection' }];
     });
     if (!added) return;
+    mockPorts.current[id] = assignNextPort();
     setActiveTabId(id);
     setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
     debouncedSave();
-  }, [debouncedSave]);
+  }, [debouncedSave, assignNextPort]);
 
   const handleAddTabWithUrl = useCallback(
     (url: string, protocol?: WsProtocolMode) => {
@@ -273,6 +303,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
         return [...prev, { id, label, url }];
       });
       if (!added) return;
+      mockPorts.current[id] = assignNextPort();
       setActiveTabId(id);
       setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
       tabUrls.current[id] = url;
@@ -280,7 +311,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
       if (protocol) initialProtocolsRef.current[id] = protocol;
       debouncedSave();
     },
-    [debouncedSave],
+    [debouncedSave, assignNextPort],
   );
 
   const doCloseTab = useCallback(
@@ -310,6 +341,16 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
       delete initialUrlsRef.current[id];
       delete initialProtocolsRef.current[id];
       delete initialDraftsRef.current[id];
+      // Release this tab's mock server port (fire-and-forget stop call).
+      const closedPort = mockPorts.current[id];
+      if (closedPort !== undefined) {
+        delete mockPorts.current[id];
+        void fetch('/api/ws/mock/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ port: closedPort }),
+        }).catch(() => { /* ignore if server wasn't running */ });
+      }
       setStudioLoc((prev) => {
         if (!(id in prev)) return prev;
         const next = { ...prev };
@@ -398,6 +439,29 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
     debouncedSave();
   }, [debouncedSave]);
 
+  const handleMockPortChange = useCallback(
+    (tabId: string, newPort: number) => {
+      // Reject if the port is already assigned to a different tab.
+      const currentPort = mockPorts.current[tabId];
+      const otherPorts = new Set(
+        Object.entries(mockPorts.current)
+          .filter(([id]) => id !== tabId)
+          .map(([, p]) => p),
+      );
+      if (otherPorts.has(newPort)) return; // port conflict — silently ignore
+      mockPorts.current[tabId] = newPort;
+      // If the old port had a running server, it's now orphaned on the old port.
+      // We do NOT auto-stop it — the user may want it still running.
+      // The tab close handler will stop newPort when the tab is eventually closed.
+      if (currentPort !== undefined && currentPort !== newPort) {
+        // Clean up the old port assignment so it can be reused by future tabs.
+        // The server itself keeps running until the user stops it or closes the tab.
+      }
+      debouncedSave();
+    },
+    [debouncedSave],
+  );
+
   const handleModeChange = useCallback(
     (tabId: string, mode: WsStudioLocation['mode']) => {
       setStudioLoc((prev) => {
@@ -464,6 +528,8 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
               globalAuthProfiles={globalAuthProfiles}
               profilesHook={profilesHook}
               templatesHook={templatesHook}
+              mockPort={mockPorts.current[tab.id] ?? 9876}
+              onMockPortChange={handleMockPortChange}
               onConnectionStateChange={handleConnectionStateChange}
               onUrlChange={handleUrlChange}
               onDraftChange={handleDraftChange}

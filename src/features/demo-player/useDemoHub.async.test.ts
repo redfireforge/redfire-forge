@@ -6,6 +6,15 @@ import { renderHook, act } from '@testing-library/react';
 import { useDemoHub } from './useDemoHub';
 import type { DemoLesson } from './types';
 
+/** jsdom has no layout engine — getBoundingClientRect always returns zero.
+ *  firstVisible skips zero-rect elements. Call makeVisible so they are found. */
+function makeVisible(el: Element): void {
+  (el as HTMLElement).getBoundingClientRect = () => ({
+    width: 100, height: 20, top: 0, left: 0,
+    right: 100, bottom: 20, x: 0, y: 0, toJSON: () => '{}',
+  } as DOMRect);
+}
+
 function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
   return {
     id: 'lesson-1',
@@ -310,6 +319,7 @@ describe('useDemoHub (async execution)', () => {
     const btn = document.createElement('button');
     btn.className = 'ctx-btn';
     btn.setAttribute('data-testid', 'ctx-btn');
+    makeVisible(btn);
     const clickSpy = vi.spyOn(btn, 'click');
     document.body.appendChild(btn);
 
@@ -338,6 +348,7 @@ describe('useDemoHub (async execution)', () => {
   it('buildContext fill sets input value', async () => {
     const input = document.createElement('input');
     input.className = 'ctx-input';
+    makeVisible(input);
     document.body.appendChild(input);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
@@ -364,6 +375,7 @@ describe('useDemoHub (async execution)', () => {
   it('buildContext fill sets textarea value', async () => {
     const textarea = document.createElement('textarea');
     textarea.className = 'ctx-textarea';
+    makeVisible(textarea);
     document.body.appendChild(textarea);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
@@ -397,6 +409,7 @@ describe('useDemoHub (async execution)', () => {
     opt2.value = 'b';
     opt2.text = 'Option B';
     select.append(opt1, opt2);
+    makeVisible(select);
     document.body.appendChild(select);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
@@ -475,6 +488,7 @@ describe('useDemoHub (async execution)', () => {
   it('buildQuietContext click works without ripple', async () => {
     const btn = document.createElement('button');
     btn.className = 'quiet-btn';
+    makeVisible(btn);
     const clickSpy = vi.spyOn(btn, 'click');
     document.body.appendChild(btn);
 
@@ -502,6 +516,7 @@ describe('useDemoHub (async execution)', () => {
   it('buildQuietContext fill works on input', async () => {
     const input = document.createElement('input');
     input.className = 'quiet-input';
+    makeVisible(input);
     document.body.appendChild(input);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
@@ -530,6 +545,7 @@ describe('useDemoHub (async execution)', () => {
     const opt = document.createElement('option');
     opt.value = 'x';
     select.appendChild(opt);
+    makeVisible(select);
     document.body.appendChild(select);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));

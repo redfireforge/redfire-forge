@@ -268,3 +268,41 @@ export class WebSocketMockService {
 }
 
 export const wsMockService = new WebSocketMockService();
+
+/** Manages a pool of independent mock servers, one per port.
+ *  Each WebSocket tab gets its own port (9876, 9877, …) so tabs are fully isolated. */
+export class WebSocketMockPool {
+  private pool = new Map<number, WebSocketMockService>();
+
+  /** Returns the service for `port`, creating one if it doesn't exist yet. */
+  getOrCreate(port: number): WebSocketMockService {
+    let svc = this.pool.get(port);
+    if (!svc) {
+      svc = new WebSocketMockService();
+      this.pool.set(port, svc);
+    }
+    return svc;
+  }
+
+  /** Returns the service for `port` if it exists, otherwise undefined. */
+  get(port: number): WebSocketMockService | undefined {
+    return this.pool.get(port);
+  }
+
+  /** Stops and removes the service for `port`. */
+  release(port: number): void {
+    const svc = this.pool.get(port);
+    if (svc) {
+      svc.stop();
+      this.pool.delete(port);
+    }
+  }
+
+  /** Stops all running servers (e.g. on process exit). */
+  stopAll(): void {
+    for (const svc of this.pool.values()) svc.stop();
+    this.pool.clear();
+  }
+}
+
+export const wsMockPool = new WebSocketMockPool();
