@@ -175,7 +175,7 @@ describe('ws-graphql lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step gql-compose action calls ctx.delay (observation pause)', async () => {
@@ -208,7 +208,7 @@ describe('ws-graphql lesson', () => {
     dot.className = 'ws-status-dot connected';
     document.body.appendChild(dot);
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('countdown'),
@@ -224,7 +224,7 @@ describe('ws-graphql lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
     // Then should navigate to compose and fill the query
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('countdown'));
   });
 

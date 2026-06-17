@@ -21,9 +21,11 @@ import {
   kafkaSetup,
   kafkaPublishSetup,
   kafkaCleanup,
+  kafkaQuickStartCleanup,
   kafkaTopicsSetup,
+  kafkaSchemaSetup,
 } from './setup-helpers';
-import { makeCtx } from './protocols/ws-test-utils';
+import { makeCtx, makeVisible } from './protocols/ws-test-utils';
 
 describe('setup-helpers', () => {
   let ctx: DemoActionContext;
@@ -79,12 +81,34 @@ describe('setup-helpers', () => {
   });
 
   it('stopMockServer clicks btn when present and not disabled', async () => {
-    const btn = document.createElement('button');
-    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
-    const clickSpy = vi.spyOn(btn, 'click');
+    // stopMockServer is gated behind _demoStartedMock.
+    // To set it true: call startMockServer with start btn visible and stop btn NOT yet
+    // visible. After 150ms (during the polling loop) make stop btn visible so
+    // startMockServer resolves quickly → _demoStartedMock=true.
+    const startBtn = document.createElement('button');
+    startBtn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(startBtn);
+    makeVisible(startBtn);
+
+    const stopBtn = document.createElement('button');
+    stopBtn.setAttribute('data-testid', 'mock-stop-btn');
+    document.body.appendChild(stopBtn);
+    // Initially NOT visible so startMockServer doesn't short-circuit to "already running"
+
+    // Make the stop button visible after 150ms so the polling loop in startMockServer
+    // finds it → resolves successfully → _demoStartedMock = true
+    const timer = setTimeout(() => makeVisible(stopBtn), 150);
+
+    await startMockServer(ctx);
+    clearTimeout(timer);
+
+    // Now _demoStartedMock is true; stopMockServer should click the stop button
+    const clickSpy = vi.spyOn(stopBtn, 'click');
     await stopMockServer(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    vi.restoreAllMocks();
+
+    startBtn.remove();
+    stopBtn.remove();
   });
 
   // ─── switchToClientMode ───────────────────────────────────────
@@ -104,12 +128,14 @@ describe('setup-helpers', () => {
 
   it('disconnectWebSocket clicks btn when present and not disabled', async () => {
     const btn = document.createElement('button');
-    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    btn.setAttribute('data-testid', 'disconnect-btn');
+    document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.spyOn(btn, 'click');
     await disconnectWebSocket(ctx);
     expect(clickSpy).toHaveBeenCalled();
     expect(ctx.delay).toHaveBeenCalled();
-    vi.restoreAllMocks();
+    btn.remove();
   });
 
   it('disconnectWebSocket does not click disabled btn', async () => {
@@ -131,11 +157,13 @@ describe('setup-helpers', () => {
 
   it('clearEvents clicks btn when present and not disabled', async () => {
     const btn = document.createElement('button');
-    vi.spyOn(document, 'querySelector').mockReturnValue(btn as Element);
+    btn.setAttribute('data-testid', 'clear-btn');
+    document.body.appendChild(btn);
+    makeVisible(btn);
     const clickSpy = vi.spyOn(btn, 'click');
     await clearEvents(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    vi.restoreAllMocks();
+    btn.remove();
   });
 
   // ─── resetAuth ───────────────────────────────────────────────
@@ -327,7 +355,7 @@ describe('setup-helpers', () => {
     nameInput.id = 'kafka-cluster-name';
 
     const saveBtn = document.createElement('button');
-    saveBtn.setAttribute('data-testid', 'kafka-save-btn');
+    saveBtn.setAttribute('data-testid', 'kafka-save-cluster-btn');
 
     const connectBtn = document.createElement('button');
     connectBtn.setAttribute('data-testid', 'kafka-connect-btn');
@@ -360,6 +388,52 @@ describe('setup-helpers', () => {
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
+  // ─── kafkaQuickStartCleanup ───────────────────────────────────────
+
+  it('kafkaQuickStartCleanup navigates to kafka-settings', async () => {
+    document.body.innerHTML = '';
+    await kafkaQuickStartCleanup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('kafkaQuickStartCleanup is a no-op when no cluster cards exist', async () => {
+    document.body.innerHTML = '';
+    await kafkaQuickStartCleanup(ctx);
+    // No clicks should happen — nothing to delete
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('kafkaQuickStartCleanup clicks cluster card, delete btn, and confirm btn when all present', async () => {
+    document.body.innerHTML = '';
+
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
+    document.body.appendChild(card);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
+    document.body.appendChild(deleteBtn);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
+    document.body.appendChild(confirmBtn);
+
+    await kafkaQuickStartCleanup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('kafkaQuickStartCleanup exits early when delete btn is not found after card click', async () => {
+    document.body.innerHTML = '';
+
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
+    document.body.appendChild(card);
+    // No delete button — should exit gracefully
+
+    await expect(kafkaQuickStartCleanup(ctx)).resolves.not.toThrow();
+  });
+
   // ─── kafkaTopicsSetup ─────────────────────────────────────────────
 
   it('kafkaTopicsSetup navigates to kafka-message-studio and clicks topics tab', async () => {
@@ -367,5 +441,70 @@ describe('setup-helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
     expect(ctx.click).toHaveBeenCalled();
     expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  // ─── kafkaSchemaSetup ─────────────────────────────────────────────
+
+  it('kafkaSchemaSetup navigates to kafka-message-studio and clicks schema tab', async () => {
+    await kafkaSchemaSetup(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
+    expect(ctx.click).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  // ─── startMockServer — already-running fast path ────────────────
+
+  it('startMockServer returns early when MOCK_STOP_BTN is already visible', async () => {
+    const stopBtn = document.createElement('button');
+    stopBtn.setAttribute('data-testid', 'mock-stop-btn');
+    makeVisible(stopBtn);
+    document.body.appendChild(stopBtn);
+
+    const clickSpy = vi.spyOn(ctx, 'click');
+    await startMockServer(ctx);
+
+    // Should still navigate to mock mode but return early without clicking start
+    expect(clickSpy).toHaveBeenCalledWith(expect.stringContaining('mock'));
+    stopBtn.remove();
+  });
+
+  it('startMockServer returns when server starts successfully after clicking start', async () => {
+    const startBtn = document.createElement('button');
+    startBtn.setAttribute('data-testid', 'mock-start-btn');
+    makeVisible(startBtn);
+    document.body.appendChild(startBtn);
+
+    // Simulate server starting: add stop btn after a short delay
+    const stopBtn = document.createElement('button');
+    stopBtn.setAttribute('data-testid', 'mock-stop-btn');
+    setTimeout(() => {
+      makeVisible(stopBtn);
+      document.body.appendChild(stopBtn);
+    }, 50);
+
+    await startMockServer(ctx);
+
+    stopBtn.remove();
+    startBtn.remove();
+  });
+
+  // ─── closeExtraConnectionTabs — no-closeBtn branch ──────────────
+
+  it('closeExtraConnectionTabs breaks when close btn is missing for a tab', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    const tab1 = document.createElement('div');
+    tab1.setAttribute('role', 'tab');
+    tab1.setAttribute('data-testid', 'conn-tab-1');
+    const tab2 = document.createElement('div');
+    tab2.setAttribute('role', 'tab');
+    tab2.setAttribute('data-testid', 'conn-tab-2');
+    bar.append(tab1, tab2);
+    document.body.appendChild(bar);
+
+    // No close button for tab2 — should break without crash
+    await closeExtraConnectionTabs(ctx, 5);
+
+    bar.remove();
   });
 });

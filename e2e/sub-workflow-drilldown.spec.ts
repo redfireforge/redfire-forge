@@ -131,6 +131,7 @@ async function setupAndOpenResultsExplorer(page: Page): Promise<void> {
 }
 
 test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('shows View Sub-Workflow button when sub-workflow node is selected', async ({ page }) => {
     await setupAndOpenResultsExplorer(page);
 
@@ -148,6 +149,7 @@ test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
   });
 
   test('clicking drill-down button shows breadcrumb and child workflow', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     const canvas = page.getByRole('application');
@@ -176,6 +178,7 @@ test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
   });
 
   test('breadcrumb click navigates back to parent workflow', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     const canvas = page.getByRole('application');

@@ -7,7 +7,7 @@ import { encodeStompFrame } from '../../shared/websocket/protocols/stompCodec';
 import { encodeGqlWsSubscribe } from '../../shared/websocket/protocols/graphqlWsCodec';
 import { useDropdownClose } from './useDropdownClose';
 
-export interface UseWebSocketComposeOptions {
+export interface UseWebSocketSendOptions {
   isConnected: boolean;
   effectiveProtocol?: Exclude<WsProtocolMode, 'auto'>;
   onSend: (data: string, format?: WsMessageFormat) => void;
@@ -21,7 +21,7 @@ export interface UseWebSocketComposeOptions {
   maxMessages: number;
 }
 
-export interface UseWebSocketComposeReturn {
+export interface UseWebSocketSendReturn {
   composeBar: React.ReactNode;
   composeText: string;
   composeFormat: WsMessageFormat;
@@ -29,7 +29,7 @@ export interface UseWebSocketComposeReturn {
   isBase64Invalid: boolean;
 }
 
-export function useWebSocketCompose({
+export function useWebSocketSend({
   isConnected,
   effectiveProtocol,
   onSend,
@@ -41,7 +41,7 @@ export function useWebSocketCompose({
   transportMode,
   totalCount,
   maxMessages,
-}: UseWebSocketComposeOptions): UseWebSocketComposeReturn {
+}: UseWebSocketSendOptions): UseWebSocketSendReturn {
   const [composeText, setComposeText] = useState('');
   const [composeFormat, setComposeFormat] = useState<WsMessageFormat>('text');
   const [sioEventName, setSioEventName] = useState('');
@@ -192,26 +192,40 @@ export function useWebSocketCompose({
     <div className="ws-compose-bar">
       {isSioMode && (
         <div className="ws-sio-compose-fields" data-testid="sio-compose-fields">
-          <input
-            className="ws-sio-event-input"
-            type="text"
-            value={sioEventName}
-            onChange={(e) => setSioEventName(e.target.value)}
-            placeholder="Event name"
-            disabled={!isConnected}
-            aria-label="Socket.IO event name"
-            data-testid="sio-event-name"
-          />
-          <input
-            className="ws-sio-namespace-input"
-            type="text"
-            value={sioNamespace}
-            onChange={(e) => setSioNamespace(e.target.value)}
-            placeholder="Namespace (/)"
-            disabled={!isConnected}
-            aria-label="Socket.IO namespace"
-            data-testid="sio-namespace"
-          />
+          <div className="ws-sio-field-group">
+            <label className="ws-sio-field-label" htmlFor="sio-event-name-input">
+              Event Name
+              <span className="ws-sio-field-hint">e.g. message, chat, ping</span>
+            </label>
+            <input
+              id="sio-event-name-input"
+              className="ws-sio-event-input"
+              type="text"
+              value={sioEventName}
+              onChange={(e) => setSioEventName(e.target.value)}
+              placeholder="message"
+              disabled={!isConnected}
+              aria-label="Socket.IO event name"
+              data-testid="sio-event-name"
+            />
+          </div>
+          <div className="ws-sio-field-group ws-sio-field-group--narrow">
+            <label className="ws-sio-field-label" htmlFor="sio-namespace-input">
+              Namespace
+              <span className="ws-sio-field-hint">/ = root channel</span>
+            </label>
+            <input
+              id="sio-namespace-input"
+              className="ws-sio-namespace-input"
+              type="text"
+              value={sioNamespace}
+              onChange={(e) => setSioNamespace(e.target.value)}
+              placeholder="/"
+              disabled={!isConnected}
+              aria-label="Socket.IO namespace"
+              data-testid="sio-namespace"
+            />
+          </div>
         </div>
       )}
       {isStompMode && (
@@ -319,7 +333,7 @@ export function useWebSocketCompose({
                     : 'Type a message\u2026'
           }
           disabled={!isConnected}
-          rows={2}
+          rows={6}
           aria-label="Message input"
         />
         {isBase64InvalidVal && (

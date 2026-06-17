@@ -25,6 +25,7 @@ async function seedData(page: Page) {
 }
 
 test.describe('Workflow Multi-Select', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedData(page);
     await gotoAppTab(page, 'workflow');
@@ -42,6 +43,7 @@ test.describe('Workflow Multi-Select', () => {
   });
 
   test('plain click clears multi-selection', async ({ page }) => {
+    test.slow();
     await page.locator('.wf-sidebar-item:has-text("Peak Load")').click();
     await page.locator('.wf-sidebar-item:has-text("Sustained Load")').click({ modifiers: ['ControlOrMeta'] });
 

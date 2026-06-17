@@ -743,12 +743,33 @@ export function useWebSocketStudio(
             appendMessage(frame);
             setSentCount((c) => c + 1);
           })
-          .catch((err) => {
+          .catch(async (err) => {
             if (!mountedRef.current) return;
-            setConnection((prev) => ({
-              ...prev,
-              lastError: `Send failed: ${toErrorMessage(err)}`,
-            }));
+            const msg = toErrorMessage(err);
+            // If the error indicates the connection is already gone, verify its current state
+            // and properly tear it down so the UI reflects reality (prevents silent "nothing happened").
+            if (msg.includes('WS_NOT_CONNECTED') || msg.includes('not found') || msg.includes('not open')) {
+              try {
+                const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
+                  'status',
+                  { connectionId: connId },
+                );
+                if (!mountedRef.current) return;
+                if (!statusEnv.data || statusEnv.data.state !== 'connected') {
+                  failProxyConnection({
+                    state: statusEnv.data?.state === 'error' ? 'error' : 'disconnected',
+                    lastError: statusEnv.data?.lastError ?? `Send failed: ${msg}`,
+                  });
+                  return;
+                }
+              } catch { /* status check also failed — treat as disconnected */ }
+              failProxyConnection({ state: 'error', lastError: `Send failed: ${msg}` });
+            } else {
+              setConnection((prev) => ({
+                ...prev,
+                lastError: `Send failed: ${msg}`,
+              }));
+            }
           });
       } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         if (isBinary) {
@@ -770,7 +791,7 @@ export function useWebSocketStudio(
         setSentCount((c) => c + 1);
       }
     },
-    [appendMessage],
+    [appendMessage, failProxyConnection],
   );
 
   const sendPing = useCallback(() => {

@@ -133,7 +133,7 @@ describe('ws-stomp lesson', () => {
     // Shows Events after WS connects
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
     // Navigates to Compose to send STOMP CONNECT frame
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     // Selects CONNECT command
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('stomp-command'),
@@ -198,7 +198,7 @@ describe('ws-stomp lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('stomp-command'),
       'SUBSCRIBE',
@@ -239,7 +239,7 @@ describe('ws-stomp lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.selectOption).toHaveBeenCalledWith(
       expect.stringContaining('stomp-command'),
       'SEND',

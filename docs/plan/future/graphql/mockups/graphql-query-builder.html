@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL Studio — Visual Query Builder</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e1e2e; color: #cdd6f4; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top Bar */
+.top-bar { display: flex; align-items: center; padding: 8px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.top-bar .tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; cursor: pointer; background: #1e1e2e; color: #6c7086; }
+.top-bar .tab.active { background: #313244; color: #cdd6f4; }
+.btn { padding: 7px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.btn-primary { background: #89b4fa; color: #1e1e2e; }
+.btn-secondary { background: #313244; color: #cdd6f4; border: 1px solid #45475a; }
+
+/* Builder Toolbar */
+.builder-toolbar { display: flex; align-items: center; padding: 8px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.builder-toolbar .title { font-size: 13px; font-weight: 600; color: #cdd6f4; }
+.op-type-switcher { display: flex; border: 1px solid #45475a; border-radius: 6px; overflow: hidden; }
+.op-type-btn { padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; background: #313244; color: #6c7086; border: none; }
+.op-type-btn.active.query { background: #89b4fa22; color: #89b4fa; }
+.op-type-btn.active.mutation { background: #f38ba822; color: #f38ba8; }
+.op-type-btn.active.subscription { background: #a6e3a122; color: #a6e3a1; }
+.op-name-input { padding: 5px 10px; border-radius: 6px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 12px; font-family: 'JetBrains Mono', monospace; width: 200px; }
+.op-name-input:focus { outline: none; border-color: #89b4fa; }
+.schema-badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; background: #45475a; color: #a6adc8; }
+
+/* Main Layout */
+.main-content { display: flex; flex: 1; overflow: hidden; }
+
+/* Left: Field Selector Tree */
+.field-selector { width: 340px; border-right: 1px solid #313244; display: flex; flex-direction: column; background: #181825; }
+.selector-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; justify-content: space-between; }
+.selector-header h3 { font-size: 12px; font-weight: 600; color: #89b4fa; text-transform: uppercase; letter-spacing: 0.5px; }
+.selector-search { margin: 8px; padding: 6px 10px; border-radius: 4px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 12px; width: calc(100% - 16px); }
+.selector-search:focus { outline: none; border-color: #89b4fa; }
+
+/* Breadcrumb path */
+.type-path { padding: 4px 12px 8px; display: flex; align-items: center; gap: 4px; font-size: 10px; color: #6c7086; border-bottom: 1px solid #313244; flex-wrap: wrap; }
+.type-path .crumb { cursor: pointer; color: #89b4fa; }
+.type-path .crumb:hover { text-decoration: underline; }
+.type-path .sep { color: #45475a; }
+.type-path .current { color: #cdd6f4; font-weight: 500; }
+
+.field-tree { flex: 1; overflow-y: auto; }
+.field-row { padding: 0 8px 0 0; }
+.field-item { display: flex; align-items: flex-start; gap: 6px; padding: 5px 8px 5px 12px; cursor: pointer; border-radius: 4px; }
+.field-item:hover { background: #313244; }
+.field-item.checked { background: #89b4fa11; }
+
+/* Checkbox */
+.field-check { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #45475a; background: transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.field-check.checked { background: #89b4fa; border-color: #89b4fa; }
+.field-check.partial { background: #89b4fa44; border-color: #89b4fa; }
+.field-check .tick { color: #1e1e2e; font-size: 9px; font-weight: 700; }
+
+.field-info { flex: 1; min-width: 0; }
+.field-name-row { display: flex; align-items: center; gap: 6px; }
+.field-label { font-size: 12px; font-weight: 500; color: #cdd6f4; font-family: 'JetBrains Mono', monospace; }
+.field-type-tag { font-size: 10px; color: #89b4fa; font-family: monospace; }
+.field-desc-text { font-size: 10px; color: #6c7086; margin-top: 1px; line-height: 1.3; }
+.field-item.deprecated .field-label { text-decoration: line-through; color: #6c7086; }
+.deprecated-tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; background: #f38ba822; color: #f38ba8; }
+
+/* Expand arrow for object types */
+.expand-arrow { color: #6c7086; font-size: 10px; flex-shrink: 0; margin-top: 2px; cursor: pointer; width: 12px; }
+.expand-arrow.open { transform: rotate(90deg); }
+
+/* Nested fields */
+.field-children { padding-left: 20px; border-left: 1px solid #313244; margin-left: 19px; }
+
+/* Arg inline editor */
+.arg-row { padding: 4px 8px 4px 32px; display: flex; align-items: center; gap: 6px; }
+.arg-label { font-size: 10px; color: #f9e2af; font-family: monospace; }
+.arg-input { padding: 3px 6px; border-radius: 3px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 11px; font-family: monospace; width: 120px; }
+.arg-input:focus { outline: none; border-color: #89b4fa; }
+.arg-type-hint { font-size: 10px; color: #6c7086; }
+.arg-var-btn { padding: 2px 5px; border-radius: 3px; border: 1px solid #45475a; background: #313244; color: #fab387; font-size: 9px; cursor: pointer; }
+.arg-var-btn:hover { background: #45475a; }
+
+.section-divider { padding: 6px 12px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c7086; letter-spacing: 0.8px; margin-top: 4px; border-top: 1px solid #313244; }
+
+/* Center: Generated Query Preview */
+.query-preview { flex: 1; display: flex; flex-direction: column; }
+.preview-header { padding: 10px 12px; background: #181825; border-bottom: 1px solid #313244; display: flex; align-items: center; gap: 8px; }
+.preview-header h3 { font-size: 12px; font-weight: 600; color: #cba6f7; }
+.preview-badge { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 700; background: #89b4fa33; color: #89b4fa; }
+.preview-actions { margin-left: auto; display: flex; gap: 6px; }
+
+.code-editor { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; overflow: auto; background: #1e1e2e; }
+.code-line { display: flex; }
+.ln { width: 32px; text-align: right; color: #45475a; margin-right: 16px; user-select: none; }
+.kw { color: #cba6f7; }
+.tn { color: #89b4fa; }
+.fn { color: #cdd6f4; }
+.an { color: #f9e2af; }
+.sv { color: #a6e3a1; }
+.vr { color: #fab387; }
+.cm { color: #6c7086; font-style: italic; }
+.pu { color: #6c7086; }
+.dr { color: #f38ba8; }
+
+/* Variables section at bottom of preview */
+.vars-section { border-top: 1px solid #313244; height: 140px; display: flex; flex-direction: column; background: #181825; }
+.vars-header { padding: 6px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #313244; }
+.vars-header span { font-size: 11px; color: #f9e2af; font-weight: 600; }
+.vars-body { flex: 1; padding: 10px 16px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #1e1e2e; }
+
+/* Right: Fragment/Directive/Alias Panel */
+.options-panel { width: 280px; border-left: 1px solid #313244; display: flex; flex-direction: column; background: #181825; overflow-y: auto; }
+.options-section { padding: 12px; border-bottom: 1px solid #313244; }
+.options-section h4 { font-size: 11px; font-weight: 600; color: #f9e2af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 11px; }
+.opt-label { color: #a6adc8; }
+.opt-value { color: #cdd6f4; font-family: monospace; font-size: 10px; }
+.opt-input { padding: 3px 6px; border-radius: 3px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 11px; font-family: monospace; width: 120px; }
+.opt-input:focus { outline: none; border-color: #89b4fa; }
+.toggle { width: 28px; height: 15px; border-radius: 8px; background: #45475a; position: relative; cursor: pointer; }
+.toggle.on { background: #89b4fa; }
+.toggle::after { content: ''; position: absolute; width: 11px; height: 11px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
+.toggle.on::after { left: 15px; }
+
+.fragment-item { padding: 6px 8px; border-radius: 4px; background: #1e1e2e; margin-bottom: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.fragment-item:hover { background: #313244; }
+.fragment-name { font-size: 11px; color: #94e2d5; font-family: monospace; }
+.fragment-on { font-size: 10px; color: #6c7086; }
+.fragment-use { font-size: 10px; padding: 1px 5px; border-radius: 3px; border: 1px solid #45475a; background: transparent; color: #89b4fa; cursor: pointer; margin-left: auto; }
+.fragment-use:hover { background: #89b4fa22; }
+
+.selected-fields-summary { padding: 8px; background: #1e1e2e; border-radius: 4px; font-size: 10px; }
+.summary-row { display: flex; justify-content: space-between; padding: 2px 0; color: #a6adc8; }
+.summary-row .count { color: #cdd6f4; font-weight: 600; }
+
+/* Status Bar */
+.status-bar { display: flex; align-items: center; padding: 4px 12px; background: #11111b; border-top: 1px solid #313244; font-size: 11px; color: #6c7086; gap: 16px; }
+.status-bar .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.status-bar .dot.green { background: #a6e3a1; }
+
+/* Keyboard hint */
+.kbd { display: inline-block; padding: 1px 5px; border-radius: 3px; background: #313244; border: 1px solid #45475a; font-size: 10px; color: #a6adc8; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<div class="top-bar">
+  <div style="display: flex; gap: 2px;">
+    <div class="tab">WebSocket</div>
+    <div class="tab">Kafka</div>
+    <div class="tab">SSE</div>
+    <div class="tab active">GraphQL</div>
+  </div>
+  <div style="margin-left: 20px; display: flex; gap: 2px;">
+    <div class="tab">Editor</div>
+    <div class="tab active" style="background: #313244; color: #cdd6f4;">Builder</div>
+    <div class="tab">Test Runner</div>
+    <div class="tab">Schema</div>
+  </div>
+  <div style="margin-left: auto; font-size: 11px; color: #6c7086;">RedfireForge v0.8.x</div>
+</div>
+
+<!-- Builder Toolbar -->
+<div class="builder-toolbar">
+  <span class="title">Query Builder</span>
+  <div class="op-type-switcher">
+    <button class="op-type-btn active query">query</button>
+    <button class="op-type-btn">mutation</button>
+    <button class="op-type-btn">subscription</button>
+  </div>
+  <input class="op-name-input" value="GetUserProfile" placeholder="Operation name..." />
+  <span class="schema-badge">Schema: E-Commerce API (156 fields)</span>
+  <div style="margin-left: auto; display: flex; gap: 6px;">
+    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;">Copy SDL</button>
+    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;">Edit in Editor</button>
+    <button class="btn btn-primary" style="padding: 5px 12px; font-size: 11px;">▶ Execute</button>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+
+  <!-- Left: Field Selector Tree -->
+  <div class="field-selector">
+    <div class="selector-header">
+      <h3>Fields</h3>
+      <span style="font-size: 10px; color: #6c7086;"><span class="kbd">⌘K</span> to search</span>
+    </div>
+    <input class="selector-search" placeholder="Search fields, types..." />
+
+    <!-- Breadcrumb -->
+    <div class="type-path">
+      <span class="crumb">Query</span>
+      <span class="sep">›</span>
+      <span class="crumb">user</span>
+      <span class="sep">›</span>
+      <span class="current">User</span>
+    </div>
+
+    <div class="field-tree">
+      <div class="section-divider" style="margin-top: 0; border-top: none;">User — Object Type</div>
+
+      <!-- id field -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check checked"><span class="tick">✓</span></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">id</span>
+              <span class="field-type-tag">ID!</span>
+            </div>
+            <div class="field-desc-text">Global unique identifier</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- email field -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check checked"><span class="tick">✓</span></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">email</span>
+              <span class="field-type-tag">String!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- name field -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check checked"><span class="tick">✓</span></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">name</span>
+              <span class="field-type-tag">String!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- role field -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check checked"><span class="tick">✓</span></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">role</span>
+              <span class="field-type-tag">UserRole!</span>
+              <span class="deprecated-tag" style="background: #cba6f722; color: #cba6f7; font-size: 9px; padding: 1px 4px; border-radius: 2px;">ENUM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- preferences field — expanded with children -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check partial"><span class="tick" style="color: #89b4fa;">−</span></span>
+          <span class="expand-arrow open">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">preferences</span>
+              <span class="field-type-tag">UserPreferences</span>
+            </div>
+            <div class="field-desc-text">User UI and notification preferences</div>
+          </div>
+        </div>
+        <!-- preferences children -->
+        <div class="field-children">
+          <div class="field-item checked">
+            <span class="field-check checked"><span class="tick">✓</span></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">theme</span>
+                <span class="field-type-tag">String!</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-item checked">
+            <span class="field-check checked"><span class="tick">✓</span></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">language</span>
+                <span class="field-type-tag">String!</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-item">
+            <span class="field-check"></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">emailNotifications</span>
+                <span class="field-type-tag">Boolean!</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-item">
+            <span class="field-check"></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">timezone</span>
+                <span class="field-type-tag">String</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- orders field — collapsed, with args -->
+      <div class="field-row">
+        <div class="field-item checked">
+          <span class="field-check partial"><span class="tick" style="color: #89b4fa;">−</span></span>
+          <span class="expand-arrow open">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">orders</span>
+              <span class="field-type-tag">OrderConnection!</span>
+            </div>
+            <div class="field-desc-text">Paginated list of user's orders</div>
+          </div>
+        </div>
+        <!-- Argument inputs for orders(first, after, status) -->
+        <div class="field-children">
+          <div class="arg-row">
+            <span class="arg-label">first:</span>
+            <input class="arg-input" value="10" />
+            <span class="arg-type-hint">Int</span>
+          </div>
+          <div class="arg-row">
+            <span class="arg-label">after:</span>
+            <input class="arg-input" placeholder='null' />
+            <span class="arg-type-hint">String</span>
+            <button class="arg-var-btn">{{var}}</button>
+          </div>
+          <div class="arg-row">
+            <span class="arg-label">status:</span>
+            <select style="padding: 3px 6px; border-radius: 3px; border: 1px solid #45475a; background: #313244; color: #cdd6f4; font-size: 11px;">
+              <option>(any)</option>
+              <option>PLACED</option>
+              <option>SHIPPED</option>
+              <option>DELIVERED</option>
+            </select>
+          </div>
+          <!-- orders sub-fields -->
+          <div class="field-item checked" style="padding-left: 8px;">
+            <span class="field-check checked"><span class="tick">✓</span></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">nodes</span>
+                <span class="field-type-tag">[Order!]!</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-item" style="padding-left: 8px;">
+            <span class="field-check"></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">pageInfo</span>
+                <span class="field-type-tag">PageInfo!</span>
+              </div>
+            </div>
+          </div>
+          <div class="field-item" style="padding-left: 8px;">
+            <span class="field-check"></span>
+            <span class="expand-arrow" style="color: transparent;">›</span>
+            <div class="field-info">
+              <div class="field-name-row">
+                <span class="field-label">totalCount</span>
+                <span class="field-type-tag">Int!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- avatar field -->
+      <div class="field-row">
+        <div class="field-item">
+          <span class="field-check"></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">avatarUrl</span>
+              <span class="field-type-tag">String</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- createdAt field -->
+      <div class="field-row">
+        <div class="field-item">
+          <span class="field-check"></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">createdAt</span>
+              <span class="field-type-tag">DateTime!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- legacyId — deprecated -->
+      <div class="field-row">
+        <div class="field-item deprecated">
+          <span class="field-check"></span>
+          <span class="expand-arrow" style="color: transparent;">›</span>
+          <div class="field-info">
+            <div class="field-name-row">
+              <span class="field-label">legacyId</span>
+              <span class="field-type-tag">Int</span>
+              <span class="deprecated-tag">@deprecated</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Center: Generated Query -->
+  <div class="query-preview">
+    <div class="preview-header">
+      <h3>Generated Query</h3>
+      <span class="preview-badge">QUERY</span>
+      <span style="font-size: 10px; color: #6c7086; margin-left: 8px;">Updates live as you select fields</span>
+      <div class="preview-actions">
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">⌘⇧F Format</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">Copy</button>
+      </div>
+    </div>
+    <div class="code-editor">
+      <div class="code-line"><span class="ln">1</span><span class="kw">query</span> <span class="tn">GetUserProfile</span>(<span class="vr">$userId</span>: <span class="tn">ID!</span>, <span class="vr">$orderFirst</span>: <span class="tn">Int</span>) <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">2</span>&nbsp;&nbsp;<span class="fn">user</span>(<span class="an">id</span>: <span class="vr">$userId</span>) <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">3</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">id</span></div>
+      <div class="code-line"><span class="ln">4</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">email</span></div>
+      <div class="code-line"><span class="ln">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">name</span></div>
+      <div class="code-line"><span class="ln">6</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">role</span></div>
+      <div class="code-line"><span class="ln">7</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">preferences</span> <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">8</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">theme</span></div>
+      <div class="code-line"><span class="ln">9</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">language</span></div>
+      <div class="code-line"><span class="ln">10</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="pu">}</span></div>
+      <div class="code-line"><span class="ln">11</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">orders</span>(<span class="an">first</span>: <span class="vr">$orderFirst</span>) <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">12</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">nodes</span> <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">13</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">id</span></div>
+      <div class="code-line"><span class="ln">14</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">orderNumber</span></div>
+      <div class="code-line"><span class="ln">15</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">status</span></div>
+      <div class="code-line"><span class="ln">16</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">total</span> <span class="pu">{</span></div>
+      <div class="code-line"><span class="ln">17</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">amount</span></div>
+      <div class="code-line"><span class="ln">18</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">currency</span></div>
+      <div class="code-line"><span class="ln">19</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="pu">}</span></div>
+      <div class="code-line"><span class="ln">20</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="pu">}</span></div>
+      <div class="code-line"><span class="ln">21</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="pu">}</span></div>
+      <div class="code-line"><span class="ln">22</span>&nbsp;&nbsp;<span class="pu">}</span></div>
+      <div class="code-line"><span class="ln">23</span><span class="pu">}</span></div>
+    </div>
+
+    <!-- Variables derived from selections -->
+    <div class="vars-section">
+      <div class="vars-header">
+        <span>Variables</span>
+        <span style="font-size: 10px; color: #6c7086; font-weight: 400;">Auto-generated from arguments</span>
+        <button class="btn btn-secondary" style="padding: 3px 7px; font-size: 10px; margin-left: auto;">Edit</button>
+      </div>
+      <div class="vars-body">
+        <span class="pu">{</span><br/>
+        &nbsp;&nbsp;<span style="color: #89b4fa;">"userId"</span>: <span style="color: #fab387;">"{{currentUserId}}"</span>,<br/>
+        &nbsp;&nbsp;<span style="color: #89b4fa;">"orderFirst"</span>: <span style="color: #fab387;">10</span><br/>
+        <span class="pu">}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Options Panel -->
+  <div class="options-panel">
+
+    <!-- Query stats -->
+    <div class="options-section">
+      <h4>Selection Summary</h4>
+      <div class="selected-fields-summary">
+        <div class="summary-row"><span>Selected fields</span><span class="count">12</span></div>
+        <div class="summary-row"><span>Nested depth</span><span class="count">3</span></div>
+        <div class="summary-row"><span>Arguments</span><span class="count">2</span></div>
+        <div class="summary-row"><span>Variables needed</span><span class="count">2</span></div>
+        <div class="summary-row"><span>Est. complexity</span><span class="count" style="color: #f9e2af;">~40</span></div>
+      </div>
+    </div>
+
+    <!-- Field aliases -->
+    <div class="options-section">
+      <h4>Field Aliases</h4>
+      <div style="font-size: 10px; color: #6c7086; margin-bottom: 8px;">Rename response fields (optional)</div>
+      <div class="opt-row">
+        <span class="opt-label">email →</span>
+        <input class="opt-input" placeholder="alias..." />
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">preferences →</span>
+        <input class="opt-input" value="prefs" />
+      </div>
+    </div>
+
+    <!-- Directives -->
+    <div class="options-section">
+      <h4>Directives</h4>
+      <div class="opt-row">
+        <span class="opt-label"><code style="font-size: 10px;">@include</code></span>
+        <span style="font-size: 10px; color: #6c7086;">on orders</span>
+        <div class="toggle on"></div>
+      </div>
+      <div style="padding: 4px 0 8px; font-size: 10px; color: #6c7086;">
+        <span>if: </span><input class="opt-input" value="{{includeOrders}}" style="width: 140px;" />
+      </div>
+      <div class="opt-row">
+        <span class="opt-label"><code style="font-size: 10px;">@skip</code></span>
+        <div class="toggle"></div>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label"><code style="font-size: 10px;">@defer</code></span>
+        <span style="font-size: 10px; color: #6c7086;">on preferences</span>
+        <div class="toggle"></div>
+      </div>
+    </div>
+
+    <!-- Fragments -->
+    <div class="options-section">
+      <h4>Fragments</h4>
+      <div style="font-size: 10px; color: #6c7086; margin-bottom: 8px;">Reusable field sets</div>
+      <div class="fragment-item">
+        <span style="font-size: 10px; color: #45475a;">frag</span>
+        <span class="fragment-name">UserBasicFields</span>
+        <span class="fragment-on">on User</span>
+        <button class="fragment-use">Use</button>
+      </div>
+      <div class="fragment-item">
+        <span style="font-size: 10px; color: #45475a;">frag</span>
+        <span class="fragment-name">OrderSummary</span>
+        <span class="fragment-on">on Order</span>
+        <button class="fragment-use">Use</button>
+      </div>
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 6px; padding: 4px; font-size: 10px; justify-content: center;">+ New Fragment from Selection</button>
+    </div>
+
+    <!-- Two-step schema search -->
+    <div class="options-section">
+      <h4>Find Field Path</h4>
+      <div style="font-size: 10px; color: #6c7086; margin-bottom: 8px;">Find how to reach any field from root</div>
+      <input class="opt-input" placeholder="Field name..." style="width: 100%; margin-bottom: 6px;" />
+      <div style="padding: 6px 8px; background: #1e1e2e; border-radius: 4px; font-size: 10px;">
+        <div style="color: #6c7086; margin-bottom: 4px;">Paths to <code style="color: #89b4fa;">trackingNumber</code>:</div>
+        <div style="color: #a6adc8; line-height: 1.6;">
+          Query → <span style="color: #89b4fa;">order</span> → <span style="color: #89b4fa;">tracking</span> → <span style="color: #a6e3a1;">trackingNumber</span><br/>
+          Query → <span style="color: #89b4fa;">user</span> → <span style="color: #89b4fa;">orders</span> → nodes → <span style="color: #89b4fa;">tracking</span> → <span style="color: #a6e3a1;">trackingNumber</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span class="dot green"></span>
+  <span>Schema: 42 types • 156 fields</span>
+  <span>12 fields selected • depth 3</span>
+  <span>Est. complexity: ~40</span>
+  <span style="margin-left: auto; color: #a6adc8;">
+    <span class="kbd">⌘K</span> Search &nbsp;
+    <span class="kbd">Space</span> Toggle field &nbsp;
+    <span class="kbd">→</span> Expand type &nbsp;
+    <span class="kbd">⌘↵</span> Execute
+  </span>
+</div>
+
+</body>
+</html>

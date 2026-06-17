@@ -60,7 +60,7 @@ async function connectToStomp(page: Page) {
 }
 
 async function sendStompConnect(page: Page) {
-  await switchLeftTab(page, 'compose');
+  await switchLeftTab(page, 'send');
 
   // Wait for STOMP compose fields to appear
   await expect(page.locator('[data-testid="stomp-compose-fields"]')).toBeVisible({ timeout: 3000 });
@@ -138,7 +138,7 @@ test.describe('STOMP Live (WP-08–11)', () => {
     const queueName = `/queue/e2e-test-${Date.now()}`;
 
     // SUBSCRIBE to the unique queue
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     await page.locator('[data-testid="stomp-command"]').selectOption('SUBSCRIBE');
     await page.waitForTimeout(200);
     await page.locator('[data-testid="stomp-destination"]').fill(queueName);
@@ -180,8 +180,8 @@ test.describe('STOMP Live (WP-08–11)', () => {
     await gotoWsStudio(page);
     await connectToStomp(page);
 
-    // Switch to Compose tab
-    await switchLeftTab(page, 'compose');
+    // Switch to Send tab
+    await switchLeftTab(page, 'send');
 
     // STOMP compose fields should be visible
     await expect(page.locator('[data-testid="stomp-compose-fields"]')).toBeVisible({ timeout: 3000 });

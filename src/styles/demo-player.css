@@ -1,6 +1,10 @@
 /* ============================================================
    Demo Player — Professional spotlight-guided walkthrough UI
-   z-index range: 10100–10150 (between full-panel and theme-dropdown)
+   z-index range: 10300–10350 (above all modals at 10200)
+   Modal z-index reference:
+     10100 — demo sidepanel
+     10200 — ws-tls-overlay and other app modals
+     10300 — demo spotlight ring (must always be on top)
    ============================================================ */
 
 /* ---- Spotlight ---- */
@@ -9,7 +13,7 @@
 
 .demo-spotlight-ring {
   position: fixed;
-  z-index: 10101;
+  z-index: 10301;
   border-radius: var(--radius, 8px);
   box-shadow:
     0 0 0 4px var(--primary, #3b82f6),
@@ -32,7 +36,7 @@
 /* ---- Click Ripple (shows where an action clicked) ---- */
 .demo-click-ripple {
   position: fixed;
-  z-index: 10102;
+  z-index: 10302;
   width: 20px;
   height: 20px;
   margin-top: -10px;

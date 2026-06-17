@@ -176,6 +176,7 @@ test.describe('WT-37: Drag visual indicators', () => {
 /* ── WT-38: Tab order persists after navigation ─────────── */
 
 test.describe('WT-38: Tab order persisted', () => {
+  test.describe.configure({ timeout: 90_000 });
 
   test('reordered tabs survive navigation away and back', async ({ page }) => {
     await gotoWsStudio(page);

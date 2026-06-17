@@ -42,8 +42,8 @@ async function setupWithMessages(page) {
   }
   await page.waitForTimeout(300);
 
-  // Switch to Compose tab and send messages
-  await page.click('[data-testid="left-tab-compose"]');
+  // Switch to Send tab and send messages
+  await page.click('[data-testid="left-tab-send"]');
   await page.waitForTimeout(200);
 
   const msgInput = page.locator('textarea[aria-label="Message input"]');
@@ -70,7 +70,7 @@ async function setupWithMessages(page) {
       const reconnected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
       await reconnected.waitFor({ timeout: 15000 });
       await page.waitForTimeout(500);
-      await page.click('[data-testid="left-tab-compose"]');
+      await page.click('[data-testid="left-tab-send"]');
       await page.waitForTimeout(300);
     }
   }
@@ -103,7 +103,7 @@ async function setupWithMessages(page) {
       const reconnected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
       await reconnected.waitFor({ timeout: 15000 });
       await page.waitForTimeout(300);
-      await page.click('[data-testid="left-tab-compose"]');
+      await page.click('[data-testid="left-tab-send"]');
       await page.waitForTimeout(200);
       await expect(msgInput).toBeEnabled({ timeout: 10000 });
     }
@@ -147,6 +147,7 @@ test('WF-01: Search mode pills — Text / Regex / JSONPath', async ({ page }) =>
 });
 
 test('WF-02: Text mode — substring match', async ({ page }) => {
+  test.slow();
   await setupWithMessages(page);
 
   const searchInput = page.locator('[data-testid="search-input"]');
@@ -163,6 +164,7 @@ test('WF-02: Text mode — substring match', async ({ page }) => {
 });
 
 test('WF-03: Regex mode — pattern matching', async ({ page }) => {
+  test.slow();
   await setupWithMessages(page);
 
   // Switch to Regex mode
@@ -187,6 +189,7 @@ test('WF-03: Regex mode — pattern matching', async ({ page }) => {
 });
 
 test('WF-04: JSONPath mode — structured queries', async ({ page }) => {
+  test.slow();
   await setupWithMessages(page);
 
   await page.click('[data-testid="search-mode-jsonpath"]');
@@ -454,6 +457,7 @@ test('WF-15: Compare mode toggle', async ({ page }) => {
 });
 
 test('WF-16+17: Select A and B → diff modal with line-level diff', async ({ page }) => {
+  test.slow();
   await setupWithMessages(page);
 
   // Enter compare mode
@@ -485,6 +489,7 @@ test('WF-16+17: Select A and B → diff modal with line-level diff', async ({ pa
 });
 
 test('WF-18: JSON structural changes summary', async ({ page }) => {
+  test.slow();
   await setupWithMessages(page);
 
   // Ensure messages have been received

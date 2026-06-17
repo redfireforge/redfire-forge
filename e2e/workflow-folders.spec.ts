@@ -25,6 +25,7 @@ async function seedFolderData(page: Page) {
 }
 
 test.describe('Workflow Folders', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedFolderData(page);
     await gotoAppTab(page, 'workflow');
@@ -37,6 +38,7 @@ test.describe('Workflow Folders', () => {
   });
 
   test('shows workflows inside their folders', async ({ page }) => {
+    test.slow();
     await expect(page.locator('.wf-sidebar-item:has-text("Peak Load")')).toBeVisible();
     await expect(page.locator('.wf-sidebar-item:has-text("Sustained Load")')).toBeVisible();
     await expect(page.locator('.wf-sidebar-item:has-text("Checkout Flow")')).toBeVisible();

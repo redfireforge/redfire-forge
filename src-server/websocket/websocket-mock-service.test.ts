@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import WebSocket from 'ws';
-import { WebSocketMockService } from './websocket-mock-service';
+import { WebSocketMockService, WebSocketMockPool } from './websocket-mock-service';
 import type { WsMockRule } from '../../src/shared/websocket/types';
 
 function makeRule(overrides: Partial<WsMockRule> = {}): WsMockRule {
@@ -466,6 +466,80 @@ describe('WebSocketMockService', () => {
     expect(msgIn!.data!.endsWith('\u2026')).toBe(true);
 
     client.close();
+    await waitMs(50);
+  });
+
+  it('triggers client ws error handler without crashing', async () => {
+    const service = new WebSocketMockService();
+    const PORT = 19380;
+    await service.start({ port: PORT, rules: [], fallback: 'echo' });
+    const client = await connectClient(PORT);
+    await waitMs(30);
+    const logs = service.getLogs();
+    expect(logs.some((l) => l.event === 'client-connect')).toBe(true);
+    client.close();
+    await waitMs(50);
+    await service.stop();
+  });
+});
+
+describe('WebSocketMockPool', () => {
+  let pool: WebSocketMockPool;
+
+  afterEach(async () => {
+    pool.stopAll();
+    await waitMs(50);
+  });
+
+  it('getOrCreate creates a new service for an unknown port', () => {
+    pool = new WebSocketMockPool();
+    const svc = pool.getOrCreate(19400);
+    expect(svc).toBeInstanceOf(WebSocketMockService);
+  });
+
+  it('getOrCreate returns the same service for the same port', () => {
+    pool = new WebSocketMockPool();
+    const svc1 = pool.getOrCreate(19401);
+    const svc2 = pool.getOrCreate(19401);
+    expect(svc1).toBe(svc2);
+  });
+
+  it('get returns undefined for unknown port', () => {
+    pool = new WebSocketMockPool();
+    expect(pool.get(19402)).toBeUndefined();
+  });
+
+  it('get returns service for known port', () => {
+    pool = new WebSocketMockPool();
+    const created = pool.getOrCreate(19403);
+    expect(pool.get(19403)).toBe(created);
+  });
+
+  it('release removes and stops the service', async () => {
+    pool = new WebSocketMockPool();
+    const svc = pool.getOrCreate(19404);
+    await svc.start({ port: 19404, rules: [], fallback: 'echo' });
+    await waitMs(30);
+    pool.release(19404);
+    expect(pool.get(19404)).toBeUndefined();
+    await waitMs(50);
+  });
+
+  it('release is a no-op for unknown port', () => {
+    pool = new WebSocketMockPool();
+    expect(() => pool.release(19405)).not.toThrow();
+  });
+
+  it('stopAll stops all services and clears the pool', async () => {
+    pool = new WebSocketMockPool();
+    const svc1 = pool.getOrCreate(19406);
+    const svc2 = pool.getOrCreate(19407);
+    await svc1.start({ port: 19406, rules: [], fallback: 'echo' });
+    await svc2.start({ port: 19407, rules: [], fallback: 'echo' });
+    await waitMs(30);
+    pool.stopAll();
+    expect(pool.get(19406)).toBeUndefined();
+    expect(pool.get(19407)).toBeUndefined();
     await waitMs(50);
   });
 });
