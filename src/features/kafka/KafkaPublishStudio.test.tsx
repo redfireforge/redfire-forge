@@ -58,7 +58,7 @@ const defaultTemplateProps = () => ({
 describe('KafkaPublishStudio', () => {
   it('renders topic input with current value', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    const input = screen.getByLabelText('Topic') as HTMLInputElement;
+    const input = screen.getByTestId('pub-topic-input') as HTMLInputElement;
     expect(input.value).toBe('orders.events');
   });
 
@@ -135,7 +135,7 @@ describe('KafkaPublishStudio', () => {
   it('calls setPublishDraft when topic input changes', () => {
     const studio = makeStudio();
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'new-topic' } });
+    fireEvent.change(screen.getByTestId('pub-topic-input'), { target: { value: 'new-topic' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ topic: 'new-topic' });
   });
 
@@ -159,7 +159,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-topic-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Topic'));
+    fireEvent.blur(screen.getByTestId('pub-topic-input'));
     expect(screen.getByTestId('pub-topic-hint').textContent).toBe('Topic is required');
   });
 
@@ -349,7 +349,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Key input changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Key'), { target: { value: 'my-key' } });
+    fireEvent.change(screen.getByTestId('pub-key-input'), { target: { value: 'my-key' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ key: 'my-key' });
   });
 

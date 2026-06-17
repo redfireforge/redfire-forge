@@ -2048,6 +2048,137 @@ label.kafka-editor-checkbox {
   min-height: 90px;
 }
 
+/* ── Publish Studio redesign — field layout ───────────────────────────── */
+
+/* Shared styled input/select/textarea for the redesigned Publish form */
+.kafka-ms-field-input,
+.kafka-ms-field-select,
+.kafka-ms-field-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary, #e0e6f0);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kafka-ms-field-input:focus,
+.kafka-ms-field-select:focus,
+.kafka-ms-field-textarea:focus {
+  border-color: rgba(99,179,237,0.45);
+  box-shadow: 0 0 0 2px rgba(99,179,237,0.12);
+}
+.kafka-ms-field-input::placeholder,
+.kafka-ms-field-textarea::placeholder {
+  color: rgba(160,180,210,0.35);
+}
+.kafka-ms-field-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+/* Textarea variants */
+.kafka-ms-field-textarea {
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.kafka-ms-field-textarea--topic {
+  min-height: 52px;
+  resize: none;
+  /* auto-grow via rows attribute */
+}
+.kafka-ms-field-textarea--key {
+  min-height: 36px;
+  resize: none;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+/* Label refinements */
+.kafka-ms-field label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted, #7a8ea8);
+  user-select: none;
+}
+
+/* Required asterisk */
+.kafka-ms-required-dot {
+  color: var(--color-danger, #ef4444);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* Optional tag inline */
+.kafka-ms-optional-tag {
+  font-size: 0.65rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(160,180,210,0.5);
+}
+
+/* Subtle hint (auto-assign etc.) */
+.kafka-ms-field-hint-subtle {
+  font-size: 0.68rem;
+  color: rgba(160,180,210,0.4);
+  margin-top: 1px;
+}
+
+/* Publish row layouts */
+.kafka-ms-pub-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+/* Topic row: topic grows, acks stays fixed */
+.kafka-ms-pub-row--topic {
+  align-items: flex-start;
+}
+.kafka-ms-field--grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.kafka-ms-field--acks {
+  flex: 0 0 148px;
+}
+.kafka-ms-field--acks .kafka-ms-field-select {
+  height: 52px; /* visually align with the 2-row topic textarea */
+}
+
+/* Key row: key grows (3:1), partition is compact */
+.kafka-ms-pub-row--key {
+  align-items: flex-start;
+}
+.kafka-ms-field--partition {
+  flex: 0 0 148px;
+}
+
+/* Timeout row */
+.kafka-ms-pub-row--meta {
+  align-items: flex-start;
+}
+.kafka-ms-field--timeout {
+  flex: 0 0 200px;
+}
+
+/* Divider between meta-fields and headers */
+.kafka-ms-pub-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 2px 0;
+}
+
 /* KV list section */
 .kafka-ms-section { display: flex; flex-direction: column; gap: 6px; }
 .kafka-ms-section-header {
