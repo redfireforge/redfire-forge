@@ -300,11 +300,11 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
     {
       id: 'sio-namespace',
       title: 'Namespaces — Logical Sub-channels',
-      description: 'Back in Compose, see the **Namespace** field — currently `/` (the root). In production Socket.IO APIs, namespaces partition event streams on one connection: `/admin`, `/chat`, `/metrics`. Each is independent — a message sent to `/chat` never reaches a listener on `/admin`. Our echo server only handles root `/`, but the field is always here waiting when your server supports named namespaces.',
+      description: 'Back in the **Send** tab, see the **Namespace** field — currently `/` (the root). In production Socket.IO APIs, namespaces partition event streams on one connection: `/admin`, `/chat`, `/metrics`. Each is independent — a message sent to `/chat` never reaches a listener on `/admin`. Our echo server only handles root `/`, but the field is always here waiting when your server supports named namespaces.',
       highlight: WS.SIO_NAMESPACE,
       pauseAfter: true,
-      // preAction navigates to Compose BEFORE the spotlight so SIO_NAMESPACE is in the DOM
-      // when the highlight box renders (it lives inside the Socket.IO compose panel).
+      // preAction navigates to Send BEFORE the spotlight so SIO_NAMESPACE is in the DOM
+      // when the highlight box renders (it lives inside the Socket.IO send panel).
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
       },
