@@ -107,9 +107,9 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [onClose]);
 
-  const completedCount = currentStepIndex;
+  const currentStepNumber = currentStepIndex + 1;
   const totalSteps = lesson.steps.length;
-  const progressPct = totalSteps > 0 ? (completedCount / totalSteps) * 100 : 0;
+  const progressPct = totalSteps > 0 ? (currentStepNumber / totalSteps) * 100 : 0;
 
   return (
     <div
@@ -135,7 +135,7 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
           {lesson.name}
         </span>
         <span className="demo-overview-modal-counter">
-          {completedCount} / {totalSteps}
+          {currentStepNumber} / {totalSteps}
         </span>
         <button
           className="demo-overview-modal-close"

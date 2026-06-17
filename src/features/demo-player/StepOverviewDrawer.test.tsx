@@ -71,7 +71,7 @@ describe('StepOverviewDrawer', () => {
     );
     const counter = container.querySelector('.demo-overview-modal-counter');
     expect(counter).toBeTruthy();
-    expect(counter!.textContent).toMatch(/1\s*\/\s*3/);
+    expect(counter!.textContent).toMatch(/2\s*\/\s*3/);
   });
 
   it('renders read-only (div) step items when onGoToStep is not provided', () => {
@@ -159,7 +159,7 @@ describe('StepOverviewDrawer', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('shows progress bar reflecting currentStepIndex', () => {
+  it('shows progress bar reflecting currentStepIndex (1-based, matches mini card)', () => {
     const { container } = render(
       <StepOverviewDrawer
         lesson={makeLesson()}
@@ -170,11 +170,11 @@ describe('StepOverviewDrawer', () => {
     const progressFill = container.querySelector('.demo-overview-modal-progress-fill');
     expect(progressFill).toBeTruthy();
     const style = (progressFill as HTMLElement).style.width;
-    // 2/3 = ~66.67%
-    expect(parseFloat(style)).toBeGreaterThan(60);
+    // index 2 → step 3 of 3 → 3/3 = 100%
+    expect(parseFloat(style)).toBeGreaterThan(99);
   });
 
-  it('shows 0% progress when on step 0', () => {
+  it('shows ~33% progress on the first step (index 0)', () => {
     const { container } = render(
       <StepOverviewDrawer
         lesson={makeLesson()}
@@ -185,7 +185,9 @@ describe('StepOverviewDrawer', () => {
     const progressFill = container.querySelector('.demo-overview-modal-progress-fill');
     expect(progressFill).toBeTruthy();
     const style = (progressFill as HTMLElement).style.width;
-    expect(style).toBe('0%');
+    // index 0 → step 1 of 3 → 1/3 ≈ 33.3% (matches LiveDemo mini card)
+    expect(parseFloat(style)).toBeGreaterThan(30);
+    expect(parseFloat(style)).toBeLessThan(40);
   });
 
   it('handles empty steps list gracefully (0% progress)', () => {
