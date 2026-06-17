@@ -117,23 +117,50 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       { term: 'SID', definition: 'Session ID assigned by the server on connect. Unique per connection, useful for debugging reconnect issues.' },
       { term: 'Ping Interval', definition: 'How often the server sends a heartbeat ping to confirm the connection is alive. Typically 25 seconds.' },
     ],
-    diagram: `<pre>Browser             Socket.IO Server
-   |                        |
-   |  WS handshake          |
-   |-----------------------&gt;|
-   |  0{&quot;sid&quot;:&quot;abc&quot;,&quot;ping   |
-   |   Interval&quot;:25000}     |
-   |&lt;-----------------------|
-   |  40 (namespace connect)|
-   |&lt;-----------------------|
-   |  42[&quot;message&quot;,&quot;Hello!&quot;]  |  ← send event &quot;message&quot;
-   |-----------------------&gt;|
-   |  42[&quot;message&quot;,&quot;Hello!&quot;]  |  ← echo back
-   |&lt;-----------------------|
-   |  2 (ping)              |
-   |&lt;-----------------------|
-   |  3 (pong)              |
-   |-----------------------&gt;|</pre>`,
+    diagram: `<svg viewBox="0 0 580 348" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+  <defs>
+    <marker id="sio-g" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/></marker>
+    <marker id="sio-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+    <marker id="sio-b" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/></marker>
+    <marker id="sio-p" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa"/></marker>
+  </defs>
+  <!-- Participants -->
+  <rect x="15" y="10" width="130" height="32" rx="5" fill="#1e293b" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="80" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Browser</text>
+  <rect x="418" y="10" width="152" height="32" rx="5" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="494" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Socket.IO Server</text>
+  <!-- Lifelines -->
+  <line x1="80" y1="42" x2="80" y2="316" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="494" y1="42" x2="494" y2="316" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <!-- 1 · HTTP Upgrade — Browser→Server (green) -->
+  <line x1="80" y1="74" x2="494" y2="74" stroke="#4ade80" stroke-width="1.5" marker-end="url(#sio-g)"/>
+  <text x="287" y="69" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'Fira Code',monospace">HTTP Upgrade (WS handshake)</text>
+  <!-- 2 · EIO server-open — Server→Browser (amber) -->
+  <line x1="494" y1="110" x2="80" y2="110" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sio-a)"/>
+  <text x="287" y="105" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">0{sid, pingInterval:25000}</text>
+  <!-- 3 · Namespace connect — Server→Browser (amber) -->
+  <line x1="494" y1="146" x2="80" y2="146" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sio-a)"/>
+  <text x="287" y="141" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">40 (namespace connect /)</text>
+  <!-- 4 · Send event — Browser→Server (blue) -->
+  <line x1="80" y1="188" x2="494" y2="188" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#sio-b)"/>
+  <text x="287" y="183" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">42["message","Hello!"]</text>
+  <text x="287" y="200" text-anchor="middle" fill="#475569" font-size="9" font-style="italic">send event "message"</text>
+  <!-- 5 · Echo — Server→Browser (blue) -->
+  <line x1="494" y1="232" x2="80" y2="232" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#sio-b)"/>
+  <text x="287" y="227" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">42["message","Hello!"]</text>
+  <text x="287" y="244" text-anchor="middle" fill="#475569" font-size="9" font-style="italic">echo back</text>
+  <!-- 6 · Ping — Server→Browser (purple) -->
+  <line x1="494" y1="272" x2="80" y2="272" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#sio-p)"/>
+  <text x="287" y="267" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="'Fira Code',monospace">2 (ping)</text>
+  <!-- 7 · Pong — Browser→Server (purple) -->
+  <line x1="80" y1="308" x2="494" y2="308" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#sio-p)"/>
+  <text x="287" y="303" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="'Fira Code',monospace">3 (pong)</text>
+  <!-- Legend -->
+  <circle cx="20" cy="334" r="4" fill="#4ade80"/><text x="29" y="338" fill="#64748b" font-size="9">connect</text>
+  <circle cx="88" cy="334" r="4" fill="#f59e0b"/><text x="97" y="338" fill="#64748b" font-size="9">EIO control</text>
+  <circle cx="176" cy="334" r="4" fill="#60a5fa"/><text x="185" y="338" fill="#64748b" font-size="9">data</text>
+  <circle cx="214" cy="334" r="4" fill="#a78bfa"/><text x="223" y="338" fill="#64748b" font-size="9">heartbeat</text>
+</svg>`,
   },
 
   steps: [

@@ -134,31 +134,50 @@ GraphQL-WS needs two settings:
         definition: 'A client-assigned string that tags every frame for a given subscription. RedfireForge shows "Op #N" and increments it after each send, so you can track multiple concurrent subscriptions.',
       },
     ],
-    diagram: `<pre>Browser                      GraphQL-WS Server (:4100)
-  |                                   |
-  |  HTTP Upgrade → WebSocket         |
-  |  Sec-WebSocket-Protocol:          |
-  |  graphql-transport-ws             |
-  |----------------------------------&gt;|
-  |  101 Switching Protocols          |
-  |&lt;----------------------------------|
-  |                                   |
-  |  {"type":"connection_init"}       |  ← auto-sent by RedfireForge
-  |----------------------------------&gt;|
-  |  {"type":"connection_ack"}        |
-  |&lt;----------------------------------|
-  |                                   |
-  |  {"type":"subscribe","id":"1",    |  ← Compose → Send
-  |   "payload":{"query":             |
-  |   "subscription{countdown(5)}"}}  |
-  |----------------------------------&gt;|
-  |  {"type":"next","id":"1",         |  ← streamed data (×6)
-  |   "payload":{"data":              |
-  |   {"countdown":5}}}               |
-  |&lt;----------------------------------|
-  |  (4, 3, 2, 1, 0 follow…)          |
-  |  {"type":"complete","id":"1"}     |  ← server-sent end of stream
-  |&lt;----------------------------------|</pre>`,
+    diagram: `<svg viewBox="0 0 590 322" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+  <defs>
+    <marker id="gql-g" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/></marker>
+    <marker id="gql-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+    <marker id="gql-b" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/></marker>
+    <marker id="gql-p" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa"/></marker>
+  </defs>
+  <!-- Participants -->
+  <rect x="15" y="10" width="120" height="32" rx="5" fill="#1e293b" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="75" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Browser</text>
+  <rect x="404" y="10" width="176" height="32" rx="5" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="492" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">GraphQL-WS (:4100)</text>
+  <!-- Lifelines -->
+  <line x1="75" y1="42" x2="75" y2="298" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="492" y1="42" x2="492" y2="298" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <!-- 1 · HTTP Upgrade + subprotocol — Browser→Server (green) -->
+  <line x1="75" y1="70" x2="492" y2="70" stroke="#4ade80" stroke-width="1.5" marker-end="url(#gql-g)"/>
+  <text x="283" y="65" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'Fira Code',monospace">HTTP Upgrade + graphql-transport-ws</text>
+  <!-- 2 · 101 — Server→Browser (green) -->
+  <line x1="492" y1="100" x2="75" y2="100" stroke="#4ade80" stroke-width="1.5" marker-end="url(#gql-g)"/>
+  <text x="283" y="95" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'Fira Code',monospace">101 Switching Protocols</text>
+  <!-- 3 · connection_init — Browser→Server (amber, auto-sent) -->
+  <line x1="75" y1="130" x2="492" y2="130" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#gql-a)"/>
+  <text x="283" y="125" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">{"type":"connection_init"}</text>
+  <text x="283" y="142" text-anchor="middle" fill="#475569" font-size="9" font-style="italic">auto-sent by RedfireForge</text>
+  <!-- 4 · connection_ack — Server→Browser (amber) -->
+  <line x1="492" y1="168" x2="75" y2="168" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#gql-a)"/>
+  <text x="283" y="163" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">{"type":"connection_ack"}</text>
+  <!-- 5 · subscribe — Browser→Server (blue) -->
+  <line x1="75" y1="200" x2="492" y2="200" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#gql-b)"/>
+  <text x="283" y="195" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">{"type":"subscribe","query":"subscription{…}"}</text>
+  <!-- 6 · next (streaming ×6) — Server→Browser (purple) -->
+  <line x1="492" y1="232" x2="75" y2="232" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#gql-p)"/>
+  <text x="283" y="227" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="'Fira Code',monospace">{"type":"next","payload":{"countdown":5..0}}</text>
+  <text x="283" y="244" text-anchor="middle" fill="#475569" font-size="9" font-style="italic">streamed × 6 events</text>
+  <!-- 7 · complete — Server→Browser (amber) -->
+  <line x1="492" y1="276" x2="75" y2="276" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#gql-a)"/>
+  <text x="283" y="271" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">{"type":"complete","id":"1"}</text>
+  <!-- Legend -->
+  <circle cx="20" cy="308" r="4" fill="#4ade80"/><text x="29" y="312" fill="#64748b" font-size="9">WS handshake</text>
+  <circle cx="115" cy="308" r="4" fill="#f59e0b"/><text x="124" y="312" fill="#64748b" font-size="9">GQL-WS protocol</text>
+  <circle cx="218" cy="308" r="4" fill="#60a5fa"/><text x="227" y="312" fill="#64748b" font-size="9">subscribe</text>
+  <circle cx="278" cy="308" r="4" fill="#a78bfa"/><text x="287" y="312" fill="#64748b" font-size="9">streaming data</text>
+</svg>`,
   },
 
   steps: [

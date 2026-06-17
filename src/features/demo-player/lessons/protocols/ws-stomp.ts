@@ -169,34 +169,46 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
         definition: 'A single \\n character sent periodically to keep the connection alive. The heart-beat header in CONNECT negotiates the send/receive intervals.',
       },
     ],
-    diagram: `<pre>Browser                  RabbitMQ (web-stomp :15674)
-  |                               |
-  |  HTTP Upgrade → WebSocket     |
-  |------------------------------>|
-  |  101 Switching Protocols      |
-  |&lt;------------------------------|
-  |                               |
-  |  CONNECT               |  ← STOMP frame (step 2 of 2)
-  |  host:localhost        |
-  |  login:guest           |
-  |  passcode:guest        |
-  |------------------------------>|
-  |  CONNECTED             |
-  |  version:1.2           |
-  |&lt;------------------------------|
-  |                               |
-  |  SUBSCRIBE             |  ← subscribe (step 3)
-  |  dest:/queue/demo      |
-  |------------------------------>|
-  |                               |
-  |  SEND                  |  ← publish (step 4)
-  |  destination:/queue/   |
-  |  {"hello":"from Redfire!"}    |
-  |------------------------------>|
-  |  MESSAGE               |  ← delivered back
-  |  ←/queue/demo          |
-  |  {"hello":"from Redfire!"}    |
-  |&lt;------------------------------|</pre>`,
+    diagram: `<svg viewBox="0 0 590 310" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+  <defs>
+    <marker id="stm-g" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/></marker>
+    <marker id="stm-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+    <marker id="stm-b" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/></marker>
+  </defs>
+  <!-- Participants -->
+  <rect x="15" y="10" width="120" height="32" rx="5" fill="#1e293b" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="75" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Browser</text>
+  <rect x="412" y="10" width="168" height="32" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="496" y="31" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">RabbitMQ (:15674)</text>
+  <!-- Lifelines -->
+  <line x1="75" y1="42" x2="75" y2="286" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="496" y1="42" x2="496" y2="286" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <!-- 1 · HTTP Upgrade — Browser→Server (green) -->
+  <line x1="75" y1="70" x2="496" y2="70" stroke="#4ade80" stroke-width="1.5" marker-end="url(#stm-g)"/>
+  <text x="285" y="65" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'Fira Code',monospace">HTTP Upgrade (WS handshake)</text>
+  <!-- 2 · 101 — Server→Browser (green) -->
+  <line x1="496" y1="104" x2="75" y2="104" stroke="#4ade80" stroke-width="1.5" marker-end="url(#stm-g)"/>
+  <text x="285" y="99" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'Fira Code',monospace">101 Switching Protocols</text>
+  <!-- 3 · CONNECT frame — Browser→Server (amber) -->
+  <line x1="75" y1="138" x2="496" y2="138" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#stm-a)"/>
+  <text x="285" y="133" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">CONNECT (host, login, passcode)</text>
+  <!-- 4 · CONNECTED — Server→Browser (amber) -->
+  <line x1="496" y1="172" x2="75" y2="172" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#stm-a)"/>
+  <text x="285" y="167" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Fira Code',monospace">CONNECTED version:1.2</text>
+  <!-- 5 · SUBSCRIBE — Browser→Server (blue) -->
+  <line x1="75" y1="206" x2="496" y2="206" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#stm-b)"/>
+  <text x="285" y="201" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">SUBSCRIBE /queue/demo</text>
+  <!-- 6 · SEND — Browser→Server (blue) -->
+  <line x1="75" y1="240" x2="496" y2="240" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#stm-b)"/>
+  <text x="285" y="235" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">SEND /queue/demo {"hello":"…"}</text>
+  <!-- 7 · MESSAGE delivered — Server→Browser (blue) -->
+  <line x1="496" y1="274" x2="75" y2="274" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#stm-b)"/>
+  <text x="285" y="269" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="'Fira Code',monospace">MESSAGE /queue/demo {"hello":"…"}</text>
+  <!-- Legend -->
+  <circle cx="20" cy="297" r="4" fill="#4ade80"/><text x="29" y="301" fill="#64748b" font-size="9">handshake</text>
+  <circle cx="104" cy="297" r="4" fill="#f59e0b"/><text x="113" y="301" fill="#64748b" font-size="9">STOMP frames</text>
+  <circle cx="204" cy="297" r="4" fill="#60a5fa"/><text x="213" y="301" fill="#64748b" font-size="9">pub/sub messages</text>
+</svg>`,
   },
 
   steps: [
