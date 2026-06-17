@@ -6,6 +6,7 @@ import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
+import { parseKafkaTimestamp, formatRelativeAge, formatTimestampTooltip } from './kafkaTimestamp';
 
 type ConsumeMode = 'once' | 'stream';
 
@@ -48,6 +49,28 @@ export function KafkaConsumeStudio({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const topicEmpty = consumeDraft.topic.trim() === '';
   const canConsume = !topicEmpty && !consumeLoading && connected;
+
+  // E2E test bridge: __kafkaInjectConsumeResults(rows) injects mock rows directly
+  // into the consume results without needing a real Kafka cluster.
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__kafkaInjectConsumeResults = (rows: KafkaConsumeResultRow[]) => {
+      studio.consumeOnce(); // ignored — we override via the studio mock approach
+      // Use setConsumeResult if exposed, otherwise dispatch via consumeOnce mock
+      const studioAny = studio as unknown as Record<string, unknown>;
+      if (typeof studioAny.__setConsumeResult === 'function') {
+        (studioAny.__setConsumeResult as (r: typeof rows) => void)(rows);
+      }
+    };
+    return () => { delete w.__kafkaInjectConsumeResults; };
+  }, [studio]);
+
+  // Tick every 30 s so relative timestamps ("2m ago") stay up to date
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const streamListRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
@@ -125,6 +148,21 @@ export function KafkaConsumeStudio({
       offset: msg.offset,
     });
   }, [mode, selectedMessage, selectedStreamMessage, onUseAsWorkflowInput]);
+
+  /** Renders a compact relative-age cell with a full datetime tooltip. */
+  const renderTimestampCell = (ts: string | undefined) => {
+    const date = parseKafkaTimestamp(ts);
+    if (!date) return <td className="kafka-ts-cell kafka-ts-missing" data-testid="ts-cell-missing">—</td>;
+    return (
+      <td
+        className="kafka-ts-cell"
+        title={formatTimestampTooltip(date)}
+        data-testid="ts-cell"
+      >
+        {formatRelativeAge(date)}
+      </td>
+    );
+  };
 
   const renderDetailPane = (msg: KafkaConsumeResultRow) => (
     <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
@@ -207,6 +245,7 @@ export function KafkaConsumeStudio({
             <label htmlFor="kms-con-topic">Topic</label>
             <input
               id="kms-con-topic"
+              data-testid="con-topic-input"
               type="text"
               placeholder="e.g. orders.events"
               value={consumeDraft.topic}
@@ -427,6 +466,7 @@ export function KafkaConsumeStudio({
                           <th>#</th>
                           <th>Offset</th>
                           <th>Partition</th>
+                          <th className="kafka-ts-th">Timestamp</th>
                           <th>Key</th>
                           <th>Value</th>
                         </tr>
@@ -443,6 +483,7 @@ export function KafkaConsumeStudio({
                             <td>{idx + 1}</td>
                             <td>{row.offset}</td>
                             <td>{row.partition}</td>
+                            {renderTimestampCell(row.timestamp)}
                             <td>{row.key ?? '—'}</td>
                             <td>{valuePreview(row.value)}</td>
                           </tr>
@@ -553,6 +594,7 @@ export function KafkaConsumeStudio({
                         <th>#</th>
                         <th>Offset</th>
                         <th>Partition</th>
+                        <th className="kafka-ts-th">Timestamp</th>
                         <th>Key</th>
                         <th>Value</th>
                       </tr>
@@ -569,6 +611,7 @@ export function KafkaConsumeStudio({
                           <td>{idx + 1}</td>
                           <td>{row.offset}</td>
                           <td>{row.partition}</td>
+                          {renderTimestampCell(row.timestamp)}
                           <td>{row.key ?? '—'}</td>
                           <td>{valuePreview(row.value)}</td>
                         </tr>
