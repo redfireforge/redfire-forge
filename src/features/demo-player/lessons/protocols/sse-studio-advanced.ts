@@ -1,7 +1,7 @@
 /**
  * Lesson 18: SSE Advanced Features
  *
- * Builds on Lesson 8 (SSE Studio) with production-level features:
+ * Builds on Lesson 9 (SSE Studio) with production-level features:
  *  - Bookmarks and bookmark filtering
  *  - Stats footer (Events, Showing, Uptime, Types)
  *  - Auto-reconnect toggle
@@ -106,7 +106,7 @@ export const sseStudioAdvancedLesson: DemoLesson = {
 
   concept: {
     title: 'SSE Advanced Features',
-    body: `Lesson 8 covered the SSE basics — connecting, viewing live events, and exploring the console. Now we go deeper into the features that matter for **production SSE workflows**.
+    body: `Lesson 9 covered the SSE basics — connecting, viewing live events, and exploring the console. Now we go deeper into the features that matter for **production SSE workflows**.
 
 **What You'll Learn**
 - **Bookmarks** — Star important events and filter the log to show only bookmarked items
@@ -162,12 +162,12 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
   },
 
   steps: [
-    // ── 1. Pick Up Where Lesson 8 Left Off ─────────────────────
+    // ── 1. Pick Up Where Lesson 9 Left Off ─────────────────────
     {
       id: 'sse-adv-intro',
-      title: 'Pick Up Where Lesson 8 Left Off',
+      title: 'Pick Up Where Lesson 9 Left Off',
       description:
-        'Welcome back to SSE Studio. In Lesson 8 you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
+        'Welcome back to SSE Studio. In Lesson 9 you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
       highlight: SSE.STUDIO,
       preAction: async (ctx) => {
         const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;

@@ -17,7 +17,7 @@ export const WS = {
 
   // Left sidebar tabs
   LEFT_TAB_CONNECT:  '[data-testid="left-tab-connect"]',
-  LEFT_TAB_COMPOSE:  '[data-testid="left-tab-compose"]',
+  LEFT_TAB_SEND:     '[data-testid="left-tab-send"]',
   LEFT_TAB_AUTH:     '[data-testid="left-tab-auth"]',
   LEFT_TAB_HEADERS:  '[data-testid="left-tab-headers"]',
   LEFT_TAB_PARAMS:   '[data-testid="left-tab-params"]',
@@ -91,14 +91,14 @@ export const WS = {
   URL_INPUT:         '[aria-label="WebSocket URL"]',
   PROTOCOL_SELECT:   '[data-testid="protocol-select"]',
 
-  // Socket.IO compose fields (shown when protocol = socket-io)
+  // Socket.IO send-pane fields (shown when protocol = socket-io)
   SIO_COMPOSE_FIELDS: '[data-testid="sio-compose-fields"]',
   SIO_EVENT_NAME:     '[data-testid="sio-event-name"]',
   SIO_NAMESPACE:      '[data-testid="sio-namespace"]',
   SIO_MODE_BADGE:     '[data-testid="sio-mode-badge"]',
   SIO_SERVER_PARAMS:  '[data-testid="sio-server-params"]',
 
-  // STOMP compose fields (shown when protocol = stomp)
+  // STOMP send-pane fields (shown when protocol = stomp)
   STOMP_COMPOSE_FIELDS: '[data-testid="stomp-compose-fields"]',
   STOMP_COMMAND:        '[data-testid="stomp-command"]',
   STOMP_DESTINATION:    '[data-testid="stomp-destination"]',
@@ -106,7 +106,7 @@ export const WS = {
   STOMP_PASSCODE:       '[data-testid="stomp-passcode"]',
   STOMP_MODE_BADGE:     '[data-testid="stomp-mode-badge"]',
 
-  // GraphQL-WS compose fields (shown when protocol = graphql-ws)
+  // GraphQL-WS send-pane fields (shown when protocol = graphql-ws)
   GQL_COMPOSE_FIELDS:   '[data-testid="gql-compose-fields"]',
   GQL_OPERATION_NAME:   '[data-testid="gql-operation-name"]',
   GQL_VARIABLES:        '[data-testid="gql-variables"]',
@@ -127,7 +127,7 @@ export const WS = {
   EXPORT_BTN:           '[data-testid="export-btn"]',
   IMPORT_BTN:           '[data-testid="import-btn"]',
 
-  // Message Templates (compose panel)
+  // Message Templates (Send panel)
   TEMPLATE_TRIGGER:     '[data-testid="template-trigger"]',
   TEMPLATE_DROPDOWN:    '[data-testid="template-dropdown"]',
   TEMPLATE_EMPTY:       '[data-testid="template-empty"]',
@@ -143,7 +143,7 @@ export const WS = {
   // Connect panel extras
   SUBPROTOCOLS_INPUT:   '[aria-label="Subprotocols"]',
 
-  // Compose panel
+  // Send panel
   MESSAGE_INPUT:     '[aria-label="Message input"]',
   SEND_BTN:          '[data-testid="send-btn"]',
   COMPOSE_INPUT:     '.ws-compose-input',
@@ -405,6 +405,8 @@ export const KAFKA = {
   CONNECT_BTN:              '[data-testid="kafka-connect-btn"]',
   TEST_BTN:                 '[data-testid="kafka-test-btn"]',
   DISCONNECT_BTN:           '[data-testid="kafka-disconnect-btn"]',
+  DELETE_CLUSTER_BTN:       '[data-testid="kafka-delete-cluster-btn"]',
+  CONFIRM_DELETE_BTN:       '[data-testid="kafka-confirm-delete-btn"]',
   AUTO_CONNECT_TOGGLE:      '[data-testid="kafka-auto-connect-toggle"]',
   BROKER_INPUT:             'input[placeholder="127.0.0.1:19092"]',
   AUTH_TYPE_SELECT:         '#kafka-auth-mode',

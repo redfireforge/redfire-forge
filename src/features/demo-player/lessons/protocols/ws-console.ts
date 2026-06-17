@@ -126,7 +126,7 @@ When debugging WebSocket issues, you need more than just message payloads. The C
         }
         // Wait for a console entry to confirm the command was processed.
         // STATUS_CONNECTED is inside the Connect panel which may be unmounted
-        // when the Compose tab activates after a successful connection, so use
+        // when the Send tab activates after a successful connection, so use
         // CONSOLE_ENTRY instead — it's always present in this tab's DOM.
         await ctx.waitFor(WS.CONSOLE_ENTRY, 3000);
         // Mark as connected so subsequent preActions skip the /connect command.

@@ -459,6 +459,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2618,12 +2619,49 @@
 
 .ws-sio-compose-fields {
   display: flex;
-  gap: 8px;
-  padding: 6px 10px 0;
+  gap: 10px;
+  padding: 6px 10px 4px;
+  align-items: flex-end;
+}
+
+.ws-sio-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 2;
+  min-width: 0;
+}
+
+.ws-sio-field-group--narrow {
+  flex: 1;
+  max-width: 148px;
+}
+
+.ws-sio-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary, #a6adc8);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: default;
+  user-select: none;
+}
+
+.ws-sio-field-hint {
+  font-size: 9.5px;
+  font-weight: 400;
+  color: var(--text-tertiary, #6c7086);
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
 }
 
 .ws-sio-event-input {
-  flex: 2;
+  width: 100%;
+  box-sizing: border-box;
   padding: 5px 8px;
   background: var(--bg-input, #1e1e2e);
   color: var(--text-primary, #cdd6f4);
@@ -2639,8 +2677,8 @@
 }
 
 .ws-sio-namespace-input {
-  flex: 1;
-  max-width: 120px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 5px 8px;
   background: var(--bg-input, #1e1e2e);
   color: var(--text-tertiary, #6c7086);
@@ -3866,6 +3904,8 @@
 }
 
 .ws-compose-bar {
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   border-top: 1px solid var(--border-color, #333);
   border-bottom: none;
@@ -3884,6 +3924,15 @@
 }
 .ws-compose-bar > .ws-compose-input-wrapper {
   order: 3;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ws-compose-bar > .ws-compose-input-wrapper > .ws-compose-input {
+  flex: 1;
+  min-height: 160px;
+  height: 0; /* flex: 1 drives the actual height */
 }
 .ws-compose-bar > .ws-compose-footer {
   order: 4;
@@ -4683,11 +4732,18 @@
   border: 1px solid var(--border-color, #444);
   border-radius: 3px;
 }
-.ws-mock-port-input.invalid {
-  border-color: #ef5350;
+.ws-mock-port-input[readonly] {
+  opacity: 0.7;
+  cursor: default;
+  user-select: text;
 }
-.ws-mock-port-input:disabled {
-  opacity: 0.5;
+.ws-mock-port-input.editable {
+  border-color: var(--accent-color, #4a9eff);
+  cursor: text;
+}
+.ws-mock-port-input.editable:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.25);
 }
 .ws-mock-fallback-select {
   padding: 2px 6px;
@@ -4786,23 +4842,33 @@
   padding: 0 0 4px;
 }
 .ws-mock-add-rule-btn {
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
   font-size: 10px;
   font-weight: 500;
+  line-height: 1.6;
   background: transparent;
   color: var(--accent-color, #4fc3f7);
-  border: 1px solid var(--accent-color, #4fc3f7);
+  border: 1px solid rgba(79, 195, 247, 0.4);
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 .ws-mock-add-rule-btn:hover {
-  background: color-mix(in srgb, var(--accent-color, #4fc3f7) 12%, transparent);
   color: #fff;
+  background: rgba(79, 195, 247, 0.14);
+  border-color: var(--accent-color, #4fc3f7);
+}
+.ws-mock-add-rule-btn:active {
+  background: rgba(79, 195, 247, 0.22);
+  border-color: var(--accent-color, #4fc3f7);
 }
 .ws-mock-add-rule-btn:focus-visible {
   outline: 1px solid var(--accent-color, #4fc3f7);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 .ws-mock-empty-rules {
   padding: 20px 12px;
@@ -5193,20 +5259,33 @@
   min-height: 0;
 }
 .ws-mock-clear-log-btn {
-  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
   font-size: 10px;
+  font-weight: 500;
+  line-height: 1.6;
   background: transparent;
   color: var(--text-secondary, #888);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 .ws-mock-clear-log-btn:hover {
-  color: var(--text-primary, #eee);
+  color: #ef9a9a;
+  background: rgba(239, 83, 80, 0.08);
+  border-color: rgba(239, 83, 80, 0.25);
+}
+.ws-mock-clear-log-btn:active {
+  background: rgba(239, 83, 80, 0.14);
+  border-color: rgba(239, 83, 80, 0.4);
 }
 .ws-mock-clear-log-btn:focus-visible {
-  outline: 1px solid var(--accent-color, #4fc3f7);
-  outline-offset: 1px;
+  outline: 1px solid #ef5350;
+  outline-offset: 2px;
 }
 .ws-mock-log {
   flex: 1;
@@ -5223,7 +5302,7 @@
 }
 .ws-mock-log-entry {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 6px;
   padding: 2px 12px;
   font-size: 10px;
@@ -5260,9 +5339,8 @@
 .ws-mock-log-data {
   flex: 1;
   color: var(--text-secondary, #999);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* ── Mock shell layout (Phase 6b): server bar + status strip + panes ── */

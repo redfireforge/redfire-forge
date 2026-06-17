@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsReliabilityLesson } from './ws-reliability';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-reliability lesson', () => {
   beforeEach(() => {
@@ -125,7 +125,7 @@ describe('ws-reliability lesson', () => {
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('ping'),
@@ -150,7 +150,7 @@ describe('ws-reliability lesson', () => {
     const connectBtnCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
       .filter((c: string[]) => c[0].includes('connect-btn'));
     expect(connectBtnCalls.length).toBe(0);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step rel-stats-live action sends messages and switches to stats', async () => {
@@ -281,11 +281,13 @@ describe('ws-reliability lesson', () => {
     // Simulate an active connection by placing an enabled disconnect button in DOM
     const btn = document.createElement('button');
     btn.setAttribute('data-testid', 'disconnect-btn');
+    makeVisible(btn);
     document.body.appendChild(btn);
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // disconnectWebSocket finds the button and calls ctx.delay(300)
     expect(ctx.delay).toHaveBeenCalledWith(300);
+    btn.remove();
   });
 
   it('step rel-stats-zero preAction is a no-op when already disconnected', async () => {

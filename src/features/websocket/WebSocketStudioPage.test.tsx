@@ -1,19 +1,26 @@
 /**
  * @vitest-environment jsdom
+ *
+ * Core WebSocketStudioPage tests: basic rendering, environment selectors,
+ * and connection tab management. For deriveTabLabel and studio shell layout
+ * tests, see WebSocketStudioPage.shell.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { WebSocketStudioPage } from './WebSocketStudioPage';
 import * as hookModule from './useWebSocketStudio';
 import * as profilesModule from '../../app/hooks/useWebSocketProfiles';
 import * as templatesModule from '../../app/hooks/useWebSocketTemplates';
 import * as historyModule from '../../app/hooks/useWebSocketHistory';
 import * as storageModule from '../../shared/websocket/websocketStorage';
-import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
-import type { UseWebSocketHistoryReturn } from '../../app/hooks/useWebSocketHistory';
-import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '../../shared/websocket/types';
+import { createDefaultReconnectState } from '../../shared/websocket/types';
+import {
+  makeStudioReturn,
+  makeProfilesReturn,
+  makeTemplatesReturn,
+  makeHistoryReturn,
+  renderStudioPage,
+} from './WebSocketStudioPage.test-factories';
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (opts: { count: number; getScrollElement: () => unknown; estimateSize: () => number }) => ({
@@ -29,114 +36,17 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }));
 
-function makeStudioReturn(overrides?: Partial<UseWebSocketStudioReturn>): UseWebSocketStudioReturn {
-  return {
-    draft: createDefaultDraft(),
-    setDraft: vi.fn(),
-    connection: { state: 'disconnected' },
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    send: vi.fn(),
-    sendPing: vi.fn(),
-    messages: [],
-    filteredMessages: [],
-    maxMessages: 1000,
-    setMaxMessages: vi.fn(),
-    isMaxReached: false,
-    searchText: '',
-    setSearchText: vi.fn(),
-    searchMode: 'text' as const,
-    setSearchMode: vi.fn(),
-    directionFilter: 'all',
-    setDirectionFilter: vi.fn(),
-    sizeFilter: 'all' as const,
-    setSizeFilter: vi.fn(),
-    timeFilter: 'all' as const,
-    setTimeFilter: vi.fn(),
-    contentTypeFilter: 'all' as const,
-    setContentTypeFilter: vi.fn(),
-    clearMessages: vi.fn(),
-    appendReplayFrame: vi.fn(),
-    bookmarkedIds: new Set<string>(),
-    bookmarkedMessages: [],
-    toggleBookmark: vi.fn(),
-    sentCount: 0,
-    receivedCount: 0,
-    uptime: null,
-    transportMode: 'direct',
-    autoReconnect: false,
-    setAutoReconnect: vi.fn(),
-    reconnectState: createDefaultReconnectState(),
-    cancelReconnect: vi.fn(),
-    reconnectIntervalMs: 3000,
-    setReconnectIntervalMs: vi.fn(),
-    maxReconnectAttempts: 5,
-    setMaxReconnectAttempts: vi.fn(),
-    backoffMultiplier: 1.5,
-    setBackoffMultiplier: vi.fn(),
-    retryNow: vi.fn(),
-    protocolMode: 'auto' as const,
-    setProtocolMode: vi.fn(),
-    detectedProtocol: null,
-    tlsConfig: createDefaultTlsConfig(),
-    setTlsConfig: vi.fn(),
-    sioServerParams: null,
-    ...overrides,
-  };
-}
-
-function makeProfilesReturn(overrides?: Partial<UseWebSocketProfilesReturn>): UseWebSocketProfilesReturn {
-  return {
-    profiles: [],
-    loading: false,
-    error: null,
-    saveProfile: vi.fn().mockResolvedValue(undefined),
-    updateProfile: vi.fn().mockResolvedValue(undefined),
-    deleteProfile: vi.fn().mockResolvedValue(undefined),
-    duplicateProfile: vi.fn().mockResolvedValue(undefined),
-    importProfiles: vi.fn().mockResolvedValue({ imported: 0, errors: [] }),
-    exportProfiles: vi.fn().mockReturnValue('[]'),
-    loadProfileAsDraft: vi.fn().mockReturnValue(null),
-    ...overrides,
-  };
-}
-
-function makeTemplatesReturn(overrides?: Partial<UseWebSocketTemplatesReturn>): UseWebSocketTemplatesReturn {
-  return {
-    templates: [],
-    loading: false,
-    error: null,
-    saveTemplate: vi.fn().mockResolvedValue(undefined),
-    updateTemplate: vi.fn().mockResolvedValue(undefined),
-    deleteTemplate: vi.fn().mockResolvedValue(undefined),
-    loadTemplate: vi.fn().mockReturnValue(null),
-    ...overrides,
-  };
-}
-
-function makeHistoryReturn(overrides?: Partial<UseWebSocketHistoryReturn>): UseWebSocketHistoryReturn {
-  return {
-    history: [],
-    addEntry: vi.fn(),
-    removeEntry: vi.fn(),
-    clearHistory: vi.fn(),
-    ...overrides,
-  };
-}
-
-let mockReturn: UseWebSocketStudioReturn;
-let mockProfilesReturn: UseWebSocketProfilesReturn;
-let mockTemplatesReturn: UseWebSocketTemplatesReturn;
-let mockHistoryReturn: UseWebSocketHistoryReturn;
+let mockReturn: ReturnType<typeof makeStudioReturn>;
+let mockProfilesReturn: ReturnType<typeof makeProfilesReturn>;
+let mockHistoryReturn: ReturnType<typeof makeHistoryReturn>;
 
 beforeEach(() => {
   mockReturn = makeStudioReturn();
   mockProfilesReturn = makeProfilesReturn();
-  mockTemplatesReturn = makeTemplatesReturn();
   mockHistoryReturn = makeHistoryReturn();
   vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
   vi.spyOn(profilesModule, 'useWebSocketProfiles').mockReturnValue(mockProfilesReturn);
-  vi.spyOn(templatesModule, 'useWebSocketTemplates').mockReturnValue(mockTemplatesReturn);
+  vi.spyOn(templatesModule, 'useWebSocketTemplates').mockReturnValue(makeTemplatesReturn());
   vi.spyOn(historyModule, 'useWebSocketHistory').mockReturnValue(mockHistoryReturn);
   vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue(null);
   vi.spyOn(storageModule, 'saveWsTabState').mockResolvedValue(undefined);
@@ -145,14 +55,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-async function renderStudioPage(props: Record<string, unknown> = {}) {
-  let result!: ReturnType<typeof render>;
-  await act(async () => {
-    result = render(<WebSocketStudioPage {...props} />);
-  });
-  return result;
-}
 
 describe('WebSocketStudioPage', () => {
   it('renders the shell with Client, Mock, and Saved modes', async () => {
@@ -189,7 +91,7 @@ describe('WebSocketStudioPage', () => {
 
   it('switches to the Compose left tab', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
@@ -201,7 +103,7 @@ describe('WebSocketStudioPage', () => {
     mockReturn = makeStudioReturn({ messages: [msg] });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    expect(screen.getByTestId('left-tab-compose').textContent).toContain('1');
+    expect(screen.getByTestId('left-tab-send').textContent).toContain('1');
   });
 
   it('Client mode + Connect left tab are active by default', async () => {
@@ -259,7 +161,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.getByTestId('template-trigger')).toBeTruthy();
   });
 
@@ -269,7 +171,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.getByTestId('format-select')).toBeTruthy();
   });
 
@@ -314,8 +216,8 @@ describe('WebSocketStudioPage', () => {
 
   it('switches back to the Connect left tab when handleSwitchToConnect fires', async () => {
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
-    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-send'));
+    expect(screen.getByTestId('left-tab-send').className).toContain('active');
     fireEvent.click(screen.getByTestId('left-tab-connect'));
     expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
@@ -326,7 +228,7 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
+    fireEvent.click(screen.getByTestId('left-tab-send'));
     expect(screen.queryByText('No WebSocket connection')).toBeNull();
   });
 
@@ -366,8 +268,8 @@ describe('WebSocketStudioPage', () => {
     });
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
-    fireEvent.click(screen.getByTestId('left-tab-compose'));
-    expect(screen.getByTestId('left-tab-compose').className).toContain('active');
+    fireEvent.click(screen.getByTestId('left-tab-send'));
+    expect(screen.getByTestId('left-tab-send').className).toContain('active');
     fireEvent.click(screen.getByTestId('left-tab-connect'));
     expect(screen.getByTestId('left-tab-connect').className).toContain('active');
   });
@@ -578,7 +480,7 @@ describe('WebSocketStudioPage', () => {
       });
       await renderStudioPage();
       // The messages viewTab maps to Client mode + Compose left tab.
-      const composeTab = screen.getByTestId('left-tab-compose');
+      const composeTab = screen.getByTestId('left-tab-send');
       expect(composeTab.className).toContain('active');
     });
 
@@ -843,7 +745,7 @@ describe('WebSocketStudioPage', () => {
       await renderStudioPage();
       saveSpy.mockClear();
       // Switch the left tab in the shell content.
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
+      fireEvent.click(screen.getByTestId('left-tab-send'));
       vi.advanceTimersByTime(400);
       expect(saveSpy).toHaveBeenCalled();
       vi.useRealTimers();
@@ -869,158 +771,6 @@ describe('WebSocketStudioPage', () => {
     });
   });
 
-  describe('deriveTabLabel', () => {
-    it('returns null for empty string', () => {
-      expect(deriveTabLabel('')).toBeNull();
-    });
-
-    it('returns null for short URL', () => {
-      expect(deriveTabLabel('ws://')).toBeNull();
-    });
-
-    it('returns null for non-ws URL', () => {
-      expect(deriveTabLabel('http://example.com')).toBeNull();
-    });
-
-    it('returns hostname for valid ws URL', () => {
-      expect(deriveTabLabel('ws://example.com')).toBe('example.com');
-    });
-
-    it('returns hostname:port for ws URL with port', () => {
-      expect(deriveTabLabel('ws://localhost:8080')).toBe('localhost:8080');
-    });
-
-    it('returns hostname for wss URL', () => {
-      expect(deriveTabLabel('wss://secure.example.com/path')).toBe('secure.example.com');
-    });
-
-    it('returns hostname:port for wss URL with port', () => {
-      expect(deriveTabLabel('wss://secure.host:9443/ws')).toBe('secure.host:9443');
-    });
-
-    it('returns null for URL with single-char hostname', () => {
-      expect(deriveTabLabel('ws://x')).toBeNull();
-    });
-
-    it('handles URL that fails URL constructor via regex fallback', () => {
-      const result = deriveTabLabel('ws://my-host:9090/path');
-      expect(result).toBe('my-host:9090');
-    });
-
-    it('regex fallback returns host:port when URL constructor throws', () => {
-      // % without valid hex escape makes new URL() throw, but regex still matches
-      const result = deriveTabLabel('ws://my%server:1234');
-      expect(result).toBe('my%server:1234');
-    });
-
-    it('regex fallback returns host without port when URL constructor throws', () => {
-      const result = deriveTabLabel('ws://my%server/path');
-      expect(result).toBe('my%server');
-    });
-
-    it('returns result for URL with brackets', () => {
-      const result = deriveTabLabel('ws://[invalid-host]:1234');
-      // URL constructor may or may not throw; regex always matches
-      expect(typeof result).toBe('string');
-    });
-
-
-
-    it('returns null for whitespace-only input', () => {
-      expect(deriveTabLabel('   ')).toBeNull();
-    });
-
-    it('returns hostname without port when port is empty', () => {
-      expect(deriveTabLabel('ws://echo.websocket.org')).toBe('echo.websocket.org');
-    });
-  });
-
-  describe('studio shell (the only production layout)', () => {
-    it('wraps each tab in the shell by default', async () => {
-      await renderStudioPage();
-      expect(screen.getByTestId('ws-studio-shell')).toBeTruthy();
-      expect(screen.getByTestId('mode-client')).toBeTruthy();
-      expect(screen.getByTestId('mode-mock')).toBeTruthy();
-      expect(screen.getByTestId('mode-saved')).toBeTruthy();
-      // The existing tab content is still mounted inside the shell.
-      expect(screen.getByTestId('ws-studio-split')).toBeTruthy();
-    });
-
-    it('seeds shell mode from persisted studio-layout fields', async () => {
-      vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue({
-        tabs: [
-          { id: 'ws-tab-200', label: 'Mock', url: 'ws://m', viewTab: 'mock', mode: 'mock', leftTab: 'compose', rightTab: 'events' },
-        ],
-        activeTabId: 'ws-tab-200',
-        renamedTabIds: [],
-      });
-      await renderStudioPage();
-      // Mock mode is the active mode → the split container reflects the seeded
-      // mode and the mode toggle is selected.
-      expect(screen.getByTestId('mode-mock').getAttribute('aria-selected')).toBe('true');
-      expect(screen.getByTestId('ws-studio-split').getAttribute('data-mode')).toBe('mock');
-    });
-
-    it('switches mode and persists the derived viewTab', async () => {
-      vi.useFakeTimers();
-      const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
-      await act(async () => {
-        render(<WebSocketStudioPage />);
-      });
-      saveSpy.mockClear();
-      fireEvent.click(screen.getByTestId('mode-saved'));
-      vi.advanceTimersByTime(400);
-      expect(saveSpy).toHaveBeenCalled();
-      const lastState = saveSpy.mock.calls.at(-1)![0];
-      expect(lastState.tabs[0].mode).toBe('saved');
-      expect(lastState.tabs[0].viewTab).toBe('saved');
-      vi.useRealTimers();
-    });
-
-    it('keeps the right-pane tab selection across left-tab and mode changes', async () => {
-      await renderStudioPage();
-      // Select a non-default right tab.
-      fireEvent.click(screen.getByTestId('right-tab-stats'));
-      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
-      // Change the (orthogonal) left tab — right tab must not reset.
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
-      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
-      // Round-trip through another mode and back — right tab must persist.
-      fireEvent.click(screen.getByTestId('mode-saved'));
-      fireEvent.click(screen.getByTestId('mode-client'));
-      expect(screen.getByTestId('right-tab-stats').getAttribute('aria-selected')).toBe('true');
-    });
-
-    it('splits the connect view into Connect / Headers / Params left tabs', async () => {
-      await renderStudioPage();
-      // Default left tab is Compose (messages view) — switch to Connect.
-      fireEvent.click(screen.getByTestId('left-tab-connect'));
-      // Connect tab: panel renders, headers/params relocated out.
-      expect(screen.getByTestId('connect-btn')).toBeTruthy();
-      expect(screen.queryByTestId('headers-section')).toBeNull();
-      expect(screen.queryByTestId('query-params-section')).toBeNull();
-      // Headers tab: only the headers editor.
-      fireEvent.click(screen.getByTestId('left-tab-headers'));
-      expect(screen.getByTestId('headers-section')).toBeTruthy();
-      expect(screen.queryByTestId('query-params-section')).toBeNull();
-      expect(screen.queryByTestId('connect-btn')).toBeNull();
-      // Params tab: only the params editor.
-      fireEvent.click(screen.getByTestId('left-tab-params'));
-      expect(screen.getByTestId('query-params-section')).toBeTruthy();
-      expect(screen.queryByTestId('headers-section')).toBeNull();
-      expect(screen.queryByTestId('connect-btn')).toBeNull();
-    });
-
-    it('shows the relocated composer on the Compose left tab', async () => {
-      await renderStudioPage();
-      fireEvent.click(screen.getByTestId('left-tab-compose'));
-      // Compose tab maps to the messages view: exactly one composer (the
-      // relocated standalone pane) and no connect/headers/params config.
-      expect(screen.queryAllByTestId('send-btn')).toHaveLength(1);
-      expect(screen.getByTestId('ping-btn')).toBeTruthy();
-      expect(screen.queryByTestId('connect-btn')).toBeNull();
-      expect(screen.queryByTestId('headers-section')).toBeNull();
-      expect(screen.queryByTestId('query-params-section')).toBeNull();
-    });
-  });
 });
+// Note: deriveTabLabel unit tests and studio shell layout tests are in
+// WebSocketStudioPage.shell.test.tsx

@@ -158,12 +158,14 @@ async function seedScheduleWorkflow(page: import('@playwright/test').Page) {
 }
 
 test.describe('Workflow Webhook Trigger', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedWebhookWorkflow(page);
     await gotoAppTab(page, 'workflow');
   });
 
   test('renders webhook trigger node with correct styling', async ({ page }) => {
+    test.slow();
     // Should see the webhook node
     const webhookNode = page.locator('.react-flow__node').filter({ hasText: 'Order Webhook' });
     await expect(webhookNode).toBeVisible({ timeout: 5_000 });

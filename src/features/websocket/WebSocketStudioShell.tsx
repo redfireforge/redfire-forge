@@ -22,7 +22,7 @@ const LEFT_TAB_LABELS: Record<WsLeftTab, string> = {
   params: 'Params',
   auth: 'Auth',
   headers: 'Headers',
-  compose: 'Compose',
+  send: 'Send',
 };
 
 const RIGHT_TAB_LABELS: Record<WsRightTab, string> = {
@@ -169,7 +169,7 @@ export function WebSocketStudioShell({
                   data-testid={`left-tab-${t}`}
                 >
                   {LEFT_TAB_LABELS[t]}
-                  {t === 'compose' && messageCount > 0 && (
+                  {t === 'send' && messageCount > 0 && (
                     <span className="ws-studio-tab-badge">{messageCount}</span>
                   )}
                 </button>

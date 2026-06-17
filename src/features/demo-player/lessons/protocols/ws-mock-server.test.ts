@@ -253,10 +253,10 @@ describe('ws-mock-server lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // ensureClientConnected → ensureMockRunning → MODE_MOCK; then MODE_CLIENT + CONNECT_BTN + connect
-    // After ensureClientConnected, preAction always clicks MODE_CLIENT and LEFT_TAB_COMPOSE
+    // After ensureClientConnected, preAction always clicks MODE_CLIENT and LEFT_TAB_SEND
     const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
     expect(calls.some((c: string) => c.includes('mode-client'))).toBe(true);
-    expect(calls.some((c: string) => c.includes('left-tab-compose'))).toBe(true);
+    expect(calls.some((c: string) => c.includes('left-tab-send'))).toBe(true);
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('Hello from Mock Server demo!'),
@@ -268,7 +268,7 @@ describe('ws-mock-server lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.waitFor).toHaveBeenCalledWith(
-      expect.stringContaining('left-tab-compose'),
+      expect.stringContaining('left-tab-send'),
       expect.any(Number),
     );
   });

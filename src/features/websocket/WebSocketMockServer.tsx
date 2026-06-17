@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '../../shared/websocket/types';
 import { formatUptime } from '../../shared/websocket/types';
 import { evaluateRules } from './wsMockRuleEngine';
@@ -6,6 +6,7 @@ import type { UseWebSocketMockServerReturn, MockServerConfig } from './useWebSoc
 
 interface WebSocketMockServerProps {
   mock: UseWebSocketMockServerReturn;
+  onPortChange?: (port: number) => void;
 }
 
 type MockRightTab = 'rules' | 'log';
@@ -26,15 +27,12 @@ export interface MockUi {
   setBroadcastText: (v: string) => void;
   testInput: string;
   setTestInput: (v: string) => void;
-  portInput: string;
-  portValid: boolean;
   rightTab: MockRightTab;
   setRightTab: (t: MockRightTab) => void;
   enabledRuleCount: number;
   startedAt: number | null;
   testResult: ReturnType<typeof evaluateRules> | null;
   reversedLogs: UseWebSocketMockServerReturn['logs'];
-  handlePortChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleFallbackChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   handleStart: () => void;
   handleStop: () => void;
@@ -86,16 +84,11 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [broadcastText, setBroadcastText] = useState('');
   const [testInput, setTestInput] = useState('');
-  const [portInput, setPortInput] = useState(String(config.port));
   const [rightTab, setRightTab] = useState<MockRightTab>('rules');
   // Client-side uptime anchor: WsMockStatus carries no startedAt, so we stamp
   // the moment the server transitions to running. The per-second ticker lives
   // in the <MockUptime> leaf so it does not re-render the whole pane.
   const [startedAt, setStartedAt] = useState<number | null>(null);
-
-  useEffect(() => {
-    setPortInput(String(config.port));
-  }, [config.port]);
 
   useEffect(() => {
     if (status.running) {
@@ -104,19 +97,6 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
       setStartedAt(null);
     }
   }, [status.running]);
-
-  const portValid = useMemo(() => {
-    const n = parseInt(portInput, 10);
-    return !isNaN(n) && n >= 1024 && n <= 65535;
-  }, [portInput]);
-
-  const handlePortChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    setPortInput(e.target.value);
-    const n = parseInt(e.target.value, 10);
-    if (!isNaN(n) && n >= 1024 && n <= 65535) {
-      mock.setConfig({ ...config, fallback: config.fallback, port: n });
-    }
-  }, [mock, config]);
 
   const handleFallbackChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
     const nextFallback = e.target.value as WsMockFallbackMode;
@@ -201,11 +181,10 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
     editingRuleId, setEditingRuleId,
     broadcastText, setBroadcastText,
     testInput, setTestInput,
-    portInput, portValid,
     rightTab, setRightTab,
     enabledRuleCount, startedAt,
     testResult, reversedLogs,
-    handlePortChange, handleFallbackChange,
+    handleFallbackChange,
     handleStart, handleStop, handleBroadcast,
     handleAddRule, handleDeleteRule, handleToggleRule, handleUpdateRule, handleMoveRule,
   };
@@ -222,8 +201,46 @@ function MockUptime({ startedAt }: { startedAt: number }) {
 }
 
 /** Full-width server bar + status strip (shell `topBar`). */
-export function WebSocketMockServerBar({ ui }: { ui: MockUi }) {
-  const { status, config, starting, portInput, portValid, enabledRuleCount, startedAt } = ui;
+export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPortChange?: (port: number) => void }) {
+  const { status, config, starting, enabledRuleCount, startedAt } = ui;
+  const canEditPort = !status.running && !starting;
+
+  // Local string state so the user can delete digits and retype freely without
+  // the controlled value snapping back on every keystroke.
+  const [inputValue, setInputValue] = useState(String(config.port));
+
+  // Keep in sync when the port changes from outside (e.g. parent reassignment).
+  useEffect(() => {
+    setInputValue(String(config.port));
+  }, [config.port]);
+
+  function handlePortInput(e: ChangeEvent<HTMLInputElement>) {
+    setInputValue(e.target.value);
+  }
+
+  function commitPort() {
+    const val = parseInt(inputValue, 10);
+    if (!isNaN(val) && val >= 1024 && val <= 65535) {
+      onPortChange?.(val);
+    } else {
+      // Reset display to current valid port on invalid input
+      setInputValue(String(config.port));
+    }
+  }
+
+  function handlePortKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setInputValue(String(config.port));
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  // Derive the URL preview from the local inputValue so it updates as you type
+  const previewPort = parseInt(inputValue, 10);
+  const urlDisplay = `ws://localhost:${!isNaN(previewPort) ? previewPort : config.port}`;
+
   return (
     <div className="ws-mock-serverbar-wrap">
       <div className="ws-mock-serverbar">
@@ -231,28 +248,30 @@ export function WebSocketMockServerBar({ ui }: { ui: MockUi }) {
         <input
           className="ws-mock-url"
           type="text"
-          value={`ws://localhost:${config.port}`}
+          value={urlDisplay}
           readOnly
           spellCheck={false}
           aria-label="Mock server URL"
         />
         <input
-          className={`ws-mock-port-input ${portValid ? '' : 'invalid'}`}
+          className={`ws-mock-port-input${canEditPort ? ' editable' : ''}`}
           type="number"
-          value={portInput}
-          onChange={ui.handlePortChange}
-          disabled={status.running}
+          value={inputValue}
+          readOnly={!canEditPort}
+          onChange={canEditPort ? handlePortInput : undefined}
+          onBlur={canEditPort ? commitPort : undefined}
+          onKeyDown={canEditPort ? handlePortKeyDown : undefined}
           min={1024}
           max={65535}
-          title="Port 1024–65535"
-          aria-label="Mock server port"
+          title={canEditPort ? 'Type a port number (1024–65535), then press Enter or click away' : 'Stop the server to change the port'}
+          aria-label={canEditPort ? 'Mock server port (editable)' : 'Mock server port (stop server to edit)'}
           data-testid="mock-port-input"
         />
         {!status.running ? (
           <button
             className="ws-mock-start-btn"
             onClick={ui.handleStart}
-            disabled={starting || !portValid}
+            disabled={starting}
             data-testid="mock-start-btn"
           >
             {starting ? 'Starting\u2026' : 'Start Server'}
@@ -607,8 +626,11 @@ function MockRuleList({ ui }: { ui: MockUi }) {
     <div className="ws-mock-rules-section">
       <div className="ws-mock-section-header">
         <span className="ws-mock-section-title">Match incoming → respond automatically</span>
-        <button className="ws-mock-add-rule-btn" onClick={ui.handleAddRule} data-testid="mock-add-rule">
-          + Add Rule
+        <button className="ws-mock-add-rule-btn" onClick={ui.handleAddRule} data-testid="mock-add-rule" title="Add a new match rule" aria-label="Add rule">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+          Add Rule
         </button>
       </div>
 
@@ -661,7 +683,10 @@ function MockActivityLog({ ui }: { ui: MockUi }) {
       <div className="ws-mock-section-header">
         <span className="ws-mock-section-title">Activity Log</span>
         {logs.length > 0 && (
-          <button className="ws-mock-clear-log-btn" onClick={ui.mock.clearLogs} data-testid="mock-clear-log">
+          <button className="ws-mock-clear-log-btn" onClick={ui.mock.clearLogs} data-testid="mock-clear-log" title="Clear activity log" aria-label="Clear activity log">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 3h8M5 3V2h2v1M4.5 3v6.5h3V3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             Clear
           </button>
         )}
@@ -737,11 +762,11 @@ export function WebSocketMockRulesPane({ ui, showTabs = true }: { ui: MockUi; sh
  *  stacked in a single flat column. The shell composes the three exported
  *  panes (`WebSocketMockServerBar`, `WebSocketMockClientsPane`,
  *  `WebSocketMockRulesPane`) into topBar / left / right instead. */
-export function WebSocketMockServer({ mock }: WebSocketMockServerProps) {
+export function WebSocketMockServer({ mock, onPortChange }: WebSocketMockServerProps) {
   const ui = useMockServerUi(mock);
   return (
     <div className="ws-mock-flat">
-      <WebSocketMockServerBar ui={ui} />
+      <WebSocketMockServerBar ui={ui} onPortChange={onPortChange} />
       <div className="ws-mock-flat-body">
         <WebSocketMockClientsPane ui={ui} />
         <WebSocketMockRulesPane ui={ui} showTabs={false} />

@@ -13,6 +13,17 @@ import type {
 import { calcReadingTime } from './types';
 import { useDemoProgress } from './useDemoProgress';
 
+/** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
+function firstVisible(selector: string): HTMLElement | null {
+  const all = document.querySelectorAll(selector);
+  for (const el of Array.from(all)) {
+    if (!(el instanceof HTMLElement)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return el;
+  }
+  return null;
+}
+
 const INITIAL_STATE: DemoHubState = {
   view: 'domains',
   selectedDomain: null,
@@ -109,8 +120,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const buildContext = useCallback((): DemoActionContext => ({
     navigateToTab,
     click: async (selector: string) => {
-      const el = document.querySelector(selector);
-      if (el instanceof HTMLElement) {
+      const el = firstVisible(selector);
+      if (el) {
         // Visual ripple so user sees what was clicked
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 400)); // let ripple show
@@ -118,7 +129,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     fill: async (selector: string, value: string) => {
-      const el = document.querySelector(selector);
+      const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
@@ -132,7 +143,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = document.querySelector(selector) as HTMLSelectElement | null;
+      const el = firstVisible(selector) as HTMLSelectElement | null;
       if (el) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
@@ -155,11 +166,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const buildQuietContext = useCallback((): DemoActionContext => ({
     navigateToTab,
     click: async (selector: string) => {
-      const el = document.querySelector(selector);
-      if (el instanceof HTMLElement) el.click();
+      const el = firstVisible(selector);
+      if (el) el.click();
     },
     fill: async (selector: string, value: string) => {
-      const el = document.querySelector(selector);
+      const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         const proto = el instanceof HTMLTextAreaElement
           ? HTMLTextAreaElement.prototype
@@ -171,7 +182,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = document.querySelector(selector) as HTMLSelectElement | null;
+      const el = firstVisible(selector) as HTMLSelectElement | null;
       if (el) {
         const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (desc?.set) desc.set.call(el, value);
@@ -384,6 +395,10 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
           }
           /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
+          // Navigate back to the lesson's starting tab (same as restartDemo does).
+          if (lesson.initialTab) ctx.navigateToTab(lesson.initialTab);
+          await new Promise(r => setTimeout(r, 350));
+          if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (lesson.setup) {
             try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
           }
@@ -473,21 +488,26 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     }
   }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, executeCurrentStep, progress]);
 
-  // Exit live mode → run cleanup, then return to concept view
+  // Exit live mode → immediately return to concept view, then run cleanup in background.
+  // Cleanup is intentionally deferred so the concept page renders without delay —
+  // the user should never see a blank body while cleanup operations complete.
   const exitLiveDemo = useCallback(async () => {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     abortRef.current?.abort(); // stop any running step pipeline
 
-    // Run lesson cleanup (stop servers, disconnect, reset UI) — quiet, no ripple
+    // Show concept view immediately — cleanup runs silently in the background.
+    setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
+    setStepPhase('done');
+
+    // Run lesson cleanup after the view change so the UI is never blank.
+    // Cleanup only manipulates hidden tab DOM (WS Studio, Kafka Studio, etc.)
+    // so it is safe to run while the user is viewing the concept page.
     const lesson = state.selectedLesson;
     if (lesson?.cleanup) {
       const ctx = buildQuietContext();
       try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
     }
-
-    setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
-    setStepPhase('done');
   }, [state.selectedLesson, buildQuietContext]);
 
   return {

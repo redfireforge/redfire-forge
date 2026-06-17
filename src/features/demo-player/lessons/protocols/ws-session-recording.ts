@@ -304,8 +304,8 @@ During replay, the Compose panel is hidden since you're watching a recording, no
             await ctx.delay(600);
           }
         }
-        // Switch to Compose tab and pre-fill the message
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        // Switch to Send tab and pre-fill the message
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.fill(WS.MESSAGE_INPUT, '{"action":"demo","seq":1}');
         await ctx.delay(200);

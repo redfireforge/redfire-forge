@@ -6,7 +6,7 @@ import type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsCon
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { useDropdownClose } from './useDropdownClose';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
-import { useWebSocketCompose } from './useWebSocketCompose';
+import { useWebSocketSend } from './useWebSocketSend';
 import { useWebSocketMessageDiff } from './useWebSocketMessageDiff';
 import { saveJsonFile } from '../../shared/utils/fileSaver';
 import type { WsMetricsSnapshot } from './useWebSocketMetrics';
@@ -169,7 +169,7 @@ export function WebSocketMessageLog({
   onToggleSchemasVisible,
   hasEnabledSchemas = false,
 }: WebSocketMessageLogProps) {
-  const { composeBar } = useWebSocketCompose({
+  const { composeBar } = useWebSocketSend({
     isConnected,
     effectiveProtocol,
     onSend,

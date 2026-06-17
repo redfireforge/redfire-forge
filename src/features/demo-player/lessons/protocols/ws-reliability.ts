@@ -177,7 +177,7 @@ The caret (▾) next to Disconnect opens a dropdown for sending a custom close f
           await connectToMockServer(ctx);
         }
         // Switch to Compose, send a burst, then back to Stats
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
         await ctx.fill(WS.MESSAGE_INPUT, '{"ping":1}');
         await ctx.delay(200);

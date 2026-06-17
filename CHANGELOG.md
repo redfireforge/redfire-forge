@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Fixed
+- **Multi-mock server silent send failures** — `useWebSocketStudio.ts` now detects stale proxy connections on send errors: when the server returns `WS_NOT_CONNECTED` or similar, it queries `/api/ws/mock/status`, properly tears down the proxy state, and surfaces the error in the UI instead of silently dropping the message.
+- **Mock server log delay / missing entries** — `useWebSocketMockServer.ts` now calls `pollLogs()` immediately when the panel becomes active (alongside `pollStatus()`), eliminating the ≤500 ms blank-log window after switching to mock mode. An in-flight guard (`pollLogsInFlightRef`) prevents duplicate concurrent log fetches.
+- **ws-test-runner lesson tests** — Fixed two unit tests (`setup starts mock server` / `cleanup stops mock server`) that broke after the lesson's setup function was updated to check `/api/ws/mock/status` before calling `/api/ws/mock/start`. Tests now mock `fetch` responses to return proper JSON bodies matching the new code path.
+- **Power User lesson diagram** — Replaced ASCII-art concept diagram with a polished inline SVG (tab bar, keyboard shortcut key badges, drag-to-reorder indicator, per-tab state summary).
+
+### Changed
+- **Multi-mock server E2E test suite** — Added `e2e/ws-multi-mock-investigate.spec.ts` with 14 scenarios covering simultaneous multi-port mock servers, message routing, log latency, clean port isolation, and three-tab concurrent operations. Helpers `connectClient`, `disconnectClient`, `startMock`, `stopMock` made robust with mode-switch guards and a `beforeAll` that tears down any leftover servers.
+
 ### Added
 - **Kafka Demo Hub — 13 Interactive Lessons (K1–K13)** — Full guided lesson system for the Kafka domain: K1 Quick Start, K2 Publish Studio, K3 Consume Studio, K4 Headers & Filters, K5 Key/Value Serde (String/JSON/Base64/Hex), K6 Topic Explorer, K7 Schema Registry, K8 Consumer Groups, K9 KPIs & Metrics, K10 SASL Security, K11 SASL E2E, K12 TLS Security, K13 Harness Integration. Each lesson has a concept panel, step-by-step live demo with spotlight, PrerequisiteGate auto-polling for Docker-backed lessons, and keyboard navigation. Lessons use real Kafka clusters via Docker compose stacks.
 - **Kafka: Key/Value Serde Format Selector** — Publish and Consume panels now expose a format selector (String, JSON, Base64, Hex) for both keys and values, stored per-cluster.

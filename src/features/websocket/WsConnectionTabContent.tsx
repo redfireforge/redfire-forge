@@ -12,7 +12,7 @@ import { useWebSocketConsole } from './useWebSocketConsole';
 import { ConsolePanel } from './ConsolePanel';
 import { WebSocketConnectPanel } from './WebSocketConnectPanel';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
-import { WebSocketComposePane } from './WebSocketComposePane';
+import { WebSocketSendPane } from './WebSocketSendPane';
 import { WebSocketStudioShell } from './WebSocketStudioShell';
 import {
   WebSocketSavedRail,
@@ -69,6 +69,11 @@ export interface WsConnectionTabContentProps {
   globalAuthProfiles?: GlobalAuthProfile[];
   profilesHook: UseWebSocketProfilesReturn;
   templatesHook: UseWebSocketTemplatesReturn;
+  /** Unique port assigned to this tab's mock server (e.g. 9876, 9877, …).
+   *  Each tab gets its own port so mock servers are fully isolated. */
+  mockPort: number;
+  /** Called when the user changes the mock server port via the UI. */
+  onMockPortChange?: (tabId: string, newPort: number) => void;
   onConnectionStateChange: (tabId: string, state: ConnectionStateHint, protocolMode?: WsProtocolMode) => void;
   onUrlChange: (tabId: string, url: string) => void;
   /** Phase 8 — fires when persistable draft fields (subprotocols/headers/
@@ -80,7 +85,7 @@ export interface WsConnectionTabContentProps {
    * for whole-draft persistence restore. `initialUrl` still seeds the URL. */
   initialDraft?: Partial<WsConnectionDraft>;
   /** Selects which left-pane tab is shown (`connect` / `headers` / `params` /
-   * `compose` / `auth`). When omitted, defaults to `connect`. */
+   * `send` / `auth`). When omitted, defaults to `connect`. */
   controlledLeftTab?: WsLeftTab;
   /** Drives the redesigned `WebSocketStudioShell` this component renders
    * (composition inversion) so the studio-owning child can feed both panes from
@@ -101,6 +106,8 @@ export const WsConnectionTabContent = forwardRef<
 >(function WsConnectionTabContent(
   {
     tabId, envVarMap, globalAuthProfiles = [], profilesHook, templatesHook,
+    mockPort,
+    onMockPortChange,
     onConnectionStateChange, onUrlChange,
     onDraftChange,
     initialUrl, initialProtocol,
@@ -135,7 +142,16 @@ export const WsConnectionTabContent = forwardRef<
   const recording = useWebSocketRecording();
   const { recordMessage, recordStateChange, state: recordingState } = recording;
   const metrics = useWebSocketMetrics(studio.messages, studio.connection.state);
-  const mockServer = useWebSocketMockServer(viewTab === 'mock');
+  // Each tab has its own mock server scoped to its assigned port.
+  // The user may change the port while the server is stopped; we track it in local state
+  // so the hook immediately picks up the new port for polling and API calls.
+  const [localMockPort, setLocalMockPort] = useState(mockPort);
+  const handleMockPortChange = useCallback((newPort: number) => {
+    setLocalMockPort(newPort);
+    onMockPortChange?.(tabId, newPort);
+  }, [tabId, onMockPortChange]);
+
+  const mockServer = useWebSocketMockServer(localMockPort, viewTab === 'mock');
 
   const schemaHook = useWebSocketSchema();
 
@@ -211,17 +227,10 @@ export const WsConnectionTabContent = forwardRef<
   const prevConnStateRef = useRef(studio.connection.state);
   useEffect(() => {
     if (prevConnStateRef.current !== studio.connection.state) {
-      const prevState = prevConnStateRef.current;
       prevConnStateRef.current = studio.connection.state;
       const hint: ConnectionStateHint =
         studio.connection.state === 'closing' ? 'connected' : studio.connection.state;
       onConnectionStateChange(tabId, hint, studio.protocolMode);
-      // On a successful (re)connect, jump to the Compose tab so the user lands
-      // on the send screen — the setup tabs (Connect/Params/Auth/Headers) are
-      // only useful pre-connect.
-      if (studio.connection.state === 'connected' && prevState !== 'connected') {
-        onLeftTabChange?.('compose');
-      }
     }
   }, [studio.connection.state, tabId, onConnectionStateChange, studio.protocolMode, onLeftTabChange]);
 
@@ -568,8 +577,8 @@ export const WsConnectionTabContent = forwardRef<
     </>
   );
 
-  const composePaneNode = (
-    <WebSocketComposePane
+  const sendPaneNode = (
+    <WebSocketSendPane
       isConnected={isConnected}
       effectiveProtocol={effectiveProtocol}
       onSend={studio.send}
@@ -618,8 +627,8 @@ export const WsConnectionTabContent = forwardRef<
       <WebSocketMockClientsPane ui={mockUi} />
     ) : controlledMode === 'saved' ? (
       <WebSocketSavedRail ui={savedUi} />
-    ) : shellLeftTab === 'compose' ? (
-      <div className="ws-studio-content">{composePaneNode}</div>
+    ) : shellLeftTab === 'send' ? (
+      <div className="ws-studio-content">{sendPaneNode}</div>
     ) : shellLeftTab === 'params' ? (
       <div className="ws-studio-content">
         {lockBannerNode}
@@ -711,7 +720,7 @@ export const WsConnectionTabContent = forwardRef<
         profileCount={profilesHook.profiles.length}
         messageCount={studio.messages.length}
         mockRunning={mockServer.status.running}
-        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} /> : undefined}
+        topBar={controlledMode === 'mock' ? <WebSocketMockServerBar ui={mockUi} onPortChange={handleMockPortChange} /> : undefined}
         rightPane={rightBody}
       >
         {leftBody}
