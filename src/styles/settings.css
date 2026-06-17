@@ -2285,6 +2285,28 @@ label.kafka-editor-checkbox {
 .kafka-ms-results-table tr:hover td { background: rgba(255,255,255,0.04); }
 .kafka-ms-results-table tr.selected td { background: rgba(95,177,255,0.1); }
 
+/* ── Timestamp column ──────────────────────────────────────────── */
+.kafka-ts-th {
+  white-space: nowrap;
+}
+
+.kafka-ts-cell {
+  white-space: nowrap;
+  color: rgba(160, 200, 255, 0.75);
+  font-size: 0.75rem;
+  cursor: default;
+  min-width: 72px;
+}
+
+.kafka-ts-cell:hover {
+  color: rgba(160, 200, 255, 1);
+}
+
+/* Muted dash when timestamp is absent */
+.kafka-ts-missing {
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+
 /* Detail pane (Zone B) */
 .kafka-ms-detail-pane {
   border-radius: 6px;

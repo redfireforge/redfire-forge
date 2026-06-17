@@ -79,15 +79,18 @@ const defaultTemplateProps = () => ({
   onDeleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
 });
 
+// A timestamp 5 minutes in the past (relative: "5m ago")
+const FIVE_MIN_AGO_MS = String(Date.now() - 5 * 60 * 1000);
+
 const SAMPLE_MESSAGES: KafkaConsumeResultRow[] = [
-  { topic: 'orders.events', partition: 0, offset: '10', value: '{"id":1}', key: 'order-1' },
+  { topic: 'orders.events', partition: 0, offset: '10', value: '{"id":1}', key: 'order-1', timestamp: FIVE_MIN_AGO_MS },
   { topic: 'orders.events', partition: 1, offset: '3', value: '{"id":2}', key: undefined },
 ];
 
 const STREAM_MESSAGES: KafkaConsumeResultRow[] = [
-  { topic: 'orders.events', partition: 0, offset: '100', value: '{"seq":1}', key: 'sk-0' },
+  { topic: 'orders.events', partition: 0, offset: '100', value: '{"seq":1}', key: 'sk-0', timestamp: FIVE_MIN_AGO_MS },
   { topic: 'orders.events', partition: 1, offset: '101', value: '{"seq":2}', key: 'sk-1' },
-  { topic: 'orders.events', partition: 0, offset: '102', value: '{"seq":3}', key: 'sk-2' },
+  { topic: 'orders.events', partition: 0, offset: '102', value: '{"seq":3}', key: 'sk-2', timestamp: FIVE_MIN_AGO_MS },
 ];
 
 function renderConsume(opts?: {
@@ -153,6 +156,33 @@ describe('KafkaConsumeStudio — Consume Once', () => {
     expect(screen.getByTestId('con-results-zone')).toBeTruthy();
     expect(screen.getByTestId('con-row-0')).toBeTruthy();
     expect(screen.getByTestId('con-row-1')).toBeTruthy();
+  });
+
+  it('renders Timestamp column header', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const headers = screen.getAllByRole('columnheader');
+    const texts = headers.map((h) => h.textContent);
+    expect(texts).toContain('Timestamp');
+  });
+
+  it('shows relative age in timestamp cell when timestamp is present', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const tsCells = screen.getAllByTestId('ts-cell');
+    // row 0 has a 5-minute-old timestamp → should contain "m ago"
+    expect(tsCells[0].textContent).toMatch(/m ago|just now|h ago/);
+  });
+
+  it('shows tooltip with full datetime on timestamp cell', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const tsCells = screen.getAllByTestId('ts-cell');
+    // title attribute should contain year
+    expect(tsCells[0].getAttribute('title')).toMatch(/202\d/);
+  });
+
+  it('shows dash for rows without a timestamp', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    // row 1 has no timestamp → missing cell
+    expect(screen.getAllByTestId('ts-cell-missing').length).toBeGreaterThan(0);
   });
 
   it('shows "No messages received" when result is empty array', () => {
