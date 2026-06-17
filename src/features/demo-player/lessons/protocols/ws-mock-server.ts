@@ -195,8 +195,8 @@ You'll switch between them during this lesson.`,
         // (e.g. steps 3/6 click MODE_MOCK) and ensureClientConnected exits early when
         // _clientConnected is already true, skipping the MODE_CLIENT click.
         await ctx.click(WS.MODE_CLIENT);
-        await ctx.waitFor(WS.LEFT_TAB_COMPOSE, 1500);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.waitFor(WS.LEFT_TAB_SEND, 1500);
+        await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.fill(WS.MESSAGE_INPUT, '{"greeting": "Hello from Mock Server demo!"}');
       },
       action: async (ctx) => {

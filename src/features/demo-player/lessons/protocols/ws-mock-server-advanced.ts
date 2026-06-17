@@ -344,7 +344,7 @@ Watch the Events panel to see rule-matched vs fallback responses side by side.`,
         // Navigate to Events tab so user sees messages arrive in real time
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_COMPOSE);
+        await ctx.click(WS.LEFT_TAB_SEND);
       },
       action: async (ctx) => {
         // Send ping — rule fires with template response + 200ms delay

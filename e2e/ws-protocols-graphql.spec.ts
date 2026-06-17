@@ -119,8 +119,8 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     // Count messages before sending subscription
     const rowsBefore = await page.locator('.ws-message-row').count();
 
-    // Switch to Compose tab
-    await switchLeftTab(page, 'compose');
+    // Switch to Send tab
+    await switchLeftTab(page, 'send');
 
     // GQL compose fields should be visible
     await expect(page.locator('[data-testid="gql-compose-fields"]')).toBeVisible({ timeout: 3000 });
@@ -165,8 +165,8 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     await gotoWsStudio(page);
     await connectToGql(page);
 
-    // Switch to Compose tab
-    await switchLeftTab(page, 'compose');
+    // Switch to Send tab
+    await switchLeftTab(page, 'send');
 
     // GQL compose fields should be visible
     await expect(page.locator('[data-testid="gql-compose-fields"]')).toBeVisible({ timeout: 3000 });

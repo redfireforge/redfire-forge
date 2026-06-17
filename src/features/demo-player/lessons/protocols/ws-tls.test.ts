@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsTlsLesson } from './ws-tls';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 describe('ws-tls lesson', () => {
   beforeEach(() => {
@@ -171,14 +171,15 @@ describe('ws-tls lesson', () => {
   it('step tls-connect preAction clicks disconnect btn if present', async () => {
     const discBtn = document.createElement('button');
     discBtn.setAttribute('data-testid', 'disconnect-btn');
-    discBtn.onclick = vi.fn();
+    makeVisible(discBtn);
     document.body.appendChild(discBtn);
+    const clickSpy = vi.spyOn(discBtn, 'click');
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
 
-    expect(discBtn.onclick).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('step tls-connect action clicks connect', async () => {
@@ -204,7 +205,7 @@ describe('ws-tls lesson', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-send')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step tls-send preAction connects if not already connected', async () => {
@@ -230,7 +231,7 @@ describe('ws-tls lesson', () => {
 
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step tls-send action fills message and sends', async () => {
@@ -254,14 +255,18 @@ describe('ws-tls lesson', () => {
   it('step tls-skip-cert preAction navigates to Connect tab first, then disconnects, and expands TLS panel', async () => {
     const discBtn = document.createElement('button');
     discBtn.setAttribute('data-testid', 'disconnect-btn');
-    discBtn.onclick = vi.fn();
+    makeVisible(discBtn);
     document.body.appendChild(discBtn);
+    const discClickSpy = vi.spyOn(discBtn, 'click');
 
+    // ensureTlsPanelExpanded uses dispatchEvent(MouseEvent('click')), not element.click()
+    // so spy via addEventListener instead of vi.spyOn(element, 'click')
     const tlsToggle = document.createElement('button');
     tlsToggle.setAttribute('data-testid', 'tls-toggle');
     tlsToggle.setAttribute('aria-expanded', 'false');
-    tlsToggle.onclick = vi.fn();
     document.body.appendChild(tlsToggle);
+    const tlsClickEvents: Event[] = [];
+    tlsToggle.addEventListener('click', (e) => tlsClickEvents.push(e));
 
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
     const ctx = makeCtx();
@@ -271,12 +276,12 @@ describe('ws-tls lesson', () => {
     // is only in the DOM when the Connect panel is rendered in client mode).
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(discBtn.onclick).toHaveBeenCalled();
+    expect(discClickSpy).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
       expect.stringContaining('wss://'),
     );
-    expect(tlsToggle.onclick).toHaveBeenCalled();
+    expect(tlsClickEvents.length).toBeGreaterThan(0);
   });
 
   it('step tls-skip-cert action dispatches click on checkbox to enable skip-cert', async () => {

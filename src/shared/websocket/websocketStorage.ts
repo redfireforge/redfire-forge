@@ -272,6 +272,13 @@ export async function saveWsSchemas(schemas: WsSchemaStoredEntry[]): Promise<voi
 
 // ── Mock Server Rules & Config ──────────────────────────────────────
 
+/** Per-port storage key for mock rules. Each tab's mock server stores its rules
+ *  independently so tabs remain isolated. */
+export const mockRulesKey = (port: number) => `redfire-ws-mock-rules-v2-${port}`;
+/** Per-port storage key for mock config (fallback mode). */
+export const mockConfigKey = (port: number) => `redfire-ws-mock-config-v2-${port}`;
+
+// Legacy single-server keys kept for reference only (no longer written).
 export const WS_MOCK_RULES_KEY = 'redfire-ws-mock-rules-v1';
 export const WS_MOCK_CONFIG_KEY = 'redfire-ws-mock-config-v1';
 
@@ -294,18 +301,18 @@ function isValidMockRule(entry: unknown): entry is WsMockRule {
   );
 }
 
-export async function loadMockRules(): Promise<WsMockRule[]> {
-  const raw = await readKey(WS_MOCK_RULES_KEY);
+export async function loadMockRules(port: number): Promise<WsMockRule[]> {
+  const raw = await readKey(mockRulesKey(port));
   if (!raw) return [];
   return parseArray(raw, isValidMockRule);
 }
 
-export async function saveMockRules(rules: WsMockRule[]): Promise<void> {
-  await writeKey(WS_MOCK_RULES_KEY, JSON.stringify(rules));
+export async function saveMockRules(port: number, rules: WsMockRule[]): Promise<void> {
+  await writeKey(mockRulesKey(port), JSON.stringify(rules));
 }
 
-export async function loadMockConfig(): Promise<MockConfigStored | null> {
-  const raw = await readKey(WS_MOCK_CONFIG_KEY);
+export async function loadMockConfig(port: number): Promise<MockConfigStored | null> {
+  const raw = await readKey(mockConfigKey(port));
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as MockConfigStored;
@@ -317,6 +324,6 @@ export async function loadMockConfig(): Promise<MockConfigStored | null> {
   }
 }
 
-export async function saveMockConfig(config: MockConfigStored): Promise<void> {
-  await writeKey(WS_MOCK_CONFIG_KEY, JSON.stringify(config));
+export async function saveMockConfig(port: number, config: MockConfigStored): Promise<void> {
+  await writeKey(mockConfigKey(port), JSON.stringify(config));
 }

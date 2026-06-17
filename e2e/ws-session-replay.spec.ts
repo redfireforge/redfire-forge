@@ -59,7 +59,7 @@ async function connectTo(page: Page, url = MOCK_URL) {
 
 async function sendMessage(page: Page, msg: string) {
   const pane = activePane(page);
-  await pane.locator('[data-testid="left-tab-compose"]').click();
+  await pane.locator('[data-testid="left-tab-send"]').click();
   const msgInput = pane.locator('.ws-compose-input');
   await msgInput.fill(msg);
   await pane.locator('[data-testid="send-btn"]').click();
@@ -68,7 +68,7 @@ async function sendMessage(page: Page, msg: string) {
     await expect(msgInput).toBeEnabled({ timeout: 2000 });
   } catch {
     await connectTo(page);
-    await pane.locator('[data-testid="left-tab-compose"]').click();
+    await pane.locator('[data-testid="left-tab-send"]').click();
     await msgInput.fill(msg);
     await pane.locator('[data-testid="send-btn"]').click();
   }
@@ -290,7 +290,7 @@ test.describe('WT-28–31: Session Replay', () => {
       await expect(activePane(page).locator('[data-testid="start-recording-btn"]')).toBeVisible();
 
       // Compose should be re-enabled (not disabled during replay)
-      await activePane(page).locator('[data-testid="left-tab-compose"]').click();
+      await activePane(page).locator('[data-testid="left-tab-send"]').click();
       const sendBtn = activePane(page).locator('[data-testid="send-btn"]');
       // Send button existence confirms compose bar is back
       await expect(sendBtn).toBeVisible();

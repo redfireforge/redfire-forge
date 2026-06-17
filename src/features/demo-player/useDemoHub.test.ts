@@ -216,6 +216,32 @@ describe('useDemoHub', () => {
     expect(result.current.state.stepIndex).toBe(0);
   });
 
+  it('toggleAutoPlay at end: navigates to initialTab before setup (mirrors restartDemo)', async () => {
+    const setup = vi.fn().mockResolvedValue(undefined);
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const lesson = makeLesson({ setup, cleanup, initialTab: 'kafka-settings' });
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => { result.current.selectLesson(lesson); });
+    await act(async () => {
+      result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // Advance to last step so atEnd=true
+    await act(async () => {
+      result.current.goToStep(lesson.steps.length - 1);
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    navigateToTab.mockClear();
+
+    // Click play at end — should trigger cleanup → initialTab nav → setup → step 0
+    act(() => { result.current.toggleAutoPlay(); });
+    await act(async () => { await vi.runAllTimersAsync(); });
+
+    expect(cleanup).toHaveBeenCalled();
+    expect(navigateToTab).toHaveBeenCalledWith('kafka-settings');
+    expect(setup).toHaveBeenCalled();
+  });
+
   it('toggleAutoPlay at end: deferred callback returns early when generation changes (lines 372, 377)', async () => {
     const setup = vi.fn().mockResolvedValue(undefined);
     const cleanup = vi.fn().mockResolvedValue(undefined);
@@ -441,9 +467,8 @@ describe('useDemoHub', () => {
     expect(result.current.state.isPlaying).toBe(false);
     expect(result.current.state.stepIndex).toBe(0);
 
-    // Fire the 50ms deferred callback → cleanup and setup should run
-    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    // Fire the 50ms deferred callback + 350ms initialTab delay → cleanup and setup should run
+    await act(async () => { await vi.runAllTimersAsync(); });
     expect(cleanup).toHaveBeenCalled();
     expect(setup).toHaveBeenCalled();
   });
@@ -571,8 +596,8 @@ describe('useDemoHub', () => {
     // stepIndex=0, steps.length=0 → atEnd (0 >= -1) = true → enters restart setTimeout(50)
     act(() => { result.current.toggleAutoPlay(); });
 
-    // Advance past the 50ms deferred callback
-    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    // Advance past the 50ms deferred callback + 350ms initialTab delay
+    await act(async () => { await vi.runAllTimersAsync(); });
 
     // The restart block calls cleanup then setup, but NOT executeCurrentStep (no steps[0])
     expect(cleanup).toHaveBeenCalled();
@@ -598,8 +623,9 @@ describe('useDemoHub', () => {
     // At this point we're on the only (last) step; enable auto-play
     act(() => { result.current.toggleAutoPlay(); });
 
-    // auto-play effect fires: stepIndex (0) >= steps.length-1 (0) → stops immediately
-    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    // auto-play effect fires: stepIndex (0) >= steps.length-1 (0) → stops and marks complete.
+    // The at-end restart path runs (50ms + 350ms delays), so run all timers.
+    await act(async () => { await vi.runAllTimersAsync(); });
 
     expect(result.current.state.isPlaying).toBe(false);
     expect(result.current.progress.completedLessons).toContain(lesson.id);

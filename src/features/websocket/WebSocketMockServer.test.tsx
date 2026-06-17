@@ -180,12 +180,47 @@ describe('WebSocketMockServer', () => {
     expect(broadcastFn).toHaveBeenCalledWith('hello all');
   });
 
-  it('disables port input when running', () => {
+  it('port input is editable when server is stopped', () => {
+    const mock = makeMockReturn({
+      status: { running: false, port: 9876, clientCount: 0, clients: [] },
+    });
+    render(<WebSocketMockServer mock={mock} />);
+    expect((screen.getByTestId('mock-port-input') as HTMLInputElement).readOnly).toBe(false);
+  });
+
+  it('port input is read-only when server is running', () => {
     const mock = makeMockReturn({
       status: { running: true, port: 9876, clientCount: 0, clients: [] },
     });
     render(<WebSocketMockServer mock={mock} />);
-    expect((screen.getByTestId('mock-port-input') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('mock-port-input') as HTMLInputElement).readOnly).toBe(true);
+  });
+
+  it('port input calls onPortChange on blur with a valid port', () => {
+    const onPortChange = vi.fn();
+    const mock = makeMockReturn({
+      status: { running: false, port: 9876, clientCount: 0, clients: [] },
+    });
+    render(<WebSocketMockServer mock={mock} onPortChange={onPortChange} />);
+    const input = screen.getByTestId('mock-port-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '9999' } });
+    // onPortChange not yet called — waiting for commit (blur / Enter)
+    expect(onPortChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onPortChange).toHaveBeenCalledWith(9999);
+  });
+
+  it('port input resets to config.port on blur with an invalid value', () => {
+    const onPortChange = vi.fn();
+    const mock = makeMockReturn({
+      status: { running: false, port: 9876, clientCount: 0, clients: [] },
+    });
+    render(<WebSocketMockServer mock={mock} onPortChange={onPortChange} />);
+    const input = screen.getByTestId('mock-port-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '80' } }); // too low
+    fireEvent.blur(input);
+    expect(onPortChange).not.toHaveBeenCalled();
+    expect(input.value).toBe('9876');
   });
 
   it('clears logs on clear button click', () => {
@@ -199,50 +234,33 @@ describe('WebSocketMockServer', () => {
     expect(clearLogs).toHaveBeenCalledOnce();
   });
 
-  // ── Port validation ─────────────────────────────────────────────────
+  // ── Port display ─────────────────────────────────────────────────
+  // The port is now tab-assigned and read-only — users cannot change it.
 
-  it('disables start button when port is invalid (too low)', () => {
-    const mock = makeMockReturn();
+  it('start button is enabled when server is stopped and not starting', () => {
+    const mock = makeMockReturn({
+      status: { running: false, port: 9876, clientCount: 0, clients: [] },
+      starting: false,
+    });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: '100' } });
-    expect((screen.getByTestId('mock-start-btn') as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it('disables start button when port is NaN', () => {
-    const mock = makeMockReturn();
-    render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: 'abc' } });
-    expect((screen.getByTestId('mock-start-btn') as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it('enables start button when port is valid', () => {
-    const mock = makeMockReturn();
-    render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: '8080' } });
     expect((screen.getByTestId('mock-start-btn') as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('calls setConfig with port when valid port is entered', () => {
-    const setConfig = vi.fn();
-    const mock = makeMockReturn({ setConfig });
+  it('start button is disabled while starting', () => {
+    const mock = makeMockReturn({
+      status: { running: false, port: 9876, clientCount: 0, clients: [] },
+      starting: true,
+    });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: '3000' } });
-    expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
+    expect((screen.getByTestId('mock-start-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('does not call setConfig when port > 65535', () => {
-    const setConfig = vi.fn();
-    const mock = makeMockReturn({ setConfig });
+  it('port input displays the configured port', () => {
+    const mock = makeMockReturn({
+      config: { port: 9877, fallback: 'echo' },
+    });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: '70000' } });
-    expect(setConfig).not.toHaveBeenCalled();
-  });
-
-  it('adds invalid class when port is out of range', () => {
-    const mock = makeMockReturn();
-    render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-port-input'), { target: { value: '100' } });
-    expect((screen.getByTestId('mock-port-input') as HTMLInputElement).className).toContain('invalid');
+    expect((screen.getByTestId('mock-port-input') as HTMLInputElement).value).toBe('9877');
   });
 
   // ── Fallback change ─────────────────────────────────────────────────

@@ -282,7 +282,7 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
     // Then navigates to compose tab
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step ws-compose preAction skips connect when already connected', async () => {
@@ -300,7 +300,7 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).not.toHaveBeenCalled();
     // Still navigates to compose
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step ws-compose action fills the message input', async () => {
@@ -331,7 +331,7 @@ describe('ws-basics lesson', () => {
     // Should ensure connected (mock + connect)
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     // Should navigate to compose tab
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     // Should pre-fill message
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),

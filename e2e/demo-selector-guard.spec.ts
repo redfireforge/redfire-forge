@@ -34,7 +34,7 @@ async function connectMock(page: import('@playwright/test').Page) {
   await page.click(WS.LEFT_TAB_CONNECT);
   await page.fill(WS.URL_INPUT, 'ws://localhost:9876');
   await page.click(WS.CONNECT_BTN);
-  await page.waitForSelector(WS.STATUS_CONNECTED, { timeout: 15000 });
+  await page.locator(WS.STATUS_CONNECTED).first().waitFor({ timeout: 15000 });
 }
 
 /* ── Guard tests: verify shared selectors exist on page ── */
@@ -47,7 +47,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await expect(page.locator(WS.MODE_CLIENT)).toBeVisible();
     await expect(page.locator(WS.MODE_MOCK)).toBeVisible();
     await expect(page.locator(WS.LEFT_TAB_CONNECT)).toBeVisible();
-    await expect(page.locator(WS.LEFT_TAB_COMPOSE)).toBeVisible();
+    await expect(page.locator(WS.LEFT_TAB_SEND)).toBeVisible();
     await expect(page.locator(WS.LEFT_TAB_AUTH)).toBeVisible();
   });
 
@@ -68,12 +68,12 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await expect(page.locator(WS.MOCK_START_BTN).or(page.locator(WS.MOCK_STOP_BTN))).toBeVisible();
   });
 
-  test('compose panel elements appear after connect', async ({ page }) => {
+  test('send panel elements appear after connect', async ({ page }) => {
     await gotoWsStudio(page);
     await startMock(page);
     await connectMock(page);
 
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await expect(page.locator(WS.SEND_BTN)).toBeVisible();
     await expect(page.locator(WS.MESSAGE_INPUT)).toBeVisible();
   });
@@ -106,7 +106,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await startMock(page);
     await connectMock(page);
 
-    await expect(page.locator(WS.STATUS_CONNECTED)).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(WS.STATUS_CONNECTED).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('message rows appear after sending', async ({ page }) => {
@@ -114,7 +114,7 @@ test.describe('Demo Selector Guard — WebSocket Studio', () => {
     await startMock(page);
     await connectMock(page);
 
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await page.fill(WS.MESSAGE_INPUT, 'guard-test');
     await page.click(WS.SEND_BTN);
 

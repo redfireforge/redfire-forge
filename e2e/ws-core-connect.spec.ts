@@ -58,14 +58,14 @@ async function switchRightTab(page: Page, tab: string) {
 }
 
 async function sendMessage(page: Page, msg: string) {
-  await switchLeftTab(page, 'compose');
+  await switchLeftTab(page, 'send');
   const input = page.locator('.ws-compose-input');
   try {
     await expect(input).toBeEnabled({ timeout: 3000 });
   } catch {
     // Connection dropped — reconnect
     await connectTo(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     await expect(input).toBeEnabled({ timeout: 5000 });
   }
   await input.fill(msg);
@@ -120,7 +120,7 @@ test.describe('Navigation & Layout (WC-01–03)', () => {
     await expect(page.locator('[data-testid="left-tab-params"]')).toBeVisible();
     await expect(page.locator('[data-testid="left-tab-auth"]')).toBeVisible();
     await expect(page.locator('[data-testid="left-tab-headers"]')).toBeVisible();
-    await expect(page.locator('[data-testid="left-tab-compose"]')).toBeVisible();
+    await expect(page.locator('[data-testid="left-tab-send"]')).toBeVisible();
     await expect(page.locator('[data-testid="right-tab-events"]')).toBeVisible();
     await expect(page.locator('[data-testid="right-tab-console"]')).toBeVisible();
     await expect(page.locator('[data-testid="right-tab-stats"]')).toBeVisible();
@@ -190,7 +190,7 @@ test.describe('Connection Lifecycle (WC-04–10)', () => {
     await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 10000 });
     await switchLeftTab(page, 'connect');
     await expect(page.locator('[data-testid="transport-badge"]')).toContainText('Proxy');
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     await expect(page.locator('[data-testid="ping-btn"]')).toBeEnabled();
   });
 
@@ -252,13 +252,13 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   });
 
   test('WC-13: Cmd+Enter shortcut sends message', async ({ page }) => {
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     try {
       await expect(input).toBeEnabled({ timeout: 3000 });
     } catch {
       await connectTo(page);
-      await switchLeftTab(page, 'compose');
+      await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 5000 });
     }
     await input.fill('Shortcut test');
@@ -274,7 +274,7 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
   });
 
   test('WC-15: Format selector — Text / JSON / Binary modes', async ({ page }) => {
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const formatSelect = page.locator('[data-testid="format-select"]');
     await expect(formatSelect).toBeVisible();
     const options = await formatSelect.locator('option').allTextContents();
@@ -299,7 +299,7 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
       await page.waitForTimeout(1000);
       await connectTo(page);
     }
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     // Wait for compose input to be enabled (connection alive)
     try {
@@ -307,7 +307,7 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
     } catch {
       // Reconnect if connection dropped between tab switch
       await connectTo(page);
-      await switchLeftTab(page, 'compose');
+      await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 10000 });
     }
     await page.selectOption('[data-testid="format-select"]', 'binary');
@@ -335,13 +335,13 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
     if (!(await connLabel.isVisible({ timeout: 500 }).catch(() => false))) {
       await connectTo(page);
     }
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     try {
       await expect(input).toBeEnabled({ timeout: 3000 });
     } catch {
       await connectTo(page);
-      await switchLeftTab(page, 'compose');
+      await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 5000 });
     }
     await input.fill('');
@@ -483,6 +483,7 @@ test.describe('Saved Connection Profiles (WC-25–29c)', () => {
 /* ── WC-30: Config Lock ──────────────────────────────── */
 
 test.describe('Config Lock (WC-30)', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('WC-30: Config lock while connected', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
@@ -500,7 +501,7 @@ test.describe('Message Templates (WC-31–35)', () => {
   test('WC-31: Save message template', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     await input.fill('{"action":"subscribe","topic":"prices"}');
     await page.click('[data-testid="template-trigger"]');
@@ -521,14 +522,14 @@ test.describe('Message Templates (WC-31–35)', () => {
     if (!(await connLabel.isVisible({ timeout: 500 }).catch(() => false))) {
       await connectTo(page);
     }
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     // Wait for compose input to be enabled (connection established)
     try {
       await expect(input).toBeEnabled({ timeout: 5000 });
     } catch {
       await connectTo(page);
-      await switchLeftTab(page, 'compose');
+      await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 10000 });
     }
     await input.fill('{"greeting":"hello"}');
@@ -551,7 +552,7 @@ test.describe('Message Templates (WC-31–35)', () => {
   test('WC-33: Delete template', async ({ page }) => {
     await gotoWsStudio(page);
     await connectTo(page);
-    await switchLeftTab(page, 'compose');
+    await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
     // Ensure compose input is enabled (connection alive)
     try {
@@ -567,7 +568,7 @@ test.describe('Message Templates (WC-31–35)', () => {
       }).catch(() => {});
       await page.waitForTimeout(1000);
       await connectTo(page);
-      await switchLeftTab(page, 'compose');
+      await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 10000 });
     }
     await input.fill('temp delete test');

@@ -195,7 +195,7 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('phase":1'),
@@ -266,7 +266,7 @@ describe('ws-tls-local lesson', () => {
 
   // ─── Branch: isConnected = true (local-tls-ca-connect) ──────
 
-  it('local-tls-ca-connect action navigates to compose and sends message when connected', async () => {
+  it('local-tls-ca-connect action navigates to send tab and sends message when connected', async () => {
     // Simulate STATUS_CONNECTED element present → isConnected = true
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
@@ -276,8 +276,8 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // When connected, action navigates to compose, fills message, sends, then returns to connect
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    // When connected, action navigates to send tab, fills message, sends, then returns to connect
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('ca-cert'),
@@ -334,7 +334,7 @@ describe('ws-tls-local lesson', () => {
     wrapper.remove();
   });
 
-  it('local-tls-mtls-connect action navigates to compose and sends message when connected', async () => {
+  it('local-tls-mtls-connect action navigates to send tab and sends message when connected', async () => {
     // Simulate STATUS_CONNECTED element present → isConnected = true
     const dot = document.createElement('div');
     dot.className = 'ws-status-dot connected';
@@ -344,8 +344,8 @@ describe('ws-tls-local lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // When connected, action navigates to compose, fills mtls message, sends, then returns to connect
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    // When connected, action navigates to send tab, fills mtls message, sends, then returns to connect
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('mtls'),
@@ -354,5 +354,34 @@ describe('ws-tls-local lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
 
     dot.remove();
+  });
+
+  it('closeTlsModal clicks the close button when present', async () => {
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'tls-close');
+    let clicked = false;
+    closeBtn.addEventListener('click', () => { clicked = true; });
+    document.body.appendChild(closeBtn);
+
+    // Use a step that calls closeTlsModal via preAction (local-tls-connect)
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(clicked).toBe(true);
+    closeBtn.remove();
+  });
+
+  it('local-tls-connect action highlights transport badge when present', async () => {
+    const badge = document.createElement('div');
+    badge.setAttribute('data-testid', 'transport-badge');
+    document.body.appendChild(badge);
+
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-connect')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+
+    expect(badge.style.outline).toBe('');
+    badge.remove();
   });
 });

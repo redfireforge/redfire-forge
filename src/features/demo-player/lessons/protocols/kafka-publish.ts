@@ -66,36 +66,52 @@ export const kafkaPublishLesson: DemoLesson = {
           'How many broker replicas must acknowledge a write before the producer considers it successful. –1 = all replicas; 1 = leader only; 0 = none.',
       },
     ],
-    diagram: `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
-  <!-- Producer -->
-  <rect x="10" y="50" width="90" height="40" rx="6" fill="var(--primary)" opacity="0.18" stroke="var(--primary)" stroke-width="1.5"/>
-  <text x="55" y="73" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui">Producer</text>
-  <!-- Arrow: Producer → Topic -->
-  <line x1="100" y1="70" x2="145" y2="70" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#pub-arrow)"/>
-  <text x="122" y="62" text-anchor="middle" fill="var(--text-muted)" font-size="9">key hash</text>
-  <!-- Topic box -->
-  <rect x="145" y="20" width="110" height="100" rx="6" fill="var(--accent)" opacity="0.12" stroke="var(--accent)" stroke-width="1.5"/>
-  <text x="200" y="42" text-anchor="middle" fill="var(--text)" font-size="11" font-family="system-ui">orders.created</text>
-  <!-- Partition rows inside topic -->
-  <rect x="155" y="50" width="90" height="18" rx="3" fill="var(--accent)" opacity="0.25"/>
-  <text x="200" y="62" text-anchor="middle" fill="var(--text)" font-size="9">P0: 0 1 2 3 …</text>
-  <rect x="155" y="74" width="90" height="18" rx="3" fill="var(--accent)" opacity="0.15"/>
-  <text x="200" y="86" text-anchor="middle" fill="var(--text)" font-size="9">P1: 0 1 2 …</text>
-  <rect x="155" y="98" width="90" height="18" rx="3" fill="var(--accent)" opacity="0.08"/>
-  <text x="200" y="110" text-anchor="middle" fill="var(--text)" font-size="9">P2: 0 1 …</text>
-  <!-- Arrow: Topic → Consumer -->
-  <line x1="255" y1="70" x2="295" y2="70" stroke="var(--success,#22c55e)" stroke-width="1.5" marker-end="url(#pub-arrow2)"/>
-  <!-- Consumer -->
-  <rect x="295" y="50" width="95" height="40" rx="6" fill="var(--success,#22c55e)" opacity="0.15" stroke="var(--success,#22c55e)" stroke-width="1.5"/>
-  <text x="343" y="68" text-anchor="middle" fill="var(--text)" font-size="11" font-family="system-ui">Consumer</text>
-  <text x="343" y="82" text-anchor="middle" fill="var(--text-muted)" font-size="9">reads offset</text>
-  <!-- Result label -->
-  <text x="122" y="110" text-anchor="middle" fill="var(--text-muted)" font-size="9">partition + offset</text>
-  <text x="122" y="122" text-anchor="middle" fill="var(--text-muted)" font-size="9">returned to producer</text>
+    diagram: `<svg viewBox="0 0 460 165" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="pub-arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--primary)" stroke-width="1.5"/></marker>
-    <marker id="pub-arrow2" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--success,#22c55e)" stroke-width="1.5"/></marker>
+    <marker id="pub-arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0.5 L7,4 L0,7.5" fill="none" stroke="var(--primary)" stroke-width="1.5"/>
+    </marker>
+    <marker id="pub-arr-g" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0.5 L7,4 L0,7.5" fill="none" stroke="var(--success,#22c55e)" stroke-width="1.5"/>
+    </marker>
+    <marker id="pub-arr-m" markerWidth="7" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <path d="M7,0.5 L0,3.5 L7,6.5" fill="none" stroke="var(--text-muted)" stroke-width="1.2"/>
+    </marker>
   </defs>
+
+  <!-- Producer -->
+  <rect x="12" y="52" width="96" height="48" rx="8" fill="var(--primary)" opacity="0.16" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="60" y="74" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Producer</text>
+  <text x="60" y="90" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">sends message</text>
+
+  <!-- Arrow: Producer → Topic -->
+  <line x1="108" y1="76" x2="155" y2="76" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#pub-arr)"/>
+  <text x="131" y="68" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">key hash</text>
+
+  <!-- Topic box -->
+  <rect x="155" y="12" width="128" height="128" rx="8" fill="var(--accent)" opacity="0.12" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="219" y="34" text-anchor="middle" fill="var(--text)" font-size="11" font-family="system-ui" font-weight="600">orders.created</text>
+  <!-- divider -->
+  <line x1="163" y1="40" x2="275" y2="40" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
+  <!-- Partition rows -->
+  <rect x="165" y="46" width="98" height="22" rx="4" fill="var(--accent)" opacity="0.30"/>
+  <text x="214" y="61" text-anchor="middle" fill="var(--text)" font-size="9.5" font-family="system-ui" letter-spacing="0.5">P0: 0  1  2  3 …</text>
+  <rect x="165" y="72" width="98" height="22" rx="4" fill="var(--accent)" opacity="0.18"/>
+  <text x="214" y="87" text-anchor="middle" fill="var(--text)" font-size="9.5" font-family="system-ui" letter-spacing="0.5">P1: 0  1  2 …</text>
+  <rect x="165" y="98" width="98" height="22" rx="4" fill="var(--accent)" opacity="0.09"/>
+  <text x="214" y="113" text-anchor="middle" fill="var(--text-muted)" font-size="9.5" font-family="system-ui" letter-spacing="0.5">P2: 0  1 …</text>
+
+  <!-- Arrow: Topic → Consumer -->
+  <line x1="283" y1="76" x2="330" y2="76" stroke="var(--success,#22c55e)" stroke-width="1.5" marker-end="url(#pub-arr-g)"/>
+
+  <!-- Consumer -->
+  <rect x="330" y="52" width="118" height="48" rx="8" fill="var(--success,#22c55e)" opacity="0.14" stroke="var(--success,#22c55e)" stroke-width="1.5"/>
+  <text x="389" y="74" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Consumer</text>
+  <text x="389" y="90" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">reads offset</text>
+
+  <!-- Dashed return: partition+offset back to producer -->
+  <path d="M 219 140 C 219 155, 60 155, 60 138" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#pub-arr-m)"/>
+  <text x="139" y="161" text-anchor="middle" fill="var(--text-muted)" font-size="8.5" font-family="system-ui">partition + offset returned to producer</text>
 </svg>`,
   },
 

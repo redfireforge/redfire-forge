@@ -117,14 +117,33 @@ iAU+tJGKIkZm8s8ILh0GJWVcfQ==
 // ── Guard helpers ──────────────────────────────────────────────────
 
 /**
- * Ensures the TLS accordion panel is expanded.
- * Waits for the toggle element (only present when URL is wss://) before acting.
+ * Opens the TLS modal if it is not already open.
+ *
+ * The Configure button (`data-testid="tls-toggle"`) never receives an
+ * `aria-expanded` attribute, so checking that property always returns null.
+ * Instead we check whether the modal body (`data-testid="tls-body"`) is
+ * already present in the DOM — if so, the modal is open and we skip the click.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
-  const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
-  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
-    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  const alreadyOpen = !!document.querySelector(WS.TLS_BODY);
+  if (!alreadyOpen) {
+    const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
+    if (toggle) {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await ctx.delay(300);
+    }
+  }
+}
+
+/**
+ * Closes the TLS modal if it is currently open, by clicking its Close button.
+ * Must be called before connecting so the Connect tab is fully visible.
+ */
+async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
+  const closeBtn = document.querySelector('[data-testid="tls-close"]') as HTMLElement | null;
+  if (closeBtn) {
+    closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await ctx.delay(300);
   }
 }
@@ -222,11 +241,14 @@ export const wsTlsLocalLesson: DemoLesson = {
 
   concept: {
     title: 'TLS in Three Phases — Local Docker Server',
-    body: `This lesson uses a **real local TLS server** in Docker — no external dependencies, no external risk. The server uses a **self-signed certificate** from your own dev Root CA, exactly what you encounter in staging environments with internal PKI.
+    body: `This lesson uses a **real local TLS server** in Docker — no external dependencies, no external risk. It works on **both Web and Tauri desktop** — the transport mechanism differs by platform:
 
-**Why self-signed certs need special handling**
+| Platform | Transport | How TLS options are applied |
+|----------|-----------|----------------------------|
+| **Web browser** | Node.js Proxy | \`npm run server\` opens the TLS connection server-side and bridges the browser |
+| **Tauri desktop** | Native (Rust) | The Rust client applies TLS options directly — **no proxy required** |
 
-The browser's native TLS stack validates certificates against the OS trust store. A cert not in that store causes an immediate handshake failure. RedfireForge supports three approaches via its **TLS / mTLS Configuration** panel:
+The server uses a **self-signed certificate** from a dev Root CA, exactly what you encounter in staging environments with internal PKI. RedfireForge supports three TLS approaches via its **TLS / mTLS Configuration** panel:
 
 | Phase | Approach | Use case |
 |-------|----------|----------|
@@ -234,12 +256,13 @@ The browser's native TLS stack validates certificates against the OS trust store
 | **2** | **CA Certificate** — paste root CA PEM | Staging / internal PKI environments |
 | **3** | **Mutual TLS (mTLS)** — client cert + key | APIs that verify client identity |
 
-All three require **Proxy transport** in the browser — the Node.js proxy applies your TLS settings server-side. On Tauri desktop, the Native transport handles them natively without a proxy.
+**Prerequisites — Web browser**
+1. \`npm run server\` — starts Node.js proxy on port 3001 (required for browser TLS)
+2. \`cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh && docker compose -f docker-compose.tls.yml -f docker-compose.mtls.yml up -d\`
 
-**Prerequisites**
-1. \`npm run server\` — starts Node.js proxy on port 3001 (required for Proxy transport)
-2. \`cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh && docker compose -f docker-compose.tls.yml -f docker-compose.mtls.yml up -d\` — generates certs (idempotent) and starts both Docker stacks`,
-    diagram: `<svg viewBox="0 -10 680 345" xmlns="http://www.w3.org/2000/svg">
+**Prerequisites — Tauri desktop** *(no proxy needed)*
+1. \`cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh && docker compose -f docker-compose.tls.yml -f docker-compose.mtls.yml up -d\``,
+    diagram: `<svg viewBox="0 -10 720 390" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <marker id="tls-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L8,3 z" fill="var(--primary)"/>
@@ -247,54 +270,87 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
     <marker id="tls-arrow-warn" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L8,3 z" fill="var(--warning, #f59e0b)"/>
     </marker>
+    <marker id="tls-arrow-tauri" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--success, #10b981)"/>
+    </marker>
   </defs>
 
-  <!-- Browser box -->
-  <rect x="20" y="125" width="120" height="55" rx="6" fill="var(--primary)" opacity="0.15" stroke="var(--primary)" stroke-width="1.5"/>
-  <text x="80" y="150" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Browser</text>
-  <text x="80" y="168" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">/api/ws/connect</text>
+  <!-- ══ LEFT COLUMN ══ -->
 
-  <!-- Arrow: Browser → Proxy -->
-  <line x1="140" y1="152" x2="220" y2="152" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
+  <!-- Web Browser box -->
+  <rect x="20" y="52" width="130" height="62" rx="6" fill="var(--primary)" opacity="0.15" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="85" y="76" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui" font-weight="600">Web Browser</text>
+  <text x="85" y="92" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">/api/ws/connect</text>
+  <text x="85" y="106" text-anchor="middle" fill="var(--primary)" font-size="9" font-family="system-ui">→ via Proxy</text>
 
-  <!-- Node.js proxy box -->
-  <rect x="220" y="115" width="160" height="80" rx="6" fill="rgba(59,130,246,0.08)" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 2"/>
-  <text x="300" y="140" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">Node.js Proxy</text>
-  <text x="300" y="158" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">npm run server</text>
-  <text x="300" y="174" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">port 3001</text>
-  <text x="300" y="190" text-anchor="middle" fill="var(--primary)" font-size="9" font-family="system-ui" opacity="0.7">TLS settings applied here</text>
+  <!-- Tauri Desktop box -->
+  <rect x="20" y="243" width="130" height="62" rx="6" fill="var(--success, #10b981)" opacity="0.12" stroke="var(--success, #10b981)" stroke-width="1.5"/>
+  <text x="85" y="267" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui" font-weight="600">Tauri Desktop</text>
+  <text x="85" y="283" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">Rust WebSocket</text>
+  <text x="85" y="297" text-anchor="middle" fill="var(--success, #10b981)" font-size="9" font-family="system-ui">→ Native (no proxy)</text>
 
-  <!-- Phase 1+2 branch (top) -->
-  <line x1="380" y1="138" x2="450" y2="70" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
-  <text x="402" y="96" fill="var(--text-muted)" font-size="9" font-family="system-ui" transform="rotate(-32 402 96)">wss://</text>
+  <!-- ══ MIDDLE COLUMN ══ -->
 
-  <!-- Phase 1+2 badge (above box) -->
-  <rect x="452" y="18" width="60" height="18" rx="9" fill="var(--primary)" opacity="0.2"/>
-  <text x="482" y="31" text-anchor="middle" fill="var(--primary)" font-size="10" font-weight="600">Phase 1+2</text>
+  <!-- Node.js Proxy box (browser only) -->
+  <rect x="208" y="44" width="155" height="85" rx="6" fill="rgba(59,130,246,0.08)" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <text x="285" y="67" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui" font-weight="600">Node.js Proxy</text>
+  <text x="285" y="83" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">npm run server</text>
+  <text x="285" y="98" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">port 3001</text>
+  <text x="285" y="120" text-anchor="middle" fill="var(--primary)" font-size="9" font-family="system-ui" opacity="0.7">TLS settings applied here</text>
+
+  <!-- "Direct — no proxy" label between proxy box and Tauri path -->
+  <text x="285" y="210" text-anchor="middle" fill="var(--success, #10b981)" font-size="9" font-family="system-ui" opacity="0.7" font-style="italic">direct — no proxy</text>
+
+  <!-- ══ RIGHT COLUMN ══ -->
+
+  <!-- Phase 1+2 badge -->
+  <rect x="452" y="5" width="70" height="18" rx="9" fill="var(--primary)" opacity="0.2"/>
+  <text x="487" y="18" text-anchor="middle" fill="var(--primary)" font-size="10" font-weight="600">Phase 1+2</text>
 
   <!-- nginx TLS proxy box -->
-  <rect x="450" y="42" width="200" height="62" rx="6" fill="var(--accent, #8b5cf6)" opacity="0.12" stroke="var(--accent, #8b5cf6)" stroke-width="1.5"/>
-  <text x="550" y="64" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">nginx TLS Proxy</text>
-  <text x="550" y="82" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">wss://localhost:8766</text>
-  <text x="550" y="98" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.tls.yml</text>
+  <rect x="450" y="28" width="205" height="65" rx="6" fill="var(--accent, #8b5cf6)" opacity="0.12" stroke="var(--accent, #8b5cf6)" stroke-width="1.5"/>
+  <text x="552" y="50" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui" font-weight="600">nginx TLS Proxy</text>
+  <text x="552" y="67" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">wss://localhost:8766</text>
+  <text x="552" y="83" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.tls.yml</text>
 
-  <!-- Phase 3 branch (bottom) -->
-  <line x1="380" y1="168" x2="450" y2="230" stroke="var(--warning, #f59e0b)" stroke-width="1.5" marker-end="url(#tls-arrow-warn)"/>
-  <text x="402" y="210" fill="var(--text-muted)" font-size="9" font-family="system-ui" transform="rotate(32 402 210)">wss://</text>
-
-  <!-- Phase 3 badge (above box) -->
-  <rect x="452" y="195" width="50" height="18" rx="9" fill="var(--warning, #f59e0b)" opacity="0.2"/>
-  <text x="477" y="208" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="10" font-weight="600">Phase 3</text>
+  <!-- Phase 3 badge -->
+  <rect x="452" y="215" width="60" height="18" rx="9" fill="var(--warning, #f59e0b)" opacity="0.2"/>
+  <text x="482" y="228" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="10" font-weight="600">Phase 3</text>
 
   <!-- nginx mTLS proxy box -->
-  <rect x="450" y="218" width="200" height="78" rx="6" fill="var(--warning, #f59e0b)" opacity="0.1" stroke="var(--warning, #f59e0b)" stroke-width="1.5"/>
-  <text x="550" y="240" text-anchor="middle" fill="var(--text)" font-size="13" font-family="system-ui" font-weight="600">nginx mTLS Proxy</text>
-  <text x="550" y="258" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">wss://localhost:8768</text>
-  <text x="550" y="275" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="10" font-family="system-ui" font-weight="500">ssl_verify_client on</text>
-  <text x="550" y="291" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.mtls.yml</text>
+  <rect x="450" y="238" width="205" height="80" rx="6" fill="var(--warning, #f59e0b)" opacity="0.1" stroke="var(--warning, #f59e0b)" stroke-width="1.5"/>
+  <text x="552" y="260" text-anchor="middle" fill="var(--text)" font-size="12" font-family="system-ui" font-weight="600">nginx mTLS Proxy</text>
+  <text x="552" y="277" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">wss://localhost:8768</text>
+  <text x="552" y="294" text-anchor="middle" fill="var(--warning, #f59e0b)" font-size="9" font-family="system-ui" font-weight="500">ssl_verify_client on</text>
+  <text x="552" y="310" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui" opacity="0.7">docker-compose.mtls.yml</text>
 
-  <!-- Echo server label (shared, bottom) -->
-  <text x="550" y="314" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="system-ui">&#x2193; jmalloc/echo-server (ws://localhost:8080)</text>
+  <!-- ══ ARROWS — Browser path (blue, solid) ══ -->
+
+  <!-- Web Browser → Node.js Proxy -->
+  <line x1="150" y1="83" x2="208" y2="83" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
+
+  <!-- Node.js Proxy → nginx TLS (Phase 1+2) -->
+  <line x1="363" y1="68" x2="450" y2="53" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#tls-arrow)"/>
+
+  <!-- Node.js Proxy → nginx mTLS (Phase 3) -->
+  <line x1="363" y1="108" x2="450" y2="255" stroke="var(--warning, #f59e0b)" stroke-width="1.5" marker-end="url(#tls-arrow-warn)"/>
+
+  <!-- ══ ARROWS — Tauri path (green, dashed) ══ -->
+
+  <!-- Tauri → nginx TLS (Phase 1+2): route right past proxy, then up -->
+  <path d="M150,265 L408,265 L408,60 L450,60" fill="none" stroke="var(--success, #10b981)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#tls-arrow-tauri)"/>
+
+  <!-- Tauri → nginx mTLS (Phase 3): straight across below proxy box -->
+  <line x1="150" y1="277" x2="450" y2="277" stroke="var(--success, #10b981)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#tls-arrow-tauri)"/>
+
+  <!-- ══ LEGEND ══ -->
+  <line x1="20" y1="355" x2="45" y2="355" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="50" y="358" fill="var(--text-muted)" font-size="9" font-family="system-ui">Web (via Node.js proxy)</text>
+  <line x1="205" y1="355" x2="230" y2="355" stroke="var(--success, #10b981)" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="235" y="358" fill="var(--text-muted)" font-size="9" font-family="system-ui">Tauri (native, direct)</text>
+
+  <!-- Echo server label -->
+  <text x="552" y="335" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-family="system-ui">&#x2193; jmalloc/echo-server (ws://localhost:8080)</text>
 </svg>`,
   },
 
@@ -332,7 +388,16 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
       id: 'local-tls-skip-cert',
       title: 'Skip Certificate Validation',
       description:
-        'Check **Skip certificate validation** — this sets `rejectUnauthorized: false`. Notice the **transport badge** changes from **Direct** to **Proxy** immediately: the browser cannot apply custom TLS options, so the Node.js proxy takes over. Quick for dev, but use Phase 2 or 3 in production.',
+        'Check **Skip certificate validation** — this sets `rejectUnauthorized: false` on the TLS handshake.\n\n' +
+        '**What happens under the hood:**\n' +
+        'Normally, the TLS layer checks three things before a connection is allowed: (1) the certificate is signed by a trusted CA, (2) the hostname in the certificate matches the server address, and (3) the certificate hasn\'t expired. With `rejectUnauthorized: false` all three checks are skipped — the connection proceeds even if the cert is self-signed, expired, or for the wrong host.\n\n' +
+        '**Why the transport changes to Proxy:**\n' +
+        'Web browsers enforce TLS certificate validation at the OS/network layer — there is no JavaScript API to bypass it. RedfireForge detects that a TLS override is active and automatically routes through its **Node.js Proxy** (`npm run server`), which opens the connection server-side using Node\'s `ws` library where `rejectUnauthorized: false` is supported. Watch the **transport badge** change from **Direct → Proxy** the instant you check the box. On Tauri desktop, the Rust client handles this natively — no proxy switch occurs.\n\n' +
+        '**When to use it:**\n' +
+        '- Local dev with a self-signed cert and no CA file handy\n' +
+        '- Quick smoke-test of a new staging endpoint before certs are properly configured\n\n' +
+        '**When NOT to use it:**\n' +
+        'Never in production, and never when testing against a real server whose identity you should verify. A man-in-the-middle attacker can intercept all traffic when validation is disabled. Use **Phase 2 (CA Certificate)** to trust your own CA, or **Phase 3 (mTLS)** for mutual authentication.',
       highlight: WS.TLS_SKIP_CERT,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -361,27 +426,40 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
       id: 'local-tls-connect',
       title: 'Connect & Echo — Phase 1 Confirmed',
       description:
-        'Click **Connect**. The Node.js proxy opens a TLS connection with `rejectUnauthorized: false`, accepts the self-signed cert, and bridges messages to the browser. Status shows **Connected** and transport shows **Proxy**. Send a message — the echo server reflects it back, proving the encrypted round-trip.',
+        'Click **Connect**. The proxy accepts the self-signed cert and the connection establishes — status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo message that proves the encrypted round-trip, then returns here so you can see the connection details.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
         await ctx.click(WS.CONNECT_BTN);
         await ctx.delay(2500);
-        // Send a quick echo message to demonstrate the live connection
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Navigate to Send tab, send the echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":1,"method":"skip-cert","msg":"Hello over local TLS!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch back to Connect tab to show the Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
+        }
+        // Briefly outline the transport badge so viewers see the Proxy label
+        const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
+        if (badge) {
+          badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          badge.style.outline = '2px solid var(--accent-primary, #e96b3a)';
+          badge.style.borderRadius = '4px';
+          await ctx.delay(800);
+          badge.style.outline = '';
+          badge.style.borderRadius = '';
         }
       },
       verify: WS.STATUS_CONNECTED,
@@ -422,11 +500,13 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
       id: 'local-tls-ca-connect',
       title: 'Connect with CA Certificate',
       description:
-        'Click **Connect**. The Node.js proxy validates the server\'s leaf cert against your pasted CA — chain verifies, connection succeeds. Transport badge shows **Proxy**. The key difference from Phase 1: certificate chain integrity is enforced, so a rogue server with a different cert would be rejected.',
+        'Click **Connect**. The proxy validates the server\'s leaf cert against your pasted Root CA — the chain verifies and the connection succeeds. Status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo, then returns here. Key difference from Phase 1: certificate chain integrity is enforced — a rogue server with a different cert would be rejected.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
@@ -434,16 +514,17 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
         await ctx.delay(2500);
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Navigate to Send tab, send echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":2,"method":"ca-cert","msg":"Chain validated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch back to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
         }
-        // Highlight transport badge
         const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
         if (badge) badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         await ctx.delay(400);
@@ -488,7 +569,11 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
       id: 'local-tls-mtls-creds',
       title: 'Client Certificate & Private Key',
       description:
-        'Paste the **Client Certificate** and **Client Private Key** into the mTLS fields. These were signed by the same Dev Root CA that the mTLS server trusts. The Node.js proxy will present them during the TLS handshake — the server verifies the cert, authenticating your client at the transport layer.',
+        'Paste the **Client Certificate** and **Client Private Key** — both are required for mTLS. These were signed by the same Dev Root CA that the mTLS server trusts, so the server can verify them.\n\n' +
+        '**Do you need all three fields?**\n' +
+        '- **Skip certificate validation** — ❌ Never use with mTLS. It disables server verification, defeating the mutual-trust model.\n' +
+        '- **CA Certificate** — ✅ Required here because our nginx server uses a self-signed cert not in the OS trust store. With a publicly-trusted server cert (e.g. Let\'s Encrypt), this is optional.\n' +
+        '- **Client Certificate + Private Key** — ✅ Always required for mTLS. These are what the server uses to authenticate you at the transport layer.',
       highlight: WS.TLS_BODY,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
@@ -509,11 +594,13 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
       id: 'local-tls-mtls-connect',
       title: 'Connect via mTLS — Phase 3 Confirmed',
       description:
-        'Click **Connect**. The proxy presents the client cert to the mTLS server, which verifies it against the CA — mutual authentication complete. Status shows **Connected**, transport shows **Proxy**. Both sides have been authenticated: you know the server is genuine (CA cert) and the server knows you are genuine (client cert).',
+        'Click **Connect**. The proxy presents the client cert to the mTLS server — it verifies it against the CA, and mutual authentication completes. Status shows **Connected** and transport shows **Proxy**. The demo switches to the **Send** tab to send an echo, then returns here. Both sides authenticated: you trust the server (CA cert) and the server trusts you (client cert).',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await disconnectWebSocket(ctx);
+        // Close the TLS modal so the Connect button and status indicator are visible
+        await closeTlsModal(ctx);
         await ctx.delay(200);
       },
       action: async (ctx) => {
@@ -521,14 +608,16 @@ All three require **Proxy transport** in the browser — the Node.js proxy appli
         await ctx.delay(2500);
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (isConnected) {
-          await ctx.click(WS.LEFT_TAB_COMPOSE);
-          await ctx.delay(300);
+          // Navigate to Send tab, send echo, then return to Connect
+          await ctx.click(WS.LEFT_TAB_SEND);
+          await ctx.delay(400);
           await ctx.fill(WS.MESSAGE_INPUT, '{"phase":3,"method":"mtls","msg":"Both sides authenticated!"}');
           await ctx.delay(400);
           await ctx.click(WS.SEND_BTN);
-          await ctx.delay(1200);
+          await ctx.delay(800);
+          // Switch back to Connect tab to show Connected status + transport badge
           await ctx.click(WS.LEFT_TAB_CONNECT);
-          await ctx.delay(200);
+          await ctx.delay(1500);
         }
         // Highlight transport badge
         const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;

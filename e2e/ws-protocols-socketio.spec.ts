@@ -111,8 +111,8 @@ test.describe('Socket.IO Live (WP-04–07)', () => {
     // Count messages before send (handshake messages)
     const rowsBefore = await page.locator('.ws-message-row').count();
 
-    // Switch to Compose tab
-    await switchLeftTab(page, 'compose');
+    // Switch to Send tab
+    await switchLeftTab(page, 'send');
 
     // SIO compose fields should be visible
     await expect(page.locator('[data-testid="sio-event-name"]')).toBeVisible({ timeout: 3000 });

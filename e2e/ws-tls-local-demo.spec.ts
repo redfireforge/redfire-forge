@@ -320,7 +320,7 @@ test.describe('Local TLS Demo — Phase 1: Skip-cert', () => {
     await connectAndWait(page, 8000);
 
     // Send a test message
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await page.waitForTimeout(300);
     await page.fill(WS.MESSAGE_INPUT, '{"phase":1,"method":"skip-cert","msg":"echo test"}');
     await page.click(WS.SEND_BTN);
@@ -416,7 +416,7 @@ test.describe('Local TLS Demo — Phase 3: mTLS', () => {
     expect(proxyReqs.length).toBeGreaterThan(0);
 
     // Send echo message to confirm live connection
-    await page.click(WS.LEFT_TAB_COMPOSE);
+    await page.click(WS.LEFT_TAB_SEND);
     await page.waitForTimeout(300);
     await page.fill(WS.MESSAGE_INPUT, '{"phase":3,"method":"mtls","verified":"both-sides"}');
     await page.click(WS.SEND_BTN);

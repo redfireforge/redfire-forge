@@ -196,7 +196,7 @@ describe('ws-socketio lesson', () => {
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).toHaveBeenCalledWith('.ws-status-dot.connected');
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step sio-compose-event preAction only navigates to compose when already connected', async () => {
@@ -205,7 +205,7 @@ describe('ws-socketio lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step sio-compose-event action fills event name and payload (no nav — preAction handles that)', async () => {
@@ -213,7 +213,7 @@ describe('ws-socketio lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     // Action only fills fields; navigation is in preAction
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('sio-event-name'),
       'message',
@@ -254,7 +254,7 @@ describe('ws-socketio lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     // SIO_NAMESPACE lives inside the Compose panel — preAction ensures it is in the DOM
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
   it('step sio-namespace action does nothing when namespace element is absent', async () => {
@@ -274,8 +274,8 @@ describe('ws-socketio lesson', () => {
     nsEl.scrollIntoView = vi.fn();
     document.body.appendChild(nsEl);
     await step.action!(ctx);
-    // Action does not call click(left-tab-compose) — that's preAction's job
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-compose'));
+    // Action does not call click(left-tab-send) — that's preAction's job
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     // Must not fill /chat — server only handles root namespace
     expect(ctx.fill).not.toHaveBeenCalledWith(
       expect.stringContaining('sio-namespace'),

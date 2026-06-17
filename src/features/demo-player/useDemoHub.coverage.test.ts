@@ -17,6 +17,15 @@ import type { DemoLesson } from './types';
 
 vi.useFakeTimers();
 
+/** jsdom has no layout — getBoundingClientRect always returns zero.
+ *  firstVisible skips zero-rect elements. Call makeVisible so they are found. */
+function makeVisible(el: Element): void {
+  (el as HTMLElement).getBoundingClientRect = () => ({
+    width: 100, height: 20, top: 0, left: 0,
+    right: 100, bottom: 20, x: 0, y: 0, toJSON: () => '{}',
+  } as DOMRect);
+}
+
 function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
   return {
     id: 'lesson-coverage',
@@ -156,6 +165,7 @@ describe('useDemoHub (branch coverage)', () => {
   it('buildQuietContext fill works on textarea element', async () => {
     const textarea = document.createElement('textarea');
     textarea.className = 'quiet-textarea';
+    makeVisible(textarea);
     document.body.appendChild(textarea);
 
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));

@@ -1,6 +1,7 @@
 /** Lesson K1: Kafka Quick Start — configure a cluster, connect, navigate to the Studio */
 import type { DemoLesson } from '../../types';
 import { KAFKA } from '../../../../shared/selectors';
+import { kafkaQuickStartCleanup } from '../setup-helpers';
 
 /** Default broker address for the plaintext demo stack. */
 const DEMO_BROKER = '127.0.0.1:19092';
@@ -25,7 +26,9 @@ export const kafkaQuickStartLesson: DemoLesson = {
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
   // No setup — lesson starts directly on kafka-settings.
-  // No cleanup — cluster config persists intentionally for K2/K3/K4.
+  // Cleanup deletes "Demo Cluster" so restarting K1 restores the first-time experience.
+  // K2/K3/K4 have their own setup (kafkaPublishSetup) that re-creates the cluster if absent.
+  cleanup: kafkaQuickStartCleanup,
 
   concept: {
     title: 'Connecting to a Kafka Broker',
