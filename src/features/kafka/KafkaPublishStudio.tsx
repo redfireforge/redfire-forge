@@ -125,26 +125,32 @@ export function KafkaPublishStudio({
       </div>
 
       <div className="kafka-ms-body">
-        {/* Topic + Acks */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-topic">Topic</label>
-            <input
+        {/* ── Row 1: Topic (textarea) + Acks (dropdown) ── */}
+        <div className="kafka-ms-pub-row kafka-ms-pub-row--topic">
+          <div className="kafka-ms-field kafka-ms-field--grow">
+            <label htmlFor="kms-pub-topic">
+              Topic
+              <span className="kafka-ms-required-dot" aria-hidden="true">*</span>
+            </label>
+            <textarea
               id="kms-pub-topic"
-              type="text"
+              className="kafka-ms-field-textarea kafka-ms-field-textarea--topic"
               placeholder="e.g. orders.events"
+              rows={2}
               value={publishDraft.topic}
               onChange={(e) => setPublishDraft({ topic: e.target.value })}
               onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
+              data-testid="pub-topic-input"
             />
             {touched.topic && topicEmpty && (
               <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
             )}
           </div>
-          <div className="kafka-ms-field">
+          <div className="kafka-ms-field kafka-ms-field--acks">
             <label htmlFor="kms-pub-acks">Acks</label>
             <select
               id="kms-pub-acks"
+              className="kafka-ms-field-select"
               value={String(publishDraft.acks)}
               onChange={(e) =>
                 setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })
@@ -157,11 +163,14 @@ export function KafkaPublishStudio({
           </div>
         </div>
 
-        {/* Key + Partition */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
+        {/* ── Row 2: Key (dropdown + textarea) + Partition ── */}
+        <div className="kafka-ms-pub-row kafka-ms-pub-row--key">
+          <div className="kafka-ms-field kafka-ms-field--grow">
             <div className="kafka-ms-field-label-row">
-              <label htmlFor="kms-pub-key">Key</label>
+              <label htmlFor="kms-pub-key">
+                Key
+                <span className="kafka-ms-optional-tag">(optional)</span>
+              </label>
               <select
                 aria-label="Key format"
                 className="kafka-ms-serde-select"
@@ -174,39 +183,47 @@ export function KafkaPublishStudio({
                 <option value="hex">Hex</option>
               </select>
             </div>
-            <input
+            <textarea
               id="kms-pub-key"
-              type="text"
-              placeholder="(optional)"
+              className="kafka-ms-field-textarea kafka-ms-field-textarea--key"
+              placeholder="Enter message key (optional)"
+              rows={1}
               value={publishDraft.key}
               onChange={(e) => setPublishDraft({ key: e.target.value })}
+              data-testid="pub-key-input"
             />
           </div>
-          <div className="kafka-ms-field">
+          <div className="kafka-ms-field kafka-ms-field--partition">
             <label htmlFor="kms-pub-partition">Partition</label>
             <input
               id="kms-pub-partition"
+              className="kafka-ms-field-input"
               type="text"
               placeholder="auto"
               value={publishDraft.partition}
               onChange={(e) => setPublishDraft({ partition: e.target.value })}
             />
+            <span className="kafka-ms-field-hint-subtle">Leave empty to auto-assign</span>
           </div>
         </div>
 
-        {/* Timeout */}
-        <div className="kafka-ms-field">
-          <label htmlFor="kms-pub-timeout">Timeout (ms)</label>
-          <input
-            id="kms-pub-timeout"
-            type="text"
-            placeholder="default"
-            value={publishDraft.timeoutMs}
-            onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
-          />
+        {/* ── Row 3: Timeout ── */}
+        <div className="kafka-ms-pub-row kafka-ms-pub-row--meta">
+          <div className="kafka-ms-field kafka-ms-field--timeout">
+            <label htmlFor="kms-pub-timeout">Timeout (ms)</label>
+            <input
+              id="kms-pub-timeout"
+              className="kafka-ms-field-input"
+              type="text"
+              placeholder="default (30000)"
+              value={publishDraft.timeoutMs}
+              onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
+            />
+          </div>
         </div>
 
-        {/* Headers */}
+        {/* ── Headers ── */}
+        <div className="kafka-ms-pub-divider" />
         <div className="kafka-ms-section">
           <div className="kafka-ms-section-header">
             <span className="kafka-ms-section-title">Headers</span>
