@@ -179,14 +179,24 @@ Real-world debugging often involves comparing traffic across environments — pr
         await ctx.delay(200);
       },
       action: async (ctx) => {
+        // Guard: if the mock server is not yet running, wait up to 4s for it
+        // before issuing /connect (handles slow first-start on cold machines).
+        if (!document.querySelector(WS.MOCK_STOP_BTN)) {
+          await ctx.click(WS.MODE_MOCK);
+          await ctx.delay(200);
+          await ctx.waitFor(WS.MOCK_STOP_BTN, 4000).catch(() => {});
+          await ctx.click(WS.MODE_CLIENT);
+          await ctx.delay(200);
+          await ctx.click(WS.RIGHT_TAB_CONSOLE);
+          await ctx.delay(200);
+        }
         await ctx.fill(WS.CONSOLE_CMD_INPUT, '/connect ws://localhost:9876');
         await ctx.delay(200);
         const input = document.querySelector(WS.CONSOLE_CMD_INPUT);
         if (input) {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         }
-        // Wait for connected status rather than a fixed delay (Rule 5)
-        await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
+        await ctx.waitFor(WS.STATUS_CONNECTED, 5000);
         await ctx.delay(300);
       },
       verify: WS.STATUS_CONNECTED,

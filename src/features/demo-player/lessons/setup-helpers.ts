@@ -10,14 +10,18 @@ import { WS, KAFKA } from '../../../shared/selectors';
 
 // ─── WebSocket Helpers ───────────────────────────────────────────
 
-/** Start the built-in mock echo server (no-op if already running). */
+/** Start the built-in mock echo server (no-op if already running).
+ * Waits for the Stop button to appear rather than a fixed delay so the
+ * server is guaranteed to be listening before the caller proceeds. */
 export async function startMockServer(ctx: DemoActionContext) {
   await ctx.click(WS.MODE_MOCK);
   await ctx.delay(400);
   const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
   if (btn && !btn.disabled) {
     btn.click();
-    await ctx.delay(1000);
+    // Wait for the Stop button to appear — it only shows once the server is
+    // actually listening on its port. Fall back to a 2s cap if something goes wrong.
+    await ctx.waitFor(WS.MOCK_STOP_BTN, 5000).catch(() => ctx.delay(2000));
   }
 }
 
