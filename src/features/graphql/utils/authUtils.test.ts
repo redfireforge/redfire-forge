@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildAuthHeaders, authBadgeLabel, isAuthConfigured } from './authUtils';
+import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams } from './authUtils';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 
 // ─── buildAuthHeaders ─────────────────────────────────────────────────────────
@@ -124,5 +124,61 @@ describe('isAuthConfigured', () => {
   it('returns true for oauth2 and custom (user explicitly chose a type)', () => {
     expect(isAuthConfigured({ type: 'oauth2' })).toBe(true);
     expect(isAuthConfigured({ type: 'custom' })).toBe(true);
+  });
+});
+
+// ─── buildConnectionParams ────────────────────────────────────────────────────
+
+describe('buildConnectionParams', () => {
+  it('returns empty object for null/undefined', () => {
+    expect(buildConnectionParams(null)).toEqual({});
+    expect(buildConnectionParams(undefined)).toEqual({});
+  });
+
+  it('returns Authorization: Bearer <token> for bearer type', () => {
+    expect(buildConnectionParams({ type: 'bearer', token: 'my-token' }))
+      .toEqual({ Authorization: 'Bearer my-token' });
+  });
+
+  it('trims bearer token', () => {
+    expect(buildConnectionParams({ type: 'bearer', token: '  tok  ' }))
+      .toEqual({ Authorization: 'Bearer tok' });
+  });
+
+  it('returns empty object for bearer with empty token', () => {
+    expect(buildConnectionParams({ type: 'bearer' })).toEqual({});
+    expect(buildConnectionParams({ type: 'bearer', token: '' })).toEqual({});
+    expect(buildConnectionParams({ type: 'bearer', token: '   ' })).toEqual({});
+  });
+
+  it('returns Authorization: Basic <base64> for basic type', () => {
+    const result = buildConnectionParams({ type: 'basic', username: 'alice', password: 'secret' });
+    expect(result).toHaveProperty('Authorization');
+    expect((result.Authorization as string).startsWith('Basic ')).toBe(true);
+    const decoded = atob((result.Authorization as string).slice(6));
+    expect(decoded).toBe('alice:secret');
+  });
+
+  it('returns empty object for basic with empty username', () => {
+    expect(buildConnectionParams({ type: 'basic' })).toEqual({});
+    expect(buildConnectionParams({ type: 'basic', username: '' })).toEqual({});
+  });
+
+  it('returns { [headerName]: headerValue } for apiKey type', () => {
+    expect(buildConnectionParams({ type: 'apiKey', headerName: 'X-Api-Key', headerValue: 'my-key' }))
+      .toEqual({ 'X-Api-Key': 'my-key' });
+  });
+
+  it('returns empty object for apiKey with missing headerName', () => {
+    expect(buildConnectionParams({ type: 'apiKey' })).toEqual({});
+    expect(buildConnectionParams({ type: 'apiKey', headerName: '' })).toEqual({});
+  });
+
+  it('returns empty object for oauth2 (token pre-fetch handled elsewhere)', () => {
+    expect(buildConnectionParams({ type: 'oauth2' })).toEqual({});
+  });
+
+  it('returns empty object for custom (headers injected via Headers panel)', () => {
+    expect(buildConnectionParams({ type: 'custom' })).toEqual({});
   });
 });
