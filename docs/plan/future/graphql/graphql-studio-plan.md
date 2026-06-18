@@ -1,9 +1,9 @@
 # GraphQL Studio — Feature Plan
 
-> **Status**: Phase 1 Complete ✅ (1A + 1B + 1C + 1D + 1E + All Gap items + Prettify button + per-tab op selection + Round 10 a11y/UX polish + **Phase 1 Comprehensive Re-evaluation Rounds 1–5 — 26 bugs fixed** + **CSS Linting overhaul — 33 CSS bugs fixed** + **Phase 1 Comprehensive Re-eval Round 6 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 7 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 8 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 9 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 10 — 11 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 11 — 10 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 12 — 9 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 13 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 14 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 15 — 6 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 16 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 17 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 18 — 1 bug fixed** + **Phase 1 Comprehensive Re-eval Round 19 — 2 bugs fixed**)  
+> **Status**: Phase 1 Complete ✅ (1A + 1B + 1C + 1D + 1E + All Gap items + Prettify button + per-tab op selection + Round 10 a11y/UX polish + **Phase 1 Comprehensive Re-evaluation Rounds 1–5 — 26 bugs fixed** + **CSS Linting overhaul — 33 CSS bugs fixed** + **Phase 1 Comprehensive Re-eval Round 6 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 7 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 8 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 9 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 10 — 11 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 11 — 10 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 12 — 9 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 13 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 14 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 15 — 6 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 16 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 17 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 18 — 1 bug fixed** + **Phase 1 Comprehensive Re-eval Round 19 — 2 bugs fixed** + **StrictMode tab persistence bug fixed — loadedRef/tabsRef flush guards**) | Phase 2 Planning: **Phase 2 Comprehensive Evaluation Rounds 1–4 complete — 67 tasks, 5 major reuse opportunities documented** (§23.14–§23.15): streaming blocker scoped, Docker server exists, 10 types added, 38 selectors added, server route pattern identified, 5 hooks reusable, alias/keyboard/protocol-settings gaps found, revised sprint plan  
 > **Target Version**: v0.8.x  
 > **Prerequisites**: WebSocket Studio (done), Kafka Studio (done), SSE Studio (done)  
-> **Last Updated**: 2026-06-17 (Phase 1 Comprehensive Re-eval Round 19: 2 bugs fixed — profile load pins endpoint against env auto-sync, polling config visible when schema not loaded)  
+> **Last Updated**: 2026-06-17 (Phase 2 Re-eval Round 4: 16 gaps + 5 reuse opportunities — Docker GQL server exists, SSE needs no fetchStream, useWebSocketReconnect/wsAuthResolve/useVirtualizer all reusable, 2A-10/2F-15 added, alias panel corrected, keyboard shortcuts tasked)  
 > **Editor**: Monaco (already in project via `@monaco-editor/react`)
 
 ## Implementation Status
@@ -5302,3 +5302,468 @@ SSE + auth                       → /api/graphql/sse proxy relay
 ```
 
 This matches the established WS Studio pattern and maximizes latency performance while providing auth/TLS support through the proxy when needed.
+
+### 23.14 Phase 2 Re-evaluation Round 3 (2026-06-17)
+
+> **Scope**: Cross-referenced the Phase 2 plan against the current codebase (all new Phase 1 files, `graphql.ts`, `selectors.ts`, `httpClient.ts`, `gqlFetch.ts`, `schemaParser.ts`, `tabPersistence.ts`, `src-server/` directory tree, and E2E test suite). Found **15 additional gaps** beyond Rounds 1–2.
+
+#### 23.14.1 Phase 1 Closure Item: StrictMode Tab Persistence Bug Fixed
+
+**RESOLVED**: `GraphqlStudioPage.tsx` flush-on-unmount and persist-on-change effects were patched with two guards:
+1. `if (loadedRef.current && tabsRef.current.length > 0)` — prevents the fake-unmount cleanup from wiping `localStorage` before the restore effect has applied its async `setTabs()` update.
+2. `if (tabs.length === 0) return;` — prevents scheduling a save with the empty initial state during StrictMode remount.
+
+These guards are now committed. Phase 2 tab management (subscription tab, builder tab) **must preserve these guards** when extending `GraphqlStudioPage.tsx`.
+
+#### 23.14.2 `httpClient.ts` + `gqlFetch.ts` Have No Streaming Capability
+
+**CRITICAL FINDING**: Code review confirms that every response-body read in `httpClient.ts` calls `.text()`, which fully buffers the response before returning. Additionally, `gqlFetch.ts`'s TLS-skip code path (`fetch('/__proxy')`) also buffers via `.json()`:
+
+```
+src/shared/utils/httpClient.ts  — line 70:  await resp.text()
+                                  line 189: await response.text()
+                                  line 248: await response.text()
+                                  line 364: await response.text()
+src/features/graphql/utils/gqlFetch.ts — line 49: await resp.json()
+```
+
+This **blocks both 2B (SSE subscriptions) and 2D (`@defer`/`@stream`)** which both require reading a `ReadableStream` chunk-by-chunk without buffering.
+
+**New required task (added to 2-PRE-3, expanded)**:
+- Add `fetchStream(url, options): Promise<Response>` to `httpClient.ts` that returns the raw `Response` without calling `.text()` — callers get the `ReadableStream` body for themselves.
+- Add `gqlFetchStream(url, headers, body, signal?, skipTlsVerify?): Promise<Response>` to `gqlFetch.ts` (or a new `gqlStreamFetch.ts`) that handles the TLS-skip routing logic and returns the raw `Response` for streaming consumption. The TLS-skip proxy path must also be updated to stream (use a separate `/__proxy-stream` route or add a streaming flag to the existing route).
+
+**Impact on sprint order**: 2-PRE-3 must land **before** Sprint 3 (SSE) and Sprint 7 (Incremental Delivery).
+
+#### 23.14.3 `src-server/routes/graphql/` Directory Does Not Exist
+
+**Confirmed via `ls src-server/routes/`**: Only `websocket/` and `kafka/` route subdirectories exist. The `graphql/` directory has never been scaffolded.
+
+```
+src-server/routes/
+  kafka-routes.ts
+  kafka-trigger-routes.ts
+  websocket-mock-routes.ts
+  websocket-routes.ts
+  websocket/
+    websocket-mock-service.ts
+    websocket-service.ts
+    ...
+  (NO graphql/ directory)
+```
+
+Task 2-PRE-4 is confirmed critical-path work for Phase 2.0 Sprint 1. Nothing in 2A, 2B, or 2E can be built without it.
+
+#### 23.14.4 Missing Phase 2 Types in `graphql.ts`
+
+Code review confirms that `src/shared/types/graphql.ts` already has `GraphqlSubscriptionMessage` and `IncrementalDeliveryResult`, but **all 10 remaining types from §23.13.7 are absent**:
+
+| Type | Needed By | Present? |
+|------|-----------|---------|
+| `QueryBuilderState` | 2F-1, 2F-11 | ❌ |
+| `FieldSelectionPath` | 2F-1, 2F-3 | ❌ |
+| `DirectiveApplication` | 2F-7 | ❌ |
+| `FragmentDefinition` | 2F-6 | ❌ |
+| `GraphqlSubscriptionAssertion` | 2C-5 | ❌ |
+| `GraphqlSubscriptionSession` | 2A-5 | ❌ |
+| `SubscriptionStats` | 2C-2 | ❌ |
+| `ApolloTracingData` | 2G-1 | ❌ |
+| `ResolverTrace` | 2G-1 | ❌ |
+| `FileUploadSlot` | 2E-1 | ❌ |
+| `GraphqlSubscriptionMessage` | 2A-5 | ✅ already in file |
+| `IncrementalDeliveryResult` | 2D-1 | ✅ already in file |
+
+Task 2-TYPE-1 is still outstanding. These types must be added before Phase 2 hooks/components can be typed correctly.
+
+#### 23.14.5 Missing Phase 2 Selectors in `selectors.ts`
+
+Code review confirms that `src/shared/selectors.ts` GQL namespace has **only 1 of the 39 Phase 2 selectors** from §23.13.8:
+
+```
+COMPLEXITY_BADGE: '[data-testid="gql-complexity-badge"]'  ✅ (Phase 2G)
+```
+
+All 38 remaining selectors for subscriptions, query builder, file upload, incremental delivery, and performance are absent. Task 2-SEL-1 is outstanding — it should be completed **at the start of Phase 2.0** so E2E test authors can reference constants immediately.
+
+#### 23.14.6 Phase 1 `localStorage` Calls Not Yet Migrated to `storage.ts`
+
+**Confirmed via grep**: All four hooks flagged in §23.7 still use raw `localStorage`:
+
+| File | Usage |
+|------|-------|
+| `src/features/graphql/utils/tabPersistence.ts` | `localStorage.getItem`, `localStorage.setItem`, `localStorage.removeItem` (lines 110, 126–129, 134, 141, 157–159) |
+| `src/features/graphql/hooks/useGraphqlConnectionProfiles.ts` | Raw `localStorage` |
+| `src/features/graphql/hooks/useGraphqlEnvironments.ts` | Raw `localStorage` |
+| `src/features/graphql/hooks/useRecentEndpoints.ts` | Raw `localStorage` |
+
+**Note**: The StrictMode fix from §23.14.1 uses `loadedRef` and `tabsRef` patterns that interact with `tabPersistence.ts` synchronously. Migrating to async `storage.ts` will require careful refactoring of `GraphqlStudioPage.tsx` to await the load call and to handle the async save in the unmount cleanup (async cleanup is not supported in `useEffect` — requires `useRef` timer + fire-and-forget). **Add this complexity note to 2-PRE-7**.
+
+#### 23.14.7 `graphqlClient.ts` Transport Abstraction Does Not Exist
+
+Task 2-PRE-2 is confirmed outstanding. Currently the codebase has:
+- `gqlFetch.ts` — HTTP POST only, returns buffered `HttpResponse`
+- No unified interface for WS/SSE/streaming transports
+
+The file `src/features/graphql/utils/graphqlClient.ts` (or equivalent) needs to be created from scratch. Its interface should be designed before Sprint 2 begins.
+
+**Recommended interface shape** (not in the plan yet):
+
+```typescript
+interface GraphqlTransport {
+  execute(op: GraphqlOperation, opts: ExecuteOptions): Promise<GraphqlResponse>;
+  subscribe(op: GraphqlOperation, opts: SubscribeOptions): AsyncIterableIterator<GraphqlSubscriptionMessage>;
+  cancel(): void;
+  readonly state: 'idle' | 'connecting' | 'active' | 'error' | 'closed';
+}
+```
+
+All three transports (HTTP query, WS subscription, SSE subscription) implement `GraphqlTransport`. `GraphqlStudioPage` calls `createTransport(connection)` which selects the right implementation based on `operationType` and `subscriptionTransport`.
+
+#### 23.14.8 No Playwright Mock Server for GraphQL-WS Protocol
+
+The E2E suite has extensive WS tests (`ws-mock-server.spec.ts`, `ws-protocols-graphql.spec.ts`) using a generic WebSocket mock server, but **there is no fixture that speaks the `graphql-transport-ws` subscription protocol** (`connection_ack`, `subscribe`, `next`, `complete`, `error` message types).
+
+Phase 2 E2E tests (graphql subscriptions) cannot be written without a protocol-aware mock server. The existing `e2e/helpers.ts` should be extended, or a new `e2e/fixtures/graphqlWsMockServer.ts` fixture should be created.
+
+**New task** (addition to Sprint 5):
+
+| # | Task | Priority |
+|---|------|----------|
+| 2-E2E-1 | **Scaffold `e2e/fixtures/graphqlWsMockServer.ts`** — Playwright `test.extend` fixture that starts a local `ws` server implementing the `graphql-transport-ws` protocol. Supports `connection_ack`, delivering `next` messages on demand, `complete`, and `error` close codes (`4400`/`4406`). Used by all subscription E2E tests. | P1 |
+
+#### 23.14.9 `schemaParser.ts` Argument Type Lookup Pattern Not Documented
+
+For task 2F-4 (argument inputs with type-matched widgets), the query builder must render form widgets for each argument. When an argument type is an `INPUT_OBJECT` (e.g. `CreateUserInput!`), the builder must recursively render its fields as nested widgets.
+
+The current `GraphqlArgNode.type` is a **formatted string only** (e.g. `"CreateUserInput!"`). The builder must look up the `INPUT_OBJECT` type by unwrapping the type string and calling `schemaInfo.types.find(t => t.name === baseTypeName)`.
+
+**This works with the current data model** — no schema type changes are needed. But the plan doesn't document the lookup algorithm. Add to 2F-4:
+
+> **Implementation note**: To render nested `INPUT_OBJECT` argument widgets, unwrap the `GraphqlArgNode.type` string (strip `!`, `[`, `]`) to get the base type name, then look up in `schemaInfo.types`. The type's `kind === 'INPUT_OBJECT'` guard confirms it needs nested widget rendering. Maximum recursion depth: 3 levels (guard against self-referential input types).
+
+#### 23.14.10 `useWebSocketFilters` Extraction as 2-SHARED-1 Pattern Reference
+
+As part of Phase 1 refactoring (this session), `useWebSocketFilters.ts` was extracted from `useWebSocketStudio.ts`. This extraction established the **extraction pattern** for task 2-SHARED-1.
+
+When extracting shared protocol-log primitives for `GraphqlSubscriptionLog`, use the same pattern:
+1. Identify all filter/state logic in `WebSocketMessageLog.tsx` and `SseMessageLog.tsx`
+2. Extract into `src/shared/components/protocol-log/useProtocolLogFilters.ts`
+3. The virtual list base, filter bar, stats hook, and detail panel become shared components
+4. `GraphqlSubscriptionLog` composes these — no code duplication
+
+Reference: `src/features/websocket/useWebSocketFilters.ts` for extraction pattern.
+
+#### 23.14.11 Connection Bar Subscription Controls Not Fully Tasked
+
+§23.13.6 notes the mockup shows a `WS`/`SSE` badge swap and a `Disconnect` button, and task 2-INT-1 covers the Subscribe/Disconnect button swap. However, when the subscription is active, the connection bar needs **additional subscription-specific indicators** not fully tasked anywhere:
+
+| UI Element | Needed Task | Status |
+|---|---|---|
+| WS/SSE protocol badge (replaces GQL method badge during subscription) | Add to 2A-7 | Flagged in §23.13.6 |
+| Disconnect button (red, distinct from Cancel) | 2-INT-1 | Covered |
+| Subscribe button (green, replaces Execute) | 2-INT-1 | Covered |
+| Connection duration display ("Subscribed 2m 34s") | **Not tasked** | ❌ |
+| Reconnect attempt counter during backoff | **Not tasked** | ❌ |
+| Protocol label in status pill (e.g. "graphql-transport-ws") | Add to 2A-7 | Flagged in §23.13.6 |
+
+**New sub-tasks for 2A-7**:
+- Add connection duration timer (start time recorded when `state → active`; display as "Xm Ys")
+- Add reconnect attempt counter in status pill during `reconnecting` state (e.g. "Reconnecting… (attempt 2/5)")
+
+#### 23.14.12 `subscriptions-transport-ws` Vendoring Decision Unresolved
+
+The plan (§23.2.1, 2-PRE-6) says "consider vendoring minimal client code (~200 lines) to avoid external dependency on unmaintained package" but makes no firm decision. This creates ambiguity for Sprint 1.
+
+**Decision required before Phase 2.0 begins**: Choose one of:
+- **Option A**: Include `subscriptions-transport-ws@0.11.0` in `package.json` as a direct dependency with a comment noting it's legacy-compat only.
+- **Option B**: Vendor the minimal WS protocol client code directly in `src/features/graphql/utils/legacyWsClient.ts` (~150 lines for the message protocol; zero external dependency).
+- **Option C**: Skip legacy protocol support in Phase 2.0; add in Phase 2.1 after modern protocol is stable.
+
+**Recommendation**: **Option C** for Phase 2.0, **Option A** for Phase 2.1. Rationale: most teams have already migrated to `graphql-transport-ws`; implementing legacy compat before the modern client is stable inverts the priority. Document this in 2-PRE-6.
+
+#### 23.14.13 Phase 2.0 Unit Test Coverage Strategy Not Specified
+
+Phase 1 established a >90% coverage requirement enforced by CI. The plan's Sprint 5 says "unit tests for all new hooks/utils" but doesn't specify:
+- Which files need test files
+- Coverage targets per file
+- Mock strategy for `graphql-ws` client (subscription protocol requires mocking the WS connection)
+
+**New task** (Sprint 5 addition):
+
+| # | Task | Priority |
+|---|------|----------|
+| 2-TEST-1 | **Unit test scaffolding for Phase 2.0 hooks** — Create test files for: `graphqlClient.ts` (mock transport adapters), `useGraphqlSubscription.ts` (mock WS + state machine transitions), `GraphqlSubscriptionLog.tsx` (virtual list rendering with mock messages), `useSubscriptionStats.ts` (rolling window math), `graphqlUpload.ts` (FormData construction). Maintain >90% branch coverage. | P1 |
+
+#### 23.14.14 Updated Task Count Summary
+
+| Category | After Round 2 | After Round 3 |
+|----------|--------------|---------------|
+| 2A–2G tasks | 44 | 44 |
+| Prerequisites (2-PRE) | 7 | 7 (2-PRE-3 expanded) |
+| Integration tasks (2-INT) | 4 | 4 (2A-7 expanded) |
+| Validation/UI tasks | 5 | 5 |
+| Selector/Type tasks | 2 | 2 |
+| Shared extraction (2-SHARED) | 1 | 1 |
+| E2E fixture tasks | 0 | **1** (2-E2E-1) |
+| Unit test scaffolding | 0 | **1** (2-TEST-1) |
+| **Total Phase 2 tasks** | **63** | **65** |
+
+#### 23.14.15 Phase 2.0 Pre-Implementation Checklist (Updated)
+
+Before writing the first line of Phase 2.0 code, all of the following must be done:
+
+- [ ] **2-PRE-1**: Architecture decision documented (WS transport model — Option C recommended)
+- [ ] **2-PRE-2**: `graphqlClient.ts` interface designed and typed (see §23.14.7 for recommended shape)
+- [ ] **2-PRE-3**: `fetchStream()` in `httpClient.ts` + `gqlFetchStream()` in `gqlFetch.ts` (see §23.14.2)
+- [ ] **2-PRE-4**: `src-server/routes/graphql/` directory scaffolded (see §23.14.3)
+- [ ] **2-PRE-5**: Tauri WS IPC decision documented
+- [ ] **2-PRE-6**: `subscriptions-transport-ws` vendor/skip decision made (see §23.14.12 — recommend Option C)
+- [ ] **2-PRE-7**: `localStorage` → `storage.ts` migration for 4 Phase 1 hooks (see §23.14.6)
+- [ ] **2-TYPE-1**: 10 missing Phase 2 types added to `graphql.ts` (see §23.14.4)
+- [ ] **2-SEL-1**: 38 missing Phase 2 selectors added to `selectors.ts` (see §23.14.5)
+- [ ] **2-E2E-1**: `e2e/fixtures/graphqlWsMockServer.ts` fixture scaffolded (see §23.14.8)
+
+### 23.15 Phase 2 Re-evaluation Round 4 (2026-06-17)
+
+> **Scope**: Deep code audit of existing WebSocket/SSE studio implementations (`useWebSocketStudio.ts`, `useWebSocketReconnect.ts`, `useWebSocketMetrics.ts`, `WebSocketMessageLog.tsx`, `useSseConnection.ts`, `wsAuthResolve.ts`), server entry point (`webhook-server.ts`, `websocket-routes.ts`), the Docker GraphQL test server (`docker/websocket/graphql/`), subscription and query-builder mockup HTML files, and vite proxy config. Found **16 additional gaps and 5 significant reuse opportunities** not documented in prior rounds.
+
+#### 23.15.1 CRITICAL: Docker GraphQL Subscription Server Already Exists
+
+**NEW FINDING**: `docker/websocket/graphql/` contains a fully functional `graphql-transport-ws` subscription server already used by `e2e/ws-protocols-graphql.spec.ts` (WP-12–WP-15). The server exposes:
+- `Query { hello: String }`
+- `Subscription { messageAdded: Message }` — push-based via `POST /publish`
+- `Subscription { countdown(from: Int!): Int }` — finite countdown stream
+- `GET /health` health check
+
+**Impact on 2-E2E-1**: Task 2-E2E-1 (Round 3) needs to be corrected. The Docker server already exists — no new server is needed. Phase 2.0 E2E tests only need:
+1. A new spec file `e2e/graphql-subscriptions.spec.ts` that targets the **GraphQL Studio page** (not WS Studio)
+2. Extension of the Docker server with `POST /graphql` for query/mutation tests (currently missing)
+3. Apollo Tracing support on the Docker server for Phase 2G E2E tests
+
+**Revised 2-E2E-1**:
+
+| # | Task | Priority |
+|---|------|----------|
+| 2-E2E-1 | **Create `e2e/graphql-subscriptions.spec.ts`** — Playwright tests for GraphQL Studio subscription UI using the existing `docker/websocket/graphql/` server. Subscribe button, real-time log, stats bar, disconnect. Requires `E2E_WITH_DOCKER=1`. | P1 |
+| 2-E2E-2 | **Extend Docker GraphQL server** — Add `POST /graphql` HTTP endpoint (query/mutation), Apollo Tracing headers, and File Upload support. Needed for Phase 2E and 2G E2E tests. | P1 |
+
+#### 23.15.2 IMPORTANT: `2-PRE-3` Scope Correction — SSE Does NOT Need `fetchStream()`
+
+Round 3 stated that `fetchStream()` is needed for both SSE (2B) and `@defer`/`@stream` (2D). **This is incorrect for SSE.**
+
+Code review of `src/features/sse/useSseConnection.ts` (lines 157–180) shows that `useSseConnection` already uses `fetch()` directly (not `httpFetch`) and reads the body as a `ReadableStream` via `response.body.getReader()`. Phase 2B's `graphql-sse` client integration uses the same pattern — `graphql-sse` accepts a custom `fetchFn` and handles streaming internally.
+
+**Corrected scope for 2-PRE-3**:
+- `fetchStream()` is only needed for **Phase 2D** (`@defer`/`@stream` multipart parsing via `meros`)
+- Phase 2B (SSE) uses the established `fetch() + getReader()` pattern from `useSseConnection.ts` — no new `httpClient.ts` function needed
+- Update 2-PRE-3 description: "Add `fetchStream(url, options): Promise<Response>` to `httpClient.ts` for Phase 2D multipart streaming only. SSE (Phase 2B) uses the established `fetch() + getReader()` pattern from `useSseConnection.ts`."
+
+**Impact**: Phase 2B Sprint 3 can begin without 2-PRE-3 completing. 2-PRE-3 only blocks Sprint 7 (2D).
+
+#### 23.15.3 Five Major Reuse Opportunities Identified
+
+Code review found existing hooks/components that Phase 2 can reuse verbatim or with minor adaptation:
+
+| Existing Asset | Location | Phase 2 Task | Reuse Pattern | LOC Saved |
+|---|---|---|---|---|
+| `useWebSocketReconnect` (exponential backoff + jitter, max attempts, `scheduleReconnectRef`) | `src/features/websocket/useWebSocketReconnect.ts` | 2A-6 | Import directly into `useGraphqlSubscription`. All parameters (interval, multiplier, max attempts) are configurable via props. | ~120 |
+| `wsAuthResolve.ts` (`resolveAuthForConnect`, `appendAuthQueryParams`, `resolveEffectiveAuth`) | `src/features/websocket/wsAuthResolve.ts` | 2A-8 | `buildConnectionParams(auth)` can call `resolveEffectiveAuth(auth)` and map to `connectionParams` object. Already imported by `useSseConnection`. | ~60 |
+| `useWebSocketMetrics` (rolling 60s histogram, msg/sec rate, bytes in/out, 1s sample interval) | `src/features/websocket/useWebSocketMetrics.ts` | 2C-2 | The stats bar hook can be a thin wrapper calling the same `WsMetricsSnapshot` accumulator pattern. `SubscriptionStats` type (added in Round 3) maps directly to `WsMetricsSnapshot` fields. | ~80 |
+| `useVirtualizer` from `@tanstack/react-virtual` | Already in project (used by `WebSocketMessageLog.tsx`, `SseMessageLog.tsx`) | 2C-1 | `GraphqlSubscriptionLog` uses `useVirtualizer` exactly like `WebSocketMessageLog`. Zero new dependencies. | ~30 |
+| `useSseConnection.ts` `fetch() + getReader()` streaming pattern | `src/features/sse/useSseConnection.ts` lines 157–180 | 2B-2 | `graphql-sse` `createClient({ fetchFn })` accepts the same native `fetch`. The SSE subscription transport in `graphqlClient.ts` can mirror `useSseConnection`'s streaming loop verbatim. | ~100 |
+
+**Add to 2-SHARED-1 description**: Note these five specific reuse targets explicitly so implementors don't recreate them.
+
+#### 23.15.4 `webhook-server.ts` Route Registration Pattern Identified
+
+Code review confirms the server entry pattern for 2-PRE-4:
+
+```typescript
+// webhook-server.ts — add after existing createWebSocketMockRouter line:
+import { createGraphqlRouter } from './routes/graphql-routes.js';
+app.use(createGraphqlRouter({ onLog: broadcastLog }));
+```
+
+The router factory pattern `createXxxRouter({ onLog })` is consistent across Kafka, WebSocket, and WebSocket Mock routers. Phase 2's `createGraphqlRouter` should follow the same signature. The `onLog: broadcastLog` callback pipes server events to the SSE log stream consumed by the frontend's activity log.
+
+**Add to 2-PRE-4**: Specify that `createGraphqlRouter` must accept `{ onLog?: (line: LogLine) => void }` to match the established pattern and wire into `broadcastLog`.
+
+#### 23.15.5 Subscription Mockup — "⚙ Protocol" Settings Button Not Tasked
+
+The subscription mockup (`graphql-subscription-testing.html`, line 117) shows a `⚙ Protocol` button in the connection bar. This button presumably opens a protocol-specific settings panel covering:
+- WS/SSE transport selector
+- Legacy protocol compat toggle
+- `subscriptionBufferSize` config
+- `connectionParams` custom JSON
+
+**No task** covers this button or its settings panel. §23.13.5 flagged `subscriptionBufferSize` as untasked; this button is the natural home for all subscription-specific settings.
+
+| # | New Task | Priority |
+|---|----------|----------|
+| 2A-10 | **Protocol settings popover** in connection bar: gear icon opens a popover with transport selector (Auto/graphql-transport-ws/graphql-ws/SSE), buffer size input, and custom `connectionParams` JSON editor. Triggered only when schema is loaded or endpoint is set. Persisted on `GraphqlConnection`. | P1 |
+
+#### 23.15.6 Subscription Mockup — Status Bar Protocol Version Not Tasked
+
+The mockup status bar (bottom of `graphql-subscription-testing.html`) shows: `"Protocol: graphql-ws v6.0"`. No task specifies displaying the detected protocol version in the subscription status bar or status pill.
+
+**Add to 2A-7**: After protocol detection, record the resolved transport string and library version (e.g. `graphql-transport-ws` + `graphql-ws@6.0.8` version from `package.json`). Display in the connection status pill as `"graphql-transport-ws v6"`.
+
+#### 23.15.7 Query Builder Mockup — Alias Panel is in Right Column, Not Inline
+
+Task 2F-8 spec says: *"inline alias text input on hover/focus of a selected field"*. The mockup (`graphql-query-builder.html`, lines 518–528) shows the "Field Aliases" section in the **right options panel**, not inline on field rows. The panel lists selected fields with `fieldName → alias...` input pairs.
+
+**Correction to 2F-8**: Implement aliases in the right options panel (matching the mockup), not as inline hover inputs on tree nodes. This reduces complexity (no hover-triggered DOM mutation) and matches user expectations (right-column settings area).
+
+#### 23.15.8 Query Builder Mockup — Builder Keyboard Shortcuts Not Tasked
+
+The query builder status bar (bottom of `graphql-query-builder.html`) shows:
+```
+⌘K Search   Space Toggle field   → Expand type   ⌘↵ Execute
+```
+
+No task covers keyboard navigation in the field selector tree. For the builder to be usable without a mouse (and to match the competitive bar with Bruno), keyboard support is essential.
+
+| # | New Task | Priority |
+|---|----------|----------|
+| 2F-15 | **Builder keyboard navigation**: `Space` toggles field selection at focused row; `→`/`←` expand/collapse object type; `↑`/`↓` move focus between rows; `⌘K` focuses the schema search input; `⌘↵` triggers Execute; `Escape` clears search and returns to root view. Implemented via `onKeyDown` on the field tree container with `aria-activedescendant` for screen reader support. | P1 |
+
+#### 23.15.9 Query Builder Mockup — `@defer` in Directives Panel
+
+The mockup directives panel (line 531–544 of `graphql-query-builder.html`) shows `@defer` as a toggle alongside `@skip` and `@include`. Task 2F-7 only covers `@skip`/`@include`.
+
+`@defer` on a field in the query builder is a different behavior than `@skip`/`@include` — it signals to the server to return that field incrementally. It doesn't take a Boolean variable; it takes an optional `label` string.
+
+**Add to 2F-7** (even though deferred to post-2.1): When `@defer` support is added, the directive toggle popover must show:
+- `@skip(if: $var)` and `@include(if: $var)` — same Boolean variable pattern
+- `@defer(label: "optionalLabel")` — no variable; optional label text input; only valid when `operationType !== 'subscription'` and `hasIncrementalDelivery` is true
+
+#### 23.15.10 Query Builder Mockup — "Find Field Path" is in Right Panel
+
+Task 2F-5 describes *"two-step schema search"* as a standalone component. The mockup shows it in the right options panel under **"Find Field Path"** — a distinct search that finds all root-to-field paths for a named field across the schema (e.g. `Query → user → orders → nodes → tracking → trackingNumber`). This is different from the tree's own search filter (which filters the left column).
+
+**Clarification for 2F-5**: There are two distinct search behaviors:
+1. **Tree filter search** (left column header): filters the field tree to show only fields matching the text — quick narrow-down for large schemas
+2. **"Find Field Path"** (right panel): given a field name, lists all root paths reaching that field across the full schema — helps users discover deeply nested fields
+
+Both should be implemented. The current 2F-5 spec mixes both. Split into:
+- 2F-5a: Tree filter search (left column, real-time filter, auto-expands matching nodes)
+- 2F-5b: "Find Field Path" panel (right column, path discovery, click-to-select path)
+
+#### 23.15.11 Subscription Mockup — Assertions Panel is Left Column, Not Right Sidebar
+
+Task 2C-5 defers the assertion panel to Phase 2.1 but describes it as a "right sidebar toggle". The mockup (`graphql-subscription-testing.html`, lines 147–183) shows the assertions panel in the **left column** below the Monaco editor (same vertical space as the editor pane), not as a sidebar. The panel shows per-assertion rows with ✓/✗ and aggregate details.
+
+**Correction to 2C-5**: The assertion panel renders in the editor section (left pane), below the subscription query, not as a sidebar. When enabled, the editor is split: query above, assertions below (resizable). This is consistent with the mockup layout and avoids adding a third pane column.
+
+#### 23.15.12 Updated Task Count Summary
+
+| Category | After Round 3 | After Round 4 |
+|----------|--------------|---------------|
+| 2A–2G tasks | 44 | **46** (2A-10, 2F-15 added; 2F-5 split into 2F-5a/b) |
+| Prerequisites (2-PRE) | 7 | 7 (2-PRE-3 scope corrected) |
+| Integration tasks (2-INT) | 4 | 4 |
+| Validation/UI tasks | 5 | 5 (2C-5 layout corrected) |
+| Selector/Type tasks | 2 | 2 |
+| Shared extraction (2-SHARED) | 1 | 1 (reuse opportunities added to description) |
+| E2E fixture tasks | 1 (2-E2E-1) | **2** (2-E2E-1 revised + 2-E2E-2 added) |
+| Unit test scaffolding | 1 (2-TEST-1) | 1 |
+| **Total Phase 2 tasks** | **65** | **67** |
+
+#### 23.15.13 Revised Phase 2.0 Sprint Plan (Accounting for Reuse)
+
+Updated based on confirmed reuse opportunities and Docker server discovery:
+
+```
+Phase 2.0 (Protocol Parity) — revised sprint plan
+├─ Sprint 1: Server Infrastructure + Transport Interface
+│   ├─ 2-PRE-4: Scaffold src-server/routes/graphql/ + register in webhook-server.ts
+│   ├─ 2-PRE-2: Create graphqlClient.ts transport abstraction + interface
+│   ├─ 2-PRE-6: Install graphql-ws, graphql-sse, meros, extract-files
+│   └─ 2-TYPE-1 + 2-SEL-1: Add Phase 2 types + selectors (done in Round 3 ✅)
+│
+├─ Sprint 2: WebSocket Subscriptions (modern protocol)
+│   ├─ 2A-1: WS proxy route /api/graphql/subscribe
+│   ├─ 2A-2: graphql-ws client in graphqlClient.ts
+│   ├─ 2A-5: useGraphqlSubscription state machine
+│   ├─ 2A-6: Reconnect — reuse useWebSocketReconnect directly
+│   └─ 2A-9: wsEndpoint URL derivation
+│
+├─ Sprint 3: Subscription UI + SSE
+│   ├─ 2C-1: GraphqlSubscriptionLog (useVirtualizer — zero new dep)
+│   ├─ 2C-2: Stats bar (adapt useWebSocketMetrics pattern)
+│   ├─ 2C-3: Log toolbar (Pause/Resume/Clear/Export)
+│   ├─ 2C-4: Filter bar (reuse WebSocketFilterBar pattern)
+│   ├─ 2B-1→4: SSE transport (reuse useSseConnection fetch pattern)
+│   ├─ 2A-7+2A-10: Status pill + Protocol settings popover
+│   └─ 2A-8: connectionParams auth (reuse wsAuthResolve.ts)
+│
+├─ Sprint 4: File Upload + Integration
+│   ├─ 2E-1→3, 2E-5: Files tab, multipart construction, upload proxy
+│   ├─ 2-INT-1: Subscribe/Disconnect button swap
+│   ├─ 2-INT-2: Subscription Log tab in right pane
+│   └─ 2-INT-4: Files sub-tab in bottom panel
+│
+└─ Sprint 5: Legacy Compat + Testing
+    ├─ 2A-3: subscriptions-transport-ws legacy compat (if approved — see §23.14.12)
+    ├─ 2-PRE-7: localStorage → storage.ts migration (4 Phase 1 hooks)
+    ├─ 2-SHARED-1: Extract shared protocol-log primitives
+    ├─ 2-TEST-1: Unit test scaffolding for all new hooks
+    ├─ 2-E2E-1: graphql-subscriptions.spec.ts against Docker server
+    └─ 2-E2E-2: Extend Docker GraphQL server (HTTP + tracing + upload)
+```
+
+### 23.16 Sprint 1 Re-evaluation (2026-06-17)
+
+> **Scope**: Cross-check Sprint 1 tasks (2-PRE-2, 2-PRE-4, 2-PRE-6) against codebase reality before implementation. Found 6 additional gaps to resolve.
+
+#### 23.16.1 Architecture Decision (2-PRE-1) — Recorded
+
+**Decision**: **Option C — Hybrid transport** (from §23.14.13). Routing:
+
+| Context | Transport |
+|---|---|
+| `operationType === 'query' \| 'mutation'` | HTTP (`gqlFetch` → `httpFetch`) — Phase 1 path, unchanged |
+| `operationType === 'subscription'`, `auto`, browser, no auth, no TLS skip | Direct `graphql-transport-ws` (browser native WebSocket) |
+| `operationType === 'subscription'`, browser, has auth headers or `skipTlsVerify` | Proxied via `/api/graphql/subscribe` |
+| `operationType === 'subscription'`, Tauri | Localhost proxy via port 3001 (same as other studio protocols) |
+| `subscriptionTransport === 'sse'` | `graphql-sse` direct fetch + ReadableStream |
+| `subscriptionTransport === 'sse'`, has auth headers | Proxied via `/api/graphql/sse` |
+
+#### 23.16.2 `GraphqlAuth` ≠ `AuthConfig` — Needs Bridge
+
+**GAP**: `wsAuthResolve.ts` takes `AuthConfig` (WS Studio type with `'none'` and `'inherit'` variants). Phase 2's WS `connection_init` needs `buildConnectionParams(auth: GraphqlAuth)` which uses the different `GraphqlAuth` type. A bridge function is required.
+
+`GraphqlAuth` does not have `'none'` (absence = no auth) or `'inherit'` types. The bridge maps `GraphqlAuth` → plain object for `connectionParams`:
+```
+bearer  → { Authorization: "Bearer <token>" }
+basic   → { Authorization: "Basic <base64>" }
+apiKey  → { [headerName]: headerValue }
+oauth2  → { Authorization: "Bearer <access_token>" }  (token must be pre-fetched)
+custom  → { [headerName]: headerValue }
+```
+
+**Add `buildConnectionParams(auth: GraphqlAuth | undefined): Record<string, unknown>` to `authUtils.ts`.**
+
+#### 23.16.3 `deriveWsEndpoint` Missing From `graphqlClient.ts` Task
+
+Task 2A-9 says add `deriveWsEndpoint` to `graphqlClient.ts`. Implement it in Sprint 1 (trivial utility, zero deps) so it is available immediately for Sprint 2.
+
+#### 23.16.4 `useGraphqlExecution.ts` NOT Migrated in Sprint 1 — By Design
+
+`useGraphqlExecution.ts` calls `gqlFetch` directly and is working. Migrating it to `graphqlClient.ts` in Sprint 1 would risk breaking Phase 1 functionality with zero user-visible gain. **Sprint 1 creates `graphqlClient.ts` as a new foundation; the migration of `useGraphqlExecution` happens in Sprint 2** when subscriptions make the polymorphism necessary.
+
+#### 23.16.5 Server Routes Must Use ESM `.js` Import Extensions
+
+The `src-server/` code uses `"type": "module"` in its own package context (imports have `.js` extensions). New route files in `src-server/routes/graphql/` must use `import ... from './something.js'` even when importing `.ts` source files. Verify pattern from `websocket-routes.ts`.
+
+#### 23.16.6 Sprint 1 Deliverables Summary
+
+| Deliverable | File | Status |
+|---|---|---|
+| Phase 2 npm packages | `package.json` | 2-PRE-6 |
+| GraphQL transport interface + HTTP impl + stubs | `src/features/graphql/utils/graphqlClient.ts` | 2-PRE-2 |
+| `buildConnectionParams` WS auth bridge | `src/features/graphql/utils/authUtils.ts` | 2-PRE-2 addon |
+| `deriveWsEndpoint` utility | `src/features/graphql/utils/graphqlClient.ts` | 2A-9 early |
+| Server route stubs (subscribe, sse, upload) | `src-server/routes/graphql/` | 2-PRE-4 |
+| Route registration | `src-server/webhook-server.ts` | 2-PRE-4 |
+| Unit tests (>90% coverage) | `graphqlClient.test.ts`, route tests | 2-TEST-1 |
