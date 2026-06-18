@@ -391,8 +391,109 @@
   color: var(--text-muted, #a8b8cc);
 }
 
+/* ─── Lesson row wrapper (item + reset zone side-by-side) ──────── */
+.demo-lesson-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  position: relative;
+}
+.demo-lesson-row:last-child {
+  border-bottom: none;
+}
+/* Lesson item inside the row takes remaining space */
+.demo-lesson-row .demo-lesson-item {
+  flex: 1 1 0%;
+  width: auto;    /* override standalone width: 100% so the reset zone isn't clipped */
+  min-width: 0;   /* allow shrinking below content size */
+  border-bottom: none; /* row wrapper owns the border */
+}
+
+/* ─── Per-lesson reset zone ──────────────────────────────────────── */
+.demo-lesson-reset-zone {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+  min-width: 36px; /* always reserve space for the ↺ button */
+}
+
+/* ↺ icon button — subtle but always visible for completed lessons */
+.demo-lesson-reset-btn {
+  opacity: 0.35;
+  background: none;
+  border: none;
+  color: var(--text-muted, #a8b8cc);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  font-family: inherit;
+  line-height: 1;
+}
+.demo-lesson-row:hover .demo-lesson-reset-btn,
+.demo-lesson-reset-btn:focus-visible {
+  opacity: 1;
+}
+.demo-lesson-reset-btn:hover {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+}
+
+/* Inline confirm (Reset progress? Yes / ✕) */
+.demo-lesson-reset-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.demo-lesson-reset-confirm-label {
+  font-size: 11px;
+  color: var(--text-muted, #a8b8cc);
+}
+.demo-lesson-reset-yes {
+  background: rgba(239,68,68,0.18);
+  border: 1px solid rgba(239,68,68,0.35);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-lesson-reset-yes:hover {
+  background: rgba(239,68,68,0.3);
+}
+.demo-lesson-reset-no {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted, #a8b8cc);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-lesson-reset-no:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text, #f1f5f9);
+}
+
+/* ─── Footer: global reset + back button ─────────────────────────── */
+.demo-lesson-list-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
 .demo-back-btn {
-  margin-top: 20px;
   background: none;
   border: none;
   color: var(--text-muted, #a8b8cc);
@@ -403,9 +504,70 @@
   transition: all 0.15s ease;
   font-family: inherit;
 }
-
 .demo-back-btn:hover {
   background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #f1f5f9);
+}
+
+/* "Reset all progress" subtle button */
+.demo-reset-all-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #a8b8cc);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.demo-reset-all-btn:hover {
+  opacity: 1;
+  background: rgba(239,68,68,0.1);
+  color: #f87171;
+}
+
+/* Inline "reset all" confirm */
+.demo-reset-all-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+}
+.demo-reset-all-confirm-label {
+  font-size: 12px;
+  color: var(--text-muted, #a8b8cc);
+}
+.demo-reset-all-yes {
+  background: rgba(239,68,68,0.2);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #f87171;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-reset-all-yes:hover { background: rgba(239,68,68,0.35); }
+.demo-reset-all-no {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted, #a8b8cc);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 9px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-reset-all-no:hover {
+  background: rgba(255,255,255,0.06);
   color: var(--text, #f1f5f9);
 }
 

@@ -1420,8 +1420,6 @@
 
 .wf-method-mini { font-size: 0.6rem; font-weight: 700; font-family: 'SF Mono', monospace; flex-shrink: 0; width: 36px; }
 
-.wf-palette-children { }
-.wf-palette-folder { }
 .wf-palette-folder-header {
   display: flex; align-items: center; gap: 4px; width: 100%;
   padding: 4px 8px; background: none; border: none; color: var(--text);
@@ -1663,7 +1661,7 @@
 .wf-config-tab:hover { color: var(--text); }
 .wf-config-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-.wf-config-tab-content { min-height: 60px; }
+.wf-config-tab-content { min-height: 60px; padding: 16px; }
 
 .wf-config-hint-text { font-size: 0.72rem; color: var(--text-muted); }
 
@@ -2635,7 +2633,6 @@
 }
 .wf-expr-arg-input:focus { border-color: var(--primary); outline: none; }
 
-.wf-expr-var-chips { }
 .wf-expr-var-chips-title {
   font-size: 0.68rem;
   font-weight: 600;
@@ -2656,7 +2653,6 @@
 .wf-expr-var-chip:hover { background: #3b82f622; border-color: var(--primary); }
 .wf-expr-var-chips-more { font-size: 0.64rem; color: var(--text-muted); align-self: center; }
 
-.wf-expr-preview { }
 .wf-expr-preview-title {
   font-size: 0.68rem;
   font-weight: 600;
@@ -2964,7 +2960,9 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 .wf-node-ctx-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   border: none;
   background: transparent;
@@ -4195,27 +4193,25 @@
   flex-shrink: 0;
 }
 
-/* ── Phase 3: Arrow marker color override for execution state edges ── */
-.react-flow__edge.wf-edge-pass .react-flow__edge-path { marker-end: url(#wf-arrow-pass); }
-.react-flow__edge.wf-edge-fail .react-flow__edge-path { marker-end: url(#wf-arrow-fail); }
-.react-flow__edge.wf-edge-animated .react-flow__edge-path { marker-end: url(#wf-arrow-animated); }
-.react-flow__edge.wf-edge-skipped .react-flow__edge-path { marker-end: none; }
-
-/* ── Phase 2: Edge execution states ── */
+/* ── Edge execution states (stroke + arrow marker) ── */
 .react-flow__edge.wf-edge-animated .react-flow__edge-path {
   stroke: #3b82f6; stroke-width: 2.5;
   stroke-dasharray: 8 4;
   animation: wf-edge-flow 0.6s linear infinite;
+  marker-end: url(#wf-arrow-animated);
 }
 .react-flow__edge.wf-edge-pass .react-flow__edge-path {
   stroke: #22c55e; stroke-width: 2;
+  marker-end: url(#wf-arrow-pass);
 }
 .react-flow__edge.wf-edge-fail .react-flow__edge-path {
   stroke: #ef4444; stroke-width: 2;
+  marker-end: url(#wf-arrow-fail);
 }
 .react-flow__edge.wf-edge-skipped .react-flow__edge-path {
   stroke: var(--border); stroke-width: 1.5;
   stroke-dasharray: 4 4; opacity: 0.4;
+  marker-end: none;
 }
 @keyframes wf-edge-flow {
   to { stroke-dashoffset: -12; }
@@ -5773,7 +5769,6 @@
 }
 
 /* ── Config tab content ── */
-.wf-config-tab-content { padding: 16px; }
 .wf-config-tab-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 .wf-config-tab-empty {
   padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px;
@@ -6173,11 +6168,6 @@
 .wf-node-ctx-sep {
   height: 1px; background: var(--border); margin: 2px 0;
 }
-.wf-node-ctx-item {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%;
-}
-
 /* ── Drag Preview & Drop Indicator ────────────────────── */
 
 .wf-drag-ghost {
@@ -7040,6 +7030,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 .wf-script-modal-editor .wf-script-code-editor {
   flex: 1;
@@ -7050,9 +7041,6 @@
   top: 8px;
   right: 12px;
   z-index: 5;
-}
-.wf-script-modal-editor .wf-config-field-with-insert {
-  position: relative;
 }
 /* Right: Test sidebar */
 .wf-script-modal-sidebar {

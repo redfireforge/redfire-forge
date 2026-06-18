@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaTlsLesson } from './kafka-tls';
 
@@ -51,7 +51,7 @@ describe('kafka-tls lesson', () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-auth')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'SCRAM-SHA-256');
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'scram-sha-256');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
   });
@@ -119,11 +119,19 @@ describe('kafka-tls lesson', () => {
     const clickSpy = vi.fn();
     connectBtn.addEventListener('click', clickSpy);
     document.body.appendChild(connectBtn);
+    // Disconnect button starts disabled; the poll loop waits for it to become enabled
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
+    disconnectBtn.disabled = true;
+    document.body.appendChild(disconnectBtn);
+    // Simulate connection completing after a short delay
+    setTimeout(() => { disconnectBtn.disabled = false; }, 100);
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('kafka-save-cluster-btn'));
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(800);
+    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.delay).toHaveBeenCalledWith(400);
   });
 
   it('step tls-test action clicks test button', async () => {

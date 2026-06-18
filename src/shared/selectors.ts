@@ -312,7 +312,7 @@ export const WF = {
   PALETTE:             '[data-testid="palette"]',
   CANVAS:              '[data-testid="rf"]',
   CONTROLS:            '[data-testid="controls"]',
-  NODE_CONFIG:         '[data-testid="node-config"]',
+  NODE_CONFIG:         '.wf-config-modal',
   CFG_CLOSE:           '[data-testid="cfg-close"]',
   CONSOLE:             '[data-testid="console"]',
   EXEC_SUMMARY:        '[data-testid="exec-summary"]',
@@ -481,6 +481,10 @@ export const KAFKA = {
   TOPIC_CHIPBAR:            '[data-testid="domain-chips"]',
   TOPIC_TABLE:              '.kafka-explorer-topic-table',
   DETAIL_TABS:              '[data-testid="detail-tabs"]',
+  DETAIL_TAB_MESSAGES:      '[data-testid="detail-tab-messages"]',
+  DETAIL_TAB_PARTITIONS:    '[data-testid="detail-tab-partitions"]',
+  DETAIL_TAB_GROUPS:        '[data-testid="detail-tab-groups"]',
+  DETAIL_TAB_CONFIG:        '[data-testid="detail-tab-config"]',
   DETAIL_MESSAGES_TAB:      '[data-testid="detail-messages-tab"]',
   DETAIL_PARTITIONS_TAB:    '[data-testid="detail-partitions-tab"]',
   DETAIL_GROUPS_TAB:        '[data-testid="detail-groups-tab"]',
@@ -521,4 +525,75 @@ export const KAFKA = {
   NODE_BINDING_ADD_BTN:     '[data-testid="node-binding-add-btn"]',
   WAIT_SAMPLE_TEXTAREA:     '[data-testid="wait-sample-payload"]',
   WAIT_LOAD_MODE_SELECT:    '[data-testid="wait-load-mode"]',
+} as const;
+
+// ── GraphQL Studio (Phase 1–4) ────────────────────────────────────────────────
+export const GQL = {
+  // ── Page & Layout ──────────────────────────────────────────────────────────
+  STUDIO_PAGE:         '[data-testid="gql-studio-page"]',
+  CONNECTION_BAR:      '[data-testid="gql-connection-bar"]',
+  MAIN:                '[data-testid="gql-main"]',
+  EDITOR_PANE:         '[data-testid="gql-editor-pane"]',
+  RIGHT_PANE:          '[data-testid="gql-right-pane"]',
+
+  // ── Connection Bar ─────────────────────────────────────────────────────────
+  ENDPOINT_INPUT:      '[data-testid="gql-endpoint-input"]',
+  INTROSPECT_BTN:      '[data-testid="gql-introspect-btn"]',
+  EXECUTE_BTN:         '[data-testid="gql-execute-btn"]',
+  OP_SELECTOR:         '[data-testid="gql-op-selector"]',
+  SCHEMA_BADGE_OK:     '[data-testid="gql-schema-badge-ok"]',
+  SCHEMA_BADGE_ERROR:  '[data-testid="gql-schema-badge-error"]',
+
+  // ── Tab Bar ────────────────────────────────────────────────────────────────
+  TAB_BAR:             '[data-testid="gql-tab-bar"]',
+  TAB_ADD_BTN:         '[data-testid="gql-tab-add-btn"]',
+
+  // ── Editor ─────────────────────────────────────────────────────────────────
+  EDITOR:              '[data-testid="gql-editor"]',
+
+  // ── Bottom Panel ───────────────────────────────────────────────────────────
+  BOTTOM_TAB_VARS:     '[data-testid="gql-bottom-tab-variables"]',
+  BOTTOM_TAB_HEADERS:  '[data-testid="gql-bottom-tab-headers"]',
+
+  // ── Variables Panel ────────────────────────────────────────────────────────
+  VARS_PANEL:          '[data-testid="gql-variables-panel"]',
+
+  // ── Headers Panel ──────────────────────────────────────────────────────────
+  HEADERS_PANEL:       '[data-testid="gql-headers-panel"]',
+  HEADERS_ADD_BTN:     '[data-testid="gql-headers-add-btn"]',
+  HEADERS_EMPTY:       '[data-testid="gql-headers-empty"]',
+
+  // ── Response Viewer ────────────────────────────────────────────────────────
+  RESPONSE_EMPTY:      '[data-testid="gql-response-empty"]',
+  RESPONSE_LOADING:    '[data-testid="gql-response-loading"]',
+  RESPONSE_VIEWER:     '[data-testid="gql-response-viewer"]',
+  RESPONSE_STATUS:     '[data-testid="gql-response-status"]',
+  RESPONSE_LATENCY:    '[data-testid="gql-response-latency"]',
+  RESPONSE_BODY:       '[data-testid="gql-response-body"]',
+  RESPONSE_ERRORS:     '[data-testid="gql-response-error-count"]',
+
+  // ── Schema Explorer (Phase 1B) ─────────────────────────────────────────────
+  // BUG-P1-R1-6 fix: all SCHEMA_* selectors updated to match actual data-testid
+  // values in GraphqlSchemaExplorer.tsx (old "gql-schema-*" prefix was stale).
+  SCHEMA_EXPLORER:     '[data-testid="gql-schema-explorer"]',
+  SCHEMA_SEARCH:       '[data-testid="gql-se-search"]',
+  SCHEMA_TYPE_LIST:    '[data-testid="gql-se-type-list"]',
+  SCHEMA_TYPE_DETAIL:  '[data-testid="gql-se-type-detail"]',
+  SCHEMA_SDL_TAB:      '[data-testid="gql-se-dtab-sdl"]',
+  SCHEMA_SDL_VIEW:     '[data-testid="gql-se-detail-panel"]',
+  COPY_SDL_BTN:        '[data-testid="gql-se-copy-sdl-btn"]',
+  SNAPSHOT_BTN:        '[data-testid="gql-se-export-sdl-btn"]',
+
+  // ── Execution (Phase 1C) ───────────────────────────────────────────────────
+  CANCEL_BTN:          '[data-testid="gql-cancel-btn"]',
+
+  // ── Performance (Phase 2G) ─────────────────────────────────────────────────
+  COMPLEXITY_BADGE:    '[data-testid="gql-complexity-badge"]',
+
+  // ── Workflow nodes (Phase 4) ───────────────────────────────────────────────
+  WF_QUERY_PANEL:      '[data-testid="gql-wf-query-panel"]',
+  WF_MUTATION_PANEL:   '[data-testid="gql-wf-mutation-panel"]',
+  WF_SUBSCRIPTION_PANEL: '[data-testid="gql-wf-subscription-panel"]',
+  WF_INTROSPECT_PANEL: '[data-testid="gql-wf-introspect-panel"]',
+  WF_ASSERT_PANEL:     '[data-testid="gql-wf-assert-panel"]',
 } as const;

@@ -70,17 +70,35 @@ describe('kafka-templates lesson', () => {
     expect(kafkaTemplatesLesson.dockerCommand).toBeUndefined();
   });
 
-  it('has no setup function (initialTab handles navigation)', () => {
-    expect(kafkaTemplatesLesson.setup).toBeUndefined();
+  it('has a setup function that cleans stale templates and resets form', async () => {
+    expect(typeof kafkaTemplatesLesson.setup).toBe('function');
+    const ctx = makeCtx();
+    await kafkaTemplatesLesson.setup!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-topic'), '');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-body'), '');
+  });
+
+  it('setup removes stale "Orders Template" from localStorage', async () => {
+    const key = 'perf-test-kafka-publish-templates-v1';
+    localStorage.setItem(key, JSON.stringify([
+      { id: 'a', name: 'Orders Template' },
+      { id: 'b', name: 'Other' },
+    ]));
+    const ctx = makeCtx();
+    await kafkaTemplatesLesson.setup!(ctx);
+    const remaining = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{ name: string }>;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].name).toBe('Other');
   });
 
   it('has a cleanup function', () => {
     expect(typeof kafkaTemplatesLesson.cleanup).toBe('function');
   });
 
-  it('step tmpl-intro has a highlight but no action', () => {
+  it('step tmpl-intro highlights the template controls container', () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-intro')!;
-    expect(step.highlight).toBeTruthy();
+    expect(step.highlight).toContain('kafka-ms-template-controls');
     expect(step.action).toBeUndefined();
   });
 
@@ -97,43 +115,58 @@ describe('kafka-templates lesson', () => {
     expect(step.preAction).toBeUndefined();
   });
 
-  it('step tmpl-save-pub action clicks Save, fills name, clicks confirm', async () => {
+  it('step tmpl-save-pub action clicks Save, waits for input, fills name, clicks confirm', async () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-save-pub')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     // Should click Save button (1) then click confirm button (2)
     expect(ctx.click).toHaveBeenCalledTimes(2);
+    // Should wait for save input to appear
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('kafka-ms-template-save-input'),
+      3000,
+    );
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('kafka-ms-template-save-input'),
       'Orders Template',
     );
-    // Confirm button must use the correct class (not the old .kafka-ms-template-btn selector)
     const calls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls[1][0]).toContain('kafka-ms-template-confirm-btn');
+    // Should wait for save button to reappear (confirms save completed)
+    const waitForCalls = (ctx.waitFor as ReturnType<typeof vi.fn>).mock.calls;
+    expect(waitForCalls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('step tmpl-load-pub action clears topic, opens dropdown, and clicks template item', async () => {
+  it('step tmpl-load-pub action clears topic, opens dropdown, waits for items, clicks template', async () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-load-pub')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // fill: clears the topic to make reload visually obvious
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-topic'), '');
     // click × 2: Load button, then template item
     expect(ctx.click).toHaveBeenCalledTimes(2);
     expect((ctx.click as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain(
       'kafka-ms-template-dropdown-anchor',
     );
+    // Should wait for template items before clicking
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('kafka-ms-template-item'),
+      3000,
+    );
     expect((ctx.click as ReturnType<typeof vi.fn>).mock.calls[1][0]).toContain(
       'kafka-ms-template-item',
     );
   });
 
-  it('step tmpl-delete-pub action opens dropdown and clicks delete button', async () => {
+  it('step tmpl-delete-pub action opens dropdown, waits for delete button, clicks it', async () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-delete-pub')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledTimes(2);
-    // Second call: delete button
+    // Should wait for delete button to appear
+    expect(ctx.waitFor).toHaveBeenCalledWith(
+      expect.stringContaining('kafka-ms-template-item-delete'),
+      3000,
+    );
     expect((ctx.click as ReturnType<typeof vi.fn>).mock.calls[1][0]).toContain(
       'kafka-ms-template-item-delete',
     );
@@ -146,6 +179,11 @@ describe('kafka-templates lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-consume'));
   });
 
+  it('step tmpl-consume highlights the template controls container', () => {
+    const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-consume')!;
+    expect(step.highlight).toContain('kafka-ms-template-controls');
+  });
+
   it('step tmpl-persist preAction clicks the Publish tab', async () => {
     const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-persist')!;
     const ctx = makeCtx();
@@ -153,8 +191,12 @@ describe('kafka-templates lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
   });
 
+  it('step tmpl-persist highlights the template controls container', () => {
+    const step = kafkaTemplatesLesson.steps.find((s) => s.id === 'tmpl-persist')!;
+    expect(step.highlight).toContain('kafka-ms-template-controls');
+  });
+
   it('cleanup removes "Orders Template" from localStorage', async () => {
-    // Seed a template in localStorage using the real key
     const key = 'perf-test-kafka-publish-templates-v1';
     const templates = [
       { id: 'a', name: 'Orders Template' },
@@ -170,7 +212,6 @@ describe('kafka-templates lesson', () => {
   });
 
   it('cleanup is a no-op when localStorage is empty', async () => {
-    // Should not throw even when key is absent
     await expect(
       kafkaTemplatesLesson.cleanup!(undefined as unknown as Parameters<typeof kafkaTemplatesLesson.cleanup>[0]),
     ).resolves.toBeUndefined();
@@ -182,7 +223,22 @@ describe('kafka-templates lesson', () => {
       kafkaTemplatesLesson.cleanup!(undefined as unknown as Parameters<typeof kafkaTemplatesLesson.cleanup>[0]),
     ).resolves.toBeUndefined();
   });
+
+  // ── All preActions/actions run without throwing ─────────────────────
+
+  it('all step preActions run without throwing', async () => {
+    for (const step of kafkaTemplatesLesson.steps) {
+      const ctx = makeCtx();
+      if (step.preAction) await expect(step.preAction(ctx)).resolves.not.toThrow();
+    }
+  });
+
+  it('all step actions run without throwing', async () => {
+    for (const step of kafkaTemplatesLesson.steps) {
+      const ctx = makeCtx();
+      if (step.action) await expect(step.action(ctx)).resolves.not.toThrow();
+    }
+  });
 });
 
 // ─── K2: kafka-publish ─────────────────────────────────────────────────────
-

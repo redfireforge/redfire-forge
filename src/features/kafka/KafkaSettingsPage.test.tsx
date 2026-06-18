@@ -271,7 +271,7 @@ describe('KafkaSettingsPage', () => {
     await user.type(screen.getByLabelText('Cluster Name'), 'Secure Local Cluster');
     await user.type(screen.getByLabelText('Connection Timeout (ms)'), '5000');
     await user.type(screen.getByLabelText('Request Timeout (ms)'), '9000');
-    await user.selectOptions(screen.getByLabelText('Authentication'), 'scram-sha-512');
+    await user.selectOptions(screen.getByLabelText('Mechanism'), 'scram-sha-512');
     await user.type(screen.getByLabelText('Username'), 'svc-user');
     await user.type(screen.getByLabelText('Password'), 'svc-pass');
     await user.click(screen.getByLabelText('Enable TLS'));
@@ -319,7 +319,7 @@ describe('KafkaSettingsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
-    expect((screen.getByLabelText('Authentication') as HTMLSelectElement).value).toBe('scram-sha-512');
+    expect((screen.getByLabelText('Mechanism') as HTMLSelectElement).value).toBe('scram-sha-512');
     expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('svc-user');
     expect((screen.getByLabelText('TLS Server Name') as HTMLInputElement).value).toBe('kafka.local');
     expect((screen.getByLabelText('Connection Timeout (ms)') as HTMLInputElement).value).toBe('5000');
@@ -358,7 +358,7 @@ describe('KafkaSettingsPage', () => {
     }));
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
-    await user.selectOptions(screen.getByLabelText('Authentication'), 'plain');
+    await user.selectOptions(screen.getByLabelText('Mechanism'), 'plain');
     await user.click(screen.getByLabelText('Enable TLS'));
     await user.type(screen.getByLabelText('Client Certificate PEM'), 'cert-only');
     await user.type(screen.getByLabelText('Key Passphrase'), 'secret');

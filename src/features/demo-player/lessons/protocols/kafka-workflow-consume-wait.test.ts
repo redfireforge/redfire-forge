@@ -33,32 +33,32 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(typeof kafkaWorkflowConsumeWaitLesson.cleanup).toBe('function');
   });
 
-  it('step cw-consume-node action clicks node when element exists in DOM', async () => {
+  it('step cw-consume-node action double-clicks node to open config modal', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-node')!;
     expect(step).toBeDefined();
     const node = document.createElement('div');
     node.className = 'wf-node-kafkaConsume';
-    const clickSpy = vi.fn();
-    node.addEventListener('click', clickSpy);
+    const dblclickSpy = vi.fn();
+    node.addEventListener('dblclick', dblclickSpy);
     document.body.appendChild(node);
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(dblclickSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(600);
   });
 
-  it('step cw-wait-node action clicks node when element exists in DOM', async () => {
+  it('step cw-wait-node action double-clicks node to open config modal', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-node')!;
     expect(step).toBeDefined();
     const node = document.createElement('div');
     node.className = 'wf-node-kafkaWait';
-    const clickSpy = vi.fn();
-    node.addEventListener('click', clickSpy);
+    const dblclickSpy = vi.fn();
+    node.addEventListener('dblclick', dblclickSpy);
     document.body.appendChild(node);
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(dblclickSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(600);
   });
 
   it('step cw-quicktest action clicks quick test button', async () => {

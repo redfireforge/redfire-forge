@@ -82,6 +82,8 @@ function proxyPlugin(): Plugin {
           method: string;
           headers: Record<string, string>;
           body?: string;
+          /** When true, TLS certificate validation is skipped (self-signed / dev endpoints) */
+          skipTlsVerify?: boolean;
         };
         try {
           payload = JSON.parse(rawBody);
@@ -101,8 +103,21 @@ function proxyPlugin(): Plugin {
             fetchOpts.body = payload.body;
           }
 
-          const { dispatcher, isProxy } = await getDispatcher();
-          if (dispatcher) fetchOpts.dispatcher = dispatcher;
+          // TLS skip: create a one-off insecure Agent instead of the pooled dispatcher.
+          // skipTlsVerify is only honoured for https:// targets where it matters.
+          let isProxy = false;
+          if (payload.skipTlsVerify && payload.url.startsWith('https://')) {
+            try {
+              const { Agent } = await import('undici');
+              fetchOpts.dispatcher = new Agent({
+                connect: { rejectUnauthorized: false },
+              });
+            } catch { /* undici unavailable — fall through to global default */ }
+          } else {
+            const dispatched = await getDispatcher();
+            if (dispatched.dispatcher) fetchOpts.dispatcher = dispatched.dispatcher;
+            isProxy = dispatched.isProxy;
+          }
 
           const MAX_PROXY_BODY = 2 * 1024 * 1024; // 2 MB cap to prevent pathological responses
 

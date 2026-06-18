@@ -1,7 +1,45 @@
 /** Lesson K6: Topic Explorer — browse topics, partitions, and consumer group lag */
-import type { DemoLesson } from '../../types';
+import type { DemoLesson, DemoActionContext } from '../../types';
 import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '../../../../shared/selectors';
+
+const TOPIC_ROW_SELECTOR = `${KAFKA.TOPIC_TABLE} tbody tr[style]`;
+
+/** Ensure the Topics tab is active and topics are loaded. Idempotent. */
+async function ensureTopicsTab(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(TOPIC_ROW_SELECTOR)) return;
+
+  await ctx.click(KAFKA.TOPICS_TAB);
+  try { await ctx.waitFor(KAFKA.TOPIC_TABLE, 5000); } catch { /* may not appear */ }
+  await ctx.delay(600);
+
+  // Topics load asynchronously — wait for at least one row to render
+  for (let i = 0; i < 20; i++) {
+    if (document.querySelector(TOPIC_ROW_SELECTOR)) break;
+    await ctx.delay(500);
+  }
+}
+
+/** Click the first visible topic row if no detail panel is open. */
+async function ensureTopicSelected(ctx: DemoActionContext): Promise<void> {
+  await ensureTopicsTab(ctx);
+
+  // Clear any active search filter so all topics are visible
+  const searchInput = document.querySelector<HTMLInputElement>(KAFKA.TOPIC_SEARCH);
+  if (searchInput && searchInput.value) {
+    await ctx.fill(KAFKA.TOPIC_SEARCH, '');
+    await ctx.delay(200);
+  }
+
+  if (document.querySelector(KAFKA.DETAIL_TABS)) return;
+
+  const row = document.querySelector<HTMLElement>(TOPIC_ROW_SELECTOR);
+  if (row) {
+    row.click();
+    try { await ctx.waitFor(KAFKA.DETAIL_TABS, 5000); } catch { /* detail may not load */ }
+    await ctx.delay(500);
+  }
+}
 
 export const kafkaTopicExplorerLesson: DemoLesson = {
   id: 'kafka-topic-explorer',
@@ -17,7 +55,16 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
-  setup: kafkaPublishSetup,
+  setup: async (ctx) => {
+    await kafkaPublishSetup(ctx);
+    await ctx.click(KAFKA.TOPICS_TAB);
+    await ctx.delay(600);
+    // Topics load asynchronously — wait for at least one row
+    for (let i = 0; i < 20; i++) {
+      if (document.querySelector(TOPIC_ROW_SELECTOR)) break;
+      await ctx.delay(500);
+    }
+  },
   cleanup: kafkaCleanup,
 
   concept: {
@@ -128,6 +175,9 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'Each row shows the topic name, partition count, replication factor, recent traffic, number of consumer groups, and a health badge. A ✅ **Healthy** badge means all replicas are in-sync. Click any column header to sort.',
       highlight: KAFKA.TOPIC_TABLE,
+      preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
+      },
     },
 
     // Step 3: Search topics
@@ -138,6 +188,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
         'Type in the **Search** box to filter topics by name in real time. For large clusters with hundreds of topics, this narrows the list instantly — no need to scroll through pages.',
       highlight: KAFKA.TOPIC_SEARCH,
       preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
         await ctx.fill(KAFKA.TOPIC_SEARCH, 'orders');
         await ctx.delay(400);
       },
@@ -151,6 +202,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
         'Clear the search — you\'ll see **Domain Chips** generated from topic name prefixes. Clicking a chip (e.g., "orders") filters the table to all `orders.*` topics at once. This groups your topics by business domain automatically.',
       highlight: KAFKA.TOPIC_CHIPBAR,
       preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
         await ctx.fill(KAFKA.TOPIC_SEARCH, '');
         await ctx.delay(300);
       },
@@ -163,6 +215,9 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'The **Health**, **Partition**, and **Retention** dropdowns narrow the list by criteria — for example, show only ⚠️ Degraded topics (ISR fraction < 1) or topics with more than 6 partitions. Combine filters with search for fast operational triage.',
       highlight: KAFKA.TOPIC_HEALTH_FILTER,
+      preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
+      },
     },
 
     // Step 6: Select a topic to open detail panel
@@ -172,16 +227,25 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'Click any topic row to open its **Detail Panel** on the right. The panel has four tabs: Messages, Partitions, Consumer Groups, and Config. All data is fetched live from the broker.',
       highlight: KAFKA.TOPIC_TABLE,
+      preAction: async (ctx) => {
+        await ensureTopicsTab(ctx);
+        // Clear any search filter so all topics are visible
+        const searchInput = document.querySelector<HTMLInputElement>(KAFKA.TOPIC_SEARCH);
+        if (searchInput && searchInput.value) {
+          await ctx.fill(KAFKA.TOPIC_SEARCH, '');
+          await ctx.delay(200);
+        }
+      },
       action: async (ctx) => {
-        // Click the first topic row in the table
         const row = document.querySelector<HTMLElement>(
-          `${KAFKA.TOPIC_TABLE} tr:not(.kafka-explorer-topic-header):first-child, ${KAFKA.TOPIC_TABLE} [data-testid="topic-row"]:first-child, ${KAFKA.TOPIC_TABLE} tbody tr:first-child`,
+          `${KAFKA.TOPIC_TABLE} tbody tr[style]`,
         );
         if (row) {
           row.click();
         } else {
           await ctx.click(KAFKA.TOPIC_TABLE);
         }
+        try { await ctx.waitFor(KAFKA.DETAIL_TABS, 5000); } catch { /* detail may not load */ }
         await ctx.delay(600);
       },
     },
@@ -193,6 +257,9 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       description:
         'The four metric boxes at the top of the detail panel summarise **Messages** (estimated total), **Partitions**, **Replication Factor**, and **Consumer Groups**. These are the key capacity numbers you need for capacity planning.',
       highlight: KAFKA.TOPIC_METRICS_ROW,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+      },
     },
 
     // Step 8: Partition detail tab
@@ -201,9 +268,13 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       title: 'Partition Details',
       description:
         'Click the **Partitions** tab to see per-partition data: leader broker ID, high-water mark offset, and ISR fraction. An ISR fraction below 1.0 means at least one replica is lagging — a signal worth investigating.',
-      highlight: KAFKA.DETAIL_TABS,
+      highlight: KAFKA.DETAIL_TAB_PARTITIONS,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+      },
       action: async (ctx) => {
-        await ctx.click(KAFKA.DETAIL_PARTITIONS_TAB);
+        await ctx.click(KAFKA.DETAIL_TAB_PARTITIONS);
+        try { await ctx.waitFor(KAFKA.DETAIL_PARTITIONS_TAB, 3000); } catch { /* tab content */ }
         await ctx.delay(400);
       },
     },
@@ -214,9 +285,13 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       title: 'Consumer Groups',
       description:
         'Click the **Consumer Groups** tab to see every group subscribed to this topic — their current **lag**, **state** (Stable / Rebalancing / Dead), and member count. A non-zero lag tells you consumers are behind. Click any group row to drill into per-partition lag.',
-      highlight: KAFKA.DETAIL_GROUPS_TAB,
+      highlight: KAFKA.DETAIL_TAB_GROUPS,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+      },
       action: async (ctx) => {
-        await ctx.click(KAFKA.DETAIL_GROUPS_TAB);
+        await ctx.click(KAFKA.DETAIL_TAB_GROUPS);
+        try { await ctx.waitFor(KAFKA.DETAIL_GROUPS_TAB, 3000); } catch { /* tab content */ }
         await ctx.delay(400);
       },
     },

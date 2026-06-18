@@ -244,4 +244,151 @@ describe('executeProduce', () => {
     const data = expectSuccess(result);
     expect(data.clusterId).toBe('my-cluster');
   });
+
+  // ── Binary encoding paths (bodyFormat/keyFormat) ──────────────────────────
+
+  describe('binary encoding (bodyFormat/keyFormat)', () => {
+    it('decodes base64 body value into a Buffer when bodyFormat is "base64"', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+      const rawBytes = Buffer.from('hello world');
+      const base64Value = rawBytes.toString('base64');
+
+      const result = await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: 'k1', value: base64Value }],
+          bodyFormat: 'base64',
+        }),
+      );
+
+      expectSuccess(result);
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      const sentValue = sendCall.messages[0].value;
+      expect(Buffer.isBuffer(sentValue)).toBe(true);
+      expect((sentValue as Buffer).toString()).toBe('hello world');
+    });
+
+    it('sets valueEncoding to "base64" when bodyFormat is "base64"', async () => {
+      const { runtimeAdapter } = createMockRuntimeAdapter();
+      const result = await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: 'k1', value: Buffer.from('test').toString('base64') }],
+          bodyFormat: 'base64',
+        }),
+      );
+
+      const data = expectSuccess(result);
+      expect(data.valueEncoding).toBe('base64');
+    });
+
+    it('decodes hex body value into a Buffer when bodyFormat is "hex"', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+      const rawBytes = Buffer.from('hello');
+      const hexValue = rawBytes.toString('hex');
+
+      await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: 'k1', value: hexValue }],
+          bodyFormat: 'hex',
+        }),
+      );
+
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      const sentValue = sendCall.messages[0].value;
+      expect(Buffer.isBuffer(sentValue)).toBe(true);
+      expect((sentValue as Buffer).toString()).toBe('hello');
+    });
+
+    it('sets valueEncoding to "hex" when bodyFormat is "hex"', async () => {
+      const { runtimeAdapter } = createMockRuntimeAdapter();
+      const result = await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: 'k1', value: Buffer.from('test').toString('hex') }],
+          bodyFormat: 'hex',
+        }),
+      );
+
+      const data = expectSuccess(result);
+      expect(data.valueEncoding).toBe('hex');
+    });
+
+    it('decodes base64 key when keyFormat is "base64"', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+      const rawKey = Buffer.from('mykey');
+      const base64Key = rawKey.toString('base64');
+
+      await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: base64Key, value: '{"x":1}' }],
+          keyFormat: 'base64',
+        }),
+      );
+
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      const sentKey = sendCall.messages[0].key;
+      expect(Buffer.isBuffer(sentKey)).toBe(true);
+      expect((sentKey as Buffer).toString()).toBe('mykey');
+    });
+
+    it('decodes hex key when keyFormat is "hex"', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+      const rawKey = Buffer.from('hexkey');
+      const hexKey = rawKey.toString('hex');
+
+      await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ key: hexKey, value: '{"x":1}' }],
+          keyFormat: 'hex',
+        }),
+      );
+
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      const sentKey = sendCall.messages[0].key;
+      expect(Buffer.isBuffer(sentKey)).toBe(true);
+      expect((sentKey as Buffer).toString()).toBe('hexkey');
+    });
+
+    it('does not re-encode key when key is null and keyFormat is base64', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+
+      await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({
+          messages: [{ value: 'aGVsbG8=', key: undefined }],
+          bodyFormat: 'base64',
+          keyFormat: 'base64',
+        }),
+      );
+
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      const sentKey = sendCall.messages[0].key;
+      expect(sentKey).toBeUndefined();
+    });
+
+    it('does not apply binary encoding when bodyFormat and keyFormat are not binary', async () => {
+      const { runtimeAdapter, producer } = createMockRuntimeAdapter();
+      const msg = { key: 'k1', value: '{"plain":"json"}' };
+
+      await executeProduce(
+        runtimeAdapter,
+        makeConnection(),
+        baseRequest({ messages: [msg], bodyFormat: 'json', keyFormat: 'string' }),
+      );
+
+      const sendCall = vi.mocked(producer.send).mock.calls[0][0];
+      expect(sendCall.messages[0].value).toBe('{"plain":"json"}');
+    });
+  });
 });

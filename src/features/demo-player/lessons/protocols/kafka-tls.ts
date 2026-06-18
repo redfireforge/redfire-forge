@@ -6,7 +6,7 @@
  * how to confirm the encrypted connection works.
  */
 import type { DemoLesson } from '../../types';
-import { kafkaSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaTlsSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '../../../../shared/selectors';
 
 export const kafkaTlsLesson: DemoLesson = {
@@ -23,7 +23,7 @@ export const kafkaTlsLesson: DemoLesson = {
   dockerEndpoint: 'http://localhost:19648',
   dockerCommand: 'cd docker/kafka/tls && docker compose up -d',
 
-  setup: kafkaSetup,
+  setup: kafkaTlsSetup,
   cleanup: kafkaCleanup,
 
   concept: {
@@ -159,7 +159,7 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
         'Set **Auth Mode** to **SCRAM-SHA-256** and fill in the credentials: **Username** `redfireforge-app`, **Password** `app-password`. The TLS stack uses the same SASL users as the SASL-only stack.',
       highlight: KAFKA.AUTH_TYPE_SELECT,
       action: async (ctx) => {
-        await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'SCRAM-SHA-256');
+        await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'scram-sha-256');
         await ctx.delay(300);
         await ctx.fill(KAFKA.AUTH_USER_INPUT, 'redfireforge-app');
         await ctx.delay(100);
@@ -232,9 +232,17 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
         await ctx.click(KAFKA.SAVE_BTN);
         await ctx.delay(500);
         const connectBtn = document.querySelector<HTMLElement>(KAFKA.CONNECT_BTN);
-        if (connectBtn) {
+        if (connectBtn && !(connectBtn as HTMLButtonElement).disabled) {
           connectBtn.click();
-          await ctx.delay(800);
+          // Wait for Disconnect button to become ENABLED (not just exist in DOM)
+          // — indicates the TLS+SASL handshake completed and connection is active.
+          const start = Date.now();
+          while (Date.now() - start < 10000) {
+            const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
+            if (dcBtn && !dcBtn.disabled) break;
+            await new Promise(r => setTimeout(r, 200));
+          }
+          await ctx.delay(400);
         }
       },
     },
@@ -258,7 +266,9 @@ The demo TLS stack runs SASL/SCRAM-256 on an TLS-encrypted port **19095** — th
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_SEND_BTN);
-        await ctx.delay(600);
+        // Wait for either a success result or an error banner — whichever appears first.
+        await ctx.waitFor(`${KAFKA.PUB_RESULT}, ${KAFKA.PUB_ERROR}`, 15000);
+        await ctx.delay(400);
       },
     },
   ],
