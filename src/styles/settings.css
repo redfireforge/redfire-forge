@@ -2240,6 +2240,27 @@ label.kafka-editor-checkbox {
 .kafka-ms-form-input--grow { flex: 1 1 0%; min-width: 0; }
 .kafka-ms-form-input--short { width: 140px; flex: 0 0 140px; }
 
+/* JSONPath filter — path + equals + value on one row */
+.kafka-ms-jsonpath-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.kafka-ms-jsonpath-pair .kafka-ms-form-input {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+.kafka-ms-jsonpath-eq {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.7;
+  padding: 0 2px;
+  user-select: none;
+}
+
 /* Acks / position / sort dropdowns */
 .kafka-ms-form-select--acks { width: 260px; flex: 0 0 260px; }
 

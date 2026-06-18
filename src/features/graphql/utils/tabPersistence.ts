@@ -1,11 +1,12 @@
 /**
- * tabPersistence.ts — localStorage helpers for GraphQL Studio editor tabs.
+ * tabPersistence.ts — persistence helpers for GraphQL Studio editor tabs.
  *
  * Extracted from GraphqlStudioPage.tsx so the tab-management logic can be
  * unit-tested independently of the React component tree.
  */
 
-import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
 import { makeHeaderId } from './headerUtils';
 import { buildModelUri, buildVarsModelUri } from './monacoGraphqlSetup';
 
@@ -27,6 +28,10 @@ export const SAVE_DEBOUNCE_MS = 500;
 /** Tab state extended with the query content (not in the shared type) */
 export interface GqlStudioTab extends GraphqlOperationTab {
   query: string;
+  /** Per-tab subscription transport override. Defaults to 'auto'. */
+  subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
+  /** Per-tab subscription assertions (2C-5). Persisted with the tab. */
+  subscriptionAssertions?: GraphqlSubscriptionAssertion[];
 }
 
 // ─── Tab ID sequence ──────────────────────────────────────────────────────────
@@ -100,14 +105,31 @@ export function normalizeTab(raw: unknown): GqlStudioTab | null {
     unsavedChanges: false, // always reset on load
     connectionId: typeof t.connectionId === 'string' ? t.connectionId : undefined,
     selectedOperation: typeof t.selectedOperation === 'string' ? t.selectedOperation : undefined,
+    subscriptionTransport: (
+      t.subscriptionTransport === 'auto' ||
+      t.subscriptionTransport === 'graphql-transport-ws' ||
+      t.subscriptionTransport === 'graphql-ws' ||
+      t.subscriptionTransport === 'sse'
+    ) ? t.subscriptionTransport as GqlStudioTab['subscriptionTransport'] : undefined,
+    subscriptionAssertions: Array.isArray(t.subscriptionAssertions)
+      ? (t.subscriptionAssertions as GraphqlSubscriptionAssertion[])
+          .filter((a) => a && typeof a === 'object' && typeof a.id === 'string' && typeof a.jsonPath === 'string')
+          .map((a) => ({
+            id:          a.id,
+            jsonPath:    a.jsonPath,
+            operator:    typeof a.operator === 'string' && a.operator ? a.operator : 'is_not_null',
+            expected:    a.expected ?? '',
+            description: typeof a.description === 'string' ? a.description : '',
+          }))
+      : undefined,
   };
 }
 
 // ─── Load / save tabs ─────────────────────────────────────────────────────────
 
-export function loadTabs(): GqlStudioTab[] {
+export async function loadTabs(): Promise<GqlStudioTab[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = await readKey(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown[];
     if (!Array.isArray(parsed) || parsed.length === 0) return [];
@@ -121,24 +143,24 @@ export function loadTabs(): GqlStudioTab[] {
   }
 }
 
-export function saveTabs(tabs: GqlStudioTab[], activeId: string): void {
+export async function saveTabs(tabs: GqlStudioTab[], activeId: string): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
-    localStorage.setItem(`${STORAGE_KEY}_active`, activeId);
+    await writeKey(STORAGE_KEY, JSON.stringify(tabs));
+    await writeKey(`${STORAGE_KEY}_active`, activeId);
   } catch {
-    // localStorage unavailable (private browsing, quota exceeded, etc.)
+    // storage unavailable (private browsing, quota exceeded, etc.)
   }
 }
 
-export function loadActiveTabId(): string {
-  return localStorage.getItem(`${STORAGE_KEY}_active`) ?? '';
+export async function loadActiveTabId(): Promise<string> {
+  return (await readKey(`${STORAGE_KEY}_active`)) ?? '';
 }
 
 // ─── Auth persistence ─────────────────────────────────────────────────────────
 
-export function loadAuth(): GraphqlAuth | null {
+export async function loadAuth(): Promise<GraphqlAuth | null> {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const raw = await readKey(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return null;
@@ -151,12 +173,12 @@ export function loadAuth(): GraphqlAuth | null {
   }
 }
 
-export function saveAuth(auth: GraphqlAuth | null): void {
+export async function saveAuth(auth: GraphqlAuth | null): Promise<void> {
   try {
     if (auth) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+      await writeKey(AUTH_STORAGE_KEY, JSON.stringify(auth));
     } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      await removeKey(AUTH_STORAGE_KEY);
     }
   } catch { /* no-op */ }
 }

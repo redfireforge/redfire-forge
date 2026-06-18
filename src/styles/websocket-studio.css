@@ -917,28 +917,49 @@
 }
 
 .ws-compose-send-btn {
-  padding: 7px 18px;
-  background: var(--accent-color, #4fc3f7);
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  background: var(--primary, #4fc3f7);
+  color: #0d0d0d;
   border: none;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  align-self: flex-end;
-  box-shadow: 0 2px 8px rgba(79, 195, 247, 0.25);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary, #4fc3f7) 35%, transparent);
   transition: all 0.15s;
+  white-space: nowrap;
+  height: 28px;
 }
 
 .ws-compose-send-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: default;
   box-shadow: none;
 }
 
 .ws-compose-send-btn:hover:not(:disabled) {
   filter: brightness(1.1);
-  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.35);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary, #4fc3f7) 45%, transparent);
+}
+
+/* ⌘↵ hint inside Send button */
+.ws-send-kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  height: 15px;
+  font-size: 9px;
+  font-family: var(--font-sans, inherit);
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: rgba(0,0,0,0.6);
+  margin-left: 1px;
 }
 
 /* ── Message Log ──────────────────────────────────────────────────────────── */
@@ -1949,10 +1970,82 @@
   padding-left: 4px;
 }
 
+/* Floating clear (×) button inside the textarea */
+.ws-compose-clear-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover-bg, #2a2d2e);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+}
+.ws-compose-input-wrapper:hover .ws-compose-clear-btn,
+.ws-compose-input-wrapper:focus-within .ws-compose-clear-btn {
+  opacity: 1;
+}
+.ws-compose-clear-btn:hover {
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--text-secondary, #777);
+}
+
+/* Char / line counter — bottom-right of textarea */
+.ws-compose-char-count {
+  position: absolute;
+  bottom: 5px;
+  right: 7px;
+  font-size: 10px;
+  font-family: var(--font-mono, 'SF Mono', monospace);
+  color: var(--text-secondary, #666);
+  pointer-events: none;
+  background: var(--input-bg, #2a2a2a);
+  padding: 0 3px;
+  border-radius: 3px;
+  opacity: 0.6;
+  line-height: 1.4;
+  user-select: none;
+}
+.ws-compose-input-wrapper:hover .ws-compose-char-count,
+.ws-compose-input-wrapper:focus-within .ws-compose-char-count {
+  opacity: 1;
+}
+
 .ws-compose-controls {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  justify-content: space-between;
+}
+
+.ws-compose-controls-left {
+  display: flex;
+  align-items: center;
   gap: 6px;
+}
+
+.ws-compose-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ws-compose-controls-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color, #3a3a3a);
+  margin: 0 2px;
   flex-shrink: 0;
 }
 
@@ -1960,25 +2053,82 @@
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace !important;
 }
 
-.ws-format-select {
-  padding: 4px 8px;
-  font-size: 12px;
-  background: var(--input-bg, #1e1e1e);
-  color: var(--text-primary, #e0e0e0);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  cursor: pointer;
-  height: 28px;
-  transition: border-color 0.15s;
+/* ── Format pills (replaces <select>) ── */
+.ws-format-pills {
+  display: inline-flex;
+  align-items: center;
+  background: var(--panel-bg, #1e1e1e);
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+  /* Subtle inner shadow to make the container readable against any background */
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.15);
 }
 
-.ws-format-select:focus {
-  border-color: var(--accent-color, #4fc3f7);
-  outline: none;
+.ws-format-pill {
+  padding: 4px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #777);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+  border-right: 1px solid var(--border-color, #3a3a3a);
+  line-height: 1.5;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+}
+.ws-format-pill:last-child { border-right: none; }
+.ws-format-pill:hover:not(.ws-format-pill--active) {
+  background: var(--hover-bg, #2a2a2a);
+  color: var(--text-primary, #ccc);
+}
+.ws-format-pill--active {
+  background: color-mix(in srgb, var(--primary, #4fc3f7) 22%, transparent);
+  color: var(--primary, #4fc3f7);
+  cursor: default;
+  /* thin accent underline for the active state */
+  box-shadow: inset 0 -2px 0 var(--primary, #4fc3f7);
+}
+
+/* ── Protocol badges (unified) ── */
+.ws-protocol-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.ws-protocol-badge--gql {
+  background: rgba(166, 227, 161, 0.12);
+  color: #a6e3a1;
+  border: 1px solid rgba(166, 227, 161, 0.2);
+}
+.ws-protocol-badge--sio {
+  background: rgba(137, 180, 250, 0.12);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.2);
+}
+.ws-protocol-badge--stomp {
+  background: rgba(250, 179, 135, 0.12);
+  color: #fab387;
+  border: 1px solid rgba(250, 179, 135, 0.2);
 }
 
 .ws-pretty-format-btn {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
   font-size: 11px;
   background: var(--input-bg, #1e1e1e);
   color: var(--text-secondary, #aaa);
@@ -2009,20 +2159,46 @@
 }
 
 .ws-template-trigger {
-  padding: 4px 8px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 500;
   background: var(--input-bg, #1e1e1e);
   color: var(--text-secondary, #aaa);
   border: 1px solid var(--border-color, #333);
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
   height: 28px;
+  transition: all 0.15s;
 }
 
 .ws-template-trigger:hover {
   background: var(--hover-bg, #2a2d2e);
   color: var(--text-primary, #e0e0e0);
+  border-color: var(--text-secondary, #666);
+}
+
+.ws-template-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: color-mix(in srgb, var(--primary, #4fc3f7) 20%, transparent);
+  color: var(--primary, #4fc3f7);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ws-template-chevron {
+  opacity: 0.6;
+  margin-left: 1px;
 }
 
 .ws-template-dropdown {
@@ -3274,28 +3450,73 @@
 /* ── GraphQL Compose Fields ────────────────────────────────────────── */
 
 .ws-gql-compose-fields {
+  padding: 0 2px 2px;
+}
+
+/* Single row with op-name + variables + op# badge */
+.ws-gql-meta-row {
   display: flex;
-  gap: 8px;
-  padding: 6px 10px 0;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A labeled field with icon */
+.ws-gql-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border-color, #3a3a4a);
+  border-radius: 5px;
+  padding: 0 8px;
+  height: 28px;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.ws-gql-field:focus-within {
+  border-color: var(--primary, #89b4fa);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #89b4fa) 15%, transparent);
+}
+.ws-gql-field--op-name {
+  width: 190px;
+}
+.ws-gql-field--vars {
+  flex: 1;
+}
+
+.ws-gql-field-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary, #666);
+  flex-shrink: 0;
 }
 
 .ws-gql-operation-name-input {
-  width: 180px;
-  padding: 5px 8px;
-  background: var(--bg-input, #1e1e2e);
-  color: var(--text-primary, #cdd6f4);
-  border: 1px solid var(--border-primary, #45475a);
-  border-radius: 4px;
-  font-size: 11px;
-}
-
-.ws-gql-operation-name-input:focus {
-  border-color: var(--accent-primary, #89b4fa);
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
   outline: none;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 11.5px;
+  padding: 0;
 }
+.ws-gql-operation-name-input::placeholder { color: var(--text-secondary, #555); }
 
+.ws-gql-variables-input--inline {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 11.5px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  padding: 0;
+}
+.ws-gql-variables-input--inline::placeholder { color: var(--text-secondary, #555); }
+
+/* Legacy (kept for existing references) */
 .ws-gql-variables-input {
   flex: 1;
   padding: 5px 8px;
@@ -3308,12 +3529,45 @@
   resize: vertical;
   min-height: 32px;
 }
-
 .ws-gql-variables-input:focus {
   border-color: var(--accent-primary, #89b4fa);
   outline: none;
 }
 
+/* JSON valid/invalid indicator */
+.ws-gql-vars-valid {
+  font-size: 11px;
+  color: #a6e3a1;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.ws-gql-vars-invalid {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--error-color, #f38ba8);
+  flex-shrink: 0;
+}
+
+/* Op# badge — subtle pill beside the fields */
+.ws-gql-op-id-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 20px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--primary, #89b4fa) 10%, transparent);
+  color: var(--text-secondary, #888);
+  border: 1px solid color-mix(in srgb, var(--primary, #89b4fa) 20%, transparent);
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Legacy */
 .ws-gql-op-id {
   font-size: 11px;
   color: var(--text-tertiary, #6c7086);
@@ -4000,10 +4254,34 @@
 }
 
 .ws-compose-footer {
+  position: relative;
   width: 100%;
-  font-size: 11px;
-  color: var(--text-secondary, #888);
-  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--text-secondary, #777);
+  padding-top: 5px;
+  overflow: hidden;
+}
+
+.ws-compose-msg-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.ws-compose-msg-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary, #4fc3f7) 0%, color-mix(in srgb, var(--primary, #4fc3f7) 40%, transparent) 100%);
+  border-radius: 1px;
+  transition: width 0.4s ease;
+  opacity: 0.45;
 }
 
 .ws-format-label {
@@ -4013,8 +4291,11 @@
 }
 
 .ws-template-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--text-secondary, #888);
   text-transform: uppercase;

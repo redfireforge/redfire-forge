@@ -48,7 +48,7 @@ export const kafkaTopicExplorerLesson: DemoLesson = {
   name: 'Topic Explorer',
   description:
     'Browse topics, inspect partition metrics, and drill into consumer group lag without touching the CLI.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-settings'],
 
@@ -165,6 +165,9 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       preAction: async (ctx) => {
         await ctx.click(KAFKA.TOPICS_TAB);
         await ctx.delay(400);
+        document.querySelectorAll('.kafka-explorer-topic-table tbody tr.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
       },
     },
 
@@ -174,7 +177,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       title: 'Topic List',
       description:
         'Each row shows the topic name, partition count, replication factor, recent traffic, number of consumer groups, and a health badge. A ✅ **Healthy** badge means all replicas are in-sync. Click any column header to sort.',
-      highlight: KAFKA.TOPIC_TABLE,
+      highlight: KAFKA.TOPIC_TABLE_WRAP,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
       },
@@ -214,7 +217,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       title: 'Health & Partition Filters',
       description:
         'The **Health**, **Partition**, and **Retention** dropdowns narrow the list by criteria — for example, show only ⚠️ Degraded topics (ISR fraction < 1) or topics with more than 6 partitions. Combine filters with search for fast operational triage.',
-      highlight: KAFKA.TOPIC_HEALTH_FILTER,
+      highlight: KAFKA.TOPIC_FILTER_ROW,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
       },
@@ -226,7 +229,7 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       title: 'Select a Topic',
       description:
         'Click any topic row to open its **Detail Panel** on the right. The panel has four tabs: Messages, Partitions, Consumer Groups, and Config. All data is fetched live from the broker.',
-      highlight: KAFKA.TOPIC_TABLE,
+      highlight: KAFKA.TOPIC_TABLE_WRAP,
       preAction: async (ctx) => {
         await ensureTopicsTab(ctx);
         // Clear any search filter so all topics are visible
@@ -262,7 +265,66 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       },
     },
 
-    // Step 8: Partition detail tab
+    // Step 8: Browse messages inline
+    {
+      id: 'te-browse',
+      title: 'Browse Messages',
+      description:
+        'Click **Consume Once** to fetch messages from the broker and display them inline. ' +
+        'Each row shows the **offset**, **partition**, **timestamp**, **key**, and a **value preview**. ' +
+        'Click any row to inspect the full JSON payload, copy the key or value, and see message headers.\n\n' +
+        'Use the filters above (Time Window, Key Match, Header Match, JSONPath) to narrow results ' +
+        'before consuming — essential for high-volume topics where you need to find specific messages quickly.',
+      highlight: KAFKA.DETAIL_CONSUME_BTN,
+      preAction: async (ctx) => {
+        await ensureTopicSelected(ctx);
+        // Ensure we're on the Messages tab
+        const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_TAB_MESSAGES);
+        if (messagesTab) messagesTab.click();
+        await ctx.delay(300);
+      },
+      action: async (ctx) => {
+        await ctx.click(KAFKA.DETAIL_CONSUME_BTN);
+        await ctx.delay(2000);
+
+        // If no messages were returned, inject sample data for the demo
+        const resultsZone = document.querySelector<HTMLElement>(KAFKA.DETAIL_RESULTS);
+        const emptyMsg = resultsZone?.querySelector('.kafka-ms-empty-state');
+        if (!resultsZone || emptyMsg) {
+          const messagesTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_MESSAGES_TAB);
+          if (messagesTab) {
+            const actionRow = messagesTab.querySelector('.kafka-ms-action-row');
+            let zone = messagesTab.querySelector<HTMLElement>(KAFKA.DETAIL_RESULTS);
+            if (!zone) {
+              zone = document.createElement('div');
+              zone.className = 'kafka-ms-results-zone';
+              zone.setAttribute('data-testid', 'detail-results');
+              if (actionRow) actionRow.after(zone);
+              else messagesTab.appendChild(zone);
+            }
+            zone.innerHTML = `
+              <div class="kafka-ms-results-header">
+                <span class="kafka-ms-results-count">5 messages</span>
+              </div>
+              <div class="kafka-ms-results-table-wrap">
+                <table class="kafka-ms-results-table">
+                  <thead><tr><th>#</th><th>Offset</th><th>Partition</th><th>Timestamp</th><th>Key</th><th>Value</th></tr></thead>
+                  <tbody>
+                    <tr style="cursor:pointer"><td>1</td><td>142</td><td>0</td><td>2026-06-17 21:43:12</td><td>user-8291</td><td>{"event":"login","ip":"10.0.1.52","status":"su…</td></tr>
+                    <tr style="cursor:pointer"><td>2</td><td>143</td><td>0</td><td>2026-06-17 21:43:14</td><td>user-1037</td><td>{"event":"login","ip":"192.168.4.8","status":"…</td></tr>
+                    <tr style="cursor:pointer"><td>3</td><td>87</td><td>1</td><td>2026-06-17 21:43:15</td><td>user-5520</td><td>{"event":"logout","ip":"172.16.0.3","duration"…</td></tr>
+                    <tr style="cursor:pointer"><td>4</td><td>88</td><td>1</td><td>2026-06-17 21:43:18</td><td>user-8291</td><td>{"event":"login_failed","ip":"10.0.1.99","reas…</td></tr>
+                    <tr style="cursor:pointer"><td>5</td><td>144</td><td>0</td><td>2026-06-17 21:43:20</td><td>user-3344</td><td>{"event":"login","ip":"10.0.2.15","status":"su…</td></tr>
+                  </tbody>
+                </table>
+              </div>`;
+            await ctx.delay(800);
+          }
+        }
+      },
+    },
+
+    // Step 9: Partition detail tab
     {
       id: 'te-tabs',
       title: 'Partition Details',
@@ -284,7 +346,16 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
       id: 'te-cg',
       title: 'Consumer Groups',
       description:
-        'Click the **Consumer Groups** tab to see every group subscribed to this topic — their current **lag**, **state** (Stable / Rebalancing / Dead), and member count. A non-zero lag tells you consumers are behind. Click any group row to drill into per-partition lag.',
+        'Click the **Consumer Groups** tab to see every group subscribed to this topic. ' +
+        'The table shows three columns:\n\n' +
+        '- **Group ID** — the unique identifier of the consumer group\n' +
+        '- **State** — `Stable` (all members active), `Rebalancing` (partitions being reassigned), ' +
+        'or `Dead` / `Empty` (no active consumers)\n' +
+        '- **Total Lag** — the number of messages the group has not yet consumed. A growing lag means ' +
+        'consumers are falling behind producers — a critical signal for capacity planning.\n\n' +
+        'In a production environment, every topic consumed by a microservice will have at least one ' +
+        'consumer group listed here. Watch for **growing lag** (amber) and **Rebalancing** state — ' +
+        'both signal that consumers need attention.',
       highlight: KAFKA.DETAIL_TAB_GROUPS,
       preAction: async (ctx) => {
         await ensureTopicSelected(ctx);
@@ -293,6 +364,44 @@ Clicking a topic row opens the **Detail Panel** on the right, which has four tab
         await ctx.click(KAFKA.DETAIL_TAB_GROUPS);
         try { await ctx.waitFor(KAFKA.DETAIL_GROUPS_TAB, 3000); } catch { /* tab content */ }
         await ctx.delay(400);
+
+        // If no real consumer groups exist, inject sample data for the demo
+        const groupsTab = document.querySelector<HTMLElement>(KAFKA.DETAIL_GROUPS_TAB);
+        const emptyState = groupsTab?.querySelector('.kafka-ms-empty-state');
+        if (groupsTab && emptyState) {
+          groupsTab.innerHTML = `
+            <table class="kafka-consumer-group-table">
+              <thead><tr><th>Group ID</th><th>State</th><th>Total Lag</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>order-processing-svc</td>
+                  <td><span class="kafka-cg-state-badge kafka-cg-state-green">Stable</span></td>
+                  <td class="kafka-lag-green">0</td>
+                </tr>
+                <tr>
+                  <td>analytics-pipeline</td>
+                  <td><span class="kafka-cg-state-badge kafka-cg-state-green">Stable</span></td>
+                  <td class="kafka-lag-amber">1,247</td>
+                </tr>
+                <tr>
+                  <td>audit-archiver</td>
+                  <td><span class="kafka-cg-state-badge kafka-cg-state-amber">Rebalancing</span></td>
+                  <td class="kafka-lag-amber">8,503</td>
+                </tr>
+                <tr>
+                  <td>notification-fanout</td>
+                  <td><span class="kafka-cg-state-badge kafka-cg-state-green">Stable</span></td>
+                  <td class="kafka-lag-green">12</td>
+                </tr>
+                <tr>
+                  <td>legacy-sync-bridge</td>
+                  <td><span class="kafka-cg-state-badge kafka-cg-state-grey">Empty</span></td>
+                  <td class="kafka-lag-amber">34,891</td>
+                </tr>
+              </tbody>
+            </table>`;
+          await ctx.delay(800);
+        }
       },
     },
   ],

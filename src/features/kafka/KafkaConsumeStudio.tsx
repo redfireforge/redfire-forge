@@ -379,31 +379,31 @@ export function KafkaConsumeStudio({
               </div>
             </div>
 
-            <div className="kafka-ms-form-row">
-              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath</label>
+            <div className="kafka-ms-form-row kafka-ms-form-row--tall">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath Filter</label>
               <div className="kafka-ms-form-ctrl">
-                <input
-                  id="kms-con-jsonpath"
-                  className="kafka-ms-form-input kafka-ms-form-input--mono"
-                  type="text"
-                  placeholder="$.status"
-                  value={consumeDraft.jsonPath}
-                  onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="kafka-ms-form-row">
-              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonval">JSONPath Equals</label>
-              <div className="kafka-ms-form-ctrl">
-                <input
-                  id="kms-con-jsonval"
-                  className="kafka-ms-form-input kafka-ms-form-input--mono"
-                  type="text"
-                  placeholder="CREATED"
-                  value={consumeDraft.jsonPathEquals}
-                  onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
-                />
+                <div className="kafka-ms-jsonpath-pair">
+                  <input
+                    id="kms-con-jsonpath"
+                    className="kafka-ms-form-input kafka-ms-form-input--mono"
+                    type="text"
+                    placeholder="$.status"
+                    value={consumeDraft.jsonPath}
+                    onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
+                    aria-label="JSONPath expression"
+                  />
+                  <span className="kafka-ms-jsonpath-eq" aria-hidden="true">=</span>
+                  <input
+                    id="kms-con-jsonval"
+                    className="kafka-ms-form-input kafka-ms-form-input--mono"
+                    type="text"
+                    placeholder="CREATED"
+                    value={consumeDraft.jsonPathEquals}
+                    onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
+                    aria-label="JSONPath expected value"
+                  />
+                </div>
+                <span className="kafka-ms-form-hint-sub">Both fields must be filled — path and value are matched together</span>
               </div>
             </div>
 

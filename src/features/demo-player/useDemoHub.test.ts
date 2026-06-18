@@ -107,13 +107,15 @@ describe('useDemoHub', () => {
     expect(result.current.state.selectedDomain).toBeNull();
   });
 
-  it('goBack from concept goes to lessons', () => {
+  it('goBack from concept goes to lessons and preserves selectedLesson for category restore', () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     const lesson = makeLesson();
     act(() => { result.current.selectLesson(lesson); });
     act(() => { result.current.goBack(); });
     expect(result.current.state.view).toBe('lessons');
-    expect(result.current.state.selectedLesson).toBeNull();
+    // selectedLesson is intentionally preserved so LessonList can restore the correct
+    // category tab (e.g. WebSocket after navigating back from a WS lesson).
+    expect(result.current.state.selectedLesson).toBe(lesson);
   });
 
   it('goBack from default view is a no-op', () => {

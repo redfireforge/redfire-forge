@@ -1,7 +1,7 @@
 /** Lesson K1: Kafka Quick Start — configure a cluster, connect, navigate to the Studio */
 import type { DemoLesson } from '../../types';
 import { KAFKA } from '../../../../shared/selectors';
-import { kafkaQuickStartCleanup } from '../setup-helpers';
+import { kafkaQuickStartSetup, kafkaQuickStartCleanup } from '../setup-helpers';
 
 /** Default broker address for the plaintext demo stack. */
 const DEMO_BROKER = '127.0.0.1:19092';
@@ -17,17 +17,12 @@ export const kafkaQuickStartLesson: DemoLesson = {
     'Configure a Kafka cluster connection, connect to the broker, and navigate to the Kafka Studio in under 3 minutes.',
   estimatedMinutes: 3,
   initialTab: 'kafka-settings',
-  // Step 7 navigates to kafka-message-studio — declare it as allowed so
-  // useDemoShortcuts does not auto-exit when the tab changes.
   allowedTabs: ['kafka-settings', 'kafka-message-studio'],
 
-  // Requires the plaintext Kafka broker (Redpanda Console health endpoint).
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
-  // No setup — lesson starts directly on kafka-settings.
-  // Cleanup deletes "Demo Cluster" so restarting K1 restores the first-time experience.
-  // K2/K3/K4 have their own setup (kafkaPublishSetup) that re-creates the cluster if absent.
+  setup: kafkaQuickStartSetup,
   cleanup: kafkaQuickStartCleanup,
 
   concept: {
@@ -100,6 +95,11 @@ Once saved and connected, your cluster is available across the entire app: Publi
       description:
         'This is **Settings → Kafka** — the Kafka Cluster Studio. Create and manage broker connection profiles here. The left panel lists your saved clusters; the right panel is the editor.',
       highlight: KAFKA.SETTINGS_PAGE,
+      preAction: async () => {
+        document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
+      },
     },
 
     // ── Step 2: Open the cluster editor ─────────────────────────
@@ -107,18 +107,18 @@ Once saved and connected, your cluster is available across the entire app: Publi
       id: 'ks-create',
       title: 'Create a Cluster Profile',
       description:
-        'Click **Create First Cluster** to open the editor. RedfireForge pre-fills the default broker address — you just need to name the profile. If you have already configured a cluster, this step is a quick preview.',
-      // Spotlight the button to click (not the editor — it isn't open yet during reading phase)
+        'Click **Create First Cluster** to open the editor. RedfireForge pre-fills the default broker address — you just need to give the profile a name.',
       highlight: KAFKA.EMPTY_CREATE_BTN,
       action: async (ctx) => {
-        // Only use the empty-state button (first run). Falling back to "+ New"
-        // when clusters already exist would open a blank editor and then fail
-        // to save because the "Demo Cluster" ID already exists — leaving the
-        // editor open with editorMode != null, which disables the Connect
-        // button and silently breaks every subsequent step on repeat runs.
-        const emptyBtn = document.querySelector<HTMLElement>('[data-testid="kafka-empty-create-btn"]');
-        if (emptyBtn) {
-          emptyBtn.click();
+        // Setup ensures the cluster list is empty, so the empty-state button
+        // should always be present. Fall back to "+ New" as a safety net.
+        await ctx.waitFor(`${KAFKA.EMPTY_CREATE_BTN}, ${KAFKA.ADD_CLUSTER_BTN}`, 3000);
+        const emptyBtn = document.querySelector<HTMLElement>(KAFKA.EMPTY_CREATE_BTN);
+        const addBtn = document.querySelector<HTMLElement>(KAFKA.ADD_CLUSTER_BTN);
+        const btn = emptyBtn ?? addBtn;
+        if (btn) {
+          btn.click();
+          await ctx.waitFor(KAFKA.CLUSTER_EDITOR, 3000);
           await ctx.delay(400);
         }
       },
@@ -132,7 +132,9 @@ Once saved and connected, your cluster is available across the entire app: Publi
         `Give the cluster a recognisable name — **${DEMO_CLUSTER_NAME}**. The broker address \`${DEMO_BROKER}\` is already pre-filled for the local plaintext stack. Leave Auth as "No authentication".`,
       highlight: KAFKA.CLUSTER_EDITOR,
       action: async (ctx) => {
+        await ctx.waitFor('#kafka-cluster-name', 3000);
         await ctx.fill('#kafka-cluster-name', DEMO_CLUSTER_NAME);
+        await ctx.delay(300);
       },
     },
 
@@ -144,8 +146,10 @@ Once saved and connected, your cluster is available across the entire app: Publi
         'Click **Save Cluster** to persist the profile. Watch the card appear in the cluster list on the left — it is now saved and ready to connect.',
       highlight: KAFKA.SAVE_BTN,
       action: async (ctx) => {
+        await ctx.waitFor(KAFKA.SAVE_BTN, 3000);
         await ctx.click(KAFKA.SAVE_BTN);
-        // Extra time to see the cluster card animate into the list.
+        // Wait for the cluster card to appear in the list.
+        await ctx.waitFor('[data-testid^="kafka-cluster-card-"]', 3000);
         await ctx.delay(700);
       },
     },

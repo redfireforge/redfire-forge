@@ -36,6 +36,12 @@ export function GqlTabBar({
             : tab.operationType === 'subscription'
             ? 'gql-tab--subscription'
             : 'gql-tab--query';
+        const typeLetter =
+          tab.operationType === 'mutation'
+            ? 'M'
+            : tab.operationType === 'subscription'
+            ? 'S'
+            : 'Q';
         return (
           <button
             key={tab.id}
@@ -47,7 +53,7 @@ export function GqlTabBar({
             onClick={() => onTabClick(tab.id)}
             data-testid={`gql-tab-${tab.id}`}
           >
-            <span className="gql-tab-type-dot" aria-hidden="true" />
+            <span className="gql-tab-type-badge" aria-hidden="true">{typeLetter}</span>
             <span className="gql-tab-label" title={tab.label} aria-hidden="true">
               {tab.label}
             </span>

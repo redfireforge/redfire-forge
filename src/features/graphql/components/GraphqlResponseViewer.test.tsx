@@ -153,4 +153,102 @@ describe('GraphqlResponseViewer', () => {
     render(<GraphqlResponseViewer response={response} />);
     expect(screen.getByTestId('gql-response-viewer').textContent).toContain('Partial');
   });
+
+  it('shows redirect class for 3xx HTTP status', () => {
+    const response = makeResponse({ httpStatus: 301 });
+    render(<GraphqlResponseViewer response={response} />);
+    const badge = screen.getByTestId('gql-response-status');
+    expect(badge.className).toContain('gql-status--redirect');
+  });
+
+  it('shows client-error class for 4xx HTTP status', () => {
+    const response = makeResponse({ httpStatus: 404 });
+    render(<GraphqlResponseViewer response={response} />);
+    const badge = screen.getByTestId('gql-response-status');
+    expect(badge.className).toContain('gql-status--client-error');
+  });
+
+  it('shows server-error class for 5xx HTTP status', () => {
+    const response = makeResponse({ httpStatus: 500 });
+    render(<GraphqlResponseViewer response={response} />);
+    const badge = screen.getByTestId('gql-response-status');
+    expect(badge.className).toContain('gql-status--server-error');
+  });
+
+  it('renders Body tab button and switches to body tab', () => {
+    render(<GraphqlResponseViewer response={makeResponse()} />);
+    // Switch away first
+    fireEvent.click(screen.getByTestId('gql-rv-tab-headers'));
+    // Now switch back to body
+    fireEvent.click(screen.getByTestId('gql-rv-tab-body'));
+    expect(screen.getByTestId('gql-response-body')).toBeTruthy();
+  });
+
+  // ── Sprint 7 (2D) streaming UI tests ──────────────────────────────────────
+
+  it('shows streaming banner when isStreaming is true', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ isStreaming: true, chunkCount: 1 })} />);
+    expect(screen.getByTestId('gql-rv-streaming-banner')).toBeTruthy();
+  });
+
+  it('hides streaming banner when isStreaming is false', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ isStreaming: false, chunkCount: 3 })} />);
+    expect(screen.queryByTestId('gql-rv-streaming-banner')).toBeNull();
+  });
+
+  it('shows chunk badge for non-streaming multipart response', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ isStreaming: false, chunkCount: 4 })} loading={false} />);
+    expect(screen.getByTestId('gql-rv-chunk-badge')).toBeTruthy();
+  });
+
+  it('does not reset tab when streaming chunk updates arrive (chunkCount > 1)', () => {
+    const r1 = makeResponse({ isStreaming: true, chunkCount: 1, timestamp: 1000 });
+    const { rerender } = render(<GraphqlResponseViewer response={r1} />);
+    // Switch to headers tab
+    fireEvent.click(screen.getByTestId('gql-rv-tab-headers'));
+    // Simulate second chunk arriving — new timestamp, chunkCount = 2
+    const r2 = makeResponse({ isStreaming: true, chunkCount: 2, timestamp: 2000 });
+    rerender(<GraphqlResponseViewer response={r2} />);
+    // Tab should still be on headers (NOT reset to body)
+    expect(screen.getByTestId('gql-rv-headers')).toBeTruthy();
+  });
+
+  it('resets tab to body on first streaming chunk (chunkCount === 1)', () => {
+    const rPrev = makeResponse({ timestamp: 500 });
+    const { rerender } = render(<GraphqlResponseViewer response={rPrev} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-headers'));
+    // New execution starts — first chunk
+    const r1 = makeResponse({ isStreaming: true, chunkCount: 1, timestamp: 1000 });
+    rerender(<GraphqlResponseViewer response={r1} />);
+    // Tab should be reset to body
+    expect(screen.getByTestId('gql-response-body')).toBeTruthy();
+  });
+
+  // ── Sprint 7 (2G-1) tracing tests ─────────────────────────────────────────
+
+  it('shows tracing tab and badge when extensions.tracing is present', () => {
+    const tracingExt = {
+      version: 1,
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:00.1Z',
+      duration: 100_000_000,
+      parsing: { startOffset: 0, duration: 1_000_000 },
+      validation: { startOffset: 1_000_000, duration: 2_000_000 },
+      execution: {
+        resolvers: [
+          { path: ['user'], parentType: 'Query', fieldName: 'user', returnType: 'User', startOffset: 3_000_000, duration: 10_000_000 },
+        ],
+      },
+    };
+    render(<GraphqlResponseViewer response={makeResponse({ extensions: { tracing: tracingExt } })} />);
+    expect(screen.getByTestId('gql-rv-tracing-badge')).toBeTruthy();
+    expect(screen.getByTestId('gql-rv-tab-tracing')).toBeTruthy();
+  });
+
+  it('does not show tracing tab when extensions.tracing is absent', () => {
+    render(<GraphqlResponseViewer response={makeResponse()} />);
+    expect(screen.queryByTestId('gql-rv-tab-tracing')).toBeNull();
+    expect(screen.queryByTestId('gql-rv-tracing-badge')).toBeNull();
+  });
+
 });

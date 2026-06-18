@@ -186,7 +186,7 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       title: 'Start Tab 2\'s Mock Server on :9877',
       description:
         'Tab 2\'s mock server shows **port 9877**. Click **Start Server** to launch it. Tab 1\'s server on **:9876** is already running in the background — both will operate simultaneously, completely independent.',
-      highlight: WS.MOCK_SERVER_PANEL,
+      highlight: WS.MOCK_START_BTN,
       preAction: async (ctx) => {
         await ensureTwoTabs(ctx);
         await switchToLastTab(ctx);
@@ -194,22 +194,13 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
         await ctx.delay(300);
       },
       action: async (ctx) => {
-        // Start Tab 2's mock server (9877) if not already running
+        // Start Tab 2's mock server (9877) — stay on Tab 2 the whole time so
+        // the spotlight never jumps to Tab 1's panel.
         if (!firstVisibleEl(WS.MOCK_STOP_BTN)) {
-          const startBtn = firstVisibleEl<HTMLButtonElement>(WS.MOCK_START_BTN);
-          if (startBtn && !startBtn.disabled) startBtn.click();
+          await ctx.click(WS.MOCK_START_BTN);
           await ctx.waitFor(WS.MOCK_STOP_BTN, 6000);
         }
-        await ctx.delay(400);
-        // Briefly flip to Tab 1 to show :9876 is ALSO running simultaneously
-        await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(200);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(700);
-        // Return to Tab 2 Mock mode so user sees :9877 in focus
-        await switchToLastTab(ctx);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(400);
+        await ctx.delay(600);
       },
       verify: WS.MOCK_STOP_BTN,
       pauseAfter: true,

@@ -174,19 +174,23 @@ describe('WebSocketMessageLog', () => {
   });
 
   describe('format selector', () => {
-    it('renders format selector', () => {
+    it('renders format pill buttons', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      expect(screen.getByTestId('format-select')).toBeTruthy();
+      expect(screen.getByTestId('format-pills')).toBeTruthy();
+      expect(screen.getByTestId('format-pill-text')).toBeTruthy();
+      expect(screen.getByTestId('format-pill-json')).toBeTruthy();
+      expect(screen.getByTestId('format-pill-binary')).toBeTruthy();
     });
 
-    it('defaults to text format', () => {
+    it('defaults to text format (text pill aria-pressed=true)', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      expect((screen.getByTestId('format-select') as HTMLSelectElement).value).toBe('text');
+      expect((screen.getByTestId('format-pill-text') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+      expect((screen.getByTestId('format-pill-json') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('false');
     });
 
     it('shows beautify button in JSON mode', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       expect(screen.getByTestId('pretty-format-btn')).toBeTruthy();
     });
 
@@ -197,7 +201,7 @@ describe('WebSocketMessageLog', () => {
 
     it('beautifies valid JSON', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       const input = screen.getByLabelText('Message input') as HTMLTextAreaElement;
       fireEvent.change(input, { target: { value: '{"a":1}' } });
       fireEvent.click(screen.getByTestId('pretty-format-btn'));
@@ -207,7 +211,7 @@ describe('WebSocketMessageLog', () => {
     it('sends with format parameter', () => {
       const props = defaultProps();
       render(<WebSocketMessageLog {...props} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: '{"a":1}' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(props.onSend).toHaveBeenCalledWith('{"a":1}', 'json');
@@ -215,21 +219,21 @@ describe('WebSocketMessageLog', () => {
 
     it('shows base64 hint for invalid base64 in binary mode', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: '!invalid!' } });
       expect(screen.getByTestId('base64-hint')).toBeTruthy();
     });
 
     it('disables send for invalid base64', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: '!invalid!' } });
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('enables send for valid base64', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'SGVsbG8=' } });
       expect((screen.getByTestId('send-btn') as HTMLButtonElement).disabled).toBe(false);
     });
@@ -237,7 +241,7 @@ describe('WebSocketMessageLog', () => {
     it('sends binary format with correct parameter', () => {
       const props = defaultProps();
       render(<WebSocketMessageLog {...props} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'SGVsbG8=' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       expect(props.onSend).toHaveBeenCalledWith('SGVsbG8=', 'binary');
@@ -245,14 +249,14 @@ describe('WebSocketMessageLog', () => {
 
     it('disables beautify button for invalid JSON', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: '{broken' } });
       expect((screen.getByTestId('pretty-format-btn') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('does not show base64 hint for empty input in binary mode', () => {
       render(<WebSocketMessageLog {...defaultProps()} />);
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       expect(screen.queryByTestId('base64-hint')).toBeNull();
     });
   });
@@ -291,7 +295,7 @@ describe('WebSocketMessageLog', () => {
       fireEvent.click(screen.getByText('Hello Template'));
       expect(onLoad).toHaveBeenCalledWith('tpl-1');
       expect((screen.getByLabelText('Message input') as HTMLTextAreaElement).value).toBe('loaded body');
-      expect((screen.getByTestId('format-select') as HTMLSelectElement).value).toBe('json');
+      expect((screen.getByTestId('format-pill-json') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
     });
 
     it('deletes template from dropdown', async () => {

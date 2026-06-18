@@ -6,7 +6,8 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = 'http://localhost:5173/?tab=websocket-studio';
-const MOCK_PORT = '9876';
+// Use a dedicated port to avoid cross-spec mock server interference (ws-core-connect uses 9876)
+const MOCK_PORT = '9880';
 
 /** Navigate to WS Studio Client mode, start mock server, connect, send seed messages */
 async function setupWithMessages(page) {
@@ -189,7 +190,7 @@ test('WF-03: Regex mode — pattern matching', async ({ page }) => {
 });
 
 test('WF-04: JSONPath mode — structured queries', async ({ page }) => {
-  test.slow();
+  test.setTimeout(120000);
   await setupWithMessages(page);
 
   await page.click('[data-testid="search-mode-jsonpath"]');

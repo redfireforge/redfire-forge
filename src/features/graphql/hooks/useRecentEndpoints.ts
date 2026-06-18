@@ -1,33 +1,19 @@
 /**
  * useRecentEndpoints.ts — Phase 1D
  *
- * Manages a persisted list of recently used GraphQL endpoints in localStorage.
+ * Manages a persisted list of recently used GraphQL endpoints.
+ * Uses the shared storage abstraction (readKey/writeKey) for Tauri compatibility.
  * Exposes push/remove helpers and the current list for the endpoint dropdown.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { readKey, writeKey } from '../../../shared/utils/storage';
 
 const STORAGE_KEY = 'gql_recent_endpoints_v1';
 const MAX_RECENT  = 10;
 
-function loadEndpoints(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return (parsed as unknown[]).filter((e): e is string => typeof e === 'string');
-  } catch {
-    return [];
-  }
-}
-
 function saveEndpoints(list: string[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    // localStorage unavailable — silent no-op
-  }
+  writeKey(STORAGE_KEY, JSON.stringify(list)).catch(() => { /* quota / unavailable */ });
 }
 
 export interface UseRecentEndpoints {
@@ -41,7 +27,19 @@ export interface UseRecentEndpoints {
 }
 
 export function useRecentEndpoints(): UseRecentEndpoints {
-  const [endpoints, setEndpoints] = useState<string[]>(loadEndpoints);
+  const [endpoints, setEndpoints] = useState<string[]>([]);
+
+  // Load from storage on mount
+  useEffect(() => {
+    readKey(STORAGE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (!Array.isArray(parsed)) return;
+        setEndpoints((parsed as unknown[]).filter((e): e is string => typeof e === 'string'));
+      } catch { /* corrupt data — ignore */ }
+    }).catch(() => { /* storage unavailable */ });
+  }, []);
 
   const push = useCallback((url: string) => {
     const trimmed = url.trim();

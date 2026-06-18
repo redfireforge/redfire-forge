@@ -31,7 +31,7 @@ export default function DemoHubHeader({ view, domain, lesson, onBack }: DemoHubH
             </button>
           </>
         )}
-        {lesson && (
+        {lesson && (view === 'concept' || view === 'live') && (
           <>
             <span className="demo-hub-breadcrumb-sep">›</span>
             <span className="demo-hub-breadcrumb-item active">

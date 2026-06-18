@@ -91,6 +91,14 @@ describe('ws-workflow-builder lesson', () => {
     }
   });
 
+  it('config steps highlight the modal panel, not the node', () => {
+    const configSteps = ['wf-config-connect', 'wf-config-send', 'wf-config-receive'];
+    for (const id of configSteps) {
+      const step = wsWorkflowBuilderLesson.steps.find(s => s.id === id)!;
+      expect(step.highlight).toBe('.wf-config-modal');
+    }
+  });
+
   it('create step uses ctx.click and ctx.fill', async () => {
     const ctx = makeCtx();
     const createStep = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-create')!;
@@ -107,13 +115,34 @@ describe('ws-workflow-builder lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('wsConnect'));
   });
 
-  it('config-connect step fills URL and saves', async () => {
+  it('config-connect action fills URL and saves (config already open from preAction)', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = '<div class="react-flow__node-wsConnect"></div>';
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!;
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{{wsUrl}}');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+    expect(ctx.waitFor).toHaveBeenCalled();
+  });
+
+  it('config-connect preAction calls __wfDeselectAll and opens config when node present', async () => {
+    const deselectAll = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeselectAll = deselectAll;
+    const node = document.createElement('div');
+    node.className = 'react-flow__node-wsConnect';
+    const dblSpy = vi.fn();
+    node.addEventListener('dblclick', dblSpy);
+    document.body.appendChild(node);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!;
+    await step.preAction!(makeCtx());
+    expect(deselectAll).toHaveBeenCalled();
+    expect(dblSpy).toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
+  });
+
+  it('config-connect preAction is no-op when node absent (Rule 4 guard)', async () => {
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!;
+    await expect(step.preAction!(makeCtx())).resolves.not.toThrow();
   });
 
   it('define-variable step opens Variables modal and adds wsUrl', async () => {
@@ -147,12 +176,33 @@ describe('ws-workflow-builder lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
   });
 
-  it('config-send step fills message and saves', async () => {
+  it('config-send action fills message and saves (config already open from preAction)', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = '<div class="react-flow__node-wsSend"></div>';
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-send')!;
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{"action": "hello", "from": "workflow"}');
+    expect(ctx.waitFor).toHaveBeenCalled();
+  });
+
+  it('config-send preAction calls __wfDeselectAll and opens config when node present', async () => {
+    const deselectAll = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeselectAll = deselectAll;
+    const node = document.createElement('div');
+    node.className = 'react-flow__node-wsSend';
+    const dblSpy = vi.fn();
+    node.addEventListener('dblclick', dblSpy);
+    document.body.appendChild(node);
+
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-send')!;
+    await step.preAction!(makeCtx());
+    expect(deselectAll).toHaveBeenCalled();
+    expect(dblSpy).toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
+  });
+
+  it('config-send preAction is no-op when node absent', async () => {
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-send')!;
+    await expect(step.preAction!(makeCtx())).resolves.not.toThrow();
   });
 
   it('quick-test step clicks the Quick Test button and uses waitFor (Rule 5)', async () => {
@@ -215,16 +265,15 @@ describe('ws-workflow-builder lesson', () => {
   });
 
   it('cleanup clicks cfg close and deletes demo workflow', async () => {
-    const saveFooter = document.createElement('div');
-    saveFooter.className = 'wf-config-modal-footer-actions';
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn-primary';
-    saveFooter.appendChild(saveBtn);
-    document.body.appendChild(saveFooter);
-
+    const footer = document.createElement('div');
+    footer.className = 'wf-config-modal-footer-actions';
     const closeBtn = document.createElement('button');
-    closeBtn.setAttribute('data-testid', 'cfg-close');
-    document.body.appendChild(closeBtn);
+    closeBtn.className = 'btn btn-sm btn-ghost';
+    footer.appendChild(closeBtn);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-sm btn-primary';
+    footer.appendChild(saveBtn);
+    document.body.appendChild(footer);
     const closeSpy = vi.spyOn(closeBtn, 'click');
 
     const wfDelete = vi.fn();
@@ -330,31 +379,39 @@ describe('ws-workflow-builder lesson', () => {
     delete (window as unknown as Record<string, unknown>).__wfConnect;
   });
 
-  it('wf-config-receive fills timeout and saves', async () => {
-    document.body.innerHTML = '<div class="react-flow__node-wsReceive"></div>';
+  it('wf-config-receive action fills timeout and saves (config already open from preAction)', async () => {
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-receive')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('ws-receive-config'), '5000');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('btn-primary'));
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
-  it('wf-config-connect dispatches dblclick on node', async () => {
+  it('config-receive preAction calls __wfDeselectAll and opens config when node present', async () => {
+    const deselectAll = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfDeselectAll = deselectAll;
     const node = document.createElement('div');
-    node.className = 'react-flow__node-wsConnect';
+    node.className = 'react-flow__node-wsReceive';
     const dblSpy = vi.fn();
     node.addEventListener('dblclick', dblSpy);
     document.body.appendChild(node);
 
-    await wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!.action!(makeCtx());
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-receive')!;
+    await step.preAction!(makeCtx());
+    expect(deselectAll).toHaveBeenCalled();
     expect(dblSpy).toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
   });
 
-  it('wf-config-connect action is no-op when node absent (line 49 false branch)', async () => {
-    // No node in DOM → doubleClickNode returns null → if(node) false
-    const ctx = makeCtx();
-    await expect(wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-connect')!.action!(ctx)).resolves.not.toThrow();
+  it('config-receive preAction is no-op when node absent', async () => {
+    const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-config-receive')!;
+    await expect(step.preAction!(makeCtx())).resolves.not.toThrow();
   });
+
+  // Deselect + open-config is now in preAction (not action) — see tests above:
+  //   'config-connect preAction calls __wfDeselectAll and opens config when node present'
+  //   'config-connect preAction is no-op when node absent (Rule 4 guard)'
 
   it('quick-test saves workflow when save button exists (line 378 true)', async () => {
     const wrap = document.createElement('div');

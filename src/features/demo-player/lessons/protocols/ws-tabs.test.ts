@@ -224,7 +224,7 @@ describe('ws-tabs lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step tabs-mock-start-tab2 action clicks mock start button when not running', async () => {
+  it('step tabs-mock-start-tab2 action calls ctx.click with mock-start-btn when not running', async () => {
     document.body.innerHTML = `
       <div data-testid="conn-tab-bar">
         <div role="tab" data-testid="conn-tab-1">Tab 1</div>
@@ -234,13 +234,13 @@ describe('ws-tabs lesson', () => {
     startBtn.setAttribute('data-testid', 'mock-start-btn');
     makeVisible(startBtn);
     document.body.appendChild(startBtn);
-    const clickSpy = vi.spyOn(startBtn, 'click');
 
     const ctx = makeCtx();
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-mock-start-tab2')!;
     await step.action!(ctx);
 
-    expect(clickSpy).toHaveBeenCalled();
+    const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
+    expect(clickCalls.some((c: [string]) => c[0].includes('mock-start-btn'))).toBe(true);
   });
 
   it('step tabs-mock-start-tab2 action skips start if mock stop button already present', async () => {
@@ -697,9 +697,9 @@ describe('ws-tabs lesson', () => {
     expect(connectSpy).not.toHaveBeenCalled();
   });
 
-  // ─── tabs-mock-start-tab2 action: Tab 1 flip ────────────────
+  // ─── tabs-mock-start-tab2 action: stays on Tab 2 ────────────
 
-  it('tabs-mock-start-tab2 action briefly shows Tab 1 mock mode when already started', async () => {
+  it('tabs-mock-start-tab2 action does NOT flip to Tab 1 when server already started', async () => {
     buildTabBar(2);
     // Mock stop btn present = server already running
     const stopBtn = document.createElement('button');
@@ -712,8 +712,13 @@ describe('ws-tabs lesson', () => {
     await step.action!(ctx);
 
     const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
-    // After skipping start, should flip to Tab 1 (CONN_TAB_FIRST = ':first-child') and back
-    expect(clickCalls.some((c: [string]) => c[0].includes(':first-child'))).toBe(true);
+    // The action must NOT navigate to Tab 1 — that caused the spotlight to jump
+    expect(clickCalls.some((c: [string]) => c[0].includes(':first-child'))).toBe(false);
+  });
+
+  it('tabs-mock-start-tab2 highlight targets the start button (not the panel)', () => {
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-mock-start-tab2')!;
+    expect(step.highlight).toContain('mock-start-btn');
   });
 
   // ─── tabs-close action: no last tab ─────────────────────────

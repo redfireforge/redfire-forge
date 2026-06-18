@@ -4,79 +4,26 @@
  * Requires: backend on 3001 (mock WS echo on 9876), Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
+import {
+  gotoWsStudio,
+  switchWsMode,
+  switchWsLeftTab,
+  switchWsRightTab,
+  connectWsTo,
+  disconnectWs,
+  sendWsMessage,
+  WS_DEFAULT_MOCK_URL,
+} from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
-const MOCK_URL = 'ws://localhost:9876';
+const MOCK_URL = WS_DEFAULT_MOCK_URL;
 
-/* ── helpers ─────────────────────────────────────────── */
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
-
-async function connectTo(page: Page, url = MOCK_URL) {
-  // Ensure we're on the Connect tab so URL input + connect-btn are visible
-  await switchLeftTab(page, 'connect');
-  const urlInput = page.locator('[aria-label="WebSocket URL"]');
-  await urlInput.fill(url);
-  await page.click('[data-testid="connect-btn"]');
-  const connected = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
-  try {
-    await connected.waitFor({ timeout: 8000 });
-  } catch {
-    // Mock server may have been stopped by a parallel spec — restart and retry
-    await page.request.post('http://localhost:3001/api/ws/mock/start', {
-      data: { port: 9876 },
-    }).catch(() => {});
-    await page.waitForTimeout(500);
-    await page.click('[data-testid="connect-btn"]');
-    await connected.waitFor({ timeout: 10000 });
-  }
-  await page.waitForTimeout(300);
-}
-
-async function disconnect(page: Page) {
-  // disconnect-btn is in the Connect tab; switch there if not already
-  const disconnectBtn = page.locator('[data-testid="disconnect-btn"]');
-  if (!(await disconnectBtn.isVisible({ timeout: 500 }).catch(() => false))) {
-    await switchLeftTab(page, 'connect');
-  }
-  await disconnectBtn.click();
-  // Wait for tab label to lose "connected" state
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="disconnected"]').waitFor({ timeout: 5000 });
-}
-
-async function switchLeftTab(page: Page, tab: string) {
-  await page.click(`[data-testid="left-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
-
-async function switchRightTab(page: Page, tab: string) {
-  await page.click(`[data-testid="right-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
-
-async function sendMessage(page: Page, msg: string) {
-  await switchLeftTab(page, 'send');
-  const input = page.locator('.ws-compose-input');
-  try {
-    await expect(input).toBeEnabled({ timeout: 3000 });
-  } catch {
-    // Connection dropped — reconnect
-    await connectTo(page);
-    await switchLeftTab(page, 'send');
-    await expect(input).toBeEnabled({ timeout: 5000 });
-  }
-  await input.fill(msg);
-  await page.click('[data-testid="send-btn"]');
-  await page.waitForTimeout(500);
-}
-
-async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
-  await page.click(`[data-testid="mode-${mode}"]`);
-  await page.waitForTimeout(300);
-}
+/* ── local aliases ───────────────────────────────────── */
+const connectTo = (page: Page, url = MOCK_URL) => connectWsTo(page, url);
+const disconnect = (page: Page) => disconnectWs(page);
+const switchLeftTab = (page: Page, tab: string) => switchWsLeftTab(page, tab);
+const switchRightTab = (page: Page, tab: string) => switchWsRightTab(page, tab);
+const sendMessage = (page: Page, msg: string) => sendWsMessage(page, msg);
+const switchMode = (page: Page, mode: 'client' | 'mock' | 'saved') => switchWsMode(page, mode);
 
 /* ── Ensure a mock WS echo server is running on port 9876 ── */
 
@@ -275,12 +222,12 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
 
   test('WC-15: Format selector — Text / JSON / Binary modes', async ({ page }) => {
     await switchLeftTab(page, 'send');
-    const formatSelect = page.locator('[data-testid="format-select"]');
-    await expect(formatSelect).toBeVisible();
-    const options = await formatSelect.locator('option').allTextContents();
-    expect(options).toContain('Text');
-    expect(options).toContain('JSON');
-    expect(options).toContain('Binary (Base64)');
+    // Format selector is now pill buttons (not a <select>)
+    const formatPills = page.locator('[data-testid="format-pills"]');
+    await expect(formatPills).toBeVisible();
+    await expect(page.locator('[data-testid="format-pill-text"]')).toBeVisible();
+    await expect(page.locator('[data-testid="format-pill-json"]')).toBeVisible();
+    await expect(page.locator('[data-testid="format-pill-binary"]')).toBeVisible();
   });
 
   test('WC-16: Send binary message', async ({ page }) => {
@@ -310,7 +257,7 @@ test.describe('Compose & Messaging (WC-11–18)', () => {
       await switchLeftTab(page, 'send');
       await expect(input).toBeEnabled({ timeout: 10000 });
     }
-    await page.selectOption('[data-testid="format-select"]', 'binary');
+    await page.click('[data-testid="format-pill-binary"]');
     await input.fill('SGVsbG8gQmluYXJ5IQ==');
     await page.click('[data-testid="send-btn"]');
     await page.waitForTimeout(500);
@@ -543,8 +490,10 @@ test.describe('Message Templates (WC-31–35)', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
     await page.click('[data-testid="template-trigger"]');
-    await page.waitForTimeout(300);
-    await page.click('[data-testid^="template-item-"]');
+    // Wait for template item to appear in the dropdown
+    const templateItem = page.locator('[data-testid^="template-item-"]').first();
+    await expect(templateItem).toBeVisible({ timeout: 5000 });
+    await templateItem.click();
     await page.waitForTimeout(200);
     await expect(input).toHaveValue('{"greeting":"hello"}');
   });
@@ -725,7 +674,18 @@ test.describe('Connection Auth (WC-A01–A03)', () => {
     const urlInput = page.locator('[aria-label="WebSocket URL"]');
     await urlInput.fill(MOCK_URL);
     await page.click('[data-testid="connect-btn"]');
-    await page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]').waitFor({ timeout: 10000 });
+    const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+    try {
+      await connLabel.waitFor({ timeout: 15000 });
+    } catch {
+      // Mock server may have been stopped by a parallel test — restart and retry
+      await page.request.post('http://localhost:3001/api/ws/mock/start', {
+        data: { port: 9876 },
+      }).catch(() => {});
+      await page.waitForTimeout(1000);
+      await page.click('[data-testid="connect-btn"]');
+      await connLabel.waitFor({ timeout: 15000 });
+    }
     await switchLeftTab(page, 'connect');
     await expect(page.locator('[data-testid="transport-badge"]')).toContainText('Proxy');
   });

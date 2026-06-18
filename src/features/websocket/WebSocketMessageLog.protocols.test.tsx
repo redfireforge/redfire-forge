@@ -447,7 +447,7 @@ describe('WebSocketMessageLog', () => {
     it('shows GraphQL mode badge', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'graphql-ws' })} />);
       expect(screen.getByTestId('gql-mode-badge')).toBeTruthy();
-      expect(screen.getByTestId('gql-mode-badge').textContent).toBe('GraphQL');
+      expect(screen.getByTestId('gql-mode-badge').textContent).toBe('GraphQL-WS');
     });
 
     it('requires query text to send', () => {
@@ -486,7 +486,7 @@ describe('WebSocketMessageLog', () => {
 
     it('displays operation ID counter', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'graphql-ws' })} />);
-      expect(screen.getByTestId('gql-op-id').textContent).toBe('Op #1');
+      expect(screen.getByTestId('gql-op-id').textContent).toBe('#1');
     });
 
     it('renders operation name input', () => {

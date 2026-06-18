@@ -7,8 +7,8 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio, switchWsLeftTab, disconnectWs } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const GQL_URL = 'ws://localhost:4100/graphql';
 const GQL_HEALTH = 'http://localhost:4100/health';
 
@@ -35,15 +35,8 @@ test.beforeAll(async ({ browser }) => {
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
-
-async function switchLeftTab(page: Page, tab: string) {
-  await page.click(`[data-testid="left-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
+const switchLeftTab = (page: Page, tab: string) => switchWsLeftTab(page, tab);
+const disconnect = (page: Page) => disconnectWs(page);
 
 async function connectToGql(page: Page) {
   await switchLeftTab(page, 'connect');
@@ -67,14 +60,6 @@ async function connectToGql(page: Page) {
   await page.waitForTimeout(500);
 }
 
-async function disconnect(page: Page) {
-  const disconnectBtn = page.locator('[data-testid="disconnect-btn"]');
-  if (!(await disconnectBtn.isVisible({ timeout: 500 }).catch(() => false))) {
-    await switchLeftTab(page, 'connect');
-  }
-  await disconnectBtn.click();
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="disconnected"]').waitFor({ timeout: 5000 });
-}
 
 /* ── GraphQL-WS Live Tests (WP-12–15) ────────────────── */
 

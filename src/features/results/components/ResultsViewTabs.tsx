@@ -30,6 +30,7 @@ export function ResultsViewTabs({ resultsViewTab, visibleBaselineCount, onChange
         aria-controls={tabIds.requests.panel}
         className={`results-view-tab ${resultsViewTab === 'requests' ? 'active' : ''}`}
         onClick={() => onChange('requests')}
+        data-testid="results-tab-requests"
       >
         Request Details
       </button>

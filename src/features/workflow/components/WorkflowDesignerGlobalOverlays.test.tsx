@@ -227,4 +227,72 @@ describe('WorkflowDesignerGlobalOverlays', () => {
     const updater = setShowMinimap.mock.calls[0][0];
     expect(updater(false)).toBe(true);
   });
+
+  it('does not render debug bar when debugControllerRef.current is null (line 67 guard false branch)', () => {
+    // debugControllerRef.current = null — outer guard prevents render
+    render(
+      <WorkflowDesignerGlobalOverlays
+        vm={makeVm({
+          isDebugMode: true,
+          debugControllerRef: { current: null } as unknown as WorkflowDesignerViewModel['debugControllerRef'],
+          handleDebugStop: vi.fn(),
+          nodes: [],
+        })}
+      />,
+    );
+    // Debug bar should NOT be rendered when current is null
+    expect(screen.queryByTestId('debug-bar')).toBeNull();
+  });
+
+  it('returns null for pausedSubWorkflowNodeId when no paused subWorkflow found (line 75 ??null branch)', () => {
+    // Paused IDs contain only a non-subWorkflow node
+    render(
+      <WorkflowDesignerGlobalOverlays
+        vm={makeVm({
+          isDebugMode: true,
+          debugControllerRef: { current: { getPausedNodeIds: () => ['n1'] } } as unknown as WorkflowDesignerViewModel['debugControllerRef'],
+          handleDebugStop: vi.fn(),
+          nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+      />,
+    );
+    // No subWorkflow node found — mock renders '' for null
+    expect(screen.getByTestId('debug-bar').getAttribute('data-paused')).toBe('');
+  });
+
+  it('does not navigate when stepped-into node is not subWorkflow (line 79 false branch)', () => {
+    const navigateToWorkflow = vi.fn();
+    const debugControllerRef = { current: { getPausedNodeIds: () => ['n1'] } };
+    render(
+      <WorkflowDesignerGlobalOverlays
+        vm={makeVm({
+          isDebugMode: true,
+          debugControllerRef: debugControllerRef as unknown as WorkflowDesignerViewModel['debugControllerRef'],
+          handleDebugStop: vi.fn(),
+          navigateToWorkflow,
+          nodes: [{ id: 'sw1', type: 'http', position: { x: 0, y: 0 }, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('dbg-step'));
+    expect(navigateToWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate when subWorkflow node has no workflowId (line 81 false branch)', () => {
+    const navigateToWorkflow = vi.fn();
+    const debugControllerRef = { current: { getPausedNodeIds: () => ['sw1'] } };
+    render(
+      <WorkflowDesignerGlobalOverlays
+        vm={makeVm({
+          isDebugMode: true,
+          debugControllerRef: debugControllerRef as unknown as WorkflowDesignerViewModel['debugControllerRef'],
+          handleDebugStop: vi.fn(),
+          navigateToWorkflow,
+          nodes: [{ id: 'sw1', type: 'subWorkflow', position: { x: 0, y: 0 }, data: { workflowId: '' } }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('dbg-step'));
+    expect(navigateToWorkflow).not.toHaveBeenCalled();
+  });
 });

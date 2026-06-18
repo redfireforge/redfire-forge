@@ -1,5 +1,8 @@
 /**
  * FieldTableRow.tsx — single row in the schema explorer's fields table.
+ *
+ * Re-evaluation round 2: Added "Try →" button (mockup requirement) so users
+ * can insert a field into the active query editor directly from the schema.
  */
 
 import type { GraphqlFieldNode } from '../../../../shared/types/graphql';
@@ -9,11 +12,14 @@ interface FieldTableRowProps {
   field: GraphqlFieldNode;
   navigableTypes: Set<string>;
   onSelectType: (name: string) => void;
+  /** Called when the user clicks "Try →" to insert the field into the active editor. */
+  onInsertField?: (fieldName: string, fieldType: string, hasArgs: boolean) => void;
 }
 
-export function FieldTableRow({ field, navigableTypes, onSelectType }: FieldTableRowProps) {
+export function FieldTableRow({ field, navigableTypes, onSelectType, onInsertField }: FieldTableRowProps) {
   const bareTypeName = extractTypeName(field.type);
   const isNavigable = navigableTypes.has(bareTypeName);
+  const hasArgs = !!(field.args && field.args.length > 0);
 
   return (
     <tr className={`gql-se-ftr${field.isDeprecated ? ' gql-se-ftr--deprecated' : ''}`} data-testid={`gql-field-row-${field.name}`}>
@@ -22,7 +28,11 @@ export function FieldTableRow({ field, navigableTypes, onSelectType }: FieldTabl
           {field.name}
         </span>
         {field.isDeprecated && (
-          <span className="gql-se-deprecated-tag" title={field.deprecationReason ?? 'Deprecated'}>
+          <span
+            className="gql-se-deprecated-tag"
+            title={field.deprecationReason ?? 'Deprecated'}
+            aria-label={`Deprecated${field.deprecationReason ? `: ${field.deprecationReason}` : ''}`}
+          >
             @deprecated
           </span>
         )}
@@ -63,6 +73,20 @@ export function FieldTableRow({ field, navigableTypes, onSelectType }: FieldTabl
       <td className="gql-se-ftd gql-se-ftd--desc">
         {field.description && <span className="gql-se-fdesc">{field.description}</span>}
       </td>
+      {onInsertField && (
+        <td className="gql-se-ftd gql-se-ftd--try">
+          <button
+            type="button"
+            className="gql-se-try-btn"
+            onClick={() => onInsertField(field.name, field.type, hasArgs)}
+            title={`Insert "${field.name}" into query editor`}
+            aria-label={`Try field ${field.name} — insert into query editor`}
+            data-testid={`gql-try-field-${field.name}`}
+          >
+            Try →
+          </button>
+        </td>
+      )}
     </tr>
   );
 }

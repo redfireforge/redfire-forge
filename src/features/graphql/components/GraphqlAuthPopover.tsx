@@ -31,7 +31,7 @@ interface GraphqlAuthPopoverProps {
   onChange: (auth: GraphqlAuth | null) => void;
   onClose: () => void;
   /** Anchor element — popover is positioned below this element */
-  anchorRef: React.RefObject<HTMLElement | null>;
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 // ─── Auth type sentinel + options ─────────────────────────────────────────────
@@ -39,12 +39,12 @@ interface GraphqlAuthPopoverProps {
 const AUTH_TYPE_NONE = 'none' as const;
 type SelectableAuthType = GraphqlAuth['type'] | typeof AUTH_TYPE_NONE;
 
-const AUTH_TYPES: Array<{ value: SelectableAuthType; label: string }> = [
+const AUTH_TYPES: Array<{ value: SelectableAuthType; label: string; disabled?: boolean }> = [
   { value: AUTH_TYPE_NONE, label: 'No Auth' },
   { value: 'bearer',       label: 'Bearer Token' },
   { value: 'basic',        label: 'Basic Auth' },
   { value: 'apiKey',       label: 'API Key' },
-  { value: 'oauth2',       label: 'OAuth 2.0' },
+  { value: 'oauth2',       label: 'OAuth 2.0 (Phase 3 — coming soon)', disabled: true },
   { value: 'custom',       label: 'Custom (Headers Panel)' },
 ];
 
@@ -112,6 +112,25 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
   // Refs for first credential field in each auth type — used for auto-focus
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
 
+  // BUG-S5-OVERFLOW fix: use position:fixed so the popover escapes any overflow:auto parent
+  // (the connection bar has overflow-x:auto which implicitly sets overflow-y:auto, causing
+  //  auto-scroll that displaces absolutely-positioned children).
+  const [fixedPos, setFixedPos] = useState<{ top: number; right: number } | null>(null);
+  useEffect(() => {
+    function recalc() {
+      if (!anchorRef?.current) return;
+      const r = anchorRef.current.getBoundingClientRect();
+      setFixedPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    recalc();
+    window.addEventListener('resize', recalc);
+    window.addEventListener('scroll', recalc, true);
+    return () => {
+      window.removeEventListener('resize', recalc);
+      window.removeEventListener('scroll', recalc, true);
+    };
+  }, [anchorRef]);
+
   // Derive selected type for the dropdown — null auth means 'none'
   const selectedType: SelectableAuthType = auth?.type ?? AUTH_TYPE_NONE;
 
@@ -155,7 +174,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
       const target = e.target as Node;
       if (
         popoverRef.current && !popoverRef.current.contains(target) &&
-        anchorRef.current && !anchorRef.current.contains(target)
+        anchorRef?.current && !anchorRef.current.contains(target)
       ) {
         onClose();
       }
@@ -171,7 +190,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
       if (e.key === 'Escape') {
         e.stopPropagation();
         // Return focus to trigger before closing — per ARIA dialog close-on-Escape pattern
-        anchorRef.current?.focus();
+        anchorRef?.current?.focus();
         onClose();
       }
     }
@@ -186,9 +205,11 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
       return;
     }
     if (!auth || auth.type !== type) {
-      // Switching to a new type — create a fresh object, preserving overlapping fields
-      // (e.g. switching Basic→Bearer keeps `token` if it was set, Bearer→Basic keeps `username`)
-      onChange({ ...auth, type } as GraphqlAuth);
+      const base = { ...auth, type } as GraphqlAuth;
+      if (type === 'apiKey' && !base.headerName) {
+        base.headerName = 'X-API-Key';
+      }
+      onChange(base);
     }
   }
 
@@ -227,6 +248,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
     <div
       ref={popoverRef}
       className="gql-auth-popover"
+      style={fixedPos ? { top: fixedPos.top, right: fixedPos.right } : { visibility: 'hidden' }}
       role="dialog"
       aria-label="Authentication configuration"
       aria-modal="true"
@@ -239,7 +261,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
         <button
           type="button"
           className="gql-auth-popover-close"
-          onClick={() => { anchorRef.current?.focus(); onClose(); }}
+          onClick={() => { anchorRef?.current?.focus(); onClose(); }}
           aria-label="Close authentication settings"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -262,7 +284,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
             data-testid="gql-auth-type-select"
           >
             {AUTH_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
+              <option key={t.value} value={t.value} disabled={t.disabled}>{t.label}</option>
             ))}
           </select>
         </div>

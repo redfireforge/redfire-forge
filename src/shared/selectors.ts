@@ -309,12 +309,12 @@ export const WF = {
   TOOLBAR:             '.wf-toolbar',
   TOOLBAR_SELECT:      '[data-testid="wf-toolbar-select"]',
   QUICK_TEST_BTN:      '.wf-quick-test-btn',
-  PALETTE:             '[data-testid="palette"]',
-  CANVAS:              '[data-testid="rf"]',
+  PALETTE:             '.wf-palette',
+  CANVAS:              '.wf-canvas-area',
   CONTROLS:            '[data-testid="controls"]',
   NODE_CONFIG:         '.wf-config-modal',
-  CFG_CLOSE:           '[data-testid="cfg-close"]',
-  CONSOLE:             '[data-testid="console"]',
+  CFG_CLOSE:           '.wf-config-modal-footer-actions .btn-ghost',
+  CONSOLE:             '.wf-console-panel',
   EXEC_SUMMARY:        '[data-testid="exec-summary"]',
   TPL_BROWSE:          '[data-testid="tpl-browse"]',
   WS_CONNECT_CFG:      '[data-testid="ws-connect-config"]',
@@ -476,10 +476,12 @@ export const KAFKA = {
   TOPIC_EXPLORER_PAGE:      '[data-testid="topic-explorer-page"]',
   TOPIC_SEARCH:             '[data-testid="topic-search"]',
   TOPIC_HEALTH_FILTER:      '[data-testid="health-filter"]',
+  TOPIC_FILTER_ROW:         '[data-testid="topic-filter-row"]',
   TOPIC_PARTITION_FILTER:   '[data-testid="partition-filter"]',
   TOPIC_RETENTION_FILTER:   '[data-testid="retention-filter"]',
   TOPIC_CHIPBAR:            '[data-testid="domain-chips"]',
   TOPIC_TABLE:              '.kafka-explorer-topic-table',
+  TOPIC_TABLE_WRAP:         '[data-testid="topic-table-wrap"]',
   DETAIL_TABS:              '[data-testid="detail-tabs"]',
   DETAIL_TAB_MESSAGES:      '[data-testid="detail-tab-messages"]',
   DETAIL_TAB_PARTITIONS:    '[data-testid="detail-tab-partitions"]',
@@ -520,6 +522,7 @@ export const KAFKA = {
   NODE_WAIT:                '.wf-node-kafkaWait',
   TRIGGER_CONFIG:           '[data-testid="kafka-trigger-config"]',
   WAIT_CONFIG:              '[data-testid="kafka-wait-config"]',
+  WAIT_CORRELATION_SECTION: '[data-testid="wait-correlation-section"]',
   NODE_TOPIC_INPUT:         'input[placeholder="orders.events"]',
   // TODO(K9): add data-testid="node-binding-add-btn" to the binding add button
   NODE_BINDING_ADD_BTN:     '[data-testid="node-binding-add-btn"]',
@@ -587,8 +590,68 @@ export const GQL = {
   // ── Execution (Phase 1C) ───────────────────────────────────────────────────
   CANCEL_BTN:          '[data-testid="gql-cancel-btn"]',
 
-  // ── Performance (Phase 2G) ─────────────────────────────────────────────────
+  // ── Subscriptions — Phase 2A/2B/2C ────────────────────────────────────────
+  SUBSCRIBE_BTN:           '[data-testid="gql-subscribe-btn"]',
+  DISCONNECT_BTN:          '[data-testid="gql-disconnect-btn"]',
+  CONNECTION_STATUS:       '[data-testid="gql-connection-status"]',
+  SUBSCRIPTION_LOG:        '[data-testid="gql-subscription-log"]',
+  SUBSCRIPTION_MSG_ROW:    '[data-testid="gql-subscription-msg-row"]',
+  SUBSCRIPTION_PAUSE_BTN:  '[data-testid="gql-subscription-pause-btn"]',
+  SUBSCRIPTION_CLEAR_BTN:  '[data-testid="gql-subscription-clear-btn"]',
+  SUBSCRIPTION_EXPORT_BTN: '[data-testid="gql-subscription-export-btn"]',
+  SUBSCRIPTION_FILTER:     '[data-testid="gql-subscription-filter"]',
+  SUBSCRIPTION_STATS:      '[data-testid="gql-subscription-stats"]',
+  SUBSCRIPTION_STATS_TOTAL:   '[data-testid="gql-subscription-stats-total"]',
+  SUBSCRIPTION_STATS_LATENCY: '[data-testid="gql-subscription-stats-latency"]',
+  SUBSCRIPTION_STATS_RATE:    '[data-testid="gql-subscription-stats-rate"]',
+
+  // ── Query Builder — Phase 2F ───────────────────────────────────────────────
+  BUILDER_TAB:          '[data-testid="gql-builder-tab"]',
+  BUILDER_OP_TYPE:      '[data-testid="gql-builder-op-type"]',
+  BUILDER_OP_NAME:      '[data-testid="gql-builder-op-name"]',
+  BUILDER_FIELD_TREE:   '[data-testid="gql-builder-field-tree"]',
+  BUILDER_FIELD_ROW:    '[data-testid="gql-builder-field-row"]',
+  BUILDER_FIELD_CHECK:  '[data-testid="gql-builder-field-check"]',
+  BUILDER_ARG_INPUT:    '[data-testid="gql-builder-arg-input"]',
+  BUILDER_SEARCH:       '[data-testid="gql-builder-search"]',
+  BUILDER_BREADCRUMB:   '[data-testid="gql-builder-breadcrumb"]',
+  BUILDER_PREVIEW:      '[data-testid="gql-builder-preview"]',
+  BUILDER_COPY_SDL:     '[data-testid="gql-builder-copy-sdl"]',
+  BUILDER_EDIT_EDITOR:  '[data-testid="gql-builder-edit-in-editor"]',
+  BUILDER_EXECUTE:      '[data-testid="gql-builder-execute"]',
+
+  // ── Subscription Assertions — Phase 2C-5 ─────────────────────────────────
+  ASSERTION_PANEL:     '[data-testid="gql-assertion-panel"]',
+  ASSERTION_TOGGLE:    '[data-testid="gql-assertion-toggle"]',
+  ASSERTION_ADD_BTN:   '[data-testid="gql-assertion-add-btn"]',
+  ASSERTION_ROW:       '[data-testid="gql-assertion-row"]',
+  ASSERTION_JSONPATH:  '[data-testid="gql-assertion-jsonpath"]',
+  ASSERTION_OPERATOR:  '[data-testid="gql-assertion-operator"]',
+  ASSERTION_EXPECTED:  '[data-testid="gql-assertion-expected"]',
+  ASSERTION_DELETE:    '[data-testid="gql-assertion-delete"]',
+  ASSERTION_BADGE:     '[data-testid="gql-assertion-badge"]',
+  ASSERTION_AGGREGATE: '[data-testid="gql-assertion-aggregate"]',
+
+  // ── File Upload — Phase 2E ─────────────────────────────────────────────────
+  FILES_TAB:         '[data-testid="gql-files-tab"]',
+  FILES_DROPZONE:    '[data-testid="gql-files-dropzone"]',
+  FILES_BROWSE_BTN:  '[data-testid="gql-files-browse-btn"]',
+  FILES_LIST:        '[data-testid="gql-files-list"]',
+  FILES_ROW:         '[data-testid="gql-files-row"]',
+  FILES_REMOVE_BTN:  '[data-testid="gql-files-remove-btn"]',
+  FILES_SIZE_ERROR:  '[data-testid="gql-files-size-error"]',
+  FILES_PROGRESS:    '[data-testid="gql-files-progress"]',
+
+  // ── Incremental Delivery — Phase 2D ────────────────────────────────────────
+  DEFER_SKELETON:    '[data-testid="gql-defer-skeleton"]',
+  CHUNK_TRACKER:     '[data-testid="gql-chunk-tracker"]',
+
+  // ── Performance — Phase 2G ─────────────────────────────────────────────────
   COMPLEXITY_BADGE:    '[data-testid="gql-complexity-badge"]',
+  TRACING_TAB:         '[data-testid="gql-tracing-tab"]',
+  TRACING_WATERFALL:   '[data-testid="gql-tracing-waterfall"]',
+  TRACING_SORT:        '[data-testid="gql-tracing-sort"]',
+  HISTOGRAM_STRIP:     '[data-testid="gql-histogram-strip"]',
 
   // ── Workflow nodes (Phase 4) ───────────────────────────────────────────────
   WF_QUERY_PANEL:      '[data-testid="gql-wf-query-panel"]',

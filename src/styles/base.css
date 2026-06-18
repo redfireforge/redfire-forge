@@ -1636,6 +1636,15 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   cursor: ew-resize;
   z-index: 10;
 }
+.modal-resize-edge-bottom {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 16px;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 10;
+}
 .modal-resize-corner {
   position: absolute;
   bottom: -3px;
@@ -1664,6 +1673,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .modal-no-chrome .modal-expand-btn,
 .modal-no-chrome .ram-modal-close,
 .modal-no-chrome .modal-resize-edge-right,
+.modal-no-chrome .modal-resize-edge-bottom,
 .modal-no-chrome .modal-resize-corner { display: none !important; }
 .modal-no-chrome .ram-header,
 .modal-no-chrome .modal-header { cursor: default; }

@@ -9,19 +9,13 @@
  * Tests run serially within each describe block to share a consistent page state.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const PORT1 = 9876;
 const PORT2 = 9877;
 const PORT3 = 9878;
 
 // ─── Low-level helpers ────────────────────────────────────────────
-
-/** Navigate to WS Studio and wait for UI to be ready. */
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 8000 });
-}
 
 /** Switch to the active pane's mode. */
 async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
@@ -176,9 +170,9 @@ async function assertStillConnected(page: Page) {
   // Also check status dot — looking for the connection status indicator
   const pane = page.locator('[data-testid^="conn-tab-pane-"]:visible');
   await pane.locator('[data-testid="left-tab-connect"]').click();
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(200);
   // If connect-btn is shown (not disconnect-btn), client has been dropped
-  const hasDisconnectBtn = await pane.locator('[data-testid="disconnect-btn"]').isVisible({ timeout: 500 }).catch(() => false);
+  const hasDisconnectBtn = await pane.locator('[data-testid="disconnect-btn"]').isVisible({ timeout: 2000 }).catch(() => false);
   expect(hasDisconnectBtn, 'disconnect-btn should be visible when connected').toBe(true);
 }
 

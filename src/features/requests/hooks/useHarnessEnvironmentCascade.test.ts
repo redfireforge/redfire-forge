@@ -58,4 +58,22 @@ describe('useHarnessEnvironmentCascade', () => {
     const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, 'staging'));
     expect(result.current.filteredMicroservices.map((s) => s.id)).toEqual(['a']);
   });
+
+  it('handles microservice with undefined customEnvs (??[] fallback in envOptions build)', () => {
+    const services = [{ id: 's-no-envs', name: 'NoEnvs', baseUrls: {} } as unknown as Microservice];
+    const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, ''));
+    // Should not throw; envOptions is just the base envs
+    expect(result.current.envOptions).toEqual([
+      { id: 'dev', name: 'Dev' },
+      { id: 'qa', name: 'QA' },
+    ]);
+  });
+
+  it('handles microservice with undefined customEnvs in filter (??[] fallback)', () => {
+    const services = [
+      { id: 's-no-envs', name: 'NoEnvs', baseUrls: { dev: 'http://dev' } } as unknown as Microservice,
+    ];
+    const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, 'dev'));
+    expect(result.current.filteredMicroservices).toHaveLength(1);
+  });
 });

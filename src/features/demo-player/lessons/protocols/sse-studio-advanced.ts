@@ -170,6 +170,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         'Welcome back to SSE Studio. In Lesson 9 you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
       highlight: SSE.STUDIO,
       preAction: async (ctx) => {
+        document.querySelectorAll('.sse-row-selected').forEach((el) => {
+          el.classList.remove('sse-row-selected');
+        });
         const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
         if (!connectBtn?.textContent?.includes('Disconnect')) {
           await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);

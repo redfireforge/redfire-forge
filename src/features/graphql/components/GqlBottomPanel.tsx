@@ -1,14 +1,17 @@
 /**
- * GqlBottomPanel.tsx — the bottom panel (Variables / Headers tabs) in GraphQL Studio.
+ * GqlBottomPanel.tsx — the bottom panel (Variables / Headers / Files tabs) in GraphQL Studio.
  *
  * Extracted from GraphqlStudioPage.tsx.
+ * Phase 2.0 Sprint 4: added "Files" tab for multipart file upload (2E-1).
  */
 
 import type { GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { FileEntry } from '../utils/multipartBuilder';
+import { GraphqlFileUpload } from './GraphqlFileUpload';
 import { GraphqlHeadersPanel } from './GraphqlHeadersPanel';
 import { GraphqlVariablesPanel } from './GraphqlVariablesPanel';
 
-type BottomPanelTab = 'variables' | 'headers';
+type BottomPanelTab = 'variables' | 'headers' | 'files';
 
 interface GqlBottomPanelProps {
   activeTab: BottomPanelTab;
@@ -20,6 +23,11 @@ interface GqlBottomPanelProps {
   headers: GraphqlHeaderRow[];
   onHeadersChange: (headers: GraphqlHeaderRow[]) => void;
   activeEnvironment?: GraphqlEnvironment | null;
+  fileEntries: FileEntry[];
+  onFileEntriesChange: (entries: FileEntry[]) => void;
+  maxFileSizeMb?: number;
+  /** Sprint 8 (2E-4): 0–100 while uploading, null when idle */
+  uploadProgress?: number | null;
 }
 
 export function GqlBottomPanel({
@@ -32,12 +40,18 @@ export function GqlBottomPanel({
   headers,
   onHeadersChange,
   activeEnvironment,
+  fileEntries,
+  onFileEntriesChange,
+  maxFileSizeMb,
+  uploadProgress,
 }: GqlBottomPanelProps) {
   const activeHeaderCount = headers.filter((h) => h.enabled).length;
+  const validFileCount = fileEntries.filter((e) => e.error === null && e.varPath.trim() !== '').length;
+  const hasFileErrors = fileEntries.some((e) => e.error !== null);
 
   return (
     <div className="gql-bottom-panel">
-      <div className="gql-bottom-tabs" role="tablist" aria-label="Variables and headers">
+      <div className="gql-bottom-tabs" role="tablist" aria-label="Variables, headers, and files">
         <button
           id="gql-bottom-tab-variables-btn"
           className={`gql-bottom-tab${activeTab === 'variables' ? ' gql-bottom-tab--active' : ''}${varsError ? ' gql-bottom-tab--error' : ''}`}
@@ -67,6 +81,25 @@ export function GqlBottomPanel({
           Headers
           {activeHeaderCount > 0 && (
             <span className="gql-bottom-tab-badge">{activeHeaderCount}</span>
+          )}
+        </button>
+        <button
+          id="gql-bottom-tab-files-btn"
+          className={`gql-bottom-tab${activeTab === 'files' ? ' gql-bottom-tab--active' : ''}${hasFileErrors ? ' gql-bottom-tab--error' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'files'}
+          aria-controls="gql-bottom-tabpanel"
+          onClick={() => onTabChange('files')}
+          data-testid="gql-bottom-tab-files"
+          type="button"
+          title={hasFileErrors ? 'File size errors — fix before executing' : undefined}
+        >
+          Files
+          {validFileCount > 0 && !hasFileErrors && (
+            <span className="gql-bottom-tab-badge">{validFileCount}</span>
+          )}
+          {hasFileErrors && (
+            <span className="gql-bottom-tab-error-dot" aria-label="File errors" title="File errors" />
           )}
         </button>
       </div>
@@ -105,7 +138,40 @@ export function GqlBottomPanel({
             activeEnvironment={activeEnvironment}
           />
         )}
+        {activeTab === 'files' && (
+          <GraphqlFileUpload
+            entries={fileEntries}
+            onEntriesChange={onFileEntriesChange}
+            maxFileSizeMb={maxFileSizeMb}
+            uploadProgress={uploadProgress}
+          />
+        )}
       </div>
+
+      {/* Upload progress banner — visible on all tabs while uploading */}
+      {uploadProgress != null && activeTab !== 'files' && (
+        <div className="gql-file-progress gql-file-progress--banner" data-testid="gql-files-progress-banner" role="status">
+          <div
+            className="gql-file-progress-bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={uploadProgress}
+          >
+            <div
+              className={`gql-file-progress-fill${uploadProgress === 0 ? ' gql-file-progress-fill--indeterminate' : ''}`}
+              style={uploadProgress === 0 ? undefined : { width: `${uploadProgress}%` }}
+            />
+          </div>
+          <span className="gql-file-progress-label">
+            {uploadProgress === 0
+              ? 'Uploading files…'
+              : uploadProgress < 98
+                ? `Uploading files… ${uploadProgress}%`
+                : 'Processing upload…'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
