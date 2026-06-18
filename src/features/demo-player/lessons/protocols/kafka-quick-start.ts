@@ -108,7 +108,8 @@ Once saved and connected, your cluster is available across the entire app: Publi
       title: 'Create a Cluster Profile',
       description:
         'Click **Create First Cluster** to open the editor. RedfireForge pre-fills the default broker address — you just need to name the profile. If you have already configured a cluster, this step is a quick preview.',
-      highlight: KAFKA.CLUSTER_EDITOR,
+      // Spotlight the button to click (not the editor — it isn't open yet during reading phase)
+      highlight: KAFKA.EMPTY_CREATE_BTN,
       action: async (ctx) => {
         // Only use the empty-state button (first run). Falling back to "+ New"
         // when clusters already exist would open a blank editor and then fail

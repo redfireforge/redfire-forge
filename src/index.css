@@ -51,6 +51,9 @@
   /* Drives native form controls (select popups, scrollbars, date pickers).
      Light themes override this token to `light`; all others inherit `dark`. */
   --color-scheme: dark;
+  /* Applies the token to the CSS `color-scheme` property so browsers adapt
+     native form controls (scrollbars, select popups, date pickers). */
+  color-scheme: var(--color-scheme, dark);
 }
 
 [data-theme="light"] {
@@ -421,9 +424,6 @@
   --color-scheme: light;
 }
 
-/* Apply the active theme's color-scheme token so native form controls
-   (select popups, scrollbars, date pickers) match the theme. */
-:root { color-scheme: var(--color-scheme, dark); }
 
 body {
   font-family: var(--font);

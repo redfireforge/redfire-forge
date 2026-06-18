@@ -101,6 +101,7 @@ describe('kafka-schema-registry lesson', () => {
     table.setAttribute('data-testid', 'subject-table');
     const tbody = document.createElement('tbody');
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
     const clickSpy = vi.fn();
     row.addEventListener('click', clickSpy);
     tbody.appendChild(row);

@@ -6,7 +6,7 @@
  * the secure cluster is fully functional.
  */
 import type { DemoLesson } from '../../types';
-import { kafkaSetup, kafkaCleanup } from '../setup-helpers';
+import { kafkaSecureSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '../../../../shared/selectors';
 
 export const kafkaSecureLesson: DemoLesson = {
@@ -23,7 +23,7 @@ export const kafkaSecureLesson: DemoLesson = {
   dockerEndpoint: 'http://localhost:19645',
   dockerCommand: 'cd docker/kafka/secure && docker compose up -d',
 
-  setup: kafkaSetup,
+  setup: kafkaSecureSetup,
   cleanup: kafkaCleanup,
 
   concept: {
@@ -154,7 +154,7 @@ export const kafkaSecureLesson: DemoLesson = {
         'Open the **Auth Mode** dropdown and select **SCRAM-SHA-256**. This reveals the username and password fields. SCRAM is the right choice for this demo stack — it provides authenticated access without requiring TLS.',
       highlight: KAFKA.AUTH_TYPE_SELECT,
       action: async (ctx) => {
-        await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'SCRAM-SHA-256');
+        await ctx.selectOption(KAFKA.AUTH_TYPE_SELECT, 'scram-sha-256');
         await ctx.delay(300);
       },
     },
@@ -198,9 +198,17 @@ export const kafkaSecureLesson: DemoLesson = {
         await ctx.click(KAFKA.SAVE_BTN);
         await ctx.delay(500);
         const connectBtn = document.querySelector<HTMLElement>(KAFKA.CONNECT_BTN);
-        if (connectBtn) {
+        if (connectBtn && !(connectBtn as HTMLButtonElement).disabled) {
           connectBtn.click();
-          await ctx.delay(800);
+          // Wait for Disconnect button to become ENABLED (not just exist in DOM)
+          // — indicates the SASL handshake completed and connection is active.
+          const start = Date.now();
+          while (Date.now() - start < 10000) {
+            const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
+            if (dcBtn && !dcBtn.disabled) break;
+            await new Promise(r => setTimeout(r, 200));
+          }
+          await ctx.delay(400);
         }
       },
     },
@@ -224,7 +232,8 @@ export const kafkaSecureLesson: DemoLesson = {
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_SEND_BTN);
-        await ctx.delay(600);
+        await ctx.waitFor(`${KAFKA.PUB_RESULT}, ${KAFKA.PUB_ERROR}`, 15000);
+        await ctx.delay(400);
       },
     },
 

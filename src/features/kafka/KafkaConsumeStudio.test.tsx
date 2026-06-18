@@ -114,7 +114,7 @@ function renderConsume(opts?: {
 describe('KafkaConsumeStudio — Consume Once', () => {
   it('renders topic input', () => {
     renderConsume();
-    const input = screen.getByLabelText('Topic') as HTMLInputElement;
+    const input = screen.getByTestId('con-topic-input') as HTMLInputElement;
     expect(input.value).toBe('orders.events');
   });
 
@@ -233,7 +233,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
   it('calls setConsumeDraft when topic changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'events.v2' } });
+    fireEvent.change(screen.getByTestId('con-topic-input'), { target: { value: 'events.v2' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ topic: 'events.v2' });
   });
 
@@ -245,7 +245,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
   it('shows inline validation hint when topic is blurred while empty', () => {
     renderConsume({ studio: { consumeDraft: { ...baseConsumeDraft(), topic: '' } } });
     expect(screen.queryByTestId('con-topic-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Topic'));
+    fireEvent.blur(screen.getByTestId('con-topic-input'));
     expect(screen.getByTestId('con-topic-hint').textContent).toBe('Topic is required');
   });
 

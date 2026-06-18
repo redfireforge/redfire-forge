@@ -130,10 +130,9 @@
   border-right: 1px solid var(--border);
 }
 .svc-env-table td:last-child { border-right: none; }
-.svc-env-table thead th {
+.svc-env-table thead th:not(:last-child) {
   border-right: 1px solid var(--border);
 }
-.svc-env-table thead th:last-child { border-right: none; }
 .svc-env-td-env { white-space: nowrap; text-align: center; font-weight: 500; }
 .svc-env-check-label {
   display: inline-flex;

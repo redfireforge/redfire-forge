@@ -185,21 +185,15 @@ test.describe('Response Detail Modal', () => {
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
-    // Check badges container is in body
-    const badgesInBody = page.locator('.response-detail-body .response-detail-meta');
-    await expect(badgesInBody).toBeVisible();
+    // Hero section (rd-hero) is inside the modal body
+    const heroInBody = page.locator('.response-detail-body .rd-hero');
+    await expect(heroInBody).toBeVisible();
     
-    // Check badges container has proper background
-    const metaBackground = await badgesInBody.evaluate((el) => 
-      window.getComputedStyle(el).background
-    );
-    expect(metaBackground).toContain('rgba(255, 255, 255, 0.03)');
+    // Method badge exists inside the hero (uses rd-method-badge + method-<verb> classes)
+    await expect(page.locator('.response-detail-body .rd-method-badge')).toBeVisible();
     
-    // Check method badge exists in body
-    await expect(page.locator('.response-detail-body .method-badge')).toBeVisible();
-    
-    // Check status tag exists in body (use first() since there are multiple tags)
-    await expect(page.locator('.response-detail-body .tag').first()).toBeVisible();
+    // Status/timing stats row exists inside the hero
+    await expect(page.locator('.response-detail-body .rd-hero-stats .rd-stat').first()).toBeVisible();
   });
 
   test('close button closes the modal', async ({ page }) => {

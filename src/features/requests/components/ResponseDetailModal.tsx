@@ -69,6 +69,12 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
   const wsMeta = result.wsResultMeta;
   const hasWsMeta = !!(wsMeta && (wsMeta.url || wsMeta.connectionId || wsMeta.protocol || wsMeta.frameType || wsMeta.messageSize != null || wsMeta.closeCode != null));
 
+  const familyIcon = family === 'kafka'
+    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
+    : family === 'ws'
+      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>
+      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>;
+
   return (
     <WorkflowEditorModalFrame
       title="Response Detail"
@@ -78,90 +84,109 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       bodyClassName="response-detail-body"
       footerClassName="response-detail-footer"
       expandMode="fullscreen"
-      footer={<button className="btn btn-primary" onClick={onClose}>Close</button>}
+      hideExpandButton
+      footer={
+        <div className="rd-footer-inner">
+          <span className="rd-footer-hint">Esc to close</span>
+          <button className="btn btn-primary" onClick={onClose}>Close</button>
+        </div>
+      }
     >
-          <div className="response-detail-meta">
-            <div className="response-meta-row">
-              <span className="tag tag-dim">#{result.id.replace(/^\D+/, '')}</span>
-              <span className={`method-badge method-${result.method.toLowerCase()}`}>{methodLabel}</span>
-              <span className="response-meta-name">{result.scenarioName}</span>
-              <span className={`tag ${statusTagClass}`}>
+          {/* ── Hero header card ── */}
+          <div className="rd-hero">
+            <div className="rd-hero-top">
+              <span className={`rd-method-badge method-${result.method.toLowerCase()}`}>
+                {familyIcon}
+                {methodLabel}
+              </span>
+              <span className="rd-hero-name">{result.scenarioName}</span>
+              <span className="rd-hero-id">#{result.id.replace(/^\D+/, '')}</span>
+            </div>
+            <div className="rd-hero-url">{result.url}</div>
+            <div className="rd-hero-stats">
+              <span className={`rd-stat ${statusTagClass}`}>
                 {statusLabel}
               </span>
-              <span className="tag">{result.responseTimeMs} ms</span>
-              <span className={`tag ${result.passed ? 'tag-success' : 'tag-danger'}`}>
+              <span className="rd-stat rd-stat--time">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                {result.responseTimeMs} ms
+              </span>
+              <span className={`rd-stat ${result.passed ? 'rd-stat--pass' : 'rd-stat--fail'}`}>
+                {result.passed ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                )}
                 {result.passed ? 'Passed' : 'Failed'}
               </span>
             </div>
-            <div className="response-meta-url">{result.url}</div>
           </div>
 
-          {/* WS Details panel */}
+          {/* ── WS Details ── */}
           {family === 'ws' && hasWsMeta && wsMeta && (
-            <div className="response-detail-section">
-              <h4>WebSocket Details</h4>
-              <table className="response-headers-table">
-                <tbody>
-                  {wsMeta.url && (
-                    <tr><td className="header-name">URL</td><td className="header-value">{wsMeta.url}</td></tr>
-                  )}
-                  {wsMeta.connectionId && (
-                    <tr><td className="header-name">Connection ID</td><td className="header-value">{wsMeta.connectionId}</td></tr>
-                  )}
-                  {wsMeta.protocol && (
-                    <tr><td className="header-name">Protocol</td><td className="header-value">{wsMeta.protocol}</td></tr>
-                  )}
-                  {wsMeta.frameType && (
-                    <tr><td className="header-name">Frame Type</td><td className="header-value">{wsMeta.frameType}</td></tr>
-                  )}
-                  {wsMeta.messageSize != null && (
-                    <tr><td className="header-name">Message Size</td><td className="header-value">{wsMeta.messageSize.toLocaleString()} bytes</td></tr>
-                  )}
-                  {wsMeta.closeCode != null && (
-                    <tr><td className="header-name">Close Code</td><td className="header-value">{wsMeta.closeCode}</td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>
+                WebSocket Details
+              </h4>
+              <div className="rd-kv-grid">
+                {wsMeta.url && <><span className="rd-kv-label">URL</span><span className="rd-kv-value">{wsMeta.url}</span></>}
+                {wsMeta.connectionId && <><span className="rd-kv-label">Connection ID</span><span className="rd-kv-value rd-kv-mono">{wsMeta.connectionId}</span></>}
+                {wsMeta.protocol && <><span className="rd-kv-label">Protocol</span><span className="rd-kv-value">{wsMeta.protocol}</span></>}
+                {wsMeta.frameType && <><span className="rd-kv-label">Frame Type</span><span className="rd-kv-value">{wsMeta.frameType}</span></>}
+                {wsMeta.messageSize != null && <><span className="rd-kv-label">Message Size</span><span className="rd-kv-value rd-kv-mono">{wsMeta.messageSize.toLocaleString()} bytes</span></>}
+                {wsMeta.closeCode != null && <><span className="rd-kv-label">Close Code</span><span className="rd-kv-value rd-kv-mono">{wsMeta.closeCode}</span></>}
+              </div>
             </div>
           )}
 
-          {/* Kafka Details panel */}
+          {/* ── Kafka Details ── */}
           {family === 'kafka' && result.kafkaResultMeta && (
-            <div className="response-detail-section">
-              <h4>Kafka Details</h4>
-              <table className="response-headers-table">
-                <tbody>
-                  <tr><td className="header-name">Topic</td><td className="header-value">{result.kafkaResultMeta.topic}</td></tr>
-                  <tr><td className="header-name">Partition</td><td className="header-value">{result.kafkaResultMeta.partition}</td></tr>
-                  <tr><td className="header-name">Offset</td><td className="header-value">{result.kafkaResultMeta.offset}</td></tr>
-                  {result.kafkaResultMeta.key != null && (
-                    <tr><td className="header-name">Key</td><td className="header-value">{result.kafkaResultMeta.key}</td></tr>
-                  )}
-                  {result.kafkaResultMeta.matchedMessages != null && (
-                    <tr><td className="header-name">Matched Messages</td><td className="header-value">{result.kafkaResultMeta.matchedMessages}</td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
+                Kafka Details
+              </h4>
+              <div className="rd-kv-grid">
+                <span className="rd-kv-label">Topic</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.topic}</span>
+                <span className="rd-kv-label">Partition</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.partition}</span>
+                <span className="rd-kv-label">Offset</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.offset}</span>
+                {result.kafkaResultMeta.key != null && <><span className="rd-kv-label">Key</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.key}</span></>}
+                {result.kafkaResultMeta.matchedMessages != null && <><span className="rd-kv-label">Matched Messages</span><span className="rd-kv-value rd-kv-mono">{result.kafkaResultMeta.matchedMessages}</span></>}
+              </div>
             </div>
           )}
 
+          {/* ── Timing Breakdown ── */}
           {isHttp && result.timing && (
-            <div className="response-detail-section">
-              <h4>Timing Breakdown</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                Timing Breakdown
+              </h4>
               <WaterfallBar timing={result.timing} />
             </div>
           )}
 
+          {/* ── Error Message ── */}
           {result.errorMessage && (
-            <div className="response-detail-section">
-              <h4>Error Message</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title rd-section-title--danger">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                Error Message
+              </h4>
               <div className="response-error-box">{typeof result.errorMessage === 'string' ? result.errorMessage : JSON.stringify(result.errorMessage)}</div>
             </div>
           )}
 
+          {/* ── Validation Failures ── */}
           {result.failureDetails.length > 0 && (
-            <div className="response-detail-section">
-              <h4>Validation Failures ({result.failureDetails.length})</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title rd-section-title--danger">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                Validation Failures
+                <span className="rd-section-count">{result.failureDetails.length}</span>
+              </h4>
               <table className="response-failures-table">
                 <thead>
                   <tr><th>Path</th><th>Expected</th><th>Actual</th></tr>
@@ -179,9 +204,13 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
+          {/* ── Request Headers ── */}
           {result.requestLog && Object.keys(result.requestLog.headers).length > 0 && (
-            <div className="response-detail-section">
-              <h4>Request Headers</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                Request Headers
+              </h4>
               <table className="response-headers-table">
                 <thead>
                   <tr><th>Header</th><th>Value</th></tr>
@@ -198,16 +227,24 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
+          {/* ── Request Body ── */}
           {result.requestLog?.body && (
-            <div className="response-detail-section">
-              <h4>Request Body</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                Request Body
+              </h4>
               <JsonTreeViewer data={result.requestLog.body} defaultExpandDepth={3} maxHeight={300} />
             </div>
           )}
 
+          {/* ── Response Headers ── */}
           {result.responseHeaders && Object.keys(result.responseHeaders).length > 0 && (
-            <div className="response-detail-section">
-              <h4>Response Headers</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                Response Headers
+              </h4>
               <table className="response-headers-table">
                 <thead>
                   <tr><th>Header</th><th>Value</th></tr>
@@ -224,9 +261,13 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
+          {/* ── Response Body ── */}
           {result.responseBody && (
-            <div className="response-detail-section">
-              <h4>RESPONSE BODY</h4>
+            <div className="rd-section">
+              <h4 className="rd-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+                Response Body
+              </h4>
               <ResponseBodySearchBar
                 value={responseSearch}
                 onChange={setResponseSearch}

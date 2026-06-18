@@ -45,7 +45,7 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
           partition: undefined,
           headers: [],
           bodyTemplate: '{"orderId":"{{orderId}}","status":"PLACED"}',
-          ackMode: 'all',
+          ackMode: 'leader',
           timeoutMs: 10000,
           outputBindings: [],
         },
@@ -61,8 +61,8 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
           keyRegex: '',
           headerFilters: [],
           jsonPathFilters: [],
-          timeoutMs: 30000,
-          maxMessages: 3,
+          timeoutMs: 5000,
+          maxMessages: 1,
           startPosition: 'earliest',
           loadTestBehavior: { mode: 'wait-for-real' },
           outputBindings: [{ source: 'firstMessageBody', targetVariable: 'firstOrder' }],
@@ -79,12 +79,12 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
           correlationIdExpression: '{{orderId}}',
           correlationSource: 'body',
           correlationJsonPath: '$.orderId',
-          extractVariables: [{ jsonPath: '$.amount', targetVariable: 'confirmedAmount' }],
+          extractVariables: [{ name: 'confirmedAmount', jsonPath: '$.amount' }],
           timeoutMs: 60000,
           headerFilters: [],
+          samplePayload: '{"orderId":"{{orderId}}","status":"CONFIRMED","amount":99.99}',
           loadTestBehavior: {
             mode: 'auto-resume',
-            samplePayload: '{"orderId":"{{orderId}}","status":"CONFIRMED","amount":99.99}',
           },
         },
       },
@@ -121,7 +121,9 @@ async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<vo
   }
 
   ctx.navigateToTab('workflow');
-  await ctx.delay(700);
+  await ctx.delay(900);
+  const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
+  if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
 }
 
 async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<void> {
@@ -129,6 +131,18 @@ async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<
   const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
   if (wfDelete) wfDelete('Kafka Consume & Wait Demo');
   await kafkaCleanup(ctx);
+}
+
+/** Close any open workflow config modal by finding the "Close" button by text. */
+async function closeConfigModal(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector<HTMLElement>('.wf-config-modal');
+  if (!modal) return;
+  const btns = Array.from(modal.querySelectorAll('button'));
+  const closeBtn = btns.find(b => b.textContent?.trim() === 'Close');
+  if (closeBtn) {
+    closeBtn.click();
+    await ctx.delay(400);
+  }
 }
 
 /** Select the seeded workflow from the sidebar. */
@@ -229,6 +243,7 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       id: 'cw-intro',
       title: 'Consume and Wait Nodes',
       description:
+        '**⚠️ Prerequisite:** To run Quick Test, ensure the Redpanda stack is running: `cd docker/kafka/plaintext && docker compose up -d`\n\n' +
         'The **Kafka Consume & Wait Demo** workflow shows the complete event-driven round-trip: produce an order → consume from the same topic → wait for a payment confirmation. Open the workflow to explore each node.',
       highlight: WF.CANVAS,
       preAction: async (ctx) => {
@@ -236,85 +251,136 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       },
     },
 
-    // Step 2: kafkaConsume node
+    // Step 2: kafkaConsume node — double-click to open config modal
     {
       id: 'cw-consume-node',
       title: 'kafkaConsume Node',
       description:
-        'The **kafkaConsume** node reads a batch of messages from a topic. Click it to open the config panel and inspect the settings: Topic, Max Messages (3), Timeout (30 s), Start Position (Earliest), and the Output Binding that stores the first message body in `firstOrder`.',
+        'The **kafkaConsume** node reads a batch of messages from a topic. **Double-click** it to open the config modal and inspect the settings: Topic, Max Messages (1), Timeout (5 s), Start Position (Earliest), and the Output Binding that stores the first message body in `firstOrder`.',
       highlight: KAFKA.NODE_CONSUME,
+      preAction: async (ctx) => {
+        await closeConfigModal(ctx);
+      },
       action: async (ctx) => {
         const node = document.querySelector<HTMLElement>(KAFKA.NODE_CONSUME);
         if (node) {
-          node.click();
-          await ctx.delay(400);
+          // Node config requires a double-click — single click only selects the node.
+          node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+          await ctx.delay(600);
         }
       },
+      verify: '.wf-config-modal',
     },
 
-    // Step 3: Output binding on consume
+    // Step 3: Output binding on consume (config modal is open from step 2)
     {
       id: 'cw-consume-binding',
       title: 'Output Binding: firstMessageBody',
       description:
         'The **Output Binding** maps `firstMessageBody` → `firstOrder`. This makes the first consumed message\'s body available to all downstream nodes as `{{firstOrder}}`. You could also bind `messageCount`, `allMessages`, or `lastMessageBody`.',
       highlight: KAFKA.NODE_BINDING_ADD_BTN,
-    },
-
-    // Step 4: kafkaWait node
-    {
-      id: 'cw-wait-node',
-      title: 'kafkaWait Node',
-      description:
-        'The **kafkaWait** node blocks execution until a message matching the correlation expression arrives. Click it to see its config: it listens on `payments.confirmed` and waits for a message where `$.orderId` equals `{{orderId}}`.',
-      highlight: WF.NODE_CONFIG,
-      action: async (ctx) => {
-        const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
-        if (node) {
-          node.click();
-          await ctx.delay(400);
+      preAction: async (ctx) => {
+        // Ensure the consume config modal is open
+        if (!document.querySelector('.wf-config-modal')) {
+          const node = document.querySelector<HTMLElement>(KAFKA.NODE_CONSUME);
+          if (node) {
+            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            await ctx.delay(600);
+          }
         }
       },
     },
 
-    // Step 5: Correlation expression
+    // Step 4: kafkaWait node — double-click to open config modal
+    {
+      id: 'cw-wait-node',
+      title: 'kafkaWait Node',
+      description:
+        'The **kafkaWait** node blocks execution until a message matching the correlation expression arrives. **Double-click** it to see its config: it listens on `payments.confirmed` and waits for a message where `$.orderId` equals `{{orderId}}`.',
+      highlight: KAFKA.NODE_WAIT,
+      preAction: async (ctx) => {
+        await closeConfigModal(ctx);
+      },
+      action: async (ctx) => {
+        const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
+        if (node) {
+          // Node config requires a double-click — single click only selects the node.
+          node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+          await ctx.delay(600);
+        }
+      },
+      verify: '.wf-config-modal',
+    },
+
+    // Step 5: Correlation expression (wait modal is open from step 4)
     {
       id: 'cw-wait-config',
       title: 'Correlation Expression',
       description:
         'The **Correlation Expression** is `{{orderId}}` — the value of the `orderId` workflow variable. The **Correlation Source** is `body`, and the **JSONPath** is `$.orderId`. This means: "wait for a message on `payments.confirmed` where the body\'s `orderId` field matches the current order."',
-      highlight: KAFKA.WAIT_CONFIG,
+      highlight: '.wf-config-modal',
+      preAction: async (ctx) => {
+        // Ensure the wait config modal is open
+        if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
+          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
+          if (node) {
+            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            await ctx.delay(600);
+          }
+        }
+      },
     },
 
-    // Step 6: Sample payload
+    // Step 6: Sample payload (wait modal is open from step 4/5)
     {
       id: 'cw-sample-payload',
       title: 'Sample Payload for Quick Test',
       description:
         'The **Sample Payload** is a JSON string that the Wait node uses instead of a real broker message during Quick Test (and load tests in `auto-resume` mode). It prevents the workflow from hanging. Set it once and Quick Test always resolves the Wait instantly.',
       highlight: KAFKA.WAIT_SAMPLE_TEXTAREA,
+      preAction: async (ctx) => {
+        if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
+          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
+          if (node) {
+            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            await ctx.delay(600);
+          }
+        }
+      },
     },
 
-    // Step 7: Load test mode
+    // Step 7: Load test mode (wait modal is open)
     {
       id: 'cw-load-mode',
       title: 'Load Test Behavior',
       description:
         'The **Load Test Behavior** dropdown controls what happens during high-concurrency load tests. `auto-resume` resolves the Wait using the sample payload on every iteration — keeping throughput high. `wait-for-real` blocks until a real correlated message arrives — useful for integration tests but unsuitable for load tests.',
       highlight: KAFKA.WAIT_LOAD_MODE_SELECT,
+      preAction: async (ctx) => {
+        if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
+          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
+          if (node) {
+            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            await ctx.delay(600);
+          }
+        }
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.WAIT_LOAD_MODE_SELECT);
         await ctx.delay(400);
       },
     },
 
-    // Step 8: Quick Test
+    // Step 8: Quick Test (close modal first)
     {
       id: 'cw-quicktest',
       title: 'Quick Test the Full Chain',
       description:
         'Click **Quick Test** to run the full four-node chain. The sample payload means the Wait resolves immediately. The Console shows each node\'s result: produce offset, consumed messages, and the `confirmedAmount` variable extracted from the sample payload.',
       highlight: WF.QUICK_TEST_BTN,
+      preAction: async (ctx) => {
+        await closeConfigModal(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(WF.QUICK_TEST_BTN);
         await ctx.delay(1500);

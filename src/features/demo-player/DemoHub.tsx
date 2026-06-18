@@ -37,6 +37,8 @@ export default function DemoHub({ hub }: DemoHubProps) {
             progress={progress}
             onSelect={hub.selectLesson}
             onBack={hub.goBack}
+            onResetLesson={hub.resetLesson}
+            onResetAll={hub.resetProgress}
           />
         )}
         {state.view === 'concept' && state.selectedLesson && (

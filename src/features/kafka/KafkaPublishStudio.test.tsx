@@ -150,7 +150,7 @@ describe('KafkaPublishStudio', () => {
 
   it('shows "No headers" when headers array is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    expect(screen.getByText('No headers')).toBeTruthy();
+    expect(screen.getByText(/no headers/i)).toBeTruthy();
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -384,7 +384,7 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
 
   it('calls setPublishDraft when header key changes', () => {
     const studio = renderWithHeader();
-    fireEvent.change(screen.getByPlaceholderText('key'), { target: { value: 'x-region' } });
+    fireEvent.change(screen.getByPlaceholderText('header-key'), { target: { value: 'x-region' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith(
       expect.objectContaining({ headers: [expect.objectContaining({ key: 'x-region' })] }),
     );

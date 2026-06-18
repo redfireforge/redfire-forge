@@ -221,7 +221,6 @@
 }
 
 /* Key-Value sections (params, headers, expected fields) */
-.kv-section {}
 .kv-header {
   font-size: 0.7rem;
   font-weight: 600;
@@ -2169,7 +2168,7 @@
 }
 .auth-badge-none { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius); }
 .auth-badge-test-global { background: transparent; border: 1px solid #e67e22; color: #e67e22; }
-.btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-active { background: var(--accent, #6c5ce7); border-color: var(--accent, #6c5ce7); color: #fff; }
 
 /* Secret toggle */
 .secret-input-wrap {
@@ -3104,11 +3103,6 @@
   max-height: 300px;
   overflow-y: auto;
 }
-.btn-active {
-  background: var(--accent, #6c5ce7);
-  color: #fff;
-}
-
 /* Validate Response Section */
 .validate-response-section {
   margin-top: 12px;

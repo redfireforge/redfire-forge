@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppLayoutSync } from './hooks/useAppLayoutSync';
+import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
@@ -39,6 +41,7 @@ import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
 import { WebSocketStudioPage } from '../features/websocket/WebSocketStudioPage';
 import { SseStudioPage } from '../features/sse/SseStudioPage';
+import { GraphqlStudioPage } from '../features/graphql/GraphqlStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -128,6 +131,16 @@ export default function App() {
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
   const demoHub = useDemoHub({ navigateToTab });
+
+  // When any sidebar nav item is clicked while a live demo is active, exit the
+  // demo overlay first so it doesn't linger on top of the newly selected tab.
+  const handleSetActiveTab = useCallback((tab: Tab) => {
+    if (demoHub.state.view === 'live') {
+      void demoHub.exitLiveDemo().then(() => setActiveTab(tab));
+    } else {
+      setActiveTab(tab);
+    }
+  }, [demoHub, setActiveTab]);
 
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
   useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
@@ -250,40 +263,11 @@ export default function App() {
     if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
   }, [activeTab, setGalleryInitialDomain]);
 
-  // ---- Header height sync ----
-  const headerRef = useRef<HTMLElement>(null);
-  const syncHeaderHeight = useCallback(() => {
-    if (headerRef.current) {
-      document.documentElement.style.setProperty('--header-h', `${headerRef.current.offsetHeight}px`);
-    }
-  }, []);
-  useEffect(() => {
-    syncHeaderHeight();
-    window.addEventListener('resize', syncHeaderHeight);
-    return () => window.removeEventListener('resize', syncHeaderHeight);
-  }, [syncHeaderHeight]);
-
-  // ---- Sidebar width sync (CSS var for modals/overlays that respect the sidebar) ----
-  // Activity bar is 48px; when the sidebar is collapsed the unified-sidebar is unmounted.
-  useEffect(() => {
-    const activityBar = 48;
-    const total = sidebarCollapsed ? activityBar : activityBar + sidebarWidth;
-    document.documentElement.style.setProperty('--sidebar-w', `${total}px`);
-  }, [sidebarWidth, sidebarCollapsed]);
+  // ---- Layout CSS var sync (--header-h and --sidebar-w) ----
+  const headerRef = useAppLayoutSync({ sidebarWidth, sidebarCollapsed });
 
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
-  const galleryFixApplied = useRef(false);
-  useEffect(() => {
-    if (loading || galleryFixApplied.current) return;
-    galleryFixApplied.current = true;
-    const galEnv = environments.find(e => e.name === 'Gallery Samples');
-    const galSvc = microservices.find(s => s.name === 'Gallery Samples');
-    if (galEnv && galSvc && !(galEnv.id in galSvc.baseUrls)) {
-      setMicroservices(prev => prev.map(s =>
-        s.id === galSvc.id ? { ...s, baseUrls: { ...s.baseUrls, [galEnv.id]: '' } } : s
-      ));
-    }
-  }, [loading, environments, microservices, setMicroservices]);
+  useGalleryMigration({ loading, environments, microservices, setMicroservices });
 
   // ---- Derived view state ----
 
@@ -399,7 +383,7 @@ export default function App() {
 
       <div className="app-body">
       {/* ── Activity Bar ── */}
-      <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <AppActivityBar activeTab={activeTab} setActiveTab={handleSetActiveTab} />
 
       {/* ── Sidebar (contextual per domain) ── */}
       {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && domainOf(activeTab) !== 'demo' && (
@@ -681,6 +665,17 @@ export default function App() {
           {activeTab === 'sse-studio' && (
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
               <SseStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
+          {activeTab === 'graphql-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <GraphqlStudioPage
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}

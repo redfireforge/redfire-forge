@@ -47,13 +47,13 @@ describe('kafka-stream-mode lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('consume'));
   });
 
-  it('step sm-topic has preAction that selects stream mode, fills topic and position', async () => {
+  it('step sm-topic has preAction that selects stream mode, fills topic and sets earliest position', async () => {
     const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-topic')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('stream'));
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('con-topic'), expect.stringContaining('redfireforge'));
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('con-pos'), 'latest');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('con-topic'), 'orders.created');
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('con-pos'), 'earliest');
   });
 
   it('step sm-start action clicks start stream button', async () => {
@@ -123,13 +123,14 @@ describe('kafka-stream-mode lesson', () => {
     expect(called).toBe(true);
   });
 
-  it('step sm-row action clicks first stream row when present (if(row) true branch)', async () => {
+  it('step sm-row action clicks first stream row when present', async () => {
     const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-row')!;
     expect(step).toBeDefined();
     const zone = document.createElement('div');
     zone.setAttribute('data-testid', 'stream-results-zone');
     const tbody = document.createElement('tbody');
     const row = document.createElement('tr');
+    row.setAttribute('data-testid', 'stream-row');
     const clickSpy = vi.fn();
     row.addEventListener('click', clickSpy);
     tbody.appendChild(row);

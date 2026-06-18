@@ -14,7 +14,7 @@
  * allowedTabs includes 'results' to prevent exit when navigating there.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { kafkaPublishSetup } from '../setup-helpers';
+import { ensureKafkaConnected } from '../setup-helpers';
 
 // ── Kafka Produce Demo Workflow Factory ────────────────────────────
 
@@ -50,7 +50,7 @@ function createKafkaHarnessDemoWorkflow(): Record<string, unknown> {
           partition: undefined,
           headers: [],
           bodyTemplate: '{"demo":"harness","runId":"{{runId}}"}',
-          ackMode: 'all',
+          ackMode: 'leader',
           timeoutMs: 10000,
           outputBindings: [],
         },
@@ -74,8 +74,8 @@ function createKafkaHarnessDemoWorkflow(): Record<string, unknown> {
 // ── Setup / Cleanup ────────────────────────────────────────────────
 
 async function kafkaHarnessRunSetup(ctx: DemoActionContext): Promise<void> {
-  // Ensure cluster is configured and connected
-  await kafkaPublishSetup(ctx);
+  // Connect to the plaintext broker via API (bypasses UI state issues)
+  await ensureKafkaConnected();
 
   // Seed the demo workflow
   const win = window as unknown as Record<string, unknown>;
@@ -258,7 +258,9 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       id: 'kr-intro',
       title: 'Kafka Workflow in Harness',
       description:
-        'You\'re in the **Workflow Runner** — the Harness tab for running visual workflows as tracked test executions. Every run here is saved to the Results Dashboard. You\'ll run the **Kafka Produce Demo** workflow and see the PRODUCE badges it generates. Make sure the Redpanda stack is running: `cd docker/kafka/plaintext && docker compose up -d`.',
+        '**⚠️ Prerequisite:** This demo requires a running Kafka broker. Start the Redpanda stack first:\n\n' +
+        '```bash\ncd docker/kafka/plaintext && docker compose up -d\n```\n\n' +
+        'You\'re in the **Workflow Runner** — the Harness tab for running visual workflows as tracked test executions. Every run here is saved to the Results Dashboard. You\'ll run the **Kafka Produce Demo** workflow and see the PRODUCE badges it generates.',
       highlight: '[data-testid="workflow-select"]',
     },
 
@@ -289,19 +291,26 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       title: 'Set Iterations',
       description:
         'Set **Iterations** to **3** and **Concurrency** to **1**. This will produce 3 messages sequentially — enough to see multiple result rows in the dashboard without flooding the topic.',
-      highlight: '.wfp-iterations-input, [data-testid="wfp-iterations"], input[placeholder*="Iter"]',
+      // Iterations is the 2nd .resilience-field child in the .resilience-row
+      // (Concurrency is 1st, Iterations is 2nd, then a divider, then Timeout, etc.)
+      highlight: '.resilience-row .resilience-field:nth-child(2)',
       preAction: async (ctx) => {
-        // Use ctx.fill for React-controlled inputs (native setter)
-        await ctx.fill(
-          '.wfp-iterations-input, [data-testid="wfp-iterations"], input[placeholder*="Iter"]',
-          '3',
-        );
-        await ctx.delay(100);
-        await ctx.fill(
-          '.wfp-concurrency-input, [data-testid="wfp-concurrency"], input[placeholder*="Conc"]',
-          '1',
-        );
-        await ctx.delay(100);
+        // Fill via label lookup — no data-testid on these inputs
+        const fillLabeledInput = (labelText: string, value: string) => {
+          const field = Array.from(document.querySelectorAll('.resilience-field'))
+            .find((el) => el.querySelector('label')?.textContent?.trim() === labelText);
+          const input = field?.querySelector<HTMLInputElement>('input');
+          if (!input) return;
+          const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          nativeSet?.call(input, value);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          input.dispatchEvent(new Event('blur', { bubbles: true }));
+        };
+        fillLabeledInput('Iterations', '3');
+        await ctx.delay(200);
+        fillLabeledInput('Concurrency', '1');
+        await ctx.delay(200);
       },
     },
 
@@ -322,7 +331,13 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       id: 'kr-results',
       title: 'Completion Banner',
       description:
-        'The **Completion Banner** shows total requests (3), overall status, and timing. "3 requests" confirms one produce operation per iteration. Check that all 3 show green/OK — if any fail, the cluster may not be connected (go to Kafka Settings and reconnect).',
+        'The **Completion Banner** shows total requests, overall status, and timing.\n\n' +
+        '**Success (0% Error Rate):** All 3 iterations produced messages. The broker is healthy.\n\n' +
+        '**Failure (100% Error Rate):** The Kafka broker is not reachable. Verify:\n' +
+        '1. Docker is running: `docker ps | grep redpanda`\n' +
+        '2. Start the stack if needed: `cd docker/kafka/plaintext && docker compose up -d`\n' +
+        '3. Go to **Kafka Settings** → click **Connect** to reconnect\n' +
+        '4. Re-run the workflow after the broker is up',
       highlight: '.completion-section, .wfp-completion-banner',
     },
 
@@ -351,8 +366,30 @@ Navigate to the **Results Dashboard** to inspect the run. Kafka-specific runs sh
       id: 'kr-badges',
       title: 'PRODUCE Badges',
       description:
-        'In the Results table each row has a **PRODUCE** method badge — the Kafka equivalent of HTTP\'s GET/POST badges. The target column shows the topic name. Expand any row to see the partition, offset, and body that was produced. This is your audit trail for every Kafka message sent during the test.',
-      highlight: '.method-badge, [data-testid="method-badge"]',
+        'Click the **Request Details** tab to see individual result rows. Each row has a **PRODUCE** method badge — the Kafka equivalent of HTTP\'s GET/POST badges. The URL column shows the topic name (`kafka://orders.created`).\n\n' +
+        '**On success:** Click any row to see the partition, offset, and body that was produced. This is your audit trail for every Kafka message sent during the test.\n\n' +
+        '**On failure:** The status shows ERROR and the row contains the error message (e.g., "Connection refused", "Broker not available"). Check that Docker/Redpanda is running and retry.',
+      // Highlight the whole table row so the spotlight is large enough to see
+      highlight: '.clickable-row',
+      preAction: async (ctx) => {
+        // 1. Switch to Request Details tab
+        const requestDetailsTab = Array.from(
+          document.querySelectorAll<HTMLElement>('.results-view-tab'),
+        ).find((el) => el.textContent?.trim() === 'Request Details');
+        if (requestDetailsTab) {
+          requestDetailsTab.click();
+          await ctx.delay(400);
+        }
+        // 2. Switch to flat view (groupBy = "test") so rows render immediately
+        //    without needing to expand collapsed groups.
+        const groupBySelect = document.querySelector<HTMLSelectElement>('.group-by-controls select');
+        if (groupBySelect) {
+          const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+          nativeSet?.call(groupBySelect, 'test');
+          groupBySelect.dispatchEvent(new Event('change', { bubbles: true }));
+          await ctx.delay(400);
+        }
+      },
     },
   ],
 };

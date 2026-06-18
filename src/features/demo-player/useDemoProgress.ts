@@ -74,6 +74,18 @@ export function useDemoProgress() {
     return data.lessonSteps[lessonId] ?? 0;
   }, [data.lessonSteps]);
 
+  const resetLesson = useCallback((lessonId: string) => {
+    update(prev => {
+      const lessonSteps = { ...prev.lessonSteps };
+      delete lessonSteps[lessonId];
+      return {
+        ...prev,
+        completedLessons: prev.completedLessons.filter(id => id !== lessonId),
+        lessonSteps,
+      };
+    });
+  }, [update]);
+
   const resetProgress = useCallback(() => {
     update(() => DEFAULT_PROGRESS);
   }, [update]);
@@ -87,6 +99,7 @@ export function useDemoProgress() {
     setSpeed,
     isLessonComplete,
     getLessonStep,
+    resetLesson,
     resetProgress,
   };
 }

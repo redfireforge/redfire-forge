@@ -17,12 +17,14 @@ const HEADER_VALUE = 'abc-001';
 // ── File-private selectors ────────────────────────────────────────────────────
 // Use :last-child — the "+ Add" button always appends, so the newest row is
 // always last. This is robust even if old rows remain (e.g. on a repeat run).
-/** Newest header row key input — added after clicking "+ Add". */
-const HEADER_ROW_KEY = '.kafka-ms-kv-row:last-child input[placeholder="key"]';
+/** Newest header row key input — placeholder must match KafkaPublishStudio. */
+const HEADER_ROW_KEY = '.kafka-ms-kv-row:last-child input[placeholder="header-key"]';
 /** Newest header row value input. */
 const HEADER_ROW_VAL = '.kafka-ms-kv-row:last-child input[placeholder="value"]';
 /** Delete button selector — used to clear any rows left over from previous runs. */
 const HEADER_REMOVE_BTN = '.kafka-ms-remove-btn';
+/** The Filters section container — used as a highlight target. */
+const FILTERS_SECTION = '.kafka-ms-con-filters';
 
 export const kafkaHeadersFiltersLesson: DemoLesson = {
   id: 'kafka-headers-filters',
@@ -201,10 +203,8 @@ Filters are applied server-side before messages are returned — you never downl
       id: 'hf-filter-intro',
       title: 'Consume Filters',
       description:
-        'Now on the **Consume** tab. Below the basic fields are four filter inputs: **Key Equals**, **Header Match**, **JSONPath**, and **JSONPath Equals**. These narrow a batch fetch to only the messages you care about — filtering happens server-side, so you never download what you don\'t need.',
-      // Spotlight the first filter field so the ring points at the filters area
-      // described in the narration rather than the topic field at the top.
-      highlight: KAFKA.CON_KEY_FILTER_INPUT,
+        'Now on the **Consume** tab. Scroll down below the basic fields to find the **Filters** section with four inputs: **Key Equals**, **Header Match**, **JSONPath**, and **JSONPath Equals**. These narrow a batch fetch to only the messages you care about — filtering happens server-side, so you never download what you don\'t need.',
+      highlight: FILTERS_SECTION,
       preAction: async (ctx) => {
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
@@ -212,11 +212,19 @@ Filters are applied server-side before messages are returned — you never downl
         // con-consume-btn is not rendered and all consume steps would silently fail.
         await ctx.click(KAFKA.CON_MODE_ONCE);
         await ctx.delay(200);
+        // Clear the group ID so each consume step generates a fresh random group.
+        // The draft initialises with a fixed auto-generated ID; once step 6 commits
+        // that group's offset past the published message, steps 7/8 would start AFTER
+        // the message and return 0 results even with fromBeginning=true (KafkaJS
+        // ignores fromBeginning when committed offsets already exist for the group).
+        await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+        await ctx.delay(100);
+        // Set maxMessages=1 so the consumer settles immediately after finding the
+        // first match instead of waiting the full 10-second timeout.
+        await ctx.fill(KAFKA.CON_MAX_INPUT, '1');
+        await ctx.delay(100);
         // Clear every filter input before the three filter steps begin.
-        // On a repeat run, the previous K4 execution leaves stale values:
-        // header=traceId=abc-001, jsonpath=$.status, jsonval=CREATED.
-        // Without this reset, step 6 fires a compound 4-filter query instead
-        // of the pure Key Equals query described in the narration.
+        // On a repeat run, the previous K4 execution leaves stale values.
         await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
         await ctx.delay(100);
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
@@ -245,7 +253,9 @@ Filters are applied server-side before messages are returned — you never downl
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 10000);
+        // Wait up to 15s for the results zone — the backend consume timeout is
+        // ~10s at most (with maxMessages=1 it settles much faster).
+        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
         await ctx.delay(800);
       },
       // Let viewers study the filtered results before auto-advancing.
@@ -260,6 +270,9 @@ Filters are applied server-side before messages are returned — you never downl
         `Key filter cleared. **Header Match** is set to \`${HEADER_KEY}=${HEADER_VALUE}\` — the \`key=value\` notation returns only messages that carry that exact header. Since we published with \`traceId: abc-001\`, this fetch returns our message.`,
       highlight: KAFKA.CON_HEADER_FILTER_INPUT,
       preAction: async (ctx) => {
+        // Clear group ID again so this consume gets a fresh group (avoids committed-offset issue).
+        await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+        await ctx.delay(100);
         await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
         await ctx.delay(200);
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
@@ -267,7 +280,7 @@ Filters are applied server-side before messages are returned — you never downl
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 10000);
+        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
         await ctx.delay(800);
       },
       // Let viewers see the header-filtered result before advancing.
@@ -282,6 +295,9 @@ Filters are applied server-side before messages are returned — you never downl
         'Header filter cleared. **JSONPath** is `$.status` and **JSONPath Equals** is `CREATED`. Watch **Consume Once** return only messages where `status == "CREATED"` — the broker filters before sending, so nothing unnecessary is downloaded.',
       highlight: KAFKA.CON_JSONPATH_INPUT,
       preAction: async (ctx) => {
+        // Clear group ID — fresh group ensures fromBeginning=true is honoured.
+        await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+        await ctx.delay(100);
         // Clear header filter from the previous step, then set JSONPath filters.
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
         await ctx.delay(200);
@@ -292,7 +308,7 @@ Filters are applied server-side before messages are returned — you never downl
       },
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 10000);
+        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
         await ctx.delay(800);
       },
       // Let viewers study the JSONPath-filtered results before moving on.
@@ -310,10 +326,13 @@ Filters are applied server-side before messages are returned — you never downl
       // it during the reading phase would render an invisible ring.
       highlight: '[data-testid="con-row-0"]',
       action: async (ctx) => {
+        // Wait for the row to exist (step 8's consume may still be in-flight
+        // when the reading phase ends at high speed settings).
+        await ctx.waitFor('[data-testid="con-row-0"]', 15000);
         // Use the data-testid row selector, NOT tr:first-child which would match
         // the <thead> column-header row (no onClick handler — detail pane never opens).
         await ctx.click('[data-testid="con-row-0"]');
-        await ctx.waitFor(KAFKA.CON_DETAIL_PANE, 3000);
+        await ctx.waitFor(KAFKA.CON_DETAIL_PANE, 5000);
         await ctx.delay(600);
       },
       // Final payoff of the lesson — hold so viewers can see traceId in the pane.
