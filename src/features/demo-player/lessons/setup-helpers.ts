@@ -7,6 +7,7 @@
  */
 import type { DemoActionContext } from '../types';
 import { WS, KAFKA } from '../../../shared/selectors';
+import { dispatchKafkaOperation } from '../../../shared/kafka/kafkaClient';
 
 /** Return the first DOM element matching `selector` that has a non-zero bounding box
  *  (i.e. it is actually rendered and not hidden via display:none / visibility:hidden).
@@ -206,10 +207,99 @@ export async function wsAuthCleanup(ctx: DemoActionContext) {
 
 // ─── Kafka Helpers ───────────────────────────────────────────────
 
-/** Navigate to Protocols → Kafka (message studio). */
+/** Navigate to Protocols → Kafka (message studio) and ensure plaintext connection. */
 export async function kafkaSetup(ctx: DemoActionContext): Promise<void> {
+  try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
   ctx.navigateToTab('kafka-message-studio');
   await ctx.delay(300);
+}
+
+/** Navigate to Kafka Settings and ensure SASL connection for the secure demo stack. */
+export async function kafkaSecureSetup(ctx: DemoActionContext): Promise<void> {
+  try { await ensureKafkaSaslConnected(); } catch { /* server may not be running */ }
+  ctx.navigateToTab('kafka-settings');
+  await ctx.delay(300);
+}
+
+/** Navigate to Kafka Settings and ensure TLS+SASL connection for the TLS demo stack. */
+export async function kafkaTlsSetup(ctx: DemoActionContext): Promise<void> {
+  try { await ensureKafkaTlsConnected(); } catch { /* server may not be running */ }
+  ctx.navigateToTab('kafka-settings');
+  await ctx.delay(300);
+}
+
+// ── API-based Kafka connection helpers ────────────────────────────
+// These bypass UI clicks entirely — each function checks server status
+// via /api/kafka/status and connects if needed.  Lesson setups call the
+// profile that matches their Docker stack.
+
+interface KafkaConnectProfile {
+  clusterId: string;
+  brokers: string[];
+  auth?: { mode: string; username: string; password: string };
+  tls?: { enabled: boolean; rejectUnauthorized: boolean };
+}
+
+const PROFILE_PLAINTEXT: KafkaConnectProfile = {
+  clusterId: 'demo-plaintext',
+  brokers: ['127.0.0.1:19092'],
+};
+
+const PROFILE_SASL: KafkaConnectProfile = {
+  clusterId: 'demo-secure',
+  brokers: ['127.0.0.1:19093'],
+  auth: { mode: 'scram-sha-256', username: 'redfireforge-app', password: 'app-password' },
+};
+
+const PROFILE_TLS: KafkaConnectProfile = {
+  clusterId: 'demo-tls',
+  brokers: ['127.0.0.1:19095'],
+  auth: { mode: 'scram-sha-256', username: 'redfireforge-app', password: 'app-password' },
+  tls: { enabled: true, rejectUnauthorized: false },
+};
+
+const PROFILE_SCHEMA_REGISTRY: KafkaConnectProfile = {
+  clusterId: 'demo-schema-registry',
+  brokers: ['127.0.0.1:19094'],
+};
+
+async function connectProfile(profile: KafkaConnectProfile): Promise<void> {
+  try {
+    const status = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
+    if (status.data?.state === 'connected' && status.data.clusterId === profile.clusterId) return;
+  } catch { /* not connected — fall through */ }
+
+  await dispatchKafkaOperation('connect', {
+    connection: {
+      clusterId: profile.clusterId,
+      clientId: 'redfireforge-demo',
+      brokers: profile.brokers,
+      connectionTimeoutMs: 8000,
+      requestTimeoutMs: 10000,
+      ...(profile.auth ? { auth: profile.auth } : {}),
+      ...(profile.tls ? { tls: profile.tls } : {}),
+    },
+  });
+}
+
+/** Connect to the plaintext Redpanda broker (127.0.0.1:19092). */
+export async function ensureKafkaConnected(): Promise<void> {
+  await connectProfile(PROFILE_PLAINTEXT);
+}
+
+/** Connect to the SASL/SCRAM-256 broker (127.0.0.1:19093). */
+export async function ensureKafkaSaslConnected(): Promise<void> {
+  await connectProfile(PROFILE_SASL);
+}
+
+/** Connect to the TLS + SASL broker (127.0.0.1:19095). */
+export async function ensureKafkaTlsConnected(): Promise<void> {
+  await connectProfile(PROFILE_TLS);
+}
+
+/** Connect to the schema-registry broker (127.0.0.1:19094). */
+export async function ensureKafkaSchemaRegistryConnected(): Promise<void> {
+  await connectProfile(PROFILE_SCHEMA_REGISTRY);
 }
 
 /**
@@ -222,6 +312,15 @@ export async function kafkaSetup(ctx: DemoActionContext): Promise<void> {
  * If a cluster is already configured and connected, this is a fast no-op.
  */
 export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
+  // ── Step 0: Ensure server-side Kafka connection via API ─────────────────
+  // This is the reliable path — if the server is already connected, the UI
+  // steps below become purely cosmetic (cluster card display, etc.).
+  try {
+    await ensureKafkaConnected();
+  } catch {
+    // API call failed (server might not be running) — fall through to UI-based setup
+  }
+
   // ── Step 1: Navigate to Kafka Settings ──────────────────────────────────
   ctx.navigateToTab('kafka-settings');
   await ctx.delay(600);
@@ -229,7 +328,6 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
   // ── Step 2: Ensure at least one cluster exists ───────────────────────────
   const settingsPage = document.querySelector(KAFKA.SETTINGS_PAGE);
   if (!settingsPage) {
-    // Settings page not yet mounted — fall back to plain setup
     ctx.navigateToTab('kafka-message-studio');
     await ctx.delay(300);
     return;
@@ -242,7 +340,6 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
     emptyCreateBtn.click();
     await ctx.delay(500);
 
-    // Fill cluster name (defaults to auto-generated "New Cluster N" — use "Demo Cluster")
     const nameInput = document.querySelector<HTMLInputElement>('#kafka-cluster-name');
     if (nameInput) {
       const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -252,7 +349,6 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
       await ctx.delay(300);
     }
 
-    // Save the cluster (broker stays at default 127.0.0.1:19092 from defaultClusterDraft)
     const saveBtn = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
     if (saveBtn) {
       saveBtn.click();
@@ -261,7 +357,6 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
   }
 
   // ── Step 3: Connect if not already connected ─────────────────────────────
-  // Poll briefly for the Connect button to become available (up to 2 s)
   let connectBtn: HTMLButtonElement | null = null;
   for (let i = 0; i < 10; i++) {
     connectBtn = document.querySelector<HTMLButtonElement>(KAFKA.CONNECT_BTN);
@@ -270,9 +365,14 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
   }
   if (connectBtn && !connectBtn.disabled) {
     connectBtn.click();
-    // Wait for the Disconnect button to appear — it only shows when the cluster
-    // is actually connected, so this correctly blocks until the connection succeeds.
-    await ctx.waitFor(KAFKA.DISCONNECT_BTN, 8000);
+    // Wait for Disconnect button to become ENABLED (not just exist) —
+    // the button is always in the DOM but disabled until connected.
+    const dcStart = Date.now();
+    while (Date.now() - dcStart < 8000) {
+      const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
+      if (dcBtn && !dcBtn.disabled) break;
+      await new Promise(r => setTimeout(r, 200));
+    }
     await ctx.delay(600);
   }
 
@@ -322,16 +422,25 @@ export async function kafkaQuickStartCleanup(ctx: DemoActionContext): Promise<vo
   }
 }
 
-/** Navigate to Protocols → Kafka → Topics tab. */
+/** Navigate to Protocols → Kafka → Topics tab and ensure plaintext connection. */
 export async function kafkaTopicsSetup(ctx: DemoActionContext): Promise<void> {
+  try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
   ctx.navigateToTab('kafka-message-studio');
   await ctx.delay(300);
   await ctx.click(KAFKA.TOPICS_TAB);
-  await ctx.delay(300);
+  await ctx.delay(600);
+
+  // Topics load asynchronously after connection — wait for at least one row
+  const topicRow = `${KAFKA.TOPIC_TABLE} tbody tr[style]`;
+  for (let i = 0; i < 20; i++) {
+    if (document.querySelector(topicRow)) break;
+    await ctx.delay(500);
+  }
 }
 
-/** Navigate to Protocols → Kafka → Schema Registry tab. */
+/** Navigate to Protocols → Kafka → Schema Registry tab and ensure SR broker connection. */
 export async function kafkaSchemaSetup(ctx: DemoActionContext): Promise<void> {
+  try { await ensureKafkaSchemaRegistryConnected(); } catch { /* server may not be running */ }
   ctx.navigateToTab('kafka-message-studio');
   await ctx.delay(300);
   await ctx.click(KAFKA.SCHEMA_TAB);

@@ -881,10 +881,12 @@
 
 .ws-compose-bar {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color, #333);
-  flex-shrink: 0;
+  border-top: 1px solid var(--border-color, #333);
+  flex: 1;
+  min-height: 0;
 }
 
 .ws-compose-input {
@@ -1134,6 +1136,7 @@
   padding: 4px 12px;
   cursor: pointer;
   transition: background 0.1s;
+  position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   box-sizing: border-box;
   height: 26px;
@@ -3808,60 +3811,192 @@
 
 /* ── Replay Bar ── */
 
+/* ── Replay bar ─────────────────────────────────────────────────── */
 .ws-replay-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: rgba(33, 150, 243, 0.08);
-  border-bottom: 1px solid rgba(33, 150, 243, 0.2);
+  gap: 12px;
+  padding: 7px 14px;
+  background: linear-gradient(90deg, rgba(33, 150, 243, 0.10) 0%, rgba(33, 150, 243, 0.05) 100%);
+  border-top: 1px solid rgba(33, 150, 243, 0.25);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85);
+  min-height: 38px;
 }
 
-.ws-replay-playpause {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+/* Left cluster: badge + play/pause + speed */
+.ws-replay-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* REPLAY badge */
+.ws-replay-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(33, 150, 243, 0.18);
+  border: 1px solid rgba(33, 150, 243, 0.35);
   border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64b5f6;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ws-replay-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #42a5f5;
+  box-shadow: 0 0 6px #42a5f5;
+  animation: ws-replay-pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ws-replay-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* Play / Pause button */
+.ws-replay-playpause {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
   color: #fff;
   cursor: pointer;
-  font-size: 14px;
-  padding: 2px 8px;
+  font-size: 13px;
   line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
 }
 
 .ws-replay-playpause:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Speed selector group */
+.ws-replay-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ws-replay-speed-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
 }
 
 .ws-replay-speed {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  color: #fff;
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
-  padding: 2px 6px;
+  padding: 2px 4px;
+  cursor: pointer;
+  transition: border-color 0.15s;
 }
 
-.ws-replay-progress {
+.ws-replay-speed:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Center: progress track + event counter */
+.ws-replay-center {
   flex: 1;
-  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
+.ws-replay-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.ws-replay-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #64b5f6);
+  border-radius: 2px;
+  transition: width 0.25s ease;
+}
+
+.ws-replay-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ws-replay-counter-current {
+  font-size: 13px;
+  font-weight: 600;
+  color: #90caf9;
+}
+
+.ws-replay-counter-sep {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.ws-replay-counter-total {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ws-replay-counter-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: 2px;
+}
+
+/* Exit button */
 .ws-replay-exit-btn {
-  background: rgba(244, 67, 54, 0.12);
-  border: 1px solid rgba(244, 67, 54, 0.3);
-  border-radius: 4px;
-  color: #f44336;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(244, 67, 54, 0.10);
+  border: 1px solid rgba(244, 67, 54, 0.28);
+  border-radius: 6px;
+  color: #ef9a9a;
   cursor: pointer;
   font-size: 12px;
-  padding: 2px 8px;
+  font-weight: 500;
+  padding: 4px 11px;
   white-space: nowrap;
-  margin-left: auto;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .ws-replay-exit-btn:hover {
-  background: rgba(244, 67, 54, 0.2);
+  background: rgba(244, 67, 54, 0.22);
+  border-color: rgba(244, 67, 54, 0.5);
+  color: #ef5350;
+}
+
+.ws-replay-exit-icon {
+  font-size: 10px;
+  opacity: 0.8;
 }
 
 .ws-compose-footer {
@@ -3901,14 +4036,6 @@
 
 .ws-hex-line {
   display: block;
-}
-
-.ws-compose-bar {
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  border-top: 1px solid var(--border-color, #333);
-  border-bottom: none;
 }
 
 /* Visual order within the Compose tab: controls (Format / Templates / Send /
@@ -4368,10 +4495,6 @@
   z-index: 2;
   pointer-events: none;
 }
-.ws-message-row {
-  position: relative;
-}
-
 /* ── Phase 15: Diff Modal ────────────────────────────────────────── */
 
 .ws-diff-overlay {

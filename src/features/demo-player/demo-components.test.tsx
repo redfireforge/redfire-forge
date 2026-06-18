@@ -623,6 +623,11 @@ describe('LessonPlayer', () => {
 // ── LessonList ──────────────────────────────────────────────────
 
 describe('LessonList', () => {
+  const defaultResetProps = {
+    onResetLesson: vi.fn(),
+    onResetAll: vi.fn(),
+  };
+
   it('renders lesson items', () => {
     render(
       <LessonList
@@ -630,6 +635,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Lesson 1')).toBeTruthy();
@@ -644,11 +650,11 @@ describe('LessonList', () => {
         progress={progress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('✓')).toBeTruthy();
     expect(screen.getByText('Restart')).toBeTruthy();
-    // Lesson number should still be visible even when completed
     expect(screen.getByText('1')).toBeTruthy();
   });
 
@@ -660,6 +666,7 @@ describe('LessonList', () => {
         progress={progress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Resume')).toBeTruthy();
@@ -673,6 +680,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={onSelect}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     fireEvent.click(screen.getByText('Lesson 1'));
@@ -687,6 +695,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={onBack}
+        {...defaultResetProps}
       />,
     );
     fireEvent.click(screen.getByText('← Back to all domains'));
@@ -707,10 +716,142 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Basics')).toBeTruthy();
     expect(screen.getByText('Advanced')).toBeTruthy();
+  });
+
+  it('shows per-lesson reset button for completed lessons', () => {
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByTestId('reset-lesson-l1')).toBeTruthy();
+  });
+
+  it('shows inline confirm when reset lesson button clicked', () => {
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    expect(screen.getByTestId('reset-confirm-l1')).toBeTruthy();
+    expect(screen.getByText('Reset progress?')).toBeTruthy();
+  });
+
+  it('calls onResetLesson when confirmed', () => {
+    const onResetLesson = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={onResetLesson}
+        onResetAll={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    fireEvent.click(screen.getByText('↺ Yes'));
+    expect(onResetLesson).toHaveBeenCalledWith('l1');
+  });
+
+  it('dismisses confirm without resetting when ✕ clicked', () => {
+    const onResetLesson = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={onResetLesson}
+        onResetAll={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    fireEvent.click(screen.getByLabelText('Cancel reset'));
+    expect(onResetLesson).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('reset-confirm-l1')).toBeNull();
+  });
+
+  it('shows Reset all button only when at least one lesson is completed', () => {
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.queryByTestId('reset-all-btn')).toBeNull();
+
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    const { rerender } = render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByTestId('reset-all-btn')).toBeTruthy();
+    void rerender; // suppress unused warning
+  });
+
+  it('shows Reset all confirm then calls onResetAll', () => {
+    const onResetAll = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={vi.fn()}
+        onResetAll={onResetAll}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-all-btn'));
+    expect(screen.getByTestId('reset-all-confirm')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('reset-all-yes'));
+    expect(onResetAll).toHaveBeenCalled();
+  });
+
+  it('cancels Reset all without calling onResetAll', () => {
+    const onResetAll = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={vi.fn()}
+        onResetAll={onResetAll}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-all-btn'));
+    fireEvent.click(screen.getByTestId('reset-all-no'));
+    expect(onResetAll).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('reset-all-confirm')).toBeNull();
   });
 });
 

@@ -311,7 +311,10 @@ describe('WebSocketMessageLog', () => {
         onStopReplay: vi.fn(),
         replayProgress: { current: 3, total: 10, elapsedMs: 1000, durationMs: 5000 },
       })} />);
-      expect(screen.getByTestId('replay-progress').textContent).toContain('3 / 10');
+      const progress = screen.getByTestId('replay-progress');
+      expect(progress.textContent).toContain('3');
+      expect(progress.textContent).toContain('10');
+      expect(progress.textContent).toContain('events');
     });
 
     it('shows resume button when paused', () => {

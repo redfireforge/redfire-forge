@@ -108,6 +108,7 @@ describe('kafka-topic-explorer lesson', () => {
     table.className = 'kafka-explorer-topic-table';
     const tbody = document.createElement('tbody');
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
     const clickSpy = vi.fn();
     row.addEventListener('click', clickSpy);
     tbody.appendChild(row);

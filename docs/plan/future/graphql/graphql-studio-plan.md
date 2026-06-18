@@ -1,10 +1,703 @@
 # GraphQL Studio — Feature Plan
 
-> **Status**: Planning  
+> **Status**: Phase 1 Complete ✅ (1A + 1B + 1C + 1D + 1E + All Gap items + Prettify button + per-tab op selection + Round 10 a11y/UX polish + **Phase 1 Comprehensive Re-evaluation Rounds 1–5 — 26 bugs fixed** + **CSS Linting overhaul — 33 CSS bugs fixed** + **Phase 1 Comprehensive Re-eval Round 6 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 7 — 8 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 8 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 9 — 12 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 10 — 11 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 11 — 10 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 12 — 9 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 13 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 14 — 4 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 15 — 6 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 16 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 17 — 2 bugs fixed** + **Phase 1 Comprehensive Re-eval Round 18 — 1 bug fixed** + **Phase 1 Comprehensive Re-eval Round 19 — 2 bugs fixed**)  
 > **Target Version**: v0.8.x  
 > **Prerequisites**: WebSocket Studio (done), Kafka Studio (done), SSE Studio (done)  
-> **Last Updated**: 2026-06-16  
+> **Last Updated**: 2026-06-17 (Phase 1 Comprehensive Re-eval Round 19: 2 bugs fixed — profile load pins endpoint against env auto-sync, polling config visible when schema not loaded)  
 > **Editor**: Monaco (already in project via `@monaco-editor/react`)
+
+## Implementation Status
+
+| Phase | Name | Status | Notes |
+|-------|------|--------|-------|
+| **1A** | Monaco Editor Integration | ✅ **Done** | Multi-tab editor, variables/headers panels, localStorage persistence, `monaco-graphql` worker, **close-tab two-click confirm** |
+| **1B** | Schema Introspection + Explorer | ✅ **Done** | Introspect button, schema parser, schema caching, polling, type explorer with SDL highlighting |
+| **1C** | Query Execution Engine | ✅ **Done** | HTTP POST execution, 3-tab response viewer, cancellation, vars validation, **query AST validation squiggles + ⚠ badge**, **Prettify button** |
+| **1D** | Connection Management | ✅ **Done** | Auth config popover (Bearer/Basic/API Key), recent endpoints dropdown, **Connection Profiles (save/load endpoint+auth)** |
+| **1E** | Environment Variables | ✅ **Done** | `{{var}}` interpolation, two-panel env manager modal, unresolved-var warnings |
+| **Phase 2** | Subscriptions + Query Builder | 🔲 Planned | WS/SSE subscriptions, visual query builder, `@defer`/`@stream`, file upload, performance tracing — see [Section 23 Evaluation](#23-phase-2-comprehensive-evaluation) |
+| **Phase 3** | Collections + Code Gen | 🔲 Planned | History, collections, pre/post scripts, code generation, schema diff, mock server, APQ |
+| **Phase 4** | Workflow Integration + Lessons | 🔲 Planned | Workflow nodes, demo lessons, gallery templates, E2E tests |
+
+### Phase 1A Implementation Summary (Done — Re-evaluated 2026-06-17)
+- `GraphqlEditor.tsx` — Monaco-based editor with `monaco-graphql` language mode  
+- `GraphqlVariablesPanel.tsx` — JSON variables editor with per-operation schema validation  
+- `GraphqlHeadersPanel.tsx` — key-value headers editor with enable/disable toggles  
+- `GraphqlConnectionBar.tsx` — endpoint URL input, Introspect button, Execute button, schema status badge  
+- `GraphqlStudioPage.tsx` — multi-tab orchestration, localStorage persistence, `⌘ Enter` shortcut  
+- `monacoGraphqlSetup.ts` — Monaco worker shim, model management, operation extraction  
+- `GraphqlResponseViewer.tsx` — JSON response display (placeholder for Phase 1C)  
+- Full Catppuccin Mocha color palette, `graphql-studio.css`
+
+#### Phase 1A Re-evaluation Fixes (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-1A-1** | **Unsaved dot wrong color** — `.gql-tab-dot` used `var(--gql-accent)` (blue), identical to the active-tab underline, making it hard to distinguish "active" from "unsaved". Mockup spec says "orange dot". | Changed to `var(--gql-warning)` (amber) — visually distinct from the blue active-tab indicator. |
+| **BUG-1A-2** | **`+` new-tab button vanished at MAX\_TABS** — `{tabs.length < MAX_TABS && <button>}` made the button completely disappear with no user feedback when 8 tabs were open. | Button is always rendered; disabled state (`opacity: 0.3; cursor: not-allowed`) with tooltip "Maximum 8 tabs — close one to open another". |
+| **BUG-1A-3** | **Bottom panel `role="tabpanel"` had no `aria-labelledby`** — single panel div had no link to the active tab button, violating WCAG 4.1.2. | Added `id` to each bottom tab button and `aria-labelledby`/`aria-controls` to link the panel to the active tab. |
+| **BUG-1A-4** | **Right pane `role="tabpanel"` had no `aria-labelledby`** — same issue for Response/Schema view toggle panel. | Same fix: IDs on Response/Schema tab buttons, `aria-labelledby` on the panel pointing to the active view button. |
+| **BUG-1A-5** | **Main tab bar `role="tablist"` had no `aria-label`** — the other two tablists (bottom, right pane) both had `aria-label`, but the main tab bar did not. | Added `aria-label="Query tabs"`. |
+| **BUG-1A-6** | **Tab close button hover used hardcoded `#ef5350`** — breaks on light themes and deviates from the app's design token system. | Replaced with `color: var(--gql-danger)` and `background: color-mix(in srgb, var(--gql-danger) 12%, transparent)`. |
+| **BUG-1A-7** | **Bottom tab count badge used hardcoded `color: #fff`** — breaks on light themes where the accent background is not dark enough to contrast with white text. | Changed to `color: var(--bg-primary)` — the page background color always contrasts with the accent pill regardless of theme. |
+
+#### Phase 1A Re-evaluation Round 2 (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-1A-R2-1** | **Monaco editor didn't auto-focus on tab switch** — `editor.focus()` was only called in `onMount`, which fires once. Switching tabs swaps the Monaco model silently; the editor lost keyboard focus. Users had to click inside the editor before they could start typing after switching tabs. | Added `useEffect([modelPath])` to `GraphqlEditor.tsx` that calls `editorRef.current?.focus()` (deferred one `requestAnimationFrame` to let the model swap settle). |
+| **BUG-1A-R2-2** | **Last-tab close button was visible but clicked silently** — when only 1 tab remained, `setTabs((prev) => { if (prev.length === 1) return prev; })` returned unchanged. The × was fully visible but clicking it did nothing — no feedback, no animation. | Conditionally render the close button only when `tabs.length > 1`. With a single tab the × disappears entirely (it can't be closed anyway), matching the VS Code pattern. |
+| **BUG-1A-R2-3** | **Tab button accessible name was polluted by inner spans** — without an explicit `aria-label`, screen readers computed the button's accessible name from all child text: _"GetCountries Unsaved changes Close GetCountries tab"_. | Added `aria-label={\`${tab.label}${tab.unsavedChanges ? ', unsaved' : ''}\`}` on the tab `<button>`. Added `aria-hidden="true"` to the label span and unsaved dot span so screen readers only see the clean `aria-label` without re-reading child content. |
+| **BUG-1A-R2-4** | **`gql-tab--unsaved` CSS class was dead code** — the class was applied in JSX but had no CSS rule, providing zero visual effect. | Removed the class from the JSX. The unsaved state is fully indicated by the amber dot (`.gql-tab-dot`) and the explicit `aria-label`. |
+
+#### Phase 1A Re-evaluation Round 3 (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-1A-R3-1** | **Invisible close buttons were in the Tab order** — every close `<span>` had `tabIndex={0}`, including the opacity-0 ones on inactive tabs that aren't hovered. Keyboard users could Tab to a button they couldn't see or interact with visually. | Changed `tabIndex` to `isActive \|\| isConfirming ? 0 : -1` — only the active tab's close button (and any tab in confirming-close state) is reachable via Tab. Inactive, invisible close buttons are removed from Tab order. |
+| **BUG-1A-R3-2** | **Phase 1A/1C CSS error states bypassed the `--gql-danger` design token** — `.gql-tab-close--confirming`, `.gql-bottom-tab--error`, `.gql-bottom-tab-error-dot`, `.gql-vars-error-banner`, and `.gql-vars-panel--error` all used hardcoded `#f38ba8` / `#ef5350` hex values instead of `var(--gql-danger)`. Breaks on custom/light themes. | Replaced all with `var(--gql-danger)` and `color-mix(in srgb, var(--gql-danger) N%, transparent)` for background/border tints. |
+| **BUG-1A-R3-3** | **Headers panel inputs had non-unique `aria-label`** — every row rendered `aria-label="Header key"` and `aria-label="Header value"`. With 3+ headers, screen readers could not distinguish rows: "Header key, edit text" × 3. | Added row index to labels: `aria-label="Header 1 name"`, `aria-label="Authorization header value"` (uses key name if set, index otherwise). Same pattern applied to checkbox and remove button. |
+
+### Phase 1B Implementation Summary (Done — Re-evaluated 2026-06-17)
+- `useGraphqlSchema.ts` — introspection hook: fetch, parse, cache (localStorage), poll on interval, error classification  
+- `schemaParser.ts` — `IntrospectionQuery` → `GraphqlSchemaInfo` with per-type `sdlFragment` via `printType()`  
+- `GraphqlSchemaExplorer.tsx` — 2-pane schema explorer:
+  - Left column: "Types (N)" header, Re-introspect + Export SDL buttons, search input, kind filter chips (wrapping), scrollable type entries with colored 22px icon badges
+  - Right column: type detail panel with header (name + kind badge + description + Implements/Union-of), Fields/SDL sub-tabs, table view for fields (sticky header, args, deprecated markers), SDL view with syntax-highlighted definition
+  - SDL tab: pinned toolbar with "SDL Definition" label + **Copy** button (clipboard + "✓ Copied" flash); scrollable `<pre>` below
+  - Scroll position resets automatically when switching between types (`key` prop on TypeDetail)
+  - Empty/loading/error states have CTA action buttons (Introspect / Retry); SVG icons; idle/warn/error opacity tuning
+  - Stats footer: "Schema: N types • N fields • N inputs • N enums | Last introspected: HH:MM (or Jun 15 HH:MM for cached schemas)"
+  - **Click-to-navigate**: user-defined type references in the Fields table render as clickable buttons; clicking selects that type in the list
+  - **Smart kind filter**: keeping existing type selection when the selected type is still visible in the new filter
+- SDL tokenizer: lightweight zero-dependency lexer with **parenthesis-depth tracking** for argument name coloring
+  - Token classes: `gql-sdl-keyword` (purple), `gql-sdl-type` (blue), `gql-sdl-field` (base), `gql-sdl-arg` (yellow — inside `(...)`), `gql-sdl-directive` (red), `gql-sdl-comment` (muted italic), `gql-sdl-string` (green), `gql-sdl-number` (orange), `gql-sdl-punc` (muted)
+- Schema polling: change-detection via SDL hash, pauses when tab hidden  
+- Error classification: network / auth / access-denied / server / introspection-disabled / invalid-JSON
+- All interactive elements use Catppuccin `#89b4fa` — active tab underlines, unsaved dots, focus rings, badges, checkboxes, header-cell focus borders, loading spinners (removed all remaining `var(--accent, #7c3aed)` purple fallbacks from Phase 1A)
+- All success/OK indicators use Catppuccin `#a6e3a1`
+- `gql-select:focus` now shows consistent focus ring matching `gql-input:focus`
+- `monacoGraphqlSetup.ts` uses `MonacoType.Environment` instead of `any` casts; regex escape fixed
+- `.gql-se-detail-content` has `min-height: 0` for correct flex + overflow-y scroll behavior
+
+#### Phase 1B Re-evaluation Fixes (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-1B-1** | **`role="listitem"` on `<button>` elements** — WAI-ARIA prohibits overriding an interactive element's native role with a non-interactive role. The type list had `<button role="listitem">` which is invalid. Screen readers announced them as list items (non-interactive) instead of buttons. | Wrapped each button in `<div role="listitem">` with `display: contents` (zero visual footprint) so the semantic list→listitem→button ownership chain is valid. |
+| **BUG-1B-2** | **TypeDetail `role="tablist"` had no `aria-label`; tab panels had no `aria-labelledby`** — the Fields/SDL sub-tabs and their panels were unlabeled, failing WCAG 4.1.2. | Added `aria-label={"\${type.name} detail"}` to the tablist. Added `id` to each tab button and `aria-labelledby` + `aria-controls` to each tab panel. |
+| **BUG-1B-3** | **`handleExportSDL` revoked the blob URL before the browser could start the download** — `URL.revokeObjectURL()` was called synchronously immediately after `a.click()`. On Firefox this silently aborted the download. | Fixed by appending the anchor to `document.body`, clicking, removing it, then revoking in a `setTimeout(150ms)` to let the browser initiate the download first. |
+| **BUG-1B-4** | **Field type references looked clickable (pointer + underline on hover) but clicking did nothing** — the CSS implied navigation that wasn't implemented, deceiving users. | Implemented click-to-navigate: user-defined types are rendered as `<button class="gql-se-ftype--link">` that calls `handleSelectType()`. Built-in scalars (String, Int, Boolean, etc.) remain plain spans. `navigableTypes: Set<string>` is memoized from `schemaInfo.types`. |
+| **BUG-1B-5** | **Kind filter chip clicks always cleared the type selection** — selecting "Object" filter when an Object type was already selected needlessly blanked the detail panel. | `handleKindFilter` now only clears `selectedTypeName` if the currently selected type's kind doesn't match the new filter. If the type is still in the filtered view, the selection is preserved. |
+| **BUG-1B-6** | **Stats footer showed time only (`HH:MM`)** — if the schema was loaded from cache during a session the next day, "10:30 PM" is ambiguous. | Stats footer now shows `HH:MM` if the schema was fetched today, or `Jun 15 HH:MM` for schemas fetched on a previous date. |
+| **BUG-1B-7** | **Hardcoded hex danger/warning colors in empty state and deprecated tag CSS** — `.gql-se-empty--warn` (`#fab387`), `.gql-se-empty--error` (`#f38ba8`), `.gql-se-deprecated-tag` (`#f38ba8`, `rgba(243,139,168,...)`), and the warn/error CTA button variants all bypassed the `--gql-danger` / `--gql-warning` CSS tokens, breaking on custom themes. | Replaced all with `var(--gql-danger)` / `var(--gql-warning)` and `color-mix(in srgb, var(--gql-danger) N%, transparent)`. |
+
+#### Phase 1B Re-evaluation Round 2 (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-1B-R2-1** | **Search input cleared type selection on every keystroke** — the `onChange` handler called `setSelectedTypeName(null)` in addition to `setSearchQuery()`. Typing "Or" to narrow results immediately blanked the detail panel for the previously selected type, forcing the user to re-click. | Removed `setSelectedTypeName(null)` from the search handler. Selection now only changes on an explicit type click. |
+| **BUG-1B-R2-2** | **Click-to-navigate from field type didn't reset kind filter** — if the schema explorer was filtered to "Object" types and the user clicked an ENUM field type (e.g. `OrderStatus`), the detail panel correctly showed `OrderStatus` but the left list still showed only Object types with nothing highlighted — a confusing list/detail mismatch. | `handleSelectType` now checks if the navigated type's kind matches the current kind filter; if not, it resets the filter to `'ALL'` so the type is visible and highlighted in the list. |
+| **BUG-1B-R2-3** | **`role="list"` used `aria-label="Schema types"` while a visible heading "Types (N)" already existed** — redundant and not semantically linked. | Added `id="gql-se-list-title"` to the title span and changed the list to `aria-labelledby="gql-se-list-title"`, linking it to the visible heading. |
+| **BUG-1B-R2-4** | **Schema explorer hover backgrounds used hardcoded `rgba(255,255,255,…)` values** — `.gql-se-icon-btn:hover`, `.gql-se-filter-chip:hover`, `.gql-se-type-entry:hover`, and `.gql-se-ftr:hover` all used raw white-alpha overlays that break on light themes. Other hover states in the same file already used `var(--surface-hover)`. | Replaced all four with `var(--surface-hover)` (and `var(--border)` for border-color where applicable). |
+
+### Phase 1C Implementation Summary (Done — Re-evaluated)
+- `useGraphqlExecution.ts` — execution hook managing the full query/mutation lifecycle:
+  - `execute(params)` — fires HTTP POST via `httpFetch`, builds `GraphqlResponse` from result
+  - `cancel()` — aborts in-flight request via `AbortController`; Escape key also calls cancel
+  - Handles: network errors, non-JSON responses (HTML error pages), GraphQL partial results (data + errors)
+  - Status: `idle → loading → success | error`; silent abort on cancel
+- `GraphqlResponseViewer.tsx` — fully featured 3-tab response viewer (re-evaluated v2):
+  - **Status bar** (top row):
+    - HTTP status badge with full text label ("200 OK", "404 Not Found", "500 Server Error") — now uses full 5-class color spectrum: green (2xx), amber (3xx), red (4xx/5xx), deep-red (network error)
+    - Latency (amber), response size (muted)
+    - Partial badge (amber) + error count (red) — shown conditionally in left cluster
+    - **Copy button** (right-aligned in status bar) — copies response JSON body with "✓ Copied" flash; replaces previous separate toolbar row
+  - **Body tab** — pure JSON scroll area; no extra toolbar stripe between tab bar and content
+  - **Headers tab** — HTTP response headers table (sticky header, key/value columns)
+  - **Metadata tab** — HTTP status (full verbose label), latency, size, content-type, timestamp; GraphQL error detail cards (message, line/col location badges, path, extension code)
+  - Resets to Body tab automatically on new response (`useEffect` + `prevTimestampRef`)
+  - Loading state: spinner + "Executing…" + "Press Esc to cancel"
+  - Empty state: lightning-bolt SVG icon + "No response yet" title + "Press ⌘ Enter to execute"
+- `GraphqlConnectionBar.tsx` — Execute/Cancel button swap + GQL badge:
+  - **"GQL" method badge** (solid green pill, dark text) at the far left — matches mockup design
+  - While executing: shows **Cancel** button (red, stop-icon) instead of Execute
+  - `varsInvalid` prop: disables Execute button when variables JSON is malformed
+  - `onCancel` prop wired to `AbortController.abort()`
+- `GraphqlStudioPage.tsx` — execution integration:
+  - Real `useGraphqlExecution` hook (replaces `executing = false; response = null` stubs)
+  - `handleExecute` switches right pane to "Response" view before firing
+  - Keyboard: `⌘ Enter / Ctrl+Enter` → execute, `Escape` → cancel
+  - Variables JSON validation: debounced 300ms; red dot on Variables tab; disables Execute button
+  - **Inline variables error banner**: red banner with info icon above Monaco editor when JSON is invalid ("Invalid JSON — fix to enable Execute")
+  - **`.gql-vars-wrapper`** flex column wrapping banner + editor for correct layout
+  - **Response tab status indicator**: green dot (success) / red dot (error) on the "Response" right-pane tab — mirrors the Schema tab badge pattern
+  - `selectedOperation` state: auto-syncs; passed to execution hook
+- CSS additions/updates (`graphql-studio.css`):
+  - `.gql-method-badge` — solid green GQL badge (matches mockup: `#a6e3a1` bg, `#1e1e2e` text)
+  - `.gql-rv-statusbar` — flex `justify-content: space-between`; `.gql-rv-statusbar-left` flex cluster
+  - Full 5-class status badge color spectrum: `--ok`, `--redirect`, `--client-error`, `--server-error`, `--network-error`
+  - `.gql-vars-wrapper` + `.gql-vars-wrapper > .gql-vars-panel` — flex column, min-height: 0 layout
+  - `.gql-vars-error-banner` — red-tinted banner with icon
+  - `.gql-rv-empty-title` + `.gql-rv-empty-body` — improved two-line empty state hierarchy
+  - Removed `gql-rv-toolbar` / `gql-rv-toolbar-left` (merged into status bar)
+  - Removed `margin-left: auto` from `gql-rv-error-count` (layout handled by flex parent)
+- Bug fixes applied in re-evaluation rounds:
+  - **BUG-V1/V2**: Status bar badge was only "200" (number) and only used 2 colors (green/red). Now shows full label "200 OK" and uses 5-class color spectrum
+  - **BUG-V3**: Missing GQL method badge on connection bar — added solid green pill
+  - **BUG-V4**: Response right-pane tab had no execution status indicator — added green/red dot badge
+  - **BUG-V5**: Variables tab error had no inline guidance — added error banner above Monaco editor
+  - **BUG-V6/V7**: Separate toolbar row between tab bar and JSON content — eliminated; Copy moved to status bar
+  - **BUG-V8**: `margin-left: auto` on error count caused misalignment in new flex layout — removed
+  - **BUG-V9**: Error count badge was non-interactive; now a button that navigates to Metadata tab on click (with dotted underline hover affordance)
+  - **BUG-V10**: Copy button had no icon — added clipboard SVG for pre-copy and checkmark SVG for post-copy state
+  - **BUG-V11**: Dead CSS: `.gql-rv-body-tab` and `span.gql-rv-empty-hint` removed; replaced with `.gql-rv-tab-empty` for empty tab states
+  - **BUG-V12**: `HeadersTab` empty state was not vertically centered — now uses `.gql-rv-tab-empty` (flex center)
+  - **BUG-V13**: Status bar used `align-items: center` which looked wrong on multi-line left cluster — changed to `align-items: flex-start`
+
+### Phase 1C Re-evaluation History
+
+#### Round 1 (2026-06-17) — 7 bugs fixed
+
+| ID | Bug | Fix |
+|----|-----|-----|
+| **BUG-1C-1** | `.gql-rv-tab:hover:not(.gql-rv-tab--active)` had `color: var(--text-muted)` — identical to the default, so hovering an inactive tab had **zero visible effect** | Changed hover color to `var(--text)` so inactive tabs lighten visibly on hover |
+| **BUG-1C-2** | Status bar used `align-items: flex-start` causing the Copy button to not vertically center with the left cluster badges; `padding-top: 2px` hack on left cluster was a symptom | Changed status bar to `align-items: center`; removed the `padding-top: 2px` offset |
+| **BUG-1C-3** | `handleCopy` in `GraphqlResponseViewer.tsx` had no `.catch()` on the Clipboard API promise — any rejection (insecure context, denied permission) caused an unhandled promise rejection | Added `.catch(() => {})` to silently absorb clipboard failures |
+| **BUG-1C-4** | All status badge colors (ok, error, redirect), latency, partial badge, and metadata status used hardcoded hex (`#a6e3a1`, `#f38ba8`, `#f9e2af`, `rgba(...)`) instead of `var(--gql-success)`, `var(--gql-danger)`, `var(--gql-warning)` | Replaced all with CSS variable + `color-mix()` equivalents |
+| **BUG-1C-5** | `.gql-rv-copy-btn:hover` used hardcoded `rgba(255,255,255,0.06)` and `rgba(255,255,255,0.2)` — breaks light themes | Replaced with `var(--surface-hover)` and `var(--border)` |
+| **BUG-1C-6** | `.gql-rv-error-count:focus-visible` had hardcoded `#f38ba8` outline instead of `var(--gql-danger)` | Fixed |
+| **BUG-1C-7** | **Complete CSS design-token sweep**: hardcoded hex colors remained in Phase 1A–1E CSS sections — `.gql-method-badge`, `.gql-validation-warning`, `.gql-btn--cancel`, `.gql-env-active-badge`, `.gql-env-var-secret-toggle--active`, `.gql-env-var-remove:hover`, `.gql-env-sidebar-delete:hover`, `.gql-env-import-error`, `.gql-headers-value--warn`, `.gql-headers-unresolved-icon`, `.gql-profile-*`, `.gql-se-sdl-copy-btn--copied`, `.gql-response-spinner` track color, legacy `.gql-status--ok/error` | Replaced all remaining hardcoded semantic hex values with `var(--gql-success/danger/warning)` + `color-mix()` |
+
+#### Round 2 (2026-06-17) — 6 bugs fixed
+
+| ID | Bug | Fix |
+|----|-----|-----|
+| **BUG-1C-R2-1** | `.gql-rv--has-errors` class applied in JSX but **no CSS rule** existed — dead class assignment | Added `.gql-rv--has-errors .gql-rv-statusbar { background: color-mix(in srgb, var(--gql-danger) 4%, var(--surface)); }` to give the status bar a subtle danger tint when the response contains errors |
+| **BUG-1C-R2-2** | Error count `<button>` in the status bar had only `title` for accessibility — screen readers don't reliably announce `title` | Added explicit `aria-label` describing both the count and navigation action |
+| **BUG-1C-R2-3** | **Logic bug**: `gqlResponse.data = parsed.data` can be `undefined` when a server omits the `"data"` key. The `isSuccess = !hasErrors \|\| gqlResponse.data !== null` check treats `undefined !== null` as `true`, incorrectly marking pure-error responses as `'success'` | Normalized `gqlResponse.data = parsed.data ?? null` so the existing `!== null` guard is always correct |
+| **BUG-1C-R2-4** | `gql-rv-headers-table td` row separator used `rgba(255,255,255,0.04)` — invisible on light themes | Changed to `color-mix(in srgb, var(--border) 40%, transparent)` |
+| **BUG-1C-R2-5** | Error path/code `<code>` background used `rgba(255,255,255,0.05)` — breaks light themes | Changed to `var(--surface-hover)` |
+| **BUG-1C-R2-6** | `trimmed !== ''` condition in `execute()` was dead code — `if (trimmed &&` already guards for empty strings | Removed the redundant condition |
+
+### Phase 1D Implementation Summary (Done — Re-evaluated ×5)
+
+- `authUtils.ts` — pure utilities with no React dependency:
+  - `buildAuthHeaders(auth)` — converts `GraphqlAuth | null` → `Record<string, string>` header map for injection
+  - `authBadgeLabel(auth)` — returns display label: `'No Auth'` / `'Bearer'` / `'Basic'` / `'API Key'` / etc.
+  - `isAuthConfigured(auth)` — returns true when auth config is non-empty (used for badge accent color)
+- `useRecentEndpoints.ts` — persisted recent endpoints hook:
+  - `push(url)` — adds to front, deduplicates, caps at 10, saves to localStorage
+  - `remove(url)` — removes a specific entry
+  - `clear()` — empties the list
+- `GraphqlAuthPopover.tsx` — floating auth config dialog:
+  - **Type dropdown**: No Auth / Bearer Token / Basic Auth / API Key / OAuth 2.0 / Custom
+  - **Bearer**: password-masked token input with visibility toggle (eye icon)
+  - **Basic**: username + password (masked) inputs
+  - **API Key**: header name (default `X-API-Key`) + value (masked) inputs
+  - **OAuth 2.0 / Custom**: read-only info boxes explaining where to configure
+  - **Footer preview**: shows exact header that will be injected (`Authorization: Bearer xxx…`, `X-API-Key: •••`)
+  - `onChange(null)` called when "No Auth" selected — parent clears auth state
+- `GraphqlConnectionBar.tsx` — Phase 1D additions:
+  - **Auth badge button**: shows current type with lock icon + chevron
+    - Gray (unconfigured): `No Auth` or empty bearer/basic/apiKey
+    - Blue accent (configured): `Bearer` / `Basic` / `API Key` with filled credentials
+  - **Auth badge click** → opens `GraphqlAuthPopover` (floating panel)
+  - **Recent endpoints dropdown**: appears when URL input is focused, shows clock icon + URL, × remove button (hidden until hover)
+  - Both popover and dropdown close on click-outside / Escape
+- `GraphqlStudioPage.tsx` — Phase 1D additions:
+  - `auth` state (`GraphqlAuth | null`) with localStorage persistence (`gql_auth_v1`)
+  - `handleAuthChange(auth | null)` — updates state + localStorage
+  - `useRecentEndpoints()` hook wired: `push(endpoint)` called before every execution
+  - `buildAuthHeaders(auth)` merged into request headers: auth headers spread first, user tab headers override
+- CSS additions (`graphql-studio.css`):
+  - `.gql-auth-badge` — configurable color scheme (gray default, blue when configured)
+  - `.gql-auth-badge--configured` — accent styles for active auth
+  - `.gql-auth-popover` — floating panel (320px wide, shadow, border-radius)
+  - `.gql-auth-popover-header/body/footer` — layout sections
+  - `.gql-auth-field` + `.gql-auth-label` + `.gql-auth-input` — field + label system
+  - `.gql-auth-pw-wrap` + `.gql-auth-pw-toggle` — password wrap with visibility toggle
+  - `.gql-auth-info-box` — tinted info box for OAuth2/Custom notes
+  - `.gql-auth-preview` — monospace preview in popover footer
+  - `.gql-recent-endpoints` + `.gql-recent-endpoint-item/btn/url/remove` — dropdown system
+- Mockup updated (`graphql-studio-main.html`):
+  - Connection bar now shows **auth badge** (configured with Bearer example) + **auth popover** (open state)
+  - Recent endpoints dropdown shown in mockup (hidden by default)
+  - Replaced flat `<select class="auth-dropdown">` with proper popover design
+- Bug fixes applied in re-evaluation round 1:
+  - **BUG-1D-V1/V2**: "No Auth" selection wrote `{ type: 'bearer', token: '' }` to localStorage and showed "Bearer Token" pre-selected on next open — fixed by making `onChange` accept `null` and initializing popover from null auth correctly
+  - **BUG-1D-V3**: Escape key in auth popover also triggered global cancel-execution handler — fixed by using `{ capture: true }` event listener with `e.stopPropagation()`
+  - **BUG-1D-V4**: Auth popover anchored `left: 0` — overflowed off right side of viewport — fixed by using `right: 0; left: auto` (right-edge anchoring)
+  - **BUG-1D-V5**: Missing `aria-modal="true"` on popover `role="dialog"` — added
+- Bug fixes applied in re-evaluation round 2:
+  - **BUG-R2-1**: Schema status badge showed TWO dots simultaneously when `schemaPolling=true` (animated pulsing dot + static green dot) — polling dot now replaces the static dot (mutually exclusive)
+  - **BUG-R2-2**: Auth badge had no "open" visual state — added `[aria-expanded="true"]` CSS for both unconfigured and configured badge states
+  - **BUG-R2-3**: Auth popover opened without moving keyboard focus — added `requestAnimationFrame(() => typeSelectRef.current?.focus())` on mount for keyboard accessibility
+  - **BUG-R2-4 (cleanup)**: Removed dead `auth.type === 'none' as string` comparison from `authBadgeLabel()` in `authUtils.ts`
+- Bug fixes applied in re-evaluation round 3:
+  - **BUG-R3-1 (UX)**: Popover body was completely empty when "No Auth" was selected — no guidance. Added `.gql-auth-no-auth-hint` message: "No authentication headers will be sent. Select a type above to add credentials." with dashed border and muted text
+  - **BUG-R3-2 (UX)**: Auto-focus on popover mount always went to the type selector, even when auth was already configured (Bearer+token, Basic+username, etc.) — user had to Tab once to reach the credential field. Fixed: if auth is not null on mount, focus the first credential field directly (`firstFieldRef`)
+  - **BUG-R3-3 (Polish)**: Basic Auth preview showed a misleading base64 string computed from `"username:***"` (e.g. `Authorization: Basic dGVzdHVzZXI6KioqKioq`) — non-obvious to users. Changed to `Authorization: Basic ••• (username:••••••)` which is clearer and human-readable
+  - **BUG-R3-4 (Logic)**: `isAuthConfigured()` for `apiKey` required BOTH `headerName` AND non-empty `headerValue` to turn the badge blue. But an API key with an empty value may be intentional (header presence as auth signal). Fixed: only check `headerName.trim()` — setting the header name is sufficient to be "configured"
+  - **BUG-R3-5 (UX)**: After selecting a new auth type from the dropdown, focus stayed on the type selector. User had to Tab to reach the first credential field. Fixed: a `prevTypeRef` tracks the previous type; when type changes (after mount), a `requestAnimationFrame` focuses `firstFieldRef.current` so the user can type immediately
+  - **PasswordInput refactor**: Added optional `inputRef` prop (`React.RefObject<HTMLInputElement | null>`) to forward to the underlying `<input>` element — required for `firstFieldRef` auto-focus in Bearer token and API Key value fields
+- Bug fixes applied in re-evaluation round 4 (2026-06-17):
+  - **BUG-1D-R4-1 (UX/Visibility)**: Profile badge hover kept `color: var(--text-muted)` — identical to the default, providing no visible hover feedback. Fixed: `color: var(--text)` on hover so the label lightens.
+  - **BUG-1D-R4-2 (UX/Visibility)**: Auth badge hover also kept `color: var(--text-muted)` — same invisible hover. Fixed: `color: var(--text)` on hover.
+  - **BUG-1D-R4-3–18 (CSS Token Sweep)**: 16 hardcoded `rgba(255,255,255,...)` and one `rgba(0,0,0,...)` value across auth badge defaults/hover/open-state, auth popover header/close-hover/pw-toggle-hover/no-auth-hint/footer, profile badge default-border/hover, profile modal border/header-border/close-hover/section-divider/list-scrollbar/row-bg/row-border/row-hover, and recent endpoint button hover — all replaced with CSS variable equivalents (`var(--surface-hover)`, `var(--border)`, `color-mix(in srgb, var(--border) …, …)`, etc.) for light/dark theme compatibility.
+  - **BUG-1D-R4-19 (A11y)**: Auth badge button only had a `title` attribute for screen readers. `title` is not reliably announced by all assistive technologies. Fixed: added explicit `aria-label="Authentication: ${authLabel} — click to configure"`.
+  - **BUG-1D-R4-20 (A11y/Focus)**: After closing the auth popover via Escape key or the × close button, focus was not returned to the triggering button. Per the ARIA dialog pattern, closing a modal/popover via keyboard must return focus to the element that opened it. Fixed: (a) Escape handler in `GraphqlAuthPopover.tsx` calls `anchorRef.current?.focus()` before `onClose()`. (b) Close button `onClick` also calls `anchorRef.current?.focus()` before `onClose()`. Click-outside dismissal intentionally does NOT restore focus (user is navigating away).
+  - **BUG-1D-R4-21 (Code Quality)**: `gql-auth-badge-wrap` had `position: relative` applied as an inline `style` in JSX. Moved to the CSS class `.gql-auth-badge-wrap` in `graphql-studio.css`, consistent with `gql-connection-url-wrap`.
+- Bug fixes applied in re-evaluation round 5 (2026-06-17):
+  - **BUG-R5-1 (A11y/Focus)**: Profile modal close via Escape or × didn't restore focus — after dismissal, focus evaporated into the void (the modal container had `tabIndex=-1`, so keyboard users were stranded). Fixed in `GraphqlStudioPage.tsx`: `onClose` now calls `requestAnimationFrame(() => document.querySelector('[data-testid="gql-profile-badge"]')?.focus())` to return focus to the profile badge button. Intentional exception: closing via the **Load** action does not restore focus, since the user's intent is to continue with the newly-loaded endpoint.
+  - **BUG-R5-5 (CSS Specificity)**: After the Round 4 hover color fix (`gql-auth-badge:hover { color: var(--text) }`), the configured auth badge lost its accent color on hover. Both `.gql-auth-badge:hover` (specificity 0,2,0) and `.gql-auth-badge--configured` (0,1,0) applied — the higher-specificity hover rule stripped the accent. Fixed: added `color: var(--gql-accent)` to `.gql-auth-badge--configured:hover` so the accent is explicitly preserved on hover for configured badges.
+
+### Phase 1E Implementation Summary (Done — Re-evaluated ×6)
+
+- **New file: `src/features/graphql/utils/envUtils.ts`** — pure utilities (no React):
+  - `resolveVars(str, env)` — replaces `{{key}}` with values from enabled vars; unresolved refs stay as-is; single-pass only
+  - `findUnresolvedVars(str, env)` → `string[]` — returns list of unresolved `{{key}}` names
+  - `hasUnresolvedVars(str, env)` → `boolean` — shorthand for `findUnresolvedVars(...).length > 0`
+  - Uses `buildVarMap()` helper: only `enabled: true` + non-empty-key vars are resolved
+- **New file: `src/features/graphql/hooks/useGraphqlEnvironments.ts`** — environment state hook:
+  - Manages `GraphqlEnvironment[]` persisted in `localStorage` under `gql_environments_v1`
+  - `activeEnvironment: GraphqlEnvironment | null` — the env with `isActive: true`
+  - `createEnvironment(name)` → id; auto-activates first env only if it's the first created
+  - `deleteEnvironment(id)` — auto-activates first remaining env if active env is deleted
+  - `setActiveEnvironment(id | null)` — only one active at a time
+  - `updateEnvironmentName(id, name)` / `updateVariables(id, vars[])` — mutations
+  - `importEnvironment(json)` — supports Postman format (`values[]`) and native format (`variables[]`)
+  - `exportEnvironment(id)` — returns JSON string (without `id` or `isActive` fields)
+- **New file: `src/features/graphql/components/GraphqlEnvModal.tsx`** — two-panel modal:
+  - Left sidebar (210px): env list, active-env green dot, hover delete (trash), `[+ New]`, `[↑ Import]`
+  - Right panel: click-to-edit env name, `[Active ✓]` badge or `[Set Active]` button, `[↓ Export]`
+  - Variable table: enabled checkbox, key input, value input (masked when `masked: true`), 🔒 secret toggle (amber), × delete
+  - `[+ Add Variable]` button at bottom
+  - Escape key closes (with `stopPropagation`); click outside panel closes
+  - After `+ New`: env is selected and name edit mode activates immediately (via `skipNextResetRef` + `requestAnimationFrame`, no flash)
+  - After import: the last env in the list is auto-selected (via `prevEnvCountRef` effect)
+  - Non-masked values render as plain `gql-input`; only `masked: true` values use the `gql-env-masked-wrap` border container
+- **Updated: `GraphqlConnectionBar.tsx`**:
+  - New `activeEnvName` + `onEnvBadgeClick` props
+  - Env badge placed between URL input and auth badge: gray `No Env ▾` / teal `Staging ▾`
+  - Badge shows name truncated to 18 chars with `…`
+- **Updated: `GraphqlStudioPage.tsx`**:
+  - `useGraphqlEnvironments()` hook wired; `activeEnvironment` threaded through
+  - `envModalOpen` state controls `GraphqlEnvModal` visibility
+  - `handleExecute`: `resolveVars()` applied to endpoint URL, all header values, and variables JSON at call time — stored values never mutated
+  - `activeEnvironment` passed to `GraphqlHeadersPanel`
+- **Updated: `GraphqlHeadersPanel.tsx`**:
+  - New `activeEnvironment?: GraphqlEnvironment | null` prop
+  - Value column is now wrapped in `.gql-headers-cell--value-wrap` flex div
+  - Enabled headers with unresolved `{{var}}` refs show amber `⚠` warning icon with tooltip listing each missing var name
+- **CSS additions (`graphql-studio.css`)**:
+  - `.gql-env-badge` / `.gql-env-badge--active` — env button with teal accent when active
+  - `.gql-env-modal-overlay` — transparent fixed overlay
+  - `.gql-env-modal` — 780px panel with heavy shadow
+  - `.gql-env-sidebar` + `.gql-env-sidebar-header/list/item/footer` — left env list panel
+  - `.gql-env-active-dot` / `.gql-env-active-dot--on` — green glow dot for active env
+  - `.gql-env-main` + `.gql-env-main-header` + `.gql-env-name-display` — right panel
+  - `.gql-env-var-row` + `.gql-env-masked-wrap` + `.gql-env-var-secret-toggle` — variable table
+  - `.gql-env-active-badge` — green `Active ✓` badge
+  - `.gql-headers-cell--value-wrap` + `.gql-headers-unresolved-icon` — header warning system
+- **Mockup updated (`graphql-studio-main.html`)**:
+  - Env badge shown in connection bar (teal `Staging ▾` example)
+  - Full env manager modal mockup (env list, variable table, active badge, secret masking)
+  - UX guide annotations in HTML comments
+- Bug fixes applied in re-evaluation round 1:
+  - **BUG-1E-V1 (Critical Logic)**: When switching environments in the modal, the `localVars` flush effect was called with the new `selectedId` but OLD `localVars` (before the sync effect updated them) — writing the old env's variables to the new env. Fixed by using a `selectedIdRef` (updated every render) instead of putting `selectedId` in the flush effect's deps, plus a `flushInitRef` to skip the initial-mount flush entirely.
+  - **BUG-1E-V2 (Polish)**: `handleFileChange` had redundant `setSelectedId(null) + setTimeout` logic — the `prevEnvCountRef` effect already handles auto-selecting the imported env. Removed the dead code.
+  - **BUG-1E-V3 (CSS)**: `.gql-headers-cell--value` inside the new flex wrapper inherited `width: 100%` from the class rule, which conflicts with `flex: 1` sizing. Added `width: auto` override to `.gql-headers-cell--value-wrap .gql-headers-cell--value`.
+- Bug fixes applied in re-evaluation round 2:
+  - **BUG-R2-1 (UX — Flash)**: Creating a new environment caused a visible flash: `setSelectedId(id)` triggers the `useEffect([selectedId, selectedEnv?.name])` sync effect which sets `editingName = false`, then the 50ms timeout re-sets it to `true`. Fixed by introducing `skipNextResetRef` (a `useRef`) and using `requestAnimationFrame` instead of `setTimeout(50)`. The ref tells the sync effect to skip the reset; RAF fires after React paints the new env in the sidebar, avoiding any intermediate false→true transition.
+  - **BUG-R2-2 (Layout — Modal height)**: `gql-env-modal` had no `min-height`, causing the modal to collapse to a tiny panel when there are no environments or variables. Added `min-height: 440px` so the modal always appears as a full, professional panel.
+  - **BUG-R2-3 (CSS — Focus ring)**: `gql-env-masked-wrap` had no `:focus-within` styling. When the secret value input inside received focus, the border stayed gray (the input's own focus ring was suppressed via `border: none` from the parent override). Added `.gql-env-masked-wrap:focus-within { border-color: accent; box-shadow }` and `outline: none` on the inner input so the wrapper's focus ring is used instead.
+  - **BUG-R2-4 (UX — Error persistence)**: Import error message stayed visible forever. Added a `useEffect` that clears `importError` after 5 seconds via `setTimeout`.
+  - **BUG-R2-5 (Polish — No activation feedback)**: When clicking "Set Active", the static badge replacement with "Active ✓" gave no motion cue that the action was received. Added `@keyframes gql-badge-pop` (scale 0.8→1.06→1, opacity 0→1, 0.18s) on `.gql-env-active-badge`.
+  - **BUG-R2-6 (UX — Tooltip text)**: Env badge `title` for no-env state said "No environment selected" — uninformative. Updated to "No environment active — click to set up environment variables". Active state: "Active environment: ${name} — click to manage".
+  - **BUG-R2-7 (Layout — MaskedInput wrapper)**: `MaskedInput` always wrapped the value in `.gql-env-masked-wrap` (border-providing div) regardless of whether `masked = true` or `false`. Non-masked variables ended up inside an extra container that provided redundant visual styling. Fixed: non-masked renders a plain `gql-input gql-env-var-input`, masked renders inside the wrap div with `autoComplete="new-password"` and no `gql-input` class on the inner input. Also added `min-width: 0` to `gql-env-var-input` to allow flex shrinking in the variable table.
+  - **Polish**: Moved `nameValue` state declaration above the auto-clear `useEffect` for cleaner hook ordering.
+- Bug fixes applied in re-evaluation round 3:
+  - **BUG-R3-1 (CSS — Padding)**: The masked input inside `.gql-env-masked-wrap` had no padding — text rendered flush against the border. Non-masked inputs get `padding: 5px 9px` from the `gql-input` class, but the masked path only applied `gql-env-var-input` (no `gql-input`, no explicit padding). Fixed by adding `padding: 5px 9px` to `.gql-env-masked-wrap .gql-env-var-input` in the CSS.
+  - **BUG-R3-2 (UX — Empty state coherence)**: When there are no variables, the empty state text was vertically centered but the "Add Variable" button sat at the bottom-left — visually disconnected. Fixed by restructuring the JSX: in the empty branch, the button is rendered INSIDE the empty-state div with `gql-env-var-add--centered` modifier (solid border, teal color, centered alignment). In the non-empty branch, the button remains below the scrollable table as before.
+  - **BUG-R3-3 (Logic — Blank name commit)**: In `commitName`, if the user cleared the name input and blurred, `onRename` was correctly skipped but `nameValue` stayed as `''`. The next time the user clicked the name to edit, the input showed blank text instead of the actual environment name. Fixed by adding an `else` branch in `commitName` that resets `nameValue` to `selectedEnv?.name` when the trimmed value is empty.
+- Bug fixes applied in re-evaluation round 4 (2026-06-17):
+  - **BUG-1E-R4-1–13 (CSS Token Sweep)**: 13 hardcoded `rgba(255,255,255,...)` values replaced with CSS variables — env badge default/hover bg, modal close hover, sidebar item hover, env name display hover, inline `{{KEY}}` code bg, var row border/hover, masked-value toggle hover, secret toggle hover. All replaced with `var(--surface-hover)`, `color-mix(in srgb, var(--border) …, …)`, etc. for light/dark theme compatibility.
+  - **BUG-1E-R4-14 (CSS Design Token — Teal)**: Env badge active state and schema-explorer interface kind badge used hardcoded Catppuccin teal `#94e2d5` and `rgba(148,226,213,...)`. On light themes, these would produce the wrong tint (white-on-white for low-opacity backgrounds) or jarring fixed colors. Fixed: added `--gql-teal: var(--teal, #94e2d5)` to the `.gql-studio` CSS block (falls back to the Catppuccin constant). Replaced all `#94e2d5` / `rgba(148,226,213,...)` occurrences with `var(--gql-teal)` and `color-mix(in srgb, var(--gql-teal) …%, transparent)`. Also updated `.gql-se-kind--interface` and `.gql-se-impl-link` for full consistency.
+  - **BUG-1E-R4-15 (A11y/Focus)**: Closing the env manager modal via Escape or the × button did not return focus to the triggering element. After dismissal, keyboard users were left with no focused element. Fixed in `GraphqlEnvModal.tsx`: added `restoreFocusToTrigger()` helper (queries `[data-testid="gql-env-badge"]` and focuses it via `requestAnimationFrame`). Called in both the Escape key handler (non-editing-name path) and the × button's `onClick`. Click-outside dismissal intentionally does NOT restore focus (user clicked elsewhere).
+- Additional cross-phase token sweep (Round 4 — comprehensive):
+  - **Schema explorer SDL copy btn hover**: `rgba(255,255,255,0.06)` bg and `rgba(255,255,255,0.16)` border → `var(--surface-hover)` and `var(--border)`.
+  - **CTA/SE spinner track** (`.gql-se-btn-spinner`): `rgba(255,255,255,0.3)` → `color-mix(in srgb, currentColor 30%, transparent)` — track now matches the spinner color for consistent appearance on any background.
+  - **Ghost button hover** (`.gql-btn--ghost:hover`): `rgba(255,255,255,0.05)` bg and `rgba(255,255,255,0.18)` border → `var(--surface-hover)` and `var(--border)`.
+  - **Primary button spinner** (`.gql-btn-spinner`): `rgba(255,255,255,0.3)` track and `#fff` tip → `currentColor` pattern (`color-mix(in srgb, currentColor 30%, transparent)` track / `currentColor` tip) for full theme compatibility.
+  - **Profile auth badge** (`.gql-profile-auth-badge`): `rgba(255,255,255,0.06)` bg and `rgba(255,255,255,0.08)` border → `var(--surface-hover)` and `var(--border)`.
+  - **Profile delete button default border** (`.gql-profile-btn--delete`): `rgba(255,255,255,0.07)` → `var(--border)`.
+  - **Profile save-form section bg** (`.gql-profile-section--save`): `rgba(255,255,255,0.015)` → `color-mix(in srgb, var(--border) 15%, transparent)`.
+  - **Profile save-form preview** (`.gql-profile-save-form__preview`): `rgba(255,255,255,0.03)` bg and `rgba(255,255,255,0.06)` border → `color-mix(in srgb, var(--border) 25%, transparent)` and `color-mix(in srgb, var(--border) 50%, transparent)`.
+  - **Schema explorer type list item separator** (line ~2348): `rgba(255,255,255,0.04)` border-bottom → `color-mix(in srgb, var(--border) 40%, transparent)`.
+  - **Schema explorer field count** (`.gql-se-type-count`): `rgba(255,255,255,0.28)` color → `var(--text-muted)` (field count is a UI label, not a decorative element).
+  - **Schema explorer field table row** (`.gql-se-ftr`): `rgba(255,255,255,0.05)` border-bottom → `color-mix(in srgb, var(--border) 50%, transparent)`.
+  - **Result**: `graphql-studio.css` now has **zero** hardcoded `rgba(255,255,255,...)` values.
+- Bug fixes applied in re-evaluation round 5 (2026-06-17):
+  - **BUG-1E-R5-1 (CSS Design Tokens — Mauve/Peach)**: Added `--gql-mauve: var(--mauve, #cba6f7)` and `--gql-peach: var(--peach, #fab387)` to the `.gql-studio` CSS block. These cover enum kind badges, schema arg names, SDL/JSON keyword/number tokens, and boolean values — all were previously hardcoded Catppuccin constants.
+  - **BUG-1E-R5-2 (CSS — Toggle thumb)**: `#fff` on `.gql-polling-switch-thumb` → `var(--bg)`. On light themes, a white thumb on a light-gray track is invisible; `--bg` is always the page background, contrasting naturally against the `--gql-success` active track.
+  - **BUG-1E-R5-3 (CSS — Danger button hover)**: `#ef5350` on `.gql-btn--danger:hover` → `var(--gql-danger)` for consistency.
+  - **BUG-1E-R5-4 (CSS — Tab type dots)**: Hardcoded Material Design colors `#4fc3f7` (query), `#ef9a9a` (mutation), `#a5d6a7` (subscription) → `var(--gql-accent)`, `var(--gql-danger)`, `var(--gql-success)`.
+  - **BUG-1E-R5-5 (CSS — Response error count)**: `#ef9a9a` → `var(--gql-danger)`.
+  - **BUG-1E-R5-6 (CSS — Schema kind badges)**: `rgba(243,139,168,0.2)` (union) / `rgba(250,179,135,0.2)` (input) / `rgba(203,166,247,0.2)` (enum) / `rgba(166,227,161,0.2)` (scalar) + matching text colors → replaced with `color-mix()` of `--gql-danger`, `--gql-peach`, `--gql-mauve`, `--gql-success`.
+  - **BUG-1E-R5-7 (CSS — Schema explorer labels)**: `#fab387` (arg names), `#cba6f7` (enum values bg/fg, SDL toolbar label) → `var(--gql-peach)` / `var(--gql-mauve)`.
+  - **BUG-1E-R5-8 (CSS — SDL syntax tokens)**: All 7 hardcoded colors in SDL viewer token rules replaced with CSS vars: `var(--gql-mauve)` keyword, `var(--gql-warning)` arg, `var(--gql-danger)` directive, `var(--text-muted)` comment/punc, `var(--gql-success)` string, `var(--gql-peach)` number.
+  - **BUG-1E-R5-9 (CSS — JSON syntax tokens)**: All 5 hardcoded colors in JSON viewer token rules replaced: `var(--gql-success)` string, `var(--gql-peach)` number, `var(--gql-mauve)` boolean, `var(--text-muted)` null/punc.
+  - **Result**: `graphql-studio.css` now has **zero** hardcoded semantic color values — all syntax/kind/state colors go through CSS design tokens. The only remaining hardcoded value is `#12261c` (very dark green text on the method badge), which is intentional for contrast against the bright green background.
+  - **BUG-1E-R5-10 (A11y — Env badge aria-label)**: `aria-label` for the env badge was inconsistent with its `title`. Active: aria-label said `"Environment: {name}"` vs title `"Active environment: {name} — click to manage"`. No-env: aria-label said `"No environment — click to manage"` vs title `"No environment active — click to set up environment variables"`. Fixed: aria-label now mirrors the title exactly in both states.
+- Bug fixes applied in re-evaluation round 6 (2026-06-17):
+  - **BUG-1E-R6-1 (A11y — ARIA listbox/option invalid structure)**: The env sidebar used `<ul role="listbox">` with `<li role="option">` containing nested `<button>` elements inside each option. ARIA requires that `role="option"` elements BE the interactive elements (not contain them), and `role="listbox"` implies arrow-key navigation which was not implemented. This is an ARIA validity violation that causes confusing screen reader announcements. Fixed: changed to plain `<ul role="list">`, removed `role="option"` and `aria-selected` from `<li>`, and added `aria-current="true"` to the selected item's inner `<button>` — which is the correct pattern for sidebar navigation lists.
+  - **BUG-1E-R6-2 (A11y — No initial focus on modal open)**: When `GraphqlEnvModal` mounted, no element received focus — keyboard-only and screen reader users were left with focus on the env badge button behind the modal, unable to navigate into it without pressing Tab many times. Fixed: added `tabIndex={-1}` to the modal panel `<div>` and a mount `useEffect` that calls `panelRef.current?.focus()`. This announces the dialog label ("Environment Variables") to screen readers and positions focus inside the modal as per ARIA dialog open patterns.
+  - **Mockup updated (`graphql-studio-main.html`)**: Added `role="dialog"`, `aria-label`, `aria-modal`, and `tabindex="-1"` to the env modal `<div>`. Updated sidebar list to use `role="list"` and `aria-current="true"` on the selected button. Fixed the modal box-shadow inner glow (replaced `rgba(255,255,255,0.04)` with `#2a2a40`). Added clarifying HTML comments for the new ARIA patterns.
+
+### Phase 1 Gap Items — Implementation Summary (Done + Re-evaluated ×6 + Round 7–9 gap-fill)
+
+#### Round 10 — Audit-driven polish (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R10-1** | **Prettify no-op set `unsavedChanges: true`** — `gqlPrint(gqlParse(query))` on an already-canonical query returns the identical string, but `handleQueryChange` was called unconditionally, setting `unsavedChanges: true` and showing the unsaved dot + requiring two-click close. | Added `if (formatted === query) return;` before `handleQueryChange`. |
+| **BUG-R10-2** | **`role="tabpanel"` had no `aria-labelledby`** — the single `<div role="tabpanel">` in `GraphqlResponseViewer.tsx` wasn't linked to the active tab button. Screen readers would announce "tab panel" without context. | Added `id` attributes to each tab button (`gql-rv-tab-body-btn`, etc.), `aria-controls="gql-rv-tabpanel"` on each tab, and `aria-labelledby={\`gql-rv-tab-${activeTab}-btn\`}` on the panel div. |
+| **BUG-R10-3** | **`pushRecentEndpoint` stored the raw template URL** — if endpoint was `https://{{host}}/graphql`, the recent dropdown showed the unresolved placeholder instead of the human-readable resolved URL. | Moved `pushRecentEndpoint` call to after `resolveVars`, passing `resolvedEndpoint` instead of raw `endpoint`. |
+| **BUG-R10-4** | **Stale comment in `updateActiveTab`** — comment said "useCallback with [setTabs, activeTabId]" but actual deps array is `[]` (stable via `activeTabIdRef`). | Corrected comment to accurately describe the `[]` deps pattern. |
+
+---
+
+#### Round 9 — `selectedOperation` per-tab bug (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R9-1** | **`selectedOperation` was global state, not per-tab** — switching away from Tab A then back lost the user's operation-picker selection (always reset to the first operation). For a tab with `[GetUser, GetPost]` where the user selected "GetPost", returning after a tab switch would silently reset to "GetUser". | Added `selectedOperation?: string` to `GraphqlOperationTab` type. Replaced the global `useState` with a derived value from `activeTab.selectedOperation`. Added `handleSelectOperation` callback that calls `updateActiveTab`. Added a normalising `useEffect([activeTab?.query])` that clears stale/invalid stored selections when the operations list changes. `normalizeTab` now restores the field from localStorage. |
+
+---
+
+#### Re-evaluation Round 8 — Prettify + Empty-Endpoint Polish (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R8-1** | Prettify button `background: var(--surface)` blended into Monaco's dark editor background — at `opacity: 0.55` the button was nearly invisible against the editor canvas. | Added `backdrop-filter: blur(6px)` and `background: color-mix(in srgb, var(--surface) 85%, transparent)` so the button always reads clearly over the dark editor regardless of theme token values. Raised resting opacity to `0.75`. |
+| **BUG-R8-2** | Missing `user-select: none` on Prettify button — clicking the button label could accidentally select the text "Prettify". | Added `user-select: none` to `.gql-prettify-btn`. |
+| **BUG-R8-3** | Missing `white-space: nowrap` on Prettify button — the label could wrap to two lines on narrow layouts. | Added `white-space: nowrap` to `.gql-prettify-btn`. |
+| **BUG-R8-4** | Prettify button had `right: 10px` — right edge of button was touching Monaco's ~10px vertical scrollbar with 0px visual gap. | Changed to `right: 14px` for a clean 4px gap between button and scrollbar track. |
+| **BUG-R8-5** | Redundant `pointer-events: auto` in `.gql-prettify-btn` CSS — this is the default value; no effect but adds noise. | Removed. |
+| **BUG-R8-6** | Mockup HTML (`graphql-studio-main.html`) was missing the Prettify button and the empty-endpoint disabled-button state. | Added `.prettify-btn` CSS rules and button overlay to the editor area. Added HTML comment documenting the empty-endpoint disabled state for Execute + Introspect. |
+
+---
+
+**Round 7 gap-fill (2026-06-17): Two remaining table-stakes items found during final Phase 1 audit.**
+
+#### 7. Empty Endpoint Disables Execute + Introspect Buttons
+
+**Problem**: `executeDisabled` and `introspectDisabled` in `GraphqlConnectionBar.tsx` did not check `!endpoint.trim()`. The `handleExecute` handler in `GraphqlStudioPage.tsx` already early-returned on empty endpoint, but the button appeared *visually enabled* — users could click it and nothing would happen with no feedback.
+
+**Fix**: Added `noEndpoint = !endpoint.trim()` and included it in both disabled conditions. Updated `aria-label` and `title` attributes on both buttons to explain why they're disabled when the endpoint is empty (e.g. "Enter an endpoint URL first"). This matches standard UX: if an action can't fire, its trigger must look disabled.
+
+**Files changed**: `GraphqlConnectionBar.tsx`
+
+---
+
+#### 8. Prettify / Format Query Button
+
+**Purpose**: Every major GraphQL IDE (GraphiQL, Insomnia, GraphQL Playground, Apollo Studio) has a Prettify button that normalises query indentation and whitespace using `print(parse(query))`. This is table-stakes for a GraphQL editor and was missing entirely.
+
+**Design decisions**:
+- Floating button overlay in the **top-right corner of the query editor pane** — discoverable without cluttering the connection bar
+- Rests at 55% opacity; becomes fully opaque on hover/focus so it doesn't distract while writing
+- On success: silently formats the query in-place (calls `handleQueryChange` which updates the tab label, operation type, etc.)
+- On **parse failure** (syntax errors in the query): button flashes red with a shake animation for 1 second, then resets — no destructive changes made. This teaches the user their query has unfixable syntax before they can format it
+- Icon: pen/wand SVG (matches the "edit/transform" metaphor)
+- Keyboard accessible: focusable, `:focus-visible` ring, `aria-label` updates on error state
+
+**Files changed**:
+- `GraphqlStudioPage.tsx`: `import { parse as gqlParse, print as gqlPrint } from 'graphql'`, `prettifyError` state, `prettifyErrorTimerRef`, `handlePrettify` callback, button JSX overlay in `gql-editor-pane`
+- `graphql-studio.css`: `.gql-prettify-btn`, `.gql-prettify-btn:hover/focus-visible/active`, `.gql-prettify-btn--error`, `@keyframes gql-prettify-shake`
+
+---
+
+**Second batch (2026-06-17): Three high-impact features added after a second gap analysis.**
+
+#### 4. Execution Error Monaco Markers (Phase 1 Gap)
+
+**Purpose**: When the GraphQL server returns errors with `locations` (line/column info), show them as red squiggles directly in the editor — the same affordance users see for schema validation errors.
+
+**Design decisions**:
+- Uses a separate Monaco owner `'gql-execution'` to coexist cleanly with `'gql-schema-validate'` markers
+- Only errors with `locations` field produce squiggles; network/transport errors don't have locations
+- Markers are cleared immediately on tab switch (a second `useEffect` on `activeTab.modelUri` ensures stale response markers never bleed onto a different tab's editor)
+- Markers are cleared on execution success (response with no errors)
+
+**Files changed**:
+- `GraphqlStudioPage.tsx`:
+  - `useMonaco()` hook from `@monaco-editor/react` for direct Monaco API access
+  - `prevExecModelUriRef` + `useEffect([activeTab?.modelUri])` — clears execution markers when tab changes
+  - `useEffect([response])` — sets markers from `response.errors[].locations`, clears on success
+
+---
+
+#### 5. Schema Polling Config UI (Phase 1 Gap)
+
+**Purpose**: Wire the already-built polling infrastructure to an actual UI. Previously `pollingIntervalMs` was never passed to `useGraphqlSchema`, leaving schema auto-refresh permanently disabled.
+
+**Design decisions**:
+- State lives in `GraphqlStudioPage` and is persisted to localStorage (`gql_polling_v1`)
+- Default: polling OFF, interval 30 seconds
+- Minimum interval: 10s; maximum: 3600s (1 hour)
+- The schema polling config button appears next to the "Schema loaded (N)" badge — clicking opens a small popover
+- The popover has a toggle switch + interval input (seconds); only interval input shows when polling is enabled
+- When toggling polling ON, the interval is clamped before being applied
+- The pulsing green dot already existing in the schema badge activates automatically when polling is enabled
+
+**Files changed**:
+- `GraphqlStudioPage.tsx`:
+  - `pollingEnabled` state (boolean, localStorage persisted)
+  - `pollingIntervalSeconds` state (number, defaults 30, localStorage persisted)
+  - `handlePollingChange(enabled, intervalSeconds)` — updates state + localStorage
+  - `pollingIntervalMs` — computed: `pollingEnabled ? pollingIntervalSeconds * 1000 : 0`
+  - `useGraphqlSchema(endpoint, activeTabHeaders, { pollingIntervalMs, skipTlsVerify })` — now receives polling config
+- `GraphqlConnectionBar.tsx`:
+  - `pollingEnabled`, `pollingIntervalSeconds`, `onPollingChange` props
+  - `pollingBtnRef`, `pollingPopoverRef`, `pollingSwitchRef` refs
+  - Polling config popover with toggle switch + interval input + hint text
+  - `commitPollingInterval()` — clamps + propagates interval on blur/Enter
+  - Autofocus to toggle switch when popover opens (`useEffect` + `requestAnimationFrame`)
+  - Escape closes popover; click-outside closes popover
+- `graphql-studio.css`:
+  - `.gql-schema-status-wrap` — flex wrapper for badge + config button
+  - `.gql-polling-config-btn` / `--active` — small circular button, green when polling active
+  - `.gql-polling-popover`, `.gql-polling-popover-header/body` — floating config panel
+  - `.gql-polling-switch` / `--on` / `.gql-polling-switch-thumb` — CSS toggle switch
+  - `.gql-polling-interval-row/input/unit` — interval row layout
+  - `.gql-polling-hint` — instructional text at bottom of popover
+
+---
+
+#### 6. TLS Skip Toggle (Phase 1 Gap)
+
+**Purpose**: Allow connecting to GraphQL endpoints with self-signed or invalid TLS certificates (common in dev/staging environments). The `GraphqlConnection.skipTlsVerify` field already existed in the type system but was never wired to UI or HTTP transport.
+
+**Architecture**:
+In web mode, HTTP requests are proxied via `/__proxy` in `vite.config.ts`. The `skipTlsVerify` flag is added to the POST body payload; the middleware creates an undici `Agent` with `connect: { rejectUnauthorized: false }` for that specific request.
+
+In Tauri mode, `httpFetch` falls through to the Tauri HTTP plugin which handles TLS separately.
+
+**Design decisions**:
+- Toggle only visible when endpoint URL starts with `https://` (irrelevant for `http://`)
+- Active (TLS disabled) state uses amber/warning color — visually communicates "unsafe"
+- Shield icon with diagonal line (active) vs. plain shield (inactive) — universally understood
+- Label: `SSL` (normal) / `SSL off` (active) — short, unambiguous
+- State persisted to localStorage (`gql_tls_skip_v1`)
+- A new `gqlFetch.ts` utility wraps `/__proxy` with `skipTlsVerify` support
+
+**Files changed**:
+- `vite.config.ts`:
+  - Extended `/__proxy` payload type with `skipTlsVerify?: boolean`
+  - When `skipTlsVerify=true` + `https://` URL: creates one-off undici `Agent({ connect: { rejectUnauthorized: false } })`; bypasses the pooled dispatcher
+- `src/features/graphql/utils/gqlFetch.ts` (NEW):
+  - `gqlFetch(url, method, headers, body, signal, skipTlsVerify)` — GQL-specific transport helper
+  - Web mode + TLS skip: calls `/__proxy` directly with `skipTlsVerify: true` in the JSON payload
+  - All other cases: delegates to standard `httpFetch`
+- `useGraphqlExecution.ts`:
+  - `skipTlsVerify?: boolean` added to `ExecuteParams`
+  - `httpFetch` replaced with `gqlFetch` throughout
+- `useGraphqlSchema.ts`:
+  - `skipTlsVerify?: boolean` added to `UseGraphqlSchemaOptions`
+  - `skipTlsVerifyRef` tracks latest value for use inside callbacks
+  - `gqlFetch` replaces `httpFetch` in `runIntrospection`
+- `GraphqlConnectionBar.tsx`:
+  - `skipTlsVerify`, `onSkipTlsVerifyChange` props
+  - `isHttps` derived from endpoint URL
+  - TLS toggle button (only rendered for `https://`): `aria-pressed`, shield SVG (with/without slash), amber active state
+- `GraphqlStudioPage.tsx`:
+  - `skipTlsVerify` state (boolean, localStorage persisted as `gql_tls_skip_v1`)
+  - `handleSkipTlsVerifyChange(skip)` — updates state + localStorage
+  - Passed to `GraphqlConnectionBar` + `useGraphqlSchema` options + `handleExecute`
+- `graphql-studio.css`:
+  - `.gql-tls-toggle` — base button (muted colors)
+  - `.gql-tls-toggle--active` — amber warning state
+  - `.gql-tls-toggle-label` — 11px font
+
+---
+
+#### Keyboard Shortcuts (Phase 1 Gap)
+
+**`⌘Shift+I` / `Ctrl+Shift+I` — Introspect**: Triggers `introspect()` from `useGraphqlSchema`. Works in both Tauri and browser.
+
+**`⌘W` / `Ctrl+W` — Close active tab**: Only in Tauri (browsers intercept `⌘W` to close the browser window). Uses the two-click confirm pattern for unsaved tabs.
+
+**`⌘T` / `Ctrl+T` — New tab**: Only in Tauri (browsers intercept `⌘T` to open a new browser tab).
+
+**Files changed**: `GraphqlStudioPage.tsx` — keyboard handler extended with 3 new shortcuts.
+
+---
+
+#### Re-evaluation Round 6 — Bugs fixed (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R6-1** | **Auth headers missing from introspection** — `useGraphqlSchema` only received the tab's custom headers, not the auth config from the Auth badge. Endpoints requiring Bearer tokens, API keys, or other auth to access their schema would silently receive a 401/403 during introspection even after the user correctly configured auth. Execution worked fine (it merged auth in `handleExecute`) but schema exploration was blocked. | Added `schemaHeaders` `useMemo` in `GraphqlStudioPage.tsx` that merges `buildAuthHeaders(auth)` with `activeTabHeaders` (tab-level headers override auth, same priority as execution). `useGraphqlSchema` now receives `schemaHeaders` instead of bare `activeTabHeaders`. |
+| **BUG-R6-2** | **Env vars not resolved in introspection URL and headers** — The raw `endpoint` template (e.g. `https://{{SERVER}}/graphql`) and header values (e.g. `Bearer {{TOKEN}}`) were passed directly to `useGraphqlSchema` without `{{variable}}` substitution. The resolved environment URL/headers were only used during execution. | `useGraphqlSchema` now receives `resolveVars(endpoint, activeEnvironment)` as its endpoint. The new `schemaHeaders` memo also runs `resolveVars(v, activeEnvironment)` on each header value before passing to the schema hook. |
+
+---
+
+#### Re-evaluation Round 5 — Bugs fixed (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R5-1** | `⌘Enter` keyboard shortcut bypassed `varsInvalid` guard — pressing `⌘Enter` with invalid variables JSON still fired `execute()`, even though the Execute button was visually disabled. | Added `varsError !== null` early-return guard in `handleExecute`; added `varsError` to the `useCallback` deps array. |
+| **BUG-R5-2** | Polling popover didn't restore focus on close — pressing Escape moved focus to nothing, stranding keyboard users. | `closePollingPopoverViaRef.current()` now calls `requestAnimationFrame(() => pollingBtnRef.current?.focus())` after setting `pollingOpen = false`. |
+| **CSS-R5-3** | `gql-input:invalid` missing — when the interval number input had a value below `min={10}`, the browser's native `:invalid` red border could bleed through the custom border styles. | Added `.gql-input:invalid { border-color: var(--border); box-shadow: none; }` and `.gql-input:invalid:focus` override — clamping on blur makes native validation unnecessary. |
+| **BUG-R5-4** | Clicking the polling config button a second time to close called `setPollingOpen(false)` directly, bypassing `closePollingPopoverViaRef` — any uncommitted interval edit was silently discarded. | Button `onClick` now checks `pollingOpen`; when true, calls `closePollingPopoverViaRef.current()` instead of toggling state directly. |
+| **CSS-R5-5** | `.gql-polling-dot` still used hardcoded `#a6e3a1` instead of `var(--gql-success)` (missed in Round 3 token sweep). | Updated to `background: var(--gql-success)`. |
+| **CSS-R5-6** | `.gql-polling-dot` had `margin-right: 4px`, causing 9px total gap in polling state (`margin + flex gap`) vs 5px in static state. Visual inconsistency between dot variants. | Removed `margin-right: 4px`; added `flex-shrink: 0` instead. Parent flex `gap: 5px` now handles spacing uniformly for both dot variants. |
+
+---
+
+#### Re-evaluation Round 4 — Bugs fixed (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R4-1** | **Execution markers race condition** — The markers effect depended on `activeTab?.modelUri`, so it re-ran on every tab switch. When switching from tab A to tab B while tab A had error markers, the effect applied tab A's response errors to tab B's editor model. Users switching tabs would see misleading squiggles in a fresh editor. | Added `responseModelUriRef` (records the model URI when `execute()` fires). Effect now resolves the Monaco model for the **owner tab** (the tab that fired the execution), not the currently active tab. Removed `activeTab?.modelUri` from the effect's dep array — Monaco persists markers per-model URI, so markers survive tab switches without re-running the effect. |
+| **BUG-R4-2** | **Polling popover stale closure** — The click-outside and Escape key event listeners (in a `useEffect` gated on `pollingOpen`) captured `closePollingPopover` at the time `pollingOpen` changed to `true`. If the user typed a new interval value, the effect closure still saw the old `localIntervalSeconds` from when the popover opened. Closing via outside click / Escape would silently discard the typed value. | Added `localIntervalSecondsRef`, `pollingEnabledRef`, `onPollingChangeRef` mirrors updated every render. Added `closePollingPopoverViaRef` ref updated each render with the freshest close logic. Effect handlers now call `closePollingPopoverViaRef.current()` — always the latest version. |
+| **BUG-R4-3** | **Polling popover: typing a value then pressing Escape discards the edit** — Even after the stale-closure fix, pressing Escape or clicking outside while the interval input had an uncommitted value would discard it (old behavior: just call `setPollingOpen(false)`). | `closePollingPopoverViaRef.current()` now commits the interval (clamps + propagates via `onPollingChange`) before setting `pollingOpen = false`. |
+| **BUG-R4-4** | **`closePollingPopover` used before `const` declaration** — The `useEffect` for outside-click/Escape was defined before `closePollingPopover`, creating a temporal dead zone (TDZ) crash at runtime. | Restructured the polling section: all helpers (`commitPollingInterval`, refs, `closePollingPopoverViaRef`) are declared before the `useEffect` that uses them. |
+| **CSS-R4-5** | **Stale `eslint-disable-next-line` comment** — After removing `activeTab?.modelUri` from the markers effect's deps, the `exhaustive-deps` disable comment became a false positive. | Removed the dead comment; ESLint now passes with `--max-warnings 0`. |
+
+---
+
+#### Re-evaluation Round 3 — Bugs fixed (2026-06-17)
+
+| Bug | Description | Fix |
+|-----|-------------|-----|
+| **BUG-R3-1** | TLS skip toggle shown in Tauri mode but silently ignored (Tauri HTTP plugin handles TLS separately; passing `skipTlsVerify` to `/__proxy` doesn't work in desktop mode) | `GraphqlStudioPage.tsx`: pass `isTauri() ? undefined : handleSkipTlsVerifyChange` — button hidden in Tauri mode |
+| **BUG-R3-2** | Schema polling popover hint showed raw (potentially `0`) `localIntervalSeconds` as user typed, before clamping | Hint now shows `Math.max(MIN_POLL_SECONDS, localIntervalSeconds)` — the effective clamped value |
+| **BUG-R3-3** | Execution error markers: no bounds check on `loc.line` from server — GraphQL servers can report invalid line numbers causing `getLineLength()` to return undefined or throw | Added `filter((loc) => loc.line >= 1 && loc.line <= lineCount)` guard before mapping locations |
+| **BUG-R3-4** | Introspect button tooltip lacked keyboard shortcut hint | Title and aria-label now include `(⌘⇧I)` |
+| **BUG-R3-5** | Schema polling popover: `<label>` wrapped `<button>` — clicking the "Enable polling" text didn't trigger the toggle (HTML labels only activate input-type form controls, not buttons) | Changed row container from `<label>` to `<div>` with `onClick` on the row + `e.stopPropagation()` on the button to prevent double-fire |
+| **BUG-R3-6** | Schema status wrap had `position: relative` as an inline style instead of in the CSS class | Moved to `.gql-schema-status-wrap` CSS class; removed inline style |
+| **CSS-R3-7** | Schema status badge, polling switch ON state, polling config button active state, env active dot, and TLS toggle warning state all used hardcoded Catppuccin hex colors instead of the app's canonical theme tokens — breaking visual consistency across light/dark/custom themes | Added `--gql-success`, `--gql-danger`, `--gql-warning` aliases to `.gql-studio` theme shim; updated all functional state indicators to use `color-mix()` with these tokens |
+
+---
+
+**Original batch (before 2026-06-17): Three Phase 1 features identified in an initial post-implementation gap analysis.**
+
+Three Phase 1 features identified in a post-implementation gap analysis, implemented, and then thoroughly re-evaluated with all issues fixed:
+
+#### 1. Close-Tab Confirmation for Unsaved Changes (Phase 1A addition)
+
+**UX pattern**: Two-click confirmation on the × close button for tabs with `unsavedChanges === true`.
+- First click → enters "confirming" state: × turns red with pulsing animation; tooltip changes to `"Unsaved changes — click again to close"`
+- Confirming state auto-resets after 2.5 seconds if no second click
+- Clicking any other tab also cancels the confirming state
+- Second click on same × within the window → immediately closes the tab
+- Tabs with 0 or 1 tabs: no confirmation needed (only tab can't be closed)
+- The unsaved dot hides during confirming state (× indicator takes visual precedence)
+
+**Files changed**:
+- `GraphqlStudioPage.tsx`:
+  - `confirmingCloseTabId` state + `confirmTimerRef` ref
+  - `handleTabClick(tabId)` callback — replaces `setActiveTabId(tabId)` inline call; resets confirming state on tab switch
+  - `addTab()` — resets confirming state on new tab
+  - `closeTab()` — two-click confirm logic with auto-reset timer
+  - Tab render: `isConfirming` flag; `gql-tab-close--confirming` class; dynamic `title` / `aria-label`
+  - **Re-eval fix (BUG-R1-1)**: `confirmTimerRef` cleaned up in the unmount `useEffect` alongside `saveTimerRef`
+- `graphql-studio.css`:
+  - `.gql-tab-close--confirming` — red color, bold, pulsing `gql-close-confirm-pulse` keyframe
+
+#### 2. Query AST Validation (Phase 1C addition)
+
+**Purpose**: After introspection, validate the editor's query against the loaded schema using `graphql.validate()`. Shows red squiggles in the editor and a `⚠ N` badge in the connection bar next to Execute.
+
+**Design decisions**:
+- Does NOT block execution — the badge is informational (user may intentionally send a partial query to see server-side error detail)
+- Uses a separate Monaco marker owner `'gql-schema-validate'` so the monaco-graphql worker's own markers (`'graphql'` owner) are not overwritten
+- 500ms debounce to avoid validating on every keystroke
+- Clears markers when schema is unloaded or query is empty
+- Parse errors (invalid syntax) are handled by the monaco-graphql worker — this hook only handles semantic errors (type mismatches, undefined fields, missing required args, etc.)
+
+**Files changed**:
+- **New: `src/features/graphql/hooks/useQueryValidation.ts`** — the validation hook:
+  - Uses `useMonaco()` from `@monaco-editor/react` to access the Monaco instance
+  - `buildClientSchema(rawIntrospection)` → `validate(schema, parse(query))` → markers
+  - Returns `errorCount: number` for the badge
+  - Each error maps to `{ severity: Error, message, startLine, startCol, endLine, endCol, source: 'GraphQL Schema' }`
+  - **Re-eval fix (BUG-R1-2)**: separate `useEffect([modelUri])` immediately resets `errorCount` to 0 on tab switch — prevents stale badge count during the 500ms debounce window
+- `GraphqlStudioPage.tsx`: `useQueryValidation(activeTab.query, activeTab.modelUri, rawIntrospection, schemaLoaded)` → `queryValidationErrorCount`
+- `GraphqlConnectionBar.tsx`:
+  - New `queryValidationErrors?: number` prop
+  - `⚠ N` amber badge (`gql-validation-warning`) shown between Introspect and Execute when `queryValidationErrors > 0`; hidden during execution
+  - **Re-eval fix (BUG-R1-3)**: badge `<span>` now has `role="status"` + `aria-live="polite"` for screen reader support
+- `graphql-studio.css`:
+  - `.gql-validation-warning` — amber pill with triangle icon, `gql-warning-fade-in` entrance animation
+
+#### 3. Connection Profiles (Phase 1D addition)
+
+**Purpose**: Save named endpoint+auth combos and restore them with a single click. Eliminates re-entering the endpoint URL and re-configuring auth when switching between environments or APIs.
+
+**Profile data model**:
+```typescript
+interface ConnectionProfile {
+  id: string;        // gql-profile-{timestamp}-{random5}
+  name: string;      // user-defined display name (max 64 chars)
+  endpoint: string;  // full URL
+  auth: GraphqlAuth | null;
+  createdAt: number; // Unix ms
+}
+```
+Persisted in `localStorage` under `gql_profiles_v1`.
+
+**Files changed**:
+- **New: `src/features/graphql/hooks/useGraphqlConnectionProfiles.ts`**:
+  - `profiles: ConnectionProfile[]` — persisted list
+  - `saveProfile(name, endpoint, auth)` → `ConnectionProfile` — creates + persists
+  - `renameProfile(id, newName)` — in-place rename
+  - `deleteProfile(id)` — removes from list
+- **New: `src/features/graphql/components/GraphqlProfileModal.tsx`** — single-panel modal:
+  - Header: bookmark SVG icon + "Connection Profiles" + × close
+  - Modal panel: `role="dialog"`, `aria-modal="true"`, `tabIndex={-1}` (keyboard focus target when profiles exist)
+  - Section 1: "Saved Profiles" — scrollable list (`max-height: 280px`) so Section 2 is always visible
+    - Each row: name + endpoint (truncated to 42 chars) + auth badge + "Load" button + × delete button
+    - Delete: two-click confirm (same 2.5 s reset pattern as tab close); delete button has `min-width: 74px` to prevent layout shift when text changes `×` → `✓ Confirm`
+    - Empty state: bookmark icon + "No saved profiles yet" + "Fill in the form below…"
+  - Section 2: "Save Current Connection" — always visible below the scrollable list
+    - Preview row: current endpoint + auth badge
+    - Name input (max 64 chars) + "Save" button (`min-width: 68px`)
+    - Save button: green "✓ Saved" flash for 2 s after saving (`gql-saved-pop` animation); NOT disabled during flash (BUG-R3-1 fix)
+    - Hint with ⚠ SVG icon if no endpoint: "Enter an endpoint URL in the connection bar first"
+  - Auto-focus: name input if no profiles; modal panel itself if profiles exist (BUG-R1-4 + BUG-R2-2 fix)
+  - Escape key / click outside closes
+  - `gql-env-modal-overlay` (transparent, centered)
+  - `gql-modal-pop-in` entrance animation (`scale + translateY + opacity`, 0.18 s cubic-bezier spring)
+- `GraphqlConnectionBar.tsx`:
+  - New `profiles?: ConnectionProfile[]` + `onProfileBadgeClick?: () => void` props
+  - Profile badge placed between GQL badge and URL input:
+    - Bookmark icon + "Profiles" text when no profiles
+    - Bookmark icon + blue count badge (`N`) when profiles exist
+    - Tooltip adapts: "No saved profiles — click to save current connection" / "N saved profiles — click to manage"
+  - **Re-eval fix (BUG-R2-1)**: profile badge has `:focus-visible` outline (`2px solid #89b4fa`)
+- `GraphqlStudioPage.tsx`:
+  - `useGraphqlConnectionProfiles()` hook wired: `profiles`, `saveProfile`, `deleteProfile`
+  - `profileModalOpen` state controls `GraphqlProfileModal` visibility
+  - `onSave(name)` → calls `saveProfile(name, endpoint, auth)`
+  - `onLoad(profile)` → `setEndpoint(profile.endpoint)` + `handleAuthChange(profile.auth)` + close modal
+- `graphql-studio.css`:
+  - `.gql-profile-badge` / `.gql-profile-badge--has-profiles` / `.gql-profile-badge-count` / `.gql-profile-badge-label`
+  - `.gql-profile-badge:focus-visible` — keyboard focus ring (BUG-R2-1)
+  - `.gql-profile-modal` / `__header` / `__title` / `__close` / `__body`
+  - `.gql-profile-section` / `__heading`
+  - `.gql-profile-empty`
+  - `.gql-profile-list` — `max-height: 280px; overflow-y: auto; scrollbar-width: thin` (BUG-R1-6)
+  - `.gql-profile-row` / `__info` / `__name` / `__endpoint` / `__actions`
+  - `.gql-profile-auth-badge` / `--active`
+  - `.gql-profile-btn` / `--load` / `--delete` (min-width: 74px — BUG-R1-7) / `--confirming`
+  - `.gql-profile-save-form__preview` / `__endpoint` / `__row` / `__input`
+  - `.gql-profile-save-btn` (min-width: 68px) / `.gql-profile-save-btn--saved` (green flash — BUG-R1-5)
+  - `.gql-profile-save-form__hint` (flex row with icon — BUG-R1-8) / `__hint svg`
+  - `@keyframes gql-modal-pop-in` / `gql-close-confirm-pulse` / `gql-confirm-pulse` / `gql-warning-fade-in` / `gql-saved-pop`
 
 ---
 
@@ -96,13 +789,38 @@ Phase 1 is organized into five subsystems (1A–1E).
 **`monacoGraphqlSetup.ts`** — the most complex Phase 1 utility:
 1. Register the `monaco-graphql` Web Worker (lazy — loaded only when the GraphQL tab is first activated):
    ```typescript
-   // In GraphqlStudioPage.tsx, on first mount:
+   // In monacoGraphqlSetup.ts — called once from GraphqlStudioPage on first mount:
    import { initializeMode } from 'monaco-graphql/esm/initializeMode';
-   const api = initializeMode({ diagnosticSettings: { validateVariables: true } });
+   let gqlApi: ReturnType<typeof initializeMode> | null = null;
+   export function getOrInitGraphqlMode() {
+     if (!gqlApi) gqlApi = initializeMode({ diagnosticSettings: { validateVariables: true } });
+     return gqlApi;
+   }
    ```
-2. Bind the introspected schema to the language worker: `api.setSchemaConfig([{ introspectionJSON, uri: 'schema.graphql' }])` — called every time a new schema is introspected
+   **Vite worker note**: `monaco-graphql` uses a GraphQL language service worker. With Vite, the worker is loaded automatically via `new Worker(new URL('monaco-graphql/esm/graphql.worker', import.meta.url))`. No changes to `vite.config.ts` are required — Vite resolves the `new URL(..., import.meta.url)` pattern natively. The `MonacoEnvironment.getWorker` shim must be set before the first `<Editor>` renders. Place it at the top of `monacoGraphqlSetup.ts` in module scope so it runs on import:
+   ```typescript
+   // Extend the existing Monaco worker shim to handle 'graphql' label
+   const _prevGetWorker = (window as any).MonacoEnvironment?.getWorker;
+   (window as any).MonacoEnvironment = {
+     getWorker(_: string, label: string) {
+       if (label === 'graphql') {
+         return new Worker(new URL('monaco-graphql/esm/graphql.worker', import.meta.url), { type: 'module' });
+       }
+       // Fall back to the existing shim (handles 'json', 'css', 'html', 'typescript', 'javascript', etc.)
+       return _prevGetWorker ? _prevGetWorker(_, label) : new Worker(
+         new URL('monaco-editor/esm/vs/editor/editor.worker', import.meta.url), { type: 'module' }
+       );
+     }
+   };
+   ```
+2. Bind the introspected schema to the language worker: `api.setSchemaConfig([{ introspectionJSON, uri: 'schema.graphql' }])` — called every time a new schema is introspected (Phase 1B)
 3. Create one Monaco model per operation tab (`monaco.editor.createModel(query, 'graphql', modelUri)`) — each tab gets its own isolated model with its own diagnostics
 4. Dispose unused models when tabs close (memory management)
+
+**Tab state persistence** (`localStorage`):
+- Storage key: `gql_tabs_v1` — JSON array of `GraphqlOperationTab[]`
+- Saved on every tab change (debounced 500ms) and when the window `beforeunload` fires
+- Restored on page load; if localStorage is empty, a single blank tab is created
 
 **Multi-tab operations** (`GraphqlStudioPage.tsx`):
 - Up to 8 tabs (same limit as WebSocket Studio)
@@ -129,46 +847,96 @@ Phase 1 is organized into five subsystems (1A–1E).
 
 #### 1B — Schema Explorer
 
+**Dependencies installed**: `graphql@^17.0.1` and `monaco-graphql@^1.8.0` are now installed.
+
 **Introspection flow** (`useGraphqlSchema.ts` + `schemaParser.ts`):
-1. User clicks "Introspect" or connects to an endpoint
-2. `POST /api/graphql/introspect` sends the standard introspection query: `query IntrospectionQuery { __schema { ... } }`
-3. Proxy forwards to upstream GraphQL endpoint, returns raw introspection JSON
-4. `schemaParser.ts` converts `IntrospectionQuery` result → `GraphqlSchemaInfo` (navigable `GraphqlTypeNode[]` tree)
-5. `monacoGraphqlSetup.ts` feeds the introspection JSON directly to the `monaco-graphql` worker for live autocomplete/validation
-6. Schema cached in memory and `localStorage` (keyed by endpoint URL) — cache used on reconnect to avoid re-introspecting
+1. User clicks "Introspect" button in the connection bar
+2. **No separate server-side proxy needed**: `httpFetch(endpoint, 'POST', headers, body)` sends the introspection query directly to the user's endpoint.
+   - In **Tauri** mode: `httpFetch` uses the Tauri HTTP plugin — direct, no CORS restrictions
+   - In **web/dev** mode: `httpFetch` routes through Vite's `/__proxy` middleware (server-side forwarding) — no CORS restrictions
+3. The standard `IntrospectionQuery` is sent as the POST body
+4. `schemaParser.ts` converts `data.__schema` → `GraphqlSchemaInfo` (navigable `GraphqlTypeNode[]` tree)
+5. `setGraphqlSchema(rawIntrospection)` feeds the raw introspection JSON to the `monaco-graphql` worker for live autocomplete/validation
+6. Schema cached in `localStorage` with a DJB2-hashed endpoint key; parsed `GraphqlSchemaInfo` stored for display without re-parsing
+
+**`graphqlIntrospectionQuery.ts`** — exports the standard introspection query string as `INTROSPECTION_QUERY`.
 
 **`schemaParser.ts`**:
-- Input: raw `IntrospectionQuery.__schema`
+- Input: raw introspection response body (the `data` field: `{ __schema: { ... } }`)
 - Output: `GraphqlSchemaInfo` with `types: GraphqlTypeNode[]`, root type names, full SDL
-- Uses `graphql` library: `buildClientSchema(introspectionData)` → `GraphQLSchema`, then `printSchema()` for SDL
-- Filters out built-in types (`__Schema`, `__Type`, etc.) and scalar built-ins from the type list
+- Uses `graphql` library: `buildClientSchema(introspectionData as IntrospectionQuery)` → `GraphQLSchema`, then `printSchema()` for SDL
+- Filters built-in types (`__Schema`, `__Type`, etc.) and scalar built-ins (`String`, `Int`, `Float`, `Boolean`, `ID`)
 
-**Schema Explorer UI** (`GraphqlSchemaExplorer.tsx`):
-- **Type list**: left sidebar with all types grouped by kind (Objects, Inputs, Enums, Interfaces, Unions, Scalars)
-- **Search bar**: live filter — matches type name, field name, and description. Results show `TypeName.fieldName` with description excerpt
-- **Type detail view**: click a type → right panel shows all fields with types + arguments + descriptions in a table
-- **Click-to-insert**: clicking a field name or type name inserts it at the Monaco editor cursor position (via `editor.executeEdits()`)
-- **SDL tab**: raw SDL view using Monaco in read-only GraphQL mode (syntax highlighted); "Copy SDL" + "Download .graphql" buttons
+**Schema cache key** (in `useGraphqlSchema.ts`):
+```typescript
+// DJB2 hash of the endpoint URL — fits in a short localStorage key
+function hashEndpoint(url: string): string {
+  let h = 5381;
+  for (let i = 0; i < url.length; i++) h = ((h << 5) + h) ^ url.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
+// Storage key: "gql_schema_v1_<8-char-hex>"
+```
+
+**`monaco-graphql` worker setup** (in `monacoGraphqlSetup.ts`):
+```typescript
+import GraphqlWorkerCtor from 'monaco-graphql/esm/graphql.worker?worker';
+
+// Runs at module-import time (before any React rendering)
+if (typeof window !== 'undefined') {
+  const _prev = (window as any).MonacoEnvironment?.getWorker;
+  (window as any).MonacoEnvironment = {
+    getWorker(_: string, label: string) {
+      if (label === 'graphql') return new GraphqlWorkerCtor();
+      if (_prev) return _prev(_, label);
+      return new Worker(
+        new URL('monaco-editor/esm/vs/editor/editor.worker', import.meta.url),
+        { type: 'module' }
+      );
+    }
+  };
+}
+
+export function getOrInitGraphqlMode(): MonacoGraphQLAPI {
+  if (!gqlApi) gqlApi = initializeMode({ diagnosticSettings: { validateVariables: true } });
+  return gqlApi;
+}
+
+export function setGraphqlSchema(introspectionJSON: IntrospectionQuery): void {
+  getOrInitGraphqlMode().setSchemaConfig([{ introspectionJSON, uri: 'schema.graphql' }]);
+}
+```
+
+**Schema Explorer UI** (`GraphqlSchemaExplorer.tsx`) — lives in the **right pane**:
+- The right pane has two view tabs: **"Response"** | **"Schema"**
+- "Schema" tab shows the Schema Explorer; "Response" tab shows `GraphqlResponseViewer`
+- Schema explorer layout:
+  - **Top**: search bar (filters type names and field names)
+  - **Main** (two sub-tabs): **"Types"** (type list + type detail) | **"SDL"** (full SDL in read-only Monaco)
+  - **Type list**: left column, grouped by kind (Objects, Inputs, Enums, Interfaces, Unions, Scalars), collapsible groups
+  - **Type detail**: right column, shows all fields/values with type, args, and deprecation notice
+- Shows "No schema loaded — click Introspect" empty state when `schemaInfo` is null
 
 **Schema hash** (`useGraphqlSchema.ts`):
-Schema change detection uses `crypto.subtle.digest('SHA-256', new TextEncoder().encode(sdl))` — no external hashing library required. The resulting `ArrayBuffer` is hex-encoded for storage. This is the same approach used by Phase 3's `apqClient.ts` for APQ hashes.
+Schema change detection uses DJB2 hash of the SDL string — synchronous, no external library needed.
+SDL hash is stored alongside the cached schema. On each poll: re-introspect; compare SDL hash vs cached; if different → update schema + call `setGraphqlSchema`.
 
 **Schema polling** (`useGraphqlSchema.ts`):
-- Configurable interval from `GraphqlConnection.schemaPollingInterval` (default 30000ms, 0 = disabled)
-- `setInterval` restarts on connection change; cleared on unmount or when tab is not focused
-- On each poll: re-introspect; compare hash (`sha256(newSdl)` vs cached); if different → update all Monaco models + optionally toast "Schema updated"
+- `pollingIntervalMs` prop (default 0 = disabled); 30 000 ms is the recommended value
+- `setInterval` started when `pollingIntervalMs > 0`; cleared on unmount or when `endpoint` changes
+- `document.visibilitychange` listener pauses polling while the tab is hidden
 
 **Introspection failure handling**:
-| Scenario | User-facing message |
-|---|---|
-| Network unreachable / timeout | Red banner: "Cannot reach endpoint — check URL and network" |
-| HTTP 401 | Red banner: "Authentication required — add a Bearer token or API key in Auth settings" |
-| HTTP 403 | Red banner: "Access denied — token valid but lacks introspection permission" |
-| HTTP 5xx | Red banner: "Server error (5xx) — endpoint returned an error during introspection" |
-| Introspection disabled | Yellow banner: "Introspection is disabled on this server. You can still execute operations manually, but autocomplete and schema explorer will not work." |
-| Response is not introspection JSON | Red banner: "Response is not a valid GraphQL introspection result — check the endpoint URL" |
+| Scenario | Status | User-facing message |
+|---|---|---|
+| Network unreachable / timeout | `'error'` | "Cannot reach endpoint — check URL and network" |
+| HTTP 401 | `'error'` | "Authentication required — add a Bearer token or API key in headers" |
+| HTTP 403 | `'error'` | "Access denied — token valid but lacks introspection permission" |
+| HTTP 5xx | `'error'` | "Server error (HTTP {status}) — endpoint returned an error" |
+| Introspection disabled | `'introspection-disabled'` | "Introspection is disabled on this server. You can still execute operations manually." |
+| Not introspection JSON | `'error'` | "Response is not a valid GraphQL introspection result — check the endpoint URL" |
 
-**Detecting introspection-disabled**: When the server returns a `{ errors: [{ message: "..." }] }` response with HTTP 200 but an empty `data.__schema`, the error message is inspected for phrases like `"introspection"`, `"disabled"`, `"not allowed"` to show the specific yellow banner above rather than a generic error.
+**Detecting introspection-disabled**: HTTP 200 response that is valid JSON but contains `{ errors: [{ message: "..." }] }` with an empty (null) `data.__schema`. The error message is checked for `"introspect"`, `"disabled"`, `"not allowed"`, `"permission"` to classify as `'introspection-disabled'` (amber badge) rather than a generic red error.
 
 ---
 
@@ -283,39 +1051,84 @@ All sensitive values (Bearer token, Basic password, API Key value) are stored in
 
 ---
 
-#### 1E — Environment Variables (Phase 1 basics)
+#### 1E — Environment Variables
 
-Phase 1 implements the foundation: `{{var}}` resolution in URL and headers. The full environment management UI (multiple named environments) is also Phase 1 since it is listed in Section 13.
+Phase 1E implements named environment management with `{{var}}` resolution across URL, headers, and variables JSON before execution.
 
-**`useGraphqlEnvironments.ts`**:
-- Manages `GraphqlEnvironment[]` — each has `id`, `name`, `variables: Record<string, string>`, `isActive: boolean`
-- Active environment is the one with `isActive: true` (only one at a time)
-- `resolveVars(str, env)` — replaces `{{key}}` in a string with the matching value; unresolved refs left as-is with a warning marker
+**New file: `src/features/graphql/utils/envUtils.ts`** — pure utilities (no React):
+- `resolveVars(str, env)` — replaces `{{key}}` with values from the active env; unresolved refs stay as-is
+- `findUnresolvedVars(str, env)` → `string[]` — returns list of `{{key}}` names that have no match in env
+- `hasUnresolvedVars(str, env)` → `boolean` — true if any `{{key}}` cannot be resolved
+- Single-pass only: nested vars (e.g. `{{a}}` where `a = "{{b}}"`) are NOT recursively resolved
+- Only `enabled: true` variables from the environment are considered during resolution
 
-**`GraphqlEnvironments.tsx`** — environment manager UI:
-- Dropdown badge in connection bar: `[Staging ▾]` — shows active environment name
-- Opens environment editor modal: left panel = environment list; right panel = key-value table
-- Masked values toggle (eye icon) for secrets
-- Quick-switch environments without losing current operation
-- Import/export environments as JSON (Postman format compatible for import)
+**New file: `src/features/graphql/hooks/useGraphqlEnvironments.ts`**:
+- Manages `GraphqlEnvironment[]` persisted in `localStorage` under key `gql_environments_v1`
+- `activeEnvironment: GraphqlEnvironment | null` — the one with `isActive: true`
+- Methods: `createEnvironment(name)`, `deleteEnvironment(id)`, `setActiveEnvironment(id | null)`, `updateEnvironmentName(id, name)`, `updateVariables(id, variables[])`
+- `importEnvironment(json)` — supports Postman format (`values[].key/value/enabled/type`) and native format
+- `exportEnvironment(id)` — returns JSON string for download
+- Auto-activates the first remaining env when the active one is deleted
+- `type: "secret"` in Postman format maps to `masked: true`
 
-**`resolveVars` implementation details**:
-```typescript
-export function resolveVars(str: string, env: GraphqlEnvironment | undefined): string {
-  if (!env) return str;
-  // Single-pass replacement — nested/chained vars (e.g. {{a}} where a = "{{b}}") are NOT resolved
-  return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => env.variables[key.trim()] ?? match);
-  // Unresolved references are left as-is (e.g. "{{unknownVar}}" stays literal)
-}
-```
-**Single-pass only**: `{{baseUrl}}` where `baseUrl = "{{scheme}}://api.example.com"` is NOT double-resolved. Phase 1 intentionally avoids recursive resolution to prevent infinite loops and to keep behavior predictable.
+**New file: `src/features/graphql/components/GraphqlEnvModal.tsx`** — two-panel modal:
+- **Left sidebar (210px)**: scrollable list of environments, each row shows active dot + name + click-to-select
+  - "Active" green dot next to the currently active environment
+  - `[+ New]` button at the top of the sidebar header
+  - `[↑ Import]` button at the bottom of the sidebar (file picker, accepts `.json`)
+  - Delete button on each row (with confirmation via single-click since this is a deliberate action)
+- **Right panel**: editable environment name (click to rename inline) + variable table
+  - `[Set Active]` button (when env is NOT active) OR `Active ✓` green badge (when it IS active)
+  - `[↓ Export]` button → downloads env as `.json`
+  - Variable table columns: `☑ Enabled` | `Key` | `Value` (masked) | `Actions`
+  - Each variable row: enable checkbox, key input, value input (password-type when `masked: true`), eye-toggle, delete button
+  - `[+ Add Variable]` at the bottom of the table
+  - Empty state: "No variables yet. Click + Add Variable to add your first one."
+- Empty left panel state: "No environments yet. Click + New to create one."
+- Escape key closes the modal; click outside the panel also closes
 
-**Unresolved variable warnings**: When a header value or URL contains a `{{key}}` that is not in the active environment, the header row shows a `!` warning icon and a tooltip "Variable '{{key}}' not found in active environment". This is a visual warning only — the request still proceeds with the literal `{{key}}` string.
+**Updated: `GraphqlConnectionBar.tsx`** — add env badge between URL and auth badge:
+- `[🌐 No Env ▾]` — gray badge when no active environment
+- `[🌐 Staging ▾]` — teal-colored badge when an environment is active
+- Clicking opens `GraphqlEnvModal` via `onEnvBadgeClick` prop
+- Badge shows active environment name (truncated to 16 chars with ellipsis)
+- New props: `activeEnvName`, `onEnvBadgeClick`
 
-**Postman environment import format**:
+**Updated: `GraphqlStudioPage.tsx`** — integrate env hook:
+- `useGraphqlEnvironments()` wired; `activeEnvironment` passed down
+- In `handleExecute`: apply `resolveVars()` to endpoint URL, all enabled header values, and variables JSON string before calling `execute()`
+- The raw values stored in state are never mutated — resolution is applied at call time only
+
+**Updated: `GraphqlHeadersPanel.tsx`** — show unresolved var warnings:
+- New `activeEnvironment` prop (optional, `GraphqlEnvironment | null`)
+- For each enabled header row whose value contains `{{key}}` patterns not in the active env: show an amber `!` icon after the value input
+- Tooltip on the icon: `"Variable '{{name}}' not found in active environment"`
+- Multiple unresolved vars in one value: show a single `!` with combined tooltip
+
+**CSS additions (`graphql-studio.css`)**:
+- `.gql-env-badge` — teal-colored badge (similar to auth badge but teal)
+- `.gql-env-badge--active` — colored state when env is set
+- `.gql-env-badge[aria-expanded="true"]` — open/pressed state
+- `.gql-env-modal-overlay` — transparent fixed overlay (per project modal rules: `background: transparent`)
+- `.gql-env-modal` — 760×520px centered panel, dark bg, rounded corners, heavy shadow
+- `.gql-env-modal-header` — flex row with title + close button
+- `.gql-env-modal-body` — flex row: sidebar + main
+- `.gql-env-sidebar` — 210px left column
+- `.gql-env-sidebar-header` — env list header with `[+ New]` button
+- `.gql-env-sidebar-list` — scrollable env list
+- `.gql-env-sidebar-item` — env row (hover/active states), active dot
+- `.gql-env-sidebar-import` — bottom import button area
+- `.gql-env-main` — right panel flex column
+- `.gql-env-main-header` — env name + Set Active + Export row
+- `.gql-env-name-edit` — inline editable name input
+- `.gql-env-var-table` — variable rows container
+- `.gql-env-var-row` — single variable row (flex)
+- `.gql-env-masked-wrap` — password wrap with toggle
+- `.gql-env-unresolved-icon` — amber `!` warning icon for header values
+
+**Postman environment import format** (supported):
 ```json
 {
-  "id": "...",
   "name": "My Environment",
   "values": [
     { "key": "baseUrl", "value": "https://api.example.com", "enabled": true },
@@ -323,7 +1136,18 @@ export function resolveVars(str: string, env: GraphqlEnvironment | undefined): s
   ]
 }
 ```
-The importer reads `values[].key` → `value`, skips disabled entries (`enabled: false`). The `type: "secret"` field maps to `masked: true` in `GraphqlEnvironment.variables` metadata.
+
+**`resolveVars` implementation**:
+```typescript
+export function resolveVars(str: string, env: GraphqlEnvironment | null | undefined): string {
+  if (!env) return str;
+  const vars: Record<string, string> = {};
+  for (const v of env.variables) {
+    if (v.enabled) vars[v.key] = v.value;
+  }
+  return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => vars[key.trim()] ?? match);
+}
+```
 
 ### 3.2 Advanced Features (Phase 2)
 
@@ -3430,6 +4254,11 @@ All mockups use the Catppuccin Mocha dark theme (`#1e1e2e` base) consistent with
 | `@defer`/`@stream` not widely adopted yet | Low | Feature is additive; basic query/mutation works without it |
 | File upload spec variations across servers | Medium | Stick to standard `graphql-multipart-request-spec`; document known server quirks |
 | Monaco editor memory with many tabs | Medium | Dispose unused models; limit to 8 tabs (same as WebSocket Studio) |
+| `@defer`/`@stream` spec not finalized (multiple format versions in the wild) | High | Version-aware parser; connection-level format selector; default to latest alpha; document supported versions — see Section 23.2.3 |
+| `subscriptions-transport-ws` deprecated and unmaintained (no updates since 2022) | Medium | Implement as P2 legacy compat; consider vendoring minimal client code (~200 lines); document as legacy support — see Section 23.2.1 |
+| No `src-server/` proxy routes exist yet for GraphQL subscription/upload | High | Must scaffold proxy server routes before Phase 2 work; this is a prerequisite task not in the original plan — see Section 23.7 |
+| Apollo Tracing format (`extensions.tracing`) deprecated by Apollo | Low | Support both legacy and emerging OpenTelemetry formats; tracing waterfall is format-agnostic visualization — see Section 23.2.5 |
+| Query builder scope creep (11 tasks with complex P2 items) | High | Ship MVP builder (6 tasks) first; defer fragments/directives/unions to post-2.1 iteration — see Section 23.6 |
 
 ---
 
@@ -3445,9 +4274,8 @@ All mockups use the Catppuccin Mocha dark theme (`#1e1e2e` base) consistent with
 - `useGraphqlExecution.test.ts` — hook behavior for query/mutation lifecycle
 - `useGraphqlSubscription.test.ts` — connection states, message buffering, reconnect logic
 - `useGraphqlSchema.test.ts` — introspection caching, polling interval, stale detection
-- `useGraphqlHistory.test.ts` — save/load/clear history, max 100 items enforcement
+- `useGraphqlHistory.test.ts` — save/load/clear history, max-items FIFO eviction, recency grouping, search filter, max 100 items enforcement
 - `useGraphqlQueryBuilder.test.ts` — toggleField adds/removes from selectedFields; SDL generator produces valid document; alias/directive/fragment state mutations; reset clears all state
-- `useGraphqlHistory.test.ts` — save/load/clear history, max-items FIFO eviction, recency grouping, search filter
 - `useGraphqlCollections.test.ts` — add/update/delete items and folders, pin/unpin, drag-and-drop reorder, persistence round-trip
 - `useGraphqlMockServer.test.ts` — mock enable/disable, custom resolver CRUD, config sync to server, reset to defaults
 - `useGraphqlEnvironments.test.ts` — variable resolution precedence order, `{{var}}` interpolation
@@ -3479,7 +4307,50 @@ All mockups use the Catppuccin Mocha dark theme (`#1e1e2e` base) consistent with
 
 ---
 
-## 20. References
+## 20. Phase 1A Re-evaluation History
+
+A record of all bugs found and fixed during the iterative Phase 1A re-evaluation rounds.
+
+### Round 1 (2026-06-17) — 7 bugs fixed
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-1A-1 | `graphql-studio.css` | Unsaved-changes dot was blue (`--gql-accent`) — mockup specifies amber | Changed `.gql-tab-dot` background to `var(--gql-warning)` |
+| BUG-1A-2 | `GraphqlStudioPage.tsx` | "+" add-tab button disappeared at `MAX_TABS`, giving no feedback | Button always renders; `disabled` + tooltip when at limit |
+| BUG-1A-3 | `GraphqlStudioPage.tsx` | Bottom panel `role="tabpanel"` missing `aria-labelledby` (WCAG 1.3.1) | Added `id` to tab buttons; dynamic `aria-labelledby` on panel |
+| BUG-1A-4 | `GraphqlStudioPage.tsx` | Right-pane `role="tabpanel"` missing `aria-labelledby` | Same pattern as BUG-1A-3 |
+| BUG-1A-5 | `GraphqlStudioPage.tsx` | Main tab bar `role="tablist"` missing `aria-label` | Added `aria-label="Query tabs"` |
+| BUG-1A-6 | `graphql-studio.css` | `.gql-tab-close:hover` used hardcoded `#ef5350` red | Replaced with `var(--gql-danger)` + `color-mix` |
+| BUG-1A-7 | `graphql-studio.css` | `.gql-bottom-tab-badge` color was hardcoded `#fff`, broken on light theme | Changed to `var(--bg-primary)` |
+
+### Round 2 (2026-06-17) — 4 bugs fixed
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-1A-R2-1 | `GraphqlEditor.tsx` | Monaco editor did not auto-focus when switching tabs; required a click to type | Added `useEffect` on `modelPath` → `editor.focus()` via `requestAnimationFrame` |
+| BUG-1A-R2-2 | `GraphqlStudioPage.tsx` | Close button on the last remaining tab was visible but silently did nothing | Close button only renders when `tabs.length > 1` |
+| BUG-1A-R2-3 | `GraphqlStudioPage.tsx` | Tab `<button>` accessible name was polluted by nested span text | Added explicit `aria-label` on the button; `aria-hidden` on inner spans |
+| BUG-1A-R2-4 | `GraphqlStudioPage.tsx` | `gql-tab--unsaved` CSS class was dead code (no style rule) | Removed from JSX |
+
+### Round 3 (2026-06-17) — 3 bugs fixed
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-1A-R3-1 | `GraphqlStudioPage.tsx` | Invisible close buttons on inactive tabs were in the keyboard Tab order | `tabIndex` changed to `isActive \|\| isConfirming ? 0 : -1` |
+| BUG-1A-R3-2 | `graphql-studio.css` | Several error-state rules used hardcoded danger hex (`#f38ba8`, `#ef5350`, `rgba(243, 139, 168, ...)`) | Replaced with `var(--gql-danger)` / `color-mix(in srgb, var(--gql-danger) N%, transparent)` |
+| BUG-1A-R3-3 | `GraphqlHeadersPanel.tsx` | Header row inputs had non-unique `aria-label` values across rows | Labels now include row index or key name (e.g. `"Header 1 name"`, `"Authorization header value"`) |
+
+### Round 4 (2026-06-17) — 3 bugs fixed
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-1A-R4-1 | `graphql-studio.css` | `.gql-tab` (main query tabs) had no `:focus-visible` ring — WCAG 2.4.7 violation | Added `.gql-tab:focus-visible { outline: 2px solid var(--gql-accent); outline-offset: -2px; }` |
+| BUG-1A-R4-2 | `graphql-studio.css` | `.gql-bottom-tab` set `outline: none` with no replacement focus indicator — WCAG 2.4.7 violation | Added `.gql-bottom-tab:focus-visible { outline: 2px solid var(--gql-accent); outline-offset: -2px; }` |
+| BUG-1A-R4-3 | `monacoGraphqlSetup.ts` | Stale `TODO(Phase 1B)` comment suggested replacing the regex operation extractor with `graphql.parse()` — misleading since Phase 1B is done; the regex is intentionally kept for keystroke-level error tolerance | Updated comment to document the intentional design choice |
+
+---
+
+## 21. References
 
 - [GraphiQL Monorepo](https://github.com/graphql/graphiql) — 16.8k stars, official GraphQL IDE
 - [Altair GraphQL Client](https://altairgraphql.dev/) — v8.5.4, Desktop/browser, environments, plugins, file upload
@@ -3498,3 +4369,936 @@ All mockups use the Catppuccin Mocha dark theme (`#1e1e2e` base) consistent with
 - [GraphQL Spec](https://spec.graphql.org/) — June 2018 + October 2021 editions
 - [GraphQL Voyager](https://github.com/graphql-kit/graphql-voyager) — Visual schema relationship explorer
 - [WebSocket Studio Plan](../websocket/websocket-studio-plan.md) — Pattern reference for connection management, proxy architecture, and tab layout
+
+---
+
+## 22. Phase 1 Comprehensive Re-evaluation History
+
+A full-codebase audit of all Phase 1 files (1A–1E) conducted as a single pass to catch cross-phase issues.
+
+### Comprehensive Round 1 (2026-06-17) — 9 bugs fixed
+
+#### Pass 1: Code Quality + ARIA Structure (7 bugs)
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-P1-R1-1 | `GraphqlConnectionBar.tsx` | `gql-connection-url-wrap` had redundant `style={{ position: 'relative' }}` — CSS class already has this rule | Removed inline style |
+| BUG-P1-R1-2 | `GraphqlSchemaExplorer.tsx` | Both Fields and SDL tabpanels in TypeDetail shared the same `id` (`gql-se-dtabpanel-${type.name}`). Both `aria-controls` attrs on the tab buttons also pointed to the same ID — fragile and ambiguous for assistive tech | Added `-fields`/`-sdl` suffix to panel IDs and updated `aria-controls` on each tab button accordingly |
+| BUG-P1-R1-3 | `GraphqlSchemaExplorer.tsx` | "Implements:", "Implemented by:", and "Union of:" type names rendered as non-interactive `<span>`s despite being styled in teal like links. Field type refs in the same component ARE clickable buttons — inconsistent navigation UX | Changed spans to `<button type="button" className="gql-se-impl-link gql-se-impl-link--btn">` with `onClick={() => onSelectType(name)}` for types in `navigableTypes` |
+| BUG-P1-R1-4 | `GraphqlSchemaExplorer.tsx` | UNION possible types listed in the Fields tab rendered as `<div>` (no click handler). Navigating from "Union of: TypeA" in the header worked, but clicking the same type name in the Fields list did nothing | Changed to `<button>` with `onClick={() => onSelectType(pt)}` for types in `navigableTypes` |
+| BUG-P1-R1-5 | `graphql-studio.css` | No button-reset CSS for `.gql-se-impl-link--btn` (new button variant). No hover/focus-visible styles for navigable union types in the Fields tab | Added `.gql-se-impl-link--btn` (button reset + hover underline + focus-visible ring). Added `.gql-se-enum-value--type-btn` (pill button with hover/focus-visible) |
+| BUG-P1-R1-6 | `src/shared/selectors.ts` | GQL namespace had 4 stale testid selectors that no longer matched the component's actual `data-testid` values (used old `gql-schema-*` prefix instead of `gql-se-*`): `SCHEMA_SEARCH`, `SCHEMA_TYPE_LIST`, `SCHEMA_TYPE_DETAIL`, `COPY_SDL_BTN` | Updated all 4 selectors + `SCHEMA_SDL_TAB`, `SCHEMA_SDL_VIEW`, `SNAPSHOT_BTN` to correct `gql-se-*` IDs |
+| BUG-P1-R1-7 | `GraphqlSchemaExplorer.tsx` | `gql-se-type-entries` div had no `data-testid` — `GQL.SCHEMA_TYPE_LIST` selector had no element to target in the DOM | Added `data-testid="gql-se-type-list"` to the type entries div |
+
+#### Pass 2: UX + A11y audit of ConnectionBar, ResponseViewer, ProfileModal (2 bugs)
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-P1-R2-2 | `GraphqlConnectionBar.tsx` | Profile badge `aria-label` was the generic string `"Connection profiles"` — did not communicate the saved count or action to screen readers (contrast: env badge had a descriptive dynamic aria-label matching its title) | Changed to dynamic `aria-label` mirroring the `title` text: `"N saved profiles — click to manage"` / `"No saved profiles — click to save current connection"` |
+| BUG-P1-R2-3 | `GraphqlConnectionBar.tsx` | Schema polling config button only had a `title` attribute — no `aria-label`. Screen readers prefer `aria-label` over `title` | Added `aria-label` mirroring the `title` value |
+
+### Comprehensive Round 2 (2026-06-17) — 3 bugs fixed
+
+Full re-audit of Phase 1 modals (`GraphqlProfileModal`, `GraphqlEnvModal`) and schema explorer edge cases.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-P1-R3-1 | `GraphqlProfileModal.tsx` + `graphql-studio.css` | The profile modal panel had `style={{ outline: 'none' }}` as an inline style — the project rule requires all styling to live in CSS, not inline. The env modal panel (also `tabIndex={-1}`) had the same problem but was never given the suppress rule at all, so focused programmatically it would show a full-panel browser focus ring | Removed inline `style` from `GraphqlProfileModal`; added `.gql-profile-modal:focus { outline: none }` and `.gql-env-modal:focus { outline: none }` to CSS |
+| BUG-P1-R3-2 | `GraphqlEnvModal.tsx` | Env name button (`gql-env-name-display`) accessible name was just the env name text. Screen readers would announce the name but nothing about the rename affordance. `title="Click to rename"` is a tooltip-only attribute that screen readers don't always expose | Added `aria-label={\`Rename \${selectedEnv.name}\`}` so screen readers announce "Rename Staging, button" |
+| BUG-P1-R3-3 | `GraphqlEnvModal.tsx` | "Set Active" button had no context about which environment would be activated — screen readers would only announce "Set Active, button" with no env name | Added `aria-label={\`Set \${selectedEnv.name} as active environment\`}` |
+
+### Comprehensive Round 3 (2026-06-17) — 1 bug fixed
+
+Full re-audit of `GraphqlAuthPopover`, `GraphqlHeadersPanel`, and `GraphqlResponseViewer`.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-P1-R4-1 | `GraphqlAuthPopover.tsx` | **Critical A11y:** `PasswordInput` component set `data-testid={testId}` on the underlying `<input>` but did NOT set `id={testId}`. Three labels used `htmlFor` referencing those same values as if they were HTML `id` attributes: `htmlFor="gql-auth-bearer-input"` (Bearer Token label), `htmlFor="gql-auth-basic-pass"` (Basic Password label), `htmlFor="gql-auth-apikey-val"` (API Key Value label). Clicking any of these label texts did not focus the corresponding password input, breaking the standard form interaction. | Added `id={testId}` to the `<input>` inside `PasswordInput` — `testId` now doubles as both the HTML `id` and `data-testid`, no new prop required. |
+
+### Comprehensive Round 4 (2026-06-17) — 2 bugs fixed
+
+Full re-audit of `GraphqlStudioPage` keyboard shortcuts, `GraphqlProfileModal` event handling, and `useGraphqlExecution`.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-P1-R5-1 | `GraphqlProfileModal.tsx` | **Critical UX:** Profile modal registered its Escape key handler as `window.addEventListener('keydown', ...)` in the bubble phase — the same phase as the main page's global `Escape → cancel()` handler. `addEventListener` fires in registration order, and the page registers first (mounts first). So pressing Escape to dismiss the Profile modal ran the page's `cancel()` BEFORE the modal's handler could call `stopPropagation()`. Any in-flight GraphQL request was silently aborted. The env modal and auth popover correctly used `document.addEventListener(..., { capture: true })` to solve this — capture phase fires BEFORE bubble phase regardless of registration order. | Changed to `document.addEventListener('keydown', handler, { capture: true })` (and matching `removeEventListener` with `{ capture: true }`) — matches the `GraphqlEnvModal` / `GraphqlAuthPopover` pattern. |
+| BUG-P1-R5-2 | `useGraphqlExecution.ts` | Misaligned comment on line 75: comment at 10-space indent, surrounding code at 6-space indent. | Fixed indentation to 6 spaces to match the code block. |
+
+### Comprehensive Round 5 (2026-06-17) — CSS Linting Overhaul (33 bugs fixed)
+
+Installed Stylelint, added `lint:css` script, silenced ESLint on `.css` files. Fixed 33 Stylelint errors across 11 CSS files: duplicate selectors (merged conflicting properties), empty CSS blocks (removed), `!important` overrides (removed where possible). Files fixed: `graphql-studio.css`, `index.css`, `base.css`, `catalog.css`, `csv-import.css`, `environment-manager.css`, `json-path-builder.css`, `requests.css`, `scenario-builder.css`, `settings.css`, `websocket-studio.css`, `workflow.css`. After fixes: `npm run lint:css` and `npx eslint .` both report **0 errors**.
+
+### Comprehensive Round 6 (2026-06-17) — 8 bugs fixed
+
+Full re-audit of all Phase 1 files focusing on UX correctness, cross-browser compatibility, and visual consistency.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-GQL-R6-1 | `GraphqlEnvModal.tsx` | **Cross-browser (Firefox)**: `handleExport()` called `URL.revokeObjectURL(url)` synchronously after `a.click()` and did not append the anchor to the document body. On Firefox, synchronous revocation aborts the download before the browser can start transferring the file. Same bug as BUG-1B-3 (schema SDL export) which was already fixed in `GraphqlSchemaExplorer.tsx`. | Applied the same fix: `document.body.appendChild(a)`, click, `document.body.removeChild(a)`, then `setTimeout(() => URL.revokeObjectURL(url), 150)`. |
+| BUG-GQL-R6-2 | `GraphqlConnectionBar.tsx` | **Visual inconsistency**: Schema error badge used the raw Unicode `⚠` character: `⚠ Schema error`. The schema-loaded badge uses a proper SVG dot. All other warning indicators in the codebase (validation warning, variables error banner) use SVG icons. Raw Unicode glyphs render inconsistently across OS/font combinations. | Replaced `⚠` with the same SVG warning triangle (path + two lines) used throughout the component. |
+| BUG-GQL-R6-3 | `GraphqlProfileModal.tsx` | **Misleading UX**: The two-click delete confirmation button changed its label to `✓ Confirm`. A checkmark (✓) conventionally signals "done" or "success" to users. On a destructive action (delete), it misleads users into thinking the deletion already succeeded rather than asking them to confirm it. Users hesitate or re-read trying to understand what the ✓ means. | Changed label to `Delete?` — a question mark is universally understood as a confirmation prompt, and "Delete?" clearly communicates the destructive nature of the action. |
+| BUG-GQL-R6-4 | `GraphqlHeadersPanel.tsx` | **A11y inconsistency**: Key input used `aria-label={\`Header \${idx + 1} name\`}` (always index-based, e.g. "Header 1 name") while the value input, enable checkbox, and remove button all used `rowLabel` (the key name when available, e.g. "Authorization header value"). For a row with key "Authorization": checkbox → "Enable Authorization header", key input → "Header 1 name" (inconsistent!), value → "Authorization header value", remove → "Remove Authorization header". Screen reader users navigating by form field would get inconsistent context. | Changed key input `aria-label` to `\`${rowLabel} header name\`` — matches the format of all other row elements. |
+| BUG-GQL-R6-5 | `GraphqlResponseViewer.tsx` + `GraphqlSchemaExplorer.tsx` | **A11y — Keyboard scrolling**: The response JSON body (`gql-rv-json-scroll`) and the schema SDL viewer (`gql-se-sdl-pre-wrap`) are scrollable `<div>` containers around non-interactive `<pre>` content. Without `tabIndex={0}`, keyboard-only users have no way to Tab to these areas and use arrow/Page keys to scroll through large responses or SDL definitions. | Added `tabIndex={0}` to both scrollable containers and added matching `:focus-visible` CSS rules (2px accent outline inset) to both `.gql-rv-json-scroll` and `.gql-se-sdl-pre-wrap`. |
+| BUG-GQL-R6-6 | `graphql-studio.css` | **CSS code smell**: `.gql-polling-interval-input` used `padding: 4px 6px !important` and `font-size: 12px !important` to override the base `.gql-input` rule. `!important` bypasses the cascade and makes future overrides brittle. | Renamed the selector to `.gql-polling-popover .gql-polling-interval-input` — the extra specificity of the ancestor context naturally wins over the flat `.gql-input` rule without needing `!important`. |
+| BUG-GQL-R6-7 | `GraphqlEnvModal.tsx` | **Code quality — Indentation**: The `<div ref={panelRef}` modal panel element was indented with 6 spaces (an extra level) instead of the standard 4. This broke the visual indentation pattern of the surrounding JSX tree. | Corrected to 4-space indentation matching all other JSX in the file. |
+| BUG-GQL-R6-8 | `GraphqlSchemaExplorer.tsx` | **Visual inconsistency — Unicode icons**: Four interactive elements used raw Unicode characters instead of SVG icons: (a) `⬡` in the idle-state "Introspect Schema" CTA button, (b) `↺` in the `introspection-disabled` "Retry" button, (c) `↺` in the `error` "Retry" button, (d) `⟳` in the schema-loaded re-introspect icon button, and (e) `↓ SDL` in the Export SDL button. Unicode glyphs render differently across OS/browser/font combinations and don't respect the app's icon sizing system. | Replaced all five with inline SVG icons (refresh/download icons) matching the visual style used throughout the component. |
+
+### Comprehensive Round 9 (2026-06-17) — 12 bugs fixed
+
+Deep audit focusing on memory leaks, race conditions, cleanup gaps, and UX edge cases. 36 issues identified; 12 highest-priority fixed; remainder tracked for Phase 2.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-GQL-R9-1 | `useGraphqlSchema.ts` | **Poll recovery false positive — amber "Schema stale" badge persists after successful refresh**: After a transient poll failure set `pollErrorMessage`, a subsequent successful poll that found no SDL change hit `if (isPoll && !changed) return` and never cleared the error message. The badge stayed amber indefinitely. | Added `setState((s) => s.pollErrorMessage ? { ...s, pollErrorMessage: null } : s)` on the `isPoll && !changed` early-return path. |
+| BUG-GQL-R9-2 | `useGraphqlSchema.ts` + `GraphqlStudioPage.tsx` | **Corrupted schema cache crashes Schema Explorer**: `loadCachedSchema` validated `schemaInfo` existence but not that `schemaInfo.types` was an array. Partial/corrupt cache entries caused `types.filter()` and `types.length` to throw, producing a white-screen crash. | Added `!Array.isArray(parsed.schemaInfo?.types)` guard in `loadCachedSchema`. Used optional chaining `schemaInfo?.types?.length` for `typesCount` prop. |
+| BUG-GQL-R9-3 | `GraphqlStudioPage.tsx` | **Global shortcuts fire through open modals**: ⌘Enter executed queries and ⌘⇧I triggered introspection while Environment Manager or Profile modal was open, causing accidental side effects. | Added `profileModalOpenRef` / `envModalOpenRef` refs + DOM check for `[role="dialog"][aria-modal="true"]`. All shortcuts except Escape bail early when any dialog is open. |
+| BUG-GQL-R9-4 | `useGraphqlExecution.ts` | **In-flight execution not aborted on unmount**: Navigating away from GraphQL Studio while a query was executing left the fetch running. The async completion then called `setState` on the unmounted component. | Added `useEffect(() => () => { abortCtrlRef.current?.abort(); }, [])` unmount cleanup. |
+| BUG-GQL-R9-5 | `GraphqlStudioPage.tsx` | **Monaco models never disposed on tab close (memory leak)**: Closing a tab removed React state but left `inmemory://graphql/{id}` and `inmemory://graphql-vars/{id}` models (with undo stacks, markers) in Monaco's registry. Sessions with repeated open/close cycles accumulated memory. | Added `monaco.editor.getModel(uri)?.dispose()` for both query and vars URIs in `closeTab`, using a `monacoRef` to access the instance in the callback. |
+| BUG-GQL-R9-8 | `GraphqlConnectionBar.tsx` | **Introspect not blocked for unresolved `{{var}}`**: R8 blocked Execute but not Introspect. Introspect sends an HTTP request to the same endpoint, producing the same confusing DNS error. | Added `endpointHasUnresolved` to `introspectDisabled` alongside `executeDisabled`. |
+| BUG-GQL-R9-9 | `GraphqlResponseViewer.tsx` + `GraphqlSchemaExplorer.tsx` | **Copy feedback timers not cleaned on unmount**: `setTimeout(() => setCopied(false), 1500)` with no ref cleanup. Switching views shortly after copying caused `setState` on unmounted components. | Added `copyTimerRef` / `sdlCopyTimerRef` with `useEffect` unmount cleanup in both components. |
+| BUG-GQL-R9-10 | `GraphqlEnvModal.tsx` | **Delete-confirm timer missing unmount cleanup**: The 2.5s confirm timeout from R8-8 was cleared on confirm but not when the modal unmounted. | Added `useEffect(() => () => { ... clearTimeout ... }, [])` cleanup. |
+| BUG-GQL-R9-15 | `GraphqlStudioPage.tsx` + `graphql-studio.css` | **Partial success shows green Response tab badge**: HTTP 200 with both `data` and `errors` (partial success, common in GraphQL) showed the same green success dot as a clean response. | Added `.gql-right-tab-badge--warn` amber variant. Tab badge now shows amber when `response.errors.length > 0 && response.data != null`. |
+| BUG-GQL-R9-16 | `GraphqlResponseViewer.tsx` | **Pure GQL error badge text still reads "200 OK"**: R8-18 changed the badge color to amber but the label still came from `statusBadgeLabel(httpStatus)`, creating a contradictory amber "200 OK". | When `isPureGqlError`, badge now reads "GraphQL Error" instead of the HTTP status label. |
+| BUG-GQL-R9-21 | `GraphqlResponseViewer.tsx` | **Duplicate HTTP response header keys cause React key collision**: `key={key}` in the headers table. Servers may emit duplicate headers (e.g. `Set-Cookie`), causing React warnings and lost rows. | Changed to `key={\`${key}-${idx}\`}`. |
+| BUG-GQL-R9-22 | `GraphqlEnvModal.tsx` | **FileReader import lacks `onerror` handler**: If the selected file was corrupted or unreadable, the read failed silently with no user feedback. | Added `reader.onerror = () => setImportError('Could not read the selected file')`. |
+
+### Comprehensive Round 8 (2026-06-17) — 12 bugs fixed
+
+Full re-audit by static analysis agent using read-only access to all Phase 1 components. Prioritised by user-facing impact.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-GQL-R8-1 | `GraphqlStudioPage.tsx` | **Critical regression — `executionStatusRef` referenced `status` (window.status) instead of `execStatus`**: The R7 fix for Escape-key cancel introduced a new bug: the `const executionStatusRef = useRef(status)` line captured the browser's global `window.status` string (which TypeScript accepted as a string comparison), not the destructured `execStatus` alias. The Escape guard (`=== 'loading'`) therefore never matched, making the R7 fix a no-op. | Changed to `useRef(execStatus)` and `executionStatusRef.current = execStatus`. |
+| BUG-GQL-R8-2 | `useGraphqlSchema.ts` | **Functional — In-flight introspection can corrupt schema for the wrong endpoint**: When the user changed the endpoint quickly (or a poll fired while editing the URL), the async response from the old URL could return after the state was reset for the new URL, overwriting the new endpoint's state and localStorage cache with the stale schema. | Added a monotonic `introspectionSeqRef` counter. Each `runIntrospection` call captures `thisSeq` before the await; after each await, if `thisSeq !== introspectionSeqRef.current` the response is discarded. The counter is also bumped in the endpoint-change `useEffect`. |
+| BUG-GQL-R8-3 | `useGraphqlExecution.ts` | **UX — Cancel wipes the last good response**: `execute()` always called `setResponse(null)` at the start. If the user ran a second query and pressed Cancel/Escape, the panel showed "No response yet" instead of the previous result. | Added `lastCompletedResponseRef` that snapshots the current `{status, response}` before clearing for a new execution. `cancel()`, `Aborted`, and `ctrl.signal.aborted` paths now restore from this ref instead of going to `idle`/null. |
+| BUG-GQL-R8-4 | `GraphqlStudioPage.tsx` | **UX — Non-object variables JSON silently ignored**: Variables validation accepted any valid JSON (arrays, strings, null). Execution only sent variables when the parsed value was a non-array object. Users entering `["a"]` or `null` received no error and no variables were sent — server errors looked like app bugs. | Validation now requires `typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)`. Shows "Variables must be a JSON object — e.g. {\"id\": \"1\"}" for non-object values. |
+| BUG-GQL-R8-8 | `GraphqlEnvModal.tsx` | **UX — Environment delete has no confirmation**: One misclick on the sidebar trash icon permanently deleted an environment and all its variables — no undo. | Implemented two-click confirm pattern matching `GraphqlProfileModal`. First click arms `confirmingDeleteId` and shows "Delete?" label with a 2.5s timeout. Second click executes the delete. Added `.gql-env-sidebar-delete--confirming` CSS for the armed state. |
+| BUG-GQL-R8-9 | `useGraphqlSchema.ts` + `GraphqlConnectionBar.tsx` | **UX — Polling failures are silent while badge stays "Schema loaded"**: When a background poll failed (auth/network/parse error), the hook returned early without updating any state. The badge stayed green "Schema loaded" with no indication the schema was stale. | Added `pollErrorMessage: string | null` to `GraphqlSchemaState`. Poll failures now set it via `setState((s) => ({ ...s, pollErrorMessage: ... }))` without wiping the schema. Successful polls clear it. The connection bar shows an amber "Schema stale" badge (`.gql-schema-status--poll-warn`) with a tooltip when `pollErrorMessage` is set. |
+| BUG-GQL-R8-10 | `GraphqlConnectionBar.tsx` | **UX — Execute not blocked when endpoint has unresolved `{{var}}`**: The R7 warning icon was display-only. Execute remained enabled, sending a literal `https://{{host}}/graphql` to the network and producing a confusing DNS error. | Moved `executeDisabled` computation to after `endpointHasUnresolved` is derived. Added `endpointHasUnresolved` as a blocking condition. The button is now disabled with a tooltip explaining why. |
+| BUG-GQL-R8-11 | `GraphqlResponseViewer.tsx` | **UX — Empty state shows macOS-only `⌘ Enter` shortcut**: Windows and Linux users saw the wrong modifier key. | Changed to `{isMac ? '⌘' : 'Ctrl'}+Enter` using `navigator.platform` detection. |
+| BUG-GQL-R8-14 | `graphql-studio.css` | **Layout — Connection bar clips controls on narrow widths**: `.gql-connection-url-wrap` had `flex: 1` but no `min-width: 0`, preventing it from shrinking. Many children had `flex-shrink: 0`. On narrow panels, right-side controls (Execute, schema badge, env) were pushed off-screen with no scroll. | Added `min-width: 0` to `.gql-connection-url-wrap` and `overflow-x: auto; scrollbar-width: thin` to `.gql-connection-bar`. |
+| BUG-GQL-R8-17 | `GraphqlEnvModal.tsx` | **Consistency — Raw Unicode `⚠` in import error message**: The import error banner used the raw Unicode triangle character, inconsistent with the SVG-icon standard established elsewhere. | Replaced with the same SVG warning triangle used in headers/endpoint panels. Added `.gql-env-import-error-icon` CSS class and updated `.gql-env-import-error` to `display: flex; gap: 4px`. |
+| BUG-GQL-R8-18 | `GraphqlResponseViewer.tsx` | **UX — HTTP 200 + GraphQL-only errors shows green "200 OK" badge**: A 2xx response carrying only `errors` and no `data` is effectively a failed operation, yet the badge was green. Novice users often interpret green as "success" and miss the error count. | Added `isPureGqlError` detection (2xx + errors + no data). Uses `.gql-status--gql-error` amber badge class instead of green. Partial responses (data + errors) remain green with the "Partial" sub-badge. |
+| BUG-GQL-R8-19 | `GraphqlSchemaExplorer.tsx` | **UX — Schema search doesn't clear stale selection**: When the user searched/filtered and the selected type was no longer in the visible list, the detail panel continued showing that type with no highlighted row in the list. The kind filter already had this clear logic; search did not. | Added `useEffect` that watches `filteredTypes` and calls `setSelectedTypeName(null)` if `selectedTypeName` is not in the filtered set. |
+
+### Comprehensive Round 7 (2026-06-17) — 8 bugs fixed
+
+Full re-audit by static analysis agent using read-only access to all Phase 1 components. Prioritised by user-facing impact.
+
+| ID | Component | Bug | Fix |
+|----|-----------|-----|-----|
+| BUG-GQL-R7-1 | `GraphqlStudioPage.tsx` | **UX — Escape wiped status dot after response**: The global `Escape → cancel()` keyboard shortcut was unconditional. After a successful or failed execution, pressing Escape reset `status` from `'success'`/`'error'` to `'idle'`, silently removing the green/red dot on the Response tab while the response body was still visible — misleading users about pass/fail. | Added `executionStatusRef` to track current status in the event handler closure. `cancel()` now only fires when `executionStatusRef.current === 'loading'`. |
+| BUG-GQL-R7-2 | `useGraphqlSchema.ts` | **Functional — Monaco has no autocomplete after reload**: When a schema was restored from `localStorage` cache, `rawIntrospection` was explicitly set to `null` ("raw data is not cached"). Monaco's language service received `null` and had no schema for autocomplete or validation squiggles until the user manually re-introspected. | `rawIntrospection` is now cached alongside `schemaInfo` (with a 2 MB size guard). Both the lazy `useState` initializer and the endpoint-change `useEffect` restore it from cache. The `saveCachedSchema` call includes it when under the size limit. |
+| BUG-GQL-R7-3 | `GraphqlStudioPage.tsx` + `GraphqlHeadersPanel.tsx` | **Data integrity — Header rows can have no `id` after deserialization**: `normalizeTab()` cast the raw headers array without ensuring each row had a stable `id`. On pre-existing localStorage data (from before the `id` field was introduced), rows deserialized with `id: undefined`, causing React duplicate-key warnings and broken row update/delete. | Exported `makeHeaderId()` from `GraphqlHeadersPanel.tsx`. `normalizeTab()` maps each header through `{ ...h, id: typeof h.id === 'string' && h.id ? h.id : makeHeaderId() }`. |
+| BUG-GQL-R7-4 | `authUtils.ts` | **Bug — `btoa()` throws `InvalidCharacterError` for non-ASCII credentials**: Basic Auth encoding used `btoa()` directly. Any non-Latin character in username or password (accented letters, CJK, Cyrillic) throws a `DOMException`, silently dropping the Authorization header. | Changed to `btoa(unescape(encodeURIComponent(credentials)))` — the canonical Unicode-safe base64 encoding pattern. |
+| BUG-GQL-R7-5 | `authUtils.ts` | **UX — OAuth 2.0 / Custom auth badge appears "unconfigured"**: `isAuthConfigured()` returned `false` for `oauth2` and `custom` types, so the badge stayed gray — indistinguishable from "No Auth". A user who explicitly chose OAuth 2.0 had no visual confirmation. | `isAuthConfigured()` now returns `true` for `oauth2` and `custom` types, so the badge turns blue. The comment explains these types don't auto-inject headers but the selection itself should be acknowledged. |
+| BUG-GQL-R7-6 | `GraphqlConnectionBar.tsx` | **UX — No warning for unresolved `{{var}}` in endpoint URL**: Headers showed per-row warnings for unresolved vars; the endpoint URL input had no such warning. A request to `https://{{host}}/graphql` would fail with a cryptic network error. | Added `activeEnvironment` prop. Uses `findUnresolvedVars(endpoint, activeEnvironment)`. When vars are unresolved, a `.gql-endpoint-unresolved-icon` warning SVG appears with a tooltip listing the missing variable names. |
+| BUG-GQL-R7-7 | `graphql-studio.css` | **CSS — `color: #12261c` hardcoded on `.gql-method-badge`**: On themes where `--gql-success` is a different hue, this hardcoded dark color could be off-tone. | Replaced with `color: color-mix(in srgb, var(--gql-success) 15%, #000)` — a dark color derived from the success token. |
+| BUG-GQL-R7-8 | `graphql-studio.css` | **CSS — select chevron SVG uses hardcoded stroke `%237f8c9a`**: On the light theme, this gray was barely visible against the white surface. | Added `--gql-select-chevron` custom property to `.gql-studio` (dark default: `%23a8b8cc`). Added `[data-theme="light"] .gql-studio` override with darker stroke `%233f4f63`. `.gql-select` now references `var(--gql-select-chevron)`. |
+
+### Comprehensive Round 10 (2026-06-17) — 11 bugs fixed
+
+Full audit identified 29 new issues (0 Critical, 6 High, 13 Medium, 8 Low, 2 Cosmetic). 11 highest-impact fixes implemented:
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R10-1 | `GraphqlStudioPage.tsx` | **High — ⌘Enter bypasses unresolved endpoint var check**: `handleExecute()` only checked `varsError` and `endpoint.trim()`, not unresolved `{{var}}` refs. The Execute button was disabled but the keyboard shortcut still fired, sending requests to literal `{{host}}` URLs. | Added `findUnresolvedVars(endpoint, activeEnvironment).length > 0` early-return guard in `handleExecute`. |
+| BUG-GQL-R10-2 | `GraphqlStudioPage.tsx` | **High — ⌘⇧I bypasses unresolved endpoint var check for introspect**: The Introspect button was disabled for unresolved vars (R9-8) but the global keyboard shortcut called `introspect()` with no guard. | Added `endpointRef` / `activeEnvironmentRef` and a `findUnresolvedVars` guard before the `introspectRef.current()` call in the keyboard handler. |
+| BUG-GQL-R10-4 | `GraphqlStudioPage.tsx` | **High — MAX_TABS not enforced on localStorage load**: `loadTabs()` restored all persisted tabs with no `slice`. Manual edits or older builds could produce 10+ tabs, overflowing the UI. | Added `normalized.slice(0, MAX_TABS)` in `loadTabs()`. Excess tabs are silently dropped. |
+| BUG-GQL-R10-6 | `GraphqlResponseViewer.tsx` | **High — JSON.stringify crash in render**: `useMemo` called `JSON.stringify(payload, null, 2)` with no try/catch. BigInt, circular structures, or exotic values could white-screen the right pane. | Wrapped in try/catch; fallback shows a human-readable error comment. |
+| BUG-GQL-R10-10 | `GraphqlSchemaExplorer.tsx` | **Medium — Zero-field types show blank panel**: OBJECT/INTERFACE/INPUT_OBJECT types with empty `fields: []` rendered a blank detail tab with no explanation. | Added empty-state message "This type has no fields defined" when all field/enum/union arrays are empty (non-SCALAR). |
+| BUG-GQL-R10-13 | `GraphqlStudioPage.tsx` | **Medium — Closing tab doesn't cancel in-flight execution**: User could close a tab mid-request; the response would arrive for a disposed model, causing confusing "ghost" execution. | In `closeTab`, if the closed tab owns the in-flight execution (`responseModelUriRef` matches), `cancel()` is called. |
+| BUG-GQL-R10-16 | `GraphqlProfileModal.tsx` | **Medium — Profile modal Escape doesn't restore focus**: Keyboard users landed on `<body>` after closing profiles via Escape (env modal restored focus correctly). | Added `restoreFocusToTrigger()` with `requestAnimationFrame` targeting `[data-testid="gql-profile-badge"]` in the Escape handler. |
+| BUG-GQL-R10-18 | `GraphqlResponseViewer.tsx` | **Medium — httpHeaders could be undefined from malformed proxy**: `Object.keys(response.httpHeaders)` throws if the field is null/undefined from a malformed proxy response. | Added defensive `?? {}` fallback in both the main component and the `MetadataTab` sub-component. |
+| BUG-GQL-R10-22 | `GraphqlStudioPage.tsx` | **Low — Space on tab close scrolls page**: The close button `onKeyDown` handler handled Space but didn't call `preventDefault()`, so the browser's default scroll action also fired. | Added `e.preventDefault()` before `closeTab` in the Space/Enter handler. |
+| BUG-GQL-R10-26 | `GraphqlConnectionBar.tsx` | **Low — commitPollingInterval reads stale pollingEnabled from closure**: The function read `pollingEnabled` and `localIntervalSeconds` from the render closure instead of refs, unlike `closePollingPopoverViaRef`. | Changed to read `pollingEnabledRef.current` and `localIntervalSecondsRef.current`. |
+| BUG-GQL-R10-29 | `GraphqlConnectionBar.tsx` | **Cosmetic — Execute button aria-label doesn't mention unresolved vars**: When disabled due to unresolved endpoint vars, screen readers heard generic "Execute operation" with no explanation. | Added `endpointHasUnresolved` branch to both `aria-label` and `title` attributes. |
+
+### Comprehensive Round 11 (2026-06-17) — 10 bugs fixed
+
+Audit identified 23 new issues (2 Critical, 3 High, 10 Medium, 6 Low, 2 Cosmetic). Includes 1 regression from R10-13. 10 highest-impact fixes implemented:
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R11-1 | `GraphqlStudioPage.tsx` | **Critical — R10-13 regression: `closeTab` reads stale `executing`**: `closeTab`'s `useCallback` deps are `[tabs, confirmingCloseTabId]` — `executing` is captured at first render. When execution starts, the closure still sees `executing === false`, so `cancel()` never fires on tab close. | Added `executingRef` + `cancelForCloseRef` refs declared before `closeTab`; reads `executingRef.current` and calls `cancelForCloseRef.current()`. |
+| BUG-GQL-R11-2 | `GraphqlEnvModal.tsx` | **Critical — env var cross-contamination on environment switch**: Under React batching, the sync effect's `setLocalVars` triggers the flush effect, which could persist the old env's vars to the new env's ID before the sync completes. | Added `skipFlushForEnvSwitchRef` guard: sync effect sets `true`, flush effect skips one cycle and resets to `false`. |
+| BUG-GQL-R11-6 | `GraphqlResponseViewer.tsx` | **Medium — MetadataTab status mismatch with status bar**: Status bar showed amber "GraphQL Error" for HTTP 2xx + errors-only, but MetadataTab showed green "200 OK" for the same response. | Extracted `isPureGqlError` logic into `MetadataTab`; mirrors status bar color/label. |
+| BUG-GQL-R11-10 | `GraphqlStudioPage.tsx` | **Medium — ⌘Enter during execution restarts request**: Power users pressing ⌘Enter during a loading request would silently abort and restart instead of no-op. | Added `if (executing) return` guard at the start of `handleExecute`; added `executing` to `useCallback` deps. |
+| BUG-GQL-R11-11 | `GraphqlConnectionBar.tsx` | **Medium — Introspect aria-label missing unresolved vars**: Screen readers heard "Introspect schema" on a disabled button without explanation for the unresolved vars reason. | Added `endpointHasUnresolved` branch to both `aria-label` and `title`. |
+| BUG-GQL-R11-12 | `GraphqlSchemaExplorer.tsx` | **Medium — SDL copy unhandled rejection**: `navigator.clipboard.writeText` had no `.catch()`, causing an unhandled promise rejection in non-secure contexts or denied permissions. | Added `.catch(() => {})` matching ResponseViewer pattern. |
+| BUG-GQL-R11-14 | `GraphqlStudioPage.tsx` | **Medium — Model disposal uses wrong URI**: `closeTab` used `buildModelUri(tabId)` instead of `closedTab.modelUri`. Persisted tabs could have a divergent `modelUri`, causing Monaco models to leak. | Changed to `mc.Uri.parse(closedTab.modelUri)` and added `closedTab` null guard. |
+| BUG-GQL-R11-15 | `useGraphqlExecution.ts` | **Medium — Cross-hook state update inside setStatus updater**: `setResponse` was called inside a `setStatus` updater function. Under React concurrent features, this causes unpredictable ordering. | Added `statusRef` / `responseRef` for synchronous reads; snapshot and batch state updates separately. |
+| BUG-GQL-R11-16 | `GraphqlVariablesPanel.tsx` | **Low — handleBeforeMount recreated every render**: Unlike `GraphqlEditor.tsx` which hoists to module scope, `VariablesPanel` created a new inline function per render, potentially causing Monaco re-init work. | Hoisted `handleBeforeMount` to module scope (same pattern as `GraphqlEditor.tsx`). |
+| BUG-GQL-R11-18 | — | **Cancelled** — Profile modal close button already had `type="button"` at line 169. Audit false positive. | No change needed. |
+
+### Comprehensive Round 12 (2026-06-17) — 9 bugs fixed
+
+Final polish audit identified 22 new issues (0 Critical, 2 High, 9 Medium, 8 Low, 3 Cosmetic) plus 1 R11-6 regression (missing CSS). R11 fixes verified correct except styling gap. 9 fixes implemented:
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R12-1 | `graphql-studio.css` | **Medium — R11-6 MetadataTab amber CSS missing**: R11-6 added `gql-status--gql-error` class logic to `MetadataTab` but no CSS rule existed for `.gql-rv-meta-status.gql-status--gql-error` — label showed "GraphQL Error" text in default unstyled color. | Added `.gql-rv-meta-status.gql-status--gql-error` rule with amber background/color matching `.gql-rv-status-badge` variant. |
+| BUG-GQL-R12-2 | `GraphqlConnectionBar.tsx` | **Low — Introspect button title doesn't update during introspection or unresolved vars**: `aria-label` correctly switched states but `title` was static. | Added `introspecting` branch to `title` matching the `aria-label` pattern. |
+| BUG-GQL-R12-6 | `GraphqlConnectionBar.tsx`, `GraphqlStudioPage.tsx` | **Medium — Empty query allows Execute (silent no-op)**: Execute was enabled with empty query; clicking did nothing with no feedback. | Added `queryEmpty` prop to connection bar; included in `executeDisabled`; added early-return guard in `handleExecute`; added descriptive `aria-label`/`title`. |
+| BUG-GQL-R12-7 | `GraphqlStudioPage.tsx` | **Medium — Operation normalization marks tab as unsaved**: Automatic `selectedOperation` sync (stale/missing op name) used `updateActiveTab` which always sets `unsavedChanges: true`, causing amber dot and two-click close for a non-user edit. | Replaced with direct `setTabs` call that patches only `selectedOperation` without touching `unsavedChanges`. |
+| BUG-GQL-R12-12 | `GraphqlResponseViewer.tsx` | **Low — MetadataTab shows green for partial success (data+errors)**: Status bar and tab badge showed amber but Metadata tab showed green "200 OK". | Added `isPartialSuccess` detection; shows amber "Partial Success" label matching status bar semantics. |
+| BUG-GQL-R12-14 | `GraphqlConnectionBar.tsx` | **Low — extractOperations duplicate names cause React key collision**: Malformed documents with duplicate operation names produced key warnings in the `<select>`. | Changed `key={name}` to `key={\`${name}-${idx}\`}`. |
+| BUG-GQL-R12-17 | `graphql-studio.css` | **Low — Auth popover close button missing `:focus-visible`**: Keyboard users couldn't see focus on the auth popover's close control. | Added `.gql-auth-popover-close:focus-visible` rule with accent outline. |
+| BUG-GQL-R12-18 | `GraphqlConnectionBar.tsx` | **Low — Polling switch missing `aria-label`**: The `role="switch"` button had `aria-checked` but no accessible name. | Added `aria-label="Enable schema polling"`. |
+| BUG-GQL-R12-22 | `graphql-studio.css` | **Cosmetic — Profile modal close button missing `:focus-visible`**: Keyboard users couldn't see focus on the profile modal's close control. | Added `.gql-profile-modal__close:focus-visible` rule with accent outline. |
+
+### Comprehensive Round 13 (2026-06-17) — 4 bugs fixed
+
+Audit identified 18 new issues (0 Critical, 3 High, 9 Medium, 4 Low, 2 Cosmetic). All R12 fixes verified correct. 4 highest-impact fixes implemented; 2 audit items cancelled as false positives:
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R13-1 | `useGraphqlExecution.ts` | **High — setState after unmount in execution hook**: Navigating away during an in-flight request aborts it, but the async catch/success handlers still call `setStatus`/`setResponse` → React "can't update unmounted component" warnings. | Added `mountedRef`; guard every `setStatus`/`setResponse` call in the async IIFE with `if (!mountedRef.current) return`; clear ref on unmount. |
+| BUG-GQL-R13-2 | `useGraphqlSchema.ts` | **High — setState after unmount in schema hook**: Introspection requests (manual and polls) have no unmount guard — same class of issue as R13-1. | Added `mountedRef`; expanded both `thisSeq` guards to also check `mountedRef.current`; added `!mountedRef.current` guard in catch block; cleanup effect sets `mountedRef.current = false`. |
+| BUG-GQL-R13-6 | `GraphqlStudioPage.tsx` | **Medium — Schema view forced on cache hydration**: The auto-switch effect triggered on any `idle → loaded` transition including cache load on mount, pulling returning users to the Schema tab unexpectedly. | Changed to track `introspecting` flag: only auto-switches when `introspecting` transitions `true → false` with `schemaStatus === 'loaded'` (i.e. only after manual introspect success). |
+| BUG-GQL-R13-14 | `graphql-studio.css` | **Low — Missing `:focus-visible` on 4 controls**: Env modal close, polling popover close, profile Load, and profile Delete buttons all had `:hover` but no `:focus-visible` rule. | Added matching `:focus-visible` rules with `var(--gql-accent)` outline for all four. |
+| BUG-GQL-R13-12 | — | **Cancelled** — `useQueryValidation` timer IS cleaned up by effect cleanup's `clearTimeout`; false positive. | No change needed. |
+| BUG-GQL-R13-15 | — | **Cancelled** — `data != null` and `data !== undefined && data !== null` are semantically equivalent in JS; false positive. | No change needed. |
+
+### Comprehensive Round 14 (2026-06-17) — 4 bugs fixed
+
+Audit identified 7 new issues (0 Critical, 1 High, 3 Medium, 3 Low). All R13 fixes verified correct (with minor gaps addressed below). 4 fixes implemented; 3 lower-severity items deferred (R14-4 narrow mountedRef race in schema setState, R14-6 useQueryValidation debounce unmount, R14-7 confirmTimer defensive guard):
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R14-1 | `GraphqlStudioPage.tsx` | **High — Auto-switch false positive on endpoint change during introspect**: R13-6's `prevIntrospectingRef` correctly prevents auto-switch on cache hydration, but if the user changes the endpoint URL while introspection is in-flight, the new endpoint's cached schema triggers `introspecting: true→false` + `schemaStatus: 'loaded'` → unexpected auto-switch to Schema showing the wrong endpoint's schema. | Added `introspectStartEndpointRef` to capture the endpoint when `introspecting` transitions `false→true`. Auto-switch now additionally requires `endpoint === introspectStartEndpointRef.current`. |
+| BUG-GQL-R14-2 | `GraphqlStudioPage.tsx` | **Medium — Vars debounce race with Execute**: Variables validation uses a 300ms debounce, but `handleExecute` gates on the debounced `varsError` state. User can fix invalid JSON and Execute within 300ms (blocked), or break JSON and Execute within 300ms (proceeds with no variables silently). | Added synchronous JSON validation directly in `handleExecute` — parses the variables string, rejects non-object/array/invalid JSON. The debounced `varsError` is kept for the UI badge only. |
+| BUG-GQL-R14-3 | `GraphqlStudioPage.tsx` | **Medium — Double-click Execute race**: `handleExecute` checks `executing` (React state), but between first click and re-render there's a window where a second click passes the guard and aborts+restarts the request. | Added `executingRef.current` check (already maintained by closeTab logic) alongside the `executing` state check, closing the synchronous race window. |
+| BUG-GQL-R14-5 | `useGraphqlExecution.ts` | **Low — cancel() missing mountedRef guard**: `cancel()` calls `setStatus`/`setResponse` unconditionally. While no current code path calls it after unmount, `closeTab` could invoke `cancelForCloseRef.current()` during teardown. | Added `if (!mountedRef.current) return` guard after aborting, matching the async completion paths from R13-1. |
+
+### Comprehensive Round 15 (2026-06-17) — 6 bugs fixed
+
+Audit identified 6 new issues (0 Critical, 2 Medium, 2 Low, 2 Cosmetic). R14-2 and R14-5 verified correct; R14-1 and R14-3 had follow-up gaps addressed below. All 6 fixed:
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R15-1 | `GraphqlStudioPage.tsx` | **Medium — R14-3 double-execute guard incomplete**: `executingRef` only mirrors React state (lags by one render), so two rapid clicks/⌘Enter in the same tick can still both pass the guard and start overlapping requests. | Added dedicated `executionLockRef` set synchronously at the top of `handleExecute` before calling `execute()`. Cleared automatically when `executing` goes `false`. |
+| BUG-GQL-R15-2 | `GraphqlStudioPage.tsx` | **Medium — R14-1 env-resolution gap**: `introspectStartEndpointRef` tracked the raw template string only. If the user changes the active environment or an env-var value during introspection (while the template is unchanged), the new endpoint's cached schema triggers a false auto-switch. | Now captures and compares the fully resolved endpoint (`resolveVars(endpoint, activeEnvironment)`) instead of the raw template. |
+| BUG-GQL-R15-3 | `GraphqlStudioPage.tsx` | **Low — ⌘⇧I bypasses introspecting guard**: The Introspect button is disabled while `introspecting`, but the keyboard shortcut had no equivalent check, allowing stacked introspection requests. | Added `introspectingRef` and an early `return` in the keyboard handler when introspection is already in flight. |
+| BUG-GQL-R15-4 | `GraphqlStudioPage.tsx` | **Low/Cosmetic — Vars banner shows wrong message for non-object JSON**: When variables are valid JSON but not an object (e.g. `"hello"` or `[]`), the banner says "Invalid JSON" instead of the actual validation error. | Banner now renders the actual `varsError` message (e.g. "Variables must be a JSON object") instead of hardcoded "Invalid JSON". |
+| BUG-GQL-R15-5 | `GraphqlSchemaExplorer.tsx` | **Low (a11y) — Schema explorer buttons missing aria-labels**: Empty-state Introspect and Retry buttons had no `aria-label`, causing screen readers to announce generic "button". | Added dynamic `aria-label` to all three empty-state action buttons (idle, introspection-disabled, error). |
+| BUG-GQL-R15-6 | `GraphqlStudioPage.tsx` | **Cosmetic — Stale `varsError` in handleExecute dependency array**: `varsError` was listed in `handleExecute`'s `useCallback` deps but never read inside (R14-2 replaced it with synchronous validation). Causes unnecessary callback churn. | Removed `varsError` from the dependency array. |
+
+### Comprehensive Round 16 (2026-06-17) — 2 bugs fixed
+
+Audit identified only 2 new issues with plausible user-facing impact. All R15 fixes verified correct with no regressions. Full dependency array audit of GraphqlStudioPage.tsx revealed no stale closures. The codebase is converging on stability.
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R16-1 | `GraphqlStudioPage.tsx` | **Medium — Stale varsError after tab switch**: Variables validation is debounced (300ms), but when switching tabs, the old tab's `varsError` persists for up to 300ms — the error banner shows the wrong message, and Execute appears disabled even though the new tab's variables are valid. | Validate synchronously on tab switch (detected via `prevVarsTabIdRef`); only debounce when the user is typing within the same tab. |
+| BUG-GQL-R16-2 | `GraphqlResponseViewer.tsx` | **Medium — Large response freezes the UI**: Responses above ~512KB produce hundreds of thousands of syntax-highlighted `<span>` elements, freezing the main thread during tokenization and DOM mounting. Common with list queries or bulk exports on internal APIs. | Added a 512KB threshold — responses above it render as plain text in the `<pre>` block, skipping `tokenizeJson()` entirely. Copy still works. Syntax highlighting is preserved for normal-sized responses. |
+
+### Comprehensive Round 17 (2026-06-17) — 2 bugs fixed
+
+Audit identified only 2 new issues with plausible user-facing impact. All R16 fixes verified correct with no regressions. Full user-journey walkthrough (10 scenarios), CSS class completeness check, and dependency array audit all passed clean.
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R17-1 | `GraphqlStudioPage.tsx`, `monacoGraphqlSetup.ts` | **High — Stale Monaco schema after endpoint change or introspection failure**: The `rawIntrospection` effect feeds schema data to monaco-graphql but never clears it when the schema becomes null (endpoint change, introspection failure). The query editor keeps suggesting fields from the previous endpoint's schema, giving users false confidence in wrong field names. | Added `clearGraphqlSchema()` to `monacoGraphqlSetup.ts` (calls `setSchemaConfig([])`) and extended the effect to call it when `rawIntrospection` becomes null. |
+| BUG-GQL-R17-2 | `GraphqlStudioPage.tsx` | **Medium — Endpoint URL not persisted across reload**: Tabs, auth, polling, TLS, and environments are all persisted to localStorage, but the endpoint URL was not. After a page reload, endpoint reverts to the app-level base URL (or empty), while tabs/queries restore — the next Execute/Introspect silently hits the wrong server. | Added `ENDPOINT_STORAGE_KEY` (`gql_endpoint_v1`), restore on mount (with fallback to `resolvedBaseUrl`), and persist on every change. The `resolvedBaseUrl` sync effect still overrides when the app env changes and the user hasn't manually edited the URL. |
+
+### Comprehensive Round 18 (2026-06-17) — 1 bug fixed
+
+Audit identified only 1 new issue with plausible user-facing impact — a regression introduced by R17-2. All R17 fixes verified correct (R17-1 clearGraphqlSchema is solid). 8 new angles checked (duplicate env imports, tab label derivation, recent endpoint scaling, backgrounded polling, schema explorer navigation, non-JSON server responses, auth popover reset, header toggle persistence) — all clean. Profile + endpoint interaction verified correct.
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R18-1 | `GraphqlStudioPage.tsx` | **Medium — Endpoint persistence ignores env change on remount**: R17-2's endpoint restore always takes the saved value from localStorage. If the user switches the app env/microservice selector while GraphQL Studio is unmounted (or on full reload), the saved endpoint from the old env takes priority — Execute/Introspect silently hit the wrong server. The `prevBaseUrlRef` sync effect can't detect this because it initializes to the current `resolvedBaseUrl` on mount. | Added `ENDPOINT_BASE_STORAGE_KEY` (`gql_endpoint_base_v1`) to persist the last auto-synced base URL. On mount, if the saved endpoint equals the saved base URL (i.e. was auto-synced, not manually edited) and `resolvedBaseUrl` has changed, the new `resolvedBaseUrl` is used instead. The sync effect now also writes the base key whenever it auto-updates. |
+
+### Comprehensive Round 19 (2026-06-17) — 2 bugs fixed
+
+Audit identified 1 definite and 1 borderline issue — both fixed. All R18 fixes verified correct across 7 endpoint persistence scenarios (fresh, same-env restore, env-change restore, manual-edit restore, profile load). Full sweep of 7 new angles (cleared endpoint reload, prettify on malformed queries, Monaco mount failure, large SDL copy, localStorage full, special char endpoints, polling persistence) all passed.
+
+| ID | Files | Issue & Impact | Fix |
+|---|---|---|---|
+| BUG-GQL-R19-1 | `GraphqlStudioPage.tsx` | **Medium — Profile load doesn't pin endpoint against env auto-sync**: Loading a connection profile sets the endpoint, but doesn't mark it as "manually set." If the profile's endpoint happens to equal the current env base URL, switching the app env silently overwrites the profile's endpoint with the new env's base URL — while auth from the profile remains, creating a mismatched connection. | On profile load, set `prevBaseUrlRef.current` to a sentinel value (`'\0profile-pinned'`) that can't match any `resolvedBaseUrl`, and remove `ENDPOINT_BASE_STORAGE_KEY` so remount also treats it as manual. |
+| BUG-GQL-R19-2 | `GraphqlConnectionBar.tsx` | **Medium — Polling config hidden when schema not loaded**: The polling config button is rendered inside the `schemaStatus === 'loaded'` block. If polling is enabled and introspection subsequently fails or the endpoint changes, there's no UI to turn polling off — background requests continue with no user control. | Added a standalone polling config button that renders when `pollingEnabled && schemaStatus !== 'loaded'`, allowing users to access the polling popover to disable it regardless of schema state. |
+
+---
+
+## 23. Phase 2 Comprehensive Evaluation
+
+> **Evaluation date**: 2026-06-17  
+> **Evaluator**: AI-assisted competitive analysis + technical feasibility review  
+> **Scope**: All 7 sub-phases (2A–2G), 44 total tasks, estimated ~20 files / ~4500 LOC
+
+### 23.1 Executive Summary
+
+Phase 2 as currently planned is **significantly overscoped**. It bundles 7 distinct feature areas (subscriptions, SSE, subscription UI, incremental delivery, file upload, visual query builder, performance tracing) totaling 44 tasks — roughly **3× the scope of Phase 1** (which itself required 19 re-evaluation rounds). This evaluation recommends splitting Phase 2 into **two sub-releases (2.0 and 2.1)**, re-prioritizing based on user value and competitive positioning, and addressing several technical risks identified through competitive research.
+
+### 23.2 Competitive Landscape Analysis (June 2026)
+
+#### 23.2.1 Subscription Testing
+
+| Tool | WS Subscriptions | SSE | Protocol Auto-detect | Auth in WS | Reconnect | Message Assertions | Latency Stats |
+|------|------------------|-----|---------------------|------------|-----------|-------------------|---------------|
+| **Hoppscotch** | Excellent | Excellent | Yes | Yes | Basic | No | No |
+| **Altair** | Good | No | No | Yes | No | No | No |
+| **Postman** | Improved (v11) | Yes | No | Yes | Basic | Limited (scripts) | No |
+| **Insomnia** | Basic/Limited | No | No | Limited | No | No | No |
+| **Bruno** | No | No | No | No | No | No | No |
+| **GraphiQL** | No | No | No | No | No | No | No |
+| **RedfireForge (planned)** | Full (modern+legacy) | Yes | Yes (close-code based) | Yes (connectionParams) | Exponential backoff | JSONPath live assertions | Yes (msg/sec, P50/P95) |
+
+**Takeaway**: Hoppscotch leads in subscription testing but lacks structured assertions and latency metrics. RedfireForge's planned subscription feature would be **best-in-class** with the assertion panel and stats bar. The protocol auto-detection (close code `4406`/`4400` → legacy fallback) is a genuine differentiator that no competitor offers.
+
+**Risk**: `subscriptions-transport-ws` (the legacy Apollo package) is **deprecated and unmaintained** since 2022. While backward compatibility is valuable for teams with Apollo Server ≤v3, the maintenance burden is real. Recommend implementing as P2 (not P0/P1) and documenting it as "legacy compat" with a deprecation notice.
+
+#### 23.2.2 Visual Query Builder
+
+| Tool | Visual Builder | Bidirectional Sync | Fragments | Directives | Union/Interface | Args UI |
+|------|---------------|-------------------|-----------|-----------|----------------|---------|
+| **Bruno** | Yes (sidebar) | Yes (editor ↔ builder) | No | No | Inline fragments | Basic |
+| **GraphQL Editor** | Yes (block-based) | Yes (visual ↔ code) | No | No | No | No |
+| **gqlvis** | Yes (queries only) | No | No | No | No | Basic |
+| **Altair** | No | N/A | N/A | N/A | N/A | N/A |
+| **Postman** | No | N/A | N/A | N/A | N/A | N/A |
+| **Hoppscotch** | No | N/A | N/A | N/A | N/A | N/A |
+| **RedfireForge (planned)** | Yes (3-column) | One-way (builder → editor) | Yes (create/use/unused warning) | Yes (@skip/@include/@defer) | Yes (inline fragments) | Full (type-matched widgets) |
+
+**Takeaway**: Bruno is the current leader with bidirectional sync, but its builder is limited (no fragments, no directives, max 7 levels). RedfireForge's planned builder is the most ambitious — but also the most complex to implement. The 11-task spec includes P2 features (fragments, directives, aliases, union support, persistence) that could easily double the estimated LOC.
+
+**Recommendation**: Ship a **Minimum Viable Builder** (2F-1 through 2F-5 + 2F-9) first, then iterate. Fragment and directive support (2F-6, 2F-7, 2F-8) are low-usage features that add significant complexity. Bruno doesn't have them and is still considered best-in-class.
+
+**Bruno's key insight**: Their builder is limited to 7 nesting levels and doesn't support complex list input arguments — these are reasonable constraints that keep the implementation manageable. Consider adopting similar pragmatic limits.
+
+#### 23.2.3 Incremental Delivery (`@defer` / `@stream`)
+
+| Tool | @defer Support | @stream Support | Skeleton UI | Chunk Tracker | Multipart Parser |
+|------|---------------|----------------|-------------|---------------|-----------------|
+| **Apollo Studio** | Yes (paid) | Yes (paid) | Yes | Basic | Built-in |
+| **Hoppscotch** | No | No | No | No | No |
+| **Altair** | No | No | No | No | No |
+| **Postman** | No | No | No | No | No |
+| **GraphiQL** | Partial (plugin) | No | No | No | No |
+| **RedfireForge (planned)** | Yes | Yes | Yes (shimmer) | Yes (per-chunk timing) | `meros` |
+
+**Takeaway**: This is a strong differentiator — **no free tool supports `@defer`/`@stream` with good UX**. Apollo Studio does but requires a paid account. However, the specification is **still not finalized** (June 2026):
+
+- The `graphql` JS reference implementation is at v17.0.0-alpha.9 for the format
+- Apollo Client ships 3 different incremental delivery handlers (`Defer20220824Handler`, `GraphQL17Alpha2Handler`, `GraphQL17Alpha9Handler`) because the wire format keeps changing
+- The GraphQL over HTTP spec RFC for incremental delivery is still draft
+
+**Risk**: Implementing against an unstable spec means potential rework when the spec finalizes. The `meros` library handles the multipart parsing, but the **patch merge semantics** (how to apply `path`-based patches to the accumulated result) have changed across spec versions.
+
+**Recommendation**: Keep `@defer`/`@stream` at P1 priority but **design the multipart parser to be version-aware**. Support the latest spec version (alpha.9 format) as default, with a connection-level "incremental delivery format" dropdown for servers running older versions. This future-proofs against spec changes.
+
+#### 23.2.4 File Upload
+
+| Tool | Multipart Upload | Drag-and-Drop | Progress | Size Validation | Multi-file |
+|------|-----------------|--------------|----------|----------------|------------|
+| **Altair** | Yes (spec-compliant) | No | No | No | Yes (dot notation) |
+| **Postman** | Yes | Yes | No | No | Yes |
+| **Hoppscotch** | No | No | No | No | No |
+| **Bruno** | No | No | No | No | No |
+| **Insomnia** | Limited | No | No | No | No |
+| **RedfireForge (planned)** | Yes (spec-compliant) | Yes | Yes (streaming) | Yes (client-side) | Yes |
+
+**Takeaway**: Altair is the reference implementation for file upload UX. RedfireForge's plan goes further with drag-and-drop, progress indicators, and client-side size validation. The `graphql-multipart-request-spec` is **stable and mature** (v1.0.0 since 2019, widely implemented across Go/Node/Python/Ruby/.NET servers).
+
+**Recommendation**: Solid plan. Keep as-is. The progress indicator (2E-4, P2) is a nice-to-have that can ship separately.
+
+#### 23.2.5 Performance & Tracing
+
+| Tool | Apollo Tracing Waterfall | OpenTelemetry Viz | Query Complexity | Latency Histogram |
+|------|------------------------|-------------------|-----------------|-------------------|
+| **Apollo Studio** | Yes (deprecated format) | Yes (via GraphOS) | Yes | Yes (paid) |
+| **Altair** | No | No | No | No |
+| **Hoppscotch** | No | No | No | No |
+| **GraphiQL** | No | No | No | No |
+| **RedfireForge (planned)** | Yes (waterfall Gantt) | No | Yes (AST-based) | Yes (in-memory) |
+
+**CRITICAL FINDING**: The plan references `extensions.tracing` (Apollo Tracing format) which is **officially deprecated** by Apollo. Modern GraphQL servers use **OpenTelemetry** for performance tracing, which exports trace data to external observability platforms (Jaeger, SigNoz, Grafana Tempo) rather than embedding it in the GraphQL response.
+
+However, many existing servers (especially Apollo Server ≤v3, GraphQL Yoga, Mercurius) still emit the legacy `extensions.tracing` format. This is analogous to how browsers still support legacy web APIs.
+
+**Recommendation**:
+1. **Keep the Apollo Tracing waterfall** (2G-1) but rename it "Tracing Waterfall" and document it as supporting the legacy `extensions.tracing` format
+2. **Add OpenTelemetry integration consideration** as a Phase 3+ item — parse `extensions.opentelemetry` or `extensions.tracing` (whichever is present)
+3. The query complexity estimator (2G-2) is valuable and unique — keep it. No free tool does client-side cost estimation.
+4. The latency histogram (2G-3) is a nice-to-have; defer to Phase 2.1
+
+### 23.3 Technical Risk Assessment
+
+| Risk | Severity | Impact | Mitigation |
+|------|----------|--------|------------|
+| **`@defer`/`@stream` spec instability** | High | Rework when spec finalizes; patch merge format may change | Version-aware parser; default to latest alpha; connection-level format override |
+| **`subscriptions-transport-ws` unmaintained** | Medium | No security patches; may break with newer Node/browser versions | Implement as P2 legacy compat; advise users to migrate servers to `graphql-ws` |
+| **Proxy server routes missing** | High | 4 sub-phases (2A, 2B, 2D, 2E) require new Express routes in `src-server/` which doesn't exist in the current codebase | Must scaffold `src-server/routes/graphql/` before starting subscription or upload work; this is a hidden dependency |
+| **Tauri WebSocket support** | Medium | WS subscriptions through Tauri's IPC proxy are architecturally different from browser native WebSocket | Design `graphqlClient.ts` transport layer with Tauri IPC adapter; test both platforms early |
+| **Query Builder scope creep** | High | 11 tasks including union/interface fragments, directives, persistence — could easily become 2000+ LOC component tree | Ship MVP builder (6 tasks) first; iterate on advanced features |
+| **Monaco bundle growth** | Medium | Adding `graphql-ws`, `subscriptions-transport-ws`, `graphql-sse`, `meros`, `extract-files` adds ~150KB gzipped | Lazy-load subscription/upload code paths; code-split by feature |
+| **Apollo Tracing deprecation** | Low | `extensions.tracing` may disappear from future server versions | Support both `extensions.tracing` and `extensions.opentelemetry`; graceful fallback |
+| **Browser WebSocket subprotocol handling** | Low | Safari/Firefox may handle subprotocol negotiation differently | Use `graphql-ws` client library (handles cross-browser quirks internally) |
+
+### 23.4 Dependency Audit
+
+| Package | Plan Version | Latest (June 2026) | Status | Bundle Impact | Notes |
+|---------|-------------|---------------------|--------|---------------|-------|
+| `graphql-ws` | `^6.x` | `6.0.8` | Active, MIT | ~12KB gzip | Zero-dependency; modern protocol only. Maintained by The Guild. |
+| `subscriptions-transport-ws` | `^0.11.x` | `0.11.0` | **Deprecated** (no updates since 2022) | ~15KB gzip | Legacy Apollo protocol. Consider vendoring or wrapping to avoid dependency on unmaintained package. |
+| `graphql-sse` | `^2.x` | `2.5.x` | Active, MIT | ~8KB gzip | Same author as `graphql-ws` (The Guild). SSE transport spec compliant. |
+| `meros` | `^1.x` | `1.3.x` | Active, MIT | ~3KB gzip | Zero-dependency multipart parser. Used by Relay, Urql. Stable since 2020. |
+| `extract-files` | `^13.x` | `13.0.0` | Stable, MIT | ~2KB gzip | Mature; no changes needed. Used by `apollo-upload-client`. |
+
+**Total new bundle impact**: ~40KB gzipped (acceptable for code-split lazy loading)
+
+**Missing from plan**: No `jsonpath-plus` dependency listed for 2C-5 assertion panel and 2G-1 tracing waterfall path extraction. The project already uses `src/shared/utils/jsonPath.ts` — verify it covers the needed operations or add `jsonpath-plus` to the dependency list.
+
+### 23.5 Recommended Phase Split
+
+The original Phase 2 scope (~4500 LOC, 44 tasks) is too large for a single development cycle. Recommend splitting into two increments:
+
+#### Phase 2.0 — Subscriptions + File Upload (Core Protocol Parity)
+**Estimated**: ~16 files, ~2600 LOC, 22 tasks
+
+| Sub-phase | Tasks | Priority | Rationale |
+|-----------|-------|----------|-----------|
+| **2A — WebSocket Subscriptions** | 2A-1 through 2A-9 | P0–P2 | Core protocol feature; biggest competitive gap vs Hoppscotch |
+| **2B — SSE Subscriptions** | 2B-1 through 2B-4 | P1 | Same transport abstraction; small incremental effort after 2A |
+| **2C — Subscription UI** | 2C-1 through 2C-4 | P0–P1 | Required to surface subscription data; assertion panel (2C-5) deferred to 2.1 |
+| **2E — File Upload** | 2E-1 through 2E-3, 2E-5 | P1 | Independent of subscriptions; high user demand; Altair already has this |
+
+**Why this grouping**: These features share the proxy server infrastructure (new routes in `src-server/`), share the transport abstraction (`graphqlClient.ts`), and together bring RedfireForge to **protocol parity** with Hoppscotch and Altair. They also enable cross-protocol testing workflows (the app's unique value proposition).
+
+#### Phase 2.1 — Query Builder + Performance (Developer Productivity)
+**Estimated**: ~11 files, ~2550 LOC, 22 tasks
+
+| Sub-phase | Tasks | Priority | Rationale |
+|-----------|-------|----------|-----------|
+| **2F — Visual Query Builder** | 2F-1 through 2F-5, 2F-9 (MVP) | P1 | Competitive with Bruno; defer 2F-6/7/8/10/11 to post-2.1 |
+| **2D — Incremental Delivery** | 2D-1 through 2D-5 | P1 | Depends on execution engine maturity; spec more stable by then |
+| **2G — Performance & Tracing** | 2G-1 through 2G-2 | P2 | Nice-to-have; defer histogram (2G-3/4/5) to Phase 3 |
+| **2C-5** — Subscription Assertions | 1 task | P2 | Deferred from 2.0; requires assertion engine shared with test runner |
+| **2E-4** — Upload Progress | 1 task | P2 | Nice-to-have polish for file upload |
+
+**Why this grouping**: These features are about **developer productivity and advanced UX** rather than core protocol support. They can ship independently and benefit from the execution engine stability established in Phase 2.0.
+
+### 23.6 Detailed Task-by-Task Evaluation
+
+#### 2A — WebSocket Subscriptions (9 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2A-1 | P0 | WS proxy route is a **hard prerequisite** for all subscription work. Must handle subprotocol negotiation, bidirectional relay, and multiplexing. | High — `src-server/` routes don't exist in current codebase | Scaffold `src-server/routes/graphql/` directory structure first. Consider Express + `ws` library (already in project deps). |
+| 2A-2 | P0 | Modern `graphql-ws` client integration. Well-documented library with browser + Node support. | Low | Straightforward — `graphql-ws` v6.0.8 has clean `createClient()` API. Use `subscribe()` → `AsyncIterator` pattern as specified. |
+| 2A-3 | P1 | Legacy `subscriptions-transport-ws` client. Package is deprecated (no updates since 2022). | Medium — may have unfixed bugs; no security patches | Implement but document as "legacy compatibility". Consider a thin adapter wrapping the deprecated package rather than deep integration. Explore vendoring the minimal client code (~200 lines) to avoid depending on an unmaintained package. |
+| 2A-4 | P1 | Protocol auto-detection via close codes. Clever approach — no competitor does this. | Low | Well-specified. Close codes `4406`/`4400` are documented in the `graphql-ws` protocol spec. Add a 2-second timeout for the initial `connection_ack` to detect non-responsive servers. |
+| 2A-5 | P0 | Subscription state machine (`idle → connecting → ... → error`). Core hook architecture. | Low | 7-state FSM is well-specified. Use `useReducer` for state machine pattern (matches existing `useWebsocketState` in the project). |
+| 2A-6 | P1 | Exponential backoff reconnect. Standard pattern. | Low | Use the formula as specified. Add `AbortController` integration so disconnecting during backoff cancels the timer cleanly. |
+| 2A-7 | P1 | Connection status pill in connection bar. UI component. | Low | Reuse the existing connection bar badge pattern from `GraphqlConnectionBar.tsx`. Add `data-testid` selectors to `GQL` namespace. |
+| 2A-8 | P1 | `connection_init` auth via `connectionParams`. | Low | `buildConnectionParams(auth)` is a simple mapping from `GraphqlAuth` to a plain object. `4401` → permanent error is correct per spec. |
+| 2A-9 | P2 | `wsEndpoint` URL derivation helper. | Low | Simple string replacement (`https→wss`, `http→ws`). Already typed on `GraphqlConnection`. |
+
+**Verdict**: Well-specified. 2A-1 is the critical path blocker. Recommend starting with 2A-1 + 2A-2 + 2A-5 as the first sprint.
+
+#### 2B — SSE Subscriptions (4 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2B-1 | P1 | Add `graphql-sse` dependency. Trivial. | None | — |
+| 2B-2 | P1 | SSE transport via `graphql-sse` `createClient()`. Same author as `graphql-ws`. | Low | Clean API mirroring WS transport. The `subscribe()` interface is intentionally identical. |
+| 2B-3 | P1 | SSE proxy route. Simpler than WS (no upgrade handshake). | Low | Standard SSE relay. Forward `Last-Event-ID` for resumability. |
+| 2B-4 | P1 | SSE mode auto-detection (URL path `/stream` heuristic). | Low | Reasonable heuristic. The manual transport override dropdown is the fallback. |
+
+**Verdict**: Clean, small scope. Naturally follows 2A since it shares the transport abstraction.
+
+#### 2C — Subscription UI (5 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2C-1 | P0 | Virtualized subscription log. Core UI for displaying messages. | Medium — virtualization is complex for variable-height JSON bodies | Use `react-window` or `@tanstack/virtual` (both already used in similar patterns in the project). Consider a fixed-height collapsed view with expand-on-click for JSON bodies. The mockup shows this pattern. |
+| 2C-2 | P1 | Sticky stats bar (total, errors, msg/sec, duration). | Low | Simple derived state from the message buffer. Rolling 5s window for msg/sec is straightforward with a timestamp ring buffer. |
+| 2C-3 | P1 | Log toolbar (Pause/Resume/Clear/Export). | Low | Standard toolbar pattern. Export as JSONL (one object per line) for large logs. |
+| 2C-4 | P1 | Inline filter bar with JSONPath or full-text search. | Medium — JSONPath evaluation on every message in real-time could be expensive | Pre-filter with full-text `includes()` first; only apply JSONPath when the filter starts with `$.`. Cache compiled JSONPath expressions. Use the project's existing `src/shared/utils/jsonPath.ts` engine. |
+| 2C-5 | P2 | Assertion panel with per-message pass/fail badges. | Medium — requires assertion engine integration | **Defer to Phase 2.1**. This is essentially building a mini test runner for subscription messages. Reuse `evaluateFieldOperator` from the existing validation engine rather than building a new assertion evaluator. |
+
+**Verdict**: 2C-1 through 2C-4 are essential and well-scoped. 2C-5 is a significant feature that should be deferred.
+
+#### 2D — Incremental Delivery (5 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2D-1 | P1 | Multipart parser using `meros`. | **High** — spec instability | `meros` handles the multipart boundary splitting, but the **patch merge semantics** (how `path` + `data` patches are applied to the accumulated result) have changed across GraphQL spec versions. Design the merge function to be pluggable. Document which spec version is supported (recommend alpha.9 / latest). |
+| 2D-2 | P1 | Proxy route for `multipart/mixed` passthrough. | Medium | Must NOT buffer the response — stream chunks as they arrive. Set `Transfer-Encoding: chunked` and `Content-Type: multipart/mixed; boundary="-"`. |
+| 2D-3 | P1 | Response viewer with skeleton/shimmer on deferred fields. | **High** — complex UI state | Requires tracking which response paths are pending vs resolved. The shimmer → fill animation needs to handle deeply nested objects and list items. Consider a progressive disclosure approach: show the accumulated JSON with `/* pending */` placeholders, then animate the replacement. |
+| 2D-4 | P2 | Chunk tracker toolbar. Nice-to-have UI chrome. | Low | Defer to Phase 2.1. The response viewer (2D-3) provides the essential functionality. |
+| 2D-5 | P1 | `hasIncrementalDirective()` utility for conditional `Accept` header. | Low | Straightforward `graphql.parse()` + `graphql.visit()` check. |
+
+**Verdict**: High complexity, high differentiation. Recommend deferring to Phase 2.1 when the spec is more stable and the execution engine is more mature.
+
+#### 2E — File Upload (5 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2E-1 | P1 | Files tab in Variables panel with drag-and-drop. | Low | Standard `dragenter/dragover/drop` event handling + `<input type="file">`. The auto-injection of `null` into Variables JSON is a nice touch that matches the spec exactly. |
+| 2E-2 | P1 | Client-side multipart construction using `extract-files`. | Low | Well-documented pattern. `extract-files` + `FormData` construction is ~30 lines of code. |
+| 2E-3 | P1 | Upload proxy route with `busboy`. | Medium | `busboy` streams file bytes without buffering — important for large files. Must reconstruct the multipart request targeting the upstream server. |
+| 2E-4 | P2 | Upload progress indicator. | Medium — requires streaming proxy progress reporting | Defer to Phase 2.1. The `X-Upload-Progress` header approach is non-standard; consider using `ReadableStream` with a `TransformStream` that counts bytes instead. |
+| 2E-5 | P1 | Client-side file size validation. | Low | Check `file.size` on selection. Straightforward. |
+
+**Verdict**: Well-specified, moderate complexity. The core (2E-1/2/3/5) can ship independently. Progress indicator (2E-4) is polish.
+
+#### 2F — Visual Query Builder (11 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2F-1 | P1 | Builder state management hook. Core architecture. | Medium | Complex state shape (`selectedFields` path map, `argValues`, `aliases`, `directives`, `fragments`). Design for extensibility but ship with minimal state (selectedFields + argValues only). |
+| 2F-2 | P1 | SDL generator from state. Core algorithm. | Medium | Recursive selection set building with variable auto-generation. The hardest part is handling nested objects, list types, and required vs optional args correctly. |
+| 2F-3 | P1 | Field selector tree component. Core UI. | Medium | The checkbox + expand/collapse tree is the most complex React component. Needs efficient re-renders for large schemas (500+ types). Consider `React.memo` on tree nodes. |
+| 2F-4 | P1 | Argument inputs with type-matched widgets. | Medium | Need to map GraphQL input types to form widgets (text, number, boolean, enum dropdown, `$varRef` toggle). Recursive for `INPUT_OBJECT` types. |
+| 2F-5 | P1 | Two-step schema search. | Low | Search across all types/fields, auto-expand tree to result path. Reuse the existing schema explorer search logic. |
+| 2F-6 | **P2** | Fragment panel. | **High** | Fragment management (create, name, select fields, insert spread, unused detection) is a mini-feature on its own. **Defer to post-2.1.** Bruno doesn't have this and is still considered excellent. |
+| 2F-7 | **P2** | Directive toggles (`@skip`/`@include`). | **High** | Requires variable auto-creation, popover UI per field, and complex SDL generation changes. **Defer to post-2.1.** |
+| 2F-8 | **P2** | Alias support. | Medium | Inline text input per field. Simpler than fragments/directives but still adds complexity. **Defer to post-2.1.** |
+| 2F-9 | P1 | "Edit in Editor" escape hatch. | Low | One-way SDL promotion to Monaco. Essential for the builder to be useful without being feature-complete. |
+| 2F-10 | **P2** | Union/Interface inline fragment support. | **High** | Complex selection model with `__on_TypeName` path convention. **Defer to post-2.1.** |
+| 2F-11 | **P2** | Builder state persistence. | Medium | localStorage keyed by tab ID. **Defer to post-2.1** until the state shape is stable. |
+
+**Verdict**: Ship MVP builder (2F-1 through 2F-5 + 2F-9 = 6 tasks) in Phase 2.1. Defer advanced features (2F-6/7/8/10/11 = 5 tasks) to a later iteration. This matches Bruno's pragmatic approach — their builder works great without fragments, directives, or union support.
+
+#### 2G — Performance & Tracing (5 tasks)
+
+| Task | Priority | Evaluation | Risk | Recommendation |
+|------|----------|------------|------|----------------|
+| 2G-1 | P2 | Apollo Tracing waterfall from `extensions.tracing`. | Medium — **format is deprecated** | Rename to "Tracing Waterfall". Support both `extensions.tracing` (legacy Apollo) and future `extensions.opentelemetry` (emerging standard). The Gantt chart visualization is valuable regardless of the source format. |
+| 2G-2 | P2 | Query complexity estimator. | Low | AST-based cost calculation (scalar +1, object +2, list × multiplier, depth penalty) is straightforward with `graphql.visit()`. The cost badge is a unique differentiator — **no free tool has this**. |
+| 2G-3 | P2 | Response time histogram. | Low | In-memory P50/P95/P99 across ≥3 executions. Use the project's existing `src/shared/utils/percentiles.ts` utilities. |
+| 2G-4 | P2 | Complexity configuration UI. | Low | Inputs in connection settings popover. |
+| 2G-5 | P2 | Histogram query detection via normalized hash. | Low | `print(parse(query))` → SHA-256 via `crypto.subtle`. |
+
+**Verdict**: All P2 priority. Ship in Phase 2.1. The complexity estimator (2G-2) is the highest-value item — consider promoting to P1.
+
+### 23.7 Missing Items (Not in Current Plan)
+
+| Item | Priority | Rationale |
+|------|----------|-----------|
+| **Proxy server scaffolding** | P0 (prerequisite) | 4 sub-phases require new Express routes in `src-server/routes/graphql/` but no task covers creating the route directory, adding Express middleware, or registering routes. This is a hidden dependency. |
+| **Tauri IPC adapters for WS/SSE** | P1 | The plan mentions Tauri compatibility but doesn't specify how WS subscriptions work through the Tauri IPC bridge. Need `invoke('graphql_subscribe', {...})` Rust command and IPC message relay. |
+| **`graphqlClient.ts` transport abstraction** | P0 | Plan references this file but no task explicitly creates the unified transport layer that abstracts HTTP/WS/SSE/Tauri behind a common interface. 2A-2, 2A-3, 2B-2 all add to it but there's no "create `graphqlClient.ts`" task. |
+| **Connection-level incremental delivery format selector** | P1 | Per Section 23.2.3 — the `@defer`/`@stream` wire format isn't standardized. Need a dropdown in connection settings to select between format versions. |
+| **OpenTelemetry trace parsing** | P2 (future) | Apollo Tracing is deprecated. Plan should acknowledge OpenTelemetry as the future standard and reserve space for `extensions.opentelemetry` parsing. |
+| **Subscription message export format** | P1 | 2C-3 says "Export JSON download" but doesn't specify the format. Recommend JSONL (one message per line) for streaming-friendly large exports, with an array wrapper option for small exports. |
+| **`localStorage` → `storage.ts` migration** | P1 | Phase 1 uses direct `localStorage` calls in several hooks/utils. Phase 2 should migrate to the project's `src/utils/storage.ts` abstraction for Tauri compatibility. Existing hooks: `useGraphqlConnectionProfiles`, `useGraphqlEnvironments`, `useRecentEndpoints`, `tabPersistence.ts`. |
+
+### 23.8 Updated Risk Assessment (Additions to Section 18)
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| `@defer`/`@stream` spec not finalized (multiple format versions) | High | Version-aware parser; connection-level format selector; default to latest alpha; document supported versions |
+| `subscriptions-transport-ws` deprecated and unmaintained | Medium | Implement as P2 legacy compat; consider vendoring minimal client code (~200 lines) to avoid external dependency on dead package |
+| No `src-server/` routes exist yet | High | Must scaffold server routes before Phase 2 subscription/upload work; this is a prerequisite task not listed in the plan |
+| Tauri WS/SSE subscription support requires Rust IPC commands | Medium | Design transport abstraction early; test on both platforms in Phase 2.0 |
+| Apollo Tracing format (`extensions.tracing`) deprecated by Apollo | Low | Support both legacy and emerging formats; tracing waterfall is format-agnostic visualization |
+| Query builder complexity (11 tasks, P2 items) | High | Ship MVP builder (6 tasks) first; defer fragments/directives/unions to post-2.1 iteration |
+| Virtual scroll for subscription messages with variable-height JSON | Medium | Use fixed-height collapsed rows with expand-on-click; avoids complex dynamic-height virtualization |
+
+### 23.9 Effort Estimates (Revised)
+
+| Sub-phase | Original LOC Est. | Revised LOC Est. | Files | Sprint |
+|-----------|-------------------|------------------|-------|--------|
+| **2A — WS Subscriptions** | (bundled) | ~800 | 4 | Phase 2.0 |
+| **2B — SSE Subscriptions** | (bundled) | ~300 | 2 | Phase 2.0 |
+| **2C — Subscription UI (2C-1→4)** | (bundled) | ~600 | 3 | Phase 2.0 |
+| **2E — File Upload (core)** | (bundled) | ~500 | 3 | Phase 2.0 |
+| Proxy server scaffolding | 0 (missing) | ~400 | 4 | Phase 2.0 (prerequisite) |
+| **Phase 2.0 subtotal** | — | **~2600** | **16** | — |
+| **2F — Query Builder (MVP)** | (bundled) | ~1200 | 4 | Phase 2.1 |
+| **2D — Incremental Delivery** | (bundled) | ~600 | 3 | Phase 2.1 |
+| **2G — Perf & Tracing (2G-1→2)** | (bundled) | ~400 | 2 | Phase 2.1 |
+| **2C-5 — Sub Assertions** | (bundled) | ~200 | 1 | Phase 2.1 |
+| **2E-4 — Upload Progress** | (bundled) | ~150 | 1 | Phase 2.1 |
+| **Phase 2.1 subtotal** | — | **~2550** | **11** | — |
+| **Phase 2 total** | ~4500 | **~5150** | **27** | — |
+
+The revised total is ~15% higher than the original estimate, primarily due to the missing proxy server scaffolding and the expanded query builder scope. This further supports the case for splitting into two increments.
+
+### 23.10 Implementation Order (Recommended)
+
+```
+Phase 2.0 (Protocol Parity)
+├─ Sprint 1: Proxy Server + Transport Layer
+│   ├─ NEW: Scaffold src-server/routes/graphql/ (subscribe, sse, upload)
+│   ├─ NEW: Create graphqlClient.ts transport abstraction
+│   └─ 2A-9: wsEndpoint derivation helper
+├─ Sprint 2: WebSocket Subscriptions
+│   ├─ 2A-1: WS proxy route
+│   ├─ 2A-2: graphql-ws client integration
+│   ├─ 2A-5: useGraphqlSubscription state machine
+│   └─ 2A-4: Protocol auto-detection
+├─ Sprint 3: Subscription UI + SSE
+│   ├─ 2C-1: Subscription log (virtualized)
+│   ├─ 2C-2: Stats bar
+│   ├─ 2C-3: Log toolbar
+│   ├─ 2B-1→4: SSE transport (shares UI with WS)
+│   └─ 2A-6→8: Reconnect, status pill, auth
+├─ Sprint 4: File Upload
+│   ├─ 2E-1: Files tab UI
+│   ├─ 2E-2: Multipart construction
+│   ├─ 2E-3: Upload proxy route
+│   ├─ 2E-5: Client-side validation
+│   └─ 2C-4: Subscription filter bar
+└─ Sprint 5: Polish + Testing
+    ├─ 2A-3: Legacy protocol compat
+    ├─ Unit tests for all new hooks/utils
+    └─ localStorage → storage.ts migration
+
+Phase 2.1 (Developer Productivity)
+├─ Sprint 6: Query Builder MVP
+│   ├─ 2F-1: Builder state hook
+│   ├─ 2F-2: SDL generator
+│   ├─ 2F-3: Field selector tree
+│   ├─ 2F-4: Argument inputs
+│   └─ 2F-5: Schema search
+├─ Sprint 7: Incremental Delivery
+│   ├─ 2D-1: Multipart parser
+│   ├─ 2D-2: Proxy passthrough
+│   ├─ 2D-3: Response viewer shimmer
+│   ├─ 2D-5: @defer detection
+│   └─ 2F-9: "Edit in Editor" escape hatch
+└─ Sprint 8: Performance + Polish
+    ├─ 2G-1: Tracing waterfall
+    ├─ 2G-2: Complexity estimator
+    ├─ 2C-5: Subscription assertions
+    ├─ 2E-4: Upload progress
+    └─ Unit tests + E2E tests
+```
+
+### 23.11 Deferred Items (Post Phase 2.1)
+
+These tasks from the original Phase 2 plan should be deferred until the MVP features are stable and user feedback is collected:
+
+| Task | Original Priority | Reason for Deferral |
+|------|------------------|---------------------|
+| 2F-6 — Fragment panel | P2 | High complexity; Bruno succeeds without it |
+| 2F-7 — Directive toggles | P2 | Requires variable auto-creation; complex SDL changes |
+| 2F-8 — Alias support | P2 | Medium complexity; low usage frequency |
+| 2F-10 — Union/Interface inline fragments | P2 | Very complex selection model; most schemas don't need it |
+| 2F-11 — Builder state persistence | P2 | Wait until state shape is stable |
+| 2G-3 — Response time histogram | P2 | Nice-to-have; latency data already shown in response viewer |
+| 2G-4 — Complexity configuration UI | P2 | Ship with hardcoded defaults first; add config later |
+| 2G-5 — Histogram query detection | P2 | Depends on 2G-3 |
+| 2D-4 — Chunk tracker toolbar | P2 | Nice-to-have; response viewer provides essential info |
+
+### 23.12 Key Competitive Differentiators After Phase 2
+
+If Phase 2.0 + 2.1 ship as recommended, RedfireForge's GraphQL Studio will be the **only free tool** that offers:
+
+1. **Subscription protocol auto-detection** (modern `graphql-transport-ws` → legacy `graphql-ws` fallback via close codes) — no competitor does this
+2. **Live subscription message assertions** with JSONPath rules and per-message pass/fail badges — Hoppscotch has no assertion support
+3. **`@defer`/`@stream` incremental delivery** with skeleton UI — only Apollo Studio (paid) has this
+4. **Client-side query complexity estimation** with cost badge — unique feature, no competitor
+5. **Visual query builder** with type-matched argument widgets — on par with Bruno, better than Altair/Postman
+6. **Cross-protocol in one app** (GraphQL + WebSocket + Kafka + SSE) — only Hoppscotch comes close (no Kafka), Postman has it all but is paid/bloated
+7. **File upload with drag-and-drop + client-side validation** — matches Altair, exceeds Hoppscotch/Postman
+8. **Native desktop** (Tauri ~15MB) vs Altair (Electron ~200MB+) vs Hoppscotch (Electron)
+
+
+### 23.13 Phase 2 Re-evaluation Round 2 (2026-06-17)
+
+> **Scope**: Cross-referenced Phase 2 plan (2A–2G) against existing WebSocket/SSE/Kafka studio architectures, mockup UIs, shared types, selectors, success criteria, and testing strategy. Found **28 additional gaps** not caught in the initial evaluation.
+
+#### 23.13.1 Architecture Alignment — Phase 1 vs Phase 2 Transport Model
+
+**CRITICAL FINDING**: Phase 1 and Phase 2 use fundamentally different server architectures, and the plan does not acknowledge or bridge this gap.
+
+| Concern | Phase 1 (actual) | Phase 2 (planned) | Existing WS/Kafka Studios |
+|---------|-----------------|-------------------|--------------------------|
+| Query transport | `gqlFetch` → `httpFetch` → Vite `/__proxy` plugin (direct) | `POST /api/graphql/query` (Express route) | Kafka: always Express `/api/kafka/*`; SSE: direct `fetch` |
+| Server routes | **None** — no `src-server/routes/graphql/` | WS subscribe, SSE, upload, batch, multipart | WS: `/api/ws/*` (6 routes); Kafka: `/api/kafka/*` (12+ routes) |
+| Auth injection | Client-side `buildAuthHeaders()` → headers on `POST` | WS: `connection_init_payload`; HTTP: same as Phase 1 | WS: both client-side + proxy `resolvedAuth`; Kafka: always server-side |
+| TLS handling | `skipTlsVerify` → `/__proxy` passthrough | Same + WS proxy needs TLS config | WS: server-side TLS via `ws` options |
+| Streaming | Not needed (request-response only) | Required for SSE, `@defer`/`@stream` | SSE Studio: `fetch` + `ReadableStream`; WS: native `WebSocket` or cursor poll |
+
+**Recommended resolution**: Phase 2 should adopt a **dual-path architecture**:
+1. **HTTP queries/mutations**: Keep Phase 1's `gqlFetch` → `/__proxy` model (proven, working)
+2. **WS subscriptions**: Choose between extending `/api/ws/*` proxy (reuse existing infra) or creating new `/api/graphql/subscribe` (cleaner separation). Decision should be a new prerequisite task.
+3. **SSE subscriptions**: Direct browser `fetch` + `ReadableStream` (matching SSE Studio pattern) when no auth headers needed; proxy route when auth required
+4. **`@defer`/`@stream`**: Direct browser `fetch` with streaming body — `httpFetch` in `httpClient.ts` calls `.text()` which **buffers the entire response** and cannot support incremental delivery. Must use raw `fetch` + `meros` parsing.
+
+#### 23.13.2 httpClient.ts Streaming Limitation
+
+`httpClient.ts` (`httpFetch`) reads response bodies with `.text()`, which buffers the complete response before returning. This is **incompatible** with:
+
+- **2B — SSE Subscriptions**: Requires `ReadableStream` chunked reading (SSE Studio's `useSseConnection` pattern)
+- **2D — `@defer`/`@stream`**: Requires `multipart/mixed` streaming via `meros`
+
+**New prerequisite task needed**: Add a `fetchStream()` function to `httpClient.ts` (or a dedicated `streamingFetch.ts`) that returns the raw `Response` object for streaming consumption, with the same auth/TLS/proxy routing logic. Reference: SSE Studio's approach in `useSseConnection.ts`.
+
+#### 23.13.3 Existing Protocol Studio Reuse Opportunities
+
+The re-evaluation found **significant reuse opportunities** that the plan doesn't call out:
+
+| Component / Hook | Source | Reuse for Phase 2 | Effort saved |
+|-----------------|--------|-------------------|-------------|
+| `@tanstack/react-virtual` virtual list pattern | `WebSocketMessageLog.tsx`, `SseMessageLog.tsx` | 2C-1 `GraphqlSubscriptionLog` | ~200 LOC |
+| `useWebSocketReconnect` exponential backoff | `useWebSocketReconnect.ts` | 2A-6 reconnect logic | ~100 LOC |
+| `wsAuthResolve` auth resolution for connections | `wsAuthResolve.ts` | 2A-8 `connectionParams` auth | ~50 LOC |
+| WS proxy service ring buffer + cursor model | `websocket-service.ts` | 2A-1 proxy approach (if chosen) | ~300 LOC |
+| SSE event parser | `sseParser.ts` | 2B-2 SSE transport (if custom needed) | ~80 LOC |
+| Filter bar pattern (text/regex/jsonpath) | `WebSocketMessageLog.controls.tsx` | 2C-4 subscription filter | ~150 LOC |
+| Metrics/stats hook | `useWebSocketMetrics.ts` | 2C-2 stats bar | ~100 LOC |
+| Detail panel / JSON syntax highlighting | `WsFrameDetail.tsx` | 2C-1 message body display | ~100 LOC |
+
+**Recommendation**: Before building `GraphqlSubscriptionLog`, extract shared primitives from `WebSocketMessageLog` (virtual list base, filter bar, detail panel) into `src/shared/components/protocol-log/`. This avoids duplicating ~1000 LOC of proven UI code.
+
+#### 23.13.4 Existing WS Studio graphql-ws Support
+
+WS Studio already has **partial graphql-over-WS support** that Phase 2 should leverage:
+- Auto-sends `connection_init` on connect (`buildGqlWsInitAction`)
+- Parses WS frames into `protocolMeta` with graphql-specific fields (`buildGqlWsMeta`)
+- Recognizes `graphql-ws` as a protocol mode
+
+This is **framing/display only** — it does NOT implement the subscription lifecycle (`subscribe` → `next` → `complete`). Phase 2's `useGraphqlSubscription` hook is genuinely new work, but the frame-level parsing can be referenced.
+
+#### 23.13.5 Success Criteria Gaps (Criteria Without Implementation Tasks)
+
+The following Phase 2 success criteria from Section 10 are **not backed by any task in 2A–2G**:
+
+| # | Success Criterion (§10 Phase 2) | Missing Task |
+|---|---|----|
+| 8 | "Combining `@defer` and file upload in the same operation triggers a pre-execution validation error" | **No task exists**. Need new task in 2D or 2E: pre-execution check that `hasIncrementalDirective(query) && hasFileUploads(files)` → show inline error + disable Execute. |
+| — | Subscribe/Disconnect button for subscription operations | **No task specifies the Subscribe/Disconnect buttons in the connection bar**. 2A-7 covers a status pill, but no task covers swapping Execute → Subscribe when `operationType === 'subscription'`, or adding a Disconnect button. |
+| — | Subscription view integration into `GraphqlStudioPage` | **No task describes how the subscription log replaces/augments the response viewer** when operating in subscription mode. Currently the right pane is Response/Schema tabs; subscriptions need a third "Subscription Log" tab or automatic switching. |
+| — | `subscriptionBufferSize` settings UI | Type exists on `GraphqlConnection` (line 23), but **no task creates a UI to configure it**. Needs a numeric input in connection settings. |
+| — | SSE reconnect with `Last-Event-ID` | Criterion 18 expects SSE reconnect with `Last-Event-ID` forwarding. Task 2B-3 mentions it, but **no dedicated SSE reconnect logic task** exists — it's assumed the shared FSM (2A-5) handles it, but SSE reconnect semantics differ from WS (no close codes, uses `retry:` field). |
+
+#### 23.13.6 Mockup-vs-Task Gaps
+
+**Subscription mockup** (`graphql-subscription-testing.html`) elements not covered by tasks:
+
+| Mockup Element | Status |
+|---|---|
+| `WS` badge (changes to `SSE` for SSE transport) | Not specified — add to 2A-7 |
+| "Disconnect" button (red, distinct from Execute) | **No task** — need new task |
+| Editor header showing "SUBSCRIPTION" badge + op name + "Subscribed 2m 34s ago" | Not in 2C — add duration to editor header |
+| Avg Latency stat (mockup shows `142ms`) | Plan 2C-2 has `msg/sec` but **not avg latency** — add to 2C-2 |
+| "Tests Pass 4/5" stat | Covered by 2C-5 footer (deferred) |
+| "8 older messages (click to expand)" collapse | Not in 2C-1 — implied by virtualization but not specified |
+| Protocol version in bottom status bar | Not in 2C tasks — minor |
+| SLA label ("< 500ms per message") | Not in 2C-5 — **assertion SLA mode not tasked** |
+
+**Query Builder mockup** (`graphql-query-builder.html`) elements not covered by tasks:
+
+| Mockup Element | Status |
+|---|---|
+| **Editor / Builder / Test Runner / Schema** sub-tabs at top | **No integration task** — how does the Builder tab activate? Where does it render? |
+| Operation type switcher (query/mutation/subscription pills) | Implied in 2F-1 state but **no UI component task** for the switcher |
+| "Copy SDL" button in toolbar | Not in 2F tasks (2F-9 is "Edit in Editor" only) |
+| "Execute" button in builder toolbar | Not in 2F tasks — should it reuse `handleExecute` from page? |
+| "Format (⌘⇧F)" button in preview panel | Not in 2F tasks |
+| Auto-generated **Variables** preview strip below the generated query | Not in 2F tasks — plan says variables are "auto-generated from arguments" but no task creates this UI |
+| **Selection Summary** panel (selected fields count, depth, args, est. complexity) | Not in 2F tasks — partially overlaps with 2G-2 complexity but is a distinct summary UI |
+| `@defer` directive toggle (mockup shows it alongside `@skip`/`@include`) | 2F-7 only covers `@skip`/`@include` — **`@defer` not specified** |
+| Keyboard shortcuts status bar (Space toggle, → expand, ⌘↵ execute) | Not in 2F tasks |
+| Schema badge showing field count ("E-Commerce API (156 fields)") | Not in 2F tasks |
+
+#### 23.13.7 Missing Shared Types for Phase 2
+
+Types that Phase 2 tasks reference or imply but are **not defined in `src/shared/types/graphql.ts`**:
+
+| Type | Needed By | Definition |
+|------|-----------|------------|
+| `QueryBuilderState` | 2F-1, 2F-11 | `{ selectedFields: Map<string, boolean>, argValues: Map<string, string>, aliases: Map<string, string>, directives: DirectiveApplication[], fragments: FragmentDefinition[], operationType: 'query'\|'mutation'\|'subscription', operationName: string }` |
+| `FieldSelectionPath` | 2F-1, 2F-3 | `string` (dot-separated path like `user.orders.nodes.id`) or a typed path array |
+| `DirectiveApplication` | 2F-7 | `{ fieldPath: string, directive: '@skip'\|'@include'\|'@defer', variable: string }` |
+| `FragmentDefinition` | 2F-6 | `{ name: string, onType: string, fields: string[], isUsed: boolean }` |
+| `GraphqlSubscriptionAssertion` | 2C-5 | `{ id: string, jsonPath: string, operator: string, expected: unknown, description: string }` |
+| `GraphqlSubscriptionSession` | 2A-5 | `{ id: string, state: SubscriptionState, transport: string, startedAt: number, messages: GraphqlSubscriptionMessage[], stats: SubscriptionStats }` |
+| `SubscriptionStats` | 2C-2 | `{ totalMessages: number, errorCount: number, avgLatencyMs: number, msgsPerSec: number, connectedDurationMs: number }` |
+| `ApolloTracingData` | 2G-1 | `{ version: number, startTime: string, endTime: string, duration: number, parsing: { duration: number }, validation: { duration: number }, execution: { resolvers: ResolverTrace[] } }` |
+| `ResolverTrace` | 2G-1 | `{ path: (string\|number)[], parentType: string, fieldName: string, returnType: string, startOffset: number, duration: number }` |
+| `FileUploadSlot` | 2E-1 | `{ id: string, file: File, variablePath: string, sizeBytes: number, mimeType: string, error?: string }` |
+
+#### 23.13.8 Missing Selectors
+
+Phase 2 components need these `data-testid` selectors added to `src/shared/selectors.ts` under the `GQL` namespace:
+
+**Subscription (2A–2C)**:
+- `SUBSCRIBE_BTN` — replaces Execute when operationType is 'subscription'
+- `DISCONNECT_BTN` — disconnect active subscription
+- `CONNECTION_STATUS` — WS/SSE status pill with state label
+- `SUBSCRIPTION_LOG` — message list container
+- `SUBSCRIPTION_MSG_ROW` — individual message row
+- `SUBSCRIPTION_PAUSE_BTN` — pause/resume toggle
+- `SUBSCRIPTION_CLEAR_BTN` — clear log
+- `SUBSCRIPTION_EXPORT_BTN` — export messages
+- `SUBSCRIPTION_FILTER_INPUT` — filter text input
+- `SUBSCRIPTION_STATS` — stats bar container
+- `SUBSCRIPTION_STATS_TOTAL` — total message count
+- `SUBSCRIPTION_STATS_LATENCY` — avg latency display
+- `SUBSCRIPTION_STATS_RATE` — messages/sec rate
+
+**Query Builder (2F)**:
+- `BUILDER_TAB` — Builder sub-tab in top navigation
+- `BUILDER_OP_TYPE` — operation type switcher
+- `BUILDER_OP_NAME` — operation name input
+- `BUILDER_FIELD_TREE` — field selector tree container
+- `BUILDER_FIELD_ROW` — individual field row
+- `BUILDER_FIELD_CHECK` — field checkbox
+- `BUILDER_ARG_INPUT` — argument value input
+- `BUILDER_SEARCH` — search input
+- `BUILDER_BREADCRUMB` — type navigation breadcrumb
+- `BUILDER_PREVIEW` — generated SDL preview
+- `BUILDER_COPY_SDL` — copy generated SDL
+- `BUILDER_EDIT_IN_EDITOR` — promote SDL to Monaco editor
+- `BUILDER_EXECUTE` — execute generated query
+
+**File Upload (2E)**:
+- `FILES_TAB` — Files sub-tab in bottom panel
+- `FILES_DROPZONE` — drag-and-drop zone
+- `FILES_BROWSE_BTN` — file browser trigger
+- `FILES_LIST` — file list container
+- `FILES_ROW` — individual file row
+- `FILES_REMOVE_BTN` — remove file button
+- `FILES_SIZE_ERROR` — size validation error
+
+**Incremental Delivery (2D)**:
+- `DEFER_SKELETON` — skeleton placeholder for deferred field
+- `CHUNK_TRACKER` — chunk progress indicator
+
+**Performance (2G)**:
+- `TRACING_TAB` — tracing view tab
+- `TRACING_WATERFALL` — resolver waterfall chart
+- `TRACING_SORT` — sort toggle
+- `HISTOGRAM_STRIP` — latency histogram
+
+#### 23.13.9 New Tasks to Add (Phase 2 Plan Closure)
+
+Based on all gaps identified, the following **new tasks** should be added to the Phase 2 plan:
+
+**Prerequisites (new sub-phase 2-PRE)**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2-PRE-1 | **Architecture decision: WS transport model** — decide between extending existing `/api/ws/*` proxy (reuse ring buffer + cursor polling) vs new `/api/graphql/subscribe` WS upgrade route (cleaner GraphQL semantics). Document decision in §9. | P0 | 2.0 |
+| 2-PRE-2 | **Create `graphqlClient.ts` transport abstraction** — unified interface for HTTP query (`gqlFetch`), WS subscription (`graphql-ws` client), SSE subscription (`graphql-sse` client), with Tauri IPC adapter. All three transports implement `subscribe(operation) → AsyncIterator`. | P0 | 2.0 |
+| 2-PRE-3 | **Add `fetchStream()` to `httpClient.ts`** — streaming fetch variant that returns raw `Response` for `ReadableStream` consumption (SSE, `@defer`/`@stream`). Includes same auth/TLS/proxy routing as `httpFetch()` but does not call `.text()`. | P0 | 2.0 |
+| 2-PRE-4 | **Scaffold `src-server/routes/graphql/`** — directory, Express router, route registration in `webhook-server.ts`. Empty route files for `subscribe.ts`, `sse.ts`, `upload.ts`. | P0 | 2.0 |
+| 2-PRE-5 | **Tauri WS subscription IPC** — decide whether Tauri uses Rust WS commands (like `ws_connect`/`ws_send`) or always proxies through localhost:3001. Add Tauri adapter to `graphqlClient.ts`. | P1 | 2.0 |
+| 2-PRE-6 | **Install Phase 2 npm dependencies** — `graphql-ws@^6.x`, `graphql-sse@^2.x`, `meros@^1.x`, `extract-files@^13.x`. Add `subscriptions-transport-ws@^0.11.x` only if legacy support is confirmed. | P0 | 2.0 |
+| 2-PRE-7 | **Migrate Phase 1 `localStorage` calls to `storage.ts`** — update `useGraphqlConnectionProfiles`, `useGraphqlEnvironments`, `useRecentEndpoints`, `tabPersistence.ts` to use async storage abstraction for Tauri compatibility. | P1 | 2.0 |
+
+**Page Integration (new sub-phase 2-INT)**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2-INT-1 | **Subscribe/Disconnect buttons in connection bar** — when `operationType === 'subscription'`, swap Execute → Subscribe (green) + show Disconnect (red) when active. Reuse `handleExecute` callback pattern. | P0 | 2.0 |
+| 2-INT-2 | **Subscription mode routing in right pane** — add "Subscription Log" tab to `GqlRightPane` (alongside Response/Schema). Auto-switch to Subscription Log when a subscription is active. Show "No active subscription" empty state when idle. | P0 | 2.0 |
+| 2-INT-3 | **Builder sub-tab integration** — add "Builder" view mode to `GraphqlStudioPage` (Editor / Builder toggle in the left pane header). Builder replaces the Monaco editor when active. Schema required for Builder to render. | P1 | 2.1 |
+| 2-INT-4 | **Files sub-tab in bottom panel** — add "Files" tab to `GqlBottomPanel` (alongside Variables/Headers). Only visible when a file upload has been configured or the mutation includes an `Upload` scalar. | P1 | 2.0 |
+
+**Validation (new tasks in existing sub-phases)**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2D-6 | **`@defer` + file upload mutual exclusion** — in `useGraphqlExecution`, check `hasIncrementalDirective(query) && fileSlots.length > 0` before execution. Show inline error "Cannot combine @defer/@stream with file upload" and disable Execute. Add to pre-execution validation chain. | P1 | 2.1 |
+| 2C-2+ | **Avg latency stat in stats bar** — add `avgLatencyMs` to stats (mockup shows "142ms"). Calculate from `offsetMs` differences between consecutive messages. | P1 | 2.0 |
+
+**Builder UI (new tasks in 2F)**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2F-12 | **Builder toolbar UI** — operation type switcher (query/mutation/subscription pills), operation name input, schema badge ("42 types, 156 fields"), Copy SDL button, Execute button (reuses page handler). | P1 | 2.1 |
+| 2F-13 | **Auto-generated variables preview** — read-only JSON strip below the generated SDL showing variables derived from argument values (e.g. `{ "userId": "{{currentUserId}}", "orderFirst": 10 }`). Edit button opens Variables panel. | P2 | Post-2.1 |
+| 2F-14 | **Selection summary panel** — right-column section showing: selected field count, nesting depth, argument count, variables needed, estimated complexity (reuses 2G-2 engine). | P2 | Post-2.1 |
+
+**Selectors & Types (new tasks)**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2-SEL-1 | **Add all Phase 2 selectors to `selectors.ts`** — subscription (13), builder (13), file upload (7), incremental delivery (2), performance (4) = 39 new constants in `GQL` namespace. See §23.13.8 for full list. | P1 | 2.0 |
+| 2-TYPE-1 | **Add Phase 2 types to `graphql.ts`** — `QueryBuilderState`, `FieldSelectionPath`, `GraphqlSubscriptionSession`, `SubscriptionStats`, `ApolloTracingData`, `ResolverTrace`, `FileUploadSlot`. See §23.13.7 for definitions. | P1 | 2.0/2.1 |
+
+**Shared Component Extraction**:
+
+| # | Task | Priority | Sub-phase |
+|---|------|----------|-----------|
+| 2-SHARED-1 | **Extract shared protocol log primitives** from `WebSocketMessageLog.tsx` and `SseMessageLog.tsx` into `src/shared/components/protocol-log/` — virtual list base component, filter bar, detail panel, JSON syntax highlighter, export utility. `GraphqlSubscriptionLog` should compose these. Saves ~1000 LOC of duplication. | P1 | 2.0 |
+
+#### 23.13.10 Plan Inconsistencies Fixed
+
+| Issue | Location | Fix |
+|------|----------|-----|
+| Duplicate `useGraphqlHistory.test.ts` entry | §19 lines 4277/4279 | **Fixed** — merged into single entry |
+| §19 E2E naming: `graphql-basic.spec.ts` vs §4F `graphql-query-execution.spec.ts` | §19 line 4285, §4F task 4F-5 | Flagged — reconcile when Phase 4 is planned |
+| Plan §2A doc says `subscriptions-transport-ws` uses "subprotocol `graphql-ws`" but tasks say "legacy subprotocol" | §9 line 3879 | Correct as-is — the naming IS intentionally confusing (package name ≠ subprotocol name). Plan correctly documents this. |
+| `subscriptionBufferSize` typed on `GraphqlConnection` but no configuration UI task | §4.3 line 23 | Added to §23.13.5 as missing task |
+| Plan says `POST /api/graphql/query` proxy route but Phase 1 uses `gqlFetch` → `/__proxy` | §2A-1, §3.1 | Added to §23.13.1 — must resolve transport model |
+
+#### 23.13.11 Updated Task Count Summary
+
+| Category | Original Plan | After First Evaluation (§23) | After Re-evaluation |
+|----------|--------------|------------------------------|---------------------|
+| 2A–2G tasks | 44 | 44 (no changes, just re-prioritized) | 44 |
+| New prerequisite tasks | 0 | 1 (proxy scaffolding flagged) | 7 (2-PRE-1→7) |
+| New integration tasks | 0 | 0 | 4 (2-INT-1→4) |
+| New validation/UI tasks | 0 | 0 | 5 (2D-6, 2C-2+, 2F-12→14) |
+| New selector/type tasks | 0 | 0 | 2 (2-SEL-1, 2-TYPE-1) |
+| Shared extraction task | 0 | 0 | 1 (2-SHARED-1) |
+| **Total Phase 2 tasks** | **44** | **44** | **63** |
+
+#### 23.13.12 Revised Phase Split (Updated)
+
+**Phase 2.0** — Protocol Parity (28 tasks):
+- 2-PRE-1→7 (7 prerequisite tasks)
+- 2A-1→9 (9 WS subscription tasks)
+- 2B-1→4 (4 SSE tasks)
+- 2C-1→4 + 2C-2+ (5 subscription UI tasks)
+- 2E-1→3, 2E-5 (4 file upload core tasks)
+- 2-INT-1, 2-INT-2, 2-INT-4 (3 integration tasks)
+- 2-SEL-1 (selectors)
+- 2-SHARED-1 (shared extraction)
+
+**Phase 2.1** — Developer Productivity (20 tasks):
+- 2F-1→5, 2F-9, 2F-12 (7 builder MVP tasks)
+- 2D-1→3, 2D-5, 2D-6 (5 incremental delivery tasks)
+- 2G-1, 2G-2 (2 performance tasks)
+- 2-INT-3 (builder integration)
+- 2C-5 (subscription assertions)
+- 2E-4 (upload progress)
+- 2-TYPE-1 (shared types)
+
+**Deferred** (15 tasks):
+- 2F-6→8, 2F-10→11, 2F-13→14 (7 builder advanced tasks)
+- 2G-3→5 (3 performance advanced tasks)
+- 2D-4 (chunk tracker)
+- 2A-3 (legacy protocol — move to 2.0 Sprint 5 if time permits)
+- Remaining: 3 tasks moved based on dependency resolution
+
+#### 23.13.13 Architecture Decision Record: WS Transport Model
+
+This decision must be made **before Phase 2 implementation begins** (task 2-PRE-1):
+
+**Option A: Extend existing `/api/ws/*` proxy**
+- Pros: Reuse 300+ LOC of `WebSocketProxyService` (ring buffer, cursor polling, TLS, idle GC); proven architecture; no new server code
+- Cons: Not GraphQL-aware (no subprotocol negotiation); polling latency (200ms); doesn't handle `graphql-transport-ws` `connection_init`/`subscribe`/`next` protocol semantics
+- Verdict: Works for "dumb relay" but **misses the protocol-aware features** that make Phase 2 subscription testing valuable
+
+**Option B: New `/api/graphql/subscribe` WS upgrade route**
+- Pros: GraphQL-aware (subprotocol negotiation, `connection_init` auth relay, subscription multiplexing); clean separation; can log `subscribe`/`next`/`complete` frames semantically
+- Cons: More code (~400 LOC new route); parallel infrastructure to WS proxy; must handle TLS separately
+- Verdict: **Recommended** — the protocol-awareness is core to Phase 2's value proposition (auto-detection, auth relay, message semantics)
+
+**Option C: Hybrid — browser-direct when possible, proxy when auth/TLS required**
+- Matches WS Studio's 3-mode transport: `direct` (browser native WS), `proxy` (Express relay), `native` (Tauri)
+- Pros: Best latency for direct connections; proxy only when needed; mirrors proven WS Studio pattern
+- Cons: Most complex to implement; must handle all three paths in `useGraphqlSubscription`
+- Verdict: **Best long-term approach** — adopt WS Studio's `route()` pattern for transport selection
+
+**Recommendation**: **Option C** (hybrid) with the following transport routing:
+
+```
+Browser + no auth + no TLS skip → Direct WebSocket (browser native)
+Browser + auth headers or TLS    → Proxy via /api/graphql/subscribe
+Tauri                            → Tauri WS commands (or localhost:3001 proxy)
+SSE                              → Direct fetch + ReadableStream (no proxy needed)
+SSE + auth                       → /api/graphql/sse proxy relay
+```
+
+This matches the established WS Studio pattern and maximizes latency performance while providing auth/TLS support through the proxy when needed.

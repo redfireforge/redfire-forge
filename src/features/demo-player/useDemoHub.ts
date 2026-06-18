@@ -420,7 +420,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // Stable progress callbacks — useCallback([update]) where update is useCallback([])
   // so these never change reference across renders. Destructured here to keep
   // the auto-play effect deps stable (avoids re-firing when progress.data updates).
-  const { setLessonStep: progressSetStep, markLessonComplete: progressMarkComplete } = progress;
+  const { setLessonStep: progressSetStep, markLessonComplete: progressMarkComplete, resetLesson, resetProgress } = progress;
 
   // Auto-play effect: step execution includes its own reading pauses,
   // so we just chain steps sequentially when playing
@@ -527,6 +527,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     nextStep,
     toggleAutoPlay,
     restartDemo,
+    resetLesson,
+    resetProgress,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
   };
 }

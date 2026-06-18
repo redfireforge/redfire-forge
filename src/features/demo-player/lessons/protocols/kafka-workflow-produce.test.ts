@@ -38,34 +38,26 @@ describe('kafka-workflow-produce lesson', () => {
     expect(kafkaWorkflowProduceLesson.dockerEndpoint).toBeTruthy();
   });
 
-  it('step wp-palette preAction clicks palette toggle when element exists', async () => {
+  it('step wp-palette has no preAction (palette is always visible)', () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-palette')!;
     expect(step).toBeDefined();
-    expect(typeof step.preAction).toBe('function');
-    const toggle = document.createElement('button');
-    toggle.setAttribute('data-testid', 'palette-toggle');
-    const clickSpy = vi.fn();
-    toggle.addEventListener('click', clickSpy);
-    document.body.appendChild(toggle);
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(300);
+    // Palette is always rendered in the designer — no toggle/preAction needed.
+    expect(step.preAction).toBeUndefined();
   });
 
-  it('step wp-config action clicks kafkaProduce node when it exists', async () => {
+  it('step wp-config action double-clicks kafkaProduce node to open config modal', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-config')!;
     expect(step).toBeDefined();
     expect(typeof step.action).toBe('function');
     const node = document.createElement('div');
     node.className = 'wf-node-kafkaProduce';
-    const clickSpy = vi.fn();
-    node.addEventListener('click', clickSpy);
+    const dblclickSpy = vi.fn();
+    node.addEventListener('dblclick', dblclickSpy);
     document.body.appendChild(node);
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(400);
+    expect(dblclickSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(600);
   });
 
   it('step wp-quicktest action clicks quick test button', async () => {

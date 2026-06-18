@@ -4,6 +4,15 @@
  * Uses a mocked DemoActionContext to verify click/fill/delay calls.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../../shared/kafka/kafkaClient', () => ({
+  dispatchKafkaOperation: vi.fn().mockResolvedValue({
+    ok: true,
+    op: 'status',
+    data: { state: 'connected', clusterId: 'demo-plaintext' },
+  }),
+}));
+
 import {
   startMockServer,
   stopMockServer,

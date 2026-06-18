@@ -239,135 +239,174 @@ export function KafkaConsumeStudio({
       </div>
 
       <div className="kafka-ms-body">
-        {/* Topic + Consumer Group */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-topic">Topic</label>
-            <input
-              id="kms-con-topic"
-              data-testid="con-topic-input"
-              type="text"
-              placeholder="e.g. orders.events"
-              value={consumeDraft.topic}
-              onChange={(e) => setConsumeDraft({ topic: e.target.value })}
-              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
-            />
-            {touched.topic && topicEmpty && (
-              <span className="kafka-ms-field-hint" data-testid="con-topic-hint">Topic is required</span>
-            )}
+        {/* ── Main settings form ── */}
+        <div className="kafka-ms-form">
+
+          {/* Topic */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-topic">
+              Topic<span className="kafka-ms-required-dot" aria-hidden="true">*</span>
+            </label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-con-topic"
+                data-testid="con-topic-input"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="e.g. orders.events"
+                value={consumeDraft.topic}
+                onChange={(e) => setConsumeDraft({ topic: e.target.value })}
+                onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
+              />
+              {touched.topic && topicEmpty && (
+                <span className="kafka-ms-field-hint" data-testid="con-topic-hint">Topic is required</span>
+              )}
+            </div>
           </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-group">Consumer Group</label>
-            <input
-              id="kms-con-group"
-              type="text"
-              value={consumeDraft.groupId}
-              onChange={(e) => setConsumeDraft({ groupId: e.target.value })}
-            />
+
+          {/* Consumer Group */}
+          <div className="kafka-ms-form-row kafka-ms-form-row--tall">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-group">Consumer Group</label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-con-group"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="auto-generated"
+                value={consumeDraft.groupId}
+                onChange={(e) => setConsumeDraft({ groupId: e.target.value })}
+              />
+              <span className="kafka-ms-form-hint-sub">Leave blank to auto-generate a unique group ID</span>
+            </div>
           </div>
+
+          {/* Start Position */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-pos">Start Position</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-con-pos"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={consumeDraft.startPosition}
+                onChange={(e) => setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })}
+              >
+                <option value="latest">Latest — start from newest messages</option>
+                <option value="earliest">Earliest — replay from beginning</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Max Messages */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-max">Max Messages</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-con-max"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                value={consumeDraft.maxMessages}
+                onChange={(e) => setConsumeDraft({ maxMessages: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Timeout */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-timeout">Timeout (ms)</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-con-timeout"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                value={consumeDraft.timeoutMs}
+                onChange={(e) => setConsumeDraft({ timeoutMs: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Sort Order */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-sort">Sort Order</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-con-sort"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={consumeDraft.sortOrder ?? 'asc'}
+                onChange={(e) => setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                data-testid="con-sort-order"
+              >
+                <option value="asc">Oldest First</option>
+                <option value="desc">Newest First</option>
+              </select>
+            </div>
+          </div>
+
         </div>
 
-        {/* Start Position + Timeout */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-pos">Start Position</label>
-            <select
-              id="kms-con-pos"
-              value={consumeDraft.startPosition}
-              onChange={(e) =>
-                setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })
-              }
-            >
-              <option value="latest">Latest</option>
-              <option value="earliest">Earliest</option>
-            </select>
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-timeout">Timeout (ms)</label>
-            <input
-              id="kms-con-timeout"
-              type="text"
-              value={consumeDraft.timeoutMs}
-              onChange={(e) => setConsumeDraft({ timeoutMs: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Max Messages + Sort Order */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-max">Max Messages</label>
-            <input
-              id="kms-con-max"
-              type="text"
-              value={consumeDraft.maxMessages}
-              onChange={(e) => setConsumeDraft({ maxMessages: e.target.value })}
-            />
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-sort">Sort Order</label>
-            <select
-              id="kms-con-sort"
-              value={consumeDraft.sortOrder ?? 'asc'}
-              onChange={(e) =>
-                setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })
-              }
-              data-testid="con-sort-order"
-            >
-              <option value="asc">Oldest First</option>
-              <option value="desc">Newest First</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="kafka-ms-section">
-          <div className="kafka-ms-section-header">
+        {/* ── Filters ── */}
+        <div className="kafka-ms-con-filters">
+          <div className="kafka-ms-section-header kafka-ms-con-filters-header">
             <span className="kafka-ms-section-title">Filters</span>
+            <span className="kafka-ms-form-hint">All filters are optional — leave blank to receive all messages</span>
           </div>
-          <div className="kafka-ms-field-grid">
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-key">Key Equals</label>
-              <input
-                id="kms-con-key"
-                type="text"
-                placeholder="exact key match"
-                value={consumeDraft.keyEquals}
-                onChange={(e) => setConsumeDraft({ keyEquals: e.target.value })}
-              />
+          <div className="kafka-ms-form">
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-key">Key Equals</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-key"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="exact key match"
+                  value={consumeDraft.keyEquals}
+                  onChange={(e) => setConsumeDraft({ keyEquals: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-header">Header Match</label>
-              <input
-                id="kms-con-header"
-                type="text"
-                placeholder="key=value"
-                value={consumeDraft.headerMatch}
-                onChange={(e) => setConsumeDraft({ headerMatch: e.target.value })}
-              />
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-header">Header Match</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-header"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="key=value"
+                  value={consumeDraft.headerMatch}
+                  onChange={(e) => setConsumeDraft({ headerMatch: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
-          <div className="kafka-ms-field-grid">
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-jsonpath">JSONPath</label>
-              <input
-                id="kms-con-jsonpath"
-                type="text"
-                placeholder="$.status"
-                value={consumeDraft.jsonPath}
-                onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
-              />
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-jsonpath"
+                  className="kafka-ms-form-input kafka-ms-form-input--mono"
+                  type="text"
+                  placeholder="$.status"
+                  value={consumeDraft.jsonPath}
+                  onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-jsonval">JSONPath Equals</label>
-              <input
-                id="kms-con-jsonval"
-                type="text"
-                placeholder="CREATED"
-                value={consumeDraft.jsonPathEquals}
-                onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
-              />
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonval">JSONPath Equals</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-jsonval"
+                  className="kafka-ms-form-input kafka-ms-form-input--mono"
+                  type="text"
+                  placeholder="CREATED"
+                  value={consumeDraft.jsonPathEquals}
+                  onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
+                />
+              </div>
             </div>
+
           </div>
         </div>
 
