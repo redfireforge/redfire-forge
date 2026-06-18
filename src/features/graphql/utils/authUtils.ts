@@ -93,3 +93,54 @@ export function isAuthConfigured(auth: GraphqlAuth | null | undefined): boolean 
     default:        return false;
   }
 }
+
+/**
+ * Builds the `connectionParams` payload for a WebSocket `connection_init` frame.
+ *
+ * Phase 2A-8: The graphql-transport-ws protocol sends an initial `connection_init`
+ * message whose `payload` object is forwarded to the server as `connectionParams`.
+ * This is the canonical way to pass auth credentials for WS subscriptions (since
+ * browser WebSocket cannot send custom headers).
+ *
+ * The returned object is sent as `{ type: "connection_init", payload: <returned> }`.
+ * Returns `{}` (empty object) for no-auth and unimplemented types — the server will
+ * ignore empty connectionParams in most configurations.
+ *
+ * Note: OAuth2 tokens must be pre-fetched before calling this function.
+ * The `oauth2` case is intentionally left as empty since token acquisition
+ * is handled separately by the execution context (Phase 3+ feature).
+ */
+export function buildConnectionParams(auth: GraphqlAuth | null | undefined): Record<string, unknown> {
+  if (!auth) return {};
+  switch (auth.type) {
+    case 'bearer':
+      return auth.token?.trim()
+        ? { Authorization: `Bearer ${auth.token.trim()}` }
+        : {};
+
+    case 'basic': {
+      const user = auth.username?.trim() ?? '';
+      const pass = auth.password ?? '';
+      if (!user) return {};
+      const credentials = `${user}:${pass}`;
+      const encoded = btoa(unescape(encodeURIComponent(credentials)));
+      return { Authorization: `Basic ${encoded}` };
+    }
+
+    case 'apiKey': {
+      const name = auth.headerName?.trim();
+      const val  = auth.headerValue ?? '';
+      if (!name) return {};
+      return { [name]: val };
+    }
+
+    // OAuth2 tokens must be pre-fetched — pass as Bearer when token is available.
+    // Custom auth uses the Headers panel — not injected into connectionParams.
+    case 'oauth2':
+    // falls through
+    case 'custom':
+    // falls through
+    default:
+      return {};
+  }
+}
