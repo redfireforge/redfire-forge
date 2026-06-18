@@ -172,7 +172,7 @@ describe('WebSocketStudioPage', () => {
     vi.spyOn(hookModule, 'useWebSocketStudio').mockReturnValue(mockReturn);
     await renderStudioPage();
     fireEvent.click(screen.getByTestId('left-tab-send'));
-    expect(screen.getByTestId('format-select')).toBeTruthy();
+    expect(screen.getByTestId('format-pills')).toBeTruthy();
   });
 
   it('calls disconnect when banner disconnect link is clicked', async () => {

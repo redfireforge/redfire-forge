@@ -210,4 +210,60 @@ describe('buildJunitXml', () => {
       expect(xml).toContain('type="KafkaError"');
     });
   });
+
+  describe('WebSocket action results', () => {
+    it('uses WebSocketError failure type for wsConnect results', () => {
+      const results = [
+        makeResult({
+          passed: false,
+          method: 'WS',
+          transportType: 'wsConnect',
+          httpStatus: 0,
+          url: '',
+          errorMessage: 'Connection refused',
+          wsResultMeta: { url: 'ws://localhost:9876' },
+        }),
+      ];
+      const summary = makeSummary({ failedRequests: 1 });
+
+      const xml = buildJunitXml(results, summary, 'Suite');
+
+      expect(xml).toContain('type="WebSocketError"');
+      expect(xml).toContain('WS_CONNECT');
+      expect(xml).toContain('ws://localhost:9876');
+    });
+
+    it('uses ws url fallback in testcase location when wsResultMeta is absent', () => {
+      const results = [
+        makeResult({
+          passed: true,
+          method: 'WS',
+          transportType: 'wsSend',
+          httpStatus: 0,
+          url: 'ws://fallback',
+        }),
+      ];
+      const summary = makeSummary();
+
+      const xml = buildJunitXml(results, summary, 'Suite');
+
+      expect(xml).toContain('[WS ws://fallback]');
+    });
+
+    it('uses ValidationFailure for HTTP 200 with validation errors', () => {
+      const results = [
+        makeResult({
+          passed: false,
+          httpStatus: 200,
+          errorMessage: undefined,
+          failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
+        }),
+      ];
+      const summary = makeSummary({ failedValidations: 1 });
+
+      const xml = buildJunitXml(results, summary, 'Suite');
+
+      expect(xml).toContain('type="ValidationFailure"');
+    });
+  });
 });

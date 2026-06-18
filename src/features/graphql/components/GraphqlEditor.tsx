@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
-import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react';
+import type React from 'react';
+import Editor, { useMonaco, type BeforeMount, type OnMount } from '@monaco-editor/react';
 import {
   GRAPHQL_LANGUAGE_ID,
   GRAPHQL_THEME_ID,
   registerGraphqlLanguage,
+  defineGraphqlTheme,
   getGraphqlEditorOptions,
   getOrInitGraphqlMode,
 } from '../utils/monacoGraphqlSetup';
@@ -33,6 +35,8 @@ interface GraphqlEditorProps {
   height?: string | number;
   readOnly?: boolean;
   'data-testid'?: string;
+  /** Optional ref that receives the Monaco editor instance after mount (used by Prettify) */
+  editorMountRef?: React.MutableRefObject<import('monaco-editor').editor.IStandaloneCodeEditor | null>;
 }
 
 export function GraphqlEditor({
@@ -42,13 +46,16 @@ export function GraphqlEditor({
   height = '100%',
   readOnly = false,
   'data-testid': testId,
+  editorMountRef,
 }: GraphqlEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
+  const monaco = useMonaco();
 
   const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor;
+    if (editorMountRef) editorMountRef.current = editor;
     if (!readOnly) editor.focus();
-  }, [readOnly]);
+  }, [readOnly, editorMountRef]);
 
   // Auto-focus the editor whenever the active model changes (i.e. the user switches tabs).
   // @monaco-editor/react swaps the model on `path` change but does NOT re-fire onMount,
@@ -61,6 +68,18 @@ export function GraphqlEditor({
     });
     return () => cancelAnimationFrame(frame);
   }, [modelPath, readOnly]);
+
+  // Re-apply the Monaco theme whenever the app theme changes (data-theme attribute on <html>).
+  // This keeps editor.background in sync with var(--bg) across all app themes.
+  useEffect(() => {
+    if (!monaco) return;
+    const observer = new MutationObserver(() => {
+      defineGraphqlTheme(monaco);
+      monaco.editor.setTheme(GRAPHQL_THEME_ID);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [monaco]);
 
   const baseOptions = getGraphqlEditorOptions();
 

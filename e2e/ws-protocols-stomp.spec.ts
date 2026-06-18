@@ -7,8 +7,8 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const STOMP_URL = 'ws://localhost:15674/ws';
 const RABBITMQ_HEALTH = 'http://localhost:15672/api/overview';
 
@@ -34,11 +34,6 @@ test.beforeAll(async ({ browser }) => {
 });
 
 /* ── Helpers ─────────────────────────────────────────── */
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
 
 async function switchLeftTab(page: Page, tab: string) {
   await page.click(`[data-testid="left-tab-${tab}"]`);

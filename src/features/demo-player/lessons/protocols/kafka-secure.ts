@@ -108,6 +108,9 @@ export const kafkaSecureLesson: DemoLesson = {
       preAction: async (ctx) => {
         ctx.navigateToTab('kafka-settings');
         await ctx.delay(600);
+        document.querySelectorAll('.kafka-cluster-card.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
       },
     },
 

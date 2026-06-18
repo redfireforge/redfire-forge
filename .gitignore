@@ -39,5 +39,6 @@ jscpd-report/
 # Playwright test results & reports
 test-results/
 playwright-report/
+e2e/screenshots/
 test-script-paste.cjs
 .playwright-mcp/

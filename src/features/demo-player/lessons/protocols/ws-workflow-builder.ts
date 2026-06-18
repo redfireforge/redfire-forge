@@ -43,12 +43,29 @@ function scrollIntoParent(selector: string): HTMLElement | null {
   return el;
 }
 
-/** Double-click a node on the canvas to open its config modal. */
-async function doubleClickNode(selector: string): Promise<void> {
-  const node = scrollIntoParent(selector);
-  if (node) {
-    node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+/**
+ * Open a node's config modal via the `__wfOpenNodeConfig` bridge exposed by
+ * WorkflowDesignerFlowCanvas. This calls openNodeConfig() directly in React —
+ * more reliable than dispatching a native dblclick event, which ReactFlow may
+ * not consistently forward to its onNodeDoubleClick handler.
+ *
+ * The bridge also clears node selection before opening the config so the
+ * selection ring never appears behind the configuration panel.
+ */
+async function openNodeConfig(selector: string, ctx: DemoActionContext): Promise<void> {
+  scrollIntoParent(selector);
+  const nodeId = getNodeId(selector);
+  const openConfig = (window as unknown as Record<string, unknown>).__wfOpenNodeConfig as ((id: string) => void) | undefined;
+  if (nodeId && openConfig) {
+    openConfig(nodeId);
+  } else {
+    // Fallback: deselect then try a native dblclick
+    const deselectAll = (window as unknown as Record<string, unknown>).__wfDeselectAll as (() => void) | undefined;
+    if (deselectAll) deselectAll();
+    const node = document.querySelector(selector) as HTMLElement | null;
+    if (node) node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
   }
+  await ctx.delay(150);
 }
 
 /** Get node ID by React Flow node type class. */
@@ -225,16 +242,18 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       title: 'Configure the Connection',
       description:
         'Double-click the WS Connect node to open its config. Instead of a hard-coded URL, type `{{wsUrl}}` — a variable placeholder. This lets you override the endpoint from Workflow Runner without editing the workflow.',
-      highlight: WF.NODE_WS_CONNECT,
-      preAction: async () => { scrollIntoParent(WF.NODE_WS_CONNECT); },
+      highlight: WF.NODE_CONFIG,
+      preAction: async (ctx) => {
+        if (!document.querySelector(WF.NODE_WS_CONNECT)) return;
+        await openNodeConfig(WF.NODE_WS_CONNECT, ctx);
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
-        // Double-click to open config
-        await doubleClickNode(WF.NODE_WS_CONNECT);
-        await ctx.delay(600);
-        // Fill URL with a variable placeholder
+        // Config is already open — just fill and save
+        await ctx.waitFor(WF.CFG_WS_URL);
+        await ctx.delay(500);
         await ctx.fill(WF.CFG_WS_URL, '{{wsUrl}}');
         await ctx.delay(300);
-        // Save config
         await ctx.click(WF.CFG_SAVE);
         await ctx.delay(400);
       },
@@ -300,16 +319,17 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       title: 'Configure the Message',
       description:
         'Double-click the WS Send node to configure it. Enter a JSON message — the echo server will bounce it right back.',
-      highlight: WF.NODE_WS_SEND,
-      preAction: async () => { scrollIntoParent(WF.NODE_WS_SEND); },
+      highlight: WF.NODE_CONFIG,
+      preAction: async (ctx) => {
+        if (!document.querySelector(WF.NODE_WS_SEND)) return;
+        await openNodeConfig(WF.NODE_WS_SEND, ctx);
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
-        // Double-click to open config
-        await doubleClickNode(WF.NODE_WS_SEND);
-        await ctx.delay(600);
-        // Fill message
+        await ctx.waitFor(WF.CFG_WS_MSG);
+        await ctx.delay(500);
         await ctx.fill(WF.CFG_WS_MSG, '{"action": "hello", "from": "workflow"}');
         await ctx.delay(300);
-        // Save config
         await ctx.click(WF.CFG_SAVE);
         await ctx.delay(400);
       },
@@ -343,16 +363,17 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       title: 'Configure the Receive',
       description:
         'Double-click the WS Receive node. It will wait up to 5 seconds for a response containing our message. The echo server mirrors everything back.',
-      highlight: WF.NODE_WS_RECEIVE,
-      preAction: async () => { scrollIntoParent(WF.NODE_WS_RECEIVE); },
+      highlight: WF.NODE_CONFIG,
+      preAction: async (ctx) => {
+        if (!document.querySelector(WF.NODE_WS_RECEIVE)) return;
+        await openNodeConfig(WF.NODE_WS_RECEIVE, ctx);
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
-        // Double-click to open config
-        await doubleClickNode(WF.NODE_WS_RECEIVE);
-        await ctx.delay(600);
-        // Set a short timeout — use ctx.fill so React controlled input updates properly
+        await ctx.waitFor(WF.WS_RECEIVE_CFG);
+        await ctx.delay(500);
         await ctx.fill(WF.WS_RECEIVE_CFG + ' input[type="number"]', '5000');
         await ctx.delay(300);
-        // Save config
         await ctx.click(WF.CFG_SAVE);
         await ctx.delay(400);
       },

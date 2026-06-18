@@ -1011,5 +1011,542 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="item">GraphQL</div>
   <div class="item" style="color: #6c7086;">RedfireForge v0.8.x</div>
 </div>
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  PHASE 2.0 SPRINT 1: Sprint 1 infrastructure changes + UX additions
+  ═══════════════════════════════════════════════════════════════════════════════
+
+  SUBSCRIPTION READINESS HINT (Sprint 1 delivery — in production as of Phase 2.0 S1)
+  ─────────────────────────────────────────────────────────────────────────────
+  When the active tab's operation type is detected as 'subscription' (from
+  deriveOperationType → GqlTabBar badge shows "S"), AND no response exists yet,
+  AND not currently executing, the response pane shows this friendly hint instead
+  of the generic "No response yet" empty state.
+
+  Location: GqlRightPane.tsx → .gql-subscription-hint (view='response' branch)
+  Triggers: activeOperationType='subscription' && execStatus='idle' && response===null
+
+  STATE: subscription tab selected, no prior execution
+-->
+<div style="display:flex;flex:1;overflow:hidden;background:#181825;border:1px solid #313244;border-radius:8px;margin:20px;max-height:220px;">
+  <!-- Subscription hint panel (right pane, response view) -->
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px 24px;text-align:center;">
+    <!-- Heartbeat/waveform icon — representing live streaming data -->
+    <div style="color:#a6e3a1;opacity:0.6;margin-bottom:4px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+    </div>
+    <p style="font-size:13px;font-weight:600;color:#a6e3a1;letter-spacing:0.01em;margin:0;">
+      Subscription operation
+    </p>
+    <p style="font-size:12px;color:#a8b8cc;line-height:1.65;max-width:320px;margin:0;">
+      Subscriptions require a live WebSocket connection.
+      Real-time streaming via <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(166,227,161,0.1);color:#a6e3a1;border:1px solid rgba(166,227,161,0.25);">graphql-transport-ws</code>
+      is coming in <strong style="color:#cdd6f4;">Phase 2.0 Sprint 2</strong>.
+    </p>
+    <p style="font-size:11px;color:#6c7086;max-width:280px;line-height:1.5;margin:0;">
+      You can still execute this as an HTTP request to test the server response.
+    </p>
+  </div>
+</div>
+
+<!--
+  PHASE 2.0 SPRINT 1 subscription readiness hint (rendered above ↑)
+  Phase 2.0 Sprint 2 fully implemented below ↓
+-->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PHASE 2.0 SPRINT 2: Live Subscription Stream Panel
+     Rendered mockup showing the active subscription log in the right pane.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div style="margin-top:48px;padding:0 12px 48px;">
+  <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#a6adc8;margin:0 0 16px;padding-bottom:6px;border-bottom:1px solid #313244;">
+    Phase 2.0 Sprint 2 — Live Subscription Stream
+  </h2>
+
+  <!-- Connection bar with Subscribe/Stop controls -->
+  <div style="background:#181825;border:1px solid #313244;border-radius:8px 8px 0 0;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      wss://api.example.com/graphql
+    </div>
+    <!-- WS Status pill — Live state -->
+    <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.25);color:#a6e3a1;font-size:11px;font-weight:500;white-space:nowrap;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#a6e3a1;animation:gql-sub-pulse 1.5s ease-in-out infinite;display:inline-block;"></span>
+      Live
+    </div>
+    <!-- Stop button -->
+    <button style="background:rgba(243,139,168,0.15);border:1px solid rgba(243,139,168,0.3);color:#f38ba8;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Stop
+    </button>
+    <!-- Introspect button -->
+    <button style="background:#313244;border:1px solid #45475a;color:#cdd6f4;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;">Introspect</button>
+  </div>
+
+  <!-- Stream tab bar -->
+  <div style="background:#181825;border-left:1px solid #313244;border-right:1px solid #313244;padding:4px 8px 0;display:flex;gap:2px;">
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-bottom-color:#1e1e2e;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      Stream
+      <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;"></span>
+    </button>
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:transparent;color:#6c7086;border:1px solid transparent;cursor:pointer;">Schema</button>
+  </div>
+
+  <!-- Subscription log panel -->
+  <div style="background:#1e1e2e;border:1px solid #45475a;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">
+
+    <!-- Stats bar -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.2);color:#a6e3a1;font-size:10.5px;font-weight:600;">
+          ● Live
+        </span>
+        <span style="color:#cdd6f4;font-size:11.5px;font-weight:600;">OnOrderStatus</span>
+        <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;color:#a6adc8;">
+        <span><strong style="color:#cdd6f4;">17</strong> msgs</span>
+        <span style="color:#f38ba8;"><strong>2</strong> err</span>
+        <span><strong style="color:#cdd6f4;">3.4</strong>/s</span>
+        <span style="color:#a6adc8;"><strong style="color:#89b4fa;font-family:'JetBrains Mono',monospace;">02:14</strong></span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div style="background:#181825;border-bottom:1px solid #2a2a40;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+      <button style="background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;font-weight:500;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        Pause
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filter
+      </button>
+      <!-- Stop in toolbar (right-aligned) -->
+      <button style="margin-left:auto;background:rgba(243,139,168,0.1);border:1px solid rgba(243,139,168,0.25);color:#f38ba8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+
+    <!-- Message rows -->
+    <div style="max-height:280px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;">
+
+      <!-- Row 1 -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);">
+        <span style="color:#6c7086;min-width:24px;">#1</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+0.12s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"order": {"id": "ord_123", "status": "PENDING"}}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+
+      <!-- Row 2 — expanded JSON -->
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(166,227,161,0.03);">
+        <span style="color:#6c7086;min-width:24px;">#2</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+3.40s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <pre style="margin:0;color:#cdd6f4;white-space:pre;line-height:1.5;">{"order": {
+  "id": "ord_123",
+  "status": "SHIPPED",
+  "updatedAt": "2026-06-17T23:00:00Z"
+}}</pre>
+          <span style="color:#a6e3a1;font-size:10px;margin-left:8px;">▲</span>
+        </button>
+      </div>
+
+      <!-- Row 3 — error row -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(243,139,168,0.03);">
+        <span style="color:#6c7086;min-width:24px;">#3</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+5.21s</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(243,139,168,0.12);border:1px solid rgba(243,139,168,0.25);color:#f38ba8;font-size:10px;font-weight:600;">ERR</span>
+        <button style="background:none;border:none;color:#f38ba8;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span>{"errors": [{"message": "Authorization expired"}]}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+
+      <!-- Row 4 -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#4</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+12.1s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"order": {"id": "ord_124", "status": "DELIVERED"}}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Re-subscribe / Retry state (after subscription ends) -->
+  <div style="margin-top:24px;">
+    <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — subscription completed state</h3>
+    <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;">
+      <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+      <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;color:#cdd6f4;font-family:monospace;font-size:12px;">
+        wss://api.example.com/graphql
+      </div>
+      <!-- Closed pill -->
+      <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(108,112,134,0.1);border:1px solid rgba(108,112,134,0.25);color:#a6adc8;font-size:11px;font-weight:500;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#6c7086;display:inline-block;"></span>
+        Closed
+      </div>
+      <!-- Re-subscribe button -->
+      <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Re-subscribe
+      </button>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div style="margin-top:24px;">
+    <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription error state — error banner + Retry button</h3>
+    <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:6px;overflow:hidden;">
+      <!-- Error banner -->
+      <div style="background:rgba(243,139,168,0.08);border-bottom:1px solid rgba(243,139,168,0.2);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:11.5px;color:#f38ba8;" role="alert">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        WebSocket closed (4401): Unauthorized — check your auth configuration
+      </div>
+      <!-- Toolbar after error -->
+      <div style="background:#181825;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+        <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Clear</button>
+        <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Export</button>
+        <span style="color:#6c7086;font-size:11px;margin-left:auto;">Subscription failed</span>
+      </div>
+      <!-- No messages -->
+      <div style="padding:28px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#6c7086;font-size:12px;">
+        No messages were received before the error.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PHASE 2.0 SPRINT 3: Transport Selector + SSE Support
+     Shows the transport dropdown in the connection bar, and SSE stream state.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div style="margin-top:48px;padding:0 12px 64px;">
+  <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#a6adc8;margin:0 0 16px;padding-bottom:6px;border-bottom:1px solid #313244;">
+    Phase 2.0 Sprint 3 — Transport Selector + SSE Subscriptions
+  </h2>
+
+  <!-- ── Transport selector: Auto (WS default) ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — subscription operation with transport dropdown (Auto selected, non-stream URL)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:16px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      wss://api.example.com/graphql
+    </div>
+    <!-- Transport selector dropdown (no hint for non-stream URL) -->
+    <div style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">
+      <div style="position:relative;">
+        <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:pointer;min-width:90px;appearance:none;" aria-label="Subscription transport protocol">
+          <option selected>Auto</option>
+          <option>WS (modern)</option>
+          <option>WS (legacy)</option>
+          <option>SSE</option>
+        </select>
+        <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <!-- No auto-detect hint for non-/stream URL -->
+    </div>
+    <!-- Subscribe button -->
+    <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;" title="Subscribe via WebSocket (⌘ Enter)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Subscribe
+    </button>
+  </div>
+
+  <!-- ── Auto-detect SSE hint (shown when Auto + /stream URL) ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — Auto + /stream URL: shows "→ SSE" auto-detect hint</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:24px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      https://api.example.com/graphql/stream
+    </div>
+    <!-- Transport selector + auto-detect hint -->
+    <div style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">
+      <div style="position:relative;">
+        <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:pointer;min-width:90px;appearance:none;" aria-label="Subscription transport protocol">
+          <option selected>Auto</option>
+          <option>WS (modern)</option>
+          <option>WS (legacy)</option>
+          <option>SSE</option>
+        </select>
+        <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <!-- "→ SSE" auto-detect hint badge — shows when Auto detects /stream URL -->
+      <span style="font-size:10.5px;font-weight:600;color:#89b4fa;white-space:nowrap;letter-spacing:0.02em;padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.25);cursor:default;"
+            title="Auto-detected: this endpoint ends with /stream — SSE transport will be used">
+        → SSE
+      </span>
+    </div>
+    <!-- Subscribe button (SSE variant) -->
+    <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;" title="Subscribe via SSE (⌘ Enter)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Subscribe
+    </button>
+  </div>
+
+  <!-- ── Transport selector: SSE selected, active stream ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — SSE transport active (disabled while streaming)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:8px 8px 0 0;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:0;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      https://api.example.com/graphql/stream
+    </div>
+    <!-- Transport selector (disabled while active) -->
+    <div style="position:relative;flex-shrink:0;opacity:0.45;">
+      <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:not-allowed;min-width:90px;appearance:none;" disabled>
+        <option>SSE</option>
+      </select>
+      <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- SSE Live pill -->
+    <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.25);color:#a6e3a1;font-size:11px;font-weight:500;white-space:nowrap;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#a6e3a1;animation:gql-sub-pulse 1.5s ease-in-out infinite;display:inline-block;"></span>
+      Live
+    </div>
+    <!-- Stop button -->
+    <button style="background:rgba(243,139,168,0.15);border:1px solid rgba(243,139,168,0.3);color:#f38ba8;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Stop
+    </button>
+  </div>
+
+  <!-- SSE subscription log — shows SSE badge instead of WS -->
+  <div style="background:#181825;border-left:1px solid #313244;border-right:1px solid #313244;padding:4px 8px 0;display:flex;gap:2px;">
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-bottom-color:#1e1e2e;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      Stream
+      <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;"></span>
+    </button>
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:transparent;color:#6c7086;border:1px solid transparent;cursor:pointer;">Schema</button>
+  </div>
+
+  <div style="background:#1e1e2e;border:1px solid #45475a;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:24px;">
+    <!-- Stats bar: SSE transport badge instead of WS -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.2);color:#a6e3a1;font-size:10.5px;font-weight:600;">
+          ● Live
+        </span>
+        <span style="color:#cdd6f4;font-size:11.5px;font-weight:600;">OnStockPriceUpdate</span>
+        <!-- SSE transport badge — blue tinted, "SSE" label -->
+        <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">SSE</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;color:#a6adc8;">
+        <span><strong style="color:#cdd6f4;">12</strong> msgs</span>
+        <span><strong style="color:#cdd6f4;">0.8</strong>/s</span>
+        <span style="color:#89b4fa;font-weight:500;">00:15</span>
+      </div>
+    </div>
+    <!-- Toolbar -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+      <button style="background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;padding:4px 9px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        Pause
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Clear</button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Filter</button>
+      <button style="background:rgba(243,139,168,0.08);border:1px solid rgba(243,139,168,0.2);color:#f38ba8;padding:4px 9px;border-radius:4px;cursor:pointer;margin-left:auto;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+    <!-- Sample SSE messages -->
+    <div style="padding:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;">
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#1</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+0ms</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"ticker": "AAPL", "price": 189.5, "change": +0.012}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#2</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+1.2s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"ticker": "MSFT", "price": 415.2, "change": -0.003}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Auto-detect SSE annotation ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Auto-detect note: /stream endpoints default to SSE</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:16px;">
+    When <strong style="color:#cdd6f4;">Auto</strong> transport is selected and the endpoint URL ends with
+    <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">/stream</code>
+    or contains <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">/stream?</code>,
+    the client automatically uses <strong style="color:#cdd6f4;">SSE (graphql-sse)</strong> instead of WebSocket.
+    A <strong style="color:#89b4fa;">→ SSE</strong> hint badge appears inline next to the transport dropdown to signal the auto-selection.
+    This matches common conventions (e.g. <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">https://api.example.com/graphql/stream</code>).
+    For <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">wss://</code>
+    or non-stream URLs, Auto defaults to WebSocket (modern <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">graphql-transport-ws</code>).
+    Also: <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">wss://</code> URLs are auto-converted to
+    <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">https://</code> when SSE transport is used, so users can switch transport without changing the URL.
+  </div>
+
+  <!-- ── Transport badge color-coding annotation ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Transport badge color-coding (stats bar)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS</span>
+      <span>WebSocket modern (primary blue)</span>
+    </span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS LEGACY</span>
+      <span>WebSocket legacy (amber — deprecated)</span>
+    </span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">SSE</span>
+      <span>Server-Sent Events (light blue — HTTP)</span>
+    </span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SPRINT 4 — File Upload (2E-1/2E-5) + Subscription Filter Bar (2C-4)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div style="background:#11111b;padding:28px 32px;margin-top:32px;border-top:2px solid #3b82f6;">
+  <h2 style="font-size:15px;font-weight:700;color:#cdd6f4;margin:0 0 24px;letter-spacing:0.02em;">
+    Sprint 4 — File Upload UI (2E-1/2E-5) + Subscription Filter Bar (2C-4)
+  </h2>
+
+  <!-- ── Bottom panel: Variables / Headers / Files tabs ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Bottom panel — Variables / Headers / Files tabs</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:28px;overflow:hidden;">
+    <!-- Tab bar -->
+    <div style="display:flex;background:#181825;border-bottom:1px solid #313244;padding:0 10px;">
+      <button style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:12px;color:#6c7086;cursor:pointer;">Variables</button>
+      <button style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:12px;color:#6c7086;cursor:pointer;">Headers <span style="background:#313244;border-radius:10px;font-size:9px;padding:1px 5px;margin-left:3px;">3</span></button>
+      <button style="background:none;border:none;border-bottom:2px solid #3b82f6;padding:8px 12px;font-size:12px;color:#3b82f6;cursor:pointer;font-weight:600;">Files <span style="background:rgba(59,130,246,0.2);border-radius:10px;font-size:9px;padding:1px 5px;margin-left:3px;color:#3b82f6;">2</span></button>
+    </div>
+    <!-- Dropzone -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(59,130,246,0.05);border-bottom:1px solid rgba(59,130,246,0.15);cursor:pointer;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <span style="flex:1;font-size:12.5px;color:#6c7086;">Drop files here</span>
+      <button style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;border-radius:4px;padding:4px 10px;font-size:11.5px;font-weight:500;cursor:pointer;">Browse</button>
+      <span style="font-size:10.5px;color:#6c7086;opacity:0.65;">Max 50 MB per file · 200 MB hard cap</span>
+    </div>
+    <!-- File list header -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:5px 12px 4px;background:#11111b;border-bottom:1px solid #313244;font-size:10.5px;font-weight:600;color:#6c7086;text-transform:uppercase;letter-spacing:0.04em;">
+      <span>Variable path</span><span>File</span><span>Size</span><span></span>
+    </div>
+    <!-- File row 1: valid -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:6px 12px;border-bottom:1px solid #313244;align-items:center;">
+      <input value="avatar" style="background:#11111b;border:1px solid #313244;border-radius:4px;color:#cdd6f4;font-size:11.5px;padding:4px 7px;font-family:monospace;width:100%;box-sizing:border-box;" />
+      <div style="display:flex;flex-direction:column;gap:1px;overflow:hidden;">
+        <span style="font-size:12px;color:#cdd6f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">profile-photo.jpg</span>
+        <span style="font-size:10px;color:#6c7086;opacity:0.75;">image/jpeg</span>
+      </div>
+      <span style="font-size:11px;color:#6c7086;text-align:right;white-space:nowrap;">1.2 MB</span>
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:16px;line-height:1;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:3px;">×</button>
+    </div>
+    <!-- File row 2: error (too large) -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:6px 12px 2px 10px;border-bottom:1px solid #313244;align-items:center;background:rgba(243,139,168,0.05);border-left:2px solid #f38ba8;">
+      <input value="banner" style="background:#11111b;border:1px solid #45475a;border-radius:4px;color:#cdd6f4;font-size:11.5px;padding:4px 7px;font-family:monospace;width:100%;box-sizing:border-box;" />
+      <div style="display:flex;flex-direction:column;gap:1px;overflow:hidden;">
+        <span style="font-size:12px;color:#cdd6f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">hero-banner-4k.png</span>
+        <span style="font-size:10px;color:#6c7086;opacity:0.75;">image/png</span>
+      </div>
+      <span style="font-size:11px;color:#f38ba8;font-weight:600;text-align:right;white-space:nowrap;">76.4 MB</span>
+      <button style="background:none;border:none;color:#f38ba8;cursor:pointer;font-size:16px;line-height:1;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:3px;">×</button>
+    </div>
+    <!-- Inline error on row 2 -->
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#f38ba8;padding:2px 12px 6px;background:rgba(243,139,168,0.05);">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      File too large (76.4 MB) — maximum is 50 MB
+    </div>
+    <!-- Footer -->
+    <div style="padding:6px 12px;border-top:1px solid #313244;background:#11111b;font-size:11.5px;display:flex;align-items:center;gap:5px;color:#f38ba8;font-weight:500;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Fix file errors before executing
+    </div>
+  </div>
+
+  <!-- ── Execute button disabled due to file errors ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Execute button disabled when Files tab has errors</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:10px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:28px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button disabled style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:rgba(59,130,246,0.4);border-radius:5px;padding:7px 16px;font-size:12px;cursor:not-allowed;opacity:0.5;">
+        ▶ Execute
+      </button>
+      <span style="font-size:11px;color:#f38ba8;">← Disabled: Fix file errors in the Files tab first</span>
+    </div>
+    <p style="margin:8px 0 0;font-size:11px;color:#6c7086;">
+      The Execute button disables when any file in the Files tab has a size validation error. Tooltip shows "Fix file errors in the Files tab first". The error dot appears on the Files tab badge.
+    </p>
+  </div>
+
+  <!-- ── Subscription filter bar with Text/JSONPath mode toggle ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription filter bar — Text mode</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:16px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1e1e2e;border-bottom:1px solid #313244;">
+      <!-- Mode toggle -->
+      <div style="display:inline-flex;border:1px solid #313244;border-radius:4px;overflow:hidden;flex-shrink:0;">
+        <button style="background:rgba(59,130,246,0.15);border:none;padding:3px 8px;font-size:11px;font-weight:600;color:#3b82f6;cursor:pointer;">Text</button>
+        <button style="background:none;border-left:1px solid #313244;padding:3px 8px;font-size:11px;color:#6c7086;cursor:pointer;">JSONPath</button>
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6c7086" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value="SHIPPED" style="flex:1;background:#11111b;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;color:#cdd6f4;font-size:12px;outline:none;box-shadow:0 0 0 2px rgba(59,130,246,0.15);" />
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:14px;padding:0 2px;border-radius:2px;">×</button>
+      <span style="font-size:11px;font-weight:500;color:#a6adc8;white-space:nowrap;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);">Showing 4/17</span>
+    </div>
+  </div>
+
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription filter bar — JSONPath mode with comparison</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:28px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1e1e2e;border-bottom:1px solid #313244;">
+      <!-- Mode toggle — JSONPath active -->
+      <div style="display:inline-flex;border:1px solid #313244;border-radius:4px;overflow:hidden;flex-shrink:0;">
+        <button style="background:none;border:none;padding:3px 8px;font-size:11px;color:#6c7086;cursor:pointer;">Text</button>
+        <button style="background:rgba(59,130,246,0.15);border-left:1px solid #313244;padding:3px 8px;font-size:11px;font-weight:600;color:#3b82f6;cursor:pointer;">JSONPath</button>
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6c7086" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value='$.order.status == "SHIPPED"' style="flex:1;background:#11111b;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;color:#a6e3a1;font-size:11.5px;outline:none;font-family:'JetBrains Mono',monospace;box-shadow:0 0 0 2px rgba(59,130,246,0.15);" />
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:14px;padding:0 2px;border-radius:2px;">×</button>
+      <span style="font-size:11px;font-weight:500;color:#a6adc8;white-space:nowrap;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);">Showing 3/17</span>
+    </div>
+  </div>
+
+  <!-- ── Annotation: JSONPath mode rules ── -->
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:16px;">
+    <strong style="color:#cdd6f4;">Filter mode rules:</strong>
+    <ul style="margin:8px 0 0;padding-left:20px;font-size:11.5px;line-height:1.8;">
+      <li><strong>Text mode</strong>: substring match across JSON.stringify(message.data)</li>
+      <li><strong>JSONPath mode</strong>: path existence <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">$.order.id</code> or comparison <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">$.order.status == "SHIPPED"</code></li>
+      <li>Note: the expression root is <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">message.data</code> (the GraphQL payload), so <em>do not</em> include a leading <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">data.</code> prefix</li>
+      <li>Supports <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">==</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">!=</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&gt;</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&gt;=</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&lt;</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&lt;=</code> operators</li>
+      <li>Escape key closes the filter bar and resets filter state</li>
+      <li>Count shows <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">Showing N/M</code> — live, not a search-only state</li>
+    </ul>
+  </div>
+</div>
 </body>
 </html>

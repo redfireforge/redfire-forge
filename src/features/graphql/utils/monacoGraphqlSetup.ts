@@ -198,7 +198,23 @@ export function registerGraphqlLanguage(monaco: typeof MonacoType): void {
     },
   });
 
-  // Define a dark theme for GraphQL editors that integrates with the app's dark palette
+  defineGraphqlTheme(monaco);
+}
+
+/**
+ * Reads `--bg` from the app's CSS variables and (re-)applies the GraphQL Monaco theme.
+ * Safe to call multiple times — Monaco treats repeated defineTheme calls as updates.
+ * Call this whenever the app theme changes so the editor background stays in sync.
+ */
+export function defineGraphqlTheme(monaco: typeof MonacoType): void {
+  // Read the app's --bg CSS variable so the editor background always matches the
+  // Response/Schema pane (which uses var(--bg)). Fallback to a safe dark value.
+  const bg = typeof document !== 'undefined'
+    ? (getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f172a')
+    : '#0f172a';
+
+  // Derive related colors from the background so they stay coherent across themes.
+  // selectionBackground and lineHighlightBackground are lightened relative to bg.
   monaco.editor.defineTheme(GRAPHQL_THEME_ID, {
     base: 'vs-dark',
     inherit: true,
@@ -217,14 +233,14 @@ export function registerGraphqlLanguage(monaco: typeof MonacoType): void {
       { token: 'delimiter.spread',  foreground: '89DDFF' },
     ],
     colors: {
-      'editor.background': '#1a1a2e',
-      'editor.foreground': '#EEFFFF',
+      'editor.background':           bg,
+      'editor.foreground':           '#EEFFFF',
       'editorLineNumber.foreground': '#546E7A',
-      'editor.selectionBackground': '#2C3E50',
+      'editor.selectionBackground':  '#2C3E50',
       'editor.lineHighlightBackground': '#1E2D3D',
-      'editorCursor.foreground': '#FFCB6B',
+      'editorCursor.foreground':     '#FFCB6B',
       'editorSuggestWidget.background': '#1e2030',
-      'editorSuggestWidget.border': '#2d3561',
+      'editorSuggestWidget.border':  '#2d3561',
     },
   });
 }

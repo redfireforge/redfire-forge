@@ -84,6 +84,11 @@ export interface GraphqlResponse {
   httpStatus: number;
   httpHeaders: Record<string, string>;
   timestamp: number;
+  // Sprint 7 (2D) — incremental delivery metadata
+  /** true while a multipart/mixed stream is still delivering chunks */
+  isStreaming?: boolean;
+  /** number of multipart chunks received so far (undefined for non-incremental requests) */
+  chunkCount?: number;
 }
 
 export interface GraphqlError {
@@ -156,6 +161,99 @@ export interface GraphqlEnvironment {
   updatedAt: number;
 }
 
+// Phase 2 — subscription session tracking
+export type SubscriptionState =
+  | 'idle'
+  | 'connecting'
+  | 'active'
+  | 'paused'
+  | 'reconnecting'
+  | 'closing'
+  | 'closed'
+  | 'error';
+
+export interface SubscriptionStats {
+  totalMessages:      number;
+  errorCount:         number;
+  avgLatencyMs:       number;   // rolling average of offsetMs differences between consecutive messages
+  msgsPerSec:         number;   // rolling 5-second window message rate
+  connectedDurationMs: number;  // ms since subscribe() was called (updated on each message)
+}
+
+export interface GraphqlSubscriptionSession {
+  id:          string;                       // UUID for this subscribe() invocation
+  state:       SubscriptionState;
+  transport:   'graphql-transport-ws' | 'graphql-ws' | 'sse';
+  startedAt:   number;                       // Unix ms when subscribe() was called
+  messages:    GraphqlSubscriptionMessage[];
+  stats:       SubscriptionStats;
+}
+
+// Phase 2 — file upload slot (one entry per attached file)
+export interface FileUploadSlot {
+  id:           string;
+  file:         File;
+  variablePath: string;  // dot-separated path in the variables JSON where null should be injected (e.g. "input.avatar")
+  sizeBytes:    number;
+  mimeType:     string;
+  error?:       string;  // client-side validation error (size exceeded, unsupported type, etc.)
+}
+
+// Phase 2 — subscription message assertion (per-message pass/fail evaluation)
+export interface GraphqlSubscriptionAssertion {
+  id:          string;
+  jsonPath:    string;       // JSONPath expression to extract value from message data (e.g. "$.user.name")
+  operator:    string;       // field operator from the existing evaluateFieldOperator engine
+  expected:    unknown;      // expected value for comparison operators; unused for existence/type checks
+  description: string;       // human-readable label shown in the assertion panel
+}
+
+// Phase 2 — visual query builder state (per-tab)
+export type FieldSelectionPath = string;  // dot-separated field path, e.g. "user.orders.nodes.id"
+
+export interface DirectiveApplication {
+  fieldPath: FieldSelectionPath;
+  directive: '@skip' | '@include' | '@defer';
+  variable:  string;                        // auto-generated variable name (e.g. "skipUser")
+}
+
+export interface FragmentDefinition {
+  name:    string;
+  onType:  string;                          // the GraphQL type this fragment is defined on
+  fields:  FieldSelectionPath[];
+  isUsed:  boolean;                         // false if defined but not spread anywhere in current query
+}
+
+export interface QueryBuilderState {
+  operationType:  'query' | 'mutation' | 'subscription';
+  operationName:  string;
+  selectedFields: Record<FieldSelectionPath, boolean>;   // path → selected
+  argValues:      Record<FieldSelectionPath, string>;    // path → raw value or {{var}} reference
+  aliases:        Record<FieldSelectionPath, string>;    // path → alias name
+  directives:     DirectiveApplication[];
+  fragments:      FragmentDefinition[];
+}
+
+// Phase 2G — Apollo Tracing (legacy extensions.tracing format)
+export interface ResolverTrace {
+  path:        Array<string | number>;
+  parentType:  string;
+  fieldName:   string;
+  returnType:  string;
+  startOffset: number;   // nanoseconds from request start
+  duration:    number;   // nanoseconds
+}
+
+export interface ApolloTracingData {
+  version:    number;
+  startTime:  string;    // ISO 8601
+  endTime:    string;    // ISO 8601
+  duration:   number;    // nanoseconds
+  parsing?:    { startOffset: number; duration: number };
+  validation?: { startOffset: number; duration: number };
+  execution?: { resolvers: ResolverTrace[] };
+}
+
 // Phase 2 — individual message received on a live subscription (WS or SSE)
 export interface GraphqlSubscriptionMessage {
   id:          string;          // unique within this subscription session (UUID or sequential int as string)
@@ -171,13 +269,14 @@ export interface GraphqlSubscriptionMessage {
 
 // Phase 2 — result shape emitted by multipartParser.ts for @defer / @stream responses
 export interface IncrementalDeliveryResult {
-  type:       'initial' | 'patch';
-  patchIndex: number;
-  path?:      Array<string | number>;   // undefined for the initial chunk; array path for patches
-  data?:      unknown;                  // the patched fragment or list item data
-  errors?:    GraphqlError[];           // partial errors for this chunk only
-  merged:     unknown;                  // fully merged accumulated result up to this point
-  hasNext:    boolean;                  // false when the final chunk has been received
+  type:        'initial' | 'patch';
+  patchIndex:  number;
+  path?:       Array<string | number>;          // undefined for the initial chunk; array path for patches
+  data?:       unknown;                         // the patched fragment or list item data
+  errors?:     GraphqlError[];                  // partial errors for this chunk only
+  extensions?: Record<string, unknown>;         // e.g. Apollo Tracing data in the final chunk
+  merged:      unknown;                         // fully merged accumulated result up to this point
+  hasNext:     boolean;                         // false when the final chunk has been received
 }
 
 export interface GraphqlCollectionFolder {

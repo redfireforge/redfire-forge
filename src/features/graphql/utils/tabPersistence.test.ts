@@ -189,6 +189,82 @@ describe('normalizeTab', () => {
     const result = normalizeTab({ id: 't', unsavedChanges: true });
     expect(result!.unsavedChanges).toBe(false);
   });
+
+  // ── subscriptionAssertions normalization ──────────────────────────────────
+  it('normalizes undefined subscriptionAssertions to undefined', () => {
+    const result = normalizeTab({ id: 't' });
+    expect(result!.subscriptionAssertions).toBeUndefined();
+  });
+
+  it('normalizes an empty subscriptionAssertions array to empty array', () => {
+    const result = normalizeTab({ id: 't', subscriptionAssertions: [] });
+    expect(result!.subscriptionAssertions).toEqual([]);
+  });
+
+  it('preserves valid assertion objects', () => {
+    const raw = {
+      id: 't',
+      subscriptionAssertions: [
+        { id: 'a1', jsonPath: '$.user.name', operator: 'equals', expected: 'Alice', description: 'name check' },
+      ],
+    };
+    const result = normalizeTab(raw);
+    expect(result!.subscriptionAssertions).toEqual([
+      { id: 'a1', jsonPath: '$.user.name', operator: 'equals', expected: 'Alice', description: 'name check' },
+    ]);
+  });
+
+  it('filters out assertion entries missing id or jsonPath', () => {
+    const raw = {
+      id: 't',
+      subscriptionAssertions: [
+        { id: 'a1', jsonPath: '$.x', operator: 'equals', expected: '1', description: '' },
+        { jsonPath: '$.y', operator: 'equals', expected: '2', description: '' },  // missing id
+        { id: 'a3', operator: 'equals', expected: '3', description: '' },          // missing jsonPath
+        null,
+      ],
+    };
+    const result = normalizeTab(raw);
+    expect(result!.subscriptionAssertions).toHaveLength(1);
+    expect(result!.subscriptionAssertions![0].id).toBe('a1');
+  });
+
+  it('applies default operator when operator is missing or empty', () => {
+    const raw = {
+      id: 't',
+      subscriptionAssertions: [
+        { id: 'a1', jsonPath: '$.x', operator: '', expected: '', description: '' },
+        { id: 'a2', jsonPath: '$.y', expected: '', description: '' },
+      ],
+    };
+    const result = normalizeTab(raw);
+    expect(result!.subscriptionAssertions![0].operator).toBe('is_not_null');
+    expect(result!.subscriptionAssertions![1].operator).toBe('is_not_null');
+  });
+
+  it('defaults missing expected/description to empty string', () => {
+    const raw = {
+      id: 't',
+      subscriptionAssertions: [
+        { id: 'a1', jsonPath: '$.x', operator: 'equals' },
+      ],
+    };
+    const result = normalizeTab(raw);
+    expect(result!.subscriptionAssertions![0].expected).toBe('');
+    expect(result!.subscriptionAssertions![0].description).toBe('');
+  });
+
+  it('preserves non-string expected values (typed as unknown)', () => {
+    const raw = {
+      id: 't',
+      subscriptionAssertions: [
+        { id: 'a1', jsonPath: '$.x', operator: 'equals', expected: 42 },
+      ],
+    };
+    const result = normalizeTab(raw);
+    // expected is typed as unknown — numeric value is preserved as-is
+    expect(result!.subscriptionAssertions![0].expected).toBe(42);
+  });
 });
 
 // ─── loadTabs / saveTabs ──────────────────────────────────────────────────────
@@ -198,39 +274,39 @@ describe('loadTabs / saveTabs', () => {
     localStorage.clear();
   });
 
-  it('loadTabs returns [] when localStorage is empty', () => {
-    expect(loadTabs()).toEqual([]);
+  it('loadTabs returns [] when localStorage is empty', async () => {
+    expect(await loadTabs()).toEqual([]);
   });
 
-  it('round-trips tabs through save/load', () => {
+  it('round-trips tabs through save/load', async () => {
     const tab = makeTab('tab-1');
-    saveTabs([tab], 'tab-1');
-    const loaded = loadTabs();
+    await saveTabs([tab], 'tab-1');
+    const loaded = await loadTabs();
     expect(loaded).toHaveLength(1);
     expect(loaded[0].id).toBe('tab-1');
   });
 
-  it('caps to MAX_TABS on load', () => {
+  it('caps to MAX_TABS on load', async () => {
     const tooMany = Array.from({ length: MAX_TABS + 3 }, (_, i) => makeTab(`tab-${i + 1}`));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tooMany));
-    const loaded = loadTabs();
+    const loaded = await loadTabs();
     expect(loaded).toHaveLength(MAX_TABS);
   });
 
-  it('returns [] when JSON is malformed', () => {
+  it('returns [] when JSON is malformed', async () => {
     localStorage.setItem(STORAGE_KEY, '{not valid json');
-    expect(loadTabs()).toEqual([]);
+    expect(await loadTabs()).toEqual([]);
   });
 
-  it('returns [] when stored value is not an array', () => {
+  it('returns [] when stored value is not an array', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: 'x' }));
-    expect(loadTabs()).toEqual([]);
+    expect(await loadTabs()).toEqual([]);
   });
 
-  it('filters out invalid tabs', () => {
+  it('filters out invalid tabs', async () => {
     const data = [{ id: 'good' }, { noId: true }, null, 42];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    const loaded = loadTabs();
+    const loaded = await loadTabs();
     expect(loaded).toHaveLength(1);
     expect(loaded[0].id).toBe('good');
   });
@@ -241,13 +317,13 @@ describe('loadTabs / saveTabs', () => {
 describe('loadActiveTabId', () => {
   beforeEach(() => localStorage.clear());
 
-  it('returns empty string when not set', () => {
-    expect(loadActiveTabId()).toBe('');
+  it('returns empty string when not set', async () => {
+    expect(await loadActiveTabId()).toBe('');
   });
 
-  it('returns stored active tab id', () => {
-    saveTabs([makeTab('tab-42')], 'tab-42');
-    expect(loadActiveTabId()).toBe('tab-42');
+  it('returns stored active tab id', async () => {
+    await saveTabs([makeTab('tab-42')], 'tab-42');
+    expect(await loadActiveTabId()).toBe('tab-42');
   });
 });
 
@@ -256,44 +332,44 @@ describe('loadActiveTabId', () => {
 describe('loadAuth / saveAuth', () => {
   beforeEach(() => localStorage.clear());
 
-  it('loadAuth returns null when nothing stored', () => {
-    expect(loadAuth()).toBeNull();
+  it('loadAuth returns null when nothing stored', async () => {
+    expect(await loadAuth()).toBeNull();
   });
 
-  it('round-trips bearer auth', () => {
-    saveAuth({ type: 'bearer', token: 'my-token' });
-    const auth = loadAuth();
+  it('round-trips bearer auth', async () => {
+    await saveAuth({ type: 'bearer', token: 'my-token' });
+    const auth = await loadAuth();
     expect(auth).not.toBeNull();
     expect(auth!.type).toBe('bearer');
     expect(auth!.token).toBe('my-token');
   });
 
-  it('returns null for unknown auth type', () => {
+  it('returns null for unknown auth type', async () => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ type: 'unknown' }));
-    expect(loadAuth()).toBeNull();
+    expect(await loadAuth()).toBeNull();
   });
 
-  it('saveAuth(null) removes stored auth', () => {
-    saveAuth({ type: 'basic', username: 'u' });
-    saveAuth(null);
+  it('saveAuth(null) removes stored auth', async () => {
+    await saveAuth({ type: 'basic', username: 'u' });
+    await saveAuth(null);
     expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
-    expect(loadAuth()).toBeNull();
+    expect(await loadAuth()).toBeNull();
   });
 
-  it('returns null for malformed JSON', () => {
+  it('returns null for malformed JSON', async () => {
     localStorage.setItem(AUTH_STORAGE_KEY, '{bad json');
-    expect(loadAuth()).toBeNull();
+    expect(await loadAuth()).toBeNull();
   });
 
-  it('returns null for non-object JSON values', () => {
+  it('returns null for non-object JSON values', async () => {
     localStorage.setItem(AUTH_STORAGE_KEY, '"just-a-string"');
-    expect(loadAuth()).toBeNull();
+    expect(await loadAuth()).toBeNull();
   });
 
-  it('accepts all valid auth types', () => {
+  it('accepts all valid auth types', async () => {
     for (const type of ['bearer', 'basic', 'apiKey', 'oauth2', 'custom'] as const) {
-      saveAuth({ type });
-      expect(loadAuth()!.type).toBe(type);
+      await saveAuth({ type });
+      expect((await loadAuth())!.type).toBe(type);
     }
   });
 });

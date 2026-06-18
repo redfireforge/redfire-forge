@@ -11,7 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
+import { GraphqlTracingView } from './GraphqlTracingView';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ interface GraphqlResponseViewerProps {
   loading?: boolean;
 }
 
-type ResponseTab = 'body' | 'headers' | 'metadata';
+type ResponseTab = 'body' | 'headers' | 'metadata' | 'tracing';
 
 // ─── JSON Syntax Highlighter ─────────────────────────────────────────────────
 
@@ -296,10 +297,16 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
   const safeHeaders = response?.httpHeaders ?? {};
   const headerCount = response ? Object.keys(safeHeaders).length : 0;
 
-  // Reset to Body tab when a new response arrives
+  // Reset to Body tab only at the START of a new execution.
+  // Bug fix: during streaming, `response.timestamp` changes with every chunk because
+  // each chunk calls `Date.now()`. Without this guard, the tab resets to 'body' on
+  // every streaming chunk, even if the user has navigated to Headers/Metadata.
+  // Fix: only reset when `chunkCount` is absent (non-streaming) or equals 1 (first chunk).
   const prevTimestampRef = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (response && response.timestamp !== prevTimestampRef.current) {
+    if (!response) return;
+    const isFirstOrNonStreaming = !response.chunkCount || response.chunkCount === 1;
+    if (isFirstOrNonStreaming && response.timestamp !== prevTimestampRef.current) {
       prevTimestampRef.current = response.timestamp;
       setActiveTab('body');
     }
@@ -342,8 +349,17 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
     });
   }, [prettyJson]);
 
+  // Sprint 7 (2G-1): detect Apollo Tracing data in extensions
+  // MUST be before early returns to obey Rules of Hooks
+  const tracingData: ApolloTracingData | null = useMemo(() => {
+    if (!response?.extensions?.tracing) return null;
+    const t = response.extensions.tracing as Record<string, unknown>;
+    if (typeof t.version !== 'number' || typeof t.duration !== 'number') return null;
+    return t as unknown as ApolloTracingData;
+  }, [response]);
+
   // ── Loading state ────────────────────────────────────────────────────────
-  if (loading) {
+  if (loading && !response?.isStreaming) {
     return (
       <div className="gql-rv gql-rv--loading" data-testid="gql-response-loading">
         <div className="gql-rv-spinner-wrap">
@@ -392,24 +408,48 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
   // it misleads users into thinking everything succeeded. When a 200 response has ONLY
   // errors (no data), downgrade the badge color to the warning/error style.
   const isPureGqlError = hasErrors && !hasData && response.httpStatus >= 200 && response.httpStatus < 300;
-  const statusCls = isPureGqlError ? 'gql-status--gql-error' : statusColorClass(response.httpStatus);
+  // Re-eval round 3: partial success (data + errors) should also not show plain green —
+  // use warning color to signal the mixed result in the status bar badge.
+  const statusCls =
+    isPureGqlError ? 'gql-status--gql-error' :
+    isPartial      ? 'gql-status--partial' :
+    statusColorClass(response.httpStatus);
+
+  // Sprint 7 (2D): incremental delivery state
+  const isStreaming  = response.isStreaming ?? false;
+  const chunkCount   = response.chunkCount  ?? null;
 
   return (
     <div
-      className={`gql-rv${hasErrors ? ' gql-rv--has-errors' : ''}`}
+      className={`gql-rv${hasErrors ? ' gql-rv--has-errors' : ''}${isStreaming ? ' gql-rv--streaming' : ''}`}
       data-testid="gql-response-viewer"
     >
+      {/* Sprint 7 (2D): streaming indicator banner */}
+      {isStreaming && (
+        <div className="gql-rv-streaming-banner" role="status" aria-live="polite" data-testid="gql-rv-streaming-banner">
+          <span className="gql-rv-streaming-dot" aria-hidden="true" />
+          <span>Streaming…</span>
+          {chunkCount !== null && (
+            <span className="gql-rv-chunk-count">
+              {chunkCount} chunk{chunkCount !== 1 ? 's' : ''} received
+            </span>
+          )}
+          <span className="gql-rv-streaming-hint">Press <kbd>Esc</kbd> to cancel</span>
+        </div>
+      )}
+
       {/* Status bar — always visible; Copy button lives here */}
       <div className="gql-rv-statusbar" data-testid="gql-rv-statusbar">
         {/* Left: status info */}
         <div className="gql-rv-statusbar-left">
           {/* BUG-GQL-R9-16 fix: when a 2xx response has ONLY GraphQL errors (no data),
-              label the badge "GraphQL Error" instead of "200 OK" to avoid contradictory UI */}
+              label the badge "GraphQL Error" instead of "200 OK" to avoid contradictory UI.
+              Re-eval round 3: partial success uses "Partial" label. */}
           <span
             className={`gql-rv-status-badge ${statusCls}`}
             data-testid="gql-response-status"
           >
-            {isPureGqlError ? 'GraphQL Error' : statusBadgeLabel(response.httpStatus)}
+            {isPureGqlError ? 'GraphQL Error' : isPartial ? 'Partial' : statusBadgeLabel(response.httpStatus)}
           </span>
           <span className="gql-rv-latency" data-testid="gql-response-latency">
             {response.latencyMs} ms
@@ -431,6 +471,28 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
               data-testid="gql-response-error-count"
             >
               {response.errors!.length} error{response.errors!.length > 1 ? 's' : ''}
+            </button>
+          )}
+          {/* Sprint 7 (2D): non-streaming chunk count badge */}
+          {!isStreaming && chunkCount !== null && (
+            <span className="gql-rv-chunk-badge" title={`Response received in ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''}`} data-testid="gql-rv-chunk-badge">
+              {chunkCount} chunk{chunkCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {/* Sprint 7 (2G-1): tracing indicator — click to switch to Tracing tab */}
+          {tracingData && (
+            <button
+              type="button"
+              className="gql-rv-tracing-badge"
+              onClick={() => setActiveTab('tracing')}
+              title="Apollo Tracing data available — click to view waterfall"
+              aria-label="Apollo Tracing data available — click to view waterfall"
+              data-testid="gql-rv-tracing-badge"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Tracing
             </button>
           )}
         </div>
@@ -503,6 +565,24 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
         >
           Metadata
         </button>
+        {/* Sprint 7 (2G-1): Tracing tab — only shown when tracing data is present */}
+        {tracingData && (
+          <button
+            id="gql-rv-tab-tracing-btn"
+            type="button"
+            className={`gql-rv-tab${activeTab === 'tracing' ? ' gql-rv-tab--active' : ''}`}
+            role="tab"
+            aria-selected={activeTab === 'tracing'}
+            aria-controls="gql-rv-tabpanel"
+            onClick={() => setActiveTab('tracing')}
+            data-testid="gql-rv-tab-tracing"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Tracing
+          </button>
+        )}
       </div>
 
       {/* Tab content — aria-labelledby points to the currently active tab button */}
@@ -517,6 +597,12 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
           // keyboard-only users can Tab to it and use arrow keys / Page Down to scroll through
           // large responses. Without this, the content is only reachable via a pointing device.
           <div className="gql-rv-json-scroll" data-testid="gql-rv-json-scroll" tabIndex={0}>
+            {isLargeResponse && (
+              <div className="gql-rv-large-response-hint" role="status" aria-live="polite">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Response too large for syntax highlighting ({humanizeBytes(bodySize)}) — displaying plain text.
+              </div>
+            )}
             <pre
               className="gql-rv-json-pre"
               data-testid="gql-response-body"
@@ -538,6 +624,11 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
         )}
         {activeTab === 'metadata' && (
           <MetadataTab response={response} bodySize={bodySize} />
+        )}
+        {activeTab === 'tracing' && tracingData && (
+          <div className="gql-rv-tracing-scroll" data-testid="gql-rv-tracing-scroll">
+            <GraphqlTracingView tracing={tracingData} />
+          </div>
         )}
       </div>
     </div>

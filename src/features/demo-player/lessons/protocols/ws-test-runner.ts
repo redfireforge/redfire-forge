@@ -138,16 +138,23 @@ async function harnessRunCleanup(_ctx: DemoActionContext): Promise<void> {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-/** Open the workflow picker and select "WS Echo Demo". */
+/**
+ * Open the workflow picker and select the exact "WS Echo Demo" workflow.
+ *
+ * Prefers an exact name match so it always lands on the setup-seeded workflow
+ * (which has `variables: { wsUrl: '...' }`), not on a user copy like
+ * "WS Echo Demo (copy)" that may have the URL hard-coded without variables.
+ */
 async function selectWsEchoDemo(ctx: DemoActionContext): Promise<void> {
-  // Use ctx.click so the ripple shows the user what's being clicked
   await ctx.click('[data-testid="workflow-select"]');
-  // wfp-dropdown-panel is conditionally rendered — wait for it to mount (Rule 5).
   await ctx.waitFor('.wfp-dropdown-panel');
-  await ctx.delay(400); // let animation settle so viewer sees the list open
-  // Find item by text content — items have class wfp-dropdown-item
+  await ctx.delay(400);
   const items = Array.from(document.querySelectorAll('.wfp-dropdown-item'));
-  const target = items.find((el) => el.textContent?.includes('WS Echo Demo')) as HTMLElement | undefined;
+  // Prefer exact match first so user copies (e.g. "WS Echo Demo (copy)") are skipped.
+  const target = (
+    items.find((el) => el.textContent?.trim() === 'WS Echo Demo') ??
+    items.find((el) => el.textContent?.trim().startsWith('WS Echo Demo'))
+  ) as HTMLElement | undefined;
   if (target) { target.click(); await ctx.delay(700); }
 }
 
@@ -174,7 +181,7 @@ export const wsTestRunnerLesson: DemoLesson = {
   category: 'websocket',
   name: 'Run WS Workflow in Harness',
   description: 'Run the WS Echo Demo workflow from the Test Harness Workflow Runner and explore the results.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   // initialTab intentionally omitted — see file header comment
 
   setup: harnessRunSetup,
@@ -304,8 +311,10 @@ The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — 
         'The **Initial Variables** panel shows every variable defined in the workflow. "WS Echo Demo" has one — `wsUrl`, pre-set to `ws://localhost:9876` (the mock server started in this lesson\'s setup). You can change it here to point the workflow at any other WebSocket server without touching the workflow definition itself. The mock server is already running, so leave it as-is.',
       highlight: '.workflow-vars-section',
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure WS Echo Demo is selected so the vars panel is visible.
-        if (!document.querySelector('.workflow-vars-section')) {
+        // Guard: ensure the correct workflow is selected AND variables are populated.
+        // A workflow without variables also renders .workflow-vars-section (empty state),
+        // so we check for an actual .wfp-var-row to confirm variables loaded.
+        if (!document.querySelector('.wfp-var-row')) {
           await selectWsEchoDemo(ctx);
         }
       },
@@ -362,6 +371,46 @@ The workflow uses \`{{wsUrl}}\` so you can point it at any WebSocket server — 
           await ctx.delay(800);
         }
       },
+      pauseAfter: true,
+    },
+
+    // ── 7. Request Details → Response Detail modal ─────────────────
+    {
+      id: 'wfhr-request-details',
+      title: 'Request Details — Inspect Each WS Exchange',
+      description:
+        'Switch to **Request Details** to see every individual request grouped by WS node. ' +
+        'Each row is a single WS operation: Connect, Send, or Receive. ' +
+        'Click any row to open the **Response Detail** modal — it shows the full payload, ' +
+        'connection metadata (ID, protocol, message size), and response timing for that exchange. ' +
+        'The modal is **resizable**: drag the right edge, bottom edge, or corner to make it larger.',
+      highlight: '.results-view-tabs',
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: ensure we're on the results tab.
+        if (!document.querySelector('.results-view-tabs')) {
+          ctx.navigateToTab('results');
+          await ctx.delay(800);
+        }
+        // Ensure "Request Details" sub-tab is active.
+        const tabs = Array.from(document.querySelectorAll('.results-view-tab'));
+        const reqTab = tabs.find(el => el.textContent?.trim() === 'Request Details') as HTMLElement | undefined;
+        if (reqTab && !reqTab.classList.contains('active')) {
+          reqTab.click();
+          await ctx.delay(400);
+        }
+      },
+      action: async (ctx) => {
+        // Click "Request Details" tab with ripple so viewer sees the switch.
+        await ctx.click('[data-testid="results-tab-requests"]');
+        await ctx.delay(600);
+        // Wait for clickable rows to render.
+        await ctx.waitFor('.clickable-row');
+        await ctx.delay(400);
+        // Click the first result row to open the Response Detail modal.
+        await ctx.click('.clickable-row');
+        await ctx.delay(500);
+      },
+      verify: '.response-detail-modal',
       pauseAfter: true,
     },
   ],

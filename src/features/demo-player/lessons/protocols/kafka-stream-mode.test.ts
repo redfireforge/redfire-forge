@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaStreamModeLesson } from './kafka-stream-mode';
 
@@ -139,6 +139,25 @@ describe('kafka-stream-mode lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step sm-row preAction clicks streamBtn when not active and scrolls zone into view', async () => {
+    const step = kafkaStreamModeLesson.steps.find((s) => s.id === 'sm-row')!;
+    // Create a stream mode button WITHOUT 'active' class
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'con-mode-stream');
+    const clickSpy = vi.fn();
+    btn.addEventListener('click', clickSpy);
+    document.body.appendChild(btn);
+    // Create stream results zone
+    const zone = document.createElement('div');
+    zone.setAttribute('data-testid', 'stream-results-zone');
+    zone.scrollIntoView = vi.fn();
+    document.body.appendChild(zone);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(zone.scrollIntoView).toHaveBeenCalled();
   });
 });
 

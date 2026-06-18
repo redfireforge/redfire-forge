@@ -159,6 +159,11 @@ export const sseStudioLesson: DemoLesson = {
         'Welcome to SSE Studio — RedfireForge\'s dedicated workspace for Server-Sent Events. The layout mirrors WebSocket Studio: connection config on the left, live events on the right.',
       highlight: SSE.STUDIO,
       pauseAfter: true,
+      preAction: async () => {
+        document.querySelectorAll('.sse-row-selected').forEach((el) => {
+          el.classList.remove('sse-row-selected');
+        });
+      },
     },
 
     // ── 2. Connect to SSE Endpoint ───────────────────────────────

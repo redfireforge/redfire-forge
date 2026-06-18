@@ -9,8 +9,8 @@
  * via the MCP bridge (`mcp_mcp-server-ta_webview_keyboard`).
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 
 /* ── Ensure mock echo server is running ──────────────── */
 
@@ -30,11 +30,6 @@ const tabBar = (page: Page) => page.locator('[data-testid="conn-tab-bar"]');
 const allTabs = (page: Page) => tabBar(page).locator('[role="tab"]');
 const activeTab = (page: Page) => tabBar(page).locator('[role="tab"][aria-selected="true"]');
 const addBtn = (page: Page) => page.locator('[data-testid="conn-tab-add"]');
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
 
 /** Add N extra tabs (starts with 1 tab, ends with 1+N) */
 async function addTabs(page: Page, count: number) {

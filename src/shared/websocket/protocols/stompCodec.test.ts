@@ -124,6 +124,46 @@ describe('stompCodec', () => {
       expect(frame.headers['receipt']).toBe('r1');
       expect(frame.body).toBe('');
     });
+
+    it('handles frame with no header/body separator (headers only)', () => {
+      const raw = 'CONNECTED\nversion:1.2';
+      const frame = decodeStompFrame(raw);
+      expect(frame.command).toBe('CONNECTED');
+      expect(frame.headers['version']).toBe('1.2');
+      expect(frame.body).toBe('');
+    });
+
+    it('preserves unknown escape sequences in header values', () => {
+      const raw = 'MESSAGE\nkey:val\\xunknown\n\n\0';
+      const frame = decodeStompFrame(raw);
+      expect(frame.headers['key']).toBe('val\\xunknown');
+    });
+
+    it('uses CRLF as header/body separator', () => {
+      const raw = 'MESSAGE\ndestination:/topic/a\r\n\r\nbody content\0';
+      const frame = decodeStompFrame(raw);
+      expect(frame.command).toBe('MESSAGE');
+      expect(frame.body).toBe('body content');
+    });
+
+    it('skips header lines without a colon separator', () => {
+      const raw = 'MESSAGE\nmalformed-line\ndestination:/topic/a\n\n\0';
+      const frame = decodeStompFrame(raw);
+      expect(frame.headers['destination']).toBe('/topic/a');
+      expect(frame.headers['malformed-line']).toBeUndefined();
+    });
+
+    it('skips header lines with colon at position 0', () => {
+      const raw = 'MESSAGE\n:invalid\ndestination:/topic/a\n\n\0';
+      const frame = decodeStompFrame(raw);
+      expect(frame.headers['destination']).toBe('/topic/a');
+    });
+
+    it('handles empty frame (no command line)', () => {
+      const frame = decodeStompFrame('\0');
+      expect(frame.command).toBe('');
+      expect(frame.body).toBe('');
+    });
   });
 
   describe('encodeStompFrame', () => {
@@ -288,6 +328,51 @@ describe('stompCodec', () => {
       const frame = decodeStompFrame('NACK\nid:sub-1\n\n\0');
       expect(getStompFrameSummary(frame)).toBe('NACK sub-1');
     });
+
+    it('summarizes MESSAGE without destination', () => {
+      const frame = decodeStompFrame('MESSAGE\nmessage-id:msg-1\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('MESSAGE');
+    });
+
+    it('summarizes unknown command via default case', () => {
+      const frame = decodeStompFrame('BEGIN\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('BEGIN');
+    });
+
+    it('summarizes CONNECTED without version header', () => {
+      const frame = decodeStompFrame('CONNECTED\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('CONNECTED (v?)');
+    });
+
+    it('summarizes SEND without destination', () => {
+      const frame = decodeStompFrame('SEND\ncontent-length:0\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('SEND');
+    });
+
+    it('summarizes SUBSCRIBE without destination', () => {
+      const frame = decodeStompFrame('SUBSCRIBE\nid:sub-1\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('SUBSCRIBE');
+    });
+
+    it('summarizes ERROR using body when message header is absent', () => {
+      const frame = decodeStompFrame('ERROR\n\nSomething went wrong\0');
+      expect(getStompFrameSummary(frame)).toBe('ERROR: Something went wrong');
+    });
+
+    it('summarizes STOMP with default host', () => {
+      const frame = decodeStompFrame('STOMP\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('CONNECT → server');
+    });
+
+    it('summarizes ACK without message-id or id', () => {
+      const frame = decodeStompFrame('ACK\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('ACK');
+    });
+
+    it('summarizes NACK without message-id or id', () => {
+      const frame = decodeStompFrame('NACK\n\n\0');
+      expect(getStompFrameSummary(frame)).toBe('NACK');
+    });
   });
 
   describe('isStompHeartbeat', () => {
@@ -345,6 +430,10 @@ describe('stompCodec', () => {
 
     it('returns false for JSON', () => {
       expect(isStompFrame('{"type":"message"}')).toBe(false);
+    });
+
+    it('returns false when first line is missing', () => {
+      expect(isStompFrame('\nMESSAGE\ndestination:/a\n\n\0')).toBe(false);
     });
   });
 });

@@ -189,7 +189,7 @@ export const wsBasicsLesson: DemoLesson = {
     {
       id: 'ws-connect',
       title: 'Connect to the Server',
-      description: 'Click Connect to open the WebSocket connection. Watch the status indicator change from "Disconnected" (grey dot) to "Connected" (green dot). The app auto-switches to Compose once connected.',
+      description: 'Click Connect to open the WebSocket connection. Watch the status indicator change from "Disconnected" (grey dot) to "Connected" (green dot). The app auto-switches to Send once connected.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
         // Guard: ensure mock server is running before attempting to connect
@@ -207,14 +207,14 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.STATUS_CONNECTED,
     },
 
-    // ── 5. Compose ───────────────────────────────────────────────
+    // ── 5. Send ──────────────────────────────────────────────────
     {
       id: 'ws-compose',
-      title: 'Compose a Message',
-      description: 'Switch to the Send tab to write messages. You can send plain text, JSON, or binary data. The format dropdown lets you switch between Text, Hex, and Base64 encoding.',
+      title: 'Send a Message',
+      description: 'Switch to the **Send** tab to write messages. You can send plain text, JSON, or binary data. The format pills let you switch between Text, JSON, and Base64 encoding.',
       highlight: WS.COMPOSE_INPUT,
       preAction: async (ctx) => {
-        // Guard: ensure connected so the Compose panel is in its active send-ready state
+        // Guard: ensure connected so the Send panel is in its active send-ready state
         await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_SEND);
       },

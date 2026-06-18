@@ -576,22 +576,59 @@ describe('LessonPlayer', () => {
     expect(document.querySelector('.prereq-gate')).toBeNull();
   });
 
-  it('collapses sidebar step when clicked while already expanded', () => {
+  it('clicking a step nav item shows its description in the right panel', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
       />,
     );
-    const buttons = document.querySelectorAll('.demo-sidebar-step-header');
-    expect(buttons.length).toBeGreaterThan(0);
-    const firstBtn = buttons[0] as HTMLElement;
-    // First click: expand
-    fireEvent.click(firstBtn);
-    expect(firstBtn.getAttribute('aria-expanded')).toBe('true');
-    // Second click: collapse (covers isExpanded ? null : idx → null branch)
-    fireEvent.click(firstBtn);
-    expect(firstBtn.getAttribute('aria-expanded')).toBe('false');
+    // Default: concept view is active
+    expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail')).toBeNull();
+
+    // Click step 1 in the sidebar
+    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
+    // navItems[0] = Concept, navItems[1] = Step 1, navItems[2] = Step 2
+    fireEvent.click(navItems[1]);
+
+    // Concept slide should be replaced by step detail
+    expect(document.querySelector('.demo-concept-slide')).toBeNull();
+    expect(document.querySelector('.demo-step-detail')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail-title')?.textContent).toBe('Step 1');
+    expect(document.querySelector('.demo-step-detail-num')?.textContent).toBe('Step 1');
+
+    // Clicking Concept nav item restores concept view
+    fireEvent.click(navItems[0]);
+    expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail')).toBeNull();
+  });
+
+  it('footer always shows Start Demo; Prev/Next appear only when viewing a step', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson()}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
+
+    // Concept view → Start Demo present, no step navigation
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeNull();
+    expect(screen.queryByText(/Next →/)).toBeNull();
+
+    // Step 1 (non-last, non-first) → Start Demo + Next, no Prev
+    fireEvent.click(navItems[1]);
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/Next →/)).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeNull();
+
+    // Step 2 (last) → Start Demo + Prev, no Next
+    fireEvent.click(navItems[2]);
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeTruthy();
+    expect(screen.queryByText(/Next →/)).toBeNull();
   });
 
   it('enables start button when docker gate becomes ready', async () => {

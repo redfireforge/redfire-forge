@@ -447,6 +447,329 @@ describe('mixed-valid/invalid row expansion', () => {
 });
 
 // ---------------------------------------------------------------------------
+// wsConnectAction substitution (lines 256-276)
+// ---------------------------------------------------------------------------
+
+describe('resolveScenarioFromDataRow — wsConnectAction interpolation', () => {
+  function makeWsConnectScenario(wsOverrides: Record<string, unknown> = {}): Scenario {
+    return {
+      id: 'ws-1',
+      name: 'WS Connect',
+      url: 'ws://localhost:9876',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsConnectAction: {
+        url: 'ws://{{host}}:{{port}}',
+        connectionId: 'conn-{{id}}',
+        headers: [{ key: 'X-Token', value: '{{token}}', enabled: true }],
+        queryParams: [{ key: 'env', value: '{{env}}', enabled: true }],
+        subprotocols: 'chat',
+        ...wsOverrides,
+      },
+    } as unknown as Scenario;
+  }
+
+  it('substitutes wsConnectAction fields when body columns provided (lines 256-275 true branch)', () => {
+    const scenario = makeWsConnectScenario();
+    const cols: DataSourceColumn[] = [
+      makeBodyCol('c-host', 'host'),
+      makeBodyCol('c-port', 'port'),
+      makeBodyCol('c-id', 'id'),
+      makeBodyCol('c-token', 'token'),
+      makeBodyCol('c-env', 'env'),
+    ];
+    const row = makeRow('r1', { 'c-host': 'ws.example.com', 'c-port': '8080', 'c-id': '42', 'c-token': 'abc123', 'c-env': 'prod' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsConnectAction?.url).toBe('ws://ws.example.com:8080');
+    expect(resolved.wsConnectAction?.connectionId).toBe('conn-42');
+  });
+
+  it('wsConnectAction without body vars passes through unchanged (line 256 false branch)', () => {
+    const scenario = makeWsConnectScenario({ url: 'ws://fixed.host:9876', connectionId: undefined });
+    // No body columns — hasBodyVars is false
+    const cols: DataSourceColumn[] = [];
+    const row = makeRow('r1', {});
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsConnectAction?.url).toBe('ws://fixed.host:9876');
+  });
+
+  it('wsConnectAction with null headers/queryParams/subprotocols — uses undefined fallback', () => {
+    const scenario = makeWsConnectScenario({
+      url: 'ws://{{host}}',
+      connectionId: undefined,
+      headers: undefined,
+      queryParams: undefined,
+      subprotocols: undefined,
+    });
+    const cols: DataSourceColumn[] = [makeBodyCol('c-host', 'host')];
+    const row = makeRow('r1', { 'c-host': 'localhost' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsConnectAction?.url).toBe('ws://localhost');
+    expect(resolved.wsConnectAction?.headers).toBeUndefined();
+    expect(resolved.wsConnectAction?.queryParams).toBeUndefined();
+    expect(resolved.wsConnectAction?.subprotocols).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// kafkaConsumeAction filter — keyEquals/jsonEquals undefined fallback (lines 237-240)
+// ---------------------------------------------------------------------------
+
+describe('resolveScenarioFromDataRow — kafkaConsumeAction filter undefined fields', () => {
+  it('handles filter with undefined keyEquals and jsonEquals (lines 237/240 false branches)', () => {
+    const scenario: Scenario = {
+      id: 'kafka-c',
+      name: 'Kafka Consume',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      kafkaConsumeAction: {
+        topic: '{{topic}}',
+        maxMessages: 10,
+        timeoutMs: 5000,
+        filter: {
+          // keyEquals and jsonEquals are undefined
+          keyEquals: undefined,
+          jsonEquals: undefined,
+        },
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [makeBodyCol('c-topic', 'topic')];
+    const row = makeRow('r1', { 'c-topic': 'orders.events' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.kafkaConsumeAction?.topic).toBe('orders.events');
+    expect(resolved.kafkaConsumeAction?.filter?.keyEquals).toBeUndefined();
+    expect(resolved.kafkaConsumeAction?.filter?.jsonEquals).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeUnresolvedQueryPlaceholders — invalid URL fallback (line 71 true branch)
+// ---------------------------------------------------------------------------
+
+describe('resolveScenarioFromDataRow — invalid URL normalization', () => {
+  it('handles non-URL urls (line 71 try/catch false branch)', () => {
+    const scenario: Scenario = {
+      id: 'bad-url',
+      name: 'Bad URL',
+      url: 'not-a-valid-url?q={{token}}',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+    };
+    // With no columns, no substitution but URL should still be preserved
+    const resolved = resolveScenarioFromDataRow(scenario, [], makeRow('r1', {}), 0);
+    expect(resolved.url).toContain('not-a-valid-url');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wsSendAction substitution (lines 282-294)
+// ---------------------------------------------------------------------------
+
+describe('resolveScenarioFromDataRow — wsSendAction interpolation', () => {
+  it('substitutes wsSendAction fields when body columns provided (lines 282-294 true branch)', () => {
+    const scenario: Scenario = {
+      id: 'ws-send-1',
+      name: 'WS Send',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsSendAction: {
+        message: '{"type":"{{msgType}}"}',
+        url: 'ws://{{host}}/ws',
+        connectionRef: 'conn-{{id}}',
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [
+      makeBodyCol('c-msg', 'msgType'),
+      makeBodyCol('c-host', 'host'),
+      makeBodyCol('c-id', 'id'),
+    ];
+    const row = makeRow('r1', { 'c-msg': 'ping', 'c-host': 'localhost', 'c-id': '1' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsSendAction?.message).toBe('{"type":"ping"}');
+    expect(resolved.wsSendAction?.url).toBe('ws://localhost/ws');
+    expect(resolved.wsSendAction?.connectionRef).toBe('conn-1');
+  });
+
+  it('wsSendAction with undefined url/connectionRef preserves undefined (cond-expr false branches)', () => {
+    const scenario: Scenario = {
+      id: 'ws-send-2',
+      name: 'WS Send',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsSendAction: {
+        message: '{{msg}}',
+        url: undefined,
+        connectionRef: undefined,
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [makeBodyCol('c-msg', 'msg')];
+    const row = makeRow('r1', { 'c-msg': 'hello' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsSendAction?.message).toBe('hello');
+    expect(resolved.wsSendAction?.url).toBeUndefined();
+    expect(resolved.wsSendAction?.connectionRef).toBeUndefined();
+  });
+
+  it('wsSendAction without body vars passes through unchanged (line 282 false branch)', () => {
+    const scenario: Scenario = {
+      id: 'ws-send-3',
+      name: 'WS Send',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsSendAction: { message: 'fixed-message' },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [];
+    const row = makeRow('r1', {});
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsSendAction?.message).toBe('fixed-message');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wsReceiveAction substitution (lines 296-325)
+// ---------------------------------------------------------------------------
+
+describe('resolveScenarioFromDataRow — wsReceiveAction interpolation', () => {
+  it('substitutes wsReceiveAction fields and matchCriteria (lines 296-325 true branch)', () => {
+    const scenario: Scenario = {
+      id: 'ws-recv-1',
+      name: 'WS Receive',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsReceiveAction: {
+        url: 'ws://{{host}}/ws',
+        connectionRef: 'conn-{{id}}',
+        matchCriteria: {
+          contentContains: '{{keyword}}',
+          contentRegex: '{{pattern}}',
+          jsonPathValue: '{{jval}}',
+          jsonPathMatch: '{{jmatch}}',
+        },
+        timeoutMs: 5000,
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [
+      makeBodyCol('c-host', 'host'),
+      makeBodyCol('c-id', 'id'),
+      makeBodyCol('c-kw', 'keyword'),
+      makeBodyCol('c-pat', 'pattern'),
+      makeBodyCol('c-jval', 'jval'),
+      makeBodyCol('c-jm', 'jmatch'),
+    ];
+    const row = makeRow('r1', {
+      'c-host': 'api.example.com',
+      'c-id': '42',
+      'c-kw': 'success',
+      'c-pat': '.*success.*',
+      'c-jval': '/data/value',
+      'c-jm': 'ok',
+    });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsReceiveAction?.url).toBe('ws://api.example.com/ws');
+    expect(resolved.wsReceiveAction?.connectionRef).toBe('conn-42');
+    expect(resolved.wsReceiveAction?.matchCriteria?.contentContains).toBe('success');
+    expect(resolved.wsReceiveAction?.matchCriteria?.contentRegex).toBe('.*success.*');
+  });
+
+  it('wsReceiveAction with undefined url/connectionRef/matchCriteria (cond-expr false branches)', () => {
+    const scenario: Scenario = {
+      id: 'ws-recv-2',
+      name: 'WS Receive',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsReceiveAction: {
+        url: undefined,
+        connectionRef: undefined,
+        matchCriteria: undefined,
+        timeoutMs: 3000,
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [makeBodyCol('c-x', 'x')];
+    const row = makeRow('r1', { 'c-x': 'value' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsReceiveAction?.url).toBeUndefined();
+    expect(resolved.wsReceiveAction?.connectionRef).toBeUndefined();
+    expect(resolved.wsReceiveAction?.matchCriteria).toBeUndefined();
+  });
+
+  it('matchCriteria with undefined fields preserves undefined (inner cond-expr false branches)', () => {
+    const scenario: Scenario = {
+      id: 'ws-recv-3',
+      name: 'WS Receive',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsReceiveAction: {
+        url: '{{wsUrl}}',
+        matchCriteria: {
+          contentContains: undefined,
+          contentRegex: undefined,
+          jsonPathValue: undefined,
+          jsonPathMatch: undefined,
+        },
+      },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [makeBodyCol('c-url', 'wsUrl')];
+    const row = makeRow('r1', { 'c-url': 'ws://srv' });
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsReceiveAction?.url).toBe('ws://srv');
+    expect(resolved.wsReceiveAction?.matchCriteria?.contentContains).toBeUndefined();
+    expect(resolved.wsReceiveAction?.matchCriteria?.jsonPathValue).toBeUndefined();
+  });
+
+  it('wsReceiveAction without body vars passes through unchanged (line 296 false branch)', () => {
+    const scenario: Scenario = {
+      id: 'ws-recv-4',
+      name: 'WS Receive',
+      url: '',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      wsReceiveAction: { timeoutMs: 5000 },
+    } as unknown as Scenario;
+    const cols: DataSourceColumn[] = [];
+    const row = makeRow('r1', {});
+    const resolved = resolveScenarioFromDataRow(scenario, cols, row, 0);
+    expect(resolved.wsReceiveAction?.timeoutMs).toBe(5000);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // HTTP scenario is unaffected
 // ---------------------------------------------------------------------------
 

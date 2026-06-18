@@ -52,7 +52,7 @@ describe('KafkaProduceConfig', () => {
     const onChange = vi.fn();
     render(<KafkaProduceConfig data={makeData()} onChange={onChange} variableHints={[]} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Optional'), { target: { value: '2' } });
+    fireEvent.change(screen.getByPlaceholderText('Auto'), { target: { value: '2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ partition: 2 }));
   });
 
@@ -91,10 +91,10 @@ describe('KafkaProduceConfig', () => {
   it('adds header and binding rows', () => {
     render(<Host />);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add Header' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add' })[0]);
     expect(screen.getAllByPlaceholderText('Header name')).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add Binding' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add' })[1]);
     expect(screen.getAllByPlaceholderText('targetVariable')).toHaveLength(1);
   });
 

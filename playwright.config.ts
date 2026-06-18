@@ -33,6 +33,29 @@ const DOCKER_SPECS = [
   '**/ws-tls-local-demo.spec.ts',
 ];
 
+/**
+ * Step-through demo specs — excluded from the default run.
+ *
+ * These specs walk through individual lesson steps to validate specific
+ * bug fixes (e.g. node deselection before config modal opens). They are
+ * too slow (~60 s per test) for the standard suite and are only run when
+ * actively working on demo lessons.
+ *
+ * Run them directly:
+ *   npx playwright test e2e/demo-ws-workflow-builder.spec.ts --reporter=html
+ *   npx playwright test e2e/demo-stepthrough-*.spec.ts --reporter=html
+ *
+ * Naming convention: any new per-lesson step-through spec must be named
+ *   demo-{protocol}-{lesson-slug}.spec.ts
+ * so the glob below picks it up automatically.
+ */
+const DEMO_STEPTHROUGH_SPECS = [
+  '**/demo-ws-workflow-builder.spec.ts',
+  // Future per-lesson step-through specs follow the same naming pattern:
+  // '**/demo-kafka-consume.spec.ts',
+  // '**/demo-sse-advanced.spec.ts',
+];
+
 const withDocker = process.env.E2E_WITH_DOCKER === '1';
 
 export default defineConfig({
@@ -58,7 +81,7 @@ export default defineConfig({
       name: 'chromium',
       // Exclude the dedicated ws-mock-server spec (has its own project below)
       // and all Docker-dependent specs.
-      testIgnore: ['**/ws-mock-server.spec.ts', ...DOCKER_SPECS],
+      testIgnore: ['**/ws-mock-server.spec.ts', ...DOCKER_SPECS, ...DEMO_STEPTHROUGH_SPECS],
       use: { browserName: 'chromium' },
     },
 

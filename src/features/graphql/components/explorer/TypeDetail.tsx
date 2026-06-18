@@ -16,6 +16,8 @@ interface TypeDetailProps {
   onTabChange: (tab: DetailTab) => void;
   navigableTypes: Set<string>;
   onSelectType: (name: string) => void;
+  /** Optional: insert a field into the active query editor */
+  onInsertField?: (fieldName: string, fieldType: string, hasArgs: boolean) => void;
 }
 
 function NavigableList({
@@ -62,6 +64,7 @@ export function TypeDetail({
   onTabChange,
   navigableTypes,
   onSelectType,
+  onInsertField,
 }: TypeDetailProps) {
   const fieldCount =
     type.fields?.length ?? type.enumValues?.length ?? type.possibleTypes?.length ?? 0;
@@ -155,10 +158,11 @@ export function TypeDetail({
             <table className="gql-se-fields-table">
               <thead>
                 <tr>
-                  <th className="gql-se-fth">Field</th>
-                  <th className="gql-se-fth">Type</th>
-                  <th className="gql-se-fth">Arguments</th>
-                  <th className="gql-se-fth">Description</th>
+                  <th className="gql-se-fth" scope="col">Field</th>
+                  <th className="gql-se-fth" scope="col">Type</th>
+                  <th className="gql-se-fth" scope="col">Arguments</th>
+                  <th className="gql-se-fth" scope="col">Description</th>
+                  {onInsertField && <th className="gql-se-fth gql-se-fth--try" scope="col" />}
                 </tr>
               </thead>
               <tbody>
@@ -168,6 +172,7 @@ export function TypeDetail({
                     field={f}
                     navigableTypes={navigableTypes}
                     onSelectType={onSelectType}
+                    onInsertField={onInsertField}
                   />
                 ))}
               </tbody>

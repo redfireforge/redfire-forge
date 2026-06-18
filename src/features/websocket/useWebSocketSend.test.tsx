@@ -54,14 +54,17 @@ describe('useWebSocketSend', () => {
       expect(screen.getByTestId('send-btn')).toBeInTheDocument();
     });
 
-    it('shows format select when no protocol mode', () => {
+    it('shows format pills when no protocol mode', () => {
       renderCompose();
-      expect(screen.getByTestId('format-select')).toBeInTheDocument();
+      expect(screen.getByTestId('format-pills')).toBeInTheDocument();
+      expect(screen.getByTestId('format-pill-text')).toBeInTheDocument();
+      expect(screen.getByTestId('format-pill-json')).toBeInTheDocument();
+      expect(screen.getByTestId('format-pill-binary')).toBeInTheDocument();
     });
 
     it('shows message count in footer', () => {
       renderCompose({ totalCount: 42, maxMessages: 200 });
-      expect(screen.getByTestId('compose-footer')).toHaveTextContent('42 / 200 messages');
+      expect(screen.getByTestId('compose-footer')).toHaveTextContent('42 / 200');
     });
 
     it('disables input when disconnected', () => {
@@ -134,22 +137,21 @@ describe('useWebSocketSend', () => {
   });
 
   describe('format selection', () => {
-    it('switches format to json', () => {
+    it('switches format to json via pill', () => {
       renderCompose();
-      const select = screen.getByTestId('format-select');
-      fireEvent.change(select, { target: { value: 'json' } });
-      expect(select).toHaveValue('json');
+      fireEvent.click(screen.getByTestId('format-pill-json'));
+      expect(screen.getByTestId('format-pill-json')).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('shows beautify button for json format', () => {
       renderCompose();
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       expect(screen.getByTestId('pretty-format-btn')).toBeInTheDocument();
     });
 
     it('beautify formats valid JSON', () => {
       renderCompose();
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'json' } });
+      fireEvent.click(screen.getByTestId('format-pill-json'));
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: '{"a":1}' } });
       fireEvent.click(screen.getByTestId('pretty-format-btn'));
@@ -158,7 +160,7 @@ describe('useWebSocketSend', () => {
 
     it('shows base64 invalid hint for binary format with bad data', () => {
       renderCompose();
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: 'not valid base64!!!' } });
       expect(screen.getByTestId('base64-hint')).toHaveTextContent('Invalid Base64');
@@ -167,7 +169,7 @@ describe('useWebSocketSend', () => {
     it('does not send invalid base64 in binary mode', () => {
       const onSend = vi.fn();
       renderCompose({ onSend });
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: '!!!invalid' } });
       fireEvent.click(screen.getByTestId('send-btn'));
@@ -177,7 +179,7 @@ describe('useWebSocketSend', () => {
     it('sends valid base64 in binary mode', () => {
       const onSend = vi.fn();
       renderCompose({ onSend });
-      fireEvent.change(screen.getByTestId('format-select'), { target: { value: 'binary' } });
+      fireEvent.click(screen.getByTestId('format-pill-binary'));
       const input = screen.getByLabelText('Message input');
       fireEvent.change(input, { target: { value: 'aGVsbG8=' } });
       fireEvent.click(screen.getByTestId('send-btn'));
@@ -261,12 +263,12 @@ describe('useWebSocketSend', () => {
       expect(screen.getByTestId('gql-compose-fields')).toBeInTheDocument();
       expect(screen.getByTestId('gql-operation-name')).toBeInTheDocument();
       expect(screen.getByTestId('gql-variables')).toBeInTheDocument();
-      expect(screen.getByTestId('gql-op-id')).toHaveTextContent('Op #1');
+      expect(screen.getByTestId('gql-op-id')).toHaveTextContent('#1');
     });
 
     it('shows GraphQL badge', () => {
       renderCompose({ effectiveProtocol: 'graphql-ws' });
-      expect(screen.getByTestId('gql-mode-badge')).toHaveTextContent('GraphQL');
+      expect(screen.getByTestId('gql-mode-badge')).toHaveTextContent('GraphQL-WS');
     });
 
     it('sends graphql subscription', () => {
@@ -288,7 +290,7 @@ describe('useWebSocketSend', () => {
       fireEvent.change(input, { target: { value: 'query { a }' } });
       fireEvent.click(screen.getByTestId('send-btn'));
       // After first send, op id should now be 2
-      expect(screen.getByTestId('gql-op-id')).toHaveTextContent('Op #2');
+      expect(screen.getByTestId('gql-op-id')).toHaveTextContent('#2');
     });
   });
 
@@ -307,7 +309,7 @@ describe('useWebSocketSend', () => {
     it('shows empty state when no templates', () => {
       renderCompose({ templates: [] });
       fireEvent.click(screen.getByTestId('template-trigger'));
-      expect(screen.getByTestId('template-empty')).toHaveTextContent('No saved templates');
+      expect(screen.getByTestId('template-empty')).toHaveTextContent('No templates yet');
     });
 
     it('lists templates and loads on click', () => {

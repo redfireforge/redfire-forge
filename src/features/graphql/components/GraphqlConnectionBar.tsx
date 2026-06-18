@@ -7,73 +7,74 @@
  * Phase 1D: GQL method badge, auth badge + popover, recent endpoints dropdown.
  * Phase 1E: env badge button (opens environment manager modal).
  * Phase 1 Gap: TLS skip toggle, schema polling config popover.
+ *
+ * Extracted modules:
+ *   hooks/useGqlPollingPopover           — polling state + a11y effects
+ *   connection-bar/GqlPollingPopoverContent — polling dialog JSX (shared by two locations)
+ *   connection-bar/GqlSubscriptionControls — transport selector + status + subscribe/stop
  */
 
-import { useEffect, useRef, useState } from 'react';
-import type { GraphqlAuth, GraphqlEnvironment } from '../../../shared/types/graphql';
+import { useRef, useState } from 'react';
+import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
+import { useGqlPollingPopover } from '../hooks/useGqlPollingPopover';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
 import { findUnresolvedVars } from '../utils/envUtils';
 import { GraphqlAuthPopover } from './GraphqlAuthPopover';
+import { GqlPollingPopoverContent } from './connection-bar/GqlPollingPopoverContent';
+import { GqlSubscriptionControls } from './connection-bar/GqlSubscriptionControls';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAX_ENV_NAME_LEN = 18;
-const MIN_POLL_SECONDS = 10;
-const MAX_POLL_SECONDS = 3600;
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface GraphqlConnectionBarProps {
   endpoint: string;
   onEndpointChange: (url: string) => void;
   onExecute?: () => void;
-  /** Called when the user clicks the Cancel button (visible while executing) */
   onCancel?: () => void;
   onIntrospect?: () => void;
   executing?: boolean;
   introspecting?: boolean;
-  /** Shown as a badge next to the URL when schema is loaded */
   schemaStatus?: 'loaded' | 'error' | 'none';
-  /** Number of types in the loaded schema — shown in the schema badge */
   typesCount?: number;
-  /** True when schema polling is active (shows a pulsing green dot) */
   schemaPolling?: boolean;
-  /** Currently selected operation name (for multi-operation documents) */
   selectedOperation?: string;
-  /** All named operations in the current document (empty if only one or anonymous) */
   operations?: string[];
   onSelectOperation?: (name: string) => void;
-  /** True when variables JSON is invalid — disables Execute and shows a tooltip */
   varsInvalid?: boolean;
-  /** True when the active tab's query is empty/whitespace — disables Execute */
   queryEmpty?: boolean;
   disabled?: boolean;
-  /** Phase 1D: current auth config (null = no auth) */
+  fileErrors?: boolean;
   auth?: GraphqlAuth | null;
-  /** BUG-1D-V1 fix: null means "No Auth" — clears the auth config */
   onAuthChange?: (auth: GraphqlAuth | null) => void;
-  /** Phase 1D: recent endpoints list for the autocomplete dropdown */
   recentEndpoints?: string[];
   onRemoveRecentEndpoint?: (url: string) => void;
-  /** Phase 1E: active environment name (null = no active env) */
   activeEnvName?: string | null;
-  /** Phase 1E: opens the environment manager modal */
   onEnvBadgeClick?: () => void;
-  /** Phase 1C addition: number of schema validation errors in the current query (0 = clean) */
   queryValidationErrors?: number;
-  /** Phase 1D addition: saved connection profiles for the profile picker */
   profiles?: ConnectionProfile[];
-  /** Phase 1D addition: opens the connection profiles modal */
   onProfileBadgeClick?: () => void;
-  /** Phase 1 Gap: TLS certificate verification skip toggle */
   skipTlsVerify?: boolean;
   onSkipTlsVerifyChange?: (skip: boolean) => void;
-  /** Phase 1 Gap: schema polling configuration */
   pollingEnabled?: boolean;
   pollingIntervalSeconds?: number;
   onPollingChange?: (enabled: boolean, intervalSeconds: number) => void;
-  /** BUG-GQL-R7-6: active environment for detecting unresolved {{var}} in the endpoint URL */
   activeEnvironment?: GraphqlEnvironment | null;
-  /** BUG-GQL-R8-9: non-null when a background schema poll refresh has failed */
   pollErrorMessage?: string | null;
+  activeOperationType?: 'query' | 'mutation' | 'subscription' | null;
+  subscriptionState?: SubscriptionState;
+  onSubscribe?: () => void;
+  onStop?: () => void;
+  subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
+  onSubscriptionTransportChange?: (t: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse') => void;
+  complexityScore?: number;
+  complexityLevel?: 'ok' | 'warn' | 'danger';
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function GraphqlConnectionBar({
   endpoint,
@@ -92,6 +93,7 @@ export function GraphqlConnectionBar({
   varsInvalid = false,
   queryEmpty = false,
   disabled = false,
+  fileErrors = false,
   auth,
   onAuthChange,
   recentEndpoints = [],
@@ -108,126 +110,76 @@ export function GraphqlConnectionBar({
   onPollingChange,
   activeEnvironment,
   pollErrorMessage,
+  activeOperationType,
+  subscriptionState = 'idle',
+  onSubscribe,
+  onStop,
+  subscriptionTransport = 'auto',
+  onSubscriptionTransportChange,
+  complexityScore,
+  complexityLevel = 'ok',
 }: GraphqlConnectionBarProps) {
   const noEndpoint = !endpoint.trim();
 
-  // BUG-GQL-R7-6 fix: detect unresolved {{var}} references in the endpoint URL.
-  // Headers already show per-row warnings; the URL input was silently ignored.
-  // A request to literal "https://{{host}}/graphql" produces a network error with
-  // no inline hint — surfacing it here prevents confusing connection failures.
+  // Auto-detect SSE transport for /stream endpoints
+  const normUrl = endpoint.toLowerCase();
+  const autoDetectsSSE = subscriptionTransport === 'auto' &&
+    (normUrl.endsWith('/stream') || normUrl.includes('/stream?'));
+  const effectiveTransportIsSSE =
+    subscriptionTransport === 'sse' || autoDetectsSSE;
+
+  // BUG-GQL-R7-6: detect unresolved {{var}} in endpoint URL
   const unresolvedEndpointVars = findUnresolvedVars(endpoint, activeEnvironment);
   const endpointHasUnresolved = unresolvedEndpointVars.length > 0;
   const endpointUnresolvedTooltip = endpointHasUnresolved
     ? unresolvedEndpointVars.map((k) => `'{{${k}}}' not found in active environment`).join('\n')
     : '';
 
-  // BUG-GQL-R8-10 fix: block Execute when endpoint has unresolved {{var}} references.
-  // BUG-GQL-R9-8 fix: also block Introspect — it makes the same HTTP request to the same endpoint.
-  // BUG-GQL-R12-6 fix: also block Execute when query is empty — prevents silent no-op
-  const executeDisabled = disabled || executing || varsInvalid || queryEmpty || noEndpoint || endpointHasUnresolved || !onExecute;
+  const executeDisabled = disabled || executing || varsInvalid || queryEmpty || noEndpoint || endpointHasUnresolved || fileErrors || !onExecute;
   const introspectDisabled = disabled || introspecting || noEndpoint || endpointHasUnresolved || !onIntrospect;
 
-  // ── TLS skip toggle — only relevant for https:// endpoints ────────────────
   const isHttps = endpoint.toLowerCase().startsWith('https://');
 
-  // ── Polling config popover ────────────────────────────────────────────────
-  const [pollingOpen, setPollingOpen] = useState(false);
-  const [localIntervalSeconds, setLocalIntervalSeconds] = useState(pollingIntervalSeconds);
-  const pollingBtnRef = useRef<HTMLButtonElement>(null);
-  const pollingPopoverRef = useRef<HTMLDivElement>(null);
-  const pollingSwitchRef = useRef<HTMLButtonElement>(null);
-
-  // Always-fresh refs so that effect closures never see stale state values.
-  const localIntervalSecondsRef = useRef(localIntervalSeconds);
-  localIntervalSecondsRef.current = localIntervalSeconds;
-  const pollingEnabledRef = useRef(pollingEnabled);
-  pollingEnabledRef.current = pollingEnabled;
-  const onPollingChangeRef = useRef(onPollingChange);
-  onPollingChangeRef.current = onPollingChange;
-
-  // Commit the current (potentially uncommitted) interval to the parent.
-  // Reads local state; safe to call directly in React event handlers.
-  // BUG-GQL-R10-26 fix: read pollingEnabled from ref, not the render-closure value.
-  // Without this, toggling polling off then immediately blurring the interval field
-  // could commit with the stale `enabled: true` from the previous render.
-  const commitPollingInterval = () => {
-    const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSecondsRef.current));
-    setLocalIntervalSeconds(clamped);
-    onPollingChangeRef.current?.(pollingEnabledRef.current, clamped);
-    return clamped;
-  };
-
-  // Close popover AND persist any uncommitted interval edit. Reads from refs
-  // so it always sees the freshest values even when invoked from a stale effect closure.
-  // This prevents the "typed a value + pressed Escape → change silently discarded" UX trap.
-  // Also restores focus to the trigger button for accessibility (Escape should return focus).
-  const closePollingPopoverViaRef = useRef<() => void>(() => setPollingOpen(false));
-  closePollingPopoverViaRef.current = () => {
-    if (pollingEnabledRef.current) {
-      const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSecondsRef.current));
-      setLocalIntervalSeconds(clamped);
-      onPollingChangeRef.current?.(pollingEnabledRef.current, clamped);
-    }
-    setPollingOpen(false);
-    // Return focus to the button that opened the popover (a11y: Escape key convention)
-    requestAnimationFrame(() => pollingBtnRef.current?.focus());
-  };
-
-  // Sync local interval state when prop changes
-  useEffect(() => { setLocalIntervalSeconds(pollingIntervalSeconds); }, [pollingIntervalSeconds]);
-
-  // Move focus to the toggle switch when popover opens
-  useEffect(() => {
-    if (pollingOpen) {
-      requestAnimationFrame(() => pollingSwitchRef.current?.focus());
-    }
-  }, [pollingOpen]);
-
-  // Close polling popover on outside click or Escape.
-  // Calls closePollingPopoverViaRef.current() to always use the freshest state
-  // even though the effect closure only runs when pollingOpen changes.
-  useEffect(() => {
-    if (!pollingOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (
-        pollingPopoverRef.current &&
-        !pollingPopoverRef.current.contains(e.target as Node) &&
-        !pollingBtnRef.current?.contains(e.target as Node)
-      ) {
-        closePollingPopoverViaRef.current();
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); closePollingPopoverViaRef.current(); }
-    };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey, true);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey, true);
-    };
-  }, [pollingOpen]);
+  // ── Polling popover (hook extracts all state + effects) ───────────────────
+  const polling = useGqlPollingPopover({
+    pollingEnabled,
+    pollingIntervalSeconds,
+    onPollingChange,
+  });
 
   // ── Auth popover ─────────────────────────────────────────────────────────
   const [authOpen, setAuthOpen] = useState(false);
   const authBadgeRef = useRef<HTMLButtonElement>(null);
 
-  const authLabel = authBadgeLabel(auth);
+  const authLabel     = authBadgeLabel(auth);
   const authConfigured = isAuthConfigured(auth);
 
   // ── Recent endpoints dropdown ────────────────────────────────────────────
   const [endpointFocused, setEndpointFocused] = useState(false);
   const endpointWrapRef = useRef<HTMLDivElement>(null);
 
-  // Show recent dropdown when: input is focused AND there are recent endpoints to show
   const showRecent = endpointFocused && recentEndpoints.length > 0;
+
+  // ── Shared polling popover props ─────────────────────────────────────────
+  const pollingPopoverSharedProps = {
+    pollingEnabled,
+    pollingIntervalSeconds,
+    localIntervalSeconds:    polling.localIntervalSeconds,
+    setLocalIntervalSeconds: polling.setLocalIntervalSeconds,
+    onPollingChange:         onPollingChange!,
+    onClose:                 () => polling.closePollingPopoverViaRef.current(),
+    commitPollingInterval:   polling.commitPollingInterval,
+    pollingSwitchRef:        polling.pollingSwitchRef,
+    popoverRef:              polling.pollingPopoverRef,
+    popoverPos:              polling.pollingPopoverPos,
+  };
 
   return (
     <div className="gql-connection-bar" data-testid="gql-connection-bar">
       {/* GQL method badge */}
       <span className="gql-method-badge" aria-hidden="true">GQL</span>
 
-      {/* Phase 1D: Profile picker button — shows saved profile count */}
+      {/* Phase 1D: Profile picker button */}
       {onProfileBadgeClick && (
         <button
           type="button"
@@ -258,12 +210,7 @@ export function GraphqlConnectionBar({
       )}
 
       {/* Endpoint URL with recent endpoints dropdown */}
-      {/* BUG-P1-R1-1 fix: removed redundant inline style={{ position: 'relative' }} —
-          .gql-connection-url-wrap already has position: relative in graphql-studio.css */}
-      <div
-        className="gql-connection-url-wrap"
-        ref={endpointWrapRef}
-      >
+      <div className="gql-connection-url-wrap" ref={endpointWrapRef}>
         <input
           type="text"
           className="gql-connection-url gql-input"
@@ -271,7 +218,6 @@ export function GraphqlConnectionBar({
           onChange={(e) => onEndpointChange(e.target.value)}
           onFocus={() => setEndpointFocused(true)}
           onBlur={(e) => {
-            // Close only if focus leaves the URL wrap entirely (not moving to a dropdown item)
             if (!endpointWrapRef.current?.contains(e.relatedTarget as Node)) {
               setEndpointFocused(false);
             }
@@ -285,7 +231,6 @@ export function GraphqlConnectionBar({
           aria-expanded={showRecent}
         />
 
-        {/* BUG-GQL-R7-6 fix: warn when endpoint URL has unresolved {{var}} references */}
         {endpointHasUnresolved && (
           <span
             className="gql-endpoint-unresolved-icon"
@@ -301,14 +246,13 @@ export function GraphqlConnectionBar({
           </span>
         )}
 
-        {/* Recent endpoints dropdown */}
         {showRecent && (
           <ul
             className="gql-recent-endpoints"
             role="listbox"
             aria-label="Recent endpoints"
             data-testid="gql-recent-endpoints"
-            onMouseDown={(e) => e.preventDefault()} // prevent blur on click
+            onMouseDown={(e) => e.preventDefault()}
           >
             {recentEndpoints.map((url) => (
               <li
@@ -350,7 +294,7 @@ export function GraphqlConnectionBar({
         )}
       </div>
 
-      {/* Phase 1 Gap: TLS skip toggle — only visible for https:// endpoints */}
+      {/* TLS skip toggle — https:// endpoints only */}
       {isHttps && onSkipTlsVerifyChange && (
         <button
           type="button"
@@ -366,7 +310,6 @@ export function GraphqlConnectionBar({
           aria-pressed={skipTlsVerify}
           aria-label={skipTlsVerify ? 'TLS verification disabled — click to enable' : 'TLS verification enabled'}
         >
-          {/* Shield with slash when disabled, plain shield when enabled */}
           {skipTlsVerify ? (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -383,7 +326,7 @@ export function GraphqlConnectionBar({
         </button>
       )}
 
-      {/* Operation selector — shown only when document has multiple named operations */}
+      {/* Operation selector — multiple named operations only */}
       {operations.length > 1 && (
         <div className="gql-op-selector-wrap">
           <span className="gql-op-selector-label">Executing:</span>
@@ -401,7 +344,7 @@ export function GraphqlConnectionBar({
         </div>
       )}
 
-      {/* Phase 1E: Environment badge — opens env manager modal */}
+      {/* Phase 1E: Environment badge */}
       {onEnvBadgeClick && (
         <button
           type="button"
@@ -437,10 +380,8 @@ export function GraphqlConnectionBar({
         </button>
       )}
 
-      {/* Auth badge — opens auth config popover */}
-      {/* BUG-1D-R4-21 fix: removed inline style={{ position: 'relative' }} — now in CSS class */}
+      {/* Auth badge + popover */}
       <div className="gql-auth-badge-wrap">
-        {/* BUG-1D-R4-19 fix: added explicit aria-label for screen readers */}
         <button
           ref={authBadgeRef}
           type="button"
@@ -463,7 +404,6 @@ export function GraphqlConnectionBar({
           </svg>
         </button>
 
-        {/* Auth popover — BUG-1D-V2 fix: pass null directly (not the fallback bearer object) */}
         {authOpen && onAuthChange && (
           <GraphqlAuthPopover
             auth={auth ?? null}
@@ -474,7 +414,7 @@ export function GraphqlConnectionBar({
         )}
       </div>
 
-      {/* Introspect button (Phase 1B) */}
+      {/* Introspect button */}
       <button
         className="gql-btn gql-btn--secondary"
         onClick={onIntrospect}
@@ -482,25 +422,23 @@ export function GraphqlConnectionBar({
         data-testid="gql-introspect-btn"
         type="button"
         aria-label={
-          introspecting ? 'Introspecting schema…'
-          : noEndpoint ? 'Enter an endpoint URL to introspect'
+          introspecting          ? 'Introspecting schema…'
+          : noEndpoint           ? 'Enter an endpoint URL to introspect'
           : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL to introspect'
           : 'Introspect schema (⌘⇧I)'
         }
         title={
-          introspecting ? 'Introspecting schema…'
-          : noEndpoint ? 'Enter an endpoint URL first'
+          introspecting          ? 'Introspecting schema…'
+          : noEndpoint           ? 'Enter an endpoint URL first'
           : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL first'
           : 'Fetch and load the GraphQL schema (⌘⇧I)'
         }
       >
-        {introspecting ? (
-          <span className="gql-btn-spinner" aria-hidden="true" />
-        ) : null}
+        {introspecting ? <span className="gql-btn-spinner" aria-hidden="true" /> : null}
         {introspecting ? 'Introspecting…' : 'Introspect'}
       </button>
 
-      {/* Phase 1C addition: schema validation warning badge — shown when query has errors */}
+      {/* Schema validation warning badge */}
       {queryValidationErrors > 0 && !executing && (
         <span
           className="gql-validation-warning"
@@ -519,52 +457,84 @@ export function GraphqlConnectionBar({
         </span>
       )}
 
-      {/* Execute / Cancel button (Phase 1C) */}
-      {executing ? (
-        <button
-          className="gql-btn gql-btn--cancel"
-          onClick={onCancel}
-          data-testid="gql-cancel-btn"
-          type="button"
-          aria-label="Cancel execution (Esc)"
-          title="Cancel (Esc)"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-          </svg>
-          Cancel
-        </button>
+      {/* Execute / Subscribe section */}
+      {activeOperationType === 'subscription' ? (
+        <GqlSubscriptionControls
+          subscriptionTransport={subscriptionTransport}
+          onSubscriptionTransportChange={onSubscriptionTransportChange}
+          subscriptionState={subscriptionState}
+          effectiveTransportIsSSE={effectiveTransportIsSSE}
+          autoDetectsSSE={autoDetectsSSE}
+          noEndpoint={noEndpoint}
+          endpointHasUnresolved={endpointHasUnresolved}
+          queryEmpty={queryEmpty}
+          varsInvalid={varsInvalid}
+          disabled={disabled}
+          onSubscribe={onSubscribe}
+          onStop={onStop}
+        />
       ) : (
-        <button
-          className="gql-btn gql-btn--primary"
-          onClick={onExecute}
-          disabled={executeDisabled}
-          data-testid="gql-execute-btn"
-          type="button"
-          aria-label={
-            noEndpoint ? 'Enter an endpoint URL to execute'
-            : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL to execute'
-            : queryEmpty ? 'Enter a query to execute'
-            : varsInvalid ? 'Fix invalid JSON in Variables to execute'
-            : 'Execute operation (⌘ Enter)'
-          }
-          title={
-            noEndpoint ? 'Enter an endpoint URL first'
-            : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL first'
-            : queryEmpty ? 'Enter a query first'
-            : varsInvalid ? 'Fix invalid JSON in Variables first'
-            : 'Execute (⌘ Enter)'
-          }
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-          Execute
-        </button>
+        <>
+          {/* Sprint 7 (2G-2): query complexity cost badge */}
+          {complexityScore !== undefined && complexityScore > 0 && !executing && (
+            <span
+              className={`gql-complexity-badge gql-complexity-badge--${complexityLevel}`}
+              data-testid="gql-complexity-badge"
+              title={`Estimated query complexity: ${complexityScore}${complexityLevel === 'danger' ? ' — very expensive query, consider simplifying' : complexityLevel === 'warn' ? ' — moderately complex query' : ''}`}
+              aria-label={`Query complexity: ${complexityScore}`}
+            >
+              ~{complexityScore}
+            </span>
+          )}
+
+          {executing ? (
+            <button
+              className="gql-btn gql-btn--cancel"
+              onClick={onCancel}
+              data-testid="gql-cancel-btn"
+              type="button"
+              aria-label="Cancel execution (Esc)"
+              title="Cancel (Esc)"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+              </svg>
+              Cancel
+            </button>
+          ) : (
+            <button
+              className="gql-btn gql-btn--primary"
+              onClick={onExecute}
+              disabled={executeDisabled}
+              data-testid="gql-execute-btn"
+              type="button"
+              aria-label={
+                noEndpoint              ? 'Enter an endpoint URL to execute'
+                : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL to execute'
+                : queryEmpty            ? 'Enter a query to execute'
+                : varsInvalid           ? 'Fix invalid JSON in Variables to execute'
+                : fileErrors            ? 'Fix file size errors in the Files tab to execute'
+                : 'Execute operation (⌘ Enter)'
+              }
+              title={
+                noEndpoint              ? 'Enter an endpoint URL first'
+                : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL first'
+                : queryEmpty            ? 'Enter a query first'
+                : varsInvalid           ? 'Fix invalid JSON in Variables first'
+                : fileErrors            ? 'Fix file errors in the Files tab first'
+                : 'Execute (⌘ Enter)'
+              }
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Execute
+            </button>
+          )}
+        </>
       )}
 
-      {/* Schema status indicator + polling config */}
-      {/* BUG-R2-1 fix: polling dot REPLACES the static dot (not shown alongside it) */}
+      {/* Schema status indicator + polling config (when schema IS loaded) */}
       {schemaStatus === 'loaded' && (
         <div className="gql-schema-status-wrap">
           <div
@@ -581,31 +551,27 @@ export function GraphqlConnectionBar({
             ) : (
               <span className="gql-schema-status-dot" aria-hidden="true" />
             )}
-            {/* BUG-GQL-R8-9 fix: show non-blocking warning when poll refresh fails */}
             {pollErrorMessage ? 'Schema stale' : `Schema loaded${typesCount !== undefined ? ` (${typesCount})` : ''}`}
           </div>
 
-          {/* Phase 1 Gap: Schema polling config button */}
           {onPollingChange && (
             <button
-              ref={pollingBtnRef}
+              ref={polling.pollingBtnRef}
               type="button"
               className={`gql-polling-config-btn${pollingEnabled ? ' gql-polling-config-btn--active' : ''}`}
               onClick={() => {
-                if (pollingOpen) {
-                  // Closing via button click: commit any pending interval edit
-                  closePollingPopoverViaRef.current();
+                if (polling.pollingOpen) {
+                  polling.closePollingPopoverViaRef.current();
                 } else {
-                  setPollingOpen(true);
+                  polling.setPollingOpen(true);
                 }
               }}
-              aria-expanded={pollingOpen}
+              aria-expanded={polling.pollingOpen}
               aria-haspopup="dialog"
               data-testid="gql-polling-config-btn"
               title={pollingEnabled ? `Auto-refresh every ${pollingIntervalSeconds}s — click to configure` : 'Enable auto-refresh (schema polling)'}
               aria-label={pollingEnabled ? `Auto-refresh every ${pollingIntervalSeconds}s — click to configure` : 'Enable auto-refresh (schema polling)'}
             >
-              {/* Clock/refresh icon */}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="23 4 23 10 17 10" />
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
@@ -613,96 +579,18 @@ export function GraphqlConnectionBar({
             </button>
           )}
 
-          {/* Schema polling config popover */}
-          {pollingOpen && onPollingChange && (
-            <div
-              ref={pollingPopoverRef}
-              className="gql-polling-popover"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Schema polling configuration"
-              data-testid="gql-polling-popover"
-            >
-              <div className="gql-polling-popover-header">
-                <span>Auto-refresh schema</span>
-                <button
-                  type="button"
-                  className="gql-polling-popover-close"
-                  onClick={() => closePollingPopoverViaRef.current()}
-                  aria-label="Close polling config"
-                >×</button>
-              </div>
-              <div className="gql-polling-popover-body">
-                {/* BUG-R5 fix: use <div> + onClick instead of <label> wrapping <button>.
-                    Clicking a <label> only activates input-type controls, not buttons. */}
-                <div
-                  className="gql-polling-toggle-row"
-                  onClick={() => {
-                    const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSeconds || 30));
-                    setLocalIntervalSeconds(clamped);
-                    onPollingChange(!pollingEnabled, clamped);
-                  }}
-                  role="none"
-                >
-                  <span className="gql-polling-toggle-label">Enable polling</span>
-                  <button
-                    ref={pollingSwitchRef}
-                    type="button"
-                    role="switch"
-                    aria-checked={pollingEnabled}
-                    className={`gql-polling-switch${pollingEnabled ? ' gql-polling-switch--on' : ''}`}
-                    onClick={(e) => {
-                      // Prevent the row's onClick from firing twice (event bubbles up)
-                      e.stopPropagation();
-                      const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSeconds || 30));
-                      setLocalIntervalSeconds(clamped);
-                      onPollingChange(!pollingEnabled, clamped);
-                    }}
-                    data-testid="gql-polling-toggle"
-                    aria-label="Enable schema polling"
-                  >
-                    <span className="gql-polling-switch-thumb" />
-                  </button>
-                </div>
-
-                {pollingEnabled && (
-                  <div className="gql-polling-interval-row">
-                    <label className="gql-polling-interval-label" htmlFor="gql-polling-interval">
-                      Refresh every
-                    </label>
-                    <input
-                      id="gql-polling-interval"
-                      type="number"
-                      className="gql-input gql-polling-interval-input"
-                      value={localIntervalSeconds}
-                      min={MIN_POLL_SECONDS}
-                      max={MAX_POLL_SECONDS}
-                      onChange={(e) => setLocalIntervalSeconds(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      onBlur={commitPollingInterval}
-                      onKeyDown={(e) => {
-                        e.stopPropagation(); // prevent global keyboard shortcuts while typing
-                        if (e.key === 'Enter') { commitPollingInterval(); }
-                      }}
-                      data-testid="gql-polling-interval-input"
-                    />
-                    <span className="gql-polling-interval-unit">s</span>
-                  </div>
-                )}
-
-                {/* BUG-R2 fix: show effective clamped value, not the raw (possibly 0) localIntervalSeconds */}
-                <p className="gql-polling-hint">
-                  {pollingEnabled
-                    ? `Schema re-introspected every ${Math.max(MIN_POLL_SECONDS, localIntervalSeconds)}s. Only updated when SDL changes.`
-                    : 'Automatically re-introspect the schema on a timer.'}
-                </p>
-              </div>
-            </div>
+          {polling.pollingOpen && onPollingChange && (
+            <GqlPollingPopoverContent
+              {...pollingPopoverSharedProps}
+              intervalInputId="gql-polling-interval"
+            />
           )}
         </div>
       )}
+
+      {/* Schema error badge */}
       {schemaStatus === 'error' && (
         <div className="gql-schema-status gql-schema-status--error" data-testid="gql-schema-badge-error">
-          {/* BUG-GQL-R6-2 fix: use SVG warning icon for visual consistency with the OK badge */}
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
@@ -712,32 +600,40 @@ export function GraphqlConnectionBar({
         </div>
       )}
 
-      {/* BUG-GQL-R19-2 fix: show polling config when polling is active but schema
-          is not in 'loaded' state, so users can turn off unwanted background requests.
-          When schema IS loaded, the button renders inside the schema-status-wrap above. */}
+      {/* Polling config button when schema NOT loaded but polling is active */}
       {pollingEnabled && schemaStatus !== 'loaded' && onPollingChange && (
-        <button
-          ref={pollingBtnRef}
-          type="button"
-          className="gql-polling-config-btn gql-polling-config-btn--active"
-          onClick={() => {
-            if (pollingOpen) {
-              closePollingPopoverViaRef.current();
-            } else {
-              setPollingOpen(true);
-            }
-          }}
-          aria-expanded={pollingOpen}
-          aria-haspopup="dialog"
-          data-testid="gql-polling-config-btn-standalone"
-          title={`Auto-refresh every ${pollingIntervalSeconds}s — click to configure`}
-          aria-label={`Auto-refresh every ${pollingIntervalSeconds}s — click to configure`}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-        </button>
+        <div className="gql-schema-status-wrap">
+          <button
+            ref={polling.pollingBtnRef}
+            type="button"
+            className="gql-polling-config-btn gql-polling-config-btn--active"
+            onClick={() => {
+              if (polling.pollingOpen) {
+                polling.closePollingPopoverViaRef.current();
+              } else {
+                polling.setPollingOpen(true);
+              }
+            }}
+            aria-expanded={polling.pollingOpen}
+            aria-haspopup="dialog"
+            data-testid="gql-polling-config-btn-standalone"
+            title={`Auto-refresh every ${pollingIntervalSeconds}s — click to configure`}
+            aria-label={`Auto-refresh every ${pollingIntervalSeconds}s — click to configure`}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+          </button>
+
+          {polling.pollingOpen && (
+            <GqlPollingPopoverContent
+              {...pollingPopoverSharedProps}
+              intervalInputId="gql-polling-interval-standalone"
+              data-testid="gql-polling-popover"
+            />
+          )}
+        </div>
       )}
     </div>
   );

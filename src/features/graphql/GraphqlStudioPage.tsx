@@ -7,13 +7,18 @@
  * Phase 1C: query/mutation execution engine + AST validation squiggles.
  * Phase 1D: connection management (auth, profiles, saved connections).
  * Phase 1E: environment variable management with {{var}} interpolation.
+ *
+ * Extracted hooks:
+ *   hooks/useGqlStudioTabs          — tab lifecycle, persistence, content callbacks
+ *   hooks/useGqlStudioEditorActions — prettify + insert-field actions
+ *   hooks/useGqlPollingPopover      — (used inside GraphqlConnectionBar)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMonaco } from '@monaco-editor/react';
-import { parse as gqlParse, print as gqlPrint } from 'graphql';
 import { isTauri } from '../../shared/utils/platform';
+import { readKey, removeKey, writeKey } from '../../shared/utils/storage';
 import type { GlobalAuthProfile } from '../../shared/types';
-import type { GraphqlAuth, GraphqlHeaderRow } from '../../shared/types/graphql';
+import type { GraphqlAuth } from '../../shared/types/graphql';
 import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
 import { GraphqlEditor } from './components/GraphqlEditor';
 import { GraphqlEnvModal } from './components/GraphqlEnvModal';
@@ -21,37 +26,36 @@ import { GraphqlProfileModal } from './components/GraphqlProfileModal';
 import { GqlTabBar } from './components/GqlTabBar';
 import { GqlBottomPanel } from './components/GqlBottomPanel';
 import { GqlRightPane } from './components/GqlRightPane';
+import { GraphqlQueryBuilder } from './components/GraphqlQueryBuilder';
+import { GraphqlSubscriptionAssertionPanel } from './components/GraphqlSubscriptionAssertionPanel';
 import { useGraphqlExecution } from './hooks/useGraphqlExecution';
 import { useGraphqlEnvironments } from './hooks/useGraphqlEnvironments';
 import { useGraphqlConnectionProfiles } from './hooks/useGraphqlConnectionProfiles';
 import { useQueryValidation } from './hooks/useQueryValidation';
 import { useRecentEndpoints } from './hooks/useRecentEndpoints';
 import { useGraphqlSchema } from './hooks/useGraphqlSchema';
+import { useGraphqlSubscription } from './hooks/useGraphqlSubscription';
+import { useSubscriptionOrchestration } from './hooks/useSubscriptionOrchestration';
+import { useGqlStudioTabs } from './hooks/useGqlStudioTabs';
+import { useGqlStudioEditorActions } from './hooks/useGqlStudioEditorActions';
 import { buildAuthHeaders } from './utils/authUtils';
 import { findUnresolvedVars, resolveVars } from './utils/envUtils';
+import type { FileEntry } from './utils/multipartBuilder';
+import { buildMultipartFormData } from './utils/multipartBuilder';
+import { computeQueryComplexity } from './utils/complexityEstimator';
+import { buildAssertionResultMap } from './utils/subscriptionAssertions';
 import {
   buildVarsModelUri,
   clearGraphqlSchema,
-  deriveOperationType,
-  deriveTabLabel,
-  extractOperations,
   setGraphqlSchema,
 } from './utils/monacoGraphqlSetup';
 import {
-  type GqlStudioTab,
-  advanceSeqPastRestoredIds,
-  disposeTabModels,
-  loadActiveTabId,
   loadAuth,
-  loadTabs,
-  makeBlankTab,
   saveAuth,
-  saveTabs,
   DEFAULT_VARS,
   ENDPOINT_BASE_STORAGE_KEY,
   ENDPOINT_STORAGE_KEY,
   POLLING_STORAGE_KEY,
-  SAVE_DEBOUNCE_MS,
   TLS_STORAGE_KEY,
 } from './utils/tabPersistence';
 import '../../styles/graphql-studio.css';
@@ -62,7 +66,7 @@ const EXEC_MARKER_OWNER = 'gql-execution';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BottomPanelTab = 'variables' | 'headers';
+type BottomPanelTab = 'variables' | 'headers' | 'files';
 type RightPaneView = 'response' | 'schema';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -79,127 +83,153 @@ interface GraphqlStudioPageProps {
 export function GraphqlStudioPage({
   resolvedBaseUrl,
 }: GraphqlStudioPageProps) {
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [tabs, setTabs] = useState<GqlStudioTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState('');
-  const [bottomTab, setBottomTab] = useState<BottomPanelTab>('variables');
-  const [rightView, setRightView] = useState<RightPaneView>('response');
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [bottomTab, setBottomTab]   = useState<BottomPanelTab>('variables');
+  const [rightView, setRightView]   = useState<RightPaneView>('response');
+  const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [builderMode, setBuilderMode] = useState(false);
 
-  // BUG-GQL-R17-2 fix: restore endpoint from localStorage. Fall back to resolvedBaseUrl.
-  // BUG-GQL-R18-1 fix: if saved endpoint was auto-synced from a base URL that has since
-  // changed (user switched env while GraphQL Studio was unmounted), use the new URL.
-  const [endpoint, setEndpoint] = useState(() => {
-    try {
-      const saved = localStorage.getItem(ENDPOINT_STORAGE_KEY);
-      if (saved) {
-        const savedBase = localStorage.getItem(ENDPOINT_BASE_STORAGE_KEY);
-        if (saved === savedBase && resolvedBaseUrl && resolvedBaseUrl !== savedBase) {
-          return resolvedBaseUrl;
-        }
-        return saved;
-      }
-    } catch { /* quota / SecurityError — fall through */ }
-    return resolvedBaseUrl ?? '';
-  });
-
-  // Phase 1C: variables JSON validation
-  const [varsError, setVarsError] = useState<string | null>(null);
-
-  // Phase 1C: execution engine
+  // ── Execution engine ───────────────────────────────────────────────────────
   const { status: execStatus, response, execute, cancel } = useGraphqlExecution();
   const executing = execStatus === 'loading';
 
-  // Phase 1A: close-tab confirmation (two-click pattern for unsaved tabs)
-  const [confirmingCloseTabId, setConfirmingCloseTabId] = useState<string | null>(null);
-  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { if (!executing) setUploadProgress(null); }, [executing]);
 
-  // Phase 1 Gap: TLS certificate skip (persisted)
-  const [skipTlsVerify, setSkipTlsVerify] = useState<boolean>(() => {
-    try { return localStorage.getItem(TLS_STORAGE_KEY) === 'true'; } catch { return false; }
-  });
+  // ── Subscription engine ────────────────────────────────────────────────────
+  const subscription = useGraphqlSubscription();
+
+  // ── TLS + polling settings ─────────────────────────────────────────────────
+  const [skipTlsVerify, setSkipTlsVerify]               = useState(false);
+  const [pollingEnabled, setPollingEnabled]             = useState(false);
+  const [pollingIntervalSeconds, setPollingIntervalSeconds] = useState(30);
+
   const handleSkipTlsVerifyChange = useCallback((skip: boolean) => {
     setSkipTlsVerify(skip);
-    try { localStorage.setItem(TLS_STORAGE_KEY, String(skip)); } catch { /* no-op */ }
+    writeKey(TLS_STORAGE_KEY, String(skip)).catch(() => { /* no-op */ });
   }, []);
 
-  // Phase 1 Gap: Schema polling config (persisted)
-  const [pollingEnabled, setPollingEnabled] = useState<boolean>(() => {
-    try {
-      const raw = localStorage.getItem(POLLING_STORAGE_KEY);
-      if (!raw) return false;
-      const p = JSON.parse(raw) as { enabled?: boolean };
-      return p.enabled === true;
-    } catch { return false; }
-  });
-  const [pollingIntervalSeconds, setPollingIntervalSeconds] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(POLLING_STORAGE_KEY);
-      if (!raw) return 30;
-      const p = JSON.parse(raw) as { intervalSeconds?: number };
-      const s = p.intervalSeconds;
-      return typeof s === 'number' && s >= 10 ? s : 30;
-    } catch { return 30; }
-  });
   const handlePollingChange = useCallback((enabled: boolean, intervalSeconds: number) => {
     setPollingEnabled(enabled);
     setPollingIntervalSeconds(intervalSeconds);
-    try {
-      localStorage.setItem(POLLING_STORAGE_KEY, JSON.stringify({ enabled, intervalSeconds }));
-    } catch { /* no-op */ }
+    writeKey(POLLING_STORAGE_KEY, JSON.stringify({ enabled, intervalSeconds })).catch(() => { /* no-op */ });
   }, []);
+
   const pollingIntervalMs = pollingEnabled ? pollingIntervalSeconds * 1000 : 0;
 
-  // Phase 1D: auth config (persisted per-endpoint across sessions)
-  const [auth, setAuth] = useState<GraphqlAuth | null>(loadAuth);
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const [auth, setAuth] = useState<GraphqlAuth | null>(null);
   const handleAuthChange = useCallback((newAuth: GraphqlAuth | null) => {
     setAuth(newAuth);
     saveAuth(newAuth);
   }, []);
 
-  // Phase 1D: recent endpoints
+  // ── Recent endpoints ───────────────────────────────────────────────────────
   const { endpoints: recentEndpoints, push: pushRecentEndpoint, remove: removeRecentEndpoint } = useRecentEndpoints();
 
-  // Phase 1D: connection profiles
+  // ── Connection profiles ────────────────────────────────────────────────────
   const { profiles, saveProfile, deleteProfile } = useGraphqlConnectionProfiles();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
-  // Phase 1E: environment variables
+  // ── Environments ───────────────────────────────────────────────────────────
   const {
-    environments,
-    activeEnvironment,
-    createEnvironment,
-    deleteEnvironment,
-    setActiveEnvironment,
-    updateEnvironmentName,
-    updateVariables,
-    importEnvironment,
-    exportEnvironment,
+    environments, activeEnvironment,
+    createEnvironment, deleteEnvironment, setActiveEnvironment,
+    updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
   } = useGraphqlEnvironments();
   const [envModalOpen, setEnvModalOpen] = useState(false);
 
-  // Sync endpoint when resolvedBaseUrl changes
-  const prevBaseUrlRef = useRef<string | undefined>(resolvedBaseUrl);
+  // ── Endpoint state ─────────────────────────────────────────────────────────
+  const [endpoint, setEndpoint] = useState(resolvedBaseUrl ?? '');
+  const initialResolvedBaseUrl  = useRef(resolvedBaseUrl);
+  const prevBaseUrlRef          = useRef<string | undefined>(resolvedBaseUrl);
+
   useEffect(() => {
     if (resolvedBaseUrl === undefined) return;
     const prev = prevBaseUrlRef.current;
     prevBaseUrlRef.current = resolvedBaseUrl;
     setEndpoint((cur) => {
       if (cur === '' || cur === prev) {
-        try { localStorage.setItem(ENDPOINT_BASE_STORAGE_KEY, resolvedBaseUrl); }
-        catch { /* silent */ }
+        writeKey(ENDPOINT_BASE_STORAGE_KEY, resolvedBaseUrl).catch(() => { /* silent */ });
         return resolvedBaseUrl;
       }
       return cur;
     });
   }, [resolvedBaseUrl]);
 
-  // Persist endpoint to localStorage on change
   useEffect(() => {
-    try { localStorage.setItem(ENDPOINT_STORAGE_KEY, endpoint); }
-    catch { /* quota / SecurityError — silent */ }
+    writeKey(ENDPOINT_STORAGE_KEY, endpoint).catch(() => { /* quota / unavailable — silent */ });
   }, [endpoint]);
 
-  // ── Schema introspection (Phase 1B) ───────────────────────────────────────
+  // ── Monaco instance ────────────────────────────────────────────────────────
+  const monacoInstance = useMonaco();
+  const monacoRef      = useRef(monacoInstance);
+  monacoRef.current    = monacoInstance;
+  const responseModelUriRef = useRef<string>('');
+
+  // ── Tab management (hook) ──────────────────────────────────────────────────
+  const cancelRef = useRef(cancel);
+  cancelRef.current = cancel;
+  const {
+    tabs, activeTabId, activeTab, operations, selectedOperation,
+    confirmingCloseTabId, closeActiveTabRef, executingRef,
+    addTab, handleTabClick, closeTab,
+    handleSelectOperation, handleQueryChange, handleVariablesChange,
+    handleHeadersChange, handleAssertionsChange, handleSubscriptionTransportChange,
+  } = useGqlStudioTabs({
+    onCancelExecution: () => cancelRef.current(),
+    executing,
+    responseModelUriRef,
+    onClearFileEntries: () => setFileEntries([]),
+    onResetSubscription: () => subscription.reset(),
+    monacoRef: monacoRef as React.MutableRefObject<import('@monaco-editor/react').Monaco | null>,
+  });
+
+  // ── Editor actions (prettify + insert field) ───────────────────────────────
+  const {
+    editorMountRef, prettifyError, insertToast, handlePrettify, handleInsertField,
+  } = useGqlStudioEditorActions({
+    activeQuery: activeTab?.query ?? '',
+    onQueryChange: handleQueryChange,
+  });
+
+  // ── Restore settings from storage ─────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await readKey(ENDPOINT_STORAGE_KEY);
+        if (saved) {
+          const savedBase = await readKey(ENDPOINT_BASE_STORAGE_KEY);
+          const rbUrl = initialResolvedBaseUrl.current;
+          if (saved === savedBase && rbUrl && rbUrl !== savedBase) {
+            setEndpoint(rbUrl);
+          } else {
+            setEndpoint(saved);
+          }
+        }
+      } catch { /* fall through */ }
+
+      try {
+        const tlsRaw = await readKey(TLS_STORAGE_KEY);
+        if (tlsRaw !== null) setSkipTlsVerify(tlsRaw === 'true');
+      } catch { /* ignore */ }
+
+      try {
+        const raw = await readKey(POLLING_STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw) as { enabled?: boolean; intervalSeconds?: number };
+          if (p.enabled === true) setPollingEnabled(true);
+          const s = p.intervalSeconds;
+          if (typeof s === 'number' && s >= 10) setPollingIntervalSeconds(s);
+        }
+      } catch { /* ignore */ }
+
+      const savedAuth = await loadAuth();
+      if (savedAuth) setAuth(savedAuth);
+    })();
+  }, []);
+
+  // ── Schema introspection ───────────────────────────────────────────────────
   const activeTabForHeaders = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activeTabHeaders = useMemo<Record<string, string>>(() => {
     if (!activeTabForHeaders) return {};
@@ -220,19 +250,13 @@ export function GraphqlStudioPage({
   }, [auth, activeTabHeaders, activeEnvironment]);
 
   const {
-    status: schemaStatus,
-    schemaInfo,
-    rawIntrospection,
-    errorMessage: schemaErrorMessage,
-    introspecting,
-    introspect,
-    pollErrorMessage,
+    status: schemaStatus, schemaInfo, rawIntrospection, errorMessage: schemaErrorMessage,
+    introspecting, introspect, pollErrorMessage,
   } = useGraphqlSchema(resolveVars(endpoint, activeEnvironment), schemaHeaders, {
     pollingIntervalMs,
     skipTlsVerify,
   });
 
-  // Feed introspection JSON to monaco-graphql whenever schema is (re)loaded
   useEffect(() => {
     if (rawIntrospection) {
       try { setGraphqlSchema(rawIntrospection); } catch { /* non-fatal */ }
@@ -241,7 +265,7 @@ export function GraphqlStudioPage({
     }
   }, [rawIntrospection]);
 
-  // Auto-switch to Schema view after a manual introspect succeeds
+  // Auto-switch to Schema view after manual introspect succeeds
   const prevIntrospectingRef = useRef(introspecting);
   const introspectStartResolvedRef = useRef('');
   useEffect(() => {
@@ -257,78 +281,11 @@ export function GraphqlStudioPage({
   }, [introspecting, schemaStatus, endpoint, activeEnvironment]);
 
   const connectionBarSchemaStatus: 'loaded' | 'error' | 'none' =
-    schemaStatus === 'loaded'
-      ? 'loaded'
-      : schemaStatus === 'error' || schemaStatus === 'introspection-disabled'
-      ? 'error'
-      : 'none';
+    schemaStatus === 'loaded' ? 'loaded'
+    : (schemaStatus === 'error' || schemaStatus === 'introspection-disabled') ? 'error'
+    : 'none';
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadedRef = useRef(false);
-
-  // ── Restore from localStorage ──────────────────────────────────────────────
-  useEffect(() => {
-    const stored = loadTabs();
-    if (stored.length > 0) {
-      advanceSeqPastRestoredIds(stored);
-      const savedActiveId = loadActiveTabId();
-      const activeExists = stored.some((t) => t.id === savedActiveId);
-      setTabs(stored);
-      setActiveTabId(activeExists ? savedActiveId : stored[0].id);
-    } else {
-      const blank = makeBlankTab();
-      setTabs([blank]);
-      setActiveTabId(blank.id);
-    }
-    loadedRef.current = true;
-  }, []);
-
-  // ── Flush on unmount ───────────────────────────────────────────────────────
-  const tabsRef = useRef(tabs);
-  const activeTabIdRef = useRef(activeTabId);
-  tabsRef.current = tabs;
-  activeTabIdRef.current = activeTabId;
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-      // Guard: only flush if tabs have been restored. In React 18 StrictMode,
-      // the fake-unmount cleanup can fire before setTabs([restored]) is processed,
-      // leaving tabsRef.current as [] and incorrectly wiping saved state.
-      // Since closeTab prevents closing the last tab, empty tabs only occurs
-      // before the initial restore effect has completed its async state update.
-      if (loadedRef.current && tabsRef.current.length > 0) {
-        saveTabs(tabsRef.current, activeTabIdRef.current);
-      }
-    };
-  }, []);
-
-  // ── Persist on change ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!loadedRef.current) return;
-    // Don't schedule a save with the empty initial state (before restore completes).
-    // In React 18 StrictMode the remount sees loadedRef=true but tabs=[] temporarily.
-    if (tabs.length === 0) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveTabs(tabs, activeTabId);
-    }, SAVE_DEBOUNCE_MS);
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [tabs, activeTabId]);
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
-  const operations = activeTab ? extractOperations(activeTab.query).map((o) => o.name) : [];
-
-  // ── Execution error Monaco markers ────────────────────────────────────────
-  const monacoInstance = useMonaco();
-  const monacoRef = useRef(monacoInstance);
-  monacoRef.current = monacoInstance;
-  const responseModelUriRef = useRef<string>('');
-
+  // ── Monaco execution error markers ────────────────────────────────────────
   useEffect(() => {
     if (!monacoInstance) return;
     const ownerUri = responseModelUriRef.current;
@@ -363,7 +320,6 @@ export function GraphqlStudioPage({
     } else {
       monacoInstance.editor.setModelMarkers(model, EXEC_MARKER_OWNER, []);
     }
-  // responseModelUriRef is a ref (stable identity) — no dep entry needed.
   }, [response, monacoInstance]);
 
   // ── Query AST validation ───────────────────────────────────────────────────
@@ -374,168 +330,31 @@ export function GraphqlStudioPage({
     schemaStatus === 'loaded',
   );
 
-  // ── Tab management ─────────────────────────────────────────────────────────
-  const addTab = useCallback(() => {
-    if (tabs.length >= 8) return; // MAX_TABS
-    const tab = makeBlankTab();
-    setTabs((prev) => [...prev, tab]);
-    setActiveTabId(tab.id);
-    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-    setConfirmingCloseTabId(null);
-  }, [tabs.length]);
+  // ── Query complexity estimation ────────────────────────────────────────────
+  const complexityResult = useMemo(() => {
+    if (schemaStatus !== 'loaded' || !schemaInfo) return null;
+    const query = activeTab?.query ?? '';
+    if (!query.trim()) return null;
+    return computeQueryComplexity(query, schemaInfo, undefined, activeTab?.selectedOperation ?? undefined);
+  }, [activeTab?.query, activeTab?.selectedOperation, schemaInfo, schemaStatus]);
 
-  const handleTabClick = useCallback((tabId: string) => {
-    setActiveTabId(tabId);
-    if (confirmingCloseTabId && confirmingCloseTabId !== tabId) {
-      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-      setConfirmingCloseTabId(null);
-    }
-  }, [confirmingCloseTabId]);
-
-  const activeTabIdForClose = useRef(activeTabId);
-  activeTabIdForClose.current = activeTabId;
-  const closeActiveTabRef = useRef<() => void>(() => {});
-
-  const executingRef = useRef(executing);
-  executingRef.current = executing;
-  const executionLockRef = useRef(false);
-  if (!executing) executionLockRef.current = false;
-  const cancelForCloseRef = useRef(cancel);
-  cancelForCloseRef.current = cancel;
-
-  const closeTab = useCallback(
-    (tabId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-
-      const tab = tabs.find((t) => t.id === tabId);
-      if (tab?.unsavedChanges && tabs.length > 1 && confirmingCloseTabId !== tabId) {
-        if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-        setConfirmingCloseTabId(tabId);
-        confirmTimerRef.current = setTimeout(() => setConfirmingCloseTabId(null), 2500);
-        return;
-      }
-
-      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-      setConfirmingCloseTabId(null);
-
-      const closedTab = tabs.find((t) => t.id === tabId);
-      if (closedTab && responseModelUriRef.current === closedTab.modelUri && executingRef.current) {
-        cancelForCloseRef.current();
-      }
-
-      const mc = monacoRef.current;
-      if (mc && closedTab) disposeTabModels(mc as Parameters<typeof disposeTabModels>[0], closedTab);
-
-      setTabs((prev) => {
-        if (prev.length === 1) return prev;
-        const next = prev.filter((t) => t.id !== tabId);
-        if (activeTabIdRef.current === tabId) {
-          const idx = prev.findIndex((t) => t.id === tabId);
-          const newActive = next[Math.min(idx, next.length - 1)];
-          setActiveTabId(newActive.id);
-        }
-        return next;
-      });
-    },
-    [tabs, confirmingCloseTabId],
-  );
-
-  closeActiveTabRef.current = () => {
-    const tid = activeTabIdForClose.current;
-    if (tid) closeTab(tid, { stopPropagation: () => {} } as React.MouseEvent);
-  };
-
-  const updateActiveTab = useCallback(
-    (patch: Partial<GqlStudioTab>) => {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === activeTabIdRef.current ? { ...t, ...patch, unsavedChanges: true } : t,
-        ),
-      );
-    },
-    [],
-  );
-
-  // ── Per-tab selected operation ────────────────────────────────────────────
-  const selectedOperation: string | undefined =
-    operations.length > 1
-      ? (operations.includes(activeTab?.selectedOperation ?? '') ? activeTab?.selectedOperation : operations[0])
-      : undefined;
-
-  const handleSelectOperation = useCallback(
-    (name: string) => updateActiveTab({ selectedOperation: name }),
-    [updateActiveTab],
-  );
-
-  const prevTabQueryRef = useRef<string | undefined>(undefined);
+  const [complexityWarningPending, setComplexityWarningPending] = useState(false);
+  const prevComplexityQueryRef = useRef<string>('');
   useEffect(() => {
-    if (!activeTab || activeTab.query === prevTabQueryRef.current) return;
-    prevTabQueryRef.current = activeTab.query;
-    if (operations.length > 1) {
-      if (!operations.includes(activeTab.selectedOperation ?? '')) {
-        setTabs((prev) =>
-          prev.map((t) =>
-            t.id === activeTabIdRef.current ? { ...t, selectedOperation: operations[0] } : t,
-          ),
-        );
-      }
-    } else if (activeTab.selectedOperation !== undefined) {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === activeTabIdRef.current ? { ...t, selectedOperation: undefined } : t,
-        ),
-      );
+    const q = activeTab?.query ?? '';
+    if (q !== prevComplexityQueryRef.current) {
+      prevComplexityQueryRef.current = q;
+      setComplexityWarningPending(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab?.query]);
 
-  // ── Query change ───────────────────────────────────────────────────────────
-  const handleQueryChange = useCallback(
-    (value: string) => {
-      const label = deriveTabLabel(value);
-      const operationType = deriveOperationType(value);
-      updateActiveTab({ query: value, label, operationType });
-    },
-    [updateActiveTab],
-  );
-
-  // ── Prettify query ────────────────────────────────────────────────────────
-  const [prettifyError, setPrettifyError] = useState(false);
-  const prettifyErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handlePrettify = useCallback(() => {
-    const query = activeTab?.query ?? '';
-    if (!query.trim()) return;
-    try {
-      const formatted = gqlPrint(gqlParse(query));
-      if (formatted === query) return;
-      handleQueryChange(formatted);
-    } catch {
-      setPrettifyError(true);
-      if (prettifyErrorTimerRef.current) clearTimeout(prettifyErrorTimerRef.current);
-      prettifyErrorTimerRef.current = setTimeout(() => setPrettifyError(false), 1000);
-    }
-  }, [activeTab?.query, handleQueryChange]);
-  useEffect(() => () => {
-    if (prettifyErrorTimerRef.current) clearTimeout(prettifyErrorTimerRef.current);
-  }, []);
-
-  // ── Variables / Headers change ────────────────────────────────────────────
-  const handleVariablesChange = useCallback(
-    (value: string) => updateActiveTab({ variables: value }),
-    [updateActiveTab],
-  );
-  const handleHeadersChange = useCallback(
-    (headers: GraphqlHeaderRow[]) => updateActiveTab({ headers }),
-    [updateActiveTab],
-  );
-
-  // ── Variables JSON validation ─────────────────────────────────────────────
+  // ── Variables JSON validation ──────────────────────────────────────────────
+  const [varsError, setVarsError] = useState<string | null>(null);
   const prevVarsTabIdRef = useRef(activeTabId);
   useEffect(() => {
     const vars = activeTab?.variables ?? '';
     const isTabSwitch = activeTabId !== prevVarsTabIdRef.current;
     prevVarsTabIdRef.current = activeTabId;
-
     const validate = () => {
       const trimmed = vars.trim();
       if (!trimmed || trimmed === '{}') { setVarsError(null); return; }
@@ -550,13 +369,24 @@ export function GraphqlStudioPage({
         setVarsError('Invalid JSON');
       }
     };
-
     if (isTabSwitch) { validate(); return; }
     const timer = setTimeout(validate, 300);
     return () => clearTimeout(timer);
   }, [activeTab?.variables, activeTabId]);
 
+  // ── Assertion results ──────────────────────────────────────────────────────
+  const assertionResultMap = useMemo(
+    () => buildAssertionResultMap(
+      subscription.messages,
+      activeTab?.subscriptionAssertions ?? [],
+    ),
+    [subscription.messages, activeTab?.subscriptionAssertions],
+  );
+
   // ── Execute handler ────────────────────────────────────────────────────────
+  const executionLockRef = useRef(false);
+  if (!executing) executionLockRef.current = false;
+
   const handleExecute = useCallback(() => {
     if (!activeTab || !endpoint.trim() || !activeTab.query.trim()) return;
     if (findUnresolvedVars(endpoint, activeEnvironment).length > 0) return;
@@ -567,7 +397,15 @@ export function GraphqlStudioPage({
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
       } catch { return; }
     }
+    if (fileEntries.some((e) => e.error !== null)) return;
     if (executing || executionLockRef.current) return;
+
+    if (complexityResult?.shouldBlock && !complexityWarningPending) {
+      setComplexityWarningPending(true);
+      return;
+    }
+    setComplexityWarningPending(false);
+
     executionLockRef.current = true;
     responseModelUriRef.current = activeTab.modelUri;
     setRightView('response');
@@ -579,37 +417,129 @@ export function GraphqlStudioPage({
       resolvedHeaders[k] = resolveVars(v, activeEnvironment);
     }
     const resolvedVariables = resolveVars(activeTab.variables, activeEnvironment);
-    execute({
-      endpoint: resolvedEndpoint,
-      query: activeTab.query,
-      variables: resolvedVariables,
-      operationName: selectedOperation,
-      headers: resolvedHeaders,
-      skipTlsVerify,
-    });
-  }, [activeTab, endpoint, execute, executing, selectedOperation, activeTabHeaders, auth, pushRecentEndpoint, activeEnvironment, skipTlsVerify]);
+    const validFiles = fileEntries.filter((e) => e.error === null && e.varPath.trim() !== '');
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    if (validFiles.length > 0) {
+      let parsedVars: Record<string, unknown> = {};
+      try {
+        const trimmed = resolvedVariables.trim();
+        if (trimmed && trimmed !== '{}') {
+          parsedVars = JSON.parse(trimmed) as Record<string, unknown>;
+        }
+      } catch { /* ignore */ }
+      const formData = buildMultipartFormData(activeTab.query, parsedVars, validFiles);
+      setUploadProgress(0);
+      execute({
+        endpoint: resolvedEndpoint,
+        query: activeTab.query,
+        variables: resolvedVariables,
+        operationName: selectedOperation,
+        headers: resolvedHeaders,
+        skipTlsVerify,
+        formData,
+        onUploadProgress: (loaded, total) => {
+          if (!executingRef.current && loaded !== 0) return;
+          if (total > 0) {
+            setUploadProgress(Math.min(98, Math.round((loaded / total) * 100)));
+          }
+        },
+      });
+    } else {
+      execute({
+        endpoint: resolvedEndpoint,
+        query: activeTab.query,
+        variables: resolvedVariables,
+        operationName: selectedOperation,
+        headers: resolvedHeaders,
+        skipTlsVerify,
+      });
+    }
+  }, [activeTab, endpoint, execute, executing, selectedOperation, activeTabHeaders, auth,
+      pushRecentEndpoint, activeEnvironment, skipTlsVerify, fileEntries, complexityResult,
+      complexityWarningPending, executingRef]);
+
+  // ── Builder → Editor promotion ─────────────────────────────────────────────
   const handleExecuteRef = useRef(handleExecute);
   handleExecuteRef.current = handleExecute;
-  const cancelRef = useRef(cancel);
-  cancelRef.current = cancel;
-  const executionStatusRef = useRef(execStatus);
-  executionStatusRef.current = execStatus;
-  const addTabRef = useRef(addTab);
-  addTabRef.current = addTab;
-  const introspectRef = useRef(introspect);
-  introspectRef.current = introspect;
-  const introspectingRef = useRef(introspecting);
-  introspectingRef.current = introspecting;
-  const endpointRef = useRef(endpoint);
-  endpointRef.current = endpoint;
-  const activeEnvironmentRef = useRef(activeEnvironment);
-  activeEnvironmentRef.current = activeEnvironment;
-  const profileModalOpenRef = useRef(profileModalOpen);
-  profileModalOpenRef.current = profileModalOpen;
-  const envModalOpenRef = useRef(envModalOpen);
-  envModalOpenRef.current = envModalOpen;
+
+  const handleEditInEditor = useCallback(
+    (sdl: string, variablesJson: string) => {
+      if (editorMountRef.current) editorMountRef.current.setValue(sdl);
+      handleQueryChange(sdl);
+      if (variablesJson && variablesJson !== '{}') handleVariablesChange(variablesJson);
+      setBuilderMode(false);
+    },
+    [handleQueryChange, handleVariablesChange, editorMountRef],
+  );
+
+  const handleBuilderExecute = useCallback(
+    (sdl: string, variablesJson: string) => {
+      if (editorMountRef.current) editorMountRef.current.setValue(sdl);
+      handleQueryChange(sdl);
+      if (variablesJson && variablesJson !== '{}') handleVariablesChange(variablesJson);
+      setBuilderMode(false);
+      requestAnimationFrame(() => { handleExecuteRef.current(); });
+    },
+    [handleQueryChange, handleVariablesChange, editorMountRef],
+  );
+
+  // ── Subscription orchestration ─────────────────────────────────────────────
+  const { handleSubscribe: _handleSubscribe, handleStopSubscription, handleExportSubscription } = useSubscriptionOrchestration({
+    activeTab,
+    endpoint,
+    auth,
+    activeEnvironment,
+    activeTabHeaders,
+    selectedOperation,
+    skipTlsVerify,
+    subscription,
+  });
+
+  const handleSubscribe = useCallback(() => {
+    setRightView('response');
+    _handleSubscribe();
+  }, [_handleSubscribe]);
+
+  const prevTabIdForSubRef = useRef(activeTabId);
+  useEffect(() => {
+    const tabChanged = prevTabIdForSubRef.current !== activeTabId;
+    prevTabIdForSubRef.current = activeTabId;
+    if (subscription.state === 'idle') return;
+    if (activeTab?.operationType !== 'subscription' || tabChanged) {
+      subscription.disconnect();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTabId, activeTab?.operationType]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  const handleSubscribeRef        = useRef(handleSubscribe);
+  handleSubscribeRef.current      = handleSubscribe;
+  const handleStopSubRef          = useRef(handleStopSubscription);
+  handleStopSubRef.current        = handleStopSubscription;
+  const introspectRef             = useRef(introspect);
+  introspectRef.current           = introspect;
+  const introspectingRef          = useRef(introspecting);
+  introspectingRef.current        = introspecting;
+  const endpointRef               = useRef(endpoint);
+  endpointRef.current             = endpoint;
+  const activeEnvironmentRef      = useRef(activeEnvironment);
+  activeEnvironmentRef.current    = activeEnvironment;
+  const profileModalOpenRef       = useRef(profileModalOpen);
+  profileModalOpenRef.current     = profileModalOpen;
+  const envModalOpenRef           = useRef(envModalOpen);
+  envModalOpenRef.current         = envModalOpen;
+  const activeTabOpTypeRef        = useRef(activeTab?.operationType);
+  activeTabOpTypeRef.current      = activeTab?.operationType;
+  const subDisconnectRef          = useRef(subscription.disconnect);
+  subDisconnectRef.current        = subscription.disconnect;
+  const subStateRef               = useRef(subscription.state);
+  subStateRef.current             = subscription.state;
+  const execStatusRef             = useRef(execStatus);
+  execStatusRef.current           = execStatus;
+  const cancelKbdRef              = useRef(cancel);
+  cancelKbdRef.current            = cancel;
+  const addTabRef                 = useRef(addTab);
+  addTabRef.current               = addTab;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -620,12 +550,19 @@ export function GraphqlStudioPage({
           !!document.querySelector('.gql-studio [role="dialog"][aria-modal="true"]');
         if (hasOpenDialog) return;
       }
-
       const isCmd = e.metaKey || e.ctrlKey;
-
       if (isCmd && e.key === 'Enter') {
         e.preventDefault();
-        handleExecuteRef.current();
+        if (activeTabOpTypeRef.current === 'subscription') {
+          const subState = subStateRef.current;
+          if (subState === 'connecting' || subState === 'active' || subState === 'reconnecting') {
+            handleStopSubRef.current();
+          } else {
+            handleSubscribeRef.current();
+          }
+        } else {
+          handleExecuteRef.current();
+        }
         return;
       }
       if (isCmd && e.key === 'w' && isTauri()) {
@@ -645,13 +582,19 @@ export function GraphqlStudioPage({
         introspectRef.current();
         return;
       }
-      if (e.key === 'Escape' && executionStatusRef.current === 'loading') {
-        cancelRef.current();
+      if (e.key === 'Escape' && execStatusRef.current === 'loading') {
+        cancelKbdRef.current();
+      }
+      if (e.key === 'Escape') {
+        const subState = subStateRef.current;
+        if (subState === 'active' || subState === 'connecting' || subState === 'reconnecting') {
+          subDisconnectRef.current();
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [closeActiveTabRef]);
 
   // ─────────────────────────────────────────────────────────────────────────
   if (tabs.length === 0 || !activeTab) return null;
@@ -660,7 +603,6 @@ export function GraphqlStudioPage({
 
   return (
     <div className="gql-studio" data-testid="gql-studio-page">
-      {/* Connection bar */}
       <GraphqlConnectionBar
         endpoint={endpoint}
         onEndpointChange={setEndpoint}
@@ -677,6 +619,7 @@ export function GraphqlStudioPage({
         onSelectOperation={handleSelectOperation}
         varsInvalid={varsError !== null}
         queryEmpty={!activeTab?.query.trim()}
+        fileErrors={fileEntries.some((e) => e.error !== null)}
         queryValidationErrors={queryValidationErrorCount}
         auth={auth ?? undefined}
         onAuthChange={handleAuthChange}
@@ -693,9 +636,16 @@ export function GraphqlStudioPage({
         pollingIntervalSeconds={pollingIntervalSeconds}
         onPollingChange={handlePollingChange}
         pollErrorMessage={pollErrorMessage}
+        activeOperationType={activeTab?.operationType ?? null}
+        subscriptionState={subscription.state}
+        onSubscribe={handleSubscribe}
+        onStop={handleStopSubscription}
+        subscriptionTransport={activeTab?.subscriptionTransport ?? 'auto'}
+        onSubscriptionTransportChange={handleSubscriptionTransportChange}
+        complexityScore={complexityResult?.score}
+        complexityLevel={complexityResult?.level}
       />
 
-      {/* Connection Profiles modal */}
       {profileModalOpen && (
         <GraphqlProfileModal
           profiles={profiles}
@@ -713,19 +663,22 @@ export function GraphqlStudioPage({
             handleAuthChange(profile.auth);
             setProfileModalOpen(false);
             prevBaseUrlRef.current = '\0profile-pinned';
-            try { localStorage.removeItem(ENDPOINT_BASE_STORAGE_KEY); }
-            catch { /* silent */ }
+            removeKey(ENDPOINT_BASE_STORAGE_KEY).catch(() => { /* silent */ });
           }}
           onDelete={deleteProfile}
         />
       )}
 
-      {/* Environment manager modal */}
       {envModalOpen && (
         <GraphqlEnvModal
           environments={environments}
           activeEnvironmentId={activeEnvironment?.id ?? null}
-          onClose={() => setEnvModalOpen(false)}
+          onClose={() => {
+            setEnvModalOpen(false);
+            requestAnimationFrame(() => {
+              (document.querySelector<HTMLButtonElement>('[data-testid="gql-env-badge"]'))?.focus();
+            });
+          }}
           onCreate={createEnvironment}
           onDelete={deleteEnvironment}
           onSetActive={setActiveEnvironment}
@@ -736,7 +689,6 @@ export function GraphqlStudioPage({
         />
       )}
 
-      {/* Tab bar */}
       <GqlTabBar
         tabs={tabs}
         activeTabId={activeTabId}
@@ -746,61 +698,159 @@ export function GraphqlStudioPage({
         onAddTab={addTab}
       />
 
-      {/* Main content: editor (left) + response (right) */}
-      <div className="gql-main" data-testid="gql-main">
-        {/* Left pane: editor + bottom panel */}
+      <div className={`gql-main${builderMode ? ' gql-main--builder' : ''}`} data-testid="gql-main">
         <div className="gql-left-pane">
-          <div className="gql-editor-pane" data-testid="gql-editor-pane">
-            <GraphqlEditor
-              modelPath={activeTab.modelUri}
-              defaultValue={activeTab.query}
-              onChange={handleQueryChange}
-              height="100%"
-              data-testid="gql-editor"
-            />
-            <button
-              type="button"
-              className={`gql-prettify-btn${prettifyError ? ' gql-prettify-btn--error' : ''}`}
-              onClick={handlePrettify}
-              aria-label={prettifyError ? 'Fix syntax errors before formatting' : 'Prettify / format query'}
-              title={prettifyError ? 'Cannot format — fix syntax errors first' : 'Prettify / format query'}
-              data-testid="gql-prettify-btn"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
-                <line x1="16" y1="8" x2="2" y2="22" />
-                <line x1="17.5" y1="15" x2="9" y2="15" />
-              </svg>
-              Prettify
-            </button>
+          <div className="gql-editor-mode-bar" data-testid="gql-editor-mode-bar">
+            <div className="gql-mode-toggle" role="group" aria-label="Edit mode">
+              <button
+                type="button"
+                className={`gql-mode-btn${!builderMode ? ' gql-mode-btn--active' : ''}`}
+                onClick={() => setBuilderMode(false)}
+                aria-pressed={!builderMode}
+                data-testid="gql-mode-editor"
+              >
+                Editor
+              </button>
+              <button
+                type="button"
+                className={`gql-mode-btn${builderMode ? ' gql-mode-btn--active' : ''}`}
+                onClick={() => setBuilderMode(true)}
+                aria-pressed={builderMode}
+                data-testid="gql-mode-builder"
+                title={schemaInfo ? undefined : 'Introspect a schema to use the builder'}
+              >
+                Builder
+              </button>
+            </div>
           </div>
 
-          <GqlBottomPanel
-            activeTab={bottomTab}
-            onTabChange={setBottomTab}
-            varsModelPath={varsModelPath}
-            defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
-            onVariablesChange={handleVariablesChange}
-            varsError={varsError}
-            headers={activeTab.headers}
-            onHeadersChange={handleHeadersChange}
-            activeEnvironment={activeEnvironment}
-          />
+          {builderMode ? (
+            <GraphqlQueryBuilder
+              schemaInfo={schemaInfo}
+              onEditInEditor={handleEditInEditor}
+              onExecute={handleBuilderExecute}
+            />
+          ) : (
+            <>
+              <div className="gql-editor-pane" data-testid="gql-editor-pane">
+                <GraphqlEditor
+                  modelPath={activeTab.modelUri}
+                  defaultValue={activeTab.query}
+                  onChange={handleQueryChange}
+                  height="100%"
+                  data-testid="gql-editor"
+                  editorMountRef={editorMountRef}
+                />
+                <button
+                  type="button"
+                  className={`gql-prettify-btn${prettifyError ? ' gql-prettify-btn--error' : ''}`}
+                  onClick={handlePrettify}
+                  aria-label={prettifyError ? 'Fix syntax errors before formatting' : 'Prettify / format query'}
+                  title={prettifyError ? 'Cannot format — fix syntax errors first' : 'Prettify / format query'}
+                  data-testid="gql-prettify-btn"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+                    <line x1="16" y1="8" x2="2" y2="22" />
+                    <line x1="17.5" y1="15" x2="9" y2="15" />
+                  </svg>
+                  Prettify
+                </button>
+              </div>
+
+              {insertToast && (
+                <div className="gql-insert-toast" role="status" aria-live="polite" data-testid="gql-insert-toast">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  {insertToast}
+                </div>
+              )}
+
+              {activeTab?.operationType === 'subscription' && (
+                <GraphqlSubscriptionAssertionPanel
+                  assertions={activeTab.subscriptionAssertions ?? []}
+                  onChange={handleAssertionsChange}
+                />
+              )}
+
+              {complexityWarningPending && complexityResult && (
+                <div
+                  className="gql-complexity-warning-banner"
+                  role="alert"
+                  aria-live="assertive"
+                  data-testid="gql-complexity-warning-banner"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  <span className="gql-complexity-warning-text">
+                    Very expensive query (cost ~{complexityResult.score}, threshold {complexityResult.threshold}). This may cause high server load.
+                  </span>
+                  <button type="button" className="gql-complexity-warning-confirm" onClick={handleExecute} data-testid="gql-complexity-warning-confirm">
+                    Run anyway
+                  </button>
+                  <button type="button" className="gql-complexity-warning-dismiss" onClick={() => setComplexityWarningPending(false)} aria-label="Dismiss complexity warning" data-testid="gql-complexity-warning-dismiss">
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              <GqlBottomPanel
+                activeTab={bottomTab}
+                onTabChange={setBottomTab}
+                varsModelPath={varsModelPath}
+                defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
+                onVariablesChange={handleVariablesChange}
+                varsError={varsError}
+                headers={activeTab.headers}
+                onHeadersChange={handleHeadersChange}
+                activeEnvironment={activeEnvironment}
+                fileEntries={fileEntries}
+                onFileEntriesChange={setFileEntries}
+                uploadProgress={uploadProgress}
+              />
+            </>
+          )}
         </div>
 
-        {/* Right pane: response viewer | schema explorer */}
-        <GqlRightPane
-          view={rightView}
-          onViewChange={setRightView}
-          response={response}
-          executing={executing}
-          execStatus={execStatus}
-          schemaInfo={schemaInfo}
-          schemaStatus={schemaStatus}
-          schemaErrorMessage={schemaErrorMessage}
-          onIntrospect={introspect}
-          introspecting={introspecting}
-        />
+        {!builderMode && (
+          <GqlRightPane
+            view={rightView}
+            onViewChange={setRightView}
+            response={response}
+            executing={executing}
+            execStatus={execStatus}
+            schemaInfo={schemaInfo}
+            schemaStatus={schemaStatus}
+            schemaErrorMessage={schemaErrorMessage}
+            onIntrospect={introspect}
+            introspecting={introspecting}
+            activeOperationType={activeTab?.operationType ?? null}
+            onInsertField={handleInsertField}
+            subscriptionLog={
+              activeTab?.operationType === 'subscription' && subscription.state !== 'idle'
+                ? {
+                    state: subscription.state,
+                    messages: subscription.messages,
+                    stats: subscription.stats,
+                    connectedSince: subscription.connectedSince,
+                    isPaused: subscription.isPaused,
+                    pausedBufferCount: subscription.pausedBufferCount,
+                    errorMessage: subscription.errorMessage,
+                    reconnectAttempt: subscription.reconnectAttempt,
+                    transport: subscription.transport,
+                    operationName: selectedOperation ?? activeTab?.label,
+                    assertions: activeTab?.subscriptionAssertions,
+                    assertionResultMap,
+                    onPause: subscription.pause,
+                    onResume: subscription.resume,
+                    onClear: subscription.clear,
+                    onExport: handleExportSubscription,
+                    onStop: handleStopSubscription,
+                  }
+                : null
+            }
+          />
+        )}
       </div>
     </div>
   );

@@ -83,7 +83,7 @@ When you click **Connect** with Protocol set to GraphQL-WS, RedfireForge automat
 
 **Starting a subscription:**
 
-Instead of typing raw JSON, you write a **GraphQL query** in the Compose panel:
+Instead of typing raw JSON, you write a **GraphQL query** in the **Send** panel:
 
 \`\`\`graphql
 subscription {
@@ -230,11 +230,11 @@ GraphQL-WS needs two settings:
     },
     {
       id: 'gql-compose',
-      title: 'GraphQL-WS Compose Fields',
-      description: 'The Compose panel has three GraphQL-specific fields: **Operation Name** (optional label for the operation, e.g. `CountdownSub`), **Variables** (a JSON textarea for `$variables` in parameterized queries), and the **Op # counter** — an auto-incrementing ID that RedfireForge assigns to each subscription so the Events log can track which `next` frames belong to which operation.',
+      title: 'GraphQL-WS Send Fields',
+      description: 'The **Send** panel has three GraphQL-specific fields: **Operation Name** (optional label for the operation, e.g. `CountdownSub`), **Variables** (a JSON input for `$variables` in parameterized queries), and the **Op # counter** — an auto-incrementing ID that RedfireForge assigns to each subscription so the Events log can track which `next` frames belong to which operation.',
       highlight: WS.GQL_COMPOSE_FIELDS,
       pauseAfter: true,
-      // preAction navigates to Compose before the spotlight so gql-compose-fields is in the DOM
+      // preAction navigates to Send before the spotlight so gql-compose-fields is in the DOM
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
       },
@@ -245,10 +245,10 @@ GraphQL-WS needs two settings:
     {
       id: 'gql-subscribe',
       title: 'Start a Countdown Subscription',
-      description: 'The query `subscription { countdown(from: 5) }` is pre-filled and ready in the Compose panel. Clicking **Send** wraps it in a `subscribe` frame with the current Op ID, sends it to the server, then switches to the Events tab to watch the countdown arrive. The server streams back six **next** frames — `5, 4, 3, 2, 1, 0` — one every 500ms, then a **complete** to signal end of stream.',
+      description: 'The query `subscription { countdown(from: 5) }` is pre-filled and ready in the **Send** panel. Clicking **Send** wraps it in a `subscribe` frame with the current Op ID, sends it to the server, then switches to the Events tab to watch the countdown arrive. The server streams back six **next** frames — `5, 4, 3, 2, 1, 0` — one every 500ms, then a **complete** to signal end of stream.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
-      // preAction ensures connection + sets up the Compose panel with the subscription query
+      // preAction ensures connection + sets up the Send panel with the subscription query
       preAction: async (ctx: DemoActionContext) => {
         // Ensure WebSocket is connected before trying to send (skip-to-step guard)
         if (!document.querySelector(WS.STATUS_CONNECTED)) {

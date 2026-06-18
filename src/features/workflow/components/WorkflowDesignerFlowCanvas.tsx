@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -70,6 +70,7 @@ export function WorkflowDesignerFlowCanvas({
     runVariableSnapshot,
     workflowVariables,
     nodeCtxMenu,
+    configModalNodeId,
     setSelectedNodeId,
     handleCopyNode,
     handleDuplicateNode,
@@ -143,6 +144,37 @@ export function WorkflowDesignerFlowCanvas({
     }
   }, [selected, previewWorkflow, setViewport, fitView]);
 
+  // Expose demo-player bridge helpers so lesson actions can clear node selection and open
+  // node config without relying on synthetic mouse events (which ReactFlow ignores).
+  //   window.__wfDeselectAll()         — clears .selected on every node
+  //   window.__wfOpenNodeConfig(id)    — opens config modal for a node by id
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfDeselectAll = () => {
+      _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
+    };
+  }, [_setNodes]);
+
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = (nodeId: string) => {
+      // Deselect all nodes first so the highlight ring is gone before the config renders
+      _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
+      openNodeConfig(nodeId);
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
+    };
+  }, [_setNodes, openNodeConfig]);
+
+  // When a node config modal is open, clear the ReactFlow-level `selected` flag so the
+  // node's highlight ring does not bleed into its configuration panel view.
+  const displayNodes = useMemo(
+    () => (configModalNodeId ? nodes.map((n) => (n.selected ? { ...n, selected: false } : n)) : nodes),
+    [nodes, configModalNodeId],
+  );
+
   return (
     <div
       className={`wf-canvas-area ${isDragOver ? 'wf-canvas-drag-over' : ''}`}
@@ -211,7 +243,7 @@ export function WorkflowDesignerFlowCanvas({
         <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
           key={layoutVersion}
           style={previewWorkflow && laidOutId !== selected?.id ? { visibility: 'hidden' as const } : undefined}
-          nodes={nodes}
+          nodes={displayNodes}
           edges={dropTargetEdgeId ? edges.map(e => e.id === dropTargetEdgeId ? { ...e, className: (e.className ? e.className + ' ' : '') + 'wf-edge-drop-target' } : e) : edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

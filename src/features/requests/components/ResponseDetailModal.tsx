@@ -61,6 +61,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
 
   const family = getTransportFamily(result.transportType);
   const isHttp = family === 'http';
+  const isWs = family === 'ws';
   const methodLabel = getTransportMethodLabel(result);
   const statusLabel = formatTransportStatus(result);
   const statusTagClass = isHttp
@@ -68,6 +69,14 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
     : (result.passed ? 'tag-info' : 'tag-danger');
   const wsMeta = result.wsResultMeta;
   const hasWsMeta = !!(wsMeta && (wsMeta.url || wsMeta.connectionId || wsMeta.protocol || wsMeta.frameType || wsMeta.messageSize != null || wsMeta.closeCode != null));
+
+  // WS-appropriate section labels
+  const requestBodyTitle = isWs
+    ? (result.transportType === 'wsConnect' ? 'Connection Config' : result.transportType === 'wsReceive' ? 'Match Criteria' : 'Sent Message')
+    : 'Request Body';
+  const responseBodyTitle = isWs
+    ? (result.transportType === 'wsConnect' ? 'Connection Result' : 'Received Message')
+    : 'Response Body';
 
   const familyIcon = family === 'kafka'
     ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
@@ -84,7 +93,6 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       bodyClassName="response-detail-body"
       footerClassName="response-detail-footer"
       expandMode="fullscreen"
-      hideExpandButton
       footer={
         <div className="rd-footer-inner">
           <span className="rd-footer-hint">Esc to close</span>
@@ -102,7 +110,12 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
               <span className="rd-hero-name">{result.scenarioName}</span>
               <span className="rd-hero-id">#{result.id.replace(/^\D+/, '')}</span>
             </div>
-            <div className="rd-hero-url">{result.url}</div>
+            <div className="rd-hero-url">
+            {isWs && result.transportType !== 'wsConnect' && wsMeta?.connectionId
+              ? <><span className="rd-hero-url-label">Connection:</span> {wsMeta.connectionId}</>
+              : result.url
+            }
+          </div>
             <div className="rd-hero-stats">
               <span className={`rd-stat ${statusTagClass}`}>
                 {statusLabel}
@@ -227,12 +240,12 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
-          {/* ── Request Body ── */}
+          {/* ── Request Body / Sent Message / Connection Config / Match Criteria ── */}
           {result.requestLog?.body && (
             <div className="rd-section">
               <h4 className="rd-section-title">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                Request Body
+                {requestBodyTitle}
               </h4>
               <JsonTreeViewer data={result.requestLog.body} defaultExpandDepth={3} maxHeight={300} />
             </div>
@@ -261,12 +274,12 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
-          {/* ── Response Body ── */}
+          {/* ── Response Body / Received Message / Connection Result ── */}
           {result.responseBody && (
             <div className="rd-section">
               <h4 className="rd-section-title">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
-                Response Body
+                {responseBodyTitle}
               </h4>
               <ResponseBodySearchBar
                 value={responseSearch}

@@ -126,4 +126,63 @@ describe('FieldTableRow', () => {
     );
     expect(screen.getByTestId('gql-field-row-email').className).toContain('gql-se-ftr--deprecated');
   });
+
+  describe('"Try →" insert button', () => {
+    it('does not render a Try button when onInsertField is not provided', () => {
+      render(
+        <table><tbody>
+          <FieldTableRow {...defaultProps} field={makeField()} />
+        </tbody></table>,
+      );
+      expect(screen.queryByTestId('gql-try-field-email')).toBeNull();
+    });
+
+    it('renders a Try button when onInsertField is provided', () => {
+      const onInsertField = vi.fn();
+      render(
+        <table><tbody>
+          <FieldTableRow {...defaultProps} field={makeField()} onInsertField={onInsertField} />
+        </tbody></table>,
+      );
+      expect(screen.getByTestId('gql-try-field-email')).toBeTruthy();
+    });
+
+    it('calls onInsertField with field name, type, and hasArgs=false when clicked', () => {
+      const onInsertField = vi.fn();
+      render(
+        <table><tbody>
+          <FieldTableRow {...defaultProps} field={makeField({ name: 'email', type: 'String!' })} onInsertField={onInsertField} />
+        </tbody></table>,
+      );
+      fireEvent.click(screen.getByTestId('gql-try-field-email'));
+      expect(onInsertField).toHaveBeenCalledWith('email', 'String!', false);
+    });
+
+    it('calls onInsertField with hasArgs=true when field has arguments', () => {
+      const onInsertField = vi.fn();
+      const field = makeField({
+        name: 'user',
+        type: 'User!',
+        args: [{ name: 'id', type: 'ID!' }],
+      });
+      render(
+        <table><tbody>
+          <FieldTableRow {...defaultProps} field={field} onInsertField={onInsertField} />
+        </tbody></table>,
+      );
+      fireEvent.click(screen.getByTestId('gql-try-field-user'));
+      expect(onInsertField).toHaveBeenCalledWith('user', 'User!', true);
+    });
+
+    it('Try button has correct aria-label', () => {
+      const onInsertField = vi.fn();
+      render(
+        <table><tbody>
+          <FieldTableRow {...defaultProps} field={makeField({ name: 'email' })} onInsertField={onInsertField} />
+        </tbody></table>,
+      );
+      const btn = screen.getByTestId('gql-try-field-email');
+      expect(btn.getAttribute('aria-label')).toContain('email');
+    });
+  });
 });

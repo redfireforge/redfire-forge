@@ -606,7 +606,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
-    expect(screen.getByText('Max Concurrent Runs')).toBeTruthy();
+    expect(screen.getByText('Max Concurrent')).toBeTruthy();
     expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
@@ -618,7 +618,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('payments.done')).toBeTruthy();
     expect(screen.getByText('Correlation Matching')).toBeTruthy();
-    expect(screen.getByText('Correlation Source')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
   });
 
   // ── Draft / base URL / HTTP callbacks ──

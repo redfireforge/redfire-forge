@@ -47,7 +47,7 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
             onChange={(e) => explorer.setSearchText(e.target.value)}
             data-testid="topic-search"
           />
-          <div className="kafka-explorer-filter-row">
+          <div className="kafka-explorer-filter-row" data-testid="topic-filter-row">
             <select
               value={explorer.healthFilter}
               onChange={(e) => explorer.setHealthFilter(e.target.value as TopicHealthFilter)}
@@ -119,7 +119,7 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
           </button>
         </div>
 
-        <div className="kafka-explorer-table-wrap">
+        <div className="kafka-explorer-table-wrap" data-testid="topic-table-wrap">
           <table className="kafka-explorer-topic-table">
             <thead>
               <tr>

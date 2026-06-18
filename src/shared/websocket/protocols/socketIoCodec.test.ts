@@ -172,6 +172,18 @@ describe('socketIoCodec', () => {
       expect(pkt.data).toBe('not-json');
       expect(pkt.eventName).toBeUndefined();
     });
+
+    it('ignores invalid socket type char in MESSAGE packet', () => {
+      const pkt = decodeSioPacket('49');
+      expect(pkt.engineType).toBe(ENGINE_TYPES.MESSAGE);
+      expect(pkt.socketType).toBeUndefined();
+    });
+
+    it('decodes namespace without trailing comma', () => {
+      const pkt = decodeSioPacket('40/admin');
+      expect(pkt.socketType).toBe(SOCKET_TYPES.CONNECT);
+      expect(pkt.namespace).toBe('/admin');
+    });
   });
 
   describe('getSioPacketSummary', () => {
@@ -268,6 +280,20 @@ describe('socketIoCodec', () => {
     it('summarizes BINARY_ACK with ack id', () => {
       const pkt = decodeSioPacket('461-5["done"]');
       expect(getSioPacketSummary(pkt)).toBe('BINARY_ACK #5');
+    });
+
+    it('summarizes unknown socket type via default fallback', () => {
+      const pkt = decodeSioPacket('42["evt"]');
+      pkt.socketType = 99 as typeof SOCKET_TYPES[keyof typeof SOCKET_TYPES];
+      pkt.socketTypeName = 'CUSTOM';
+      expect(getSioPacketSummary(pkt)).toBe('CUSTOM');
+    });
+
+    it('summarizes unknown socket type with namespace via default fallback', () => {
+      const pkt = decodeSioPacket('42/ns,["evt"]');
+      pkt.socketType = 99 as typeof SOCKET_TYPES[keyof typeof SOCKET_TYPES];
+      pkt.socketTypeName = 'CUSTOM';
+      expect(getSioPacketSummary(pkt)).toBe('CUSTOM [/ns]');
     });
   });
 

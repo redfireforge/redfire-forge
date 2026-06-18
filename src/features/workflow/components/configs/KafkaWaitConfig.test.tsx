@@ -230,7 +230,7 @@ describe('KafkaWaitConfig', () => {
   // ── Header Filters ────────────────────────────────────────────────────────
   it('adds a new header filter row', () => {
     render(<Host />);
-    fireEvent.click(screen.getByText('+ Add Header Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[0]);
     expect(screen.getByPlaceholderText('Header name')).toBeTruthy();
   });
 
@@ -293,7 +293,7 @@ describe('KafkaWaitConfig', () => {
   // ── Extract Variables ─────────────────────────────────────────────────────
   it('adds a new extract variable row', () => {
     render(<Host />);
-    fireEvent.click(screen.getByText('+ Add Variable'));
+    fireEvent.click(screen.getAllByText('+ Add')[1]);
     expect(screen.getByPlaceholderText('Variable name')).toBeTruthy();
     expect(screen.getByPlaceholderText('$.field.path')).toBeTruthy();
   });
@@ -527,11 +527,11 @@ describe('KafkaWaitConfig', () => {
     render(<Host />);
 
     // Add header filter
-    fireEvent.click(screen.getByText('+ Add Header Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[0]);
     fireEvent.change(screen.getByPlaceholderText('Header name'), { target: { value: 'X-Env' } });
 
     // Add extract variable
-    fireEvent.click(screen.getByText('+ Add Variable'));
+    fireEvent.click(screen.getAllByText('+ Add')[1]);
     fireEvent.change(screen.getByPlaceholderText('Variable name'), { target: { value: 'status' } });
 
     // Switch load test to auto-resume

@@ -292,27 +292,43 @@ export function useWebSocketSend({
       )}
       {isGqlMode && (
         <div className="ws-gql-compose-fields" data-testid="gql-compose-fields">
-          <input
-            className="ws-gql-operation-name-input"
-            type="text"
-            value={gqlOperationName}
-            onChange={(e) => setGqlOperationName(e.target.value)}
-            placeholder="Operation name (optional)"
-            disabled={!isConnected}
-            aria-label="GraphQL operation name"
-            data-testid="gql-operation-name"
-          />
-          <textarea
-            className="ws-gql-variables-input"
-            value={gqlVariables}
-            onChange={(e) => setGqlVariables(e.target.value)}
-            placeholder='Variables (JSON) e.g. {"id": "1"}'
-            disabled={!isConnected}
-            aria-label="GraphQL variables"
-            data-testid="gql-variables"
-            rows={2}
-          />
-          <span className="ws-gql-op-id" data-testid="gql-op-id">Op #{gqlOperationId}</span>
+          <div className="ws-gql-meta-row">
+            <div className="ws-gql-field ws-gql-field--op-name">
+              <span className="ws-gql-field-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+              </span>
+              <input
+                className="ws-gql-operation-name-input"
+                type="text"
+                value={gqlOperationName}
+                onChange={(e) => setGqlOperationName(e.target.value)}
+                placeholder="Operation name (optional)"
+                disabled={!isConnected}
+                aria-label="GraphQL operation name"
+                data-testid="gql-operation-name"
+              />
+            </div>
+            <div className="ws-gql-field ws-gql-field--vars">
+              <span className="ws-gql-field-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </span>
+              <input
+                className="ws-gql-variables-input ws-gql-variables-input--inline"
+                type="text"
+                value={gqlVariables}
+                onChange={(e) => setGqlVariables(e.target.value)}
+                placeholder='Variables JSON — {"id": "1"}'
+                disabled={!isConnected}
+                aria-label="GraphQL variables"
+                data-testid="gql-variables"
+              />
+              {gqlVariables.trim() && (() => {
+                try { JSON.parse(gqlVariables); return <span className="ws-gql-vars-valid" title="Valid JSON" aria-label="Valid JSON">✓</span>; }
+                catch { return <span className="ws-gql-vars-invalid" title="Invalid JSON" aria-label="Invalid JSON">!</span>; }
+              })()}
+            </div>
+            <span className="ws-gql-op-id-badge" data-testid="gql-op-id">#{gqlOperationId}</span>
+          </div>
         </div>
       )}
       <div className="ws-compose-input-wrapper">
@@ -323,7 +339,7 @@ export function useWebSocketSend({
           onKeyDown={handleKeyDown}
           placeholder={
             !isConnected
-              ? 'Connect to send messages'
+              ? 'Connect to send messages…'
               : isSioMode
                 ? 'Event data (JSON or text)\u2026'
                 : isStompMode
@@ -336,137 +352,178 @@ export function useWebSocketSend({
           rows={6}
           aria-label="Message input"
         />
+        {composeText.length > 0 && isConnected && (
+          <button
+            className="ws-compose-clear-btn"
+            onClick={() => setComposeText('')}
+            title="Clear"
+            aria-label="Clear message"
+            data-testid="compose-clear-btn"
+            type="button"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        )}
+        {composeText.length > 0 && (
+          <span className="ws-compose-char-count" aria-label={`${composeText.length} characters`}>
+            {composeText.split('\n').length}L · {composeText.length}c
+          </span>
+        )}
         {isBase64InvalidVal && (
           <span className="ws-compose-hint" data-testid="base64-hint">Invalid Base64</span>
         )}
       </div>
       <div className="ws-compose-controls">
-        {!isSioMode && !isStompMode && !isGqlMode && (
-          <>
-            <label className="ws-format-label" htmlFor="ws-format-select">Format:</label>
-            <select
-              id="ws-format-select"
-              className="ws-format-select"
-              value={composeFormat}
-              onChange={(e) => setComposeFormat(e.target.value as WsMessageFormat)}
-              aria-label="Message format"
-              data-testid="format-select"
-            >
-              <option value="text">Text</option>
-              <option value="json">JSON</option>
-              <option value="binary">Binary (Base64)</option>
-            </select>
-            {composeFormat === 'json' && (
-              <button
-                className="ws-pretty-format-btn"
-                onClick={handlePrettyFormat}
-                disabled={!composeText.trim() || !isJsonValidVal}
-                title="Pretty Format JSON"
-                data-testid="pretty-format-btn"
-              >
-                Pretty Format
-              </button>
-            )}
-          </>
-        )}
-        {isSioMode && (
-          <span className="ws-sio-mode-badge" data-testid="sio-mode-badge">Socket.IO</span>
-        )}
-        {isStompMode && (
-          <span className="ws-stomp-mode-badge" data-testid="stomp-mode-badge">STOMP</span>
-        )}
-        {isGqlMode && (
-          <span className="ws-gql-mode-badge" data-testid="gql-mode-badge">GraphQL</span>
-        )}
-        <div className="ws-template-wrapper" ref={templateDropdownRef}>
-          <button
-            className="ws-template-trigger"
-            onClick={() => setTemplateDropdownOpen((v) => !v)}
-            data-testid="template-trigger"
-          >
-            Templates ▾
-          </button>
-          {templateDropdownOpen && (
-            <div className="ws-template-dropdown" data-testid="template-dropdown">
-              <div className="ws-template-dropdown-header">Saved Templates</div>
-              {templates.length === 0 ? (
-                <div className="ws-template-empty" data-testid="template-empty">
-                  No saved templates. Type a message and save it.
-                </div>
-              ) : (
-                <div className="ws-template-list" data-testid="template-list">
-                  {templates.map((tpl) => (
-                    <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`}>
-                      <button
-                        className="ws-template-item-load"
-                        onClick={() => handleTemplateLoad(tpl.id)}
-                        title={`Load: ${tpl.name}`}
-                      >
-                        <span className="ws-template-item-head">
-                          <span className="ws-template-item-name">{tpl.name}</span>
-                          <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
-                            {tpl.format}
-                          </span>
-                        </span>
-                        <span className="ws-template-item-preview">
-                          {tpl.body.length > 60 ? tpl.body.slice(0, 60) + '\u2026' : tpl.body}
-                        </span>
-                      </button>
-                      <button
-                        className="ws-template-item-delete"
-                        onClick={() => handleTemplateDelete(tpl.id)}
-                        title="Delete template"
-                        data-testid={`template-delete-${tpl.id}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="ws-template-save-row">
-                <input
-                  className="ws-template-save-input"
-                  type="text"
-                  value={templateSaveName}
-                  onChange={(e) => setTemplateSaveName(e.target.value)}
-                  placeholder="Template name..."
-                  maxLength={100}
-                  data-testid="template-save-name"
-                />
+        {/* ── Left zone: format pills or protocol badge ── */}
+        <div className="ws-compose-controls-left">
+          {!isSioMode && !isStompMode && !isGqlMode && (
+            <div className="ws-format-pills" role="group" aria-label="Message format" data-testid="format-pills">
+              {(['text', 'json', 'binary'] as WsMessageFormat[]).map((fmt) => (
                 <button
-                  className="ws-template-save-btn"
-                  onClick={handleTemplateSave}
-                  disabled={!templateSaveName.trim() || !composeText.trim()}
-                  data-testid="template-save-btn"
+                  key={fmt}
+                  type="button"
+                  className={`ws-format-pill ${composeFormat === fmt ? 'ws-format-pill--active' : ''}`}
+                  onClick={() => setComposeFormat(fmt)}
+                  aria-pressed={composeFormat === fmt}
+                  data-testid={`format-pill-${fmt}`}
                 >
-                  Save
+                  {fmt === 'text' ? 'Text' : fmt === 'json' ? 'JSON' : 'Base64'}
                 </button>
-              </div>
+              ))}
             </div>
           )}
+          {isSioMode && <span className="ws-protocol-badge ws-protocol-badge--sio" data-testid="sio-mode-badge">Socket.IO</span>}
+          {isStompMode && <span className="ws-protocol-badge ws-protocol-badge--stomp" data-testid="stomp-mode-badge">STOMP</span>}
+          {isGqlMode && <span className="ws-protocol-badge ws-protocol-badge--gql" data-testid="gql-mode-badge">GraphQL-WS</span>}
         </div>
-        <button
-          className="ws-compose-send-btn"
-          onClick={handleSend}
-          disabled={!canSend}
-          title="Send (Cmd+Enter / Ctrl+Enter)"
-          data-testid="send-btn"
-        >
-          Send
-        </button>
-        <button
-          className="ws-compose-ping-btn"
-          onClick={onPing}
-          disabled={!isConnected || transportMode === 'direct'}
-          title={transportMode !== 'direct' ? 'Send WebSocket ping frame' : 'Ping requires proxy or native transport'}
-          data-testid="ping-btn"
-        >
-          Ping
-        </button>
+
+        {/* ── Right zone: utility actions + primary actions ── */}
+        <div className="ws-compose-controls-right">
+          {composeFormat === 'json' && !isSioMode && !isStompMode && !isGqlMode && (
+            <button
+              className="ws-pretty-format-btn"
+              onClick={handlePrettyFormat}
+              disabled={!composeText.trim() || !isJsonValidVal}
+              title="Pretty-print JSON"
+              data-testid="pretty-format-btn"
+              type="button"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+              Format
+            </button>
+          )}
+          <div className="ws-compose-controls-divider" aria-hidden="true" />
+          <div className="ws-template-wrapper" ref={templateDropdownRef}>
+            <button
+              className="ws-template-trigger"
+              onClick={() => setTemplateDropdownOpen((v) => !v)}
+              data-testid="template-trigger"
+              type="button"
+              title={templates.length > 0 ? `${templates.length} saved template${templates.length !== 1 ? 's' : ''}` : 'Message templates'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              {templates.length > 0 && <span className="ws-template-count">{templates.length}</span>}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ws-template-chevron" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            {templateDropdownOpen && (
+              <div className="ws-template-dropdown" data-testid="template-dropdown">
+                <div className="ws-template-dropdown-header">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  Saved Templates
+                </div>
+                {templates.length === 0 ? (
+                  <div className="ws-template-empty" data-testid="template-empty">
+                    No templates yet. Type a message and save it below.
+                  </div>
+                ) : (
+                  <div className="ws-template-list" data-testid="template-list">
+                    {templates.map((tpl) => (
+                      <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`}>
+                        <button
+                          className="ws-template-item-load"
+                          onClick={() => handleTemplateLoad(tpl.id)}
+                          title={`Load: ${tpl.name}`}
+                        >
+                          <span className="ws-template-item-head">
+                            <span className="ws-template-item-name">{tpl.name}</span>
+                            <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
+                              {tpl.format}
+                            </span>
+                          </span>
+                          <span className="ws-template-item-preview">
+                            {tpl.body.length > 60 ? tpl.body.slice(0, 60) + '\u2026' : tpl.body}
+                          </span>
+                        </button>
+                        <button
+                          className="ws-template-item-delete"
+                          onClick={() => handleTemplateDelete(tpl.id)}
+                          title="Delete template"
+                          data-testid={`template-delete-${tpl.id}`}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="ws-template-save-row">
+                  <input
+                    className="ws-template-save-input"
+                    type="text"
+                    value={templateSaveName}
+                    onChange={(e) => setTemplateSaveName(e.target.value)}
+                    placeholder="Template name…"
+                    maxLength={100}
+                    data-testid="template-save-name"
+                  />
+                  <button
+                    className="ws-template-save-btn"
+                    onClick={handleTemplateSave}
+                    disabled={!templateSaveName.trim() || !composeText.trim()}
+                    data-testid="template-save-btn"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="ws-compose-ping-btn"
+            onClick={onPing}
+            disabled={!isConnected || transportMode === 'direct'}
+            title={transportMode !== 'direct' ? 'Send WebSocket ping frame' : 'Ping requires proxy or native transport'}
+            data-testid="ping-btn"
+            type="button"
+          >
+            Ping
+          </button>
+
+          <button
+            className="ws-compose-send-btn"
+            onClick={handleSend}
+            disabled={!canSend}
+            title="Send (Cmd+Enter / Ctrl+Enter)"
+            data-testid="send-btn"
+            type="button"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send
+            <kbd className="ws-send-kbd">⌘↵</kbd>
+          </button>
+        </div>
       </div>
       <div className="ws-compose-footer" data-testid="compose-footer">
-        {totalCount} / {maxMessages} messages
+        <span className="ws-compose-msg-count">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          {totalCount.toLocaleString()} / {maxMessages.toLocaleString()}
+        </span>
+        <div
+          className="ws-compose-msg-bar"
+          style={{ width: `${Math.min(100, (totalCount / maxMessages) * 100)}%` }}
+          aria-hidden="true"
+        />
       </div>
     </div>
   );

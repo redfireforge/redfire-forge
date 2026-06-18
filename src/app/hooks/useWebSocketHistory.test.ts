@@ -132,4 +132,16 @@ describe('useWebSocketHistory', () => {
     await act(async () => {});
     expect(result.current.history).toEqual([]);
   });
+
+  it('does not set history after unmount (cancelled=true false branch — line 18)', async () => {
+    let resolveLoad!: (v: typeof import('../../shared/websocket/types').WsConnectionEntry[]) => void;
+    mockLoad.mockReturnValue(new Promise((res) => { resolveLoad = res; }));
+    const { result, unmount } = renderHook(() => useWebSocketHistory());
+    // Unmount before load resolves
+    unmount();
+    // Resolve after unmount — should not set history (cancelled=true)
+    await act(async () => { resolveLoad([]); });
+    // history stays as initial value (empty array)
+    expect(result.current.history).toEqual([]);
+  });
 });
