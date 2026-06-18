@@ -36,6 +36,8 @@ interface GraphqlSchemaExplorerProps {
   errorMessage?: string | null;
   onIntrospect?: () => void;
   introspecting?: boolean;
+  /** Optional: insert a field into the active query editor (powers "Try →" buttons) */
+  onInsertField?: (fieldName: string, fieldType: string, hasArgs: boolean) => void;
 }
 
 type TypeKind = GraphqlTypeNode['kind'];
@@ -64,6 +66,7 @@ export function GraphqlSchemaExplorer({
   errorMessage,
   onIntrospect,
   introspecting = false,
+  onInsertField,
 }: GraphqlSchemaExplorerProps) {
   const [kindFilter, setKindFilter] = useState<KindFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,8 +212,9 @@ export function GraphqlSchemaExplorer({
                 type="button"
                 className="gql-se-icon-btn"
                 onClick={handleExportSDL}
-                title="Export full schema as schema.graphql"
-                aria-label="Export schema SDL"
+                disabled={!schemaInfo?.sdl}
+                title={schemaInfo?.sdl ? 'Export full schema as schema.graphql' : 'No SDL available to export'}
+                aria-label={schemaInfo?.sdl ? 'Export schema SDL' : 'Export SDL (unavailable — no schema loaded)'}
                 data-testid="gql-se-export-sdl-btn"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -331,6 +335,7 @@ export function GraphqlSchemaExplorer({
               onTabChange={setDetailTab}
               navigableTypes={navigableTypes}
               onSelectType={handleSelectType}
+              onInsertField={onInsertField}
             />
           ) : (
             <div className="gql-se-detail-placeholder">

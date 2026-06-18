@@ -62,6 +62,10 @@ export function useDemoProgress() {
     update(prev => ({ ...prev, lastLesson: lessonId }));
   }, [update]);
 
+  const setLastView = useCallback((view: 'domains' | 'lessons' | 'concept') => {
+    update(prev => ({ ...prev, lastView: view }));
+  }, [update]);
+
   const setSpeed = useCallback((speed: SpeedMultiplier) => {
     update(prev => ({ ...prev, speed }));
   }, [update]);
@@ -96,6 +100,7 @@ export function useDemoProgress() {
     setLessonStep,
     setLastDomain,
     setLastLesson,
+    setLastView,
     setSpeed,
     isLessonComplete,
     getLessonStep,

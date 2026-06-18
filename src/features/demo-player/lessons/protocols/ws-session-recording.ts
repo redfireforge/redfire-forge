@@ -188,7 +188,7 @@ Click **Import** to load a previously saved recording. The **▶ Play** button a
 - **Progress** — events replayed out of total
 - **✕ Exit** — stop replay and clear the log
 
-During replay, the Compose panel is hidden since you're watching a recording, not interacting live.
+During replay, the **Send** panel is hidden since you're watching a recording, not interacting live.
 
 | Feature | What it captures |
 |---|---|

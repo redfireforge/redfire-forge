@@ -46,7 +46,7 @@ export const wsMockServerLesson: DemoLesson = {
   category: 'websocket',
   name: 'Mock Server',
   description: 'Start a built-in echo server in seconds — no setup, no Docker, just instant WebSocket.',
-  estimatedMinutes: 2,
+  estimatedMinutes: 3,
   initialTab: 'websocket-studio',
 
   /** Ensure a clean slate so step 1 can visibly demonstrate switching to Mock mode. */
@@ -206,8 +206,8 @@ You'll switch between them during this lesson.`,
     },
     {
       id: 'mock-broadcast',
-      title: 'Broadcast Mode',
-      description: 'Switch to Mock mode to see the broadcast panel. Type a message and click Broadcast — it\'s sent to ALL connected clients. This is great for simulating server-push scenarios like notifications or live updates.',
+      title: 'Broadcast Mode — Send from Server',
+      description: 'Switch to **Mock** mode to reach the broadcast panel. Type a server-push message and click **Broadcast** — it\'s sent simultaneously to every connected client. This simulates real-world server-push patterns: live score updates, chat messages, notification bursts.',
       highlight: WS.MOCK_BROADCAST_BTN,
       preAction: async (ctx) => {
         // Rule 4: server must be running to access broadcast panel
@@ -216,8 +216,54 @@ You'll switch between them during this lesson.`,
         await ctx.click(WS.MODE_MOCK);
         // Rule 5: wait for broadcast input to appear instead of fixed delay
         await ctx.waitFor(WS.MOCK_BROADCAST_INPUT, 2000);
+        await ctx.delay(500);
         await ctx.fill(WS.MOCK_BROADCAST_INPUT, 'Server broadcast: welcome everyone!');
+        await ctx.delay(600);
       },
+      action: async (ctx) => {
+        // Click Broadcast so the message actually goes out — this is what the viewer sees
+        await ctx.click(WS.MOCK_BROADCAST_BTN);
+        await ctx.delay(800);
+      },
+      verify: WS.MOCK_BROADCAST_BTN,
+    },
+    {
+      id: 'mock-broadcast-receive',
+      title: 'Client Receives the Broadcast',
+      description: 'Switch back to **Client** mode — you\'ll see the broadcast message arrive in the Events log as a received (↓) frame. Every connected client receives the same message at the same time. This is exactly how push notifications, live sports scores, and chat rooms work over WebSocket.',
+      highlight: '.ws-message-received',
+      preAction: async (ctx) => {
+        // Rule 4: must have a connected client and a running server
+        await ensureClientConnected(ctx);
+        // Switch to Mock mode and broadcast silently if no received message is visible yet
+        const hasReceived = document.querySelector('.ws-message-received');
+        if (!hasReceived) {
+          await ctx.click(WS.MODE_MOCK);
+          await ctx.waitFor(WS.MOCK_BROADCAST_INPUT, 2000);
+          const input = document.querySelector(WS.MOCK_BROADCAST_INPUT) as HTMLInputElement | null;
+          if (input && !input.value.trim()) {
+            input.value = 'Server broadcast: welcome everyone!';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const broadcastBtn = document.querySelector(WS.MOCK_BROADCAST_BTN) as HTMLButtonElement | null;
+          if (broadcastBtn && !broadcastBtn.disabled) broadcastBtn.click();
+          await ctx.delay(600);
+        }
+        // Switch to Client mode so the viewer sees the Events log
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.waitFor(WS.RIGHT_TAB_EVENTS, 2000);
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(400);
+      },
+      action: async (ctx) => {
+        // Navigate to Client mode and open the Events tab to show the received broadcast
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(500);
+        await ctx.waitFor(WS.RIGHT_TAB_EVENTS, 2000);
+        await ctx.click(WS.RIGHT_TAB_EVENTS);
+        await ctx.delay(700);
+      },
+      verify: '.ws-message-received',
     },
     {
       id: 'mock-stop',

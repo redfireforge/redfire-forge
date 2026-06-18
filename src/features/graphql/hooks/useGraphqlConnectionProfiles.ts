@@ -4,12 +4,13 @@
  * Manages named connection profiles: endpoint URL + auth configuration combos
  * that the user can save once and re-apply with a single click.
  *
- * Profiles are stored in localStorage under `gql_profiles_v1` as a JSON array.
+ * Profiles are stored under `gql_profiles_v1` as a JSON array via the shared storage abstraction.
  * Each profile is a lightweight snapshot of the connection bar state at save time.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import { readKey, writeKey } from '../../../shared/utils/storage';
 
 const PROFILES_KEY = 'gql_profiles_v1';
 
@@ -25,29 +26,8 @@ export interface ConnectionProfile {
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
 
-function loadProfiles(): ConnectionProfile[] {
-  try {
-    const raw = localStorage.getItem(PROFILES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (p): p is ConnectionProfile =>
-        p !== null &&
-        typeof p === 'object' &&
-        typeof (p as Record<string, unknown>).id === 'string' &&
-        typeof (p as Record<string, unknown>).name === 'string' &&
-        typeof (p as Record<string, unknown>).endpoint === 'string',
-    );
-  } catch {
-    return [];
-  }
-}
-
 function persistProfiles(profiles: ConnectionProfile[]): void {
-  try {
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
-  } catch { /* quota exceeded — silent */ }
+  writeKey(PROFILES_KEY, JSON.stringify(profiles)).catch(() => { /* quota exceeded — silent */ });
 }
 
 function generateId(): string {
@@ -67,7 +47,26 @@ export interface UseGraphqlConnectionProfilesResult {
 }
 
 export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResult {
-  const [profiles, setProfiles] = useState<ConnectionProfile[]>(() => loadProfiles());
+  const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
+
+  // Load from storage on mount
+  useEffect(() => {
+    readKey(PROFILES_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (!Array.isArray(parsed)) return;
+        setProfiles(parsed.filter(
+          (p): p is ConnectionProfile =>
+            p !== null &&
+            typeof p === 'object' &&
+            typeof (p as Record<string, unknown>).id === 'string' &&
+            typeof (p as Record<string, unknown>).name === 'string' &&
+            typeof (p as Record<string, unknown>).endpoint === 'string',
+        ));
+      } catch { /* corrupt data — ignore */ }
+    }).catch(() => { /* storage unavailable */ });
+  }, []);
 
   const saveProfile = useCallback((
     name: string,

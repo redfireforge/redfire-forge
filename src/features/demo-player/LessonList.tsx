@@ -9,12 +9,19 @@ interface LessonListProps {
   onBack: () => void;
   onResetLesson: (lessonId: string) => void;
   onResetAll: () => void;
+  /** When navigating back from a lesson, pre-select this category so the
+   *  user lands on the tab that contains the lesson they came from. */
+  initialCategory?: string;
 }
 
-export default function LessonList({ domain, progress, onSelect, onBack, onResetLesson, onResetAll }: LessonListProps) {
+export default function LessonList({ domain, progress, onSelect, onBack, onResetLesson, onResetAll, initialCategory }: LessonListProps) {
   const hasCategories = domain.categories && domain.categories.length > 0;
   const [activeCategory, setActiveCategory] = useState<string | null>(() => {
     if (!hasCategories) return null;
+    // Prefer the category of the lesson the user navigated back from
+    if (initialCategory && domain.categories!.some(c => c.id === initialCategory)) {
+      return initialCategory;
+    }
     const firstWithLessons = domain.categories!.find(c =>
       domain.lessons.some(l => l.category === c.id),
     );

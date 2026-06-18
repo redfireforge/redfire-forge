@@ -259,7 +259,7 @@ When testing a Socket.IO API, you don't just send raw JSON — you send \`42["ev
       highlight: WS.SIO_COMPOSE_FIELDS,
       pauseAfter: true,
       // preAction ensures connection is active (SIO fields are disabled when not connected),
-      // then navigates to Compose so SIO_COMPOSE_FIELDS is in the DOM for the spotlight.
+      // then navigates to Send so SIO_COMPOSE_FIELDS is in the DOM for the spotlight.
       preAction: async (ctx: DemoActionContext) => {
         await ensureSioConnected(ctx); // Rule 4: guard for skip-to-step
         await ctx.click(WS.LEFT_TAB_SEND);

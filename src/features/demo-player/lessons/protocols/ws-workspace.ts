@@ -50,7 +50,7 @@ async function clearTemplates(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(300);
   await ctx.click(WS.LEFT_TAB_SEND);
-  await ctx.delay(500);  // wait for Compose panel to mount and templates prop to populate
+  await ctx.delay(500);  // wait for Send panel to mount and templates prop to populate
   // Wait up to 3 s for the trigger to appear (belt-and-suspenders)
   await ctx.waitFor(WS.TEMPLATE_TRIGGER);
   const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
@@ -130,7 +130,7 @@ The **Saved** mode tab stores named connection configurations — URL, auth, hea
 
 **Message Templates**
 
-In the Compose panel, the **Templates ▾** dropdown lets you save the current message payload with a name (like "auth-handshake" or "order-create"). Next time, one click loads it back — no re-typing JSON. Templates persist across sessions.
+In the **Send** panel, the **Templates ▾** dropdown lets you save the current message payload with a name (like "auth-handshake" or "order-create"). Next time, one click loads it back — no re-typing JSON. Templates persist across sessions.
 
 **Environment Variables**
 
@@ -139,7 +139,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
 | Feature | Access | What it saves |
 |---|---|---|
 | Profiles | **Saved** mode tab (top bar) or **Save as Profile** button | URL + auth + headers + params |
-| Templates | **Templates ▾** dropdown in Compose panel | Message body text |
+| Templates | **Templates ▾** dropdown in **Send** panel | Message body text |
 | Env Vars | \`{{varName}}\` in URL/headers/params | Auto-resolved from selected environment |`,
     keyTerms: [
       {
@@ -148,7 +148,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       },
       {
         term: 'Message Template',
-        definition: 'A named, reusable message body stored in the Compose panel. Templates persist across sessions and can be loaded with one click.',
+        definition: 'A named, reusable message body stored in the **Send** panel. Templates persist across sessions and can be loaded with one click.',
       },
       {
         term: 'Environment Variable',
@@ -167,7 +167,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
 │ → Resolved: ws://localhost:9876/ws                  │
 │ [Connect]  [Save as Profile]                        │
 ├────────┤                                            │
-│Compose │  Templates ▾  [Save] [Load]                │
+│ Send   │  Templates ▾  [Save] [Load]                │
 │ {"action":"greet","name":"RedfireForge"}             │
 │ [Send]                                              │
 └────────┴────────────────────────────────────────────┘
@@ -192,6 +192,9 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.MODE_SAVED);
         await ctx.delay(300);
+        document.querySelectorAll('.ws-saved-rail-item.selected, .ws-saved-card.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.delay(400);
@@ -259,7 +262,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       id: 'ws-template-intro',
       title: 'Message Templates',
       description:
-        'The Compose panel has a **Templates ▾** dropdown at the top. It shows your saved message templates — reusable payloads you can load with one click. Templates store the raw message body and persist across sessions. Currently the dropdown shows "No saved templates" because we haven\'t saved any yet.',
+        'The **Send** panel has a **Templates ▾** dropdown at the top. It shows your saved message templates — reusable payloads you can load with one click. Templates store the raw message body and persist across sessions. Currently the dropdown shows "No templates yet" because we haven\'t saved any yet.',
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {

@@ -278,9 +278,9 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-node-loop')).toHaveCount(1);
+    await expect(page.locator('.wf-node-loop')).toHaveCount(1, { timeout: 5000 });
     await page.locator('.wf-palette-block-loop').click();
-    await expect(page.locator('.wf-node-loop')).toHaveCount(2);
+    await expect(page.locator('.wf-node-loop')).toHaveCount(2, { timeout: 5000 });
   });
 
   test('clicking SetVariable palette block adds a SetVariable node', async ({ page }) => {

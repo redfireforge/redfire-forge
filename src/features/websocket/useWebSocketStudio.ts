@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type WsCloseDetail,
   type WsConnectionDraft,
@@ -28,7 +28,6 @@ import { toErrorMessage } from '../../shared/utils/helpers';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
-  applyFilters,
   annotateSentFrame,
   buildGqlWsInitAction,
   type SioServerParams,
@@ -37,10 +36,10 @@ import { processReceivedMessage } from './wsMessageProcessing';
 import { useWebSocketBookmarks } from './useWebSocketBookmarks';
 import { useWebSocketUptime } from './useWebSocketUptime';
 import { useWebSocketReconnect } from './useWebSocketReconnect';
+import { useWebSocketFilters } from './useWebSocketFilters';
 import {
   DEFAULT_MAX_MESSAGES,
   PROXY_POLL_INTERVAL_MS,
-  FILTER_TICK_INTERVAL_MS,
   formatCloseFrame,
   type WsDirectionFilter,
   type WsSearchMode,
@@ -61,14 +60,6 @@ export function useWebSocketStudio(
   const [connection, setConnection] = useState<WsConnectionSnapshot>({ state: 'disconnected' });
   const [messages, setMessages] = useState<WsFrame[]>([]);
   const [maxMessages, setMaxMessages] = useState(DEFAULT_MAX_MESSAGES);
-  const [searchText, setSearchText] = useState('');
-  const [searchMode, setSearchMode] = useState<WsSearchMode>('text');
-  const [directionFilter, setDirectionFilter] = useState<WsDirectionFilter>('all');
-  const [sizeFilter, setSizeFilter] = useState<WsSizeFilter>('all');
-  const [timeFilter, setTimeFilter] = useState<WsTimeFilter>('all');
-  const [contentTypeFilter, setContentTypeFilter] = useState<WsContentTypeFilter>('all');
-  const filterTickRef = useRef(0);
-  const [filterTick, setFilterTick] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const [receivedCount, setReceivedCount] = useState(0);
   const [transportMode, setTransportMode] = useState<WsTransportMode>('direct');
@@ -85,6 +76,16 @@ export function useWebSocketStudio(
   const draftRef = useRef(draft);
 
   const { bookmarkedIds, bookmarkedMessages, toggleBookmark } = useWebSocketBookmarks(messagesRef);
+
+  const {
+    searchText, setSearchText,
+    searchMode, setSearchMode,
+    directionFilter, setDirectionFilter,
+    sizeFilter, setSizeFilter,
+    timeFilter, setTimeFilter,
+    contentTypeFilter, setContentTypeFilter,
+    filteredMessages,
+  } = useWebSocketFilters(messages, bookmarkedMessages);
 
   const proxyConnectionIdRef = useRef<string | null>(null);
   const proxyPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -831,29 +832,6 @@ export function useWebSocketStudio(
     };
   }, []);
 
-  useEffect(() => {
-    if (timeFilter === 'all') return;
-    const id = setInterval(() => {
-      filterTickRef.current += 1;
-      setFilterTick(filterTickRef.current);
-    }, FILTER_TICK_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [timeFilter]);
-
-  const filteredMessages = useMemo(
-    () => applyFilters(messages, {
-      searchText,
-      searchMode,
-      directionFilter,
-      sizeFilter,
-      timeFilter,
-      contentTypeFilter,
-      nowMs: Date.now(),
-      bookmarkedMessages,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, searchText, searchMode, directionFilter, sizeFilter, timeFilter, contentTypeFilter, bookmarkedMessages, filterTick],
-  );
   const isMaxReached = messages.length >= maxMessages;
 
   return {

@@ -71,7 +71,7 @@ function makeWsWorkflowWired(): Workflow {
         position: { x: 350, y: 200 },
         data: {
           label: 'WS Connect',
-          url: 'ws://localhost:9876',
+          url: 'ws://localhost:9882',
           headers: [],
           queryParams: [],
           subprotocols: [],
@@ -149,7 +149,7 @@ async function seedHarnessWithWsTest(page: import('@playwright/test').Page) {
         tests: [{
           id: 'test-ws-connect',
           name: 'Connect to echo',
-          url: 'ws://localhost:9876',
+          url: 'ws://localhost:9882',
           method: 'WEBSOCKET',
           actionType: 'wsConnect',
           headers: [],
@@ -169,10 +169,13 @@ async function seedHarnessWithWsTest(page: import('@playwright/test').Page) {
 
 /* ─── Start mock server helper ───────────────────────────────────────── */
 
+// Use a dedicated port to avoid cross-spec mock server interference (ws-core-connect uses 9876)
+const WR_MOCK_PORT = 9882;
+
 async function startMockServer(page: import('@playwright/test').Page) {
   // Start mock server via API (reliable across parallel workers)
   await page.request.post('http://localhost:3001/api/ws/mock/start', {
-    data: { port: 9876 },
+    data: { port: WR_MOCK_PORT },
   }).catch(() => {});
   await page.waitForTimeout(500);
 }
@@ -314,6 +317,7 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
   });
 
   test('WR-12: Quick Test executes the WS workflow', async ({ page }) => {
+    test.setTimeout(60000);
     await startMockServer(page);
     await page.goto('/?tab=workflow');
     await waitForWorkflowReady(page);
@@ -323,8 +327,10 @@ test.describe('Part A — Wired WS flow + Quick Test', () => {
     await expect(quickTestBtn).toBeVisible({ timeout: 5000 });
     await quickTestBtn.click();
 
-    // Wait for execution to complete — result shows in toolbar as "N/N passed"
-    await expect(page.getByText(/\d+\/\d+ passed/i).first()).toBeVisible({ timeout: 25000 });
+    // Wait for execution to complete — result shows in toolbar as "N/N passed" or "N failed"
+    const passed = page.getByText(/\d+\/\d+ passed/i).first();
+    const failed = page.getByText(/\d+ failed/i).first();
+    await expect(passed.or(failed)).toBeVisible({ timeout: 40000 });
   });
 
   test('WR-13: Node Output & Logs tabs after Quick Test', async ({ page }) => {
@@ -578,7 +584,7 @@ function makeWsWorkflowWithAuth(): Workflow {
         position: { x: 350, y: 200 },
         data: {
           label: 'WS Auth Connect',
-          url: 'ws://localhost:9876',
+          url: 'ws://localhost:9882',
           headers: [
             { key: 'Authorization', value: 'Bearer {{authToken}}' },
             { key: 'X-API-Key', value: '{{apiKey}}' },

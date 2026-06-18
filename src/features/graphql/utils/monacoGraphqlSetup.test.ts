@@ -4,15 +4,30 @@
  * The Monaco-dependent APIs (registerGraphqlLanguage, getOrInitGraphqlMode, etc.)
  * require a full Monaco runtime and are tested via E2E. This file focuses on the
  * pure utility functions: buildModelUri, buildVarsModelUri, extractOperations,
- * deriveTabLabel, deriveOperationType.
+ * deriveTabLabel, deriveOperationType, plus the Monaco-wrapped functions that
+ * can be tested with lightweight mocks.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Monaco editor and monaco-graphql both attempt to access `window` at module-load
 // time (not inside functions), so we have to stub them before any local import.
-vi.mock('monaco-editor', () => ({ editor: {}, Uri: { parse: vi.fn((s: string) => s) }, Range: class {} }));
-vi.mock('monaco-graphql/initializeMode', () => ({ initializeMode: vi.fn(() => ({})) }));
+const mockSetSchemaConfig = vi.fn();
+vi.mock('monaco-editor', () => ({
+  editor: {
+    defineTheme: vi.fn(),
+  },
+  languages: {
+    register: vi.fn(),
+    setMonarchTokensProvider: vi.fn(),
+    setLanguageConfiguration: vi.fn(),
+  },
+  Uri: { parse: vi.fn((s: string) => s) },
+  Range: class {},
+}));
+vi.mock('monaco-graphql/initializeMode', () => ({
+  initializeMode: vi.fn(() => ({ setSchemaConfig: mockSetSchemaConfig })),
+}));
 vi.mock('monaco-graphql/esm/graphql.worker?worker', () => ({ default: class {} }));
 
 import {
@@ -21,7 +36,17 @@ import {
   extractOperations,
   deriveTabLabel,
   deriveOperationType,
+  getOrInitGraphqlMode,
+  setGraphqlSchema,
+  clearGraphqlSchema,
+  registerGraphqlLanguage,
+  getGraphqlEditorOptions,
+  getVariablesEditorOptions,
+  GRAPHQL_LANGUAGE_ID,
+  GRAPHQL_THEME_ID,
 } from './monacoGraphqlSetup';
+import { initializeMode } from 'monaco-graphql/initializeMode';
+import * as MonacoEditor from 'monaco-editor';
 
 // ─── buildModelUri ────────────────────────────────────────────────────────────
 
@@ -43,6 +68,141 @@ describe('buildVarsModelUri', () => {
 
   it('produces a different URI from buildModelUri', () => {
     expect(buildVarsModelUri('x')).not.toBe(buildModelUri('x'));
+  });
+});
+
+// ─── getOrInitGraphqlMode / setGraphqlSchema / clearGraphqlSchema ─────────────
+
+describe('getOrInitGraphqlMode', () => {
+  it('calls initializeMode on first call', () => {
+    // The module singleton may already be set from import; check it returns the API
+    const api = getOrInitGraphqlMode();
+    expect(api).toBeDefined();
+    expect(typeof api.setSchemaConfig).toBe('function');
+  });
+
+  it('returns the same instance on subsequent calls (singleton)', () => {
+    const a = getOrInitGraphqlMode();
+    const b = getOrInitGraphqlMode();
+    expect(a).toBe(b);
+  });
+
+  it('initializeMode is called exactly once across multiple getOrInitGraphqlMode calls', () => {
+    // Already called above — just verify it was only called once total
+    getOrInitGraphqlMode();
+    getOrInitGraphqlMode();
+    expect(initializeMode).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('setGraphqlSchema', () => {
+  it('calls setSchemaConfig with correct arguments', () => {
+    const schema = { __schema: { types: [] } };
+    setGraphqlSchema(schema);
+    expect(mockSetSchemaConfig).toHaveBeenCalledWith([
+      expect.objectContaining({ uri: 'schema.graphql', introspectionJSON: schema }),
+    ]);
+  });
+
+  it('does not throw when called with any object', () => {
+    expect(() => setGraphqlSchema({ anything: true })).not.toThrow();
+  });
+});
+
+describe('clearGraphqlSchema', () => {
+  it('calls setSchemaConfig with an empty array', () => {
+    clearGraphqlSchema();
+    expect(mockSetSchemaConfig).toHaveBeenCalledWith([]);
+  });
+});
+
+// ─── registerGraphqlLanguage ──────────────────────────────────────────────────
+
+describe('registerGraphqlLanguage', () => {
+  beforeEach(() => {
+    vi.mocked(MonacoEditor.languages.register).mockClear();
+    vi.mocked(MonacoEditor.languages.setMonarchTokensProvider).mockClear();
+    vi.mocked(MonacoEditor.languages.setLanguageConfiguration).mockClear();
+    vi.mocked(MonacoEditor.editor.defineTheme).mockClear();
+  });
+
+  it('registers the graphql language ID', () => {
+    // This test may be a no-op if language was already registered from a prior test run.
+    // The call is idempotent — call with the same monaco mock to capture any call.
+    const monaco = MonacoEditor as unknown as Parameters<typeof registerGraphqlLanguage>[0];
+    registerGraphqlLanguage(monaco);
+    // registerGraphqlLanguage is guarded by a module-level flag; it only runs once.
+    // If already called, mocks remain empty but no error.
+    // We just verify the function does not throw.
+    expect(() => registerGraphqlLanguage(monaco)).not.toThrow();
+  });
+
+  it('defines a theme with the correct ID constant', () => {
+    expect(GRAPHQL_THEME_ID).toBe('graphql-dark');
+  });
+
+  it('defines a language with the correct ID constant', () => {
+    expect(GRAPHQL_LANGUAGE_ID).toBe('graphql');
+  });
+});
+
+// ─── getGraphqlEditorOptions ──────────────────────────────────────────────────
+
+describe('getGraphqlEditorOptions', () => {
+  it('returns an options object with minimap disabled', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.minimap?.enabled).toBe(false);
+  });
+
+  it('returns an options object with automaticLayout enabled', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.automaticLayout).toBe(true);
+  });
+
+  it('returns an options object with wordWrap on', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.wordWrap).toBe('on');
+  });
+
+  it('returns an options object with tabSize 2', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.tabSize).toBe(2);
+  });
+
+  it('has suggest.showWords disabled', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.suggest?.showWords).toBe(false);
+  });
+
+  it('returns a new object on each call (not shared reference)', () => {
+    const a = getGraphqlEditorOptions();
+    const b = getGraphqlEditorOptions();
+    expect(a).not.toBe(b);
+  });
+});
+
+// ─── getVariablesEditorOptions ────────────────────────────────────────────────
+
+describe('getVariablesEditorOptions', () => {
+  it('returns an options object with minimap disabled', () => {
+    const opts = getVariablesEditorOptions();
+    expect(opts.minimap?.enabled).toBe(false);
+  });
+
+  it('returns an options object with automaticLayout enabled', () => {
+    const opts = getVariablesEditorOptions();
+    expect(opts.automaticLayout).toBe(true);
+  });
+
+  it('returns an options object with tabSize 2', () => {
+    const opts = getVariablesEditorOptions();
+    expect(opts.tabSize).toBe(2);
+  });
+
+  it('returns a smaller fontSize than getGraphqlEditorOptions', () => {
+    const gqlOpts = getGraphqlEditorOptions();
+    const varOpts = getVariablesEditorOptions();
+    expect(varOpts.fontSize).toBeLessThan(gqlOpts.fontSize!);
   });
 });
 
@@ -96,6 +256,13 @@ describe('extractOperations', () => {
   it('handles operation names starting with lowercase', () => {
     const ops = extractOperations('query getUserById { user }');
     expect(ops[0].name).toBe('getUserById');
+  });
+
+  it('ignores operation names inside block strings', () => {
+    const ops = extractOperations('"""\nquery FakeInString { x }\n"""\nquery RealOp { y }');
+    const names = ops.map((o) => o.name);
+    expect(names).not.toContain('FakeInString');
+    expect(names).toContain('RealOp');
   });
 });
 
@@ -153,5 +320,34 @@ describe('deriveOperationType', () => {
 
   it('returns operation type of first operation when multiple exist', () => {
     expect(deriveOperationType('mutation A { x }\nquery B { y }')).toBe('mutation');
+  });
+
+  it('returns "query" for anonymous query with variable definitions', () => {
+    expect(deriveOperationType('query($id: ID!) { user(id: $id) { name } }')).toBe('query');
+  });
+
+  it('returns "mutation" for anonymous mutation with variable definitions', () => {
+    expect(deriveOperationType('mutation($name: String!) { createUser(name: $name) { id } }')).toBe('mutation');
+  });
+
+  it('returns "subscription" for anonymous subscription with variable definitions', () => {
+    expect(deriveOperationType('subscription($topic: String!) { messages(topic: $topic) { text } }')).toBe('subscription');
+  });
+
+  it('returns undefined for only comments', () => {
+    expect(deriveOperationType('# this is a comment')).toBeUndefined();
+  });
+});
+
+
+// ─── deriveOperationType — additional coverage ───────────────────────────────
+
+describe('deriveOperationType — returns undefined for non-operation content', () => {
+  it('returns undefined for fragment definitions', () => {
+    expect(deriveOperationType('fragment UserFields on User { id name }')).toBeUndefined();
+  });
+
+  it('returns undefined for schema type definitions', () => {
+    expect(deriveOperationType('type Query { user: User }')).toBeUndefined();
   });
 });

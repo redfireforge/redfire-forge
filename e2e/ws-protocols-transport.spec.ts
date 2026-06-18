@@ -8,8 +8,8 @@
  * tested manually or in a Docker-enabled CI pipeline.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const MOCK_URL = 'ws://localhost:9876';
 
 /* ── Ensure mock echo server is running ──────────────── */
@@ -25,11 +25,6 @@ test.beforeAll(async ({ browser }) => {
 });
 
 /* ── helpers ─────────────────────────────────────────── */
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
 
 async function connectTo(page: Page, url = MOCK_URL) {
   await switchLeftTab(page, 'connect');

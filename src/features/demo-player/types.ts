@@ -128,6 +128,9 @@ export interface DemoProgress {
   lessonSteps: Record<string, number>;
   lastDomain?: string;
   lastLesson?: string;
+  /** Last navigation view the user was on — used to restore position after a hard refresh.
+   *  Never stored as 'live' since live mode requires setup to have run. */
+  lastView?: 'domains' | 'lessons' | 'concept';
   speed: SpeedMultiplier;
 }
 

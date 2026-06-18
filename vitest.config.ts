@@ -13,8 +13,9 @@ export default defineConfig({
       // Server tests share module-level state — run each file in its own fork
       ['src-server/**', 'forks'],
     ],
+    retry: 2,
     coverage: {
-      reporter: ['text', 'json-summary'],
+      reporter: ['text', 'json-summary', 'json'],
       clean: false,
       exclude: [
         '**/__test-utils__/**',

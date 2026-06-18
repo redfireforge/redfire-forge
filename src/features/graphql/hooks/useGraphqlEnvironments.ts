@@ -2,7 +2,7 @@
  * useGraphqlEnvironments — Phase 1E
  *
  * Manages the list of named GraphQL environments and their variables.
- * Persists to localStorage under `gql_environments_v1`.
+ * Persists under `gql_environments_v1` via the shared storage abstraction.
  *
  * Rules:
  *   • Only one environment can be active at a time (isActive: true)
@@ -10,36 +10,16 @@
  *   • Import supports both Postman format (values[]) and native format (variables[])
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
+import { readKey, writeKey } from '../../../shared/utils/storage';
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'gql_environments_v1';
 
-function loadEnvironments(): GraphqlEnvironment[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return (parsed as unknown[]).filter(
-      (e): e is GraphqlEnvironment =>
-        e !== null &&
-        typeof e === 'object' &&
-        typeof (e as Record<string, unknown>).id === 'string' &&
-        typeof (e as Record<string, unknown>).name === 'string' &&
-        Array.isArray((e as Record<string, unknown>).variables),
-    );
-  } catch {
-    return [];
-  }
-}
-
 function saveEnvironments(envs: GraphqlEnvironment[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(envs));
-  } catch { /* quota exceeded or private browsing — no-op */ }
+  writeKey(STORAGE_KEY, JSON.stringify(envs)).catch(() => { /* quota exceeded or private browsing — no-op */ });
 }
 
 // ─── ID generator ─────────────────────────────────────────────────────────────
@@ -85,10 +65,39 @@ export interface UseGraphqlEnvironmentsReturn {
 }
 
 export function useGraphqlEnvironments(): UseGraphqlEnvironmentsReturn {
-  const [environments, setEnvironments] = useState<GraphqlEnvironment[]>(loadEnvironments);
+  const [environments, setEnvironments] = useState<GraphqlEnvironment[]>([]);
+  const loadedRef = useRef(false);
 
-  // Persist on every change
+  // Load from storage on mount — use functional updater to avoid overwriting
+  // any user mutations that happened while the async read was in flight.
   useEffect(() => {
+    readKey(STORAGE_KEY).then((raw) => {
+      if (!raw) {
+        loadedRef.current = true;
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (!Array.isArray(parsed)) { loadedRef.current = true; return; }
+        const validated = (parsed as unknown[]).filter(
+          (e): e is GraphqlEnvironment =>
+            e !== null &&
+            typeof e === 'object' &&
+            typeof (e as Record<string, unknown>).id === 'string' &&
+            typeof (e as Record<string, unknown>).name === 'string' &&
+            Array.isArray((e as Record<string, unknown>).variables),
+        );
+        setEnvironments((prev) => prev.length > 0 ? prev : validated);
+      } catch { /* corrupt data — ignore */ }
+      loadedRef.current = true;
+    }).catch(() => {
+      loadedRef.current = true;
+    });
+  }, []);
+
+  // Persist on every change (skip the initial empty state before load is done)
+  useEffect(() => {
+    if (!loadedRef.current) return;
     saveEnvironments(environments);
   }, [environments]);
 

@@ -164,6 +164,24 @@ describe('GraphqlSchemaExplorer — loaded state', () => {
     expect(screen.getByTestId('gql-se-export-sdl-btn')).toBeTruthy();
   });
 
+  it('clicking export SDL button triggers download', () => {
+    // Mock URL.createObjectURL and the anchor click
+    const mockCreateObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    const mockRevokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: mockCreateObjectURL,
+      revokeObjectURL: mockRevokeObjectURL,
+    });
+
+    render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" />);
+    const exportBtn = screen.getByTestId('gql-se-export-sdl-btn');
+    fireEvent.click(exportBtn);
+    expect(mockCreateObjectURL).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
   it('selecting a type while in a kind filter resets filter to ALL when type is different kind', () => {
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" onIntrospect={defaultIntrospect} />);
     // First filter to ENUM (so only Role is visible)
@@ -200,5 +218,27 @@ describe('GraphqlSchemaExplorer — loaded state', () => {
     fireEvent.click(showAllBtn);
     // After reset, UserInput should appear
     expect(screen.getByTestId('gql-se-type-UserInput')).toBeTruthy();
+  });
+
+  it('selecting a type then applying a mismatched kind filter clears the selection', () => {
+    render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" />);
+    // First select an OBJECT type (User)
+    fireEvent.click(screen.getByTestId('gql-se-type-User'));
+    expect(screen.getByTestId('gql-se-detail-panel')).toBeTruthy();
+    // Now filter to ENUM — User is OBJECT, so it should be cleared
+    fireEvent.click(screen.getByTitle('Enum (1)'));
+    // The detail panel should no longer show User (selection cleared)
+    // The detail panel placeholder shows when no type is selected
+    expect(screen.queryByTestId('gql-se-type-User')).toBeNull(); // not in list under ENUM
+  });
+
+  it('selecting a type with matching kind filter does NOT reset filter', () => {
+    render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" />);
+    // Filter to OBJECT first (User is OBJECT)
+    fireEvent.click(screen.getByTitle('Object (2)'));
+    // Click User (matches current OBJECT filter) — should NOT reset to ALL
+    fireEvent.click(screen.getByTestId('gql-se-type-User'));
+    // Still filtered to OBJECT (User and Query still visible, Role not)
+    expect(screen.queryByTestId('gql-se-type-Role')).toBeNull();
   });
 });

@@ -290,7 +290,7 @@ describe('ResponseDetailModal', () => {
         failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
       });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('Validation Failures (1)')).toBeInTheDocument();
+      expect(screen.getByText('Validation Failures')).toBeInTheDocument();
       expect(screen.getByText('$.id')).toBeInTheDocument();
     });
 
@@ -334,7 +334,7 @@ describe('ResponseDetailModal', () => {
         responseBody: '{"result":"ok"}',
       });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
+      expect(screen.getByText('Response Body')).toBeInTheDocument();
     });
 
     it('shows URL in meta row', () => {
@@ -416,7 +416,7 @@ describe('ResponseDetailModal', () => {
     it('handles non-JSON response body gracefully', () => {
       const r = makeResult({ responseBody: 'plain text not json' });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
+      expect(screen.getByText('Response Body')).toBeInTheDocument();
     });
 
     it('masks authorization header case-insensitively', () => {

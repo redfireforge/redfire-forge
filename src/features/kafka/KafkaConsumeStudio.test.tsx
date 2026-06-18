@@ -655,14 +655,14 @@ describe('KafkaConsumeStudio — Form Fields', () => {
   it('calls setConsumeDraft when JSONPath filter changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('JSONPath'), { target: { value: '$.status' } });
+    fireEvent.change(screen.getByLabelText('JSONPath expression'), { target: { value: '$.status' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPath: '$.status' });
   });
 
   it('calls setConsumeDraft when JSONPath Equals filter changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('JSONPath Equals'), { target: { value: 'ACTIVE' } });
+    fireEvent.change(screen.getByLabelText('JSONPath expected value'), { target: { value: 'ACTIVE' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPathEquals: 'ACTIVE' });
   });
 });

@@ -128,7 +128,7 @@ async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(300);
 
-  // Switch to Connect tab — the studio may have auto-navigated to Compose after
+  // Switch to Connect tab — the studio may have auto-navigated to Send after
   // the last step's connection, leaving the URL input and TLS panel out of the DOM.
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
@@ -288,7 +288,7 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       id: 'tls-send',
       title: 'Send & Receive Over TLS',
       description:
-        'Switch to Compose and send a message. The echo server mirrors it back — proving the encrypted round-trip works. The data travels through the TLS tunnel: encrypted in transit, decrypted at each end. This is identical to a plain ws:// connection from the application\'s perspective.',
+        'Switch to **Send** and send a message. The echo server mirrors it back — proving the encrypted round-trip works. The data travels through the TLS tunnel: encrypted in transit, decrypted at each end. This is identical to a plain ws:// connection from the application\'s perspective.',
       highlight: WS.SEND_BTN,
       preAction: async (ctx) => {
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);

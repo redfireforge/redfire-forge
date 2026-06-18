@@ -149,6 +149,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       preAction: async (ctx) => {
         await ctx.click(KAFKA.SCHEMA_TAB);
         await ctx.delay(400);
+        document.querySelectorAll('.kafka-schema-subject-table tbody tr.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
       },
     },
 

@@ -27,7 +27,7 @@ describe('ws-test-runner lesson', () => {
   });
 
   it('sets estimated minutes', () => {
-    expect(wsTestRunnerLesson.estimatedMinutes).toBe(3);
+    expect(wsTestRunnerLesson.estimatedMinutes).toBe(4);
   });
 
   it('initialTab is not set (avoids auto-exit on tab switch to results)', () => {
@@ -91,8 +91,8 @@ describe('ws-test-runner lesson', () => {
 
   // ── Steps ──
 
-  it('has 6 steps', () => {
-    expect(wsTestRunnerLesson.steps).toHaveLength(6);
+  it('has 7 steps', () => {
+    expect(wsTestRunnerLesson.steps).toHaveLength(7);
   });
 
   it('all steps have unique IDs', () => {
@@ -167,15 +167,15 @@ describe('ws-test-runner lesson', () => {
     expect(s.preAction).toBeDefined();
   });
 
-  it('step 3 (wfhr-variables) preAction skips selection when vars section is already visible', async () => {
-    const vars = document.createElement('div');
-    vars.className = 'workflow-vars-section';
-    document.body.appendChild(vars);
+  it('step 3 (wfhr-variables) preAction skips selection when a variable row is already present', async () => {
+    // Guard now checks for .wfp-var-row (at least one variable loaded), not just .workflow-vars-section
+    const row = document.createElement('div');
+    row.className = 'wfp-var-row';
+    document.body.appendChild(row);
     const ctx = makeCtx();
     await wsTestRunnerLesson.steps[2].preAction!(ctx);
-    // No click should have happened since vars section exists
     expect(ctx.click).not.toHaveBeenCalled();
-    document.body.removeChild(vars);
+    document.body.removeChild(row);
   });
 
   it('step 3 (wfhr-variables) preAction selects WS Echo Demo when vars section is missing', async () => {
@@ -327,6 +327,67 @@ describe('ws-test-runner lesson', () => {
   it('step 6 description mentions Workflow Results Explorer', () => {
     const s = wsTestRunnerLesson.steps[5];
     expect(s.description).toContain('Workflow Results Explorer');
+  });
+
+  it('step 7 (wfhr-request-details) has action, preAction, verify and highlights results-view-tabs', () => {
+    const s = wsTestRunnerLesson.steps[6];
+    expect(s.id).toBe('wfhr-request-details');
+    expect(s.highlight).toBe('.results-view-tabs');
+    expect(s.action).toBeDefined();
+    expect(s.preAction).toBeDefined();
+    expect(s.verify).toBe('.response-detail-modal');
+    expect(s.description).toContain('Request Details');
+    expect(s.description).toContain('Response Detail');
+  });
+
+  it('step 7 (wfhr-request-details) preAction skips navigation when results tab is present', async () => {
+    const tabs = document.createElement('div');
+    tabs.className = 'results-view-tabs';
+    document.body.appendChild(tabs);
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    document.body.removeChild(tabs);
+  });
+
+  it('step 7 (wfhr-request-details) preAction navigates to results when results tab is absent', async () => {
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('results');
+  });
+
+  it('step 7 (wfhr-request-details) preAction activates Request Details sub-tab when not active', async () => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'results-view-tabs';
+    const btn = document.createElement('button');
+    btn.className = 'results-view-tab'; // not active
+    btn.textContent = 'Request Details';
+    wrapper.appendChild(btn);
+    document.body.appendChild(wrapper);
+    const ctx = makeCtx();
+    await wsTestRunnerLesson.steps[6].preAction!(ctx);
+    document.body.removeChild(wrapper);
+    // btn.click() was called since class doesn't contain 'active'
+    // (no ripple in preAction — direct DOM click)
+    expect(btn.textContent).toBe('Request Details');
+  });
+
+  it('step 7 (wfhr-request-details) action clicks Request Details tab then first clickable-row', async () => {
+    const s = wsTestRunnerLesson.steps[6];
+    // Set up results-tab-requests button
+    const tabBtn = document.createElement('button');
+    tabBtn.setAttribute('data-testid', 'results-tab-requests');
+    document.body.appendChild(tabBtn);
+    // Set up a clickable row for action to click
+    const row = document.createElement('tr');
+    row.className = 'clickable-row';
+    document.body.appendChild(row);
+    const ctx = makeCtx();
+    await s.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="results-tab-requests"]');
+    expect(ctx.click).toHaveBeenCalledWith('.clickable-row');
+    document.body.removeChild(tabBtn);
+    document.body.removeChild(row);
   });
 
   // ── Setup / Cleanup ──

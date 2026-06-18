@@ -191,7 +191,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
     {};
 
   return (
-    <div className={rootClass} style={rootStyle}>
+    <div className={rootClass} style={rootStyle} data-testid="console">
       {mode === 'docked' && (
         <div className="wf-console-resize-handle" onMouseDown={onDockedResizeStart} />
       )}

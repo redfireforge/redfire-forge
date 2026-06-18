@@ -131,8 +131,8 @@ export default function LiveDemo({
 
   return (
     <>
-      {/* Spotlight ring on target element */}
-      {targetFound && step.highlight && (
+      {/* Spotlight ring on target element — hidden during preAction to avoid mis-positioned flash */}
+      {targetFound && step.highlight && stepPhase !== 'pre' && (
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 

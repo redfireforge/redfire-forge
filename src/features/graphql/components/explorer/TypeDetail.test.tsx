@@ -125,6 +125,14 @@ describe('TypeDetail — fields tab (OBJECT)', () => {
     const btn = screen.getByTestId('gql-se-dtab-fields');
     expect(btn.textContent).toContain(`(${type.fields?.length})`);
   });
+
+  it('shows Try column header when onInsertField is provided', () => {
+    const onInsertField = vi.fn();
+    const { container } = render(
+      <TypeDetail {...defaultProps} type={makeObjectType()} onInsertField={onInsertField} />,
+    );
+    expect(container.querySelector('.gql-se-fth--try')).toBeTruthy();
+  });
 });
 
 describe('TypeDetail — SDL tab', () => {
@@ -152,6 +160,15 @@ describe('TypeDetail — SDL tab', () => {
     fireEvent.click(screen.getByTestId('gql-se-copy-sdl-btn'));
     await vi.waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(makeObjectType().sdlFragment);
+    });
+  });
+
+  it('shows copied state after SDL copy succeeds', async () => {
+    render(<TypeDetail {...defaultProps} type={makeObjectType()} detailTab="sdl" />);
+    fireEvent.click(screen.getByTestId('gql-se-copy-sdl-btn'));
+    await vi.waitFor(() => {
+      expect(screen.getByText('✓ Copied')).toBeTruthy();
+      expect(screen.getByLabelText('Copied to clipboard')).toBeTruthy();
     });
   });
 
@@ -221,6 +238,23 @@ describe('TypeDetail — UNION type', () => {
       expect(defaultProps.onSelectType).toHaveBeenCalledWith('User');
     }
   });
+
+  it('renders non-navigable union members as static text', () => {
+    const unionType: GraphqlTypeNode = {
+      name: 'MixedUnion',
+      kind: 'UNION',
+      possibleTypes: ['User', 'UnknownType'],
+    };
+    render(
+      <TypeDetail
+        {...defaultProps}
+        type={unionType}
+        navigableTypes={new Set(['User'])}
+      />,
+    );
+    expect(screen.getAllByText('UnknownType').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/navigate to type UnknownType/i)).toBeNull();
+  });
 });
 
 describe('TypeDetail — SCALAR type', () => {
@@ -233,5 +267,18 @@ describe('TypeDetail — SCALAR type', () => {
     };
     render(<TypeDetail {...defaultProps} type={scalarType} />);
     expect(screen.getByText(/custom scalar/i)).toBeTruthy();
+  });
+});
+
+describe('TypeDetail — empty type', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows empty-fields note for non-scalar types with no members', () => {
+    const emptyType: GraphqlTypeNode = {
+      name: 'EmptyInterface',
+      kind: 'INTERFACE',
+    };
+    render(<TypeDetail {...defaultProps} type={emptyType} />);
+    expect(screen.getByText(/this type has no fields defined/i)).toBeTruthy();
   });
 });
