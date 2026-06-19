@@ -8,6 +8,19 @@
  *       every consumer that needs attention.
  */
 
+// ─── App-level Navigation ───────────────────────────────────────
+export const APP = {
+  AB_SETTINGS:         '[data-testid="ab-settings"]',
+  AB_PROTOCOLS:        '[data-testid="ab-protocols"]',
+  NAV_TAB_ENVS:        '[data-testid="nav-tab-environments"]',
+  NAV_TAB_WS:          '[data-testid="nav-tab-websocket-studio"]',
+  NAV_TAB_SSE:         '[data-testid="nav-tab-sse-studio"]',
+  ENV_MANAGER:         '.env-manager',
+  SVC_ENV_TABLE:       '.svc-env-table',
+  HEADER_ENV_SELECT:   '.header-select-group:first-child select',
+  HEADER_SVC_SELECT:   '.header-select-group:nth-child(2) select',
+} as const;
+
 // ─── WebSocket Studio: Mode & Tabs ──────────────────────────────
 export const WS = {
   // Mode toggle
@@ -111,6 +124,8 @@ export const WS = {
   GQL_OPERATION_NAME:   '[data-testid="gql-operation-name"]',
   GQL_VARIABLES:        '[data-testid="gql-variables"]',
   GQL_OP_ID:            '[data-testid="gql-op-id"]',
+  GQL_TAB_QUERY:        '[data-testid="gql-tab-query"]',
+  GQL_TAB_VARIABLES:    '[data-testid="gql-tab-variables"]',
 
   // Saved Profiles
   SAVED_CONNECTIONS:    '[data-testid="saved-connections"]',
@@ -242,6 +257,8 @@ export const WS = {
   TLS_CA_CERT:        '[data-testid="tls-ca-cert"]',
   TLS_CLIENT_CERT:    '[data-testid="tls-client-cert"]',
   TLS_CLIENT_KEY:     '[data-testid="tls-client-key"]',
+  TLS_CLOSE:          '[data-testid="tls-close"]',
+  TLS_CANCEL:         '[data-testid="tls-cancel"]',
 
   // Transport badge (shown when connected)
   TRANSPORT_BADGE:    '[data-testid="transport-badge"]',
@@ -282,6 +299,7 @@ export const WS = {
 
 // ─── SSE Studio ─────────────────────────────────────────────────
 export const SSE = {
+  NAV_TAB:             '[data-testid="nav-tab-sse-studio"]',
   STUDIO:              '[data-testid="sse-studio"]',
   URL_INPUT:           '[data-testid="sse-url-input"]',
   CONNECT_BTN:         '[data-testid="sse-connect-btn"]',
@@ -652,6 +670,72 @@ export const GQL = {
   TRACING_WATERFALL:   '[data-testid="gql-tracing-waterfall"]',
   TRACING_SORT:        '[data-testid="gql-tracing-sort"]',
   HISTOGRAM_STRIP:     '[data-testid="gql-histogram-strip"]',
+
+  // ── Activity Bar — Phase 3A ───────────────────────────────────────────────
+  ACTIVITY_BAR:        '[data-testid="gql-activity-bar"]',
+  ACTIVITY_HISTORY:    '[data-testid="gql-activity-history"]',
+  ACTIVITY_COLLECTIONS:'[data-testid="gql-activity-collections"]',
+  ACTIVITY_MOCK:       '[data-testid="gql-activity-mock"]',
+
+  // ── History Panel — Phase 3A ────────────────────────────────────────────
+  HISTORY_PANEL:       '[data-testid="gql-history-panel"]',
+  HISTORY_SEARCH:      '[data-testid="gql-history-search"]',
+  HISTORY_ENTRY:       '[data-testid="gql-history-entry"]',
+  HISTORY_PREVIEW:     '[data-testid="gql-history-preview"]',
+  HISTORY_LOAD:        '[data-testid="gql-history-load"]',
+  HISTORY_RUN:         '[data-testid="gql-history-run"]',
+  HISTORY_SAVE_TO_COL: '[data-testid="gql-history-save-to-col"]',
+  HISTORY_CLEAR:       '[data-testid="gql-history-clear"]',
+  HISTORY_MAX_ITEMS:   '[data-testid="gql-history-max-items"]',
+  HISTORY_SETTINGS:    '[data-testid="gql-history-settings"]',
+
+  // ── Collections Panel — Phase 3A ────────────────────────────────────────
+  COLLECTIONS_PANEL:   '[data-testid="gql-collections-panel"]',
+  COLLECTIONS_NEW:     '[data-testid="gql-collections-new"]',
+  COLLECTIONS_EXPORT:  '[data-testid="gql-collections-export"]',
+  COLLECTIONS_IMPORT:  '[data-testid="gql-collections-import"]',
+  COLLECTIONS_SEARCH:  '[data-testid="gql-collections-search"]',
+  COLLECTIONS_TREE:    '[data-testid="gql-collections-tree"]',
+  COL_NODE:            '[data-testid="gql-col-node"]',
+  COL_RUN_ALL:         '[data-testid="gql-col-run-all"]',
+  COL_ITEM:            '[data-testid="gql-col-item"]',
+  COL_SAVE_CURRENT:    '[data-testid="gql-col-save-current"]',
+  COL_VARS_EDITOR:     '[data-testid="gql-col-vars-editor"]',
+  SAVE_COL_MODAL:      '[data-testid="gql-save-col-modal"]',
+  SAVE_COL_NAME:       '[data-testid="gql-save-col-name"]',
+  SAVE_COL_SAVE:       '[data-testid="gql-save-col-save"]',
+  SAVE_COL_CANCEL:     '[data-testid="gql-save-col-cancel"]',
+
+  // ── Collection Runner — Phase 3A ────────────────────────────────────────
+  RUNNER_PANEL:        '[data-testid="gql-runner-panel"]',
+  RUNNER_TABLE:        '[data-testid="gql-runner-table"]',
+  RUNNER_CONSOLE:      '[data-testid="gql-runner-console"]',
+  RUNNER_PAUSE:        '[data-testid="gql-runner-pause"]',
+  RUNNER_RESUME:       '[data-testid="gql-runner-resume"]',
+  RUNNER_ABORT:        '[data-testid="gql-runner-abort"]',
+  RUNNER_EXPORT:       '[data-testid="gql-runner-export"]',
+
+  // ── Schema Diff — Phase 3D ──────────────────────────────────────────────
+  DIFF_MODAL:          '[data-testid="gql-diff-modal"]',
+  DIFF_ROW:            '[data-testid="gql-diff-row"]',
+  DIFF_ACK_BTN:        '[data-testid="gql-diff-ack-btn"]',
+  DIFF_EXPORT_JSON:    '[data-testid="gql-diff-export-json"]',
+  DIFF_EXPORT_HTML:    '[data-testid="gql-diff-export-html"]',
+  DIFF_SDL_VIEW:       '[data-testid="gql-diff-sdl-view"]',
+
+  // ── Mock Panel — Phase 3E ───────────────────────────────────────────────
+  MOCK_PANEL:          '[data-testid="gql-mock-panel"]',
+  MOCK_TOGGLE:         '[data-testid="gql-mock-toggle"]',
+  MOCK_GUARD:          '[data-testid="gql-mock-guard"]',
+  MOCK_SCHEMA_SOURCE:  '[data-testid="gql-mock-schema-source"]',
+  MOCK_LATENCY_SLIDER: '[data-testid="gql-mock-latency-slider"]',
+  MOCK_RESOLVERS_LIST: '[data-testid="gql-mock-resolvers-list"]',
+  MOCK_SCENARIOS:      '[data-testid="gql-mock-scenarios"]',
+  MOCK_SCALAR_FACTORIES:'[data-testid="gql-mock-scalar-factories"]',
+  MOCK_LOG:            '[data-testid="gql-mock-log"]',
+
+  // ── Batch Results — Phase 3F ────────────────────────────────────────────
+  BATCH_RESULTS:       '[data-testid="gql-batch-results"]',
 
   // ── Workflow nodes (Phase 4) ───────────────────────────────────────────────
   WF_QUERY_PANEL:      '[data-testid="gql-wf-query-panel"]',

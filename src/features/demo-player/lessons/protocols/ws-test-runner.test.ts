@@ -8,6 +8,9 @@ import { makeCtx } from './ws-test-utils';
 describe('ws-test-runner lesson', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   // ── Metadata ──
@@ -472,6 +475,120 @@ describe('ws-test-runner lesson', () => {
     const ctx = makeCtx();
     await expect(wsTestRunnerLesson.setup!(ctx)).resolves.toBeUndefined();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+  });
+
+  it('cleanup skips stop when mock was already running before setup', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      if (String(url).includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    });
+    await wsTestRunnerLesson.setup!(makeCtx());
+    const fetchSpy = vi.spyOn(global, 'fetch');
+    await wsTestRunnerLesson.cleanup!(makeCtx());
+    expect(fetchSpy).not.toHaveBeenCalledWith('/api/ws/mock/stop', expect.anything());
+  });
+
+  it('selectWsEchoDemo falls back to startsWith match when exact name absent', async () => {
+    const step = wsTestRunnerLesson.steps.find((s) => s.id === 'wfhr-pick')!;
+    const panel = document.createElement('div');
+    panel.className = 'wfp-dropdown-panel';
+    const item = document.createElement('div');
+    item.className = 'wfp-dropdown-item';
+    item.textContent = 'WS Echo Demo (copy)';
+    const clickSpy = vi.fn();
+    item.addEventListener('click', clickSpy);
+    panel.appendChild(item);
+    document.body.appendChild(panel);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+    document.body.removeChild(panel);
+  });
+
+  it('runWorkflow completes without scroll when completion banner never appears', async () => {
+    const runBtn = document.createElement('button');
+    runBtn.className = 'btn btn-primary';
+    const formActions = document.createElement('div');
+    formActions.className = 'form-actions';
+    const configForm = document.createElement('div');
+    configForm.className = 'config-form';
+    formActions.appendChild(runBtn);
+    configForm.appendChild(formActions);
+    document.body.appendChild(configForm);
+
+    const ctx = makeCtx();
+    (ctx.delay as ReturnType<typeof vi.fn>).mockImplementation(async (ms: number) => {
+      await new Promise((r) => setTimeout(r, Math.min(ms, 5)));
+    });
+    await wsTestRunnerLesson.steps[3].action!(ctx);
+    expect(document.querySelector('.completion-section')).toBeNull();
+    document.body.removeChild(configForm);
+  }, 20000);
+
+  it('cleanup handles fetch error gracefully', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      if (String(url).includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: false }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      if (String(url).includes('/api/ws/mock/stop')) {
+        return Promise.reject(new Error('stop failed'));
+      }
+      return Promise.resolve(new Response('{}', { headers: { 'Content-Type': 'application/json' } }));
+    });
+    await wsTestRunnerLesson.setup!(makeCtx());
+    await expect(wsTestRunnerLesson.cleanup!(makeCtx())).resolves.toBeUndefined();
+  });
+
+  it('setup aborts hung status check via timeout callback', async () => {
+    vi.useFakeTimers();
+    // Mock fetch to hang but reject when the AbortSignal fires
+    vi.spyOn(global, 'fetch').mockImplementation((_url, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = (init as RequestInit | undefined)?.signal;
+        if (signal) {
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted', 'AbortError'))
+          );
+        }
+      });
+    });
+    const ctx = makeCtx();
+    const setupPromise = wsTestRunnerLesson.setup!(ctx);
+    await vi.advanceTimersByTimeAsync(2100);
+    await setupPromise;
+    vi.useRealTimers();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+  });
+
+  it('cleanup aborts hung stop fetch via timeout callback', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url, init) => {
+      if (String(url).includes('/api/ws/mock/status')) {
+        return Promise.resolve(new Response(JSON.stringify({ running: false }), {
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      // /stop endpoint hangs but responds to abort signal
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = (init as RequestInit | undefined)?.signal;
+        if (signal) {
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted', 'AbortError'))
+          );
+        }
+      });
+    });
+    await wsTestRunnerLesson.setup!(makeCtx());
+    vi.useFakeTimers();
+    const cleanupPromise = wsTestRunnerLesson.cleanup!(makeCtx());
+    await vi.advanceTimersByTimeAsync(3500);
+    await cleanupPromise;
+    vi.useRealTimers();
   });
 });
 

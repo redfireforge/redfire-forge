@@ -8,17 +8,31 @@ import { useSseConnection } from './useSseConnection';
 // Mock createSseParser
 const mockParser = { feed: vi.fn(), flush: vi.fn() };
 vi.mock('./sseParser', () => ({
-  createSseParser: vi.fn((opts: { onEvent: (e: { eventType: string; data: string; lastEventId: string }) => void }) => {
-    // Store onEvent callback so tests can trigger it
+  createSseParser: vi.fn((opts: { onEvent: (e: { eventType: string; data: string; lastEventId: string }) => void; onRetry?: (ms: number) => void }) => {
     (mockParser as Record<string, unknown>).onEvent = opts.onEvent;
+    (mockParser as Record<string, unknown>).onRetry = opts.onRetry;
     return mockParser;
   }),
 }));
+
+vi.mock('../websocket/wsAuthResolve', () => ({
+  resolveEffectiveAuth: vi.fn(() => null),
+  resolveAuthForConnect: vi.fn(),
+  appendAuthQueryParams: vi.fn((url: string) => url),
+}));
+
+import { resolveEffectiveAuth, resolveAuthForConnect, appendAuthQueryParams } from '../websocket/wsAuthResolve';
+const mockResolveEffectiveAuth = vi.mocked(resolveEffectiveAuth);
+const mockResolveAuthForConnect = vi.mocked(resolveAuthForConnect);
+const mockAppendAuthQueryParams = vi.mocked(appendAuthQueryParams);
 
 describe('useSseConnection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
+    mockResolveEffectiveAuth.mockReturnValue(null);
+    mockResolveAuthForConnect.mockResolvedValue({ headers: [], queryParams: [] });
+    mockAppendAuthQueryParams.mockImplementation((url: string) => url);
   });
 
   afterEach(() => {
@@ -389,18 +403,140 @@ describe('useSseConnection', () => {
     expect(secondCallHeaders['Last-Event-ID']).toBe('last-99');
   });
 
-  it('trims events array when MAX_EVENTS exceeded (line 88 true branch)', async () => {
-    // Inject more than MAX_EVENTS (10000) events via onEvent trigger
-    // Simpler: just check the append path by connecting and firing many events
-    // We use direct state to verify pruning — simulate MAX_EVENTS events via a helper
-    // Instead, test via 2 events (mocking MAX_EVENTS to be 2 via module re-import is hard)
-    // We verify the normal append path (< MAX_EVENTS) works and note this is a
-    // structural branch that can only be tested when MAX_EVENTS events are accumulated.
-    // Skip elaborate simulation for now — the branch is covered in full integration.
-    expect(true).toBe(true);
+  it('trims events array when MAX_EVENTS exceeded', async () => {
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        const parserRecord = mockParser as Record<string, unknown>;
+        if (typeof parserRecord.onEvent === 'function') {
+          for (let i = 0; i < 10001; i++) {
+            (parserRecord.onEvent as (e: { eventType: string; data: string; lastEventId: string }) => void)({
+              eventType: 'message',
+              data: `evt-${i}`,
+              lastEventId: `id-${i}`,
+            });
+          }
+        }
+        return Promise.resolve({ done: true, value: undefined });
+      }),
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { pipeThrough: () => ({ getReader: () => mockReader }) },
+    }));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.events).toHaveLength(10000);
+    expect(result.current.stats.eventCount).toBe(10001);
   });
 
-  it('clears reconnect timer on connect (line 240 true branch)', async () => {
+  it('resolves auth and applies auth headers on connect', async () => {
+    mockResolveEffectiveAuth.mockReturnValue({ type: 'bearer', token: 'tok' } as never);
+    mockResolveAuthForConnect.mockResolvedValue({
+      headers: [{ key: 'Authorization', value: 'Bearer tok' }],
+      queryParams: [{ key: 'api_key', value: 'abc' }],
+    });
+    mockAppendAuthQueryParams.mockReturnValue('http://example.com/events?api_key=abc');
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'err' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(mockResolveAuthForConnect).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://example.com/events?api_key=abc',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer tok' }),
+      }),
+    );
+  });
+
+  it('shows auth error when resolveAuthForConnect fails', async () => {
+    mockResolveEffectiveAuth.mockReturnValue({ type: 'oauth2' } as never);
+    mockResolveAuthForConnect.mockRejectedValue(new Error('token denied'));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.connection.state).toBe('error');
+    expect(result.current.connection.error).toBe('Auth failed: token denied');
+  });
+
+  it('shows auth error for non-Error auth failure', async () => {
+    mockResolveEffectiveAuth.mockReturnValue({ type: 'oauth2' } as never);
+    mockResolveAuthForConnect.mockRejectedValue('denied');
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.connection.error).toBe('Auth failed: denied');
+  });
+
+  it('updates retryMs when parser emits onRetry', async () => {
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        const parserRecord = mockParser as Record<string, unknown>;
+        if (typeof parserRecord.onRetry === 'function') {
+          (parserRecord.onRetry as (ms: number) => void)(7500);
+        }
+        return Promise.resolve({ done: true, value: undefined });
+      }),
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { pipeThrough: () => ({ getReader: () => mockReader }) },
+    }));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => result.current.connect());
+
+    expect(result.current.connection.retryMs).toBe(7500);
+  });
+
+  it('ignores fetch errors after abort', async () => {
+    let rejectFetch: (err: Error) => void;
+    const fetchPromise = new Promise<{ ok: boolean }>((_, reject) => {
+      rejectFetch = reject;
+    });
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(fetchPromise));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => {
+      result.current.connect();
+      result.current.disconnect();
+      rejectFetch!(new Error('aborted late'));
+    });
+
+    expect(result.current.connection.state).toBe('disconnected');
+  });
+
+  it('does not update state after unmount', async () => {
+    let resolveFetch: (value: unknown) => void;
+    const fetchPromise = new Promise((resolve) => { resolveFetch = resolve; });
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(fetchPromise));
+
+    const { result, unmount } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    act(() => { void result.current.connect(); });
+    unmount();
+
+    await act(async () => {
+      resolveFetch!({ ok: false, status: 500, statusText: 'err' });
+    });
+  });
+
+  it('clears reconnect timer on connect when already scheduled', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn();
     const mockReaderStream = {
@@ -425,6 +561,95 @@ describe('useSseConnection', () => {
     await act(async () => result.current.connect());
     // No throw — reconnect timer was cleared
     expect(true).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('does not append events after unmount', async () => {
+    let triggerEvent: (() => void) | undefined;
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        triggerEvent = () => {
+          const parserRecord = mockParser as Record<string, unknown>;
+          if (typeof parserRecord.onEvent === 'function') {
+            (parserRecord.onEvent as (e: { eventType: string; data: string; lastEventId: string }) => void)({
+              eventType: 'message',
+              data: 'late',
+              lastEventId: 'late-1',
+            });
+          }
+        };
+        return new Promise(() => { /* hang until unmount */ });
+      }),
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { pipeThrough: () => ({ getReader: () => mockReader }) },
+    }));
+
+    const { result, unmount } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    act(() => { void result.current.connect(); });
+    unmount();
+    await act(async () => { triggerEvent?.(); });
+  });
+
+  it('ignores parser events when the connection was aborted', async () => {
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => new Promise(() => { /* hang */ })),
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { pipeThrough: () => ({ getReader: () => mockReader }) },
+    }));
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({ url: 'http://example.com/events', autoReconnect: false }));
+    await act(async () => { result.current.connect(); });
+    act(() => result.current.disconnect());
+
+    const parserRecord = mockParser as Record<string, unknown>;
+    await act(async () => {
+      if (typeof parserRecord.onEvent === 'function') {
+        (parserRecord.onEvent as (e: { eventType: string; data: string; lastEventId: string }) => void)({
+          eventType: 'message',
+          data: 'ignored',
+          lastEventId: 'x',
+        });
+      }
+    });
+
+    expect(result.current.events).toHaveLength(0);
+  });
+
+  it('skips reconnect timer callback when already connected', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    const hangingReader = { read: vi.fn().mockReturnValue(new Promise(() => {})) };
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        body: { pipeThrough: () => ({ getReader: () => hangingReader }) },
+      })
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: 'Unavailable' });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useSseConnection());
+    act(() => result.current.setConfig({
+      url: 'http://example.com/events',
+      autoReconnect: true,
+      maxRetries: 3,
+    }));
+
+    await act(async () => { result.current.connect(); });
+    expect(result.current.connection.state).toBe('connected');
+
+    act(() => result.current.disconnect());
+    await act(async () => { vi.advanceTimersByTime(5000); });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 

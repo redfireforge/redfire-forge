@@ -170,7 +170,7 @@ describe('useDemoHub', () => {
     expect(result.current.state.stepIndex).toBe(lesson.steps.length - 1);
   });
 
-  it('goToStep marks complete when navigating to last step', async () => {
+  it('goToStep shows completion prompt when navigating to last step', async () => {
     const lesson = makeLesson();
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     act(() => { result.current.selectLesson(lesson); });
@@ -178,6 +178,10 @@ describe('useDemoHub', () => {
       result.current.goToStep(lesson.steps.length - 1);
       await vi.runAllTimersAsync();
     });
+    // Lesson is NOT auto-marked complete; user must click Complete.
+    expect(result.current.progress.completedLessons).not.toContain(lesson.id);
+    // confirmLessonComplete marks it done (simulates clicking Complete button).
+    act(() => { result.current.confirmLessonComplete(); });
     expect(result.current.progress.completedLessons).toContain(lesson.id);
   });
 
@@ -630,6 +634,9 @@ describe('useDemoHub', () => {
     await act(async () => { await vi.runAllTimersAsync(); });
 
     expect(result.current.state.isPlaying).toBe(false);
+    // User must click Complete to mark the lesson done.
+    expect(result.current.progress.completedLessons).not.toContain(lesson.id);
+    act(() => { result.current.confirmLessonComplete(); });
     expect(result.current.progress.completedLessons).toContain(lesson.id);
   });
 });

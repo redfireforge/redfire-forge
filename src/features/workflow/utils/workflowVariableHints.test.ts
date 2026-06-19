@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConfigVariableInsertHints, collectAncestorNodeIds, collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints, formatNodeScopedRef, guessConditionLeftMode, guessValueType, buildWorkflowOnlyHints, httpStepDisplayLabel, isHttpWorkflowNode, mergeHttpVariableHintsWithStepInitialVars, parseNonGeneratorRefs, parseSingleVariableRef, validateConditionLeftRefs } from './workflowVariableHints';
+import { buildConfigVariableInsertHints, collectAncestorNodeIds, collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints, formatNodeScopedRef, guessConditionLeftMode, guessValueType, buildWorkflowOnlyHints, httpStepDisplayLabel, isHttpWorkflowNode, mergeHttpVariableHintsWithStepInitialVars, mergeWorkflowVariableHints, parseNonGeneratorRefs, parseSingleVariableRef, validateConditionLeftRefs } from './workflowVariableHints';
 import { HttpNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 describe('collectAncestorNodeIds', () => {
@@ -9,6 +9,10 @@ describe('collectAncestorNodeIds', () => {
       { id: 'e2', source: 'b', target: 'c' },
     ];
     expect(collectAncestorNodeIds(edges, 'c')).toEqual(new Set(['a', 'b']));
+  });
+
+  it('returns empty set when node has no incoming edges', () => {
+    expect(collectAncestorNodeIds([], 'solo')).toEqual(new Set());
   });
 
   it('handles branching', () => {
@@ -141,6 +145,149 @@ describe('collectConditionVariableHints', () => {
     expect(refs(hints)).not.toContain('error.message');
     expect(refs(hints)).not.toContain('error.statusCode');
   });
+
+  it('includes hints from diverse non-HTTP ancestor node types', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start', inputVariables: { triggerIn: '1' } } },
+      { id: 'sv', type: 'setVariable', position: { x: 0, y: 0 }, data: { label: 'Set', assignments: [{ name: 'assigned', expression: '1' }] } },
+      { id: 'scr', type: 'script', position: { x: 0, y: 0 }, data: { label: 'Script', code: '', outputVariables: ['scriptOut'] } },
+      { id: 'agg', type: 'aggregate', position: { x: 0, y: 0 }, data: { label: 'Agg', mappings: [
+        { targetVariable: 'concatVar', strategy: 'concat', sourceVariable: 'x' },
+        { targetVariable: 'countVar', strategy: 'count', sourceVariable: 'x' },
+        { targetVariable: 'sumVar', strategy: 'sum', sourceVariable: 'x' },
+        { targetVariable: 'customVar', strategy: 'custom', sourceVariable: 'x' },
+      ] } },
+      { id: 'loop', type: 'loop', position: { x: 0, y: 0 }, data: { label: 'Loop', mode: 'forEach', collection: 'items', itemVariable: 'row', indexVariable: 'idx' } },
+      { id: 'wait', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 100, timeoutMs: 1000 } },
+      { id: 'kp', type: 'kafkaProduce', position: { x: 0, y: 0 }, data: { label: 'Produce', outputBindings: [{ targetVariable: 'prodMeta', source: 'offset', enabled: true }] } },
+      { id: 'kc', type: 'kafkaConsume', position: { x: 0, y: 0 }, data: { label: 'Consume', outputBindings: [{ targetVariable: 'consMeta', source: 'key', enabled: true }] } },
+      { id: 'kt', type: 'kafkaTrigger', position: { x: 0, y: 0 }, data: { label: 'KTrigger', extractVariables: [{ name: 'kExt', jsonPath: '$.id' }] } },
+      { id: 'kw', type: 'kafkaWait', position: { x: 0, y: 0 }, data: { label: 'KWait', extractVariables: [{ name: 'kwExt', jsonPath: '$.ok' }] } },
+      { id: 'wc', type: 'wsConnect', position: { x: 0, y: 0 }, data: { label: 'WS', url: 'ws://x', outputBindings: [{ variableName: 'wsProto', field: 'protocol', enabled: true }] } },
+      { id: 'ws', type: 'wsSend', position: { x: 0, y: 0 }, data: { label: 'WSSend', connectionId: 'c1', message: 'hi', waitForResponse: true, outputBindings: [{ variableName: 'wsResp', field: 'responseBody', enabled: true }] } },
+      { id: 'wr', type: 'wsReceive', position: { x: 0, y: 0 }, data: { label: 'WSRecv', connectionId: 'c1', extractionRules: [{ variableName: 'wsExt', jsonPath: '$.a' }], outputBindings: [{ variableName: 'wsBody', field: 'messageBody', enabled: true }] } },
+      { id: 'wt', type: 'wsTrigger', position: { x: 0, y: 0 }, data: { label: 'WSTrig', extractionRules: [{ variableName: 'wtExt', jsonPath: '$.b' }] } },
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e${i}`,
+      source: n.id,
+      target: nodes[i + 1].id,
+    }));
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const r = refs(hints);
+    expect(r).toContain('triggerIn');
+    expect(r).toContain('assigned');
+    expect(r).toContain('scriptOut');
+    expect(r).toContain('concatVar');
+    expect(r).toContain('countVar');
+    expect(r).toContain('sumVar');
+    expect(r).toContain('customVar');
+    expect(r).toContain('row');
+    expect(r).toContain('idx');
+    expect(r).toContain('wait.attempts');
+    expect(r).toContain('prodMeta');
+    expect(r).toContain('consMeta');
+    expect(r).toContain('kafka.trigger.topic');
+    expect(r).toContain('kExt');
+    expect(r).toContain('kafka.wait.topic');
+    expect(r).toContain('kwExt');
+    expect(r).toContain('wsProto');
+    expect(r).toContain('wsResp');
+    expect(r).toContain('wsExt');
+    expect(r).toContain('wsBody');
+    expect(r).toContain('ws.trigger.message');
+    expect(r).toContain('wtExt');
+  });
+
+  it('uses default labels and skips empty names across node types', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'sv', type: 'setVariable', position: { x: 0, y: 0 }, data: { assignments: [{ name: '  ', expression: '1' }, { name: 'ok', expression: '2' }] } },
+      { id: 'agg', type: 'aggregate', position: { x: 0, y: 0 }, data: { mappings: [{ targetVariable: 'firstVar', strategy: 'first', sourceVariable: 'x' }] } },
+      { id: 'loop', type: 'loop', position: { x: 0, y: 0 }, data: { mode: 'while', collection: '', itemVariable: 'item', indexVariable: 'i' } },
+      { id: 'ws', type: 'wsSend', position: { x: 0, y: 0 }, data: { connectionId: 'c1', message: 'x', waitForResponse: false, outputBindings: [{ variableName: 'skip', field: 'responseBody', enabled: true }] } },
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'sv', target: 'agg' }, { id: 'e2', source: 'agg', target: 'loop' }, { id: 'e3', source: 'loop', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const r = refs(hints);
+    expect(r).toContain('ok');
+    expect(r).toContain('firstVar');
+    expect(r).not.toContain('skip');
+    expect(r).not.toContain('item');
+    expect(r).toContain('i');
+  });
+
+  it('deduplicates refs when push sees the same ref twice', () => {
+    const nodes: WorkflowNode[] = [http('h1', [{ name: 'token' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', { token: 'dup' });
+    expect(hints.filter((h) => h.ref === 'token')).toHaveLength(1);
+  });
+
+  it('covers aggregate last strategy and default label fallbacks', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'agg', type: 'aggregate', position: { x: 0, y: 0 }, data: { mappings: [{ targetVariable: 'lastVar', strategy: 'last', sourceVariable: 'x' }, { targetVariable: 'weirdVar', strategy: 'unknown', sourceVariable: 'y' }] } },
+      { id: 'sv', type: 'setVariable', position: { x: 0, y: 0 }, data: { assignments: [{ name: 'x', expression: '1' }] } },
+      { id: 'scr', type: 'script', position: { x: 0, y: 0 }, data: { code: '', outputVariables: ['out'] } },
+      { id: 'wait', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1, timeoutMs: 1 } },
+      { id: 'err', type: 'errorHandler', position: { x: 0, y: 0 }, data: {} },
+      { id: 'st', type: 'start', position: { x: 0, y: 0 }, data: { inputVariables: { inVar: 'v' } } },
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = nodes.slice(0, -1).map((n, i) => ({ id: `e${i}`, source: n.id, target: nodes[i + 1].id }));
+    const hints = collectConditionVariableHints(nodes, edges, 'c', { '  ': 'skip', ok: '1' });
+    const r = refs(hints);
+    expect(r).toContain('lastVar');
+    expect(r).toContain('weirdVar');
+    expect(r).toContain('out');
+    expect(r).toContain('wait.attempts');
+    expect(r).toContain('error.message');
+    expect(r).toContain('inVar');
+    expect(r).toContain('ok');
+    expect(r).not.toContain('  ');
+  });
+
+  it('skips disabled kafka and ws output bindings', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'kp', type: 'kafkaProduce', position: { x: 0, y: 0 }, data: { outputBindings: [{ targetVariable: 'off', source: 'offset', enabled: false }, { targetVariable: 'on', source: 'key', enabled: true }] } },
+      { id: 'kc', type: 'kafkaConsume', position: { x: 0, y: 0 }, data: { outputBindings: [{ targetVariable: 'off2', source: 'value', enabled: false }] } },
+      { id: 'wc', type: 'wsConnect', position: { x: 0, y: 0 }, data: { url: 'ws://x', outputBindings: [{ variableName: 'off3', field: 'protocol', enabled: false }] } },
+      { id: 'kt', type: 'kafkaTrigger', position: { x: 0, y: 0 }, data: { extractVariables: [{ name: '  ', jsonPath: '$.a' }, { name: 'ext', jsonPath: '$.b' }] } },
+      cond('c'),
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kp', target: 'kc' }, { id: 'e2', source: 'kc', target: 'wc' }, { id: 'e3', source: 'wc', target: 'kt' }, { id: 'e4', source: 'kt', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const r = refs(hints);
+    expect(r).toContain('on');
+    expect(r).not.toContain('off');
+    expect(r).not.toContain('off2');
+    expect(r).not.toContain('off3');
+    expect(r).toContain('ext');
+    expect(r).toContain('kafka.trigger.topic');
+  });
+
+  it('includes this-step initial vars when configuring an HTTP condition node', () => {
+    const h = http('h1');
+    (h.data as HttpNodeData).initialVariables = { '': 'skip', stepVar: '42' };
+    const nodes: WorkflowNode[] = [h];
+    const hints = collectConditionVariableHints(nodes, [], 'h1', {});
+    expect(refs(hints)).toContain('stepVar');
+    expect(refs(hints)).not.toContain('');
+  });
+
+  it('includes upstream initial vars and scoped refs with empty extraction names skipped', () => {
+    const h = http('h1', [{ name: '' }, { name: 'good' }]);
+    (h.data as HttpNodeData).initialVariables = { upstreamVar: '9' };
+    const nodes: WorkflowNode[] = [h, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const r = refs(hints);
+    expect(r).toContain('upstreamVar');
+    expect(r).toContain('node:"H".upstreamVar');
+    expect(r).toContain('good');
+    expect(r.some((x) => x.endsWith('.') && x.startsWith('node:"H".'))).toBe(false);
+  });
 });
 
 describe('isHttpWorkflowNode', () => {
@@ -154,6 +301,25 @@ describe('isHttpWorkflowNode', () => {
     const loose = { ...n, type: undefined as unknown as WorkflowNode['type'] };
     expect(isHttpWorkflowNode(n)).toBe(true);
     expect(isHttpWorkflowNode(loose as WorkflowNode)).toBe(true);
+  });
+
+  it('returns false for known non-http workflow node types', () => {
+    expect(isHttpWorkflowNode({ id: 'k', type: 'kafkaProduce', position: { x: 0, y: 0 }, data: {} })).toBe(false);
+  });
+});
+
+describe('mergeWorkflowVariableHints', () => {
+  it('returns workflow hints when primary list is empty', () => {
+    const wf = buildWorkflowOnlyHints({ a: '1' });
+    expect(mergeWorkflowVariableHints([], wf)).toEqual(wf);
+  });
+
+  it('merges without overwriting primary refs', () => {
+    const primary = [{ ref: 'a', label: 'primary' }];
+    const wf = [{ ref: 'b', label: 'workflow' }];
+    const merged = mergeWorkflowVariableHints(primary, wf);
+    expect(merged.map((h) => h.ref)).toEqual(['a', 'b']);
+    expect(merged.find((h) => h.ref === 'a')?.label).toBe('primary');
   });
 });
 
@@ -488,5 +654,55 @@ describe('collectWaitForConditionVariableHints', () => {
     ];
     const hints = collectWaitForConditionVariableHints(nodes, [], 'wait-1', { baseUrl: 'https://api.test' });
     expect(hints.map(h => h.ref)).toContain('baseUrl');
+  });
+
+  it('includes poll-body initial variables from HTTP descendants', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+      {
+        id: 'http-2', type: 'http', position: { x: 0, y: 100 },
+        data: {
+          label: 'Poll Step',
+          scenario: { extractions: [] },
+          initialVariables: { pollVar: '42' },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
+      },
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wait-1', target: 'http-2', sourceHandle: 'body' }];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'wait-1', {});
+    expect(hints.map(h => h.ref)).toContain('pollVar');
+  });
+
+  it('adds poll-body extractions and skips duplicate refs', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+      {
+        id: 'http-3', type: 'http', position: { x: 0, y: 100 },
+        data: {
+          label: 'Poll Step',
+          scenario: { extractions: [{ name: 'status', source: 'body', expression: '$.status' }, { name: '  ', source: 'body', expression: '$' }] },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
+      },
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wait-1', target: 'http-3', sourceHandle: 'body' }];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'wait-1', { status: '200' });
+    const r = hints.map((h) => h.ref);
+    expect(r).toContain('status');
+    expect(r.filter((x) => x === 'status')).toHaveLength(1);
+  });
+
+  it('skips poll-body http nodes without scenario', () => {
+    const nodes: WorkflowNode[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'wait-1', type: 'waitForCondition', position: { x: 0, y: 0 }, data: { label: 'Wait', condition: { left: '', op: 'eq', right: '' }, pollIntervalMs: 1000, timeoutMs: 30000 } as any },
+      { id: 'http-4', type: 'http', position: { x: 0, y: 100 }, data: { label: 'No Scenario' } },
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wait-1', target: 'http-4', sourceHandle: 'body' }];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'wait-1', {});
+    expect(hints.map((h) => h.ref)).toContain('wait.attempts');
   });
 });

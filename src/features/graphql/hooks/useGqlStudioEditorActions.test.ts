@@ -151,6 +151,31 @@ describe('useGqlStudioEditorActions', () => {
     vi.useRealTimers();
   });
 
+  it('handleInsertField clears previous timer when called twice with working editor (line 85)', () => {
+    vi.useFakeTimers();
+    const applyEdits  = vi.fn();
+    const fakeModel   = { applyEdits } as never;
+    const fakeEditor  = {
+      getModel:    () => fakeModel,
+      getPosition: () => ({ lineNumber: 1, column: 1 }),
+      setPosition: vi.fn(),
+      focus:       vi.fn(),
+    } as never;
+
+    const onQueryChange = vi.fn();
+    const { result } = renderHook(() =>
+      useGqlStudioEditorActions({ activeQuery: '', onQueryChange })
+    );
+    act(() => { result.current.editorMountRef.current = fakeEditor; });
+    // First call sets the toast timer
+    act(() => { result.current.handleInsertField('name', 'String', false); });
+    expect(result.current.insertToast).toBe('Inserted: name');
+    // Second call clears the existing timer (line 85) and sets a new one
+    act(() => { result.current.handleInsertField('id', 'ID', false); });
+    expect(result.current.insertToast).toBe('Inserted: id');
+    vi.useRealTimers();
+  });
+
   it('handleInsertField appends () for fields with args', () => {
     const applyEdits  = vi.fn();
     const fakeModel   = { applyEdits } as never;
@@ -187,5 +212,63 @@ describe('useGqlStudioEditorActions', () => {
     // Should not throw
     act(() => { result.current.handleInsertField('id', 'ID', false); });
     expect(result.current.insertToast).toBeNull();
+  });
+
+  it('handlePrettify sets prettifyError to true when format throws', () => {
+    vi.useFakeTimers();
+    const onQueryChange = vi.fn();
+    // Pass invalid GraphQL that will fail to format
+    const { result } = renderHook(() =>
+      useGqlStudioEditorActions({ activeQuery: '{ { invalid', onQueryChange })
+    );
+    act(() => { result.current.handlePrettify(); });
+    expect(result.current.prettifyError).toBe(true);
+    // Timer clears the error after 1000ms
+    act(() => { vi.advanceTimersByTime(1100); });
+    expect(result.current.prettifyError).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('handlePrettify clears previous error timer when called twice rapidly (line 41)', () => {
+    vi.useFakeTimers();
+    const onQueryChange = vi.fn();
+    const { result } = renderHook(() =>
+      useGqlStudioEditorActions({ activeQuery: '{ { invalid', onQueryChange })
+    );
+    // First call sets the timer
+    act(() => { result.current.handlePrettify(); });
+    expect(result.current.prettifyError).toBe(true);
+    // Second call should clearTimeout the existing timer (line 41) and reset
+    act(() => { result.current.handlePrettify(); });
+    expect(result.current.prettifyError).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('handleInsertField shows "Editor not ready" toast when editorMountRef is null', () => {
+    vi.useFakeTimers();
+    const onQueryChange = vi.fn();
+    const { result } = renderHook(() =>
+      useGqlStudioEditorActions({ activeQuery: '', onQueryChange })
+    );
+    // editorMountRef.current is null by default
+    act(() => { result.current.handleInsertField('name', 'String', false); });
+    expect(result.current.insertToast).toBe('Editor not ready');
+    // Timer clears the toast after 1800ms
+    act(() => { vi.advanceTimersByTime(1900); });
+    expect(result.current.insertToast).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('handleInsertField clears previous timer when called twice rapidly', () => {
+    vi.useFakeTimers();
+    const onQueryChange = vi.fn();
+    const { result } = renderHook(() =>
+      useGqlStudioEditorActions({ activeQuery: '', onQueryChange })
+    );
+    // Call twice rapidly — second call should clear first timer (line 85)
+    act(() => { result.current.handleInsertField('name', 'String', false); });
+    act(() => { result.current.handleInsertField('id', 'ID', false); });
+    expect(result.current.insertToast).toBe('Editor not ready');
+    vi.useRealTimers();
   });
 });

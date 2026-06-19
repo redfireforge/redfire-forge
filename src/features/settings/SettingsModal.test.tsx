@@ -316,4 +316,192 @@ describe('SettingsPage — verify auth', () => {
     expect(screen.getByText('Nope')).toBeTruthy();
     expect(document.querySelector('.auth-verify-fail')).toBeTruthy();
   });
+
+  it('clears editing state when deleting the profile being edited', () => {
+    render(<Harness initialProfiles={[makeProfile('p1', 'doomed', 'bearer')]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect(screen.getByText('Type')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText('Type')).toBeNull();
+  });
+
+  it('renders auth fields with empty defaults when optional values are missing', () => {
+    const sparse: GlobalAuthProfile[] = [{
+      id: 'p1',
+      name: 'Sparse',
+      auth: { type: 'basic' } as GlobalAuthProfile['auth'],
+    }];
+    render(<Harness initialProfiles={sparse} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const username = document.querySelector('.form-row.two-col input') as HTMLInputElement;
+    expect(username.value).toBe('');
+  });
+
+  it('renders bearer prefix default when prefix is undefined', () => {
+    render(<Harness initialProfiles={[{ id: 'p1', name: 'b', auth: { type: 'bearer' } as GlobalAuthProfile['auth'] }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect((screen.getByPlaceholderText('Bearer') as HTMLInputElement).value).toBe('Bearer');
+  });
+
+  it('renders apikey header radio as checked by default', () => {
+    render(<Harness initialProfiles={[{ id: 'p1', name: 'k', auth: { type: 'apikey' } as GlobalAuthProfile['auth'] }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const headerRadio = document.querySelectorAll('.radio-group input[type="radio"]')[0] as HTMLInputElement;
+    expect(headerRadio.checked).toBe(true);
+  });
+
+  it('does not log rename when trimmed name is empty', () => {
+    render(<Harness initialProfiles={[makeProfile('p1', 'old-name')]} />);
+    const nameField = document.querySelector('.global-auth-profile-name') as HTMLInputElement;
+    fireEvent.blur(nameField, { target: { value: '   ' } });
+    expect(mRenamed).not.toHaveBeenCalled();
+  });
+
+  it('updates only the targeted profile when multiple profiles exist', () => {
+    render(<Harness initialProfiles={[makeProfile('p1', 'first'), makeProfile('p2', 'second')]} />);
+    const fields = document.querySelectorAll('.global-auth-profile-name') as NodeListOf<HTMLInputElement>;
+    fireEvent.change(fields[0], { target: { value: 'first-renamed' } });
+    expect(fields[0].value).toBe('first-renamed');
+    expect(fields[1].value).toBe('second');
+  });
+
+  it('preserves existing basic auth field values when editing', () => {
+    render(<Harness initialProfiles={[{
+      id: 'p1', name: 'basic-user',
+      auth: { type: 'basic', username: 'alice', password: 'secret' },
+    }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const inputs = document.querySelectorAll('.form-row.two-col input') as NodeListOf<HTMLInputElement>;
+    expect(inputs[0].value).toBe('alice');
+    expect(inputs[1].value).toBe('secret');
+    fireEvent.change(inputs[0], { target: { value: 'bob' } });
+    expect(inputs[0].value).toBe('bob');
+  });
+
+  it('preserves existing bearer token and prefix values', () => {
+    render(<Harness initialProfiles={[{
+      id: 'p1', name: 'bearer-user',
+      auth: { type: 'bearer', token: 'tok-123', prefix: 'Token' },
+    }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect((screen.getByPlaceholderText('eyJhbGciOi...') as HTMLInputElement).value).toBe('tok-123');
+    expect((screen.getByPlaceholderText('Bearer') as HTMLInputElement).value).toBe('Token');
+  });
+
+  it('preserves existing apikey values and query placement', () => {
+    render(<Harness initialProfiles={[{
+      id: 'p1', name: 'api-user',
+      auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'val', apiKeyIn: 'query' },
+    }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect((screen.getByPlaceholderText('X-API-Key') as HTMLInputElement).value).toBe('X-Key');
+    expect((screen.getByPlaceholderText('your-api-key') as HTMLInputElement).value).toBe('val');
+    const queryRadio = document.querySelectorAll('.radio-group input[type="radio"]')[1] as HTMLInputElement;
+    expect(queryRadio.checked).toBe(true);
+  });
+
+  it('changes auth type on one profile without mutating another profile', () => {
+    render(<Harness initialProfiles={[
+      makeProfile('p1', 'alpha', 'none'),
+      makeProfile('p2', 'beta', 'bearer'),
+    ]} />);
+    const configureButtons = screen.getAllByRole('button', { name: 'Configure' });
+    fireEvent.click(configureButtons[0]);
+    const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'basic' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[0]);
+    expect(screen.getByText('BEARER')).toBeTruthy();
+  });
+
+  it('preserves existing digest and oauth2 field values', () => {
+    render(<Harness initialProfiles={[
+      { id: 'p1', name: 'digest-user', auth: { type: 'digest', username: 'd-user', password: 'd-pass' } },
+      { id: 'p2', name: 'oauth-user', auth: { type: 'oauth2', tokenUrl: 'https://auth/t', clientId: 'cid', clientSecret: 'sec' } },
+    ]} />);
+    const configureButtons = screen.getAllByRole('button', { name: 'Configure' });
+    fireEvent.click(configureButtons[0]);
+    let inputs = document.querySelectorAll('.form-row.two-col input') as NodeListOf<HTMLInputElement>;
+    expect(inputs[0].value).toBe('d-user');
+    expect(inputs[1].value).toBe('d-pass');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[0]);
+    fireEvent.click(configureButtons[1]);
+    expect((screen.getByPlaceholderText('https://auth.example.com/oauth/token') as HTMLInputElement).value).toBe('https://auth/t');
+    inputs = document.querySelectorAll('.form-row.two-col input') as NodeListOf<HTMLInputElement>;
+    expect(inputs[0].value).toBe('cid');
+    expect(inputs[1].value).toBe('sec');
+  });
+
+  it('renders apikey header radio selected when apiKeyIn is header', () => {
+    render(<Harness initialProfiles={[{
+      id: 'p1', name: 'header-key',
+      auth: { type: 'apikey', apiKeyName: 'K', apiKeyValue: 'V', apiKeyIn: 'header' },
+    }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const headerRadio = document.querySelectorAll('.radio-group input[type="radio"]')[0] as HTMLInputElement;
+    expect(headerRadio.checked).toBe(true);
+  });
+
+  it('shows Hide title on secret toggle when secrets are visible', () => {
+    render(<Harness initialProfiles={[makeProfile('p1', 'a', 'basic')]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const toggle = document.querySelector('.secret-toggle') as HTMLButtonElement;
+    expect(toggle.title).toBe('Show');
+    fireEvent.click(toggle);
+    expect(toggle.title).toBe('Hide');
+  });
+
+  it('updates auth fields on one profile without changing another profile', () => {
+    render(<Harness initialProfiles={[
+      { id: 'p1', name: 'alpha', auth: { type: 'bearer', token: 'tok-a', prefix: 'Bearer' } },
+      { id: 'p2', name: 'beta', auth: { type: 'bearer', token: 'tok-b', prefix: 'Bearer' } },
+    ]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[0]);
+    fireEvent.change(screen.getByPlaceholderText('eyJhbGciOi...'), { target: { value: 'tok-a-updated' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[1]);
+    expect((screen.getByPlaceholderText('eyJhbGciOi...') as HTMLInputElement).value).toBe('tok-b');
+  });
+
+  it('renders empty controlled values for every auth type field group', () => {
+    const types: AuthType[] = ['basic', 'bearer', 'apikey', 'digest', 'oauth2'];
+    for (const type of types) {
+      const { unmount } = render(<Harness initialProfiles={[makeProfile('p1', type, type)]} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+      if (type === 'bearer') {
+        const tokenInput = screen.getByPlaceholderText('eyJhbGciOi...') as HTMLInputElement;
+        expect(tokenInput.value).toBe('');
+        fireEvent.change(tokenInput, { target: { value: 'tok' } });
+        fireEvent.change(tokenInput, { target: { value: '' } });
+        expect((screen.getByPlaceholderText('Bearer') as HTMLInputElement).value).toBe('Bearer');
+      }
+      if (type === 'basic' || type === 'digest') {
+        const inputs = document.querySelectorAll('.form-row.two-col input') as NodeListOf<HTMLInputElement>;
+        expect(inputs[0].value).toBe('');
+        fireEvent.change(inputs[0], { target: { value: 'user' } });
+        fireEvent.change(inputs[0], { target: { value: '' } });
+        fireEvent.change(inputs[1], { target: { value: 'pass' } });
+        fireEvent.change(inputs[1], { target: { value: '' } });
+      }
+      if (type === 'apikey') {
+        const keyName = screen.getByPlaceholderText('X-API-Key') as HTMLInputElement;
+        const keyValue = screen.getByPlaceholderText('your-api-key') as HTMLInputElement;
+        fireEvent.change(keyName, { target: { value: 'K' } });
+        fireEvent.change(keyName, { target: { value: '' } });
+        fireEvent.change(keyValue, { target: { value: 'V' } });
+        fireEvent.change(keyValue, { target: { value: '' } });
+      }
+      if (type === 'oauth2') {
+        const tokenUrl = screen.getByPlaceholderText('https://auth.example.com/oauth/token') as HTMLInputElement;
+        fireEvent.change(tokenUrl, { target: { value: 'https://auth/t' } });
+        fireEvent.change(tokenUrl, { target: { value: '' } });
+        const inputs = document.querySelectorAll('.form-row.two-col input') as NodeListOf<HTMLInputElement>;
+        fireEvent.change(inputs[0], { target: { value: 'cid' } });
+        fireEvent.change(inputs[0], { target: { value: '' } });
+        fireEvent.change(inputs[1], { target: { value: 'sec' } });
+        fireEvent.change(inputs[1], { target: { value: '' } });
+      }
+      unmount();
+    }
+  });
 });

@@ -726,4 +726,49 @@ describe('WsConnectionTabBar — History Dropdown', () => {
     // Tab2 should still have drag-over visual (not cleared)
     // This exercises the dragLeave path where prev !== tabId
   });
+
+  it('ignores dragOver on the tab being dragged', () => {
+    render(<WsConnectionTabBar {...makeProps()} />);
+    const tab = screen.getByTestId('conn-tab-tab-2');
+    const preventDefault = vi.fn();
+    fireEvent.dragOver(tab, {
+      dataTransfer: { types: [], dropEffect: '', preventDefault },
+      clientX: 100,
+    });
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('ignores dragOver on the tab being dragged', () => {
+    render(<WsConnectionTabBar {...makeProps()} />);
+    const tab = screen.getByTestId('conn-tab-tab-1');
+    fireEvent.dragStart(tab, { dataTransfer: makeDragDataTransfer({ 'text/x-ws-tab-index': '0' }) });
+    const preventDefault = vi.fn();
+    fireEvent.dragOver(tab, {
+      dataTransfer: { types: ['text/x-ws-tab-index'], dropEffect: '', preventDefault },
+      clientX: 50,
+    });
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('drop without payload does not reorder', () => {
+    const onReorder = vi.fn();
+    render(<WsConnectionTabBar {...makeProps({ onReorder })} />);
+    const tab = screen.getByTestId('conn-tab-tab-2');
+    fireEvent.drop(tab, {
+      dataTransfer: makeDragDataTransfer(),
+      preventDefault: vi.fn(),
+      clientX: 100,
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('clears history from dropdown', () => {
+    const onClearHistory = vi.fn();
+    const history = [{ url: 'ws://hist.test', protocol: 'auto' as const, lastUsed: new Date().toISOString() }];
+    render(<WsConnectionTabBar {...makeProps({ history, onClearHistory, onAddWithUrl: vi.fn() })} />);
+    fireEvent.click(screen.getByTestId('conn-tab-history-trigger'));
+    fireEvent.click(screen.getByTestId('conn-tab-history-clear'));
+    expect(onClearHistory).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('conn-tab-history-dropdown')).toBeNull();
+  });
 });

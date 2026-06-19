@@ -10,7 +10,7 @@
  * No Docker required — uses the built-in mock server.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { WS } from '../../../../shared/selectors';
+import { APP, WS } from '../../../../shared/selectors';
 import { wsSetup, wsCleanup } from '../setup-helpers';
 
 // ── Constants ──────────────────────────────────────────────────
@@ -18,7 +18,6 @@ const DEMO_URL = 'ws://localhost:9876';
 const DEMO_PROFILE_NAME = 'Demo Echo Server';
 const DEMO_TEMPLATE_NAME = 'greeting';
 const DEMO_TEMPLATE_BODY = '{"action":"greet","name":"RedfireForge"}';
-const ENV_VAR_URL = '{{wsBaseUrl}}/ws';
 const UNRESOLVED_URL = '{{unknownHost}}/ws';
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -45,32 +44,27 @@ async function clearSavedProfiles(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Delete all saved templates from the compose dropdown. */
+/** Delete all saved templates via the templates modal. */
 async function clearTemplates(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.MODE_CLIENT);
   await ctx.delay(300);
   await ctx.click(WS.LEFT_TAB_SEND);
-  await ctx.delay(500);  // wait for Send panel to mount and templates prop to populate
-  // Wait up to 3 s for the trigger to appear (belt-and-suspenders)
+  await ctx.delay(500);
   await ctx.waitFor(WS.TEMPLATE_TRIGGER);
   const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
   if (!trigger) return;
-  // Open templates dropdown
   trigger.click();
-  await ctx.delay(400);  // wait for React re-render to show the dropdown
-  // Delete templates one by one; wait for each button to disappear before continuing
+  await ctx.delay(400);
   for (let i = 0; i < 10; i++) {
     const delBtn = document.querySelector('[data-testid^="template-delete-"]') as HTMLElement | null;
     if (!delBtn) break;
     const btnTestId = delBtn.getAttribute('data-testid')!;
     delBtn.click();
-    // Wait until this specific button is removed from the DOM (confirms React re-rendered)
     for (let w = 0; w < 30; w++) {
       await ctx.delay(100);
       if (!document.querySelector(`[data-testid="${btnTestId}"]`)) break;
     }
   }
-  // Close dropdown if it is still open
   if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
     trigger.click();
     await ctx.delay(200);
@@ -130,16 +124,16 @@ The **Saved** mode tab stores named connection configurations — URL, auth, hea
 
 **Message Templates**
 
-In the **Send** panel, the **Templates ▾** dropdown lets you save the current message payload with a name (like "auth-handshake" or "order-create"). Next time, one click loads it back — no re-typing JSON. Templates persist across sessions.
+In the **Send** panel, the **Templates** button opens a modal where you can save the current message payload with a name (like "auth-handshake" or "order-create"). Next time, one click loads it back — no re-typing JSON. Templates persist across sessions.
 
 **Environment Variables**
 
-Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your selected environment (the Environment dropdown in the app header). A resolved-URL preview appears below the input. If a variable can't be resolved, a warning badge appears immediately — you'll know before you click Connect.
+Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from the **Base URL** you configured per microservice × environment in the Environment Manager. The app derives \`wsBaseUrl\` by converting \`http://\` → \`ws://\` (or \`https://\` → \`wss://\`). A resolved-URL preview appears below the input. If a variable can't be resolved, a warning badge appears immediately — you'll know before you click Connect.
 
 | Feature | Access | What it saves |
 |---|---|---|
 | Profiles | **Saved** mode tab (top bar) or **Save as Profile** button | URL + auth + headers + params |
-| Templates | **Templates ▾** dropdown in **Send** panel | Message body text |
+| Templates | **Templates** button in **Send** panel (opens modal) | Message body text |
 | Env Vars | \`{{varName}}\` in URL/headers/params | Auto-resolved from selected environment |`,
     keyTerms: [
       {
@@ -159,25 +153,197 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         definition: 'Button in the Connect panel that captures the current connection config and opens the profile editor modal.',
       },
     ],
-    diagram: `<pre>┌─────────────────────────────────────────────────────┐
-│  Client   │  Mock Server  │  Saved (profiles)       │  ← mode tabs
-├────────┬──┴───────────────┴─────────────────────────┤
-│Connect │  Events / Console / Stats / Load Test / …  │
-│ URL: {{wsBaseUrl}}/ws                               │
-│ → Resolved: ws://localhost:9876/ws                  │
-│ [Connect]  [Save as Profile]                        │
-├────────┤                                            │
-│ Send   │  Templates ▾  [Save] [Load]                │
-│ {"action":"greet","name":"RedfireForge"}             │
-│ [Send]                                              │
-└────────┴────────────────────────────────────────────┘
+    diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 430" style="display:block;width:100%;height:auto;font-family:'SF Mono','Fira Code','Consolas',monospace">
+  <defs>
+    <marker id="ww-arr-blue" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#3b82f6"/>
+    </marker>
+    <marker id="ww-arr-amber" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#f59e0b"/>
+    </marker>
+    <marker id="ww-arr-violet" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#8b5cf6"/>
+    </marker>
+    <linearGradient id="ww-tab-active" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2d3a4d"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="ww-shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
 
-  Profile Store          Template Store         Env Map
-  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-  │ Demo Echo    │      │ greeting     │      │ wsBaseUrl:   │
-  │ ws://local…  │      │ {"action":…} │      │ localhost:9876│
-  │ [Load & Conn]│      │ [Load] [Del] │      │ host: local… │
-  └──────────────┘      └──────────────┘      └──────────────┘</pre>`,
+  <!-- ═══════════════════════════════════════════
+       STUDIO FRAME
+  ═══════════════════════════════════════════ -->
+  <rect x="1" y="1" width="698" height="242" rx="8" fill="#0d1520" stroke="#3b4a60" stroke-width="1.5" filter="url(#ww-shadow)"/>
+
+  <!-- title bar chrome -->
+  <rect x="1" y="1" width="698" height="30" rx="8" fill="#0a1118"/>
+  <rect x="1" y="20" width="698" height="11" fill="#0a1118"/>
+  <!-- traffic lights -->
+  <circle cx="18" cy="15" r="4.5" fill="#ef4444" opacity="0.8"/>
+  <circle cx="34" cy="15" r="4.5" fill="#f59e0b" opacity="0.8"/>
+  <circle cx="50" cy="15" r="4.5" fill="#22c55e" opacity="0.8"/>
+  <!-- window title -->
+  <text x="350" y="19" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" fill="#a8b8cc">WebSocket Studio — RedfireForge</text>
+
+  <!-- mode tab bar -->
+  <rect x="1" y="31" width="698" height="32" fill="#0f172a"/>
+
+  <!-- Client tab (active) -->
+  <rect x="8" y="34" width="70" height="26" rx="5" fill="url(#ww-tab-active)" stroke="#3b4a60" stroke-width="1"/>
+  <rect x="8" y="55" width="70" height="5" fill="#1e293b"/>
+  <rect x="8" y="54" width="70" height="2" fill="#3b82f6"/>
+  <text x="43" y="51" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9">Client</text>
+
+  <!-- Mock Server tab -->
+  <rect x="84" y="36" width="94" height="22" rx="4" fill="none"/>
+  <text x="131" y="51" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" fill="#a8b8cc">Mock Server</text>
+
+  <!-- Saved tab -->
+  <rect x="184" y="36" width="114" height="22" rx="4" fill="none"/>
+  <text x="241" y="51" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" fill="#a8b8cc">Saved (profiles)</text>
+
+  <!-- mode tabs label -->
+  <text x="310" y="51" font-family="system-ui,sans-serif" font-size="10" fill="#3b82f6" opacity="0.85">← mode tabs</text>
+
+  <!-- ═══════════════════════════════════════════
+       CONNECT PANEL (left half, y 63-152)
+  ═══════════════════════════════════════════ -->
+  <rect x="1" y="63" width="349" height="179" fill="#0d1520"/>
+  <rect x="349" y="63" width="1" height="179" fill="#3b4a60"/>
+
+  <!-- Sub-tab: Connect -->
+  <rect x="8" y="68" width="66" height="22" rx="3" fill="#1e293b" stroke="#3b4a60" stroke-width="1"/>
+  <text x="41" y="83" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#f1f5f9">Connect</text>
+
+  <!-- URL label -->
+  <text x="16" y="108" font-family="system-ui,sans-serif" font-size="9.5" fill="#a8b8cc">URL</text>
+
+  <!-- URL input -->
+  <rect x="36" y="97" width="300" height="24" rx="4" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+  <text x="46" y="113" font-family="'SF Mono','Fira Code',monospace" font-size="11" fill="#c084fc">{{</text>
+  <text x="63" y="113" font-family="'SF Mono','Fira Code',monospace" font-size="11" fill="#f59e0b">wsBaseUrl</text>
+  <text x="118" y="113" font-family="'SF Mono','Fira Code',monospace" font-size="11" fill="#c084fc">}}</text>
+  <text x="131" y="113" font-family="'SF Mono','Fira Code',monospace" font-size="11" fill="#f1f5f9">/ws</text>
+
+  <!-- Resolved URL preview -->
+  <text x="36" y="133" font-family="system-ui,sans-serif" font-size="9.5" fill="#a8b8cc">↳ Resolved:</text>
+  <text x="104" y="133" font-family="'SF Mono','Fira Code',monospace" font-size="9.5" fill="#22c55e">ws://localhost:9876/ws</text>
+  <text x="280" y="133" font-family="system-ui,sans-serif" font-size="11" fill="#22c55e">✓</text>
+
+  <!-- Connect button -->
+  <rect x="36" y="145" width="72" height="24" rx="4" fill="#3b82f6"/>
+  <text x="72" y="161" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#fff">Connect</text>
+
+  <!-- Save as Profile button (blue-outlined = key action) -->
+  <rect x="116" y="145" width="116" height="24" rx="4" fill="#1e293b" stroke="#3b82f6" stroke-width="1.2"/>
+  <text x="174" y="161" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" font-weight="500" fill="#3b82f6">Save as Profile</text>
+
+  <!-- Right panel: events/console dimmed label -->
+  <text x="524" y="95" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#3b4a60">Events / Console / Stats</text>
+  <text x="524" y="110" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#3b4a60">/ Load Test…</text>
+
+  <!-- ═══════════════════════════════════════════
+       SEND PANEL (left half, y 152-242)
+  ═══════════════════════════════════════════ -->
+  <rect x="1" y="180" width="349" height="62" fill="#0d1520"/>
+  <line x1="1" y1="180" x2="698" y2="180" stroke="#3b4a60" stroke-width="1"/>
+
+  <!-- Sub-tab: Send -->
+  <rect x="8" y="185" width="66" height="22" rx="3" fill="#1e293b" stroke="#3b4a60" stroke-width="1"/>
+  <text x="41" y="200" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#f1f5f9">Send</text>
+
+  <!-- Templates dropdown -->
+  <rect x="84" y="185" width="100" height="22" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="1.2"/>
+  <text x="134" y="200" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" font-weight="500" fill="#f59e0b">Templates ▾</text>
+
+  <!-- Compose textarea -->
+  <rect x="84" y="213" width="260" height="22" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
+  <text x="94" y="228" font-family="'SF Mono','Fira Code',monospace" font-size="9.5" fill="#94a3b8">{"action":"greet","name":"RedfireForge"}</text>
+
+  <!-- Send button -->
+  <rect x="350" y="185" width="349" height="57" fill="#0d1520"/>
+  <rect x="36" y="241" width="68" height="0" rx="4" fill="none"/>
+
+  <!-- ═══════════════════════════════════════════
+       CONNECTING ARROWS  (studio → stores)
+  ═══════════════════════════════════════════ -->
+  <!-- Blue: Save as Profile → Profile Store -->
+  <path d="M174,169 L174,252 L105,252 L105,284" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-dasharray="5,3" stroke-opacity="0.7" marker-end="url(#ww-arr-blue)"/>
+
+  <!-- Amber: Templates → Template Store -->
+  <path d="M134,207 L134,260 L350,260 L350,284" stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-dasharray="5,3" stroke-opacity="0.7" marker-end="url(#ww-arr-amber)"/>
+
+  <!-- Violet: {{wsBaseUrl}} → Env Map -->
+  <path d="M91,108 Q91,268 595,268 L595,284" stroke="#8b5cf6" stroke-width="1.5" fill="none" stroke-dasharray="5,3" stroke-opacity="0.7" marker-end="url(#ww-arr-violet)"/>
+
+  <!-- ═══════════════════════════════════════════
+       PROFILE STORE CARD
+  ═══════════════════════════════════════════ -->
+  <rect x="10" y="285" width="190" height="132" rx="7" fill="#111b28" stroke="#3b82f6" stroke-width="1.5" filter="url(#ww-shadow)"/>
+  <!-- card header -->
+  <rect x="10" y="285" width="190" height="30" rx="7" fill="#1a2e4a"/>
+  <rect x="10" y="300" width="190" height="15" fill="#1a2e4a"/>
+  <circle cx="27" cy="300" r="5" fill="#3b82f6" opacity="0.8"/>
+  <text x="40" y="304" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#3b82f6" letter-spacing="0.5">PROFILE STORE</text>
+  <!-- card body -->
+  <text x="105" y="330" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9">Demo Echo Server</text>
+  <text x="105" y="347" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="9.5" fill="#94a3b8">ws://localhost:9876</text>
+  <text x="105" y="362" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#3b4a60">url · auth · headers · params</text>
+  <!-- Load & Connect btn -->
+  <rect x="28" y="372" width="154" height="22" rx="4" fill="#3b82f6"/>
+  <text x="105" y="387" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" font-weight="600" fill="#fff">Load &amp; Connect</text>
+  <text x="105" y="410" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#3b4a60">persists across sessions</text>
+
+  <!-- ═══════════════════════════════════════════
+       TEMPLATE STORE CARD
+  ═══════════════════════════════════════════ -->
+  <rect x="255" y="285" width="190" height="132" rx="7" fill="#111b28" stroke="#f59e0b" stroke-width="1.5" filter="url(#ww-shadow)"/>
+  <!-- card header -->
+  <rect x="255" y="285" width="190" height="30" rx="7" fill="#2a1f0a"/>
+  <rect x="255" y="300" width="190" height="15" fill="#2a1f0a"/>
+  <circle cx="272" cy="300" r="5" fill="#f59e0b" opacity="0.8"/>
+  <text x="285" y="304" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#f59e0b" letter-spacing="0.5">TEMPLATE STORE</text>
+  <!-- card body -->
+  <text x="350" y="330" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9">greeting</text>
+  <text x="350" y="346" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#94a3b8">{"action":"greet",</text>
+  <text x="350" y="360" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#94a3b8"> "name":"RedfireForge"}</text>
+  <!-- Load / Delete btns -->
+  <rect x="272" y="372" width="72" height="22" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
+  <text x="308" y="387" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#f59e0b">Load</text>
+  <rect x="352" y="372" width="72" height="22" rx="4" fill="#1e293b" stroke="#3b4a60" stroke-width="1"/>
+  <text x="388" y="387" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#a8b8cc">Delete</text>
+  <text x="350" y="410" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#3b4a60">message body text</text>
+
+  <!-- ═══════════════════════════════════════════
+       ENV MAP CARD
+  ═══════════════════════════════════════════ -->
+  <rect x="500" y="285" width="190" height="132" rx="7" fill="#111b28" stroke="#8b5cf6" stroke-width="1.5" filter="url(#ww-shadow)"/>
+  <!-- card header -->
+  <rect x="500" y="285" width="190" height="30" rx="7" fill="#1a1030"/>
+  <rect x="500" y="300" width="190" height="15" fill="#1a1030"/>
+  <circle cx="517" cy="300" r="5" fill="#8b5cf6" opacity="0.8"/>
+  <text x="530" y="304" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#8b5cf6" letter-spacing="0.5">ENV MAP</text>
+  <!-- key-value rows -->
+  <rect x="514" y="316" width="168" height="18" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.5"/>
+  <text x="520" y="329" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#c084fc">wsBaseUrl</text>
+  <text x="586" y="329" font-family="system-ui,sans-serif" font-size="9" fill="#a8b8cc">→</text>
+  <text x="596" y="329" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#22c55e">localhost:9876</text>
+
+  <rect x="514" y="338" width="168" height="18" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.5"/>
+  <text x="520" y="351" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#c084fc">host</text>
+  <text x="586" y="351" font-family="system-ui,sans-serif" font-size="9" fill="#a8b8cc">→</text>
+  <text x="596" y="351" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#22c55e">localhost</text>
+
+  <rect x="514" y="360" width="168" height="18" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.5"/>
+  <text x="520" y="373" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#c084fc">envName</text>
+  <text x="586" y="373" font-family="system-ui,sans-serif" font-size="9" fill="#a8b8cc">→</text>
+  <text x="596" y="373" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="#22c55e">local</text>
+
+  <text x="595" y="410" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#3b4a60">resolved at connect time</text>
+</svg>`,
   },
 
   steps: [
@@ -206,7 +372,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       id: 'ws-profile-save',
       title: 'Save a Connection Profile',
       description:
-        'Back in Client mode, the Connect panel shows a **Save as Profile** button below the Connect/Disconnect buttons. The demo fills in the mock server URL and clicks Save as Profile — a modal opens where you name the profile and confirm. The profile is now saved and appears in the Saved tab.',
+        'Back in Client mode, the Connect panel shows a **Save as Profile** button below the URL field. The mock server URL is already filled in. Watch the demo click **Save as Profile** — a modal opens where you name the profile and confirm. The profile is now saved and appears in the Saved tab.',
       highlight: WS.SAVE_AS_PROFILE_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
@@ -262,7 +428,7 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       id: 'ws-template-intro',
       title: 'Message Templates',
       description:
-        'The **Send** panel has a **Templates ▾** dropdown at the top. It shows your saved message templates — reusable payloads you can load with one click. Templates store the raw message body and persist across sessions. Currently the dropdown shows "No templates yet" because we haven\'t saved any yet.',
+        'The **Send** panel has a **Templates** button in the compose controls. Clicking it opens a centered modal — a dedicated panel for managing your saved message templates. Templates store the raw message body and persist across sessions. Watch as the modal opens showing the empty state — no templates yet.',
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
@@ -270,12 +436,9 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
-        // Open the dropdown briefly to show the empty state
         await ctx.click(WS.TEMPLATE_TRIGGER);
-        // Rule 5: dropdown is conditionally rendered — wait for it to appear.
         await ctx.waitFor(WS.TEMPLATE_DROPDOWN);
-        await ctx.delay(1200);
-        // Close it
+        await ctx.delay(1500);
         await ctx.click(WS.TEMPLATE_TRIGGER);
         await ctx.delay(300);
       },
@@ -286,27 +449,29 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       id: 'ws-template-save',
       title: 'Save a Template',
       description:
-        'The demo types a JSON payload into the compose textarea, then enters a name in the save row at the bottom of the Templates dropdown and clicks **Save**. The template is now stored and ready to reuse anytime.',
+        'Watch the demo type a JSON payload into the compose textarea, then open the Templates modal and enter a name in the **Save current message as** section at the bottom. Clicking **Save** stores the template — it\'s now available for instant reuse anytime.',
       highlight: WS.TEMPLATE_SAVE_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
-        // Fill the compose textarea with demo payload
-        await ctx.fill(WS.MESSAGE_INPUT, DEMO_TEMPLATE_BODY);
-        await ctx.delay(300);
-        // Open templates dropdown to expose the save row
-        await ctx.click(WS.TEMPLATE_TRIGGER);
-        // Rule 5: dropdown is conditionally rendered — wait for the save input to appear.
-        await ctx.waitFor(WS.TEMPLATE_SAVE_NAME);
+        // Close modal if still open from previous step
+        if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
+          const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
+          if (trigger) trigger.click();
+          await ctx.delay(200);
+        }
       },
       action: async (ctx: DemoActionContext) => {
-        // Type the template name
+        await ctx.fill(WS.MESSAGE_INPUT, DEMO_TEMPLATE_BODY);
+        await ctx.delay(500);
+        await ctx.click(WS.TEMPLATE_TRIGGER);
+        await ctx.waitFor(WS.TEMPLATE_SAVE_NAME);
+        await ctx.delay(600);
         await ctx.fill(WS.TEMPLATE_SAVE_NAME, DEMO_TEMPLATE_NAME);
         await ctx.delay(400);
-        // Save
         await ctx.click(WS.TEMPLATE_SAVE_BTN);
-        await ctx.delay(600);
+        await ctx.delay(700);
       },
     },
 
@@ -315,17 +480,15 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
       id: 'ws-template-load',
       title: 'Load a Template',
       description:
-        'The demo clears the compose textarea, opens the Templates dropdown, and clicks the saved "greeting" template. The payload `{"action":"greet","name":"RedfireForge"}` is loaded back instantly — no re-typing. Templates are great for complex JSON bodies you use repeatedly.',
+        'The compose textarea is now empty. Watch the demo open the Templates modal — the saved **greeting** template appears in the list with its full payload preview. Clicking it loads the payload `{"action":"greet","name":"RedfireForge"}` back into the compose area instantly. Templates are great for complex JSON bodies you use repeatedly.',
       highlight: WS.TEMPLATE_TRIGGER,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
-        // Clear the compose area so the load is visible
         await ctx.fill(WS.MESSAGE_INPUT, '');
         await ctx.delay(200);
-        // Guard: step 5 leaves the template dropdown open (the save is visible).
-        // If still open, close it so step 6's action reliably opens (not closes) it.
+        // Close modal if still open from previous step
         if (document.querySelector(WS.TEMPLATE_DROPDOWN)) {
           const trigger = document.querySelector(WS.TEMPLATE_TRIGGER) as HTMLElement | null;
           if (trigger) trigger.click();
@@ -333,51 +496,36 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from your s
         }
       },
       action: async (ctx: DemoActionContext) => {
-        // Open templates dropdown
         await ctx.click(WS.TEMPLATE_TRIGGER);
-        // Rule 5: dropdown is conditionally rendered — wait for load button to appear.
         await ctx.waitFor('.ws-template-item-load');
-        await ctx.delay(400);
-        // Click the load button inside the first template item (with visual ripple)
+        await ctx.delay(600);
         await ctx.click('.ws-template-item-load');
         await ctx.delay(600);
       },
     },
 
-    // ── 7. Environment Variables ────────────────────────────
-    {
-      id: 'ws-env-intro',
-      title: 'Environment Variables in URLs',
-      description:
-        'The URL field supports `{{varName}}` placeholders. Type `{{wsBaseUrl}}/ws` and — if an environment is selected in the app header with a base URL configured — RedfireForge resolves it automatically, showing a **→ Resolved:** preview below the input. Built-in variables include `{{wsBaseUrl}}`, `{{host}}`, and `{{envName}}`. If no environment is selected, you\'ll see a warning instead — a reminder to configure one in the Environment Manager.',
-      highlight: WS.URL_INPUT,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ctx.fill(WS.URL_INPUT, ENV_VAR_URL);
-        await ctx.delay(800);
-      },
-    },
-
-    // ── 8. Unresolved Variable Warning ─────────────────────
+    // ── 7. Variable Placeholders & Warning ─────────────────────
     {
       id: 'ws-env-warn',
-      title: 'Unresolved Variable Warning',
+      title: 'Variable Placeholders in URLs',
       description:
-        'Now the URL uses `{{unknownHost}}` — a variable name that doesn\'t match any built-in or custom variable. RedfireForge shows a **warning** below the URL field immediately, so you catch typos before clicking Connect. Whether the issue is a wrong variable name, a missing environment config, or no environment selected at all, you\'ll always know.',
+        'The URL field supports `{{varName}}` placeholders — type `{{unknownHost}}/ws` and RedfireForge immediately shows a **warning** below the field: the variable doesn\'t match any known variable. This instant feedback catches typos, missing environment config, or an unselected environment before you ever click Connect.',
       highlight: WS.URL_INPUT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: ensure we are on Client mode + Connect tab so the URL input is visible.
-        await ctx.click(WS.MODE_CLIENT);
-        await ctx.delay(200);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
-        await ctx.delay(200);
+        // Guard for skip-to-step: only navigate if URL input is not already visible.
+        // Do NOT click MODE_CLIENT or LEFT_TAB_CONNECT when already on Connect tab —
+        // those clicks trigger React re-renders that interfere with the fill in the action.
+        if (!document.querySelector(WS.URL_INPUT)) {
+          await ctx.click(APP.AB_PROTOCOLS);
+          await ctx.delay(300);
+          await ctx.click(APP.NAV_TAB_WS);
+          await ctx.delay(400);
+          await ctx.click(WS.MODE_CLIENT);
+          await ctx.delay(200);
+          await ctx.click(WS.LEFT_TAB_CONNECT);
+          await ctx.delay(200);
+        }
       },
       action: async (ctx: DemoActionContext) => {
         await ctx.fill(WS.URL_INPUT, UNRESOLVED_URL);

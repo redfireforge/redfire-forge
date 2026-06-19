@@ -127,6 +127,20 @@ describe('wsNativeTauriTransport', () => {
   });
 
   describe('messages (client-side buffer)', () => {
+    it('returns empty buffer when connectionId query param is missing', async () => {
+      const result = await wsNativeTauriTransport(
+        makeRequest({
+          op: 'messages',
+          method: 'GET',
+          query: {},
+        }),
+      );
+
+      expect(result.data).toEqual(
+        expect.objectContaining({ connectionId: '', messages: [], cursor: 0 }),
+      );
+    });
+
     it('returns empty buffer for unknown connection', async () => {
       const result = await wsNativeTauriTransport(
         makeRequest({
@@ -300,6 +314,102 @@ describe('wsNativeTauriTransport', () => {
       expect(mockInvoke).toHaveBeenCalledWith('ws_status', {
         request: { connectionId: 'c1', verbose: true, compact: false },
       });
+    });
+
+    it('keeps non-numeric strings as strings', async () => {
+      mockInvoke.mockResolvedValue(okEnvelope('status', { state: 'connected' }));
+
+      await wsNativeTauriTransport(
+        makeRequest({
+          op: 'status',
+          method: 'GET',
+          query: { connectionId: 'abc', label: 'dev' },
+        }),
+      );
+
+      expect(mockInvoke).toHaveBeenCalledWith('ws_status', {
+        request: { connectionId: 'abc', label: 'dev' },
+      });
+    });
+  });
+
+  describe('disconnect buffer cleanup', () => {
+    it('clears the message buffer after disconnect', async () => {
+      let eventCallback: ((event: { payload: unknown }) => void) | undefined;
+      mockListen.mockImplementation((_eventName: string, cb: (event: { payload: unknown }) => void) => {
+        eventCallback = cb;
+        return Promise.resolve(() => { /* unlisten */ });
+      });
+      mockInvoke.mockResolvedValue(okEnvelope('disconnect', { connectionId: 'conn-1', disconnected: true }));
+
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-1' } }),
+      );
+      eventCallback!({
+        payload: { connectionId: 'conn-1', data: 'hello', messageType: 'text', timestamp: Date.now() },
+      });
+
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'disconnect', method: 'POST', body: { connectionId: 'conn-1' } }),
+      );
+
+      const result = await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-1' } }),
+      );
+      expect((result.data as { messages: unknown[] }).messages).toHaveLength(0);
+    });
+  });
+
+  describe('message buffer trimming', () => {
+    it('trims oldest messages when buffer exceeds MAX_BUFFER_SIZE', async () => {
+      let eventCallback: ((event: { payload: unknown }) => void) | undefined;
+      mockListen.mockImplementation((_eventName: string, cb: (event: { payload: unknown }) => void) => {
+        eventCallback = cb;
+        return Promise.resolve(() => { /* unlisten */ });
+      });
+
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'big-buf' } }),
+      );
+
+      for (let i = 0; i < 505; i++) {
+        eventCallback!({
+          payload: {
+            connectionId: 'big-buf',
+            data: `msg-${i}`,
+            messageType: 'text',
+            timestamp: Date.now() + i,
+          },
+        });
+      }
+
+      const result = await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'big-buf' } }),
+      );
+      const data = result.data as { messages: { data: string }[]; bufferSize: number };
+      expect(data.bufferSize).toBe(500);
+      expect(data.messages[0].data).toBe('msg-5');
+    });
+
+    it('defaults messageType to text when payload omits it', async () => {
+      let eventCallback: ((event: { payload: unknown }) => void) | undefined;
+      mockListen.mockImplementation((_eventName: string, cb: (event: { payload: unknown }) => void) => {
+        eventCallback = cb;
+        return Promise.resolve(() => { /* unlisten */ });
+      });
+
+      await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-3' } }),
+      );
+      eventCallback!({
+        payload: { connectionId: 'conn-3', data: 'plain', timestamp: Date.now() },
+      });
+
+      const result = await wsNativeTauriTransport(
+        makeRequest({ op: 'messages', method: 'GET', query: { connectionId: 'conn-3' } }),
+      );
+      const msg = (result.data as { messages: { type: string }[] }).messages[0];
+      expect(msg.type).toBe('text');
     });
   });
 });

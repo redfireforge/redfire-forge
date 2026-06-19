@@ -15,6 +15,10 @@ interface GqlTabBarProps {
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string, e: React.MouseEvent) => void;
   onAddTab: () => void;
+  // Phase 3F: batch checkbox
+  batchEnabled?: boolean;
+  batchedTabIds?: ReadonlySet<string>;
+  onToggleBatch?: (tabId: string) => void;
 }
 
 export function GqlTabBar({
@@ -24,6 +28,9 @@ export function GqlTabBar({
   onTabClick,
   onTabClose,
   onAddTab,
+  batchEnabled = false,
+  batchedTabIds,
+  onToggleBatch,
 }: GqlTabBarProps) {
   return (
     <div className="gql-tab-bar" data-testid="gql-tab-bar" role="tablist" aria-label="Query tabs">
@@ -53,6 +60,24 @@ export function GqlTabBar({
             onClick={() => onTabClick(tab.id)}
             data-testid={`gql-tab-${tab.id}`}
           >
+            {batchEnabled && tab.operationType !== 'subscription' && onToggleBatch && (
+              <span
+                className={`gql-tab-batch-cb${batchedTabIds?.has(tab.id) ? ' gql-tab-batch-cb--checked' : ''}`}
+                role="checkbox"
+                aria-checked={batchedTabIds?.has(tab.id) ?? false}
+                aria-label={`Include ${tab.label} in batch`}
+                title="Include in batch"
+                tabIndex={-1}
+                onClick={(e) => { e.stopPropagation(); onToggleBatch(tab.id); }}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleBatch(tab.id);
+                  }
+                }}
+              />
+            )}
             <span className="gql-tab-type-badge" aria-hidden="true">{typeLetter}</span>
             <span className="gql-tab-label" title={tab.label} aria-hidden="true">
               {tab.label}

@@ -389,4 +389,200 @@ describe('useGqlStudioTabs', () => {
     unmount();
     expect(onResetSubscription).toHaveBeenCalled();
   });
+
+  it('selectedOperation is kept when query changes but selection is still valid (line 266 false branch)', async () => {
+    const { extractOperations } = await import('../utils/monacoGraphqlSetup');
+    const mockExtract = vi.mocked(extractOperations);
+
+    // Start with two operations, selectedOperation is already valid
+    const tab1 = makeTab({ id: 'tab-1', selectedOperation: 'GetUser', query: 'q1 q2' });
+    mockLoadTabs.mockResolvedValue([tab1] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Both ops present, selectedOperation is still in the list → should NOT update
+    mockExtract.mockReturnValue([
+      { name: 'GetUser', type: 'query' },
+      { name: 'GetPosts', type: 'query' },
+    ]);
+
+    act(() => { result.current.handleQueryChange('query GetUser { id } query GetPosts { id }'); });
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+
+    // selectedOperation should remain 'GetUser' (valid) — NOT changed to first op
+    expect(result.current.tabs[0].selectedOperation).toBe('GetUser');
+  });
+
+  it('selectedOperation is cleared when query goes to empty (line 270-275, undefined branch)', async () => {
+    const { extractOperations } = await import('../utils/monacoGraphqlSetup');
+    const mockExtract = vi.mocked(extractOperations);
+
+    // Start with no selectedOperation
+    const tab1 = makeTab({ id: 'tab-1', selectedOperation: undefined, query: 'query GetUser { id }' });
+    mockLoadTabs.mockResolvedValue([tab1] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Drop to 0 operations — no selectedOperation was set so no-op
+    mockExtract.mockReturnValue([]);
+    act(() => { result.current.handleQueryChange(''); });
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+
+    // selectedOperation was already undefined — should still be undefined
+    expect(result.current.tabs[0].selectedOperation).toBeUndefined();
+  });
+
+  it('saveTabs is called on unmount with loaded tabs', async () => {
+    const tab1 = makeTab({ id: 'tab-1' });
+    mockLoadTabs.mockResolvedValue([tab1] as never);
+
+    const { unmount } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    unmount();
+
+    // saveTabs should be called on unmount when tabs are loaded
+    expect(mockSaveTabs).toHaveBeenCalled();
+  });
+
+  it('saveTabs is called on unmount when tabs are loaded (loadedRef guard)', async () => {
+    const tab1 = makeTab({ id: 'tab-1' });
+    mockLoadTabs.mockResolvedValue([tab1] as never);
+
+    const { unmount } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Clear mock calls from debounced persist effect
+    mockSaveTabs.mockClear();
+
+    unmount();
+
+    // saveTabs should be called on unmount since loadedRef.current = true and tabs.length > 0
+    expect(mockSaveTabs).toHaveBeenCalled();
+  });
+
+  it('handleTabClick does NOT clear confirming state when clicking the same tab', async () => {
+    const tab1 = makeTab({ id: 'tab-1', unsavedChanges: true });
+    const tab2 = makeTab({ id: 'tab-2' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Trigger confirmation for tab-1
+    act(() => { result.current.closeTab('tab-1', { stopPropagation: vi.fn() } as never); });
+    expect(result.current.confirmingCloseTabId).toBe('tab-1');
+
+    // Click the SAME tab — confirmingCloseTabId should NOT be cleared
+    act(() => { result.current.handleTabClick('tab-1'); });
+    expect(result.current.confirmingCloseTabId).toBe('tab-1');
+  });
+
+  // ── Multi-tab coverage for ternary false branches ─────────────────────────────
+
+  it('handleQueryChange with 2 tabs only modifies the active tab', async () => {
+    const tab1 = makeTab({ id: 'tab-1', query: 'query A { a }' });
+    const tab2 = makeTab({ id: 'tab-2', query: 'query B { b }' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Active tab is tab-1 (first tab), update its query
+    act(() => { result.current.handleQueryChange('query New { new }'); });
+    // tab-2 should be unchanged
+    const tab2after = result.current.tabs.find((t) => t.id === 'tab-2');
+    expect(tab2after?.query).toBe('query B { b }');
+  });
+
+  it('handleVariablesChange with 2 tabs only modifies the active tab', async () => {
+    const tab1 = makeTab({ id: 'tab-1' });
+    const tab2 = makeTab({ id: 'tab-2', variables: '{"original":true}' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    act(() => { result.current.handleVariablesChange('{"updated":true}'); });
+    const tab2after = result.current.tabs.find((t) => t.id === 'tab-2');
+    expect(tab2after?.variables).toBe('{"original":true}');
+  });
+
+  it('handleSubscriptionTransportChange with 2 tabs only modifies the active tab', async () => {
+    const tab1 = makeTab({ id: 'tab-1', subscriptionTransport: 'auto' });
+    const tab2 = makeTab({ id: 'tab-2', subscriptionTransport: 'sse' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    act(() => { result.current.handleSubscriptionTransportChange('graphql-ws'); });
+    const tab1after = result.current.tabs.find((t) => t.id === 'tab-1');
+    const tab2after = result.current.tabs.find((t) => t.id === 'tab-2');
+    expect(tab1after?.subscriptionTransport).toBe('graphql-ws');
+    expect(tab2after?.subscriptionTransport).toBe('sse'); // unchanged
+  });
+
+  it('selectedOperation syncs to null when operations count drops to 1 with multiple tabs', async () => {
+    // Tab with selectedOperation set and a multi-operation query
+    const tab1 = makeTab({ id: 'tab-1', query: 'query A { a }\nquery B { b }', selectedOperation: 'A' });
+    const tab2 = makeTab({ id: 'tab-2', query: 'query C { c }' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Change to single-operation query - should clear selectedOperation
+    act(() => { result.current.handleQueryChange('query OnlyOne { only }'); });
+    await act(async () => {});
+    const tab1after = result.current.tabs.find((t) => t.id === 'tab-1');
+    expect(tab1after?.selectedOperation).toBeUndefined();
+  });
+
+  it('closing a different unsaved tab clears any pending confirm timer for the previous tab', async () => {
+    const tab1 = makeTab({ id: 'tab-1', unsavedChanges: true });
+    const tab2 = makeTab({ id: 'tab-2', unsavedChanges: true });
+    const tab3 = makeTab({ id: 'tab-3' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2, tab3] as never);
+    vi.useFakeTimers();
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Close tab-1: sets confirm timer
+    act(() => { result.current.closeTab('tab-1', { stopPropagation: vi.fn() } as never); });
+    expect(result.current.confirmingCloseTabId).toBe('tab-1');
+
+    // Now close tab-2: clears the timer for tab-1, starts a new one for tab-2
+    act(() => { result.current.closeTab('tab-2', { stopPropagation: vi.fn() } as never); });
+    expect(result.current.confirmingCloseTabId).toBe('tab-2');
+
+    vi.useRealTimers();
+  });
+
+  it('selectedOperation reset covers line 266 false branch with multi-tab setup', async () => {
+    const { extractOperations } = await import('../utils/monacoGraphqlSetup');
+    const mockExtract = vi.mocked(extractOperations);
+
+    // Two tabs: tab-1 is active with a stale selectedOperation
+    const tab1 = makeTab({ id: 'tab-1', selectedOperation: 'OldOp', query: 'q1 q2' });
+    const tab2 = makeTab({ id: 'tab-2', query: 'query Other { other }' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    // Switch to multi-op query where OldOp is NOT in the list → resets to first op
+    mockExtract.mockReturnValue([{ name: 'Alpha', type: 'query' }, { name: 'Beta', type: 'query' }]);
+    act(() => { result.current.handleQueryChange('query Alpha { alpha } query Beta { beta }'); });
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+
+    // Active tab-1 should be reset to Alpha; tab-2 should be unchanged (false branch in map)
+    const tab1after = result.current.tabs.find((t) => t.id === 'tab-1');
+    const tab2after = result.current.tabs.find((t) => t.id === 'tab-2');
+    expect(tab1after?.selectedOperation).toBe('Alpha');
+    expect(tab2after?.query).toBe('query Other { other }'); // unchanged
+  });
 });

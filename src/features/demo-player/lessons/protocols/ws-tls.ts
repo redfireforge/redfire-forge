@@ -39,15 +39,32 @@ async function ensureTlsPanelReady(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Silently ensures the TLS accordion panel is expanded (aria-expanded="true").
- * Waits for the toggle to appear in the DOM first (it only renders when the
- * URL starts with wss://), so it is safe to call immediately after a URL fill.
+ * Silently ensures the TLS configuration modal is open.
+ * Waits for the toggle button to appear in the DOM first (it only renders
+ * when the URL starts with wss://), then checks whether the modal body is
+ * already in the DOM before clicking. The TLS button uses aria-haspopup="dialog"
+ * (not aria-expanded), so we detect open state by checking for the modal body.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
   const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
-  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') {
+  // Use aria-expanded as the canonical "is open" check — it's always in sync
+  // with the component state regardless of animation or lazy rendering.
+  const isOpen = toggle?.getAttribute('aria-expanded') === 'true';
+  if (!isOpen && toggle) {
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await ctx.delay(400);
+  }
+}
+
+/**
+ * Silently closes the TLS configuration modal if it is open.
+ * Uses the Close button (not Cancel) to avoid reverting unsaved changes.
+ */
+async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
+  const closeBtn = document.querySelector(WS.TLS_CLOSE) as HTMLElement | null;
+  if (closeBtn) {
+    closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await ctx.delay(300);
   }
 }
@@ -93,6 +110,16 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await resetAuth(ctx);         // sets auth type → "none"
   await clearCustomHeaders(ctx); // removes all header rows, returns to Connect tab
 
+  // Clear subprotocol and reset protocol to raw — the GraphQL-WS demo leaves
+  // "graphql-transport-ws" in the subprotocols field and "graphql-ws" in the
+  // protocol select. This causes auto-detect to identify the connection as
+  // GraphQL-WS, which can route through the proxy backend. Since the backend
+  // is not running in web mode, the next connect → 504/TLS error.
+  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+  await ctx.delay(100);
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
+  await ctx.delay(100);
+
   // Ensure Connect tab is active (clearCustomHeaders returns to Connect but be explicit)
   await ctx.click(WS.LEFT_TAB_CONNECT);
   await ctx.delay(200);
@@ -118,6 +145,16 @@ async function tlsSetup(ctx: DemoActionContext): Promise<void> {
   await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
   await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
 
+  // CRITICAL: Close the TLS modal BEFORE clearing the URL.
+  //
+  // The "is modal open" state lives in the parent React component, not inside the
+  // TLS panel. Clearing the URL unmounts the TLS panel (isWss → false) while the
+  // modal state is still true. When step 1 re-fills the URL (wss://), the panel
+  // remounts and the modal immediately shows as open — startling the viewer.
+  // Closing here resets the state to false before the unmount.
+  await closeTlsModal(ctx);
+  await ctx.delay(200);
+
   // Now clear the URL to leave a blank slate for step 1
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
@@ -136,6 +173,12 @@ async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
   await disconnectWebSocket(ctx);
   await clearEvents(ctx);
 
+  // Reset subprotocol and protocol to raw so the next lesson starts clean.
+  await ctx.fill(WS.SUBPROTOCOLS_INPUT, '');
+  await ctx.delay(100);
+  await ctx.selectOption(WS.PROTOCOL_SELECT, 'raw');
+  await ctx.delay(100);
+
   // CRITICAL: Ensure a wss:// URL is filled BEFORE trying to expand the TLS panel.
   // The TLS toggle only renders when isWss=true (URL starts with wss://).
   // If a demo step left the URL empty or ws://, the TLS panel never mounts,
@@ -144,6 +187,11 @@ async function tlsCleanup(ctx: DemoActionContext): Promise<void> {
   await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
   await ensureTlsPanelExpanded(ctx); // waitFor(TLS_TOGGLE) is inside this
   await setSkipCert(ctx, false);     // waitFor(TLS_SKIP_CERT) is inside this
+
+  // Close the modal BEFORE clearing the URL — same reason as in setup:
+  // the open state is in the parent component and persists across URL changes.
+  await closeTlsModal(ctx);
+  await ctx.delay(200);
 
   await ctx.fill(WS.URL_INPUT, '');
   await ctx.delay(200);
@@ -190,37 +238,115 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       { term: 'mTLS', definition: 'Mutual TLS — both server and client present certificates to authenticate each other.' },
       { term: 'rejectUnauthorized', definition: 'When false, accepts self-signed or invalid certificates. Use only in dev/staging.' },
     ],
-    diagram: `<svg viewBox="0 0 400 130" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
-  <rect x="0" y="0" width="400" height="130" rx="8" fill="#1e1e2e" />
+    diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" style="display:block;width:100%;height:auto;font-family:'SF Pro Display','Segoe UI',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="tls-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1a2540"/></linearGradient>
+    <linearGradient id="tls-tunnel" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4ade80" stop-opacity="0.15"/><stop offset="50%" stop-color="#4ade80" stop-opacity="0.08"/><stop offset="100%" stop-color="#4ade80" stop-opacity="0.15"/></linearGradient>
+    <filter id="tls-glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
 
-  <!-- Client -->
-  <rect x="15" y="20" width="100" height="90" rx="4" fill="#2a2a3a" />
-  <text x="65" y="40" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold">Client</text>
-  <text x="65" y="56" text-anchor="middle" fill="#888" font-size="7">wss:// URL</text>
-  <text x="65" y="69" text-anchor="middle" fill="#888" font-size="7">TLS handshake</text>
-  <text x="65" y="82" text-anchor="middle" fill="#888" font-size="7">CA / mTLS certs</text>
-  <text x="65" y="95" text-anchor="middle" fill="#888" font-size="7">Skip validation</text>
+  <!-- Background -->
+  <rect width="720" height="460" rx="12" fill="url(#tls-bg)"/>
+  <rect width="720" height="460" rx="12" fill="none" stroke="#1e3a5f" stroke-width="1"/>
 
-  <!-- TLS Layer -->
-  <rect x="140" y="30" width="120" height="70" rx="4" fill="#2a2a3a" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3" />
-  <text x="200" y="50" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="bold">TLS Layer</text>
-  <text x="200" y="66" text-anchor="middle" fill="#888" font-size="7">Encrypted tunnel</text>
-  <text x="200" y="79" text-anchor="middle" fill="#888" font-size="7">Certificate verification</text>
-  <text x="200" y="92" text-anchor="middle" fill="#888" font-size="7">ws:// data inside</text>
+  <!-- Title -->
+  <text x="360" y="30" text-anchor="middle" fill="#cbd5e1" font-size="12" font-weight="600" letter-spacing="0.08em">TRANSPORT MODES &amp; TLS ARCHITECTURE</text>
 
-  <!-- Arrow in -->
-  <path d="M118,65 L138,65" stroke="#60a5fa" stroke-width="2" marker-end="url(#arr19)" />
-  <!-- Arrow out -->
-  <path d="M262,65 L290,65" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr19)" />
+  <!-- ── ws:// vs wss:// comparison row ── -->
+  <!-- ws:// box -->
+  <rect x="30" y="50" width="300" height="75" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  <rect x="30" y="50" width="300" height="28" rx="8" fill="#374151"/>
+  <rect x="30" y="66" width="300" height="12" fill="#374151"/>
+  <text x="180" y="70" text-anchor="middle" fill="#cbd5e1" font-size="11" font-weight="600" letter-spacing="0.05em">ws://  —  PLAIN TEXT</text>
+  <text x="70" y="94" fill="#cbd5e1" font-size="10">Data sent unencrypted</text>
+  <text x="70" y="112" fill="#94a3b8" font-size="10">⚠ Not suitable for production</text>
+  <circle cx="50" cy="102" r="8" fill="#ef444420" stroke="#ef4444" stroke-width="1.2"/>
+  <text x="50" y="106" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="700">!</text>
 
-  <!-- Server -->
-  <rect x="295" y="25" width="95" height="80" rx="4" fill="#2a2a3a" />
-  <text x="342" y="45" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="bold">Server</text>
-  <text x="342" y="61" text-anchor="middle" fill="#888" font-size="7">TLS termination</text>
-  <text x="342" y="74" text-anchor="middle" fill="#888" font-size="7">Valid certificate</text>
-  <text x="342" y="87" text-anchor="middle" fill="#888" font-size="7">Echo response</text>
+  <!-- wss:// box -->
+  <rect x="390" y="50" width="300" height="75" rx="8" fill="#1e293b" stroke="#4ade80" stroke-width="1.5"/>
+  <rect x="390" y="50" width="300" height="28" rx="8" fill="#064e3b"/>
+  <rect x="390" y="66" width="300" height="12" fill="#064e3b"/>
+  <text x="540" y="70" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600" letter-spacing="0.05em">wss://  —  TLS ENCRYPTED</text>
+  <text x="430" y="94" fill="#a7f3d0" font-size="10">Data encrypted in transit</text>
+  <text x="430" y="112" fill="#86efac" font-size="10">✓ Required for production</text>
+  <circle cx="413" cy="102" r="8" fill="#4ade8020" stroke="#4ade80" stroke-width="1.2"/>
+  <text x="413" y="106" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="700">🔒</text>
 
-  <defs><marker id="arr19" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/></marker></defs>
+  <!-- VS divider -->
+  <rect x="335" y="70" width="50" height="24" rx="12" fill="#1e3a5f" stroke="#334155" stroke-width="1"/>
+  <text x="360" y="87" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="700">vs</text>
+
+  <!-- ── Transport modes section ── -->
+  <text x="360" y="155" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="500" letter-spacing="0.06em">TRANSPORT MODES (auto-selected)</text>
+  <line x1="30" y1="162" x2="690" y2="162" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- Direct transport -->
+  <rect x="30" y="174" width="205" height="125" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <rect x="30" y="174" width="205" height="28" rx="8" fill="#1d3a6e"/>
+  <rect x="30" y="190" width="205" height="12" fill="#1d3a6e"/>
+  <text x="132" y="193" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="700">Direct (Browser)</text>
+  <text x="50" y="218" fill="#cbd5e1" font-size="10">Browser WebSocket API</text>
+  <text x="50" y="235" fill="#cbd5e1" font-size="10">Browser cert store handles TLS</text>
+  <text x="50" y="252" fill="#cbd5e1" font-size="10">No custom CA / skip-cert</text>
+  <rect x="40" y="264" width="180" height="20" rx="4" fill="#1d4ed815"/>
+  <text x="130" y="278" text-anchor="middle" fill="#93c5fd" font-size="9.5" font-weight="500">auto:  wss:// → Direct</text>
+
+  <!-- Proxy transport -->
+  <rect x="257" y="174" width="205" height="125" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="257" y="174" width="205" height="28" rx="8" fill="#451a03"/>
+  <rect x="257" y="190" width="205" height="12" fill="#451a03"/>
+  <text x="359" y="193" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="700">Proxy (Node.js)</text>
+  <text x="277" y="218" fill="#cbd5e1" font-size="10">Node.js backend relays conn.</text>
+  <text x="277" y="235" fill="#cbd5e1" font-size="10">Applies skip-cert, custom CA</text>
+  <text x="277" y="252" fill="#cbd5e1" font-size="10">Supports mTLS client certs</text>
+  <rect x="267" y="264" width="180" height="20" rx="4" fill="#92400e15"/>
+  <text x="357" y="278" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="500">auto:  TLS overrides → Proxy</text>
+
+  <!-- Native transport -->
+  <rect x="484" y="174" width="206" height="125" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5"/>
+  <rect x="484" y="174" width="206" height="28" rx="8" fill="#2e1065"/>
+  <rect x="484" y="190" width="206" height="12" fill="#2e1065"/>
+  <text x="587" y="193" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700">Native (Tauri Desktop)</text>
+  <text x="504" y="218" fill="#cbd5e1" font-size="10">rustls full TLS stack</text>
+  <text x="504" y="235" fill="#cbd5e1" font-size="10">Skip-cert, custom CA, mTLS</text>
+  <text x="504" y="252" fill="#cbd5e1" font-size="10">No proxy needed</text>
+  <rect x="494" y="264" width="180" height="20" rx="4" fill="#4c1d9515"/>
+  <text x="584" y="278" text-anchor="middle" fill="#c4b5fd" font-size="9.5" font-weight="500">desktop → Native</text>
+
+  <!-- ── TLS Config panel section ── -->
+  <line x1="30" y1="316" x2="690" y2="316" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="360" y="334" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="500" letter-spacing="0.06em">TLS CONFIGURATION PANEL  (Connect tab → Configure)</text>
+
+  <!-- Config options row -->
+  <!-- Skip cert option -->
+  <rect x="30" y="348" width="155" height="90" rx="6" fill="#1e293b" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="107" y="366" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">Skip Certificate</text>
+  <text x="107" y="380" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">Validation</text>
+  <text x="45" y="399" fill="#cbd5e1" font-size="9.5">rejectUnauthorized = false</text>
+  <text x="45" y="415" fill="#b0b8c8" font-size="9.5">Dev/staging self-signed certs</text>
+  <text x="45" y="430" fill="#f87171" font-size="9">⚠ Never use in production</text>
+
+  <!-- CA Cert option -->
+  <rect x="202" y="348" width="155" height="90" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
+  <text x="279" y="370" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">CA Certificate</text>
+  <text x="217" y="392" fill="#cbd5e1" font-size="9.5">Custom CA PEM</text>
+  <text x="217" y="408" fill="#cbd5e1" font-size="9.5">Internal PKI / private CA</text>
+  <text x="217" y="424" fill="#fbbf24" font-size="9">Optional</text>
+
+  <!-- mTLS option -->
+  <rect x="374" y="348" width="155" height="90" rx="6" fill="#1e293b" stroke="#4ade80" stroke-width="1"/>
+  <text x="451" y="370" text-anchor="middle" fill="#a7f3d0" font-size="10" font-weight="600">mTLS Client Certs</text>
+  <text x="389" y="392" fill="#cbd5e1" font-size="9.5">Client Cert + Private Key</text>
+  <text x="389" y="408" fill="#cbd5e1" font-size="9.5">Server verifies client identity</text>
+  <text x="389" y="424" fill="#86efac" font-size="9">Zero-trust / enterprise</text>
+
+  <!-- Encrypted tunnel visual -->
+  <rect x="546" y="348" width="144" height="90" rx="6" fill="url(#tls-tunnel)" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <text x="618" y="372" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">TLS Tunnel</text>
+  <text x="618" y="394" text-anchor="middle" fill="#86efac" font-size="10">Encrypted</text>
+  <text x="618" y="412" text-anchor="middle" fill="#86efac" font-size="10">ws:// inside</text>
+  <text x="618" y="432" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="700">→</text>
 </svg>`,
   },
 
@@ -230,15 +356,28 @@ Setting any TLS override in the browser automatically routes through the Proxy t
       id: 'tls-intro',
       title: 'wss:// vs ws://',
       description:
-        'The difference between ws:// and wss:// is just like http:// vs https:// — the "s" means TLS encryption. Type a wss:// URL and watch the TLS configuration panel appear below the connection settings. It only shows when the URL scheme is wss://.',
-      highlight: WS.URL_INPUT,
+        'The difference between ws:// and wss:// is just like http:// vs https:// — the "s" means TLS encryption. Type a wss:// URL and the **TLS / mTLS** configuration bar instantly appears at the bottom of the Connect tab. It only shows when the URL scheme is wss://, and stays collapsed until you choose to configure it.',
+      highlight: WS.TLS_TOGGLE,
       preAction: async (ctx) => {
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
+        // Pre-fill the wss:// URL silently so the TLS bar is visible during the
+        // reading phase (the viewer reads the description while seeing the result).
+        // If already set correctly, leave it alone.
+        const urlInput = document.querySelector(WS.URL_INPUT) as HTMLInputElement | null;
+        if (!urlInput?.value?.startsWith('wss://')) {
+          await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
+          await ctx.delay(300);
+        }
+        // Ensure TLS modal is closed — never open at the start of this step.
+        await closeTlsModal(ctx);
       },
       action: async (ctx) => {
+        // Clear then re-type the URL to give the viewer the visual of typing wss://.
+        await ctx.fill(WS.URL_INPUT, '');
+        await ctx.delay(400);
         await ctx.fill(WS.URL_INPUT, WSS_ECHO_URL);
-        await ctx.delay(800);
+        await ctx.delay(1000);
       },
       pauseAfter: true,
     },
@@ -271,6 +410,8 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         'Click Connect to establish an encrypted WebSocket connection to the public echo server. The browser handles the TLS handshake using its built-in certificate store — no custom configuration needed for servers with valid certificates. Watch the status change to Connected.',
       highlight: WS.CONNECT_BTN,
       preAction: async (ctx) => {
+        // Close TLS modal if left open from the previous step
+        await closeTlsModal(ctx);
         await ensureTlsPanelReady(ctx);
         // Ensure disconnected so the Connect button is active
         await disconnectWebSocket(ctx);
@@ -372,11 +513,12 @@ Setting any TLS override in the browser automatically routes through the Proxy t
         // DOM when the Connect tab is active. Switch there first so setSkipCert and
         // the subsequent highlight can find their targets.
         await ensureTlsPanelReady(ctx);
-        // Ensure TLS panel is expanded so the skip-cert checkbox is in the DOM
+        // Open TLS modal to reset skip-cert (ensures Direct transport, not Proxy)
         await ensureTlsPanelExpanded(ctx);
-        // Reset skip-cert so the connection uses Direct (not Proxy) transport
         await setSkipCert(ctx, false);
-        await ctx.delay(300);
+        // Close TLS modal — this step highlights the transport badge, not the TLS panel
+        await closeTlsModal(ctx);
+        await ctx.delay(200);
         // Ensure connected so the transport badge is visible and showing "Direct"
         const isConnected = !!document.querySelector(WS.STATUS_CONNECTED);
         if (!isConnected) {

@@ -496,4 +496,211 @@ describe('WebSocketStudioPage internal callbacks', () => {
       expect(tabs[0].label).toBe('New Connection');
     });
   });
+
+  describe('handleMockPortChange', () => {
+    it('ignores port changes that conflict with another tab', async () => {
+      vi.useFakeTimers();
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect' },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onMockPortChange1 = capturedTabContentProps['ws-tab-1'].onMockPortChange as (id: string, port: number) => void;
+      const onMockPortChange2 = capturedTabContentProps['ws-tab-2'].onMockPortChange as (id: string, port: number) => void;
+      act(() => { onMockPortChange1('ws-tab-1', 9876); });
+      act(() => { vi.advanceTimersByTime(350); });
+      act(() => { onMockPortChange2('ws-tab-2', 9876); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).not.toBe(9876);
+    });
+
+    it('restores persisted mockPort on tab load', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: 'ws://localhost:8765', viewTab: 'mock', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9999);
+    });
+
+    it('assigns alternate port when persisted mockPort conflicts', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'mock', mockPort: 9999 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'mock', mockPort: 9999 },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9999);
+      expect(capturedTabContentProps['ws-tab-2'].mockPort).not.toBe(9999);
+    });
+  });
+
+  describe('handleDraftChange and tab location callbacks', () => {
+    it('debounced save runs on draft change', async () => {
+      vi.useFakeTimers();
+      await renderPage();
+      const tabId = Object.keys(capturedTabContentProps)[0];
+      const onDraftChange = capturedTabContentProps[tabId].onDraftChange as () => void;
+      act(() => { onDraftChange(); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      expect(storageModule.saveWsTabState).toHaveBeenCalled();
+    });
+
+    it('persists left and right tab changes', async () => {
+      vi.useFakeTimers();
+      await renderPage();
+      const tabId = Object.keys(capturedTabContentProps)[0];
+      const onLeftTabChange = capturedTabContentProps[tabId].onLeftTabChange as (tab: string) => void;
+      const onRightTabChange = capturedTabContentProps[tabId].onRightTabChange as (tab: string) => void;
+      act(() => { onLeftTabChange('headers'); });
+      act(() => { onRightTabChange('stats'); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      expect(storageModule.saveWsTabState).toHaveBeenCalled();
+    });
+  });
+
+  describe('handleSelectTab and handleRenameTab', () => {
+    it('selects tab and debounced save', async () => {
+      vi.useFakeTimers();
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'connect' },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onSelect = capturedTabBarProps.onSelect as (id: string) => void;
+      act(() => { onSelect('ws-tab-2'); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      expect(capturedTabBarProps.activeTabId).toBe('ws-tab-2');
+      expect(storageModule.saveWsTabState).toHaveBeenCalled();
+    });
+
+    it('renames tab and debounced save', async () => {
+      vi.useFakeTimers();
+      await renderPage({
+        tabs: [{ id: 'ws-tab-1', label: 'Old', url: '', viewTab: 'connect' }],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onRename = capturedTabBarProps.onRename as (id: string, label: string) => void;
+      act(() => { onRename('ws-tab-1', 'Renamed'); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
+      expect(tabs[0].label).toBe('Renamed');
+      expect(storageModule.saveWsTabState).toHaveBeenCalled();
+    });
+  });
+
+  describe('handleAddTab and handleAddTabWithUrl', () => {
+    it('adds a new tab via onAdd', async () => {
+      vi.useFakeTimers();
+      await renderPage();
+      const onAdd = capturedTabBarProps.onAdd as () => void;
+      act(() => { onAdd(); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
+      expect(tabs.length).toBeGreaterThan(1);
+    });
+
+    it('does not add when max tabs reached', async () => {
+      const tabs = Array.from({ length: 8 }, (_, i) => ({
+        id: `ws-tab-${i}`,
+        label: `Tab ${i}`,
+        url: '',
+        viewTab: 'connect' as const,
+      }));
+      await renderPage({ tabs, activeTabId: 'ws-tab-0', renamedTabIds: [] });
+      const onAdd = capturedTabBarProps.onAdd as () => void;
+      act(() => { onAdd(); });
+      const after = capturedTabBarProps.tabs as Array<{ id: string }>;
+      expect(after.length).toBe(8);
+    });
+
+    it('adds tab with URL and protocol via onAddWithUrl', async () => {
+      vi.useFakeTimers();
+      await renderPage();
+      const onAddWithUrl = capturedTabBarProps.onAddWithUrl as (url: string, protocol?: string) => void;
+      act(() => { onAddWithUrl('ws://localhost:9090/demo', 'graphql-ws'); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string; url?: string }>;
+      const added = tabs.find((t) => t.url === 'ws://localhost:9090/demo');
+      expect(added?.label).toContain('localhost');
+    });
+  });
+
+  describe('handleUrlChange and handleCloseTab edge cases', () => {
+    it('does not auto-relabel renamed tabs on url change', async () => {
+      await renderPage({
+        tabs: [{ id: 'ws-tab-1', label: 'Custom', url: '', viewTab: 'connect' }],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: ['ws-tab-1'],
+      });
+      const onUrlChange = capturedTabContentProps['ws-tab-1'].onUrlChange as (id: string, url: string) => void;
+      act(() => { onUrlChange('ws-tab-1', 'ws://renamed.example.com:8080'); });
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string; label: string }>;
+      expect(tabs[0].label).toBe('Custom');
+    });
+
+    it('does not close the last remaining tab', async () => {
+      await renderPage({
+        tabs: [{ id: 'ws-tab-1', label: 'Only', url: '', viewTab: 'connect' }],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      const onClose = capturedTabBarProps.onClose as (id: string) => void;
+      act(() => { onClose('ws-tab-1'); });
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string }>;
+      expect(tabs.length).toBe(1);
+    });
+
+    it('closes tab and releases mock port assignment', async () => {
+      await renderPage({
+        tabs: [
+          { id: 'ws-tab-1', label: 'A', url: '', viewTab: 'mock', mockPort: 9999 },
+          { id: 'ws-tab-2', label: 'B', url: '', viewTab: 'connect' },
+        ],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      expect(capturedTabContentProps['ws-tab-1'].mockPort).toBe(9999);
+      const onClose = capturedTabBarProps.onClose as (id: string) => void;
+      act(() => { onClose('ws-tab-1'); });
+      const tabs = capturedTabBarProps.tabs as Array<{ id: string }>;
+      expect(tabs.length).toBe(1);
+      expect(tabs[0].id).toBe('ws-tab-2');
+    });
+
+    it('accepts mock port change when port is unique', async () => {
+      vi.useFakeTimers();
+      const saveSpy = vi.spyOn(storageModule, 'saveWsTabState');
+      await renderPage({
+        tabs: [{ id: 'ws-tab-1', label: 'A', url: '', viewTab: 'mock', mockPort: 9876 }],
+        activeTabId: 'ws-tab-1',
+        renamedTabIds: [],
+      });
+      saveSpy.mockClear();
+      const onMockPortChange = capturedTabContentProps['ws-tab-1'].onMockPortChange as (id: string, port: number) => void;
+      act(() => { onMockPortChange('ws-tab-1', 10001); });
+      act(() => { vi.advanceTimersByTime(350); });
+      vi.useRealTimers();
+      const saved = saveSpy.mock.calls.at(-1)?.[0];
+      expect(saved?.tabs?.[0]?.mockPort).toBe(10001);
+    });
+  });
 });

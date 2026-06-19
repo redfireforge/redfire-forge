@@ -2,28 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { buildTemplateMetaAndSample, buildScenarioFromRow } from './csvTemplateShared';
 import type { ExportOptions } from './csvTemplateTypes';
 import type { Scenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // ---------------------------------------------------------------------------
 // buildTemplateMetaAndSample
 // ---------------------------------------------------------------------------
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     id: 'test-1',
     name: 'Test',
     method: 'POST',
     url: 'https://api.example.com/v1/users/123?page=1&size=10',
     headers: [{ key: 'Accept', value: 'application/json' }, { key: '', value: '' }],
     body: '{"name":"test"}',
-    auth: { type: 'none' },
     validation: {
       mode: 'selective',
       selectiveMode: 'include',
       expectedFields: [{ jsonPath: '$.name', expectedValue: 'test' }],
     },
     ...overrides,
-  };
-}
+  });
 
 function makeOpts(overrides: Partial<ExportOptions> = {}): ExportOptions {
   return {

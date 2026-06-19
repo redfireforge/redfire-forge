@@ -78,6 +78,12 @@ export function useDemoProgress() {
     return data.lessonSteps[lessonId] ?? 0;
   }, [data.lessonSteps]);
 
+  const getLessonStatus = useCallback((lessonId: string): 'not_started' | 'in_progress' | 'completed' => {
+    if (data.completedLessons.includes(lessonId)) return 'completed';
+    if (data.lessonSteps[lessonId] !== undefined) return 'in_progress';
+    return 'not_started';
+  }, [data.completedLessons, data.lessonSteps]);
+
   const resetLesson = useCallback((lessonId: string) => {
     update(prev => {
       const lessonSteps = { ...prev.lessonSteps };
@@ -104,6 +110,7 @@ export function useDemoProgress() {
     setSpeed,
     isLessonComplete,
     getLessonStep,
+    getLessonStatus,
     resetLesson,
     resetProgress,
   };

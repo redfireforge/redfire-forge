@@ -24,6 +24,7 @@ import {
   makeHandlerContext,
   makeNode,
   makePassedFlag,
+  httpNode,
 } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = getMockFetch();
@@ -39,17 +40,6 @@ beforeEach(() => {
 });
 
 describe('handleHttpNode', () => {
-  function httpNode(id: string, label = 'HTTP', url = 'https://api.example.com/test'): WorkflowNode {
-    return makeNode(id, 'http', {
-      label,
-      scenario: {
-        id, name: label, url, method: 'GET',
-        headers: [], body: '', auth: { type: 'none' },
-        validation: { mode: 'none', assertions: [] },
-      },
-    });
-  }
-
   it('executes HTTP request and records pass result', async () => {
     const { callbacks, states } = makeCallbacks();
     const hCtx = makeHandlerContext({ callbacks });

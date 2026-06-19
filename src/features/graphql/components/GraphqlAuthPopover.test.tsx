@@ -369,3 +369,127 @@ describe('GraphqlAuthPopover — additional apiKey coverage', () => {
     expect(onChange).toHaveBeenCalled();
   });
 });
+
+describe('GraphqlAuthPopover — coverage gap fill (L161/L163/L165/L190 and ?? fallback paths)', () => {
+  it('switching from bearer to none type: the selectedType !== AUTH_TYPE_NONE false branch (lines 163-167)', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const anchorRef = makeAnchorRef();
+    // Start with bearer auth (non-none type)
+    render(<GraphqlAuthPopover auth={{ type: 'bearer', token: 'tok' }} onChange={onChange} onClose={vi.fn()} anchorRef={anchorRef} />);
+    const typeSelect = screen.getByTestId('gql-auth-type-select');
+    // Switch to 'none' — hits the false branch of (selectedType !== AUTH_TYPE_NONE)
+    fireEvent.change(typeSelect, { target: { value: 'none' } });
+    vi.runAllTimers();
+    vi.useRealTimers();
+    expect(onChange).toHaveBeenCalled();
+  });
+  it('type-change useEffect fires when auth prop changes type (covers L161[1] false branch)', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const anchorRef = makeAnchorRef();
+    const { rerender } = render(
+      <GraphqlAuthPopover auth={null} onChange={onChange} onClose={vi.fn()} anchorRef={anchorRef} />,
+    );
+    // Re-render with bearer auth — selectedType changes from 'none' to 'bearer'
+    // This causes prevTypeRef.current('none') !== selectedType('bearer') → [1] false branch
+    rerender(
+      <GraphqlAuthPopover auth={{ type: 'bearer', token: 'tok' }} onChange={onChange} onClose={vi.fn()} anchorRef={anchorRef} />,
+    );
+    vi.runAllTimers();
+    vi.useRealTimers();
+    expect(screen.getByTestId('gql-auth-bearer-input')).toBeTruthy();
+  });
+
+  it('type-change to none: selectedType === AUTH_TYPE_NONE covers [0] false branch of if(selectedType !== AUTH_TYPE_NONE)', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const anchorRef = makeAnchorRef();
+    const { rerender } = render(
+      <GraphqlAuthPopover auth={{ type: 'bearer', token: 'tok' }} onChange={onChange} onClose={vi.fn()} anchorRef={anchorRef} />,
+    );
+    // Switch to no-auth — selectedType becomes 'none', so `if (selectedType !== AUTH_TYPE_NONE)` is false
+    rerender(
+      <GraphqlAuthPopover auth={null} onChange={onChange} onClose={vi.fn()} anchorRef={anchorRef} />,
+    );
+    vi.runAllTimers();
+    vi.useRealTimers();
+    expect(screen.getByText(/No authentication headers will be added/i)).toBeTruthy();
+  });
+
+  it('keyboard handler: non-Escape key does not close (covers L190[1] false branch)', () => {
+    const onClose = vi.fn();
+    renderPopover(null, vi.fn(), onClose);
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('click outside handler: click inside popover does not close (covers L175[1] false branch)', () => {
+    const onClose = vi.fn();
+    const { container } = renderPopover(null, vi.fn(), onClose);
+    // Click inside the popover element itself — should NOT trigger onClose
+    fireEvent.mouseDown(container.querySelector('[data-testid="gql-auth-popover"]')!);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // ── Bearer: undefined token (covers ?? '' fallback at L305 and L221) ─────────
+  it('bearer auth with undefined token: renders with empty value (covers token ?? "" paths)', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'bearer' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    const input = screen.getByTestId('gql-auth-bearer-input') as HTMLInputElement;
+    expect(input.value).toBe('');
+  });
+
+  it('bearer preview with undefined token shows "Token not set" (covers L221[1])', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'bearer' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/Token not set/i)).toBeTruthy();
+  });
+
+  // ── Basic: undefined username/password (covers L227/L324/L335) ──────────────
+  it('basic auth with undefined username renders empty inputs (covers username/password ?? "" paths)', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'basic' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    const userInput = screen.getByTestId('gql-auth-basic-user') as HTMLInputElement;
+    expect(userInput.value).toBe('');
+  });
+
+  it('basic preview with undefined username shows "Username not set" (covers L227[1])', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'basic' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/Username not set/i)).toBeTruthy();
+  });
+
+  // ── API Key: undefined headerName/headerValue (covers L233/L234/L354/L365) ──
+  it('apiKey with undefined headerName renders with default X-API-Key value (covers headerName ?? "X-API-Key" path)', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'apiKey' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    const headerInput = screen.getByTestId('gql-auth-apikey-name') as HTMLInputElement;
+    // auth.headerName is undefined → ?? 'X-API-Key' kicks in
+    expect(headerInput.value).toBe('X-API-Key');
+  });
+
+  it('apiKey preview with undefined headerName shows "Header name not set" (covers L233[1])', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'apiKey' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/Header name not set/i)).toBeTruthy();
+  });
+
+  it('apiKey with undefined headerValue shows (empty value) in preview (covers L234[1])', () => {
+    render(<GraphqlAuthPopover auth={{ type: 'apiKey', headerName: 'X-Key' } as GraphqlAuth} onChange={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/empty value/i)).toBeTruthy();
+  });
+
+  // ── Mount RAF: covers firstFieldRef null path (L144[1]) ────────────────────
+  it('mount RAF: focuses type-select when auth type is unknown (firstFieldRef is null, covers L144[1])', () => {
+    vi.useFakeTimers();
+    const anchorRef = makeAnchorRef();
+    render(
+      <GraphqlAuthPopover
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        auth={{ type: 'unknownType' as any }}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        anchorRef={anchorRef}
+      />,
+    );
+    vi.runAllTimers();
+    vi.useRealTimers();
+    // The component renders without throwing even though no firstFieldRef is attached
+    expect(screen.getByTestId('gql-auth-type-select')).toBeTruthy();
+  });
+});

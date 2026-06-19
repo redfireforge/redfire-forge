@@ -142,27 +142,19 @@ export function useWebSocketLoadTest(
     if (len > prevMsgLenRef.current) {
       processReceivedFrames(msgs.slice(prevMsgLenRef.current));
     } else {
-      const lastSeenIdx = lastSeenMsgIdRef.current
-        ? msgs.findIndex((m) => m.id === lastSeenMsgIdRef.current)
-        : -1;
+      const lastSeenIdx = msgs.findIndex((m) => m.id === lastSeenMsgIdRef.current);
       const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
-      if (startIdx < len) {
-        processReceivedFrames(msgs.slice(startIdx));
-      }
+      processReceivedFrames(msgs.slice(startIdx));
     }
     prevMsgLenRef.current = len;
     lastSeenMsgIdRef.current = lastId;
   }, [messages, processReceivedFrames]);
 
   const finalize = useCallback(() => {
-    if (sendLoopRef.current) {
-      clearTimeout(sendLoopRef.current);
-      sendLoopRef.current = null;
-    }
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-    }
+    clearTimeout(sendLoopRef.current ?? undefined);
+    sendLoopRef.current = null;
+    clearInterval(progressTimerRef.current ?? undefined);
+    progressTimerRef.current = null;
 
     const endedAt = new Date().toISOString();
     const durationMs = Date.now() - startTsRef.current;
@@ -191,7 +183,7 @@ export function useWebSocketLoadTest(
       totalSent: sentRef.current,
       totalReceived: receivedRef.current,
       targetRate: 0,
-      actualRate: durationMs > 0 ? Math.round((sentRef.current / durationMs) * 1000) : 0,
+      actualRate: Math.round((sentRef.current * 1000) / Math.max(durationMs, 1)),
       errorCount: errorRef.current,
     });
     sentTimestamps.current.clear();
@@ -206,10 +198,9 @@ export function useWebSocketLoadTest(
     const nonce = extractNonce(withNonce);
     if (nonce) {
       sentTimestamps.current.set(nonce, Date.now());
-      if (sentTimestamps.current.size > 10000) {
-        const oldest = sentTimestamps.current.keys().next().value;
-        if (oldest !== undefined) sentTimestamps.current.delete(oldest);
-      }
+        if (sentTimestamps.current.size > 10000) {
+          sentTimestamps.current.delete(sentTimestamps.current.keys().next().value as string);
+        }
     }
 
     try {
@@ -238,10 +229,8 @@ export function useWebSocketLoadTest(
         // Drain window: keep collecting echoes for 500ms before finalizing
         stateRef.current = 'stopping';
         setState('stopping');
-        if (progressTimerRef.current) {
-          clearInterval(progressTimerRef.current);
-          progressTimerRef.current = null;
-        }
+        clearInterval(progressTimerRef.current ?? undefined);
+        progressTimerRef.current = null;
         sendLoopRef.current = setTimeout(() => finalize(), 500);
         return;
       }
@@ -260,10 +249,8 @@ export function useWebSocketLoadTest(
       // Drain window: keep collecting echoes for 500ms before finalizing
       stateRef.current = 'stopping';
       setState('stopping');
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current);
-        progressTimerRef.current = null;
-      }
+      clearInterval(progressTimerRef.current ?? undefined);
+      progressTimerRef.current = null;
       sendLoopRef.current = setTimeout(() => finalize(), 500);
       return;
     }
@@ -279,7 +266,7 @@ export function useWebSocketLoadTest(
       sendOne();
     }
 
-    const nextDelay = targetRate > 0 ? Math.max(1, Math.round(1000 / targetRate)) : 100;
+    const nextDelay = Math.max(1, Math.round(1000 / Math.max(targetRate, 1)));
     sendLoopRef.current = setTimeout(() => scheduleSendLoopRef.current(), Math.min(nextDelay, 50));
   }, [sendOne, finalize]);
   scheduleSendLoopRef.current = scheduleSendLoop;
@@ -294,8 +281,8 @@ export function useWebSocketLoadTest(
         elapsedMs: elapsed,
         totalSent: sentRef.current,
         totalReceived: receivedRef.current,
-        targetRate: isFinite(targetRate) ? Math.round(targetRate) : 0,
-        actualRate: elapsed > 0 ? Math.round((sentRef.current / elapsed) * 1000) : 0,
+        targetRate: Number.isFinite(targetRate) ? Math.round(targetRate) : 0,
+        actualRate: Math.round((sentRef.current * 1000) / Math.max(elapsed, 1)),
         errorCount: errorRef.current,
       });
     }, PROGRESS_INTERVAL_MS);
@@ -364,8 +351,8 @@ export function useWebSocketLoadTest(
 
   useEffect(() => {
     return () => {
-      if (sendLoopRef.current) clearTimeout(sendLoopRef.current);
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      clearTimeout(sendLoopRef.current ?? undefined);
+      clearInterval(progressTimerRef.current ?? undefined);
     };
   }, []);
 
@@ -384,3 +371,5 @@ function computeRampExpected(
   const avgRate = rateStart + ((rateEnd - rateStart) * t) / (2 * totalSec);
   return Math.floor(avgRate * t);
 }
+
+export { computeRampExpected };

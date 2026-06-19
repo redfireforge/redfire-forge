@@ -153,6 +153,17 @@ describe('WsConnectNode', () => {
     const { container } = render(<WsConnectNode {...nodeProps('wc-9', 'wsConnect', makeData({ connectionId: '' }))} />);
     expect(container.textContent).toContain('ws1');
   });
+
+  it('handles undefined headers array', () => {
+    const data = { ...makeData(), headers: undefined } as WsConnectNodeData;
+    const { container } = render(<WsConnectNode {...nodeProps('wc-10', 'wsConnect', data)} />);
+    expect(container.textContent).not.toContain('header');
+  });
+
+  it('uses fallback label when label is empty', () => {
+    const { container } = render(<WsConnectNode {...nodeProps('wc-11', 'wsConnect', makeData({ label: '' }))} />);
+    expect(container.textContent).toContain('WS Connect');
+  });
 });
 
 // ── WsSendNode ──

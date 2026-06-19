@@ -151,4 +151,64 @@ describe('GqlTabBar', () => {
     fireEvent.keyDown(closeBtn, { key: ' ' });
     expect(defaultProps.onTabClose).toHaveBeenCalled();
   });
+
+  describe('batch mode', () => {
+    const batchProps = {
+      ...defaultProps,
+      batchEnabled: true,
+      batchedTabIds: new Set<string>(['t1']),
+      onToggleBatch: vi.fn(),
+    };
+
+    it('renders batch checkbox when batchEnabled and onToggleBatch provided', () => {
+      render(<GqlTabBar {...batchProps} />);
+      expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+    });
+
+    it('shows checked state for batched tabs', () => {
+      render(<GqlTabBar {...batchProps} />);
+      const checkbox = screen.getAllByRole('checkbox')[0];
+      expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('calls onToggleBatch when batch checkbox is clicked', () => {
+      const onToggleBatch = vi.fn();
+      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
+      fireEvent.click(screen.getAllByRole('checkbox')[0]);
+      expect(onToggleBatch).toHaveBeenCalled();
+    });
+
+    it('calls onToggleBatch when Space is pressed on batch checkbox', () => {
+      const onToggleBatch = vi.fn();
+      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
+      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: ' ' });
+      expect(onToggleBatch).toHaveBeenCalled();
+    });
+
+    it('calls onToggleBatch when Enter is pressed on batch checkbox', () => {
+      const onToggleBatch = vi.fn();
+      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
+      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: 'Enter' });
+      expect(onToggleBatch).toHaveBeenCalled();
+    });
+
+    it('does not call onToggleBatch for other keys on batch checkbox', () => {
+      const onToggleBatch = vi.fn();
+      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
+      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: 'Escape' });
+      expect(onToggleBatch).not.toHaveBeenCalled();
+    });
+
+    it('does not render batch checkbox for subscription tabs', () => {
+      const tabs = [makeTab('t1', { operationType: 'subscription' }), makeTab('t2')];
+      render(<GqlTabBar {...batchProps} tabs={tabs} />);
+      // Only t2 (query) should have a checkbox
+      expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    });
+
+    it('does not render batch checkbox when onToggleBatch is not provided', () => {
+      render(<GqlTabBar {...defaultProps} batchEnabled={true} batchedTabIds={new Set()} />);
+      expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    });
+  });
 });

@@ -32,6 +32,8 @@ export interface GqlStudioTab extends GraphqlOperationTab {
   subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
   /** Per-tab subscription assertions (2C-5). Persisted with the tab. */
   subscriptionAssertions?: GraphqlSubscriptionAssertion[];
+  /** Phase 3F: true when this tab is selected for batch execution */
+  isBatched?: boolean;
 }
 
 // ─── Tab ID sequence ──────────────────────────────────────────────────────────

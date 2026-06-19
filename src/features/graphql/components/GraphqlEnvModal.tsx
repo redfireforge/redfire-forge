@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
 import { generateVarId } from '../hooks/useGraphqlEnvironments';
 
@@ -263,23 +264,17 @@ export function GraphqlEnvModal({
     });
   };
 
-  // Escape closes (capture phase so it doesn't bubble to other handlers)
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        if (editingName) {
-          setEditingName(false);
-          setNameValue(selectedEnv?.name ?? '');
-        } else {
-          restoreFocusToTrigger();
-          onClose();
-        }
-      }
+  const handleEscapeClose = useCallback(() => {
+    if (editingName) {
+      setEditingName(false);
+      setNameValue(selectedEnv?.name ?? '');
+    } else {
+      restoreFocusToTrigger();
+      onClose();
     }
-    document.addEventListener('keydown', handleKey, { capture: true });
-    return () => document.removeEventListener('keydown', handleKey, { capture: true });
   }, [editingName, onClose, selectedEnv?.name]);
+
+  useModalEscapeClose(handleEscapeClose, { capture: true });
 
   // Click outside the panel → close
   useEffect(() => {

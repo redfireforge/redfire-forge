@@ -5,16 +5,17 @@ import {
   buildFeatureAuthTypeOptions,
   resolveEffectiveAuth,
 } from './scenarioBuilderUtils';
+import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
 
 function auth(type: AuthConfig['type']): AuthConfig {
   return { type } as AuthConfig;
 }
 
 function makeTest(t: AuthConfig['type']): Scenario {
-  return { id: 't', name: 'T', url: '', method: 'GET', headers: [], body: '', auth: auth(t), validation: { mode: 'none' } } as Scenario;
+  return _makeScenario({ id: 't', name: 'T', url: '', auth: auth(t) }) as Scenario;
 }
 function makeScenario(t: AuthConfig['type']): TestScenario {
-  return { id: 'sc', name: 'SC', tests: [], auth: auth(t) } as unknown as TestScenario;
+  return _makeTestScenario({ id: 'sc', name: 'SC', tests: [], auth: auth(t) }) as unknown as TestScenario;
 }
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return { id: 'fg', name: 'FG', scenarios: [], ...overrides } as FeatureGroup;

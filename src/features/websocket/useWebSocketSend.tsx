@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
 import { isValidJson, isValidBase64 } from './wsMessageUtils';
 import { encodeSioEvent } from '../../shared/websocket/protocols/socketIoCodec';
 import { encodeStompFrame } from '../../shared/websocket/protocols/stompCodec';
 import { encodeGqlWsSubscribe } from '../../shared/websocket/protocols/graphqlWsCodec';
-import { useDropdownClose } from './useDropdownClose';
 
 export interface UseWebSocketSendOptions {
   isConnected: boolean;
@@ -53,17 +53,21 @@ export function useWebSocketSend({
   const [gqlVariables, setGqlVariables] = useState('');
   const [gqlOperationName, setGqlOperationName] = useState('');
   const [gqlOperationId, setGqlOperationId] = useState(1);
-  const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
+  // Tab switcher: 'query' shows the main compose textarea, 'variables' shows the variables editor
+  const [gqlActiveTab, setGqlActiveTab] = useState<'query' | 'variables'>('query');
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateSaveName, setTemplateSaveName] = useState('');
 
   const isSioMode = effectiveProtocol === 'socket-io';
   const isStompMode = effectiveProtocol === 'stomp';
   const isGqlMode = effectiveProtocol === 'graphql-ws';
 
-  const templateDropdownRef = useDropdownClose(
-    templateDropdownOpen,
-    useCallback(() => setTemplateDropdownOpen(false), []),
-  );
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTemplateModalOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [templateModalOpen]);
 
   const canSend = useMemo(() => {
     if (!isConnected) return false;
@@ -165,7 +169,7 @@ export function useWebSocketSend({
       if (tpl) {
         setComposeText(tpl.body);
         setComposeFormat(tpl.format);
-        setTemplateDropdownOpen(false);
+        setTemplateModalOpen(false);
       }
     },
     [onLoadTemplate],
@@ -292,46 +296,95 @@ export function useWebSocketSend({
       )}
       {isGqlMode && (
         <div className="ws-gql-compose-fields" data-testid="gql-compose-fields">
-          <div className="ws-gql-meta-row">
-            <div className="ws-gql-field ws-gql-field--op-name">
-              <span className="ws-gql-field-icon" aria-hidden="true">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-              </span>
-              <input
-                className="ws-gql-operation-name-input"
-                type="text"
-                value={gqlOperationName}
-                onChange={(e) => setGqlOperationName(e.target.value)}
-                placeholder="Operation name (optional)"
-                disabled={!isConnected}
-                aria-label="GraphQL operation name"
-                data-testid="gql-operation-name"
-              />
-            </div>
-            <div className="ws-gql-field ws-gql-field--vars">
-              <span className="ws-gql-field-icon" aria-hidden="true">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              </span>
-              <input
-                className="ws-gql-variables-input ws-gql-variables-input--inline"
-                type="text"
-                value={gqlVariables}
-                onChange={(e) => setGqlVariables(e.target.value)}
-                placeholder='Variables JSON — {"id": "1"}'
-                disabled={!isConnected}
-                aria-label="GraphQL variables"
-                data-testid="gql-variables"
-              />
+          {/* Header row: label | input | op# badge */}
+          <div className="ws-gql-header-row">
+            <span className="ws-gql-header-label" aria-hidden="true">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+              Op. Name
+            </span>
+            <input
+              className="ws-gql-operation-name-input"
+              type="text"
+              value={gqlOperationName}
+              onChange={(e) => setGqlOperationName(e.target.value)}
+              placeholder="e.g. CountdownSub  (optional)"
+              disabled={!isConnected}
+              aria-label="GraphQL operation name"
+              data-testid="gql-operation-name"
+            />
+            <span className="ws-gql-op-id-region">
+              <span className="ws-gql-op-id-badge" data-testid="gql-op-id">#{gqlOperationId}</span>
+            </span>
+          </div>
+          {/* Tab bar: Query | Variables */}
+          <div className="ws-gql-tab-bar" role="tablist" aria-label="GraphQL compose tabs">
+            <button
+              role="tab"
+              aria-selected={gqlActiveTab === 'query'}
+              className={`ws-gql-tab ${gqlActiveTab === 'query' ? 'ws-gql-tab--active' : ''}`}
+              onClick={() => setGqlActiveTab('query')}
+              data-testid="gql-tab-query"
+            >
+              Query
+            </button>
+            <button
+              role="tab"
+              aria-selected={gqlActiveTab === 'variables'}
+              className={`ws-gql-tab ${gqlActiveTab === 'variables' ? 'ws-gql-tab--active' : ''}`}
+              onClick={() => setGqlActiveTab('variables')}
+              data-testid="gql-tab-variables"
+            >
+              Variables
               {gqlVariables.trim() && (() => {
-                try { JSON.parse(gqlVariables); return <span className="ws-gql-vars-valid" title="Valid JSON" aria-label="Valid JSON">✓</span>; }
-                catch { return <span className="ws-gql-vars-invalid" title="Invalid JSON" aria-label="Invalid JSON">!</span>; }
+                try {
+                  JSON.parse(gqlVariables);
+                  return <span className="ws-gql-vars-valid ws-gql-tab-indicator" title="Valid JSON" aria-label="Valid JSON">✓</span>;
+                } catch {
+                  return <span className="ws-gql-vars-invalid ws-gql-tab-indicator" title="Invalid JSON" aria-label="Invalid JSON">!</span>;
+                }
               })()}
-            </div>
-            <span className="ws-gql-op-id-badge" data-testid="gql-op-id">#{gqlOperationId}</span>
+            </button>
           </div>
         </div>
       )}
-      <div className="ws-compose-input-wrapper">
+      {/* Variables editor — shown when Variables tab is active in GraphQL-WS mode */}
+      {isGqlMode && gqlActiveTab === 'variables' && (
+        <div className="ws-compose-input-wrapper ws-gql-variables-panel" role="tabpanel" aria-label="GraphQL variables editor">
+          <textarea
+            className="ws-compose-input ws-gql-variables-editor"
+            value={gqlVariables}
+            onChange={(e) => setGqlVariables(e.target.value)}
+            placeholder={'{\n  "id": "1"\n}'}
+            disabled={!isConnected}
+            rows={6}
+            aria-label="GraphQL variables"
+            data-testid="gql-variables"
+            spellCheck={false}
+          />
+          {gqlVariables.length > 0 && isConnected && (
+            <button
+              className="ws-compose-clear-btn"
+              onClick={() => setGqlVariables('')}
+              title="Clear variables"
+              aria-label="Clear variables"
+              type="button"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+          {gqlVariables.length > 0 && (
+            <span className="ws-compose-char-count" aria-label={`${gqlVariables.length} characters`}>
+              {gqlVariables.split('\n').length}L · {gqlVariables.length}c
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        className="ws-compose-input-wrapper"
+        style={isGqlMode && gqlActiveTab === 'variables' ? { display: 'none' } : undefined}
+        role={isGqlMode ? 'tabpanel' : undefined}
+        aria-label={isGqlMode ? 'GraphQL query editor' : undefined}
+      >
         <textarea
           className={`ws-compose-input ${composeFormat === 'binary' ? 'ws-compose-mono' : ''}`}
           value={composeText}
@@ -413,81 +466,108 @@ export function useWebSocketSend({
             </button>
           )}
           <div className="ws-compose-controls-divider" aria-hidden="true" />
-          <div className="ws-template-wrapper" ref={templateDropdownRef}>
+          <div className="ws-template-wrapper">
             <button
               className="ws-template-trigger"
-              onClick={() => setTemplateDropdownOpen((v) => !v)}
+              onClick={() => setTemplateModalOpen((v) => !v)}
               data-testid="template-trigger"
               type="button"
+              aria-haspopup="dialog"
+              aria-expanded={templateModalOpen}
               title={templates.length > 0 ? `${templates.length} saved template${templates.length !== 1 ? 's' : ''}` : 'Message templates'}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span className="ws-template-trigger-label">Templates</span>
               {templates.length > 0 && <span className="ws-template-count">{templates.length}</span>}
               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ws-template-chevron" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            {templateDropdownOpen && (
-              <div className="ws-template-dropdown" data-testid="template-dropdown">
-                <div className="ws-template-dropdown-header">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  Saved Templates
+          </div>
+          {templateModalOpen && createPortal(
+            <div className="ws-tpl-modal-overlay" data-testid="template-dropdown" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setTemplateModalOpen(false); }}>
+              <div className="ws-tpl-modal" role="dialog" aria-modal="true" aria-label="Message templates" onClick={(e) => e.stopPropagation()}>
+                <div className="ws-tpl-modal-header">
+                  <div className="ws-tpl-modal-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                    Message Templates
+                    {templates.length > 0 && (
+                      <span className="ws-tpl-modal-badge">{templates.length}</span>
+                    )}
+                  </div>
+                  <button className="ws-tpl-modal-close" onClick={() => setTemplateModalOpen(false)} aria-label="Close" type="button">&times;</button>
                 </div>
-                {templates.length === 0 ? (
-                  <div className="ws-template-empty" data-testid="template-empty">
-                    No templates yet. Type a message and save it below.
-                  </div>
-                ) : (
-                  <div className="ws-template-list" data-testid="template-list">
-                    {templates.map((tpl) => (
-                      <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`}>
-                        <button
-                          className="ws-template-item-load"
-                          onClick={() => handleTemplateLoad(tpl.id)}
-                          title={`Load: ${tpl.name}`}
-                        >
-                          <span className="ws-template-item-head">
-                            <span className="ws-template-item-name">{tpl.name}</span>
-                            <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
-                              {tpl.format}
+
+                <div className="ws-tpl-modal-body">
+                  {templates.length === 0 ? (
+                    <div className="ws-template-empty" data-testid="template-empty">
+                      <span className="ws-template-empty-icon" aria-hidden="true">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      </span>
+                      <p className="ws-template-empty-title">No saved templates</p>
+                      <p className="ws-template-empty-hint">Type a message in the compose area, enter a name below, and click Save to create your first template.</p>
+                    </div>
+                  ) : (
+                    <div className="ws-template-list" role="listbox" aria-label="Templates" data-testid="template-list">
+                      {templates.map((tpl) => (
+                        <div className="ws-template-item" key={tpl.id} data-testid={`template-item-${tpl.id}`} role="option">
+                          <button
+                            className="ws-template-item-load"
+                            onClick={() => handleTemplateLoad(tpl.id)}
+                            title={`Load template: ${tpl.name}`}
+                          >
+                            <span className="ws-template-item-head">
+                              <span className="ws-template-item-name">{tpl.name}</span>
+                              <span className={`ws-template-item-format ws-template-item-format-${tpl.format}`}>
+                                {tpl.format}
+                              </span>
                             </span>
-                          </span>
-                          <span className="ws-template-item-preview">
-                            {tpl.body.length > 60 ? tpl.body.slice(0, 60) + '\u2026' : tpl.body}
-                          </span>
-                        </button>
-                        <button
-                          className="ws-template-item-delete"
-                          onClick={() => handleTemplateDelete(tpl.id)}
-                          title="Delete template"
-                          data-testid={`template-delete-${tpl.id}`}
-                        >
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                      </div>
-                    ))}
+                            <span className="ws-template-item-preview">
+                              {tpl.body.length > 120 ? tpl.body.slice(0, 120) + '\u2026' : tpl.body}
+                            </span>
+                          </button>
+                          <button
+                            className="ws-template-item-delete"
+                            onClick={() => handleTemplateDelete(tpl.id)}
+                            title="Delete template"
+                            aria-label={`Delete template: ${tpl.name}`}
+                            data-testid={`template-delete-${tpl.id}`}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="ws-tpl-modal-footer">
+                  <span className="ws-template-save-label">Save current message as</span>
+                  <div className="ws-template-save-controls">
+                    <input
+                      className="ws-template-save-input"
+                      type="text"
+                      value={templateSaveName}
+                      onChange={(e) => setTemplateSaveName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && templateSaveName.trim() && composeText.trim()) handleTemplateSave(); }}
+                      placeholder="Template name…"
+                      maxLength={100}
+                      data-testid="template-save-name"
+                      aria-label="Template name"
+                    />
+                    <button
+                      className="ws-template-save-btn"
+                      onClick={handleTemplateSave}
+                      disabled={!templateSaveName.trim() || !composeText.trim()}
+                      data-testid="template-save-btn"
+                      title={!composeText.trim() ? 'Write a message first' : !templateSaveName.trim() ? 'Enter a template name' : 'Save template'}
+                    >
+                      Save
+                    </button>
                   </div>
-                )}
-                <div className="ws-template-save-row">
-                  <input
-                    className="ws-template-save-input"
-                    type="text"
-                    value={templateSaveName}
-                    onChange={(e) => setTemplateSaveName(e.target.value)}
-                    placeholder="Template name…"
-                    maxLength={100}
-                    data-testid="template-save-name"
-                  />
-                  <button
-                    className="ws-template-save-btn"
-                    onClick={handleTemplateSave}
-                    disabled={!templateSaveName.trim() || !composeText.trim()}
-                    data-testid="template-save-btn"
-                  >
-                    Save
-                  </button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>,
+            document.body,
+          )}
 
           <button
             className="ws-compose-ping-btn"

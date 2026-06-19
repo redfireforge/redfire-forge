@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AssertionRowEditor from './AssertionRowEditor';
 import type { Assertion } from '../../../shared/types';
+import { installClipboardReadMock, installEmptyClipboard } from '../../../test-utils/clipboardMock';
 
 const mockOnUpdate = vi.fn();
 const mockOnRemove = vi.fn();
@@ -850,8 +851,7 @@ describe('AssertionRowEditor', () => {
     const a: Assertion = { type: 'jsonSchema', schema: '{}' };
 
     it('pastes schema from clipboard', async () => {
-      const readText = vi.fn().mockResolvedValue('{"type":"array"}');
-      Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true });
+      installClipboardReadMock().mockResolvedValue('{"type":"array"}');
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
       fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
       await Promise.resolve();
@@ -860,8 +860,7 @@ describe('AssertionRowEditor', () => {
     });
 
     it('handles clipboard read rejection gracefully', async () => {
-      const readText = vi.fn().mockRejectedValue(new Error('denied'));
-      Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true });
+      const readText = installClipboardReadMock().mockRejectedValue(new Error('denied'));
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
       fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
       await Promise.resolve();
@@ -870,7 +869,7 @@ describe('AssertionRowEditor', () => {
     });
 
     it('no-ops paste when clipboard.readText is unavailable', () => {
-      Object.defineProperty(navigator, 'clipboard', { value: {}, configurable: true });
+      installEmptyClipboard();
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
       fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
       expect(mockOnUpdate).not.toHaveBeenCalled();

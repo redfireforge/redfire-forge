@@ -29,12 +29,14 @@ function makeTemplate(overrides?: Partial<WsMessageTemplate>): WsMessageTemplate
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockLoad.mockReset();
+  mockSave.mockReset();
   mockLoad.mockResolvedValue([]);
   mockSave.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe('useWebSocketTemplates', () => {
@@ -59,6 +61,14 @@ describe('useWebSocketTemplates', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBe('disk fail');
+  });
+
+  it('load rejects with non-Error value uses String(err) (line 39 false branch)', async () => {
+    mockLoad.mockImplementation(() => Promise.reject('plain-string-rejection'));
+    const { result } = renderHook(() => useWebSocketTemplates());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current?.error).toBe('plain-string-rejection');
+    expect(result.current?.loading).toBe(false);
   });
 
   it('saves a new template', async () => {
@@ -160,6 +170,17 @@ describe('useWebSocketTemplates', () => {
     expect(result.current.templates).toHaveLength(1);
   });
 
+  it('persist catch with non-Error value uses String(err) (line 55 false branch)', async () => {
+    mockSave.mockImplementation(() => Promise.reject('non-error-rejection'));
+    const { result } = renderHook(() => useWebSocketTemplates());
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current!.saveTemplate('T', 'b', 'text');
+    });
+    expect(result.current?.error).toBe('non-error-rejection');
+  });
+
   it('trims template name on save', async () => {
     const { result } = renderHook(() => useWebSocketTemplates());
     await act(async () => {});
@@ -187,7 +208,7 @@ describe('useWebSocketTemplates', () => {
 
   it('does not update error state after unmount (save fails after unmount)', async () => {
     let rejectSave!: (e: Error) => void;
-    mockSave.mockReturnValue(new Promise<void>((_, rej) => { rejectSave = rej; }));
+    mockSave.mockReturnValueOnce(new Promise<void>((_, rej) => { rejectSave = rej; }));
 
     const { result, unmount } = renderHook(() => useWebSocketTemplates());
     await act(async () => {});
@@ -253,32 +274,56 @@ describe('useWebSocketTemplates', () => {
     expect(result.current?.error).toBeNull();
   });
 
-  it('load resolves after unmount — does not update state (line 38 false branch)', async () => {
-    let resolveLoad: (v: WsMessageTemplate[]) => void = () => {};
-    mockLoad.mockReturnValueOnce(new Promise<WsMessageTemplate[]>(r => { resolveLoad = r; }));
-    const { unmount } = renderHook(() => useWebSocketTemplates());
-    // Unmount before load resolves
-    unmount();
-    // Resolve load after unmount — mountedRef is false, guard prevents state update
+  it('load catch after unmount skips state update (L38 false branch)', async () => {
+    let rejectLoad!: (reason: unknown) => void;
+    const pending = new Promise<WsMessageTemplate[]>((_res, rej) => { rejectLoad = rej; });
+    pending.catch(() => { /* swallow for vitest */ });
+    mockLoad.mockImplementation(() => pending);
+
+    const { unmount } = renderHook(() => useWebSocketTemplates(), { reactStrictMode: false });
     await act(async () => {
-      resolveLoad([]);
-      await new Promise(r => setTimeout(r, 20));
+      await Promise.resolve();
     });
-    // No crash — test passes if no error thrown
+    unmount();
+    await act(async () => {
+      rejectLoad(new Error('late load fail'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
   });
 
-  it('load rejects with non-Error value uses String(err) (line 39 false branch)', async () => {
-    mockLoad.mockRejectedValueOnce('plain-string-rejection');
-    const { result } = renderHook(() => useWebSocketTemplates());
-    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-    if (result.current) {
-      expect(result.current.error).toBe('plain-string-rejection');
-    }
+  it('load resolves after unmount — does not update state (line 32 false branch)', async () => {
+    let resolveLoad: (v: WsMessageTemplate[]) => void = () => {};
+    mockLoad.mockReturnValueOnce(new Promise<WsMessageTemplate[]>((r) => { resolveLoad = r; }));
+    const { unmount } = renderHook(() => useWebSocketTemplates());
+    unmount();
+    await act(async () => {
+      resolveLoad([]);
+      await new Promise((r) => setTimeout(r, 20));
+    });
   });
 
   it('persist save succeeds after unmount — does not call setError (line 52 false branch)', async () => {
     let resolveSave: () => void = () => {};
-    mockSave.mockReturnValueOnce(new Promise<void>(r => { resolveSave = r; }));
+    mockSave.mockReturnValueOnce(new Promise<void>((r) => { resolveSave = r; }));
+    const { result, unmount } = renderHook(() => useWebSocketTemplates(), { reactStrictMode: false });
+    await act(async () => {});
+    if (!result.current) return;
+
+    await act(async () => {
+      const savePromise = result.current!.saveTemplate('T', 'b', 'text');
+      unmount();
+      resolveSave();
+      await savePromise;
+    });
+  });
+
+  it('persist catch after unmount skips error update (L54 false branch)', async () => {
+    let rejectSave!: (reason: unknown) => void;
+    const pending = new Promise<void>((_res, rej) => { rejectSave = rej; });
+    pending.catch(() => { /* swallow for vitest */ });
+    mockSave.mockReturnValueOnce(pending);
+
     const { result, unmount } = renderHook(() => useWebSocketTemplates());
     await act(async () => {});
     if (!result.current) return;
@@ -286,25 +331,11 @@ describe('useWebSocketTemplates', () => {
     void act(async () => {
       await result.current.saveTemplate('T', 'b', 'text');
     });
-    // Unmount before save resolves
     unmount();
-    // Resolve after unmount — mountedRef is false
-    await act(async () => {
-      resolveSave();
-      await new Promise(r => setTimeout(r, 20));
-    });
-    // No crash
-  });
 
-  it('persist catch with non-Error value uses String(err) (line 55 false branch)', async () => {
-    const { result } = renderHook(() => useWebSocketTemplates());
-    await act(async () => {});
-    if (!result.current) return;
-
-    mockSave.mockRejectedValueOnce('non-error-rejection');
     await act(async () => {
-      await result.current.saveTemplate('T', 'b', 'text');
+      rejectSave('late save fail');
+      await new Promise((r) => setTimeout(r, 20));
     });
-    expect(result.current?.error).toBe('non-error-rejection');
   });
 });

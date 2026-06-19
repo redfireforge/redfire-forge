@@ -609,5 +609,250 @@ describe('WsScenarioEditor', () => {
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectNoId, receiveDraft]} />);
       expect(screen.getByText(/no Connection ID set/)).toBeInTheDocument();
     });
+
+    it('updates manual connection ref on receive', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: createDefaultWsReceiveAction(),
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Manual connection reference'), { target: { value: 'recv-conn' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsReceiveAction: expect.objectContaining({ connectionRef: 'recv-conn' }),
+      }));
+    });
+
+    it('clears manual connection ref on receive', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: { ...createDefaultWsReceiveAction(), connectionRef: 'old' },
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Manual connection reference'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsReceiveAction: expect.objectContaining({ connectionRef: undefined }),
+      }));
+    });
+
+    it('clears match criteria fields to undefined when emptied', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: {
+          ...createDefaultWsReceiveAction(),
+          matchCriteria: {
+            contentContains: 'x',
+            contentRegex: 'y',
+            jsonPathMatch: '$.a',
+            jsonPathValue: 'b',
+          },
+        },
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Content contains filter'), { target: { value: '' } });
+      fireEvent.change(screen.getByLabelText('Content regex filter'), { target: { value: '' } });
+      fireEvent.change(screen.getByLabelText('JSONPath to match'), { target: { value: '' } });
+      fireEvent.change(screen.getByLabelText('JSONPath expected value'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('additional branch coverage', () => {
+    it('uses connectionId as dropdown label when connect test has no name', () => {
+      const connectTest = makeWsDraft({
+        id: 'conn-1',
+        name: '',
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), connectionId: 'fallback-id' },
+      });
+      const sendDraft = makeWsDraft({
+        id: 'send-1',
+        actionType: 'wsSend',
+        wsSendAction: createDefaultWsSendAction(),
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
+      expect(screen.getByText('fallback-id')).toBeInTheDocument();
+    });
+
+    it('clears subprotocols to undefined', () => {
+      const draft = makeWsDraft({
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), subprotocols: 'json' },
+      });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Subprotocols'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsConnectAction: expect.objectContaining({ subprotocols: undefined }),
+      }));
+    });
+
+    it('uses default timeout when timeoutMs is undefined', () => {
+      const draft = makeWsDraft({
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), timeoutMs: undefined },
+      });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Connect timeout')).toHaveValue(10000);
+    });
+
+    it('clears connect timeout to undefined when set to zero', () => {
+      const draft = makeWsDraft({
+        actionType: 'wsConnect',
+        wsConnectAction: createDefaultWsConnectAction(),
+      });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Connect timeout'), { target: { value: '0' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsConnectAction: expect.objectContaining({ timeoutMs: undefined }),
+      }));
+    });
+
+    it('clears query params to undefined when last row removed', () => {
+      const draft = makeWsDraft({
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), queryParams: [{ key: 'q', value: '1' }] },
+      });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.click(screen.getAllByText('×')[0]);
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsConnectAction: expect.objectContaining({ queryParams: undefined }),
+      }));
+    });
+
+    it('uses default wsSend config when undefined', () => {
+      const draft = makeWsDraft({ actionType: 'wsSend' });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Message body')).toBeInTheDocument();
+    });
+
+    it('clears connection ref from send dropdown', () => {
+      const connectTest = makeWsDraft({
+        id: 'conn-1',
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), connectionId: 'chat' },
+      });
+      const sendDraft = makeWsDraft({
+        id: 'send-1',
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), connectionRef: 'chat' },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
+      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsSendAction: expect.objectContaining({ connectionRef: undefined }),
+      }));
+    });
+
+    it('clears manual send connection ref', () => {
+      const sendDraft = makeWsDraft({
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), connectionRef: 'old' },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Manual connection reference'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsSendAction: expect.objectContaining({ connectionRef: undefined }),
+      }));
+    });
+
+    it('uses default messageType text when undefined', () => {
+      const sendDraft = makeWsDraft({
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), messageType: undefined },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Message type')).toHaveValue('text');
+    });
+
+    it('unchecks wait-for-response', () => {
+      const sendDraft = makeWsDraft({
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), waitForResponse: true },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsSendAction: expect.objectContaining({ waitForResponse: false }),
+      }));
+    });
+
+    it('uses default response timeout when undefined', () => {
+      const sendDraft = makeWsDraft({
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), waitForResponse: true, responseTimeoutMs: undefined },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Response timeout')).toHaveValue(5000);
+    });
+
+    it('clears response timeout to undefined when zero', () => {
+      const sendDraft = makeWsDraft({
+        actionType: 'wsSend',
+        wsSendAction: { ...createDefaultWsSendAction(), waitForResponse: true },
+      });
+      render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Response timeout'), { target: { value: '0' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsSendAction: expect.objectContaining({ responseTimeoutMs: undefined }),
+      }));
+    });
+
+    it('uses default wsReceive config when undefined', () => {
+      const draft = makeWsDraft({ actionType: 'wsReceive' });
+      render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Receive timeout')).toHaveValue(10000);
+    });
+
+    it('clears receive connection ref from dropdown', () => {
+      const connectTest = makeWsDraft({
+        id: 'conn-1',
+        actionType: 'wsConnect',
+        wsConnectAction: { ...createDefaultWsConnectAction(), connectionId: 'chat' },
+      });
+      const receiveDraft = makeWsDraft({
+        id: 'recv-1',
+        actionType: 'wsReceive',
+        wsReceiveAction: { ...createDefaultWsReceiveAction(), connectionRef: 'chat' },
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, receiveDraft]} />);
+      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: '' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsReceiveAction: expect.objectContaining({ connectionRef: undefined }),
+      }));
+    });
+
+    it('uses default receive timeout when undefined', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: { ...createDefaultWsReceiveAction(), timeoutMs: undefined },
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      expect(screen.getByLabelText('Receive timeout')).toHaveValue(10000);
+    });
+
+    it('clears receive timeout to undefined when zero', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: createDefaultWsReceiveAction(),
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Receive timeout'), { target: { value: '0' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsReceiveAction: expect.objectContaining({ timeoutMs: undefined }),
+      }));
+    });
+
+    it('updates frame type to binary', () => {
+      const receiveDraft = makeWsDraft({
+        actionType: 'wsReceive',
+        wsReceiveAction: createDefaultWsReceiveAction(),
+      });
+      render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
+      fireEvent.change(screen.getByLabelText('Frame type filter'), { target: { value: 'binary' } });
+      expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        wsReceiveAction: expect.objectContaining({
+          matchCriteria: expect.objectContaining({ messageType: 'binary' }),
+        }),
+      }));
+    });
   });
 });

@@ -8,7 +8,8 @@
  * via `diffSchemas()` in `schemaDrift.ts` to produce `SchemaDrift[]`.
  */
 
-import { readKey, writeKey } from '../../../utils/storage';
+import { readJsonObject, writeJson } from '../../../utils/jsonKeyStorage';
+import { writeKey } from '../../../utils/storage';
 import { inferType } from './typeMismatch';
 
 // ─── Types ────────────────────────────────────────────────
@@ -57,28 +58,18 @@ function storageKey(contextId: string): string {
 }
 
 export async function loadSnapshot(contextId: string): Promise<SchemaSnapshotPair | null> {
-  try {
-    const raw = await readKey(storageKey(contextId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && 'source' in parsed) {
-      return parsed as SchemaSnapshotPair;
-    }
-    return null;
-  } catch {
-    return null;
+  const parsed = await readJsonObject<SchemaSnapshotPair>(storageKey(contextId));
+  if (parsed && typeof parsed === 'object' && 'source' in parsed) {
+    return parsed;
   }
+  return null;
 }
 
 export async function saveSnapshot(
   contextId: string,
   pair: SchemaSnapshotPair,
 ): Promise<void> {
-  try {
-    await writeKey(storageKey(contextId), JSON.stringify(pair));
-  } catch {
-    // Storage full or private browsing — silently degrade
-  }
+  await writeJson(storageKey(contextId), pair);
 }
 
 export async function deleteSnapshot(contextId: string): Promise<void> {

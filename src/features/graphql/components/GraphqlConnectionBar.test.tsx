@@ -5,6 +5,7 @@
  * Tests the connection bar rendering, interactions, schema status badges,
  * auth popover, transport selector, and more.
  */
+import '@testing-library/jest-dom/vitest';
 import { render, fireEvent, screen, act, createEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { GraphqlConnectionBar } from './GraphqlConnectionBar';
@@ -1063,5 +1064,265 @@ describe('GraphqlConnectionBar — polling popover outside-click/Escape', () => 
     expect(screen.getByTestId('gql-polling-popover')).toBeTruthy();
     await act(async () => { fireEvent.mouseDown(document.body); });
     expect(screen.queryByTestId('gql-polling-popover')).toBeNull();
+  });
+});
+
+// ─── APQ badge tests ──────────────────────────────────────────────────────────
+
+describe('GraphqlConnectionBar — APQ badge', () => {
+  it('renders APQ miss badge when apqHash is set and no hit/unsupported', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+    })} />);
+    expect(screen.getByText(/APQ miss:/)).toBeInTheDocument();
+  });
+
+  it('renders APQ hit badge when apqCacheHit is true', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+      apqCacheHit: true,
+    })} />);
+    expect(screen.getByText(/APQ hit:/)).toBeInTheDocument();
+  });
+
+  it('renders APQ unsupported badge when apqUnsupported is true', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+      apqUnsupported: true,
+    })} />);
+    expect(screen.getByText('APQ unsupported')).toBeInTheDocument();
+  });
+
+  it('does not render APQ badge when apqHash is not set', () => {
+    render(<GraphqlConnectionBar {...defaultProps()} />);
+    expect(screen.queryByText(/APQ/)).not.toBeInTheDocument();
+  });
+
+  it('sets APQ unsupported title on badge', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+      apqUnsupported: true,
+    })} />);
+    const badge = screen.getByText('APQ unsupported');
+    expect(badge.closest('[title]')?.getAttribute('title')).toContain('APQ not supported');
+  });
+
+  it('sets APQ hit aria-label on badge', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+      apqCacheHit: true,
+    })} />);
+    expect(screen.getByLabelText(/APQ cache hit/)).toBeInTheDocument();
+  });
+
+  it('sets APQ miss aria-label on badge', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      apqHash: 'abc123def456789012345678',
+      apqCacheHit: false,
+      apqUnsupported: false,
+    })} />);
+    expect(screen.getByLabelText(/APQ cache miss/)).toBeInTheDocument();
+  });
+});
+
+// ─── Batch send button tests ──────────────────────────────────────────────────
+
+describe('GraphqlConnectionBar — batch button', () => {
+  it('renders Send Batch button when batchEnabled and batchedTabCount >= 2', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 3,
+      onSendBatch: vi.fn(),
+    })} />);
+    expect(screen.getByTestId('gql-send-batch-btn')).toBeInTheDocument();
+    expect(screen.getByText('Send Batch (3)')).toBeInTheDocument();
+  });
+
+  it('does not render batch button when batchedTabCount < 2', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 1,
+    })} />);
+    expect(screen.queryByTestId('gql-send-batch-btn')).not.toBeInTheDocument();
+  });
+
+  it('does not render batch button when batchEnabled is false', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: false,
+      batchedTabCount: 3,
+    })} />);
+    expect(screen.queryByTestId('gql-send-batch-btn')).not.toBeInTheDocument();
+  });
+
+  it('shows "Batching…" when batchExecuting is true', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchExecuting: true,
+      onSendBatch: vi.fn(),
+    })} />);
+    expect(screen.getByText('Batching…')).toBeInTheDocument();
+  });
+
+  it('calls onSendBatch when batch button is clicked', () => {
+    const onSendBatch = vi.fn();
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 2,
+      onSendBatch,
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-send-batch-btn'));
+    expect(onSendBatch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── Advanced settings button tests ──────────────────────────────────────────
+
+describe('GraphqlConnectionBar — advanced settings button', () => {
+  it('renders advanced settings gear button when onAdvancedSettingsClick is provided', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      onAdvancedSettingsClick: vi.fn(),
+    })} />);
+    expect(screen.getByTestId('gql-adv-settings-btn')).toBeInTheDocument();
+  });
+
+  it('does not render advanced settings button when onAdvancedSettingsClick is not provided', () => {
+    render(<GraphqlConnectionBar {...defaultProps()} />);
+    expect(screen.queryByTestId('gql-adv-settings-btn')).not.toBeInTheDocument();
+  });
+
+  it('calls onAdvancedSettingsClick when gear button is clicked', () => {
+    const onAdvancedSettingsClick = vi.fn();
+    render(<GraphqlConnectionBar {...defaultProps({ onAdvancedSettingsClick })} />);
+    fireEvent.click(screen.getByTestId('gql-adv-settings-btn'));
+    expect(onAdvancedSettingsClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies active class when advancedSettingsOpen is true', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      onAdvancedSettingsClick: vi.fn(),
+      advancedSettingsOpen: true,
+    })} />);
+    const btn = screen.getByTestId('gql-adv-settings-btn');
+    expect(btn.className).toContain('gql-adv-settings-btn--active');
+  });
+});
+
+// ─── Validation warning singular/plural tests ─────────────────────────────────
+
+describe('GraphqlConnectionBar — validation warning badge', () => {
+  it('shows singular "error" label for exactly 1 validation error', () => {
+    render(<GraphqlConnectionBar {...defaultProps({ queryValidationErrors: 1 })} />);
+    const badge = screen.getByTestId('gql-validation-warning');
+    expect(badge.getAttribute('title')).toMatch(/1 schema validation error —/);
+    expect(badge.getAttribute('title')).not.toMatch(/errors/);
+  });
+
+  it('shows plural "errors" label for more than 1 validation error', () => {
+    render(<GraphqlConnectionBar {...defaultProps({ queryValidationErrors: 3 })} />);
+    const badge = screen.getByTestId('gql-validation-warning');
+    expect(badge.getAttribute('title')).toMatch(/3 schema validation errors/);
+  });
+});
+
+// ─── Complexity badge level tests ─────────────────────────────────────────────
+
+describe('GraphqlConnectionBar — complexity badge levels', () => {
+  it('renders complexity badge with danger title when complexityLevel is danger', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      complexityScore: 5000,
+      complexityLevel: 'danger',
+    })} />);
+    const badge = screen.getByTestId('gql-complexity-badge');
+    expect(badge.getAttribute('title')).toContain('very expensive query');
+  });
+
+  it('renders complexity badge with warn title when complexityLevel is warn', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      complexityScore: 500,
+      complexityLevel: 'warn',
+    })} />);
+    const badge = screen.getByTestId('gql-complexity-badge');
+    expect(badge.getAttribute('title')).toContain('moderately complex query');
+  });
+
+  it('renders complexity badge with no extra title text when complexityLevel is ok', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      complexityScore: 50,
+      complexityLevel: 'ok',
+    })} />);
+    const badge = screen.getByTestId('gql-complexity-badge');
+    const title = badge.getAttribute('title') ?? '';
+    expect(title).not.toContain('very expensive');
+    expect(title).not.toContain('moderately complex');
+  });
+});
+
+// ─── Introspect button edge cases ─────────────────────────────────────────────
+
+describe('GraphqlConnectionBar — introspect button', () => {
+  it('shows "Resolve environment variables" in title when endpoint has unresolved vars', () => {
+    // Provide endpoint with an unresolved variable but no active environment to resolve it
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: 'https://{{myHost}}/graphql',
+      activeEnvironment: undefined,
+    })} />);
+    const btn = screen.getByTestId('gql-introspect-btn');
+    expect(btn.getAttribute('title')).toContain('Resolve environment variables');
+  });
+
+  it('shows spinner when introspecting', () => {
+    render(<GraphqlConnectionBar {...defaultProps({ introspecting: true })} />);
+    expect(document.querySelector('.gql-btn-spinner')).toBeInTheDocument();
+  });
+});
+
+// ─── Schema polling error / stale state tests ─────────────────────────────────
+
+describe('GraphqlConnectionBar — schema polling error states', () => {
+  it('shows polling dot with warn class when pollErrorMessage is set and schemaPolling is true', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      schemaStatus: 'loaded',
+      schemaPolling: true,
+      pollErrorMessage: 'Timeout',
+      onPollingChange: vi.fn(),
+    })} />);
+    const dot = screen.getByLabelText(/Schema polling active — last refresh failed/);
+    expect(dot).toBeInTheDocument();
+    expect(dot.className).toContain('gql-polling-dot--warn');
+  });
+
+  it('shows normal schema-status-dot when schemaPolling is false', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      schemaStatus: 'loaded',
+      schemaPolling: false,
+    })} />);
+    expect(document.querySelector('.gql-schema-status-dot')).toBeInTheDocument();
+  });
+
+  it('shows typesCount in schema loaded badge when provided', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      schemaStatus: 'loaded',
+      typesCount: 42,
+    })} />);
+    expect(screen.getByText('Schema loaded (42)')).toBeInTheDocument();
+  });
+
+  it('shows schema loaded without count when typesCount is undefined', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      schemaStatus: 'loaded',
+      typesCount: undefined,
+    })} />);
+    expect(screen.getByText('Schema loaded')).toBeInTheDocument();
+  });
+
+  it('shows polling config button standalone when polling enabled but schema not loaded', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      pollingEnabled: true,
+      schemaStatus: 'none',
+      onPollingChange: vi.fn(),
+      pollingIntervalSeconds: 30,
+    })} />);
+    expect(screen.getByTestId('gql-polling-config-btn-standalone')).toBeInTheDocument();
   });
 });

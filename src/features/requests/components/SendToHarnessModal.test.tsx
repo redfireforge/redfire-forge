@@ -257,4 +257,41 @@ describe('SendToHarnessModal', () => {
     fireEvent.change(screen.getByLabelText('Environment'), { target: { value: '' } });
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
+
+  it('shows catalog version badge when request has an active spec version', () => {
+    const versionedRequest = {
+      ...request,
+      activeSpecVersionId: 'v1',
+      specVersions: [{ id: 'v1', catalogVersion: '2.1.0' }],
+    };
+    render(
+      <SendToHarnessModal
+        request={versionedRequest}
+        promotionContext={promotionContext}
+        featureGroups={featureGroups}
+        environments={environments}
+        microservices={microservices}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('v2.1.0')).toBeInTheDocument();
+  });
+
+  it('shows plural header count in preview when multiple headers exist', () => {
+    createScenarioFromRequest.mockImplementation((req: RequestItem) => ({
+      id: 's',
+      name: 'S',
+      method: req.method,
+      url: req.url,
+      headers: [{ key: 'A', value: '1' }, { key: 'B', value: '2' }],
+      body: '',
+      auth: { type: 'none' },
+      validation: { rules: [], expectedStatus: '', expectedBody: '' },
+    }));
+    setup();
+    selectConcreteTarget();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('2 headers')).toBeInTheDocument();
+  });
 });

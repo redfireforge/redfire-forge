@@ -4,21 +4,17 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResponseDetailModal from './ResponseDetailModal';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
+const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>
+  _makeResult({
     id: 'r1',
-    scenarioId: 's1',
     scenarioName: 'Test Scenario',
-    passed: true,
-    httpStatus: 200,
-    responseTimeMs: 150,
     method: 'GET',
     url: 'http://api.example.com/users',
-    failureDetails: [],
+    responseTimeMs: 150,
     ...overrides,
-  };
-}
+  });
 
 vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   default: ({ children, title }: { children: React.ReactNode; title: string }) => (

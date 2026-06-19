@@ -273,4 +273,153 @@ describe('useWebSocketMetrics', () => {
     expect(result.current.receivedPerSec).toBe(1);
     expect(result.current.bytesInPerSec).toBe(30);
   });
+
+  it('clears an active timer when leaving connected state', () => {
+    const messages: WsFrame[] = [makeFrame({ direction: 'sent', size: 10 })];
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: messages, state: 'connected' as string } },
+    );
+
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.history.length).toBe(1);
+
+    rerender({ msgs: messages, state: 'connecting' });
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(result.current.history.length).toBe(1);
+  });
+
+  it('resets snapshot on error state like disconnect', () => {
+    const messages: WsFrame[] = [
+      makeFrame({ direction: 'sent', size: 100 }),
+      makeFrame({ direction: 'received', size: 200 }),
+    ];
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: messages, state: 'connected' as string } },
+    );
+
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.history.length).toBe(1);
+
+    rerender({ msgs: messages, state: 'error' });
+    expect(result.current.msgPerSec).toBe(0);
+    expect(result.current.history).toEqual([]);
+    expect(result.current.totalBytesOut).toBe(100);
+  });
+
+  it('does not restart timer when already connected and timer is active', () => {
+    const messages: WsFrame[] = [makeFrame({ direction: 'sent', size: 5 })];
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: messages, state: 'connected' as string } },
+    );
+
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.history.length).toBe(1);
+
+    rerender({ msgs: messages, state: 'connected' });
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.history.length).toBe(2);
+    expect(result.current.msgPerSec).toBe(0);
+  });
+
+  it('skips incremental processing when truncated array has no new tail', () => {
+    const m1 = makeFrame({ id: 'tail-1', direction: 'sent', size: 10 });
+    const m2 = makeFrame({ id: 'tail-2', direction: 'received', size: 20 });
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2], state: 'connected' as string } },
+    );
+    expect(result.current.totalBytesIn).toBe(20);
+
+    rerender({ msgs: [m2], state: 'connected' });
+    expect(result.current.totalBytesIn).toBe(20);
+    expect(result.current.textFrames).toBe(2);
+  });
+
+  it('counts abnormal close frames as errors but ignores normal close codes', () => {
+    const normalClose = makeFrame({
+      direction: 'received',
+      type: 'close',
+      data: 'code: 1000 reason: ok',
+      size: 12,
+    });
+    const abnormalClose = makeFrame({
+      direction: 'received',
+      type: 'close',
+      data: 'code: 1006 reason: abnormal',
+      size: 20,
+    });
+    const { result } = renderHook(() =>
+      useWebSocketMetrics([normalClose, abnormalClose], 'connected'),
+    );
+    expect(result.current.errorCount).toBe(1);
+    expect(result.current.controlFrames).toBe(2);
+  });
+
+  it('reprocesses from start when last seen id was evicted from the array', () => {
+    const m1 = makeFrame({ id: 'evict-1', direction: 'sent', size: 10 });
+    const m2 = makeFrame({ id: 'evict-2', direction: 'received', size: 20 });
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2], state: 'connected' as string } },
+    );
+    expect(result.current.totalBytesOut).toBe(10);
+
+    const m3 = makeFrame({ id: 'evict-3', direction: 'sent', size: 30 });
+    rerender({ msgs: [m3], state: 'connected' });
+    expect(result.current.totalBytesOut).toBe(40);
+    expect(result.current.textFrames).toBe(3);
+  });
+
+  it('clears timer on unmount while connected', () => {
+    const messages = [makeFrame({ direction: 'sent', size: 5 })];
+    const { unmount } = renderHook(() => useWebSocketMetrics(messages, 'connected'));
+    unmount();
+    act(() => { vi.advanceTimersByTime(5000); });
+  });
+
+  it('updates lastProcessedId without counting when tail is unchanged after shrink', () => {
+    const m1 = makeFrame({ id: 'same-tail', direction: 'received', size: 10 });
+    const m2 = makeFrame({ id: 'same-tail-2', direction: 'received', size: 20 });
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2], state: 'connected' as string } },
+    );
+    expect(result.current.totalBytesIn).toBe(30);
+
+    rerender({ msgs: [m2], state: 'connected' });
+    expect(result.current.totalBytesIn).toBe(30);
+    expect(result.current.textFrames).toBe(2);
+  });
+
+  it('clears sampling timer when connection leaves connected state', () => {
+    const messages = [makeFrame({ direction: 'sent', size: 10 })];
+    const { result, rerender } = renderHook(
+      ({ state }) => useWebSocketMetrics(messages, state),
+      { initialProps: { state: 'connected' as string } },
+    );
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.history.length).toBe(1);
+
+    rerender({ state: 'connecting' });
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(result.current.history.length).toBe(1);
+  });
+
+  it('updates lastProcessedId without counting when evicted tail leaves no new frames', () => {
+    const m1 = makeFrame({ id: 'cap-a', direction: 'sent', size: 10 });
+    const m2 = makeFrame({ id: 'cap-b', direction: 'received', size: 20 });
+    const m3 = makeFrame({ id: 'cap-c', direction: 'received', size: 30 });
+    const { result, rerender } = renderHook(
+      ({ msgs, state }) => useWebSocketMetrics(msgs, state),
+      { initialProps: { msgs: [m1, m2, m3], state: 'connected' as string } },
+    );
+    expect(result.current.totalBytesIn).toBe(50);
+
+    rerender({ msgs: [m2, m3], state: 'connected' });
+    expect(result.current.totalBytesIn).toBe(50);
+    expect(result.current.textFrames).toBe(3);
+  });
 });

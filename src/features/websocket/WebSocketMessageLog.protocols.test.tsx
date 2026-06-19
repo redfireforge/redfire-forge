@@ -430,8 +430,10 @@ describe('WebSocketMessageLog', () => {
     it('shows GraphQL compose fields when effectiveProtocol is graphql-ws', () => {
       render(<WebSocketMessageLog {...defaultProps({ effectiveProtocol: 'graphql-ws' })} />);
       expect(screen.getByTestId('gql-compose-fields')).toBeTruthy();
-      expect(screen.getByTestId('gql-variables')).toBeTruthy();
       expect(screen.getByTestId('gql-op-id')).toBeTruthy();
+      // Variables panel is in a tab — switch to it before asserting
+      fireEvent.click(screen.getByRole('tab', { name: /variables/i }));
+      expect(screen.getByTestId('gql-variables')).toBeTruthy();
     });
 
     it('does not show GraphQL compose fields for raw protocol', () => {
@@ -476,7 +478,11 @@ describe('WebSocketMessageLog', () => {
       const props = defaultProps({ effectiveProtocol: 'graphql-ws' });
       render(<WebSocketMessageLog {...props} />);
 
+      // Switch to Variables tab before editing
+      fireEvent.click(screen.getByRole('tab', { name: /variables/i }));
       fireEvent.change(screen.getByTestId('gql-variables'), { target: { value: '{"id": "5"}' } });
+      // Switch back to Query tab to set message and send
+      fireEvent.click(screen.getByRole('tab', { name: /^query$/i }));
       fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'query GetUser($id: ID!) { user(id: $id) { name } }' } });
       fireEvent.click(screen.getByTestId('send-btn'));
 
