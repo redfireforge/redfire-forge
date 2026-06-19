@@ -168,7 +168,6 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       title: 'Welcome Back to SSE Studio',
       description:
         'Welcome back to SSE Studio. In the SSE Studio lesson you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
-      highlight: SSE.STUDIO,
       preAction: async (ctx) => {
         document.querySelectorAll('.sse-row-selected').forEach((el) => {
           el.classList.remove('sse-row-selected');

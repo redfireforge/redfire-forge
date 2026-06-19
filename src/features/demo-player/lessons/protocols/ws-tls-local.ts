@@ -190,6 +190,11 @@ async function localTlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.RIGHT_TAB_EVENTS);
   await ctx.delay(200);
 
+  // Clear any leftover subprotocol (e.g. graphql-transport-ws from GraphQL Studio)
+  // before filling the TLS URL — a stale subprotocol causes WS_CONNECT_FAILED.
+  await ctx.fill(WS.SUBPROTOCOLS, '');
+  await ctx.delay(100);
+
   // Fill the wss:// URL to mount the TLS panel, reset its state, then CLEAR the
   // URL so step 1 shows the full "wss:// → TLS panel appears" moment visually.
   await ctx.fill(WS.URL_INPUT, TLS_URL);
@@ -215,6 +220,8 @@ async function localTlsCleanup(ctx: DemoActionContext): Promise<void> {
   await setSkipCert(ctx, false);
   await clearCertFields(ctx);
   await ctx.fill(WS.URL_INPUT, '');
+  // Clear any subprotocol that was set during the lesson
+  await ctx.fill(WS.SUBPROTOCOLS, '');
   await ctx.delay(200);
   await closeExtraConnectionTabs(ctx);
 }
