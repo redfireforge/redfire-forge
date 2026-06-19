@@ -391,9 +391,22 @@ function HistoryPreviewPanel({ item, onClose, onLoadIntoEditor, onRunInEditor, o
         <pre className="gql-history-preview-pre">{item.operation.query}</pre>
       </div>
       {isTruncated && (
-        <div className="gql-history-truncation-banner" role="status">
-          Response was truncated at 512KB. Re-execute the query to see the full response.
-        </div>
+        onRunInEditor
+          ? (
+            <button
+              type="button"
+              className="gql-history-truncation-banner gql-history-truncation-banner--clickable"
+              onClick={() => onRunInEditor(item)}
+              data-testid="gql-history-truncation-rerun"
+            >
+              Response truncated — click to re-execute
+            </button>
+          )
+          : (
+            <div className="gql-history-truncation-banner" role="status">
+              Response truncated — click to re-execute
+            </div>
+          )
       )}
       <div className="gql-history-preview-response">
         <pre className="gql-history-preview-pre">{prettyResponse}</pre>

@@ -79,20 +79,35 @@ export function isPersistedQueryNotFound(response: GraphqlResponse): boolean {
  * as opposed to a simple cache miss. Used to auto-detect unsupported servers.
  *
  * Detection heuristic (Apollo APQ spec):
- *   - HTTP 400 or 405  → server rejected the hash-only body structure
  *   - Error code `PERSISTED_QUERY_NOT_SUPPORTED` → server explicitly rejects APQ
+ *   - HTTP 400 or 405 WITH an APQ-shaped body (hash-only, no `query` field)
+ *     AND no `data` field in the response → server rejected the hash-only structure.
  *
- * Intentionally NOT triggered by ordinary GraphQL field/validation errors returned
- * with HTTP 200 — those indicate a valid APQ cache-hit response carrying application
- * errors, NOT a server that lacks APQ support.
+ * Intentionally NOT triggered by:
+ *   - HTTP 200 with application errors (valid APQ cache-hit with field errors)
+ *   - HTTP 400/405 for unrelated reasons (e.g. CORS preflight, malformed JSON that
+ *     isn't related to APQ structure — those would carry a non-empty response body).
+ *
+ * We narrow the 400/405 heuristic by also requiring that the response body has no
+ * `data` field (a real APQ server would never return `data` for an unsupported-APQ
+ * error).
  */
 export function isAPQUnsupported(response: GraphqlResponse): boolean {
-  if (response.httpStatus === 400 || response.httpStatus === 405) return true;
-  return (response.errors ?? []).some(
+  // Explicit unsupported code — most reliable signal
+  const hasUnsupportedCode = (response.errors ?? []).some(
     (e) =>
       (e.extensions as Record<string, unknown> | undefined)?.['code'] ===
       'PERSISTED_QUERY_NOT_SUPPORTED',
   );
+  if (hasUnsupportedCode) return true;
+
+  // HTTP 400/405 narrowed: must have no `data` field to avoid false-positives
+  // from unrelated server errors that coincidentally return these status codes.
+  if ((response.httpStatus === 400 || response.httpStatus === 405) && response.data === null) {
+    return true;
+  }
+
+  return false;
 }
 
 // ─── sendFn type ─────────────────────────────────────────────────────────────

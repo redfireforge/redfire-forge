@@ -323,3 +323,42 @@ describe('useGraphqlHistory — recentItems', () => {
     expect(result.current.recentItems).toHaveLength(5);
   });
 });
+
+describe('useGraphqlHistory — maxItems trim on config change', () => {
+  it('trims in-memory items when maxItems is lowered', async () => {
+    const fakeItems = Array.from({ length: 20 }, (_, i) => ({
+      id: `h${i}`, connectionId: 'conn-trim', operation: op, response: '{}',
+      timestamp: Date.now() + i, latencyMs: 50, status: 'success' as const,
+    }));
+    vi.mocked(idbLoadHistory).mockResolvedValue(fakeItems);
+
+    // Start with maxItems=20, all 20 items displayed
+    const { result, rerender } = renderHook(
+      ({ max }: { max: number }) => useGraphqlHistory('conn-trim', max),
+      { initialProps: { max: 20 } },
+    );
+    await waitFor(() => expect(result.current.items).toHaveLength(20));
+
+    // Lower maxItems to 10 — in-memory list should be trimmed immediately
+    act(() => { rerender({ max: 10 }); });
+    expect(result.current.items).toHaveLength(10);
+  });
+
+  it('does not expand items when maxItems is raised', async () => {
+    const fakeItems = Array.from({ length: 5 }, (_, i) => ({
+      id: `h${i}`, connectionId: 'conn-trim2', operation: op, response: '{}',
+      timestamp: Date.now() + i, latencyMs: 50, status: 'success' as const,
+    }));
+    vi.mocked(idbLoadHistory).mockResolvedValue(fakeItems);
+
+    const { result, rerender } = renderHook(
+      ({ max }: { max: number }) => useGraphqlHistory('conn-trim2', max),
+      { initialProps: { max: 5 } },
+    );
+    await waitFor(() => expect(result.current.items).toHaveLength(5));
+
+    // Raising maxItems beyond current count should leave items unchanged
+    act(() => { rerender({ max: 100 }); });
+    expect(result.current.items).toHaveLength(5);
+  });
+});

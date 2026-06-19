@@ -143,6 +143,21 @@ async function openTlsPanel(page: import('@playwright/test').Page) {
   }
 }
 
+/** Close the TLS modal. Tries Save first (if enabled/dirty); always falls back to Close. */
+async function closeTlsPanel(page: import('@playwright/test').Page) {
+  await page.waitForTimeout(300);
+  const saveBtn = page.locator('[data-testid="tls-save"]');
+  const isDisabled = await saveBtn.getAttribute('disabled').catch(() => 'disabled');
+  if (!isDisabled) {
+    await saveBtn.click();
+  } else {
+    await page.locator('[data-testid="tls-close"]').click();
+  }
+  // Wait for overlay to be gone
+  await page.waitForSelector('.ws-tls-overlay', { state: 'detached', timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(100);
+}
+
 async function connectAndWait(page: import('@playwright/test').Page, timeoutMs = 5000) {
   await page.click(WS.CONNECT_BTN);
   await page.waitForSelector(WS.STATUS_CONNECTED, { timeout: timeoutMs });
@@ -315,7 +330,7 @@ test.describe('Local TLS Demo — Phase 1: Skip-cert', () => {
     await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
     await openTlsPanel(page);
     await page.locator(SKIP_CERT_CHECKBOX).check();
-    await page.waitForTimeout(300);
+    await closeTlsPanel(page);
     await page.click(WS.LEFT_TAB_CONNECT);
     await connectAndWait(page, 8000);
 
@@ -400,7 +415,7 @@ test.describe('Local TLS Demo — Phase 3: mTLS', () => {
     await page.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
     await page.fill(WS.TLS_CLIENT_CERT, DEV_CLIENT_CERT);
     await page.fill(WS.TLS_CLIENT_KEY, DEV_CLIENT_KEY);
-    await page.waitForTimeout(500);
+    await closeTlsPanel(page);
 
     // Capture URL BEFORE connecting (input may be hidden after connection)
     const urlVal = await page.locator(WS.URL_INPUT).inputValue({ timeout: 2000 }).catch(() => '');

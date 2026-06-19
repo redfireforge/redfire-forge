@@ -12,7 +12,7 @@
  *   - rf.test() with async fn — all tests collected after body, via Promise.allSettled
  *   - rf.assert() passes when condition is true
  *   - rf.assert() throws GraphqlAssertionError when condition is false
- *   - rf.store is mutable within a run; no-op via new Map() for standalone
+ *   - rf.store is mutable within a runner run; NO_OP_STORE for standalone dry-runs
  *   - rf.getEnv / rf.setEnv read/write envSnapshot + call persistEnv
  *   - rf.getCollectionVar / rf.setCollectionVar read/write collectionVarsSnapshot
  *   - rf.setHeader / rf.removeHeader mutate mutableHeaders
@@ -31,6 +31,8 @@ import {
   createRfContext,
   runScript,
   runPhaseScript,
+  NO_OP_STORE,
+  NoOpStore,
   type CreateRfContextParams,
 } from './preRequestScriptRunner';
 import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '../../../shared/types/graphql';
@@ -637,6 +639,28 @@ describe('shared state across scripts', () => {
     const { rf } = createRfContext(makeParams({ store }));
     // Nothing was set — every key should return undefined
     expect(rf.store.get('nonexistent')).toBeUndefined();
+  });
+
+  it('NO_OP_STORE.get always returns undefined even after set()', () => {
+    const { rf } = createRfContext(makeParams({ store: NO_OP_STORE }));
+    rf.store.set('key', 'value');
+    // No-op: set is silent and get always returns undefined
+    expect(rf.store.get('key')).toBeUndefined();
+  });
+
+  it('NO_OP_STORE.has always returns false and size is always 0', () => {
+    const store = new NoOpStore();
+    store.set('x', 1);
+    expect(store.has('x')).toBe(false);
+    expect(store.size).toBe(0);
+  });
+
+  it('NO_OP_STORE.delete returns false and clear is a no-op', () => {
+    const store = new NoOpStore();
+    store.set('x', 1);
+    expect(store.delete('x')).toBe(false);
+    store.clear(); // should not throw
+    expect(store.size).toBe(0);
   });
 
   it('capture converts null and undefined args to string literals', async () => {

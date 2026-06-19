@@ -20,7 +20,7 @@ import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import type * as MonacoType from 'monaco-editor';
 import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '../../../shared/types/graphql';
-import { createRfContext, runScript } from '../utils/preRequestScriptRunner';
+import { createRfContext, runScript, NO_OP_STORE } from '../utils/preRequestScriptRunner';
 
 // ─── Script template library (3B-4) ───────────────────────────────────────────
 
@@ -404,7 +404,10 @@ export function GraphqlScriptEditorModal({
     setDryRunTests([]);
     setDryRunning(true);
 
-    const dryStore = new Map<string, unknown>();
+    // Script Editor dry-runs use NO_OP_STORE so rf.store.set/get are silent no-ops.
+    // This prevents scripts designed for Collection Runner use from appearing to work
+    // when tested individually (the store never persists across items anyway).
+    const dryStore = NO_OP_STORE;
     // Seed dry-run with real env/collection vars so rf.getEnv() and rf.getCollectionVar()
     // return actual values. Shallow-copy to prevent the dry-run from mutating the parent's
     // snapshot (setEnv calls in the test run should not persist to the real environment).

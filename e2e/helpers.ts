@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
+/** Must stay in sync with DB_VERSION in src/shared/utils/idbOpen.ts */
+export const REDFIREFORGE_IDB_VERSION = 6;
+
 async function safeReload(page: Page): Promise<void> {
   try {
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -263,7 +266,10 @@ export function makeFolderForE2E(
 export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
   return await page.evaluate((testRuns) => {
     return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 5);
+      // Must match DB_VERSION in src/shared/utils/idbOpen.ts exactly.
+      // Opening at a lower version than the app's current version causes an IDB error.
+      const DB_VERSION = 6;
+      const req = indexedDB.open('redfireforge', DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('testRuns')) {
@@ -278,6 +284,39 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
         if (!db.objectStoreNames.contains('requests')) db.createObjectStore('requests');
         if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog');
         if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects');
+        // v6: GraphQL Studio Phase 3 stores
+        if (!db.objectStoreNames.contains('graphql-history')) {
+          const hs = db.createObjectStore('graphql-history', { keyPath: 'id' });
+          hs.createIndex('connectionId', 'connectionId', { unique: false });
+          hs.createIndex('timestamp', 'timestamp', { unique: false });
+          hs.createIndex('connectionId_timestamp', ['connectionId', 'timestamp'], { unique: false });
+        }
+        if (!db.objectStoreNames.contains('graphql-collections')) {
+          const cs = db.createObjectStore('graphql-collections', { keyPath: 'id' });
+          cs.createIndex('name', 'name', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('graphql-collection-folders')) {
+          const fs = db.createObjectStore('graphql-collection-folders', { keyPath: 'id' });
+          fs.createIndex('collectionId', 'collectionId', { unique: false });
+          fs.createIndex('parentId', 'parentId', { unique: false });
+          fs.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+        }
+        if (!db.objectStoreNames.contains('graphql-collection-items')) {
+          const is = db.createObjectStore('graphql-collection-items', { keyPath: 'id' });
+          is.createIndex('collectionId', 'collectionId', { unique: false });
+          is.createIndex('folderId', 'folderId', { unique: false });
+          is.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+        }
+        if (!db.objectStoreNames.contains('graphql-schema-snapshots')) {
+          const ss = db.createObjectStore('graphql-schema-snapshots', { keyPath: 'id' });
+          ss.createIndex('connectionId', 'connectionId', { unique: false });
+          ss.createIndex('capturedAt', 'capturedAt', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('graphql-diff-acknowledgements')) {
+          const as = db.createObjectStore('graphql-diff-acknowledgements', { keyPath: 'id' });
+          as.createIndex('connectionId', 'connectionId', { unique: false });
+          as.createIndex('snapshotId', 'snapshotId', { unique: false });
+        }
       };
       req.onsuccess = () => {
         const db = req.result;
@@ -339,8 +378,7 @@ export async function clearRedfireIDB(page: Page): Promise<void> {
       bump.onerror = () => {
         // Couldn't bump the version — just try a direct delete as fallback.
         clearTimeout(safeguard);
-        const del = indexedDB.deleteDatabase('redfireforge');
-        del.onsuccess = done;
+        const del = indexedDB.deleteDatabase('redfireforge');        del.onsuccess = done;
         del.onerror   = done;
         // Again, do not resolve in onblocked; wait for onsuccess.
         const fallbackSafeguard = setTimeout(done, 3000);
@@ -349,4 +387,75 @@ export async function clearRedfireIDB(page: Page): Promise<void> {
       };
     }),
   );
+}
+
+/**
+ * Seeds workflow data into localStorage so the app loads with a workflow ready.
+ *
+ * The app migrates localStorage → IndexedDB on first load, so seeding via
+ * localStorage works as long as it happens before navigation.
+ *
+ * @param page      Playwright page
+ * @param workflows Array of workflow objects to store
+ * @param selectedId ID of the workflow to pre-select (defaults to workflows[0].id)
+ */
+export async function seedWorkflowsInLocalStorage(
+  page: Page,
+  workflows: unknown[],
+  selectedId?: string,
+): Promise<void> {
+  await page.addInitScript(
+    ({ workflowJson, id }: { workflowJson: string; id: string }) => {
+      localStorage.setItem('workflows', workflowJson);
+      localStorage.setItem('workflows_selected_id', id);
+    },
+    {
+      workflowJson: JSON.stringify(workflows),
+      id: selectedId ?? (workflows[0] as { id: string }).id,
+    },
+  );
+}
+
+/**
+ * Reads a single value from the redfireforge IndexedDB.
+ *
+ * @param page      Playwright page
+ * @param storeName IDB object store name (e.g. 'workflows', 'testRuns')
+ * @param key       IDB key to look up
+ * @returns         The stored value, or undefined if not found / error
+ */
+export async function readRedfireIDBStore<T = unknown>(
+  page: Page,
+  storeName: string,
+  key: IDBValidKey,
+): Promise<T | undefined> {
+  return page.evaluate(
+    ({ store, k, version }) =>
+      new Promise<T | undefined>((resolve) => {
+        const req = indexedDB.open('redfireforge', version);
+        req.onsuccess = () => {
+          const db = req.result;
+          try {
+            const tx = db.transaction(store, 'readonly');
+            const getReq = tx.objectStore(store).get(k as IDBValidKey);
+            getReq.onsuccess = () => { db.close(); resolve(getReq.result as T | undefined); };
+            getReq.onerror  = () => { db.close(); resolve(undefined); };
+          } catch {
+            db.close();
+            resolve(undefined);
+          }
+        };
+        req.onerror = () => resolve(undefined);
+      }),
+    { store: storeName, k: key, version: 6 },
+  );
+}
+
+/**
+ * Returns all workflow objects stored in the redfireforge IDB (key = 'all').
+ * Convenience wrapper around readRedfireIDBStore for the common workflow case.
+ */
+export async function getPersistedWorkflowsFromIDB(page: Page): Promise<unknown[]> {
+  const result = await readRedfireIDBStore<unknown[]>(page, 'workflows', 'all');
+  return result ?? [];
 }

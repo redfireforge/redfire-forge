@@ -35,8 +35,22 @@ import type { MockResolver, MockScenario } from '../../../shared/types/graphql';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function renderMockHook(connectionId = 'conn-1', sdl: string | null = null) {
-  return renderHook(() => useGraphqlMockServer(connectionId, sdl));
+/**
+ * Render the mock server hook and flush its initial async mount effect.
+ *
+ * The hook's useEffect on mount runs a Promise.all over 3 storage reads (all mocked as
+ * Promise.resolve). Two microtask ticks are needed to drain:
+ *   tick 1 — Promise.all resolves
+ *   tick 2 — the async IIFE continues and calls setState
+ *
+ * IMPORTANT: Do NOT use setTimeout() here — that hangs when vi.useFakeTimers() is
+ * active in a test. Promise.resolve() is microtask-based and is never affected by
+ * fake timer replacements.
+ */
+async function renderMockHook(connectionId = 'conn-1', sdl: string | null = null) {
+  const rendered = renderHook(() => useGraphqlMockServer(connectionId, sdl));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  return rendered;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -47,34 +61,41 @@ describe('useGraphqlMockServer', () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Drain any React state updates from async operations (syncToServer, fetchLog, etc.)
+    // that escaped the previous test's act() boundary. Without this, those updates bleed
+    // into the next test and trigger "not wrapped in act" warnings.
+    //
+    // IMPORTANT: Uses Promise.resolve() (microtask), NOT setTimeout — setTimeout would
+    // hang indefinitely when vi.useFakeTimers() is active in a test.
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     vi.clearAllMocks();
   });
 
   describe('initial state', () => {
-    it('starts with enabled: false and empty resolvers', () => {
-      const { result } = renderMockHook();
+    it('starts with enabled: false and empty resolvers', async () => {
+      const { result } = await renderMockHook();
       expect(result.current.config.enabled).toBe(false);
       expect(result.current.config.resolvers).toEqual({});
       expect(result.current.schemaSource).toBe('introspected');
     });
 
-    it('starts with connectionId from argument', () => {
-      const { result } = renderMockHook('my-conn');
+    it('starts with connectionId from argument', async () => {
+      const { result } = await renderMockHook('my-conn');
       expect(result.current.config.connectionId).toBe('my-conn');
     });
   });
 
   describe('setFieldResolver', () => {
-    it('adds a field resolver', () => {
-      const { result } = renderMockHook();
+    it('adds a field resolver', async () => {
+      const { result } = await renderMockHook();
       const resolver: MockResolver = { type: 'fixed', value: 'hello' };
       act(() => result.current.setFieldResolver('Query', 'user', resolver));
       expect(result.current.config.resolvers['Query']?.['user']).toEqual(resolver);
     });
 
-    it('adds resolvers for multiple types independently', () => {
-      const { result } = renderMockHook();
+    it('adds resolvers for multiple types independently', async () => {
+      const { result } = await renderMockHook();
       act(() => {
         result.current.setFieldResolver('Query', 'user', { type: 'fixed', value: 'Alice' });
         result.current.setFieldResolver('User', 'name', { type: 'fixed', value: 'Bob' });
@@ -85,15 +106,15 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('clearFieldResolver', () => {
-    it('removes a field resolver', () => {
-      const { result } = renderMockHook();
+    it('removes a field resolver', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setFieldResolver('Query', 'user', { type: 'fixed', value: 'Alice' }));
       act(() => result.current.clearFieldResolver('Query', 'user'));
       expect(result.current.config.resolvers['Query']?.['user']).toBeUndefined();
     });
 
-    it('removes the empty type entry after clearing the last field (regression: no orphan {} entries)', () => {
-      const { result } = renderMockHook();
+    it('removes the empty type entry after clearing the last field (regression: no orphan {} entries)', async () => {
+      const { result } = await renderMockHook();
       // Add one resolver then clear it
       act(() => result.current.setFieldResolver('Query', 'user', { type: 'fixed', value: 'x' }));
       expect(result.current.config.resolvers['Query']).toBeDefined();
@@ -103,8 +124,8 @@ describe('useGraphqlMockServer', () => {
       expect(Object.keys(result.current.config.resolvers)).not.toContain('Query');
     });
 
-    it('keeps the type entry when other fields remain after clearing one', () => {
-      const { result } = renderMockHook();
+    it('keeps the type entry when other fields remain after clearing one', async () => {
+      const { result } = await renderMockHook();
       act(() => {
         result.current.setFieldResolver('User', 'name',  { type: 'fixed', value: 'Alice' });
         result.current.setFieldResolver('User', 'email', { type: 'fixed', value: 'a@b.c' });
@@ -116,51 +137,51 @@ describe('useGraphqlMockServer', () => {
       expect(result.current.config.resolvers['User']?.['name']).toBeUndefined();
     });
 
-    it('is a no-op for a non-existent field', () => {
-      const { result } = renderMockHook();
+    it('is a no-op for a non-existent field', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.clearFieldResolver('NonExistentType', 'nonExistentField'));
       expect(result.current.config.resolvers).toEqual({});
     });
   });
 
   describe('activateScenario', () => {
-    it('sets activeScenarioId when scenario exists', () => {
-      const { result } = renderMockHook();
+    it('sets activeScenarioId when scenario exists', async () => {
+      const { result } = await renderMockHook();
       const scenario: MockScenario = { id: 's1', name: 'Test', resolvers: {} };
       act(() => result.current.addScenario(scenario));
-      act(() => result.current.activateScenario('s1'));
+      await act(async () => { result.current.activateScenario('s1'); await Promise.resolve(); });
       expect(result.current.config.activeScenarioId).toBe('s1');
     });
 
-    it('syncs using customSdl when schemaSource is custom (covers line 522)', () => {
-      const { result } = renderMockHook();
+    it('syncs using customSdl when schemaSource is custom (covers line 522)', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setSchemaSource('custom'));
       act(() => result.current.setCustomSdl('type Query { hello: String }'));
       const scenario: MockScenario = { id: 's1', name: 'Test', resolvers: {} };
       act(() => result.current.addScenario(scenario));
-      act(() => result.current.activateScenario('s1'));
+      await act(async () => { result.current.activateScenario('s1'); await Promise.resolve(); });
       expect(result.current.config.activeScenarioId).toBe('s1');
     });
 
-    it('ignores activation for non-existent scenario id', () => {
-      const { result } = renderMockHook();
+    it('ignores activation for non-existent scenario id', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.activateScenario('does-not-exist'));
       expect(result.current.config.activeScenarioId).toBeUndefined();
     });
 
-    it('deactivates scenario by passing undefined', () => {
-      const { result } = renderMockHook();
+    it('deactivates scenario by passing undefined', async () => {
+      const { result } = await renderMockHook();
       const scenario: MockScenario = { id: 's1', name: 'Test', resolvers: {} };
       act(() => result.current.addScenario(scenario));
-      act(() => result.current.activateScenario('s1'));
-      act(() => result.current.activateScenario(undefined));
+      await act(async () => { result.current.activateScenario('s1'); await Promise.resolve(); });
+      await act(async () => { result.current.activateScenario(undefined); await Promise.resolve(); });
       expect(result.current.config.activeScenarioId).toBeUndefined();
     });
   });
 
   describe('deleteScenario', () => {
-    it('removes the scenario from the list', () => {
-      const { result } = renderMockHook();
+    it('removes the scenario from the list', async () => {
+      const { result } = await renderMockHook();
       const s1: MockScenario = { id: 's1', name: 'A', resolvers: {} };
       const s2: MockScenario = { id: 's2', name: 'B', resolvers: {} };
       act(() => { result.current.addScenario(s1); result.current.addScenario(s2); });
@@ -170,33 +191,33 @@ describe('useGraphqlMockServer', () => {
       expect(ids).toContain('s2');
     });
 
-    it('clears activeScenarioId when the active scenario is deleted', () => {
-      const { result } = renderMockHook();
+    it('clears activeScenarioId when the active scenario is deleted', async () => {
+      const { result } = await renderMockHook();
       const scenario: MockScenario = { id: 's1', name: 'Test', resolvers: {} };
       act(() => result.current.addScenario(scenario));
-      act(() => result.current.activateScenario('s1'));
-      act(() => result.current.deleteScenario('s1'));
+      await act(async () => { result.current.activateScenario('s1'); await Promise.resolve(); });
+      await act(async () => { result.current.deleteScenario('s1'); await Promise.resolve(); });
       expect(result.current.config.activeScenarioId).toBeUndefined();
     });
   });
 
   describe('importConfig', () => {
-    it('loads resolvers from imported config', () => {
-      const { result } = renderMockHook();
+    it('loads resolvers from imported config', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.importConfig({
         resolvers: { Query: { user: { type: 'fixed', value: 42 } } },
       }));
       expect(result.current.config.resolvers['Query']?.['user']).toEqual({ type: 'fixed', value: 42 });
     });
 
-    it('always disables the mock after import', () => {
-      const { result } = renderMockHook();
+    it('always disables the mock after import', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.importConfig({ resolvers: {} }));
       expect(result.current.config.enabled).toBe(false);
     });
 
-    it('clears activeScenarioId if referenced scenario is not in the imported list', () => {
-      const { result } = renderMockHook();
+    it('clears activeScenarioId if referenced scenario is not in the imported list', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.importConfig({
         scenarios: [{ id: 's2', name: 'B', resolvers: {} }],
         activeScenarioId: 'non-existent-id',
@@ -204,8 +225,8 @@ describe('useGraphqlMockServer', () => {
       expect(result.current.config.activeScenarioId).toBeUndefined();
     });
 
-    it('preserves activeScenarioId when the referenced scenario exists in the imported list', () => {
-      const { result } = renderMockHook();
+    it('preserves activeScenarioId when the referenced scenario exists in the imported list', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.importConfig({
         scenarios: [{ id: 's1', name: 'A', resolvers: {} }],
         activeScenarioId: 's1',
@@ -213,8 +234,8 @@ describe('useGraphqlMockServer', () => {
       expect(result.current.config.activeScenarioId).toBe('s1');
     });
 
-    it('switches schemaSource to custom when SDL is provided', () => {
-      const { result } = renderMockHook();
+    it('switches schemaSource to custom when SDL is provided', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.importConfig({}, 'type Query { hello: String }'));
       expect(result.current.schemaSource).toBe('custom');
       expect(result.current.customSdl).toBe('type Query { hello: String }');
@@ -222,34 +243,34 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('setGlobalLatency', () => {
-    it('clamps negative values to 0', () => {
-      const { result } = renderMockHook();
+    it('clamps negative values to 0', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setGlobalLatency(-100));
       expect(result.current.config.globalLatencyMs).toBe(0);
     });
 
-    it('rounds fractional values', () => {
-      const { result } = renderMockHook();
+    it('rounds fractional values', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setGlobalLatency(123.7));
       expect(result.current.config.globalLatencyMs).toBe(124);
     });
   });
 
   describe('setJitter', () => {
-    it('sets jitter in ms', () => {
-      const { result } = renderMockHook();
+    it('sets jitter in ms', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setJitter(50));
       expect(result.current.config.jitterMs).toBe(50);
     });
 
-    it('clamps negative jitter to 0', () => {
-      const { result } = renderMockHook();
+    it('clamps negative jitter to 0', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setJitter(-20));
       expect(result.current.config.jitterMs).toBe(0);
     });
 
-    it('rounds fractional jitter', () => {
-      const { result } = renderMockHook();
+    it('rounds fractional jitter', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setJitter(10.9));
       expect(result.current.config.jitterMs).toBe(11);
     });
@@ -257,7 +278,7 @@ describe('useGraphqlMockServer', () => {
 
   describe('syncToServer — error paths', () => {
     it('sets syncError and reverts enabled when server returns non-OK on enable', async () => {
-      const { result } = renderMockHook('conn-1', 'type Query { hello: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
       mockFetch.mockResolvedValueOnce({
         ok: false,
         statusText: 'Bad Request',
@@ -274,7 +295,7 @@ describe('useGraphqlMockServer', () => {
     });
 
     it('sets syncError when fetch throws (network error) on enable', async () => {
-      const { result } = renderMockHook('conn-1', 'type Query { hello: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
       mockFetch.mockRejectedValueOnce(new Error('Network unreachable'));
       await act(async () => {
         result.current.setEnabled(true);
@@ -287,34 +308,34 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('setSeed', () => {
-    it('sets a numeric seed', () => {
-      const { result } = renderMockHook();
+    it('sets a numeric seed', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setSeed(42));
       expect(result.current.config.seed).toBe(42);
     });
 
-    it('clears seed when undefined is passed', () => {
-      const { result } = renderMockHook();
+    it('clears seed when undefined is passed', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setSeed(42));
       act(() => result.current.setSeed(undefined));
       expect(result.current.config.seed).toBeUndefined();
     });
 
-    it('ignores NaN values (guarded against parseInt on empty input)', () => {
-      const { result } = renderMockHook();
+    it('ignores NaN values (guarded against parseInt on empty input)', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setSeed(NaN));
       expect(result.current.config.seed).toBeUndefined();
     });
   });
 
   describe('resetAll', () => {
-    it('resets to default empty config', () => {
-      const { result } = renderMockHook('conn-1');
+    it('resets to default empty config', async () => {
+      const { result } = await renderMockHook('conn-1');
       act(() => {
         result.current.setFieldResolver('Query', 'user', { type: 'fixed', value: 'x' });
         result.current.setGlobalLatency(500);
       });
-      act(() => result.current.resetAll());
+      await act(async () => { result.current.resetAll(); await Promise.resolve(); });
       expect(result.current.config.resolvers).toEqual({});
       expect(result.current.config.globalLatencyMs).toBe(0);
       expect(result.current.config.enabled).toBe(false);
@@ -322,30 +343,30 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('removeScalarFactory', () => {
-    it('removes a scalar factory by name', () => {
-      const { result } = renderMockHook();
-      act(() => result.current.setScalarFactory({ scalarName: 'Date', type: 'random', template: 'ISO8601' }));
-      act(() => result.current.setScalarFactory({ scalarName: 'UUID', type: 'random', template: 'uuid' }));
+    it('removes a scalar factory by name', async () => {
+      const { result } = await renderMockHook();
+      act(() => result.current.setScalarFactory({ scalarName: 'Date', preset: 'date-iso' }));
+      act(() => result.current.setScalarFactory({ scalarName: 'UUID', preset: 'uuid' }));
       act(() => result.current.removeScalarFactory('Date'));
       const names = (result.current.config.scalarFactories ?? []).map((f) => f.scalarName);
       expect(names).not.toContain('Date');
       expect(names).toContain('UUID');
     });
 
-    it('is a no-op for a non-existent scalar name', () => {
-      const { result } = renderMockHook();
+    it('is a no-op for a non-existent scalar name', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.removeScalarFactory('NonExistentScalar'));
       expect(result.current.config.scalarFactories ?? []).toHaveLength(0);
     });
   });
 
   describe('null-coalescence branches in scalar factory ops (lines 530, 542)', () => {
-    it('handles scalarFactories being undefined via importConfig without factories', () => {
-      const { result } = renderMockHook();
+    it('handles scalarFactories being undefined via importConfig without factories', async () => {
+      const { result } = await renderMockHook();
       // Import a config that doesn't include scalarFactories (so it stays at default [])
       act(() => result.current.importConfig({ scenarios: [] }));
       // Now add a scalar factory — scalarFactories is [] (default), ?? [] branch fires
-      act(() => result.current.setScalarFactory({ scalarName: 'TestScalar', type: 'random', template: 'uuid' }));
+      act(() => result.current.setScalarFactory({ scalarName: 'TestScalar', preset: 'uuid' }));
       expect(result.current.config.scalarFactories).toHaveLength(1);
       // Remove it — ?? [] branch fires again
       act(() => result.current.removeScalarFactory('TestScalar'));
@@ -357,7 +378,7 @@ describe('useGraphqlMockServer', () => {
     it('resets using empty connectionId when connectionId is null', async () => {
       const { result } = renderHook(() => useGraphqlMockServer(null, null));
       await act(async () => { await Promise.resolve(); });
-      act(() => result.current.resetAll());
+      await act(async () => { result.current.resetAll(); await Promise.resolve(); });
       expect(result.current.config.connectionId).toBe('');
     });
   });
@@ -365,7 +386,7 @@ describe('useGraphqlMockServer', () => {
   describe('refreshLog', () => {
     it('calls the log endpoint when refreshLog is invoked', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ entries: [{ id: 'log-1' }] }) });
-      const { result } = renderMockHook();
+      const { result } = await renderMockHook();
       act(() => result.current.refreshLog());
       // Give the async fetch a tick to resolve
       await act(async () => { await Promise.resolve(); });
@@ -376,7 +397,7 @@ describe('useGraphqlMockServer', () => {
   describe('customSdl persistence (line 208)', () => {
     it('persists customSdl to storage after async load completes', async () => {
       const { writeKey: mockWriteKey } = await import('../../../shared/utils/storage');
-      const { result } = renderMockHook();
+      const { result } = await renderMockHook();
       // Wait for the async mount (readKey calls) to complete so isLoadingRef.current = false
       await act(async () => { await Promise.resolve(); });
       vi.mocked(mockWriteKey).mockClear();
@@ -394,7 +415,7 @@ describe('useGraphqlMockServer', () => {
         if (typeof url === 'string' && url.includes('/status')) return Promise.reject(new Error('Network error'));
         return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) });
       });
-      const { result } = renderMockHook('conn-1', 'type Query { hi: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hi: String }');
       await act(async () => { await Promise.resolve(); });
       await act(async () => {
         result.current.setEnabled(true);
@@ -407,7 +428,7 @@ describe('useGraphqlMockServer', () => {
 
   describe('disable mock network error (line 243)', () => {
     it('sets syncError when the disable fetch throws', async () => {
-      const { result } = renderMockHook('conn-1', 'type Query { hello: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
       await act(async () => { await Promise.resolve(); });
       // Enable first (succeeds)
       act(() => result.current.setEnabled(true));
@@ -426,7 +447,7 @@ describe('useGraphqlMockServer', () => {
     it('sets syncError but does not revert enabled when debounced sync has empty SDL', async () => {
       vi.useFakeTimers();
       // No SDL provided: introspectedSdl = null, customSdl = '' → getSdl() = ''
-      const { result } = renderMockHook('conn-1', null);
+      const { result } = await renderMockHook('conn-1', null);
       await act(async () => { await Promise.resolve(); });
       // Enable with custom SDL so sync passes
       act(() => {
@@ -455,7 +476,7 @@ describe('useGraphqlMockServer', () => {
 
     it('fires debounced syncToServer when setFieldResolver is called (line 308)', async () => {
       vi.useFakeTimers();
-      const { result } = renderMockHook('conn-1', 'type Query { hi: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hi: String }');
       // Enable the mock so syncToServer is called from debounced path
       await act(async () => { await Promise.resolve(); });
       act(() => result.current.setEnabled(true));
@@ -475,7 +496,7 @@ describe('useGraphqlMockServer', () => {
 
     it('fires setInterval callback for log + status polling (lines 341-342)', async () => {
       vi.useFakeTimers();
-      const { result } = renderMockHook('conn-1', 'type Query { hi: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hi: String }');
       await act(async () => { await Promise.resolve(); });
       act(() => result.current.setEnabled(true));
       await act(async () => { await Promise.resolve(); });
@@ -494,7 +515,7 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('null connectionId', () => {
-    it('resets to defaults when connectionId is null', () => {
+    it('resets to defaults when connectionId is null', async () => {
       const { result, rerender } = renderHook(
         ({ connId }: { connId: string | null }) => useGraphqlMockServer(connId, null),
         { initialProps: { connId: 'conn-1' as string | null } },
@@ -570,7 +591,7 @@ describe('useGraphqlMockServer', () => {
   describe('enable with no SDL reverts enabled=false (lines 254-255)', () => {
     it('sets syncError and reverts enabled when trying to enable with no SDL', async () => {
       // No SDL: introspectedSdl = null, customSdl = '' → getSdl() = ''
-      const { result } = renderMockHook('conn-1', null);
+      const { result } = await renderMockHook('conn-1', null);
       await act(async () => { await Promise.resolve(); });
       await act(async () => {
         result.current.setEnabled(true);
@@ -583,8 +604,8 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('updateScenario', () => {
-    it('updates a scenario by id', () => {
-      const { result } = renderMockHook();
+    it('updates a scenario by id', async () => {
+      const { result } = await renderMockHook();
       const scenario: MockScenario = { id: 's1', name: 'Original', resolvers: {} };
       act(() => result.current.addScenario(scenario));
       act(() => result.current.updateScenario('s1', { name: 'Updated' }));
@@ -592,23 +613,23 @@ describe('useGraphqlMockServer', () => {
       expect(updated?.name).toBe('Updated');
     });
 
-    it('is a no-op for a non-existent scenario id', () => {
-      const { result } = renderMockHook();
+    it('is a no-op for a non-existent scenario id', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.updateScenario('no-such-id', { name: 'X' }));
       expect(result.current.config.scenarios ?? []).toHaveLength(0);
     });
   });
 
   describe('setSchemaSource', () => {
-    it('changes schema source state', () => {
-      const { result } = renderMockHook();
+    it('changes schema source state', async () => {
+      const { result } = await renderMockHook();
       act(() => result.current.setSchemaSource('custom'));
       expect(result.current.schemaSource).toBe('custom');
     });
 
     it('syncs to server when mock is enabled and source changes to introspected', async () => {
       // Set up with custom SDL so we can test source switching
-      const { result } = renderMockHook('conn-1', 'type Query { hello: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
       // Set source to custom with a non-empty SDL, then enable
       act(() => result.current.setCustomSdl('type Query { world: String }'));
       act(() => result.current.setSchemaSource('custom'));
@@ -626,7 +647,7 @@ describe('useGraphqlMockServer', () => {
 
   describe('syncCustomSdlNow', () => {
     it('does not sync when mock is disabled', async () => {
-      const { result } = renderMockHook();
+      const { result } = await renderMockHook();
       act(() => result.current.setCustomSdl('type Query { hello: String }'));
       mockFetch.mockClear();
       act(() => result.current.syncCustomSdlNow());
@@ -639,7 +660,7 @@ describe('useGraphqlMockServer', () => {
     });
 
     it('syncs when mock is enabled and source is custom', async () => {
-      const { result } = renderMockHook();
+      const { result } = await renderMockHook();
       act(() => result.current.setSchemaSource('custom'));
       act(() => result.current.setCustomSdl('type Query { hello: String }'));
       act(() => result.current.setEnabled(true));
@@ -655,7 +676,7 @@ describe('useGraphqlMockServer', () => {
 
   describe('disabling mock (immediate sync with enabled: false)', () => {
     it('calls /api/graphql/mock/config with enabled:false when mock is turned off', async () => {
-      const { result } = renderMockHook('conn-1', 'type Query { hello: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
       act(() => result.current.setEnabled(true));
       await act(async () => { await Promise.resolve(); });
       mockFetch.mockClear();
@@ -674,7 +695,7 @@ describe('useGraphqlMockServer', () => {
   describe('log polling interval', () => {
     it('fetches log and status initially when mock is enabled', async () => {
       // Verify that when enabled=true, the /log and /status endpoints are called
-      const { result } = renderMockHook('conn-1', 'type Query { hi: String }');
+      const { result } = await renderMockHook('conn-1', 'type Query { hi: String }');
       // Wait for mount to settle
       await act(async () => { await Promise.resolve(); });
       const callsBefore = mockFetch.mock.calls.length;
@@ -690,8 +711,8 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('updateScenario false branch coverage (multiple scenarios)', () => {
-    it('only updates the matching scenario — non-matching scenarios return unchanged (line 489 false branch)', () => {
-      const { result } = renderMockHook();
+    it('only updates the matching scenario — non-matching scenarios return unchanged (line 489 false branch)', async () => {
+      const { result } = await renderMockHook();
       const s1: MockScenario = { id: 's1', name: 'First', resolvers: {} };
       const s2: MockScenario = { id: 's2', name: 'Second', resolvers: {} };
       act(() => { result.current.addScenario(s1); result.current.addScenario(s2); });
@@ -705,13 +726,13 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('deleteScenario false branch coverage', () => {
-    it('keeps activeScenarioId unchanged when a different scenario is deleted (line 505 false branch)', () => {
-      const { result } = renderMockHook();
+    it('keeps activeScenarioId unchanged when a different scenario is deleted (line 505 false branch)', async () => {
+      const { result } = await renderMockHook();
       const s1: MockScenario = { id: 's1', name: 'First', resolvers: {} };
       const s2: MockScenario = { id: 's2', name: 'Second', resolvers: {} };
       act(() => { result.current.addScenario(s1); result.current.addScenario(s2); });
       // Set s1 as active
-      act(() => result.current.activateScenario('s1'));
+      await act(async () => { result.current.activateScenario('s1'); await Promise.resolve(); });
       // Delete s2 (not the active one) — activeScenarioId should remain 's1'
       act(() => result.current.deleteScenario('s2'));
       expect(result.current.config.activeScenarioId).toBe('s1');
@@ -719,15 +740,15 @@ describe('useGraphqlMockServer', () => {
   });
 
   describe('setScalarFactory with existing scalar (line 530 filter branch)', () => {
-    it('replaces existing scalar factory with same scalarName', () => {
-      const { result } = renderMockHook();
-      act(() => result.current.setScalarFactory({ scalarName: 'Date', type: 'random', template: 'ISO8601' }));
-      act(() => result.current.setScalarFactory({ scalarName: 'UUID', type: 'random', template: 'uuid' }));
-      // Replace Date with a different template — filter removes old, adds new
-      act(() => result.current.setScalarFactory({ scalarName: 'Date', type: 'fixed', template: '2024-01-01' }));
+    it('replaces existing scalar factory with same scalarName', async () => {
+      const { result } = await renderMockHook();
+      act(() => result.current.setScalarFactory({ scalarName: 'Date', preset: 'date-iso' }));
+      act(() => result.current.setScalarFactory({ scalarName: 'UUID', preset: 'uuid' }));
+      // Replace Date factory with a scriptCode version — filter removes old, adds new
+      act(() => result.current.setScalarFactory({ scalarName: 'Date', scriptCode: 'return "2024-01-01"' }));
       const factories = result.current.config.scalarFactories ?? [];
       const dateFac = factories.find((f) => f.scalarName === 'Date');
-      expect(dateFac?.template).toBe('2024-01-01');
+      expect(dateFac?.scriptCode).toBe('return "2024-01-01"');
       expect(factories).toHaveLength(2); // Date and UUID (not 3)
     });
   });

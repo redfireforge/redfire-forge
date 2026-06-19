@@ -17,7 +17,7 @@
  *     resolvers:        Record<string, Record<string, MockResolver>>
  *     globalLatencyMs?: number         — ms added to each response
  *     jitterMs?:        number         — random 0–jitterMs added to latency
- *     seed?:            number         — (reserved for deterministic randomness)
+ *     seed?:            number         — (stored; deterministic PRNG not yet implemented)
  *     scenarios?:       MockScenario[]
  *     activeScenarioId?: string
  *     scalarFactories?: MockScalarFactory[]
