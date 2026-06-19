@@ -8,21 +8,13 @@
  * tested manually or in a Docker-enabled CI pipeline.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio } from './ws-helpers';
+import { gotoWsStudio, ensureWsMockServer } from './ws-helpers';
 
 const MOCK_URL = 'ws://localhost:9876';
 
 /* ── Ensure mock echo server is running ──────────────── */
 
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  const resp = await page.request.post('http://localhost:3001/api/ws/mock/start', {
-    data: { port: 9876, rules: [], fallback: 'echo' },
-  });
-  expect(resp.ok()).toBeTruthy();
-  await ctx.close();
-});
+test.beforeAll(async ({ browser }) => { await ensureWsMockServer(browser); });
 
 /* ── helpers ─────────────────────────────────────────── */
 

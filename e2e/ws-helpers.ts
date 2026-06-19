@@ -5,7 +5,7 @@
  * ws-protocols-console, ws-protocols-graphql, ws-protocols-socketio, and
  * demo-selector-guard to eliminate copy-paste duplication.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Browser } from '@playwright/test';
 
 export const WS_STUDIO_BASE = 'http://localhost:5173/?tab=websocket-studio';
 export const WS_DEFAULT_MOCK_PORT = 9876;
@@ -133,4 +133,44 @@ export async function stopWsMockFromUI(page: Page): Promise<void> {
     await stopBtn.click();
     await page.waitForTimeout(500);
   }
+}
+
+/**
+ * Shared `beforeAll` helper: ensures the WS mock echo server is running on the
+ * given port. Call from `test.beforeAll` in any spec that needs the mock server.
+ *
+ * @example
+ * test.beforeAll(async ({ browser }) => { await ensureWsMockServer(browser); });
+ */
+export async function ensureWsMockServer(
+  browser: Browser,
+  port = WS_DEFAULT_MOCK_PORT,
+): Promise<void> {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const resp = await page.request.post('http://localhost:3001/api/ws/mock/start', {
+    data: { port, rules: [], fallback: 'echo' },
+  });
+  expect(resp.ok()).toBeTruthy();
+  await ctx.close();
+}
+
+/** Returns the active (visible) WebSocket connection pane locator. */
+export function getActiveWsPane(page: Page) {
+  return page.locator('[data-testid^="conn-tab-pane-"]:visible');
+}
+
+/** Returns the WS tab bar locator. */
+export function getWsTabBar(page: Page) {
+  return page.locator('[data-testid="conn-tab-bar"]');
+}
+
+/** Returns all WS connection tab locators. */
+export function getWsTabs(page: Page) {
+  return getWsTabBar(page).locator('[role="tab"]');
+}
+
+/** Returns the "add tab" button locator in the WS tab bar. */
+export function getWsAddTabBtn(page: Page) {
+  return page.locator('[data-testid="conn-tab-add"]');
 }
