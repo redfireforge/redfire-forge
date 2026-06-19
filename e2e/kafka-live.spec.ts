@@ -131,8 +131,8 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 
     // Fill topic (placeholder is "e.g. orders.events" in the Publish form)
     await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    // Fill key (placeholder is "(optional)")
-    await page.locator('input[placeholder="(optional)"]').first().fill('e2e-live-test');
+    // Fill key (placeholder is "Enter message key (optional)")
+    await page.locator('input[placeholder="Enter message key (optional)"]').fill('e2e-live-test');
     // Fill body (placeholder is '{"key": "value"}')
     await page.locator('textarea[placeholder*="key"]').fill(
       JSON.stringify({ orderId: 'E2E-LIVE-001', status: 'CREATED', amount: '99.00' }),
@@ -161,7 +161,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await page.waitForTimeout(400);
 
     await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    await page.getByLabel('Start Position').selectOption('Earliest');
+    await page.getByLabel('Start Position').selectOption('earliest');
     await page.getByLabel('Max Messages').fill('5');
 
     // Use the execute button (not the mode tab which also has text "Consume Once")

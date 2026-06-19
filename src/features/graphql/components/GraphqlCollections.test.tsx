@@ -429,8 +429,7 @@ describe('GraphqlCollections', () => {
     expect(screen.queryByTestId('gql-import-mode-dialog')).not.toBeInTheDocument();
   });
 
-  it('shows alert for invalid JSON file', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error for invalid JSON file', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const file = new File(['not json'], 'export.json', { type: 'application/json' });
     const input = screen.getByTestId('gql-collections-import-input');
@@ -440,12 +439,10 @@ describe('GraphqlCollections', () => {
       fireEvent.change(input);
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Import failed')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('Import failed'));
   });
 
-  it('shows alert for missing collections array', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error for missing collections array', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const invalidData = JSON.stringify({ notCollections: [] });
     const file = new File([invalidData], 'export.json', { type: 'application/json' });
@@ -456,8 +453,7 @@ describe('GraphqlCollections', () => {
       fireEvent.change(input);
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('"collections" array is missing')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('"collections" array is missing'));
   });
 
   it('ignores empty file selection', async () => {
@@ -472,8 +468,7 @@ describe('GraphqlCollections', () => {
     expect(screen.queryByTestId('gql-import-mode-dialog')).not.toBeInTheDocument();
   });
 
-  it('shows alert for file > 10MB', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error for file > 10MB', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const largeData = 'x'.repeat(11 * 1024 * 1024);
     const file = new File([largeData], 'huge.json', { type: 'application/json' });
@@ -484,8 +479,7 @@ describe('GraphqlCollections', () => {
       fireEvent.change(input);
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('10 MB')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('10 MB'));
   });
 
   // ─── Inline rename ─────────────────────────────────────────────────────────
@@ -926,8 +920,7 @@ describe('GraphqlCollections', () => {
 
   // ─── Null JSON import ─────────────────────────────────────────────────────
 
-  it('shows alert for null JSON import', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error for null JSON import', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const file = new File(['null'], 'null.json', { type: 'application/json' });
     const input = screen.getByTestId('gql-collections-import-input');
@@ -935,12 +928,10 @@ describe('GraphqlCollections', () => {
       Object.defineProperty(input, 'files', { value: [file], configurable: true });
       fireEvent.change(input);
     });
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid format')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('Invalid format'));
   });
 
-  it('shows alert for array JSON import', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error for array JSON import', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const file = new File(['[]'], 'arr.json', { type: 'application/json' });
     const input = screen.getByTestId('gql-collections-import-input');
@@ -948,12 +939,10 @@ describe('GraphqlCollections', () => {
       Object.defineProperty(input, 'files', { value: [file], configurable: true });
       fireEvent.change(input);
     });
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid format')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('Invalid format'));
   });
 
-  it('shows alert when importCollections throws', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('shows inline error when importCollections throws', async () => {
     const collections = makeCollections({
       importCollections: vi.fn().mockRejectedValue(new Error('DB error')),
     });
@@ -969,8 +958,7 @@ describe('GraphqlCollections', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('gql-import-mode-replace'));
     });
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Import failed')));
-    alertSpy.mockRestore();
+    await waitFor(() => expect(screen.getByTestId('gql-import-error')).toHaveTextContent('Import failed'));
   });
 
   // ─── Sort by pin status ────────────────────────────────────────────────────

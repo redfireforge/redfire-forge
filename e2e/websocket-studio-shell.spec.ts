@@ -28,7 +28,7 @@ test.describe('WebSocket studio shell (Phase 11 a11y)', () => {
     await expect(divider).toHaveAttribute('aria-label', 'Resize left and right panes');
     await expect(divider).toHaveAttribute('tabindex', '0');
     await expect(divider).toHaveAttribute('aria-valuenow', /\d+/);
-    await expect(divider).toHaveAttribute('aria-valuemin', '440');
+    await expect(divider).toHaveAttribute('aria-valuemin', '500');
   });
 
   test('resizes the split with the keyboard', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('WebSocket studio shell (Phase 11 a11y)', () => {
 
     // Home collapses the left pane to its configured minimum.
     await page.keyboard.press('Home');
-    await expect(divider).toHaveAttribute('aria-valuenow', '440');
+    await expect(divider).toHaveAttribute('aria-valuenow', '500');
   });
 
   test('persists the pane width across a reload', async ({ page }) => {

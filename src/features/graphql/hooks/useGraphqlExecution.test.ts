@@ -690,6 +690,27 @@ describe('useGraphqlExecution — resolveDedupChoice()', () => {
     expect(registerInFlight).not.toHaveBeenCalled();
     resolveShared({ httpStatus: 200, httpHeaders: {}, latencyMs: 50, timestamp: Date.now(), data: null });
   });
+
+  it('cancel() in undecided-dedup state dismisses without aborting the shared request', async () => {
+    // Simulate a shared in-flight request with a separate abort controller
+    const sharedCtrl = new AbortController();
+    const sharedPromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>(() => {});
+    vi.mocked(getInFlight).mockReturnValue({ controller: sharedCtrl, promise: sharedPromise });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+    expect(result.current.isDuplicate).toBe(true);
+
+    // Pressing Cancel should clear isDuplicate but NOT abort the shared request
+    act(() => { result.current.cancel(); });
+
+    expect(result.current.isDuplicate).toBe(false);
+    // The shared controller must NOT have been aborted
+    expect(sharedCtrl.signal.aborted).toBe(false);
+  });
 });
 
 // ─── APQ execution path ────────────────────────────────────────────────────────

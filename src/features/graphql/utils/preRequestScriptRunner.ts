@@ -25,6 +25,22 @@ import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '../../
 // Re-export types that callers need without re-importing from types
 export type { ScriptLogEntry };
 
+/**
+ * No-op Map stub for rf.store outside the Collection Runner context.
+ * get() always returns undefined; set(), delete(), clear() are silent no-ops.
+ * This ensures scripts that use rf.store for cross-item communication do not
+ * confuse developers with transient state when dry-run individually.
+ */
+export class NoOpStore extends Map<string, unknown> {
+  override get(_key: string): undefined { return undefined; }
+  override set(_key: string, _value: unknown): this { return this; }
+  override delete(_key: string): boolean { return false; }
+  override clear(): void { /* intentional no-op */ }
+  override has(_key: string): boolean { return false; }
+  override get size(): number { return 0; }
+}
+export const NO_OP_STORE = new NoOpStore();
+
 export interface CreateRfContextParams {
   /**
    * Mutable env snapshot — getEnv reads from it; setEnv writes to it AND calls
@@ -49,8 +65,10 @@ export interface CreateRfContextParams {
   response?: RfResponseContext;
   /**
    * Shared key-value store for the entire collection runner run.
-   * For standalone (non-runner) executions, pass a fresh Map() — its short
-   * lifetime means it behaves as a no-op stub for persistence purposes.
+   * Pass the runner's live Map from useGraphqlCollectionRunner for collection runs.
+   * Pass NO_OP_STORE for standalone (non-runner) executions — get() always returns
+   * undefined and set()/delete()/clear() are silent no-ops, preventing scripts
+   * written for runner use from appearing to work when dry-run individually.
    */
   store: Map<string, unknown>;
   /** Read-only metadata about the current GraphQL operation */

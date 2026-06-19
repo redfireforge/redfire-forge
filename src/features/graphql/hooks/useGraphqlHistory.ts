@@ -56,6 +56,18 @@ export function useGraphqlHistory(
 
   const clampedMax = Math.max(10, Math.min(500, maxItems));
 
+  // Keep a ref so async load callbacks can read the latest clampedMax without
+  // needing to add it to the connection-load effect's dependency array.
+  const clampedMaxRef = useRef(clampedMax);
+  clampedMaxRef.current = clampedMax;
+
+  // Trim in-memory history when maxItems is lowered by the user.
+  // IDB eviction happens naturally on the next save; this effect keeps the
+  // displayed list in sync immediately when the setting changes.
+  useEffect(() => {
+    setItems((prev) => prev.length > clampedMax ? prev.slice(0, clampedMax) : prev);
+  }, [clampedMax]);
+
   // Reload history when connection changes; clear when connectionId becomes falsy.
   useEffect(() => {
     if (!connectionId) {
@@ -76,7 +88,11 @@ export function useGraphqlHistory(
     const loadingFor = connectionId;
     idbLoadHistory(loadingFor)
       .then((loaded) => {
-        if (prevConnectionIdRef.current === loadingFor) setItems(loaded);
+        if (prevConnectionIdRef.current === loadingFor) {
+          // Cap to current maxItems immediately on load so the UI always respects
+          // the configured limit, even before the next save triggers IDB eviction.
+          setItems(loaded.slice(0, clampedMaxRef.current));
+        }
       })
       .catch(() => {
         if (prevConnectionIdRef.current === loadingFor) setItems([]);

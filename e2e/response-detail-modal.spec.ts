@@ -91,48 +91,30 @@ test.describe('Response Detail Modal', () => {
   });
 
   test('scrollbar is thin (5px) in normal mode', async ({ page }) => {
-    // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
-    
-    // Click on a result row to open the modal
     await page.locator('tr.clickable-row').first().click();
-    
-    // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
-    
-    // Get the body element
-    const body = page.locator('.response-detail-body');
-    
-    // Check scrollbar width using evaluate
-    const scrollbarWidth = await body.evaluate((el) => {
-      const computedStyle = window.getComputedStyle(el, '::-webkit-scrollbar');
-      return computedStyle.width;
+
+    // The scrollable viewport inside the modal uses .wf-config-modal-scroll.
+    // CSS: .response-detail-modal .wf-config-modal-scroll::-webkit-scrollbar { width: 5px; }
+    const viewport = page.locator('.response-detail-modal .wf-config-modal-scroll');
+    const scrollbarWidth = await viewport.evaluate((el) => {
+      return window.getComputedStyle(el, '::-webkit-scrollbar').width;
     });
-    
-    // In normal mode, scrollbar should be 5px
     expect(scrollbarWidth).toBe('5px');
   });
 
   test('scrollbar style is consistent in response body', async ({ page }) => {
-    // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
-    
-    // Click on a result row to open the modal
     await page.locator('tr.clickable-row').first().click();
-    
-    // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
-    
-    // Get the body element
-    const body = page.locator('.response-detail-body');
-    
-    // Check scrollbar width using evaluate
-    const scrollbarWidth = await body.evaluate((el) => {
-      const computedStyle = window.getComputedStyle(el, '::-webkit-scrollbar');
-      return computedStyle.width;
+
+    // The scrollable viewport inside the modal uses .wf-config-modal-scroll.
+    // CSS: .response-detail-modal .wf-config-modal-scroll::-webkit-scrollbar { width: 5px; }
+    const viewport = page.locator('.response-detail-modal .wf-config-modal-scroll');
+    const scrollbarWidth = await viewport.evaluate((el) => {
+      return window.getComputedStyle(el, '::-webkit-scrollbar').width;
     });
-    
-    // Scrollbar should be 5px (expand/close buttons are hidden in this modal)
     expect(scrollbarWidth).toBe('5px');
   });
 

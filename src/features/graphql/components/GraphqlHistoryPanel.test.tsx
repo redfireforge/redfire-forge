@@ -273,8 +273,28 @@ describe('GraphqlHistoryPanel', () => {
     const history = makeHistory(items);
     render(<GraphqlHistoryPanel {...makeProps({ history })} />);
     fireEvent.click(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByText(/Response truncated/)).toBeInTheDocument();
+  });
+
+  it('truncation banner is clickable and calls onRunInEditor when provided', () => {
+    const onRunInEditor = vi.fn();
+    const items = [makeHistoryItem({ response: '{"data":{"users":[]}}\n__TRUNCATED__' })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history, onRunInEditor })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    const btn = screen.getByTestId('gql-history-truncation-rerun');
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onRunInEditor).toHaveBeenCalledWith(items[0]);
+  });
+
+  it('truncation banner is non-clickable div when onRunInEditor is not provided', () => {
+    const items = [makeHistoryItem({ response: '{"data":{"users":[]}}\n__TRUNCATED__' })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText(/Response was truncated at 512KB/)).toBeInTheDocument();
+    expect(screen.queryByTestId('gql-history-truncation-rerun')).toBeNull();
   });
 
   it('handles malformed JSON in preview gracefully (shows raw text)', () => {

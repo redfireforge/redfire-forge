@@ -270,7 +270,7 @@ GraphQL-WS needs two settings:
       description:
         'The compose panel is fully configured: **Op. Name** `CountdownSub`, **Query** uses `$start`, and **Variables** `{"start": 5}`. ' +
         'Clicking **Send** bundles all three into a single `subscribe` frame:\n\n' +
-        '```json\n{"type":"subscribe","id":"1","payload":{"operationName":"CountdownSub","query":"subscription CountdownSub($start: Int!) {...}","variables":{"start":5}}}\n```\n\n' +
+        '```json\n{\n  "type": "subscribe",\n  "id": "1",\n  "payload": {\n    "operationName": "CountdownSub",\n    "query": "subscription CountdownSub($start: Int!) { ... }",\n    "variables": { "start": 5 }\n  }\n}\n```\n\n' +
         'The server runs `countdown(from: 5)` and streams back six **next** frames — `5, 4, 3, 2, 1, 0` — then **complete**. ' +
         'Every frame in the Events log is tagged with **Op #1** so you can track it even if you had multiple subscriptions running in parallel.',
       highlight: WS.SEND_BTN,

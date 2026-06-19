@@ -53,6 +53,9 @@ vi.mock('../utils/preRequestScriptRunner', () => ({
     getLogs: mockGetLogs,
   })),
   runScript: vi.fn().mockResolvedValue(undefined),
+  // NO_OP_STORE is used as the dry-run store; a plain object is sufficient since
+  // createRfContext is also mocked and doesn't use the store value in tests.
+  NO_OP_STORE: new Map<string, unknown>(),
 }));
 
 // ─── Imports ─────────────────────────────────────────────────────────────────

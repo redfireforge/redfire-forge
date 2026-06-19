@@ -170,9 +170,38 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   // Phase 3F: current dedup key (for cleanup on cancel)
   const currentDedupKeyRef = useRef<string | null>(null);
 
+  // Phase 3F: cancel function for an active "wait for shared promise" subscription.
+  // When the user chooses "wait", we subscribe to the shared promise and store a
+  // cancel function here so that (a) pressing Cancel, or (b) firing a new execute()
+  // while waiting, can cleanly discard the stale wait handler without updating state.
+  const waitCancelRef = useRef<(() => void) | null>(null);
+
   // ── Cancel ────────────────────────────────────────────────────────────────
   // BUG-GQL-R14-5 fix: guard with mountedRef for consistency with async paths.
+  // Phase 3F fix: when isDuplicate=true (either undecided or waiting for a shared promise),
+  // pressing Cancel must NOT abort abortCtrlRef — that controller belongs to the original
+  // shared in-flight request which may have other waiters. Instead, dismiss the dedup state
+  // and restore the last completed response without touching the network.
   const cancel = useCallback(() => {
+    if (pendingDedupRef.current) {
+      // Undecided dedup state — dismiss without aborting the shared request
+      pendingDedupRef.current = null;
+      setIsDuplicate(false);
+      if (!mountedRef.current) return;
+      setStatus(lastCompletedResponseRef.current.status);
+      setResponse(lastCompletedResponseRef.current.response);
+      return;
+    }
+    if (waitCancelRef.current) {
+      // Waiting-for-shared-promise state — cancel the wait subscription and
+      // restore previous state without aborting the shared request.
+      waitCancelRef.current();
+      waitCancelRef.current = null;
+      if (!mountedRef.current) return;
+      setStatus(lastCompletedResponseRef.current.status);
+      setResponse(lastCompletedResponseRef.current.response);
+      return;
+    }
     if (abortCtrlRef.current) {
       abortCtrlRef.current.abort();
       abortCtrlRef.current = null;
@@ -257,8 +286,14 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
       // Cancel any in-flight request before starting a new one.
       // Clean up previous dedup registration.
+      // If we were waiting for a shared promise, cancel that subscription so
+      // its then/catch handlers won't overwrite this new request's state.
       // Exception: _skipDedupCheck (sendAnyway) — do NOT abort abortCtrlRef because it
       // may point to the original in-flight request that we want to keep running alongside.
+      if (waitCancelRef.current) {
+        waitCancelRef.current();
+        waitCancelRef.current = null;
+      }
       if (currentDedupKeyRef.current) {
         removeInFlight(currentDedupKeyRef.current);
         currentDedupKeyRef.current = null;
@@ -703,10 +738,20 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         pendingDedupRef.current = null;
         setIsDuplicate(false);
         setStatus('loading');
+        // Detach abortCtrlRef so the user pressing Cancel/Escape does not abort
+        // the shared in-flight request.
+        abortCtrlRef.current = null;
+
+        // Generation token: cancelled = true means the user pressed Cancel or
+        // fired a new execute() before the shared promise resolved. Any state
+        // updates from this wait handler are ignored once cancelled.
+        let cancelled = false;
+        waitCancelRef.current = () => { cancelled = true; };
 
         void pending.promise
           .then((resp) => {
-            if (!mountedRef.current) return;
+            waitCancelRef.current = null;
+            if (!mountedRef.current || cancelled) return;
             const hasErrors = (resp.errors?.length ?? 0) > 0;
             const fs: ExecutionStatus = !hasErrors || resp.data !== null ? 'success' : 'error';
             lastCompletedResponseRef.current = { status: fs, response: resp };
@@ -715,7 +760,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           })
           .catch(() => {
             // Original was cancelled or errored — restore prior state
-            if (!mountedRef.current) return;
+            waitCancelRef.current = null;
+            if (!mountedRef.current || cancelled) return;
             setStatus(lastCompletedResponseRef.current.status);
             setResponse(lastCompletedResponseRef.current.response);
           });
@@ -747,6 +793,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   useEffect(() => () => {
     mountedRef.current = false;
     abortCtrlRef.current?.abort();
+    // Cancel any active wait-for-shared-promise subscription
+    if (waitCancelRef.current) {
+      waitCancelRef.current();
+      waitCancelRef.current = null;
+    }
     // Clean up dedup registration on unmount
     if (currentDedupKeyRef.current) {
       removeInFlight(currentDedupKeyRef.current);

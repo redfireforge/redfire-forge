@@ -282,6 +282,7 @@ async function idbMergeCollections(
 }
 
 function normalizeImportData(data: CollectionExportData): CollectionExportData {
+  const now = Date.now();
   return {
     ...data,
     collections: data.collections.map(({ collection, folders, items }) => ({
@@ -291,16 +292,19 @@ function normalizeImportData(data: CollectionExportData): CollectionExportData {
         variables: collection.variables ?? {},
         preRequestScript: collection.preRequestScript ?? '',
         postResponseScript: collection.postResponseScript ?? '',
+        // createdAt is required — default to now if absent in older export formats
+        createdAt: collection.createdAt ?? now,
       },
       folders: folders.map((f, fi) => ({
         // Spread first; override collectionId/sortOrder only when absent (v1.0 had neither).
         ...(f as PartialFolder),
         collectionId: (f as PartialFolder).collectionId ?? collection.id,
         sortOrder: (f as PartialFolder).sortOrder ?? fi,
+        // createdAt is required — default to now if absent in older export formats
+        createdAt: (f as PartialFolder).createdAt ?? now,
       } as GraphqlCollectionFolder)),
       items: items.map((i, ii) => {
         const partial = i as PartialItem;
-        const now = Date.now();
         // Validate operation.variables JSON — imported items may have malformed
         // variables (plan 3A-16). Reset to '' rather than silently writing corrupt
         // data that would only fail at execution time.
@@ -308,9 +312,15 @@ function normalizeImportData(data: CollectionExportData): CollectionExportData {
         if (variables.trim() && variables.trim() !== '{}') {
           try { JSON.parse(variables); } catch { variables = ''; }
         }
-        const operation = partial.operation
-          ? { ...partial.operation, variables }
-          : partial.operation;
+        // Guard against items missing the required `operation` field in malformed
+        // export data (e.g. hand-crafted or partially-written files). Provide a
+        // placeholder so downstream code always has a non-null operation to work with.
+        const baseOperation = partial.operation ?? {
+          id: crypto.randomUUID(),
+          query: '',
+          operationType: 'query' as const,
+        };
+        const operation = { ...baseOperation, variables };
         return {
           ...partial,
           operation: operation as GraphqlCollectionItem['operation'],
@@ -318,6 +328,8 @@ function normalizeImportData(data: CollectionExportData): CollectionExportData {
           sortOrder:    partial.sortOrder    ?? ii,
           isPinned:     partial.isPinned     ?? false,
           tags:         partial.tags         ?? [],
+          // Both createdAt and updatedAt are required — default to now if absent
+          createdAt:    partial.createdAt    ?? now,
           updatedAt:    partial.updatedAt    ?? partial.createdAt ?? now,
         } as GraphqlCollectionItem;
       }),
