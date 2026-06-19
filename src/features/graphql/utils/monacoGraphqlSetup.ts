@@ -15,8 +15,10 @@
 // The package.json exports map exposes './initializeMode' (not './esm/initializeMode')
 import { initializeMode } from 'monaco-graphql/initializeMode';
 import type { IntrospectionQuery } from 'graphql';
-// Vite ?worker suffix — Vite handles bundling; ?worker resolves against exports key './esm/graphql.worker'
+// Vite ?worker suffix — Vite handles bundling at build time; avoids rolldown
+// UNRESOLVED_ENTRY errors that occur with the runtime new URL(...) pattern.
 import GraphqlWorkerCtor from 'monaco-graphql/esm/graphql.worker?worker';
+import EditorWorkerCtor from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import type * as MonacoType from 'monaco-editor';
 
 // ─── Monaco GraphQL worker shim ───────────────────────────────────────────────
@@ -34,10 +36,7 @@ if (typeof window !== 'undefined') {
         return new GraphqlWorkerCtor() as Worker;
       }
       if (_prev) return _prev.call(existingEnv, _id, label);
-      return new Worker(
-        new URL('monaco-editor/esm/vs/editor/editor.worker', import.meta.url),
-        { type: 'module' },
-      );
+      return new EditorWorkerCtor() as Worker;
     },
   } as MonacoType.Environment;
 }
