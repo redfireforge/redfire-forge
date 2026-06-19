@@ -7,8 +7,13 @@ import { WorkflowDesignerInspectModals } from './WorkflowDesignerInspectModals';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 
 vi.mock('./modals/WorkflowDetailModal', () => ({
-  default: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? <div data-testid="detail"><button data-testid="detail-close" onClick={onClose}>x</button></div> : null,
+  default: ({ open, onClose, onApplyVariable, variableMode }: { open: boolean; onClose: () => void; onApplyVariable?: () => void; variableMode?: boolean }) =>
+    open ? (
+      <div data-testid="detail">
+        <button data-testid="detail-close" onClick={onClose}>x</button>
+        {variableMode && onApplyVariable && <button data-testid="detail-apply" onClick={onApplyVariable}>apply</button>}
+      </div>
+    ) : null,
 }));
 vi.mock('./modals/WorkflowNodeConfigModal', () => ({
   default: ({ onClose }: { onClose: () => void }) =>
@@ -115,5 +120,55 @@ describe('WorkflowDesignerInspectModals', () => {
     render(<WorkflowDesignerInspectModals vm={makeVm({ showDefaultsModal: true, setShowDefaultsModal })} />);
     fireEvent.click(screen.getByTestId('def-close'));
     expect(setShowDefaultsModal).toHaveBeenCalledWith(false);
+  });
+
+  it('renders variable detail modal with apply handler', () => {
+    const handleApplyVariableDetail = vi.fn();
+    render(
+      <WorkflowDesignerInspectModals
+        vm={makeVm({
+          detailModal: { type: 'variable' },
+          handleApplyVariableDetail,
+          variableDetailDraft: 'draft',
+        })}
+      />,
+    );
+    expect(screen.getByTestId('detail')).toBeTruthy();
+  });
+
+  it('passes runtime variable snapshot to node config modal', () => {
+    render(
+      <WorkflowDesignerInspectModals
+        vm={makeVm({
+          configModalNode: { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: {} },
+          configModalNodeId: 'n1',
+          runVariableSnapshot: { token: 'abc' },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('node-config')).toBeTruthy();
+  });
+
+  it('renders detail modal without apply for non-variable type', () => {
+    render(
+      <WorkflowDesignerInspectModals
+        vm={makeVm({ detailModal: { type: 'log' } as unknown as WorkflowDesignerViewModel['detailModal'] })}
+      />,
+    );
+    expect(screen.getByTestId('detail')).toBeTruthy();
+    expect(screen.queryByTestId('detail-apply')).toBeNull();
+  });
+
+  it('node config without configModalNodeId omits run error props', () => {
+    render(
+      <WorkflowDesignerInspectModals
+        vm={makeVm({
+          configModalNode: { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: {} },
+          configModalNodeId: null,
+          nodeStatuses: { n1: { status: 'fail', error: 'boom' } },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('node-config')).toBeTruthy();
   });
 });

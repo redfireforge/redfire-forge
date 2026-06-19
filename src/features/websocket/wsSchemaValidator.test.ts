@@ -226,5 +226,55 @@ describe('wsSchemaValidator', () => {
       const invalid = validateMessage('{"email": "not-an-email"}', 'received', [schema]);
       expect(invalid[0].valid).toBe(false);
     });
+
+    it('skips schema when compile fails and cached validator is null', () => {
+      const schema = makeSchema({
+        id: 'bad-compile',
+        schema: JSON.stringify({ type: 'invalidtype' }),
+      });
+      compileSchema(schema.id, schema.schema);
+      const results = validateMessage('{"name": "Alice"}', 'received', [schema]);
+      expect(results).toEqual([]);
+    });
+
+    it('uses fallback error message when ajv error has no message', () => {
+      const schema = makeSchema({
+        schema: JSON.stringify({
+          type: 'object',
+          properties: { flag: { type: 'boolean' } },
+          required: ['flag'],
+        }),
+      });
+      compileSchema(schema.id, schema.schema);
+      const results = validateMessage('{"flag": "yes"}', 'received', [schema]);
+      expect(results[0].valid).toBe(false);
+      expect(results[0].errors[0].message).toBeTruthy();
+    });
+  });
+
+  describe('non-Error throw paths', () => {
+    it('compileSchema returns generic message for non-Error throws', () => {
+      const originalParse = JSON.parse;
+      JSON.parse = () => { throw 'string failure'; };
+      try {
+        const result = compileSchema('throw-test', '{}');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Invalid schema');
+      } finally {
+        JSON.parse = originalParse;
+      }
+    });
+
+    it('isSchemaJsonValid returns generic message for non-Error throws', () => {
+      const originalParse = JSON.parse;
+      JSON.parse = () => { throw 42; };
+      try {
+        const result = isSchemaJsonValid('{}');
+        expect(result.valid).toBe(false);
+        expect(result.error).toBe('Invalid JSON Schema');
+      } finally {
+        JSON.parse = originalParse;
+      }
+    });
   });
 });

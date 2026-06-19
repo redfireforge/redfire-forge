@@ -147,6 +147,24 @@ describe('GraphqlSubscriptionAssertionPanel', () => {
     expect(body).not.toHaveAttribute('hidden');
   });
 
+  it('calls onChange with updated operator when select changes', () => {
+    const assertions = [makeAssertion({ operator: 'equals' })];
+    const onChange = vi.fn();
+    render(<GraphqlSubscriptionAssertionPanel assertions={assertions} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId('gql-assertion-operator'), { target: { value: 'contains' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0][0].operator).toBe('contains');
+  });
+
+  it('calls onChange with updated expected value when input changes', () => {
+    const assertions = [makeAssertion({ operator: 'equals', expected: 'Alice' })];
+    const onChange = vi.fn();
+    render(<GraphqlSubscriptionAssertionPanel assertions={assertions} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId('gql-assertion-expected'), { target: { value: 'Bob' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0][0].expected).toBe('Bob');
+  });
+
   it('shows String(expected) when expected is a number (line 98 cond-expr false + binary-expr true)', () => {
     // When assertion.expected is not a string, String() is called
     const assertion = {

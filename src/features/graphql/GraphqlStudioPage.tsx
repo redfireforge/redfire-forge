@@ -9,65 +9,84 @@
  * Phase 1E: environment variable management with {{var}} interpolation.
  *
  * Extracted hooks:
- *   hooks/useGqlStudioTabs          — tab lifecycle, persistence, content callbacks
- *   hooks/useGqlStudioEditorActions — prettify + insert-field actions
- *   hooks/useGqlPollingPopover      — (used inside GraphqlConnectionBar)
+ *   hooks/useGqlStudioTabs               — tab lifecycle, persistence, content callbacks
+ *   hooks/useGqlStudioEditorActions      — prettify + insert-field actions
+ *   hooks/useGqlPollingPopover           — (used inside GraphqlConnectionBar)
+ *   hooks/useGraphqlConnectionSettings   — endpoint, TLS, polling, auth, profiles, env
+ *   hooks/useGqlItemLoaders              — load/run collection/history items into editor
+ *   hooks/useGqlKeyboardShortcuts        — keyboard shortcuts (Cmd+Enter, Esc, etc.)
+ *   hooks/useGraphqlSchemaSnapshots      — schema snapshot CRUD + diff modal
+ *   hooks/useGraphqlAdvancedSettings     — APQ, batch, dedup, complexity gate settings
+ *   hooks/useGraphqlBatchExecution       — batch query execution
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { isTauri } from '../../shared/utils/platform';
-import { readKey, removeKey, writeKey } from '../../shared/utils/storage';
+import { getProxyBase } from './utils/graphqlProxyTransports';
 import type { GlobalAuthProfile } from '../../shared/types';
-import type { GraphqlAuth } from '../../shared/types/graphql';
+import type { GraphqlHistoryItem, RfResponseContext } from '../../shared/types/graphql';
 import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
 import { GraphqlEditor } from './components/GraphqlEditor';
-import { GraphqlEnvModal } from './components/GraphqlEnvModal';
-import { GraphqlProfileModal } from './components/GraphqlProfileModal';
 import { GqlTabBar } from './components/GqlTabBar';
 import { GqlBottomPanel } from './components/GqlBottomPanel';
 import { GqlRightPane } from './components/GqlRightPane';
 import { GraphqlQueryBuilder } from './components/GraphqlQueryBuilder';
 import { GraphqlSubscriptionAssertionPanel } from './components/GraphqlSubscriptionAssertionPanel';
+import { GraphqlStudioActivityBar } from './components/GraphqlStudioActivityBar';
+import { loadPersistedActivityTab } from './utils/gqlActivityBarUtils';
+import { GraphqlHistoryPanel } from './components/GraphqlHistoryPanel';
+import { GraphqlCollections, SaveToCollectionModal } from './components/GraphqlCollections';
+import { GraphqlCollectionRunnerPanel } from './components/GraphqlCollectionRunnerPanel';
+import { GraphqlSchemaDiff } from './components/GraphqlSchemaDiff';
+import { GraphqlMockPanel } from './components/GraphqlMockPanel';
+import { GraphqlAdvancedSettings } from './components/GraphqlAdvancedSettings';
+import { GraphqlBatchResults } from './components/GraphqlBatchResults';
+import { GraphqlComplexityGateModal } from './components/GraphqlComplexityGateModal';
+import { GqlDedupBanner } from './components/GqlDedupBanner';
+import { GqlComplexityWarningBanner } from './components/GqlComplexityWarningBanner';
+import { GqlPageToasts } from './components/GqlPageToasts';
+import { GqlConnectionModals } from './components/GqlConnectionModals';
 import { useGraphqlExecution } from './hooks/useGraphqlExecution';
-import { useGraphqlEnvironments } from './hooks/useGraphqlEnvironments';
-import { useGraphqlConnectionProfiles } from './hooks/useGraphqlConnectionProfiles';
 import { useQueryValidation } from './hooks/useQueryValidation';
-import { useRecentEndpoints } from './hooks/useRecentEndpoints';
 import { useGraphqlSchema } from './hooks/useGraphqlSchema';
 import { useGraphqlSubscription } from './hooks/useGraphqlSubscription';
 import { useSubscriptionOrchestration } from './hooks/useSubscriptionOrchestration';
 import { useGqlStudioTabs } from './hooks/useGqlStudioTabs';
 import { useGqlStudioEditorActions } from './hooks/useGqlStudioEditorActions';
+import { useGraphqlHistory } from './hooks/useGraphqlHistory';
+import { useGraphqlCollections } from './hooks/useGraphqlCollections';
+import { useGraphqlCollectionRunner } from './hooks/useGraphqlCollectionRunner';
+import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettings';
+import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
+import { useGqlKeyboardShortcuts } from './hooks/useGqlKeyboardShortcuts';
+import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
+import { useMonacoExecutionMarkers } from './hooks/useMonacoExecutionMarkers';
 import { buildAuthHeaders } from './utils/authUtils';
 import { findUnresolvedVars, resolveVars } from './utils/envUtils';
 import type { FileEntry } from './utils/multipartBuilder';
 import { buildMultipartFormData } from './utils/multipartBuilder';
+import { buildClientSchema, validate, parse as gqlParseDoc } from 'graphql';
+import type { IntrospectionQuery } from 'graphql';
 import { computeQueryComplexity } from './utils/complexityEstimator';
 import { buildAssertionResultMap } from './utils/subscriptionAssertions';
+import { useGraphqlMockServer } from './hooks/useGraphqlMockServer';
+import { useGraphqlAdvancedSettings } from './hooks/useGraphqlAdvancedSettings';
+import { useGraphqlBatchExecution } from './hooks/useGraphqlBatchExecution';
+import { useGraphqlSchemaSnapshots } from './hooks/useGraphqlSchemaSnapshots';
 import {
   buildVarsModelUri,
   clearGraphqlSchema,
   setGraphqlSchema,
 } from './utils/monacoGraphqlSetup';
-import {
-  loadAuth,
-  saveAuth,
-  DEFAULT_VARS,
-  ENDPOINT_BASE_STORAGE_KEY,
-  ENDPOINT_STORAGE_KEY,
-  POLLING_STORAGE_KEY,
-  TLS_STORAGE_KEY,
-} from './utils/tabPersistence';
+import { DEFAULT_VARS } from './utils/tabPersistence';
 import '../../styles/graphql-studio.css';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const EXEC_MARKER_OWNER = 'gql-execution';
+import '../../styles/graphql-collections.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BottomPanelTab = 'variables' | 'headers' | 'files';
 type RightPaneView = 'response' | 'schema';
+type BottomPanelTabExtended = BottomPanelTab | 'runner';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -78,96 +97,106 @@ interface GraphqlStudioPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
+// ─── Module-level constants ───────────────────────────────────────────────────
+
+// Proxy base for batch + mock requests — evaluated once at module load time.
+const GQL_PROXY_BASE = getProxyBase();
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function GraphqlStudioPage({
   resolvedBaseUrl,
 }: GraphqlStudioPageProps) {
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [bottomTab, setBottomTab]   = useState<BottomPanelTab>('variables');
+  const [bottomTab, setBottomTab]   = useState<BottomPanelTabExtended>('variables');
   const [rightView, setRightView]   = useState<RightPaneView>('response');
   const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [builderMode, setBuilderMode] = useState(false);
 
+  // ── Phase 3A — Activity bar + history + collections ────────────────────────
+  const [activityTab, setActivityTab] = useState(() => loadPersistedActivityTab());
+  const [runnerCollectionId, setRunnerCollectionId] = useState<string | null>(null);
+  const [saveToColItem, setSaveToColItem] = useState<GraphqlHistoryItem | null>(null);
+  const [historyMaxItems, setHistoryMaxItems] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem('gql_history_max_items');
+      if (raw) { const n = parseInt(raw, 10); if (!Number.isNaN(n)) return Math.max(10, Math.min(500, n)); }
+    } catch { /* silent */ }
+    return 100;
+  });
+  const handleHistoryMaxItemsChange = useCallback((n: number) => {
+    setHistoryMaxItems(n);
+    try { localStorage.setItem('gql_history_max_items', String(n)); } catch { /* silent */ }
+  }, []);
+
+  // ── Connection settings (endpoint, TLS, polling, auth, profiles, env) ─────
+  const {
+    endpoint, setEndpoint, historyConnectionId, prevBaseUrlRef,
+    skipTlsVerify, handleSkipTlsVerifyChange,
+    pollingEnabled, pollingIntervalSeconds, pollingIntervalMs, handlePollingChange,
+    auth, handleAuthChange,
+    recentEndpoints, pushRecentEndpoint, removeRecentEndpoint,
+    profiles, saveProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
+    environments, activeEnvironment,
+    createEnvironment, deleteEnvironment, setActiveEnvironment,
+    updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
+    envModalOpen, setEnvModalOpen,
+  } = useGraphqlConnectionSettings(resolvedBaseUrl);
+
+  const history     = useGraphqlHistory(historyConnectionId, historyMaxItems);
+  const collections = useGraphqlCollections();
+  const runner      = useGraphqlCollectionRunner();
+
   // ── Execution engine ───────────────────────────────────────────────────────
-  const { status: execStatus, response, execute, cancel } = useGraphqlExecution();
+  const {
+    status: execStatus,
+    response,
+    execute,
+    cancel,
+    isDuplicate,
+    apqInfo,
+    resolveDedupChoice,
+  } = useGraphqlExecution();
   const executing = execStatus === 'loading';
 
   useEffect(() => { if (!executing) setUploadProgress(null); }, [executing]);
 
-  // ── Subscription engine ────────────────────────────────────────────────────
+  // Auto-save history after execution completes
+  const prevExecStatusRef = useRef(execStatus);
+  useEffect(() => {
+    const prev = prevExecStatusRef.current;
+    prevExecStatusRef.current = execStatus;
+    if (prev !== 'loading' || (execStatus !== 'success' && execStatus !== 'error')) return;
+    if (!response || !activeTab || !endpoint) return;
+    history.saveHistory({
+      connectionId: historyConnectionId ?? endpoint,
+      operation: {
+        id: activeTab.id,
+        name: activeTab.selectedOperation ?? (activeTab.label !== 'Untitled' ? activeTab.label : undefined),
+        query: activeTab.query,
+        variables: activeTab.variables,
+        operationType: (activeTab.operationType ?? 'query') as 'query' | 'mutation' | 'subscription',
+      },
+      response,
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execStatus]);
+
   const subscription = useGraphqlSubscription();
 
-  // ── TLS + polling settings ─────────────────────────────────────────────────
-  const [skipTlsVerify, setSkipTlsVerify]               = useState(false);
-  const [pollingEnabled, setPollingEnabled]             = useState(false);
-  const [pollingIntervalSeconds, setPollingIntervalSeconds] = useState(30);
-
-  const handleSkipTlsVerifyChange = useCallback((skip: boolean) => {
-    setSkipTlsVerify(skip);
-    writeKey(TLS_STORAGE_KEY, String(skip)).catch(() => { /* no-op */ });
-  }, []);
-
-  const handlePollingChange = useCallback((enabled: boolean, intervalSeconds: number) => {
-    setPollingEnabled(enabled);
-    setPollingIntervalSeconds(intervalSeconds);
-    writeKey(POLLING_STORAGE_KEY, JSON.stringify({ enabled, intervalSeconds })).catch(() => { /* no-op */ });
-  }, []);
-
-  const pollingIntervalMs = pollingEnabled ? pollingIntervalSeconds * 1000 : 0;
-
-  // ── Auth ───────────────────────────────────────────────────────────────────
-  const [auth, setAuth] = useState<GraphqlAuth | null>(null);
-  const handleAuthChange = useCallback((newAuth: GraphqlAuth | null) => {
-    setAuth(newAuth);
-    saveAuth(newAuth);
-  }, []);
-
-  // ── Recent endpoints ───────────────────────────────────────────────────────
-  const { endpoints: recentEndpoints, push: pushRecentEndpoint, remove: removeRecentEndpoint } = useRecentEndpoints();
-
-  // ── Connection profiles ────────────────────────────────────────────────────
-  const { profiles, saveProfile, deleteProfile } = useGraphqlConnectionProfiles();
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-
-  // ── Environments ───────────────────────────────────────────────────────────
   const {
-    environments, activeEnvironment,
-    createEnvironment, deleteEnvironment, setActiveEnvironment,
-    updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
-  } = useGraphqlEnvironments();
-  const [envModalOpen, setEnvModalOpen] = useState(false);
+    advSettingsOpen, setAdvSettingsOpen, advSettingsBtnRef,
+    advSettings, advSettingsRef, setAdvSettings,
+    apqUnsupportedToast, setApqUnsupportedToast, batchUnsupportedToast, setBatchUnsupportedToast,
+    connectionIdRef, handleAdvSettingsChange,
+  } = useGraphqlAdvancedSettings(historyConnectionId, apqInfo);
 
-  // ── Endpoint state ─────────────────────────────────────────────────────────
-  const [endpoint, setEndpoint] = useState(resolvedBaseUrl ?? '');
-  const initialResolvedBaseUrl  = useRef(resolvedBaseUrl);
-  const prevBaseUrlRef          = useRef<string | undefined>(resolvedBaseUrl);
-
-  useEffect(() => {
-    if (resolvedBaseUrl === undefined) return;
-    const prev = prevBaseUrlRef.current;
-    prevBaseUrlRef.current = resolvedBaseUrl;
-    setEndpoint((cur) => {
-      if (cur === '' || cur === prev) {
-        writeKey(ENDPOINT_BASE_STORAGE_KEY, resolvedBaseUrl).catch(() => { /* silent */ });
-        return resolvedBaseUrl;
-      }
-      return cur;
-    });
-  }, [resolvedBaseUrl]);
-
-  useEffect(() => {
-    writeKey(ENDPOINT_STORAGE_KEY, endpoint).catch(() => { /* quota / unavailable — silent */ });
-  }, [endpoint]);
-
-  // ── Monaco instance ────────────────────────────────────────────────────────
   const monacoInstance = useMonaco();
   const monacoRef      = useRef(monacoInstance);
   monacoRef.current    = monacoInstance;
   const responseModelUriRef = useRef<string>('');
 
-  // ── Tab management (hook) ──────────────────────────────────────────────────
   const cancelRef = useRef(cancel);
   cancelRef.current = cancel;
   const {
@@ -178,58 +207,16 @@ export function GraphqlStudioPage({
     handleHeadersChange, handleAssertionsChange, handleSubscriptionTransportChange,
   } = useGqlStudioTabs({
     onCancelExecution: () => cancelRef.current(),
-    executing,
-    responseModelUriRef,
+    executing, responseModelUriRef,
     onClearFileEntries: () => setFileEntries([]),
     onResetSubscription: () => subscription.reset(),
     monacoRef: monacoRef as React.MutableRefObject<import('@monaco-editor/react').Monaco | null>,
   });
 
-  // ── Editor actions (prettify + insert field) ───────────────────────────────
   const {
     editorMountRef, prettifyError, insertToast, handlePrettify, handleInsertField,
-  } = useGqlStudioEditorActions({
-    activeQuery: activeTab?.query ?? '',
-    onQueryChange: handleQueryChange,
-  });
+  } = useGqlStudioEditorActions({ activeQuery: activeTab?.query ?? '', onQueryChange: handleQueryChange });
 
-  // ── Restore settings from storage ─────────────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await readKey(ENDPOINT_STORAGE_KEY);
-        if (saved) {
-          const savedBase = await readKey(ENDPOINT_BASE_STORAGE_KEY);
-          const rbUrl = initialResolvedBaseUrl.current;
-          if (saved === savedBase && rbUrl && rbUrl !== savedBase) {
-            setEndpoint(rbUrl);
-          } else {
-            setEndpoint(saved);
-          }
-        }
-      } catch { /* fall through */ }
-
-      try {
-        const tlsRaw = await readKey(TLS_STORAGE_KEY);
-        if (tlsRaw !== null) setSkipTlsVerify(tlsRaw === 'true');
-      } catch { /* ignore */ }
-
-      try {
-        const raw = await readKey(POLLING_STORAGE_KEY);
-        if (raw) {
-          const p = JSON.parse(raw) as { enabled?: boolean; intervalSeconds?: number };
-          if (p.enabled === true) setPollingEnabled(true);
-          const s = p.intervalSeconds;
-          if (typeof s === 'number' && s >= 10) setPollingIntervalSeconds(s);
-        }
-      } catch { /* ignore */ }
-
-      const savedAuth = await loadAuth();
-      if (savedAuth) setAuth(savedAuth);
-    })();
-  }, []);
-
-  // ── Schema introspection ───────────────────────────────────────────────────
   const activeTabForHeaders = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activeTabHeaders = useMemo<Record<string, string>>(() => {
     if (!activeTabForHeaders) return {};
@@ -252,75 +239,54 @@ export function GraphqlStudioPage({
   const {
     status: schemaStatus, schemaInfo, rawIntrospection, errorMessage: schemaErrorMessage,
     introspecting, introspect, pollErrorMessage,
-  } = useGraphqlSchema(resolveVars(endpoint, activeEnvironment), schemaHeaders, {
-    pollingIntervalMs,
-    skipTlsVerify,
-  });
+  } = useGraphqlSchema(resolveVars(endpoint, activeEnvironment), schemaHeaders, { pollingIntervalMs, skipTlsVerify });
 
+  const mockServer = useGraphqlMockServer(historyConnectionId, schemaInfo?.sdl ?? null);
   useEffect(() => {
-    if (rawIntrospection) {
-      try { setGraphqlSchema(rawIntrospection); } catch { /* non-fatal */ }
-    } else {
-      try { clearGraphqlSchema(); } catch { /* non-fatal */ }
-    }
+    if (rawIntrospection) { try { setGraphqlSchema(rawIntrospection); } catch { /* non-fatal */ } }
+    else { try { clearGraphqlSchema(); } catch { /* non-fatal */ } }
   }, [rawIntrospection]);
 
-  // Auto-switch to Schema view after manual introspect succeeds
+  const invalidItemIds = useMemo<Set<string>>(() => {
+    if (!rawIntrospection) return new Set();
+    const allItems = collections.trees.flatMap((t) => t.items);
+    if (allItems.length === 0) return new Set();
+    let schema: ReturnType<typeof buildClientSchema>;
+    try { schema = buildClientSchema(rawIntrospection as unknown as IntrospectionQuery); }
+    catch { return new Set(); }
+    const invalid = new Set<string>();
+    for (const item of allItems) {
+      if (!item.operation.query.trim()) continue;
+      try {
+        const errors = validate(schema, gqlParseDoc(item.operation.query));
+        if (errors.length > 0) invalid.add(item.id);
+      } catch { invalid.add(item.id); }
+    }
+    return invalid;
+  }, [rawIntrospection, collections.trees]);
+
+  const {
+    snapshots, deprecatedUsages, diffModal, setDiffModal,
+    schemaDiffToast, setSchemaDiffToast, toastBaselineSnapshotIdRef,
+    handleSaveSnapshot, handleDeleteSnapshot, handleOpenDiff,
+    handleAcknowledge, handleUnacknowledge,
+  } = useGraphqlSchemaSnapshots(historyConnectionId, schemaInfo, schemaStatus, rawIntrospection, collections.trees);
+
   const prevIntrospectingRef = useRef(introspecting);
   const introspectStartResolvedRef = useRef('');
   useEffect(() => {
     const resolved = resolveVars(endpoint, activeEnvironment);
-    if (introspecting && !prevIntrospectingRef.current) {
-      introspectStartResolvedRef.current = resolved;
-    }
+    if (introspecting && !prevIntrospectingRef.current) introspectStartResolvedRef.current = resolved;
     if (prevIntrospectingRef.current && !introspecting && schemaStatus === 'loaded'
-        && resolved === introspectStartResolvedRef.current) {
-      setRightView('schema');
-    }
+        && resolved === introspectStartResolvedRef.current) setRightView('schema');
     prevIntrospectingRef.current = introspecting;
   }, [introspecting, schemaStatus, endpoint, activeEnvironment]);
 
   const connectionBarSchemaStatus: 'loaded' | 'error' | 'none' =
-    schemaStatus === 'loaded' ? 'loaded'
-    : (schemaStatus === 'error' || schemaStatus === 'introspection-disabled') ? 'error'
-    : 'none';
+    schemaStatus === 'loaded' ? 'loaded' : (schemaStatus === 'error' || schemaStatus === 'introspection-disabled') ? 'error' : 'none';
 
   // ── Monaco execution error markers ────────────────────────────────────────
-  useEffect(() => {
-    if (!monacoInstance) return;
-    const ownerUri = responseModelUriRef.current;
-    if (!ownerUri) return;
-    let model: ReturnType<typeof monacoInstance.editor.getModel>;
-    try {
-      model = monacoInstance.editor.getModel(monacoInstance.Uri.parse(ownerUri));
-    } catch { return; }
-    if (!model) return;
-
-    if (response?.errors && response.errors.length > 0) {
-      const lineCount = model.getLineCount();
-      const markers = response.errors
-        .filter((e) => e.locations && e.locations.length > 0)
-        .flatMap((e) =>
-          (e.locations ?? [])
-            .filter((loc) => loc.line >= 1 && loc.line <= lineCount)
-            .map((loc) => {
-              const lineLen = model.getLineLength(loc.line) ?? 0;
-              return {
-                severity: monacoInstance.MarkerSeverity.Error,
-                startLineNumber: loc.line,
-                startColumn: loc.column,
-                endLineNumber: loc.line,
-                endColumn: Math.max(loc.column + 1, lineLen + 1),
-                message: e.message,
-                source: 'GraphQL Server',
-              };
-            }),
-        );
-      monacoInstance.editor.setModelMarkers(model, EXEC_MARKER_OWNER, markers);
-    } else {
-      monacoInstance.editor.setModelMarkers(model, EXEC_MARKER_OWNER, []);
-    }
-  }, [response, monacoInstance]);
+  useMonacoExecutionMarkers(response, monacoInstance, responseModelUriRef);
 
   // ── Query AST validation ───────────────────────────────────────────────────
   const queryValidationErrorCount = useQueryValidation(
@@ -330,7 +296,6 @@ export function GraphqlStudioPage({
     schemaStatus === 'loaded',
   );
 
-  // ── Query complexity estimation ────────────────────────────────────────────
   const complexityResult = useMemo(() => {
     if (schemaStatus !== 'loaded' || !schemaInfo) return null;
     const query = activeTab?.query ?? '';
@@ -342,46 +307,46 @@ export function GraphqlStudioPage({
   const prevComplexityQueryRef = useRef<string>('');
   useEffect(() => {
     const q = activeTab?.query ?? '';
-    if (q !== prevComplexityQueryRef.current) {
-      prevComplexityQueryRef.current = q;
-      setComplexityWarningPending(false);
-    }
+    if (q !== prevComplexityQueryRef.current) { prevComplexityQueryRef.current = q; setComplexityWarningPending(false); }
   }, [activeTab?.query]);
 
-  // ── Variables JSON validation ──────────────────────────────────────────────
   const [varsError, setVarsError] = useState<string | null>(null);
   const prevVarsTabIdRef = useRef(activeTabId);
   useEffect(() => {
     const vars = activeTab?.variables ?? '';
     const isTabSwitch = activeTabId !== prevVarsTabIdRef.current;
     prevVarsTabIdRef.current = activeTabId;
-    const validate = () => {
+    const validateVars = () => {
       const trimmed = vars.trim();
       if (!trimmed || trimmed === '{}') { setVarsError(null); return; }
       try {
         const parsed = JSON.parse(trimmed) as unknown;
-        if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
-          setVarsError('Variables must be a JSON object — e.g. {"id": "1"}');
-        } else {
-          setVarsError(null);
-        }
-      } catch {
-        setVarsError('Invalid JSON');
-      }
+        setVarsError(parsed === null || Array.isArray(parsed) || typeof parsed !== 'object'
+          ? 'Variables must be a JSON object — e.g. {"id": "1"}' : null);
+      } catch { setVarsError('Invalid JSON'); }
     };
-    if (isTabSwitch) { validate(); return; }
-    const timer = setTimeout(validate, 300);
+    if (isTabSwitch) { validateVars(); return; }
+    const timer = setTimeout(validateVars, 300);
     return () => clearTimeout(timer);
   }, [activeTab?.variables, activeTabId]);
 
-  // ── Assertion results ──────────────────────────────────────────────────────
   const assertionResultMap = useMemo(
-    () => buildAssertionResultMap(
-      subscription.messages,
-      activeTab?.subscriptionAssertions ?? [],
-    ),
+    () => buildAssertionResultMap(subscription.messages, activeTab?.subscriptionAssertions ?? []),
     [subscription.messages, activeTab?.subscriptionAssertions],
   );
+
+  // ── Phase 3F: Batch execute handler ───────────────────────────────────────
+  const {
+    batchResult, setBatchResult, batchExecuting,
+    complexityGatePending, setComplexityGatePending,
+    pendingExecuteAfterGateRef, skipComplexityGateRef, sessionBypassComplexityGateRef,
+    effectiveBatchedTabs, batchedTabIdsSet,
+    handleToggleBatch, handleSendBatch,
+  } = useGraphqlBatchExecution({
+    tabs, endpoint, auth, activeEnvironment, skipTlsVerify,
+    advSettingsRef, connectionIdRef, setAdvSettings, setBatchUnsupportedToast,
+    setRightView, gqlProxyBase: GQL_PROXY_BASE,
+  });
 
   // ── Execute handler ────────────────────────────────────────────────────────
   const executionLockRef = useRef(false);
@@ -405,6 +370,20 @@ export function GraphqlStudioPage({
       return;
     }
     setComplexityWarningPending(false);
+
+    if (
+      advSettings.complexityBlockEnabled &&
+      complexityResult &&
+      complexityResult.score > advSettings.complexityBlockThreshold &&
+      !complexityGatePending &&
+      !skipComplexityGateRef.current &&
+      !sessionBypassComplexityGateRef.current
+    ) {
+      setComplexityGatePending(true);
+      pendingExecuteAfterGateRef.current = handleExecute;
+      return;
+    }
+    skipComplexityGateRef.current = false;
 
     executionLockRef.current = true;
     responseModelUriRef.current = activeTab.modelUri;
@@ -430,69 +409,65 @@ export function GraphqlStudioPage({
       const formData = buildMultipartFormData(activeTab.query, parsedVars, validFiles);
       setUploadProgress(0);
       execute({
-        endpoint: resolvedEndpoint,
-        query: activeTab.query,
-        variables: resolvedVariables,
-        operationName: selectedOperation,
-        headers: resolvedHeaders,
-        skipTlsVerify,
-        formData,
+        endpoint: resolvedEndpoint, query: activeTab.query,
+        variables: resolvedVariables, operationName: selectedOperation,
+        headers: resolvedHeaders, skipTlsVerify, formData,
+        connectionId: resolvedEndpoint,
+        operationType: activeTab.operationType === 'mutation' ? 'mutation' : 'query',
         onUploadProgress: (loaded, total) => {
           if (!executingRef.current && loaded !== 0) return;
-          if (total > 0) {
-            setUploadProgress(Math.min(98, Math.round((loaded / total) * 100)));
-          }
+          if (total > 0) setUploadProgress(Math.min(98, Math.round((loaded / total) * 100)));
         },
       });
     } else {
       execute({
-        endpoint: resolvedEndpoint,
-        query: activeTab.query,
-        variables: resolvedVariables,
-        operationName: selectedOperation,
-        headers: resolvedHeaders,
-        skipTlsVerify,
+        endpoint: resolvedEndpoint, query: activeTab.query,
+        variables: resolvedVariables, operationName: selectedOperation,
+        headers: resolvedHeaders, skipTlsVerify, connectionId: resolvedEndpoint,
+        apqEnabled: advSettings.apqEnabled, apqUseGet: advSettings.apqUseGet,
+        dedupEnabled: advSettings.dedupEnabled,
+        operationType: activeTab.operationType === 'mutation' ? 'mutation' : 'query',
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (pendingExecuteAfterGateRef, skipComplexityGateRef, sessionBypassComplexityGateRef) and stable setters (setComplexityGatePending) are intentionally omitted; self-referencing handleExecute via ref avoids circular dep
   }, [activeTab, endpoint, execute, executing, selectedOperation, activeTabHeaders, auth,
       pushRecentEndpoint, activeEnvironment, skipTlsVerify, fileEntries, complexityResult,
-      complexityWarningPending, executingRef]);
+      complexityWarningPending, complexityGatePending, advSettings, executingRef]);
 
-  // ── Builder → Editor promotion ─────────────────────────────────────────────
+  // ── Phase 3A+3B: collection runner ────────────────────────────────────────
+  const { handleRunCollection } = useGraphqlCollectionRun({
+    collectionTrees: collections.trees,
+    endpoint, activeEnvironment, activeTabHeaders, auth, runner, updateVariables,
+    onSetRunnerCollectionId: setRunnerCollectionId,
+    onSetBottomTab: (tab) => setBottomTab(tab as BottomPanelTabExtended),
+    onItemExecuted: (id) => collections.markItemExecuted(id).catch(() => {}),
+  });
+
+  // ── Item loaders (collection/history → editor) ────────────────────────────
   const handleExecuteRef = useRef(handleExecute);
   handleExecuteRef.current = handleExecute;
 
-  const handleEditInEditor = useCallback(
-    (sdl: string, variablesJson: string) => {
-      if (editorMountRef.current) editorMountRef.current.setValue(sdl);
-      handleQueryChange(sdl);
-      if (variablesJson && variablesJson !== '{}') handleVariablesChange(variablesJson);
-      setBuilderMode(false);
-    },
-    [handleQueryChange, handleVariablesChange, editorMountRef],
-  );
-
-  const handleBuilderExecute = useCallback(
-    (sdl: string, variablesJson: string) => {
-      if (editorMountRef.current) editorMountRef.current.setValue(sdl);
-      handleQueryChange(sdl);
-      if (variablesJson && variablesJson !== '{}') handleVariablesChange(variablesJson);
-      setBuilderMode(false);
-      requestAnimationFrame(() => { handleExecuteRef.current(); });
-    },
-    [handleQueryChange, handleVariablesChange, editorMountRef],
-  );
+  const {
+    handleLoadCollectionItem,
+    handleOpenCollectionItem,
+    handleLoadHistoryItem,
+    handleRunHistoryItem,
+    handleEditInEditor,
+    handleBuilderExecute,
+  } = useGqlItemLoaders({
+    editorMountRef,
+    onQueryChange: handleQueryChange,
+    onVariablesChange: handleVariablesChange,
+    onSetActivityTab: (tab) => setActivityTab(tab as Parameters<typeof setActivityTab>[0]),
+    onSetBuilderMode: setBuilderMode,
+    handleExecuteRef,
+    collectionTrees: collections.trees,
+  });
 
   // ── Subscription orchestration ─────────────────────────────────────────────
   const { handleSubscribe: _handleSubscribe, handleStopSubscription, handleExportSubscription } = useSubscriptionOrchestration({
-    activeTab,
-    endpoint,
-    auth,
-    activeEnvironment,
-    activeTabHeaders,
-    selectedOperation,
-    skipTlsVerify,
-    subscription,
+    activeTab, endpoint, auth, activeEnvironment, activeTabHeaders,
+    selectedOperation, skipTlsVerify, subscription,
   });
 
   const handleSubscribe = useCallback(() => {
@@ -512,89 +487,24 @@ export function GraphqlStudioPage({
   }, [activeTabId, activeTab?.operationType]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  const handleSubscribeRef        = useRef(handleSubscribe);
-  handleSubscribeRef.current      = handleSubscribe;
-  const handleStopSubRef          = useRef(handleStopSubscription);
-  handleStopSubRef.current        = handleStopSubscription;
-  const introspectRef             = useRef(introspect);
-  introspectRef.current           = introspect;
-  const introspectingRef          = useRef(introspecting);
-  introspectingRef.current        = introspecting;
-  const endpointRef               = useRef(endpoint);
-  endpointRef.current             = endpoint;
-  const activeEnvironmentRef      = useRef(activeEnvironment);
-  activeEnvironmentRef.current    = activeEnvironment;
-  const profileModalOpenRef       = useRef(profileModalOpen);
-  profileModalOpenRef.current     = profileModalOpen;
-  const envModalOpenRef           = useRef(envModalOpen);
-  envModalOpenRef.current         = envModalOpen;
-  const activeTabOpTypeRef        = useRef(activeTab?.operationType);
-  activeTabOpTypeRef.current      = activeTab?.operationType;
-  const subDisconnectRef          = useRef(subscription.disconnect);
-  subDisconnectRef.current        = subscription.disconnect;
-  const subStateRef               = useRef(subscription.state);
-  subStateRef.current             = subscription.state;
-  const execStatusRef             = useRef(execStatus);
-  execStatusRef.current           = execStatus;
-  const cancelKbdRef              = useRef(cancel);
-  cancelKbdRef.current            = cancel;
-  const addTabRef                 = useRef(addTab);
-  addTabRef.current               = addTab;
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') {
-        const hasOpenDialog =
-          profileModalOpenRef.current ||
-          envModalOpenRef.current ||
-          !!document.querySelector('.gql-studio [role="dialog"][aria-modal="true"]');
-        if (hasOpenDialog) return;
-      }
-      const isCmd = e.metaKey || e.ctrlKey;
-      if (isCmd && e.key === 'Enter') {
-        e.preventDefault();
-        if (activeTabOpTypeRef.current === 'subscription') {
-          const subState = subStateRef.current;
-          if (subState === 'connecting' || subState === 'active' || subState === 'reconnecting') {
-            handleStopSubRef.current();
-          } else {
-            handleSubscribeRef.current();
-          }
-        } else {
-          handleExecuteRef.current();
-        }
-        return;
-      }
-      if (isCmd && e.key === 'w' && isTauri()) {
-        e.preventDefault();
-        closeActiveTabRef.current();
-        return;
-      }
-      if (isCmd && e.key === 't' && isTauri()) {
-        e.preventDefault();
-        addTabRef.current();
-        return;
-      }
-      if (isCmd && e.shiftKey && e.key === 'I') {
-        e.preventDefault();
-        if (introspectingRef.current) return;
-        if (findUnresolvedVars(endpointRef.current, activeEnvironmentRef.current).length > 0) return;
-        introspectRef.current();
-        return;
-      }
-      if (e.key === 'Escape' && execStatusRef.current === 'loading') {
-        cancelKbdRef.current();
-      }
-      if (e.key === 'Escape') {
-        const subState = subStateRef.current;
-        if (subState === 'active' || subState === 'connecting' || subState === 'reconnecting') {
-          subDisconnectRef.current();
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [closeActiveTabRef]);
+  useGqlKeyboardShortcuts({
+    handleExecute,
+    handleSubscribe,
+    handleStopSubscription,
+    introspect,
+    introspecting,
+    cancel,
+    addTab,
+    closeActiveTab: closeActiveTabRef.current,
+    subscriptionState: subscription.state,
+    subscriptionDisconnect: subscription.disconnect,
+    activeTabOperationType: activeTab?.operationType,
+    execStatus,
+    endpoint,
+    activeEnvironment,
+    profileModalOpen,
+    envModalOpen,
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   if (tabs.length === 0 || !activeTab) return null;
@@ -644,50 +554,78 @@ export function GraphqlStudioPage({
         onSubscriptionTransportChange={handleSubscriptionTransportChange}
         complexityScore={complexityResult?.score}
         complexityLevel={complexityResult?.level}
+        advancedSettingsOpen={advSettingsOpen}
+        onAdvancedSettingsClick={() => setAdvSettingsOpen((v) => !v)}
+        advSettingsBtnRef={advSettingsBtnRef}
+        batchEnabled={advSettings.batchEnabled}
+        batchedTabCount={effectiveBatchedTabs.length}
+        batchExecuting={batchExecuting}
+        onSendBatch={handleSendBatch}
+        apqCacheHit={apqInfo?.cacheHit}
+        apqHash={apqInfo?.hash}
+        apqUnsupported={apqInfo?.unsupported}
       />
 
-      {profileModalOpen && (
-        <GraphqlProfileModal
-          profiles={profiles}
-          currentEndpoint={endpoint}
-          currentAuth={auth}
-          onClose={() => {
-            setProfileModalOpen(false);
-            requestAnimationFrame(() => {
-              (document.querySelector<HTMLButtonElement>('[data-testid="gql-profile-badge"]'))?.focus();
-            });
+      <GraphqlAdvancedSettings
+        values={advSettings}
+        onChange={handleAdvSettingsChange}
+        anchorRef={advSettingsBtnRef}
+        open={advSettingsOpen}
+        onClose={() => setAdvSettingsOpen(false)}
+      />
+
+      {complexityGatePending && complexityResult && (
+        <GraphqlComplexityGateModal
+          complexityResult={complexityResult}
+          blockThreshold={advSettings.complexityBlockThreshold}
+          onSendAnyway={(rememberSession) => {
+            setComplexityGatePending(false);
+            const fn = pendingExecuteAfterGateRef.current;
+            pendingExecuteAfterGateRef.current = null;
+            if (fn) {
+              setComplexityWarningPending(false);
+              if (rememberSession) sessionBypassComplexityGateRef.current = true;
+              skipComplexityGateRef.current = true;
+              fn();
+            }
           }}
-          onSave={(name) => saveProfile(name, endpoint, auth)}
-          onLoad={(profile) => {
-            setEndpoint(profile.endpoint);
-            handleAuthChange(profile.auth);
-            setProfileModalOpen(false);
-            prevBaseUrlRef.current = '\0profile-pinned';
-            removeKey(ENDPOINT_BASE_STORAGE_KEY).catch(() => { /* silent */ });
+          onCancel={() => {
+            setComplexityGatePending(false);
+            pendingExecuteAfterGateRef.current = null;
           }}
-          onDelete={deleteProfile}
         />
       )}
 
-      {envModalOpen && (
-        <GraphqlEnvModal
-          environments={environments}
-          activeEnvironmentId={activeEnvironment?.id ?? null}
-          onClose={() => {
-            setEnvModalOpen(false);
-            requestAnimationFrame(() => {
-              (document.querySelector<HTMLButtonElement>('[data-testid="gql-env-badge"]'))?.focus();
-            });
-          }}
-          onCreate={createEnvironment}
-          onDelete={deleteEnvironment}
-          onSetActive={setActiveEnvironment}
-          onRename={updateEnvironmentName}
-          onUpdateVariables={updateVariables}
-          onImport={importEnvironment}
-          onExport={exportEnvironment}
-        />
-      )}
+      <GqlDedupBanner
+        visible={isDuplicate}
+        onWait={() => resolveDedupChoice('wait')}
+        onCancelOriginal={() => resolveDedupChoice('cancel')}
+        onSendAnyway={() => resolveDedupChoice('sendAnyway')}
+      />
+
+      <GqlConnectionModals
+        profileModalOpen={profileModalOpen}
+        onProfileModalClose={() => setProfileModalOpen(false)}
+        profiles={profiles}
+        endpoint={endpoint}
+        auth={auth}
+        onSaveProfile={(name) => saveProfile(name, endpoint, auth)}
+        onDeleteProfile={deleteProfile}
+        onSetEndpoint={setEndpoint}
+        onAuthChange={handleAuthChange}
+        prevBaseUrlRef={prevBaseUrlRef}
+        envModalOpen={envModalOpen}
+        onEnvModalClose={() => setEnvModalOpen(false)}
+        environments={environments}
+        activeEnvironmentId={activeEnvironment?.id ?? null}
+        onCreateEnvironment={createEnvironment}
+        onDeleteEnvironment={deleteEnvironment}
+        onSetActiveEnvironment={setActiveEnvironment}
+        onRenameEnvironment={updateEnvironmentName}
+        onUpdateVariables={updateVariables}
+        onImportEnvironment={importEnvironment}
+        onExportEnvironment={exportEnvironment}
+      />
 
       <GqlTabBar
         tabs={tabs}
@@ -696,29 +634,91 @@ export function GraphqlStudioPage({
         onTabClick={handleTabClick}
         onTabClose={closeTab}
         onAddTab={addTab}
+        batchEnabled={advSettings.batchEnabled}
+        batchedTabIds={batchedTabIdsSet}
+        onToggleBatch={handleToggleBatch}
       />
 
-      <div className={`gql-main${builderMode ? ' gql-main--builder' : ''}`} data-testid="gql-main">
+      <div className={`gql-main${builderMode ? ' gql-main--builder' : ''} gql-main--with-activity`} data-testid="gql-main">
+        <GraphqlStudioActivityBar activeTab={activityTab} onTabChange={setActivityTab} />
+
+        <div className={`gql-studio-left-panel${activityTab ? '' : ' gql-studio-left-panel--hidden'}`} data-testid="gql-studio-left-panel">
+          {activityTab === 'history' && (
+            <GraphqlHistoryPanel
+              history={history}
+              onLoadIntoEditor={handleLoadHistoryItem}
+              onRunInEditor={handleRunHistoryItem}
+              onSaveToCollection={(item) => setSaveToColItem(item)}
+              maxItems={historyMaxItems}
+              onMaxItemsChange={handleHistoryMaxItemsChange}
+              endpoint={historyConnectionId ?? ''}
+            />
+          )}
+          {activityTab === 'mock' && (
+            <GraphqlMockPanel mockServer={mockServer} schemaInfo={schemaInfo} />
+          )}
+          {activityTab === 'collections' && (
+            <GraphqlCollections
+              collections={collections}
+              loading={collections.loading}
+              invalidItemIds={invalidItemIds}
+              onRunItem={(item) => handleRunCollection(item.collectionId, undefined, item)}
+              onRunAll={(colId, folderId) => handleRunCollection(colId, folderId)}
+              onLoadItem={handleLoadCollectionItem}
+              currentOperation={
+                saveToColItem
+                  ? saveToColItem.operation
+                  : (activeTab ? {
+                      id: activeTab.id,
+                      name: activeTab.selectedOperation ?? undefined,
+                      query: activeTab.query,
+                      variables: activeTab.variables,
+                      operationType: (activeTab.operationType ?? 'query') as 'query' | 'mutation' | 'subscription',
+                    } : undefined)
+              }
+              onSaveComplete={() => setSaveToColItem(null)}
+              lastRfResponse={(() => {
+                const last = history.items[0];
+                if (!last) return undefined;
+                try {
+                  const parsed = JSON.parse(last.response) as {
+                    data?: unknown;
+                    errors?: Array<{ message: string }>;
+                    httpStatus?: number;
+                    httpHeaders?: Record<string, string>;
+                  };
+                  return {
+                    httpStatus:  parsed.httpStatus  ?? 200,
+                    httpHeaders: parsed.httpHeaders ?? {},
+                    data:        parsed.data,
+                    errors:      parsed.errors,
+                    latencyMs:   last.latencyMs,
+                  } satisfies RfResponseContext;
+                } catch {
+                  return undefined;
+                }
+              })()}
+              envSnapshot={(() => {
+                const snapshot: Record<string, string> = {};
+                for (const v of (activeEnvironment?.variables ?? [])) {
+                  if (v.enabled && v.key.trim()) snapshot[v.key.trim()] = v.value;
+                }
+                return snapshot;
+              })()}
+            />
+          )}
+        </div>
+
         <div className="gql-left-pane">
           <div className="gql-editor-mode-bar" data-testid="gql-editor-mode-bar">
             <div className="gql-mode-toggle" role="group" aria-label="Edit mode">
-              <button
-                type="button"
-                className={`gql-mode-btn${!builderMode ? ' gql-mode-btn--active' : ''}`}
-                onClick={() => setBuilderMode(false)}
-                aria-pressed={!builderMode}
-                data-testid="gql-mode-editor"
-              >
+              <button type="button" className={`gql-mode-btn${!builderMode ? ' gql-mode-btn--active' : ''}`}
+                onClick={() => setBuilderMode(false)} aria-pressed={!builderMode} data-testid="gql-mode-editor">
                 Editor
               </button>
-              <button
-                type="button"
-                className={`gql-mode-btn${builderMode ? ' gql-mode-btn--active' : ''}`}
-                onClick={() => setBuilderMode(true)}
-                aria-pressed={builderMode}
-                data-testid="gql-mode-builder"
-                title={schemaInfo ? undefined : 'Introspect a schema to use the builder'}
-              >
+              <button type="button" className={`gql-mode-btn${builderMode ? ' gql-mode-btn--active' : ''}`}
+                onClick={() => setBuilderMode(true)} aria-pressed={builderMode} data-testid="gql-mode-builder"
+                title={schemaInfo ? undefined : 'Introspect a schema to use the builder'}>
                 Builder
               </button>
             </div>
@@ -772,42 +772,36 @@ export function GraphqlStudioPage({
                 />
               )}
 
-              {complexityWarningPending && complexityResult && (
-                <div
-                  className="gql-complexity-warning-banner"
-                  role="alert"
-                  aria-live="assertive"
-                  data-testid="gql-complexity-warning-banner"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                  <span className="gql-complexity-warning-text">
-                    Very expensive query (cost ~{complexityResult.score}, threshold {complexityResult.threshold}). This may cause high server load.
-                  </span>
-                  <button type="button" className="gql-complexity-warning-confirm" onClick={handleExecute} data-testid="gql-complexity-warning-confirm">
-                    Run anyway
-                  </button>
-                  <button type="button" className="gql-complexity-warning-dismiss" onClick={() => setComplexityWarningPending(false)} aria-label="Dismiss complexity warning" data-testid="gql-complexity-warning-dismiss">
-                    ✕
-                  </button>
-                </div>
-              )}
-
-              <GqlBottomPanel
-                activeTab={bottomTab}
-                onTabChange={setBottomTab}
-                varsModelPath={varsModelPath}
-                defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
-                onVariablesChange={handleVariablesChange}
-                varsError={varsError}
-                headers={activeTab.headers}
-                onHeadersChange={handleHeadersChange}
-                activeEnvironment={activeEnvironment}
-                fileEntries={fileEntries}
-                onFileEntriesChange={setFileEntries}
-                uploadProgress={uploadProgress}
+              <GqlComplexityWarningBanner
+                visible={complexityWarningPending}
+                complexityResult={complexityResult}
+                onConfirm={handleExecute}
+                onDismiss={() => setComplexityWarningPending(false)}
               />
+
+              {bottomTab === 'runner' && runnerCollectionId ? (
+                <GraphqlCollectionRunnerPanel
+                  runner={runner}
+                  items={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.items ?? []}
+                  collectionName={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.collection.name ?? 'Collection'}
+                  onClose={() => setBottomTab('variables')}
+                />
+              ) : (
+                <GqlBottomPanel
+                  activeTab={(bottomTab === 'runner' ? 'variables' : bottomTab) as 'variables' | 'headers' | 'files'}
+                  onTabChange={(tab) => setBottomTab(tab as BottomPanelTabExtended)}
+                  varsModelPath={varsModelPath}
+                  defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
+                  onVariablesChange={handleVariablesChange}
+                  varsError={varsError}
+                  headers={activeTab.headers}
+                  onHeadersChange={handleHeadersChange}
+                  activeEnvironment={activeEnvironment}
+                  fileEntries={fileEntries}
+                  onFileEntriesChange={setFileEntries}
+                  uploadProgress={uploadProgress}
+                />
+              )}
             </>
           )}
         </div>
@@ -826,25 +820,24 @@ export function GraphqlStudioPage({
             introspecting={introspecting}
             activeOperationType={activeTab?.operationType ?? null}
             onInsertField={handleInsertField}
+            snapshots={snapshots}
+            onSaveSnapshot={handleSaveSnapshot}
+            onDeleteSnapshot={handleDeleteSnapshot}
+            onOpenDiff={handleOpenDiff}
+            deprecatedUsages={deprecatedUsages}
+            onOpenCollectionItem={handleOpenCollectionItem}
             subscriptionLog={
               activeTab?.operationType === 'subscription' && subscription.state !== 'idle'
                 ? {
-                    state: subscription.state,
-                    messages: subscription.messages,
-                    stats: subscription.stats,
-                    connectedSince: subscription.connectedSince,
-                    isPaused: subscription.isPaused,
-                    pausedBufferCount: subscription.pausedBufferCount,
-                    errorMessage: subscription.errorMessage,
-                    reconnectAttempt: subscription.reconnectAttempt,
+                    state: subscription.state, messages: subscription.messages,
+                    stats: subscription.stats, connectedSince: subscription.connectedSince,
+                    isPaused: subscription.isPaused, pausedBufferCount: subscription.pausedBufferCount,
+                    errorMessage: subscription.errorMessage, reconnectAttempt: subscription.reconnectAttempt,
                     transport: subscription.transport,
                     operationName: selectedOperation ?? activeTab?.label,
-                    assertions: activeTab?.subscriptionAssertions,
-                    assertionResultMap,
-                    onPause: subscription.pause,
-                    onResume: subscription.resume,
-                    onClear: subscription.clear,
-                    onExport: handleExportSubscription,
+                    assertions: activeTab?.subscriptionAssertions, assertionResultMap,
+                    onPause: subscription.pause, onResume: subscription.resume,
+                    onClear: subscription.clear, onExport: handleExportSubscription,
                     onStop: handleStopSubscription,
                   }
                 : null
@@ -852,6 +845,55 @@ export function GraphqlStudioPage({
           />
         )}
       </div>
+
+      {batchResult && (
+        <div className="gql-batch-overlay">
+          <GraphqlBatchResults result={batchResult} onDismiss={() => setBatchResult(null)} />
+        </div>
+      )}
+
+      <GqlPageToasts
+        schemaDiffToast={schemaDiffToast}
+        snapshots={snapshots}
+        toastBaselineSnapshotId={toastBaselineSnapshotIdRef.current}
+        schemaInfo={schemaInfo}
+        onViewDiff={handleOpenDiff}
+        onSaveSnapshot={() => setRightView('schema')}
+        onDismissSchemaDiff={() => setSchemaDiffToast(false)}
+        apqUnsupportedToast={apqUnsupportedToast}
+        onDismissApq={() => setApqUnsupportedToast(false)}
+        batchUnsupportedToast={batchUnsupportedToast}
+        onDismissBatch={() => setBatchUnsupportedToast(false)}
+      />
+
+      {diffModal && (
+        <GraphqlSchemaDiff
+          result={diffModal.result}
+          oldSdl={diffModal.oldSdl}
+          newSdl={diffModal.newSdl}
+          oldLabel={diffModal.oldLabel}
+          newLabel={diffModal.newLabel}
+          snapshotId={diffModal.snapshotId}
+          brokenItemCount={invalidItemIds.size}
+          onAcknowledge={handleAcknowledge}
+          onUnacknowledge={handleUnacknowledge}
+          onClose={() => setDiffModal(null)}
+        />
+      )}
+
+      {saveToColItem && (
+        <SaveToCollectionModal
+          defaultName={saveToColItem.operation.name ?? saveToColItem.operation.operationType ?? 'Unnamed operation'}
+          trees={collections.trees}
+          operationVariables={saveToColItem.operation.variables}
+          onSave={(collectionId, folderId, name) => {
+            collections.addItem(collectionId, folderId, name, saveToColItem.operation).catch(() => {});
+            setSaveToColItem(null);
+            setActivityTab('collections');
+          }}
+          onCancel={() => setSaveToColItem(null)}
+        />
+      )}
     </div>
   );
 }

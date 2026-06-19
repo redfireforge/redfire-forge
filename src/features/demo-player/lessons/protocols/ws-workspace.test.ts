@@ -3,7 +3,16 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsWorkspaceLesson } from './ws-workspace';
-import { makeCtx } from './ws-test-utils';
+import { makeCtx, makeVisible } from './ws-test-utils';
+
+/** Prevent wsSetup from polling up to 10s waiting for a mock-server stop button. */
+function stubMockServerRunning(): void {
+  if (document.querySelector('[data-testid="mock-stop-btn"]')) return;
+  const stopBtn = document.createElement('button');
+  stopBtn.setAttribute('data-testid', 'mock-stop-btn');
+  makeVisible(stopBtn);
+  document.body.appendChild(stopBtn);
+}
 
 describe('ws-workspace lesson', () => {
   beforeEach(() => {
@@ -14,7 +23,7 @@ describe('ws-workspace lesson', () => {
     expect(wsWorkspaceLesson.id).toBe('ws-workspace');
     expect(wsWorkspaceLesson.domainId).toBe('protocols');
     expect(wsWorkspaceLesson.name).toBe('Profiles, Templates & Env Vars');
-    expect(wsWorkspaceLesson.steps.length).toBe(8);
+    expect(wsWorkspaceLesson.steps.length).toBe(7);
     expect(wsWorkspaceLesson.concept.title).toBeTruthy();
     expect(wsWorkspaceLesson.concept.body).toBeTruthy();
     expect(wsWorkspaceLesson.initialTab).toBe('websocket-studio');
@@ -25,6 +34,10 @@ describe('ws-workspace lesson', () => {
     expect(wsWorkspaceLesson.estimatedMinutes).toBe(3);
     expect(wsWorkspaceLesson.tag).toBeUndefined();
     expect(wsWorkspaceLesson.dockerEndpoint).toBeUndefined();
+  });
+
+  it('does not have allowedTabs (no external navigation needed)', () => {
+    expect(wsWorkspaceLesson.allowedTabs).toBeUndefined();
   });
 
   it('has setup and cleanup functions', () => {
@@ -64,7 +77,6 @@ describe('ws-workspace lesson', () => {
       'ws-template-intro',
       'ws-template-save',
       'ws-template-load',
-      'ws-env-intro',
       'ws-env-warn',
     ]);
   });
@@ -77,6 +89,16 @@ describe('ws-workspace lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-saved'));
+  });
+
+  it('step ws-profile-intro preAction clears selected class from rail and card items', async () => {
+    document.body.innerHTML = `
+      <div class="ws-saved-rail-item selected"></div>
+      <div class="ws-saved-card selected"></div>`;
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-profile-intro')!;
+    await step.preAction!(makeCtx());
+    expect(document.querySelector('.ws-saved-rail-item.selected')).toBeNull();
+    expect(document.querySelector('.ws-saved-card.selected')).toBeNull();
   });
 
   it('step ws-profile-intro highlights saved mode tab', () => {
@@ -180,25 +202,41 @@ describe('ws-workspace lesson', () => {
 
   // ─── Step: ws-template-save ───────────────────────────────────
 
-  it('step ws-template-save preAction fills message and opens dropdown with waitFor', async () => {
+  it('step ws-template-save preAction navigates to send tab and closes modal if open', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
+  });
+
+  it('step ws-template-save preAction closes open template modal via trigger click', async () => {
+    document.body.innerHTML = `
+      <div data-testid="template-dropdown"></div>
+      <button data-testid="template-trigger">Templates</button>`;
+    const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
+    const clickSpy = vi.spyOn(trigger, 'click');
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step ws-template-save preAction skips trigger when dropdown open but trigger absent', async () => {
+    document.body.innerHTML = `<div data-testid="template-dropdown"></div>`;
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
+    await expect(step.preAction!(makeCtx())).resolves.not.toThrow();
+  });
+
+  it('step ws-template-save action fills message, opens modal, fills name and saves', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('Message input'),
       expect.stringContaining('greet'),
     );
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
-    // Rule 5: waits for template-save-name input to appear inside dropdown
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('template-save-name'));
-  });
-
-  it('step ws-template-save action fills name and clicks save', async () => {
-    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-save')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('template-save-name'),
       'greeting',
@@ -208,7 +246,7 @@ describe('ws-workspace lesson', () => {
 
   // ─── Step: ws-template-load ───────────────────────────────────
 
-  it('step ws-template-load preAction clears compose, opens compose tab, and closes open dropdown', async () => {
+  it('step ws-template-load preAction clears compose, navigates to send, and closes modal if open', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -220,8 +258,7 @@ describe('ws-workspace lesson', () => {
     );
   });
 
-  it('step ws-template-load preAction closes dropdown when it was left open from step 5', async () => {
-    // Simulate the dropdown being open (step 5 leaves it open after saving)
+  it('step ws-template-load preAction closes modal when it was left open from step 5', async () => {
     document.body.innerHTML = `
       <div data-testid="template-dropdown"></div>
       <button data-testid="template-trigger">Templates</button>`;
@@ -232,8 +269,7 @@ describe('ws-workspace lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step ws-template-load preAction skips close-dropdown when dropdown already closed', async () => {
-    // No dropdown in DOM — guard should be a no-op
+  it('step ws-template-load preAction skips close-modal when modal already closed', async () => {
     document.body.innerHTML = `<button data-testid="template-trigger">Templates</button>`;
     const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
     const clickSpy = vi.spyOn(trigger, 'click');
@@ -243,56 +279,43 @@ describe('ws-workspace lesson', () => {
   });
 
   it('step ws-template-load preAction skips trigger click when trigger element is absent', async () => {
-    // Dropdown exists but trigger does NOT — tests the inner if (trigger) guard
     document.body.innerHTML = `<div data-testid="template-dropdown"></div>`;
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
-    // Should not throw even when trigger is null
     await expect(step.preAction!(makeCtx())).resolves.not.toThrow();
   });
 
-  it('step ws-template-load action opens template dropdown and waits, then loads via ctx.click', async () => {
+  it('step ws-template-load action opens template modal and waits, then loads via ctx.click', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-template-load')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
-    // Rule 5: waits for load button to appear before clicking
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-template-item-load'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-template-item-load'));
   });
 
-  // ─── Step: ws-env-intro ───────────────────────────────────────
-
-  it('step ws-env-intro preAction navigates to client + connect', async () => {
-    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    expect(typeof step.preAction).toBe('function');
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-  });
-
-  it('step ws-env-intro action fills URL with {{wsBaseUrl}}', async () => {
-    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('WebSocket URL'),
-      expect.stringContaining('{{wsBaseUrl}}'),
-    );
-  });
-
-  it('step ws-env-intro highlights URL input', () => {
-    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    expect(step.highlight).toContain('WebSocket URL');
-  });
-
   // ─── Step: ws-env-warn ───────────────────────────────────────
+  // (ws-env-intro was removed — {{wsBaseUrl}} not yet supported by Environment Manager)
 
-  it('step ws-env-warn has preAction that navigates to client + connect', async () => {
+  it('step ws-env-warn preAction is a no-op when URL input already visible', async () => {
+    // Coming from ws-template-load: URL input present → preAction skips all navigation.
+    document.body.innerHTML = '<div aria-label="WebSocket URL"></div>';
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
+  });
+
+  it('step ws-env-warn preAction navigates to WS Studio when URL input missing', async () => {
+    document.body.innerHTML = '';
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('nav-tab-websocket-studio'));
+    // When navigating from scratch, also switches to Client mode and Connect tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
@@ -315,6 +338,7 @@ describe('ws-workspace lesson', () => {
   // ─── Setup / Cleanup ─────────────────────────────────────────
 
   it('setup starts mock server and switches to client mode', async () => {
+    stubMockServerRunning();
     const ctx = makeCtx();
     await wsWorkspaceLesson.setup!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
@@ -333,6 +357,7 @@ describe('ws-workspace lesson', () => {
       <div data-testid="profile-card-abc">Profile</div>
       <button data-testid="delete-btn-abc">Delete</button>
       <button data-testid="confirm-delete-abc">Confirm</button>`;
+    stubMockServerRunning();
     const card = document.querySelector('[data-testid="profile-card-abc"]')!;
     const confirm = document.querySelector('[data-testid="confirm-delete-abc"]')!;
     confirm.addEventListener('click', () => card.remove());
@@ -347,6 +372,7 @@ describe('ws-workspace lesson', () => {
     document.body.innerHTML = `
       <button data-testid="template-trigger">Templates</button>
       <button data-testid="template-delete-1">Del</button>`;
+    stubMockServerRunning();
     const delBtn = document.querySelector('[data-testid="template-delete-1"]')!;
     delBtn.addEventListener('click', () => delBtn.remove());
 
@@ -356,10 +382,18 @@ describe('ws-workspace lesson', () => {
     expect(document.querySelector('[data-testid="template-delete-1"]')).toBeNull();
   });
 
+  it('setup clearTemplates returns early when template trigger is missing', async () => {
+    stubMockServerRunning();
+    const ctx = makeCtx();
+    await expect(wsWorkspaceLesson.setup!(ctx)).resolves.not.toThrow();
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('template-trigger'));
+  });
+
   it('setup closes template dropdown when still open after deletes', async () => {
     document.body.innerHTML = `
       <button data-testid="template-trigger">Templates</button>
       <div data-testid="template-dropdown"></div>`;
+    stubMockServerRunning();
     const trigger = document.querySelector('[data-testid="template-trigger"]') as HTMLElement;
     const clickSpy = vi.spyOn(trigger, 'click');
 

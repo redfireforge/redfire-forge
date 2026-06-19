@@ -155,6 +155,32 @@ describe('WorkflowDesignerMainLayout', () => {
     expect(handleUpdateWorkflowSlaTargets).toHaveBeenCalledWith([]);
   });
 
+  it('uses empty slaTargets when selected workflow has none', () => {
+    render(
+      <WorkflowDesignerMainLayout
+        {...makeVm({ selected: { id: 'w1', name: 'WF' } as WorkflowDesignerViewModel['selected'] })}
+      />,
+    );
+    expect(screen.getByTestId('sla')).toBeTruthy();
+  });
+
+  it('delete run history does not clear active id when ids differ', () => {
+    const setActiveRunHistoryId = vi.fn();
+    const deleteRunHistoryEntry = vi.fn();
+    render(
+      <WorkflowDesignerMainLayout
+        {...makeVm({
+          setActiveRunHistoryId,
+          deleteRunHistoryEntry,
+          activeRunHistoryId: 'other-id',
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('sb-delete'));
+    expect(deleteRunHistoryEntry).toHaveBeenCalledWith('r1');
+    expect(setActiveRunHistoryId).not.toHaveBeenCalled();
+  });
+
   it('status bar history handlers fire and clear active id when matching', () => {
     const restoreRunFromHistory = vi.fn();
     const setActiveRunHistoryId = vi.fn();

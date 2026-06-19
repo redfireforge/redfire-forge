@@ -107,6 +107,24 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [onClose]);
 
+  // Close on click-outside the modal
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    // Use pointerdown with a short delay so the toggle-button click that opened
+    // the modal doesn't immediately close it.
+    const timer = setTimeout(() => {
+      window.addEventListener('pointerdown', onPointerDown);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [onClose]);
+
   const currentStepNumber = currentStepIndex + 1;
   const totalSteps = lesson.steps.length;
   const progressPct = totalSteps > 0 ? (currentStepNumber / totalSteps) * 100 : 0;

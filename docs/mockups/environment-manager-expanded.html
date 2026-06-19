@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Environment Manager — Expanded Mockup · RedfireForge</title>
+<style>
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --bg:            #0f172a;
+  --surface:       #1e293b;
+  --surface-hover: #2d3a4d;
+  --border:        #3b4a60;
+  --text:          #f1f5f9;
+  --text-muted:    #a8b8cc;
+  --primary:       #3b82f6;
+  --primary-dim:   rgba(59,130,246,0.12);
+  --success:       #22c55e;
+  --success-dim:   rgba(34,197,94,0.12);
+  --warning:       #f59e0b;
+  --warning-dim:   rgba(245,158,11,0.12);
+  --danger:        #ef4444;
+  --danger-dim:    rgba(239,68,68,0.12);
+  --ws-color:      #8b5cf6;
+  --sse-color:     #06b6d4;
+  --gql-color:     #f43f5e;
+  --grpc-color:    #f59e0b;
+  --http-color:    #3b82f6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── App Shell ─────────────────────────────────────────────── */
+.app-header {
+  height: 40px;
+  background: #0a1118;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.app-logo { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+.app-logo span { color: var(--primary); }
+.app-logo-badge {
+  font-size: 9px; font-weight: 700; background: var(--primary);
+  color: #fff; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.5px;
+}
+.header-spacer { flex: 1; }
+.header-selectors { display: flex; align-items: center; gap: 8px; }
+.header-select {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a8b8cc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 26px;
+}
+
+/* ── Main layout ───────────────────────────────────────────── */
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+.activity-bar {
+  width: 48px; background: #0a1118; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 4px; flex-shrink: 0;
+}
+.ab-btn {
+  width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; transition: all 0.15s;
+}
+.ab-btn:hover { background: var(--surface-hover); color: var(--text); }
+.ab-btn.active { background: var(--primary-dim); color: var(--primary); }
+.ab-spacer { flex: 1; }
+
+.page-content {
+  flex: 1; overflow-y: auto; padding: 28px 32px;
+}
+
+/* ── Page header ───────────────────────────────────────────── */
+.page-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.page-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
+
+/* ── Settings nav tabs ─────────────────────────────────────── */
+.settings-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 28px;
+}
+.settings-tab {
+  padding: 8px 18px; font-size: 13px; color: var(--text-muted); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none;
+  border-left: none; border-right: none; transition: all 0.15s;
+}
+.settings-tab:hover { color: var(--text); }
+.settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ── Section ───────────────────────────────────────────────── */
+.env-section { margin-bottom: 32px; }
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted);
+  text-transform: uppercase; margin-bottom: 10px;
+}
+
+/* ── Add row ───────────────────────────────────────────────── */
+.add-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.add-input {
+  flex: 1; height: 34px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 0 10px; font-size: 12px; font-family: inherit;
+}
+.add-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+.add-input::placeholder { color: var(--text-muted); opacity: 0.55; font-style: italic; }
+.btn {
+  height: 34px; padding: 0 14px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; font-family: inherit; transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-danger { background: var(--danger); color: #fff; font-size: 11px; padding: 0 10px; }
+.btn-danger:hover { filter: brightness(1.1); }
+.btn-ghost {
+  background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+
+/* ── Env chips ─────────────────────────────────────────────── */
+.env-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.env-chip {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 3px 10px 3px 8px; font-size: 11px; color: var(--text-muted);
+}
+.env-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+.env-chip-remove {
+  width: 14px; height: 14px; border-radius: 50%; background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1;
+}
+.env-chip-remove:hover { background: var(--danger-dim); color: var(--danger); }
+
+/* ── Microservice cards ────────────────────────────────────── */
+.svc-list { display: flex; flex-direction: column; gap: 8px; }
+
+.svc-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; transition: border-color 0.15s;
+}
+.svc-card.expanded { border-color: var(--primary); }
+
+.svc-card-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+}
+.svc-card-header:hover { background: var(--surface-hover); }
+.svc-chevron {
+  font-size: 10px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0;
+}
+.svc-card.expanded .svc-chevron { transform: rotate(90deg); }
+.svc-name { font-weight: 600; font-size: 13px; flex: 1; }
+.svc-status-badges { display: flex; gap: 6px; align-items: center; }
+.svc-badge {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid transparent;
+}
+.svc-badge--ok { background: var(--success-dim); color: var(--success); border-color: rgba(34,197,94,0.25); }
+.svc-badge--warn { background: var(--warning-dim); color: var(--warning); border-color: rgba(245,158,11,0.25); }
+.svc-badge--err { background: var(--danger-dim); color: var(--danger); border-color: rgba(239,68,68,0.25); }
+.svc-header-actions { display: flex; gap: 6px; }
+
+/* ── Protocol tabs inside card ─────────────────────────────── */
+.svc-body { border-top: 1px solid var(--border); }
+
+.proto-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.15); padding: 0 16px;
+}
+.proto-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; font-size: 11px; font-weight: 600; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--text-muted); background: none; border-top: none; border-left: none; border-right: none;
+  transition: all 0.15s; white-space: nowrap;
+}
+.proto-tab:hover { color: var(--text); }
+.proto-tab.active-http    { color: var(--http-color); border-bottom-color: var(--http-color); }
+.proto-tab.active-ws      { color: var(--ws-color);   border-bottom-color: var(--ws-color); }
+.proto-tab.active-sse     { color: var(--sse-color);  border-bottom-color: var(--sse-color); }
+.proto-tab.active-graphql { color: var(--gql-color);  border-bottom-color: var(--gql-color); }
+.proto-tab.active-grpc    { color: var(--grpc-color); border-bottom-color: var(--grpc-color); }
+
+.proto-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-http    { background: var(--http-color); }
+.dot-ws      { background: var(--ws-color); }
+.dot-sse     { background: var(--sse-color); }
+.dot-graphql { background: var(--gql-color); }
+.dot-grpc    { background: var(--grpc-color); }
+.dot-none    { background: var(--border); }
+
+.proto-tab-count {
+  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.06); color: var(--text-muted);
+}
+.proto-tab.active-http    .proto-tab-count { background: rgba(59,130,246,0.15); color: var(--http-color); }
+.proto-tab.active-ws      .proto-tab-count { background: rgba(139,92,246,0.15); color: var(--ws-color); }
+.proto-tab.active-sse     .proto-tab-count { background: rgba(6,182,212,0.15);  color: var(--sse-color); }
+.proto-tab.active-graphql .proto-tab-count { background: rgba(244,63,94,0.15);  color: var(--gql-color); }
+.proto-tab.active-grpc    .proto-tab-count { background: rgba(245,158,11,0.15); color: var(--grpc-color); }
+
+/* ── Endpoint table ────────────────────────────────────────── */
+.endpoint-panel { padding: 0 16px 16px; }
+
+.fallback-notice {
+  display: flex; align-items: center; gap: 8px; margin: 12px 0 10px;
+  padding: 8px 12px; background: var(--warning-dim); border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 6px; font-size: 11px; color: var(--warning);
+}
+.fallback-notice svg { flex-shrink: 0; }
+
+.endpoint-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.endpoint-table th {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); padding: 6px 10px; text-align: left;
+  border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.1);
+}
+.endpoint-table td {
+  padding: 8px 10px; border-bottom: 1px solid rgba(59,74,96,0.4);
+  font-size: 12px; vertical-align: middle;
+}
+.endpoint-table tr:last-child td { border-bottom: none; }
+.endpoint-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.env-name-cell { color: var(--text-muted); font-size: 11px; width: 90px; }
+.env-name-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  background: var(--surface-hover); border: 1px solid var(--border); font-size: 10px;
+  font-weight: 600; color: var(--text-muted);
+}
+
+.url-cell { font-family: 'SF Mono', 'Fira Code', monospace; }
+.url-display {
+  display: flex; align-items: center; gap: 8px;
+}
+.url-text { color: var(--text); font-size: 11.5px; }
+.url-empty { color: var(--text-muted); font-style: italic; font-size: 11px; opacity: 0.6; }
+.url-status {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; flex-shrink: 0;
+}
+.url-status--ok      { background: var(--success-dim); color: var(--success); }
+.url-status--fallback { background: var(--warning-dim); color: var(--warning); }
+.url-status--empty   { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+.url-edit-input {
+  flex: 1; height: 28px; background: var(--bg); border: 1px solid var(--primary);
+  border-radius: 5px; color: var(--text); padding: 0 8px; font-size: 11.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  box-shadow: 0 0 0 3px var(--primary-dim);
+}
+.url-edit-input:focus { outline: none; }
+
+.action-cell { width: 100px; text-align: right; }
+.edit-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 5px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.edit-btn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--text-muted); }
+.save-btn {
+  background: var(--primary); border: none; color: #fff;
+  border-radius: 5px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.save-btn:hover { filter: brightness(1.1); }
+.cancel-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-family: inherit;
+  margin-left: 4px;
+}
+.cancel-btn:hover { background: var(--surface-hover); }
+
+.auth-select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 3px 24px 3px 8px; font-size: 11px; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' fill='none'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23a8b8cc' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  width: 100%;
+}
+
+/* gRPC special field */
+.grpc-host-hint { font-size: 10px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
+
+/* path column */
+.path-input {
+  width: 100%; height: 28px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); padding: 0 8px; font-size: 11.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.path-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); }
+
+/* ── Header protocol indicator ─────────────────────────────── */
+.header-proto-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--text-muted);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 8px; cursor: default;
+}
+.header-proto-badge .dot { width: 5px; height: 5px; border-radius: 50%; }
+.header-proto-badge .proto-url { font-family: 'SF Mono','Fira Code', monospace; font-size: 9.5px; color: var(--text); }
+.header-proto-badge .status-ok   { color: var(--success); }
+.header-proto-badge .status-warn { color: var(--warning); }
+
+/* ── Tooltip annotation ─────────────────────────────────────── */
+.annotation {
+  position: fixed; right: 24px; background: #0a1118; border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; max-width: 260px; font-size: 11px;
+  color: var(--text-muted); line-height: 1.5; z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.annotation strong { color: var(--text); display: block; margin-bottom: 4px; }
+.annotation-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--primary); margin-bottom: 6px;
+}
+
+/* ── Mockup label ───────────────────────────────────────────── */
+.mockup-banner {
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
+  border-bottom: 1px solid rgba(139,92,246,0.3);
+  padding: 8px 20px; font-size: 11px; color: var(--text-muted);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.mockup-banner strong { color: #c084fc; }
+
+/* ── Derived vars panel ─────────────────────────────────────── */
+.derived-vars {
+  margin-top: 10px; padding: 10px 12px; background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.derived-vars-title { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.derived-var-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.derived-var-name { font-family: 'SF Mono','Fira Code', monospace; font-size: 10.5px; color: #c084fc; min-width: 120px; }
+.derived-var-val  { font-family: 'SF Mono','Fira Code', monospace; font-size: 10.5px; color: var(--success); }
+.derived-var-from { font-size: 9.5px; color: var(--text-muted); font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="mockup-banner">
+  <strong>MOCKUP</strong> — Environment Manager Expanded (Phase 2 design) · RedfireForge · Interactive prototype
+  <span style="flex:1"></span>
+  <span>Click microservice cards to expand · Click protocol tabs to switch · Click Edit to try inline editing</span>
+</div>
+
+<!-- App Header -->
+<div class="app-header">
+  <span class="app-logo">Redfire<span>Forge</span></span>
+  <span class="app-logo-badge">BETA</span>
+  <span class="header-spacer"></span>
+  <div class="header-selectors">
+    <select class="header-select" title="Environment">
+      <option>local</option>
+      <option>staging</option>
+      <option>prod</option>
+    </select>
+    <select class="header-select" title="Microservice">
+      <option>orders-service</option>
+      <option>notifications</option>
+      <option>auth-service</option>
+    </select>
+    <!-- NEW: Protocol indicator badge -->
+    <div class="header-proto-badge" title="Active WebSocket endpoint for selected env × service">
+      <span class="dot dot-ws" style="background:var(--ws-color)"></span>
+      <span class="proto-url">wss://ws.local.svc:9876</span>
+      <span class="status-ok">✓</span>
+    </div>
+  </div>
+</div>
+
+<div class="app-body">
+
+  <!-- Activity Bar -->
+  <div class="activity-bar">
+    <button class="ab-btn" title="API">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="6" width="12" height="1.5" rx="0.75"/><rect x="2" y="9" width="8" height="1.5" rx="0.75"/><rect x="2" y="3" width="12" height="1.5" rx="0.75"/></svg>
+    </button>
+    <button class="ab-btn" title="Workflow">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6 8h2l2-3m-2 3l2 3"/></svg>
+    </button>
+    <button class="ab-btn" title="Protocols">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 8h3m6 0h3M8 2v3m0 6v3"/><circle cx="8" cy="8" r="2.5"/></svg>
+    </button>
+    <div class="ab-spacer"></div>
+    <button class="ab-btn active" title="Settings">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
+    </button>
+  </div>
+
+  <!-- Page Content -->
+  <div class="page-content">
+    <div class="page-title">Environments</div>
+    <div class="page-subtitle">Configure environments, microservices, and per-protocol endpoints. Variables like <code style="color:#c084fc;font-size:11px">{{wsBaseUrl}}</code>, <code style="color:#c084fc;font-size:11px">{{graphqlUrl}}</code>, <code style="color:#c084fc;font-size:11px">{{grpcHost}}</code> are resolved from these settings.</div>
+
+    <!-- Settings sub-tabs -->
+    <div class="settings-tabs">
+      <button class="settings-tab active">Environments</button>
+      <button class="settings-tab">Preferences</button>
+      <button class="settings-tab">Kafka</button>
+    </div>
+
+    <!-- Environments section -->
+    <div class="env-section">
+      <div class="section-label">Environments</div>
+      <div class="add-row">
+        <input class="add-input" placeholder="e.g. t01, p01, staging" />
+        <button class="btn btn-primary">Add</button>
+      </div>
+      <div class="env-chips">
+        <div class="env-chip"><span class="env-chip-dot"></span>local<button class="env-chip-remove">×</button></div>
+        <div class="env-chip"><span class="env-chip-dot" style="background:var(--warning)"></span>staging<button class="env-chip-remove">×</button></div>
+        <div class="env-chip"><span class="env-chip-dot" style="background:var(--success)"></span>prod<button class="env-chip-remove">×</button></div>
+      </div>
+    </div>
+
+    <!-- Microservices section -->
+    <div class="env-section">
+      <div class="section-label">Microservices</div>
+      <div class="add-row">
+        <input class="add-input" placeholder="e.g. orders-service, auth-api" />
+        <button class="btn btn-primary">Add</button>
+      </div>
+
+      <div class="svc-list">
+
+        <!-- ── Card 1: orders-service (expanded, WS tab active) ── -->
+        <div class="svc-card expanded" id="card-orders">
+          <div class="svc-card-header" onclick="toggleCard('card-orders')">
+            <span class="svc-chevron">▶</span>
+            <span class="svc-name">orders-service</span>
+            <div class="svc-status-badges">
+              <span class="svc-badge svc-badge--ok">HTTP 3/3</span>
+              <span class="svc-badge svc-badge--ok">WS 3/3</span>
+              <span class="svc-badge svc-badge--warn">GraphQL 1/3</span>
+              <span class="svc-badge svc-badge--err">gRPC 0/3</span>
+            </div>
+            <div class="svc-header-actions">
+              <button class="btn btn-ghost" style="height:28px;padding:0 10px;font-size:11px" onclick="event.stopPropagation()">Configure</button>
+              <button class="btn btn-danger" style="height:28px" onclick="event.stopPropagation()">Delete</button>
+            </div>
+          </div>
+
+          <div class="svc-body">
+            <!-- Protocol Tabs -->
+            <div class="proto-tabs">
+              <button class="proto-tab" onclick="switchProto('orders','http')" id="orders-tab-http">
+                <span class="proto-tab-dot dot-http"></span>HTTP
+                <span class="proto-tab-count">3/3</span>
+              </button>
+              <button class="proto-tab active-ws" onclick="switchProto('orders','ws')" id="orders-tab-ws">
+                <span class="proto-tab-dot dot-ws"></span>WebSocket
+                <span class="proto-tab-count">3/3</span>
+              </button>
+              <button class="proto-tab" onclick="switchProto('orders','sse')" id="orders-tab-sse">
+                <span class="proto-tab-dot dot-none"></span>SSE
+                <span class="proto-tab-count" style="color:var(--warning)">fallback</span>
+              </button>
+              <button class="proto-tab" onclick="switchProto('orders','graphql')" id="orders-tab-graphql">
+                <span class="proto-tab-dot dot-graphql"></span>GraphQL
+                <span class="proto-tab-count">1/3</span>
+              </button>
+              <button class="proto-tab" onclick="switchProto('orders','grpc')" id="orders-tab-grpc">
+                <span class="proto-tab-dot dot-none"></span>gRPC
+                <span class="proto-tab-count" style="color:var(--danger)">0/3</span>
+              </button>
+            </div>
+
+            <!-- HTTP panel -->
+            <div class="endpoint-panel" id="orders-panel-http" style="display:none">
+              <table class="endpoint-table">
+                <thead><tr>
+                  <th>Environment</th>
+                  <th>Base URL <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.6">— drives {{baseUrl}}, {{host}}</span></th>
+                  <th>Auth Profile</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">local</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">http://localhost:8080</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>None</option></select></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">staging</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">https://api.staging.orders.svc</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>OAuth2 — staging</option></select></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">prod</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">https://api.prod.orders.svc</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>OAuth2 — prod</option></select></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="derived-vars">
+                <div class="derived-vars-title">Derived variables (local env)</div>
+                <div class="derived-var-row"><span class="derived-var-name">{{baseUrl}}</span><span class="derived-var-val">http://localhost:8080</span><span class="derived-var-from">direct</span></div>
+                <div class="derived-var-row"><span class="derived-var-name">{{host}}</span><span class="derived-var-val">localhost:8080</span><span class="derived-var-from">extracted</span></div>
+                <div class="derived-var-row"><span class="derived-var-name">{{envName}}</span><span class="derived-var-val">local</span><span class="derived-var-from">env name</span></div>
+                <div class="derived-var-row"><span class="derived-var-name">{{svcName}}</span><span class="derived-var-val">orders-service</span><span class="derived-var-from">service name</span></div>
+              </div>
+            </div>
+
+            <!-- WebSocket panel (default active) -->
+            <div class="endpoint-panel" id="orders-panel-ws">
+              <table class="endpoint-table">
+                <thead><tr>
+                  <th>Environment</th>
+                  <th>WebSocket Address <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.6">— drives {{wsBaseUrl}}</span></th>
+                  <th>Auth Profile</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">local</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">ws://localhost:9876</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>None</option></select></td>
+                    <td class="action-cell"><button class="edit-btn" onclick="startEdit('orders-ws-local', this)">Edit</button></td>
+                  </tr>
+                  <tr id="orders-ws-local-edit-row" style="display:none">
+                    <td colspan="4" style="padding:8px 10px">
+                      <div style="display:flex;gap:8px;align-items:center">
+                        <input class="url-edit-input" value="ws://localhost:9876" id="orders-ws-local-input" placeholder="ws:// or wss://" />
+                        <button class="save-btn" onclick="endEdit('orders-ws-local')">Save</button>
+                        <button class="cancel-btn" onclick="cancelEdit('orders-ws-local')">Cancel</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">staging</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">wss://ws.staging.orders.svc</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>OAuth2 — staging</option></select></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">prod</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">wss://ws.prod.orders.svc</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><select class="auth-select"><option>OAuth2 — prod</option></select></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="derived-vars">
+                <div class="derived-vars-title">Derived variables (local env)</div>
+                <div class="derived-var-row"><span class="derived-var-name">{{wsBaseUrl}}</span><span class="derived-var-val">ws://localhost:9876</span><span class="derived-var-from">explicitly set</span></div>
+              </div>
+            </div>
+
+            <!-- SSE panel -->
+            <div class="endpoint-panel" id="orders-panel-sse" style="display:none">
+              <div class="fallback-notice">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v.5"/></svg>
+                No SSE endpoint configured. <code style="font-size:10px">{{sseUrl}}</code> falls back to the HTTP Base URL from the HTTP tab.
+              </div>
+              <table class="endpoint-table">
+                <thead><tr>
+                  <th>Environment</th>
+                  <th>SSE Endpoint <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.6">— drives {{sseUrl}} (optional)</span></th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">local</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set — using HTTP fallback</span><span class="url-status url-status--fallback">⚠ fallback</span></div></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">staging</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set — using HTTP fallback</span><span class="url-status url-status--fallback">⚠ fallback</span></div></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">prod</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set — using HTTP fallback</span><span class="url-status url-status--fallback">⚠ fallback</span></div></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- GraphQL panel -->
+            <div class="endpoint-panel" id="orders-panel-graphql" style="display:none">
+              <table class="endpoint-table">
+                <thead><tr>
+                  <th>Environment</th>
+                  <th>GraphQL Endpoint <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.6">— drives {{graphqlUrl}}</span></th>
+                  <th>Default Path</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">local</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">http://localhost:8080</span><span class="url-status url-status--warn">⚠ fallback</span></div></td>
+                    <td><input class="path-input" value="/graphql" style="width:100px" /></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">staging</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-text">https://gql.staging.orders.svc</span><span class="url-status url-status--ok">✓ set</span></div></td>
+                    <td><input class="path-input" value="/graphql" style="width:100px" /></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">prod</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set — using HTTP fallback</span><span class="url-status url-status--fallback">⚠ fallback</span></div></td>
+                    <td><input class="path-input" value="/graphql" style="width:100px" /></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="derived-vars">
+                <div class="derived-vars-title">Derived variables (staging env)</div>
+                <div class="derived-var-row"><span class="derived-var-name">{{graphqlUrl}}</span><span class="derived-var-val">https://gql.staging.orders.svc/graphql</span><span class="derived-var-from">base + path</span></div>
+              </div>
+            </div>
+
+            <!-- gRPC panel -->
+            <div class="endpoint-panel" id="orders-panel-grpc" style="display:none">
+              <div class="fallback-notice" style="background:var(--danger-dim);border-color:rgba(239,68,68,0.25);color:var(--danger)">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v.5"/></svg>
+                gRPC has no HTTP fallback — <code style="font-size:10px">{{grpcHost}}</code> will be unresolved until at least one address is configured.
+              </div>
+              <table class="endpoint-table">
+                <thead><tr>
+                  <th>Environment</th>
+                  <th>gRPC Address <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.6">host:port — drives {{grpcHost}}</span></th>
+                  <th>TLS</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">local</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set</span><span class="url-status url-status--empty">✗ empty</span></div></td>
+                    <td><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)"><input type="checkbox" /> TLS</label></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">staging</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set</span><span class="url-status url-status--empty">✗ empty</span></div></td>
+                    <td><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)"><input type="checkbox" checked /> TLS</label></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                  <tr>
+                    <td class="env-name-cell"><span class="env-name-chip">prod</span></td>
+                    <td class="url-cell"><div class="url-display"><span class="url-empty">Not set</span><span class="url-status url-status--empty">✗ empty</span></div></td>
+                    <td><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)"><input type="checkbox" checked /> TLS</label></td>
+                    <td class="action-cell"><button class="edit-btn">Edit</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="grpc-host-hint">Enter host and port without scheme, e.g. <code>grpc.example.com:50051</code>. TLS is configured per environment.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Card 2: notifications (collapsed) ── -->
+        <div class="svc-card" id="card-notif">
+          <div class="svc-card-header" onclick="toggleCard('card-notif')">
+            <span class="svc-chevron">▶</span>
+            <span class="svc-name">notifications</span>
+            <div class="svc-status-badges">
+              <span class="svc-badge svc-badge--ok">HTTP 3/3</span>
+              <span class="svc-badge svc-badge--warn">WS 2/3</span>
+            </div>
+            <div class="svc-header-actions">
+              <button class="btn btn-ghost" style="height:28px;padding:0 10px;font-size:11px" onclick="event.stopPropagation()">Configure</button>
+              <button class="btn btn-danger" style="height:28px" onclick="event.stopPropagation()">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Card 3: auth-service (collapsed) ── -->
+        <div class="svc-card" id="card-auth">
+          <div class="svc-card-header" onclick="toggleCard('card-auth')">
+            <span class="svc-chevron">▶</span>
+            <span class="svc-name">auth-service</span>
+            <div class="svc-status-badges">
+              <span class="svc-badge svc-badge--ok">HTTP 3/3</span>
+              <span class="svc-badge svc-badge--ok">GraphQL 3/3</span>
+            </div>
+            <div class="svc-header-actions">
+              <button class="btn btn-ghost" style="height:28px;padding:0 10px;font-size:11px" onclick="event.stopPropagation()">Configure</button>
+              <button class="btn btn-danger" style="height:28px" onclick="event.stopPropagation()">Delete</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /svc-list -->
+    </div><!-- /env-section -->
+
+  </div><!-- /page-content -->
+</div><!-- /app-body -->
+
+<script>
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('expanded');
+}
+
+const protoColors = { http:'http', ws:'ws', sse:'sse', graphql:'graphql', grpc:'grpc' };
+
+function switchProto(svc, proto) {
+  // Hide all panels for this svc
+  ['http','ws','sse','graphql','grpc'].forEach(p => {
+    const panel = document.getElementById(`${svc}-panel-${p}`);
+    if (panel) panel.style.display = 'none';
+    const tab = document.getElementById(`${svc}-tab-${p}`);
+    if (tab) tab.className = 'proto-tab';
+  });
+  // Show selected
+  const panel = document.getElementById(`${svc}-panel-${proto}`);
+  if (panel) panel.style.display = 'block';
+  const tab = document.getElementById(`${svc}-tab-${proto}`);
+  if (tab) tab.className = `proto-tab active-${proto}`;
+}
+
+// Inline edit
+function startEdit(id, btn) {
+  const row = document.getElementById(`${id}-edit-row`);
+  if (row) { row.style.display = 'table-row'; btn.style.display = 'none'; }
+}
+function endEdit(id) {
+  const row = document.getElementById(`${id}-edit-row`);
+  if (row) row.style.display = 'none';
+  // Find the edit button again (simplistic — find in parent rows)
+  document.querySelectorAll('.edit-btn').forEach(b => b.style.display = '');
+}
+function cancelEdit(id) { endEdit(id); }
+
+// Init: show WS tab for orders card
+switchProto('orders', 'ws');
+</script>
+</body>
+</html>

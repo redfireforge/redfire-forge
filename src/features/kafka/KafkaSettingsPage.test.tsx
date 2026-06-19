@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { RenderResult } from '@testing-library/react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
@@ -692,52 +692,71 @@ describe('KafkaSettingsPage', () => {
     expect(refreshConnectionStatus).toHaveBeenCalledWith({ force: true });
   });
 
-  it('startEdit: guard returns early when cluster id is not found in list', async () => {
-    // Covers the `if (!cluster) return;` branch in startEdit (line 154)
-    const user = userEvent.setup();
+  it('import: no-op when file input change has no file selected', async () => {
     const upsertCluster = vi.fn();
-    renderPage(makeState({
-      // Cluster B is selected but NOT in the clusters list → startEdit guard fires
-      clusters: [],
-      selectedClusterId: 'cluster-x',
-      selectedCluster: null,
-    }));
+    renderPage(makeState({ clusters: [CLUSTER_A], upsertCluster }));
 
-    // The edit button only shows when a cluster is selected and present in list;
-    // since none is present the UI won't even show the button — verify no crash
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [] } });
+
     expect(upsertCluster).not.toHaveBeenCalled();
-    void user; // suppress unused
+    expect(screen.queryByTestId('kafka-import-feedback')).toBeNull();
   });
 
-  it('confirmDelete: guard returns early when editingClusterId is null', async () => {
-    // Covers the `if (!editingClusterId) return;` branch in confirmDelete (line 247)
-    const removeCluster = vi.fn();
+  it('import: uses plural clusters label when importing multiple', async () => {
+    const user = userEvent.setup();
+    renderPage(makeState({ clusters: [CLUSTER_A] }));
+
+    const jsonPayload = JSON.stringify([CLUSTER_A, { ...CLUSTER_A, clusterId: 'cluster-b', name: 'Cluster B' }]);
+    const file = new File([jsonPayload], 'two.json', { type: 'application/json' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Imported 2 clusters\./)).toBeTruthy();
+    });
+  });
+
+  it('connectionSummary shows Connected without cluster id when clusterId is absent', () => {
     renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
-      removeCluster,
+      connection: { state: 'connected' },
     }));
-    // In this state no editor is open → editingClusterId is null → guard fires if Confirm
-    // Delete were somehow called. Since the button is only shown in the delete-confirm
-    // dialog which requires an open editor, the confirmDelete path stays uncovered in
-    // happy-path tests. We verify removeCluster was NOT called (no crash).
-    expect(removeCluster).not.toHaveBeenCalled();
+    expect(screen.getByText('Connected')).toBeTruthy();
+  });
+
+  it('shows verified and failed test result badges', () => {
+    const { rerender } = renderPage(makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'cluster-a' },
+      lastTestResult: { ok: true, latencyMs: 12 },
+    }));
+    expect(screen.getByTestId('kafka-test-result').textContent).toContain('Verified');
+
+    rerenderPage(rerender, makeState({
+      clusters: [CLUSTER_A],
+      selectedClusterId: 'cluster-a',
+      selectedCluster: CLUSTER_A,
+      connection: { state: 'connected', clusterId: 'cluster-a' },
+      lastTestResult: { ok: false, latencyMs: 12, error: 'refused' },
+    }));
+    expect(screen.getByTestId('kafka-test-result').textContent).toContain('Failed');
   });
 
   it('Import button click triggers hidden file input click', async () => {
-    // Covers `onClick={() => importInputRef.current?.click()}` (line 295)
     const user = userEvent.setup();
     renderPage(makeState({ clusters: [CLUSTER_A] }));
 
     const importBtn = screen.getByTestId('kafka-import-btn');
-    // We just verify clicking the button doesn't throw; jsdom won't open a picker
     await user.click(importBtn);
     expect(importBtn).toBeTruthy();
   });
 
   it('Connect button calls connectSelectedCluster', async () => {
-    // Covers `onClick={() => void connectSelectedCluster()}` (line 451)
     const user = userEvent.setup();
     const connectSelectedCluster = vi.fn().mockResolvedValue(undefined);
     renderPage(makeState({
@@ -748,13 +767,11 @@ describe('KafkaSettingsPage', () => {
       connectSelectedCluster,
     }));
 
-    const connectBtn = screen.getByRole('button', { name: 'Connect' });
-    await user.click(connectBtn);
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
     expect(connectSelectedCluster).toHaveBeenCalledTimes(1);
   });
 
   it('connectionSummary shows "Connection check failed" when connection.state is error and lastError is null', () => {
-    // Covers the `connection.lastError ?? 'Connection check failed'` null-coalescing branch (line 122)
     renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
@@ -764,15 +781,27 @@ describe('KafkaSettingsPage', () => {
     expect(screen.getByText('Connection check failed')).toBeTruthy();
   });
 
+  it('import: treats non-array JSON without clusters key as empty import', async () => {
+    const user = userEvent.setup();
+    const upsertCluster = vi.fn();
+    renderPage(makeState({ clusters: [CLUSTER_A], upsertCluster }));
+
+    const file = new File(['{"version":1}'], 'empty.json', { type: 'application/json' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Imported 0 clusters\./)).toBeTruthy();
+    });
+    expect(upsertCluster).not.toHaveBeenCalled();
+  });
+
   it('import: reader.onerror sets error feedback when file cannot be read', async () => {
-    // Covers line 101: reader.onerror = () => { setImportFeedback(...) }
     renderPage(makeState({ clusters: [] }));
 
-    // Capture the FileReader instance and call onerror synchronously
     const OriginalFileReader = global.FileReader;
     let capturedReader: { onerror: (() => void) | null; readAsText: () => void } | null = null;
 
-    // Use a proper function constructor mock (not arrow function — must be 'function' for `new`)
     function MockFileReader(this: { onerror: (() => void) | null; readAsText: () => void }) {
       this.readAsText = vi.fn();
       this.onerror = null;
@@ -786,9 +815,7 @@ describe('KafkaSettingsPage', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, file);
 
-    // FileReader was constructed — capturedReader now has the instance
     expect(capturedReader).not.toBeNull();
-    // Manually trigger onerror callback to simulate file read failure
     capturedReader!.onerror!();
 
     await waitFor(() => {

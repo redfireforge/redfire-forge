@@ -9,7 +9,12 @@
  *     query contains @defer or @stream directives; updates response in real time
  *     as chunks arrive. Blocks execution if @defer/@stream is combined with
  *     file upload (incompatible multipart formats — 2D-6).
- *   - Returns { status, response, execute, cancel }
+ *   - Phase 3F (APQ): optional Automatic Persisted Queries two-step flow;
+ *     in-memory hash cache avoids re-hashing the same query.
+ *   - Phase 3F (Dedup): optional request deduplication — detects in-flight
+ *     duplicates and offers Wait/Cancel/SendAnyway choices.
+ *   - Returns { status, response, execute, cancel, isDuplicate,
+ *               resolveDedupChoice, apqInfo }
  *
  * Phase 1C implementation. Phase 1D will add auth-header injection from connection
  * profiles; Phase 1E will add {{var}} interpolation in header values.
@@ -20,6 +25,16 @@ import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphq
 import { gqlFetch, gqlUpload } from '../utils/gqlFetch';
 import { hasIncrementalDirective } from '../utils/graphqlClient';
 import { parseMultipartMixed } from '../utils/multipartParser';
+import { executeWithAPQ } from '../utils/apqClient';
+import type { APQSendFn } from '../utils/apqClient';
+import {
+  buildDedupKey,
+  getInFlight,
+  registerInFlight,
+  removeInFlight,
+  handleDedupGuard,
+} from '../utils/dedupExecution';
+import type { DedupChoice } from '../utils/dedupExecution';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +62,27 @@ export interface ExecuteParams {
    * Only invoked when `formData` is also provided.
    */
   onUploadProgress?: (loaded: number, total: number) => void;
+  // ── Phase 3F additions ──────────────────────────────────────────────────────
+  /** Connection ID — required for request deduplication key isolation */
+  connectionId?: string;
+  /** Enable Automatic Persisted Queries two-step flow (default: false) */
+  apqEnabled?: boolean;
+  /** When APQ is on: use GET for hash-only query requests (default: false) */
+  apqUseGet?: boolean;
+  /** Enable request deduplication (default: false) */
+  dedupEnabled?: boolean;
+  /** Operation type — determines GET eligibility for APQ (default: 'query') */
+  operationType?: 'query' | 'mutation';
+  /** When true, skip the dedup check AND dedup registration (Send anyway — run alongside original) */
+  _skipDedupCheck?: boolean;
+  /** When true, skip only the dedup check but still register (Cancel original — replacement tracks as new dedup entry) */
+  _skipDedupCheckOnly?: boolean;
+}
+
+export interface ApqInfo {
+  hash: string;
+  cacheHit: boolean;
+  unsupported: boolean;
 }
 
 export interface UseGraphqlExecution {
@@ -54,6 +90,47 @@ export interface UseGraphqlExecution {
   response: GraphqlResponse | null;
   execute: (params: ExecuteParams) => void;
   cancel: () => void;
+  /** true when a dedup situation is pending user choice */
+  isDuplicate: boolean;
+  /** APQ metadata from the last completed APQ request */
+  apqInfo: ApqInfo | null;
+  /** Resolve a pending dedup situation */
+  resolveDedupChoice: (choice: DedupChoice) => void;
+}
+
+// ─── Helper: parse an HttpResponse into a GraphqlResponse ────────────────────
+
+function parseHttpBody(
+  status: number,
+  headers: Record<string, string>,
+  body: string,
+  latencyMs: number,
+  error?: string,
+): GraphqlResponse {
+  const base: GraphqlResponse = {
+    httpStatus: status,
+    httpHeaders: headers,
+    latencyMs,
+    timestamp: Date.now(),
+  };
+  if (status === 0 && error) {
+    base.data = null;
+    base.errors = [{ message: error }];
+    return base;
+  }
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    base.data = parsed.data ?? null;
+    if (Array.isArray(parsed.errors)) base.errors = parsed.errors as GraphqlError[];
+    if (parsed.extensions && typeof parsed.extensions === 'object') {
+      base.extensions = parsed.extensions as Record<string, unknown>;
+    }
+  } catch {
+    const preview = body.length > 200 ? `${body.slice(0, 200)}…` : body;
+    base.data = null;
+    base.errors = [{ message: `Server returned a non-JSON response (HTTP ${status})`, extensions: { rawPreview: preview } }];
+  }
+  return base;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -61,6 +138,8 @@ export interface UseGraphqlExecution {
 export function useGraphqlExecution(): UseGraphqlExecution {
   const [status, setStatus] = useState<ExecutionStatus>('idle');
   const [response, setResponse] = useState<GraphqlResponse | null>(null);
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [apqInfo, setApqInfo] = useState<ApqInfo | null>(null);
   const abortCtrlRef = useRef<AbortController | null>(null);
 
   // BUG-GQL-R13-1 fix: track mount state so async handlers don't call setState
@@ -81,10 +160,18 @@ export function useGraphqlExecution(): UseGraphqlExecution {
     response: null,
   });
 
+  // Phase 3F: pending dedup state
+  const pendingDedupRef = useRef<{
+    params: ExecuteParams;
+    key: string;
+    promise: Promise<GraphqlResponse>;
+  } | null>(null);
+
+  // Phase 3F: current dedup key (for cleanup on cancel)
+  const currentDedupKeyRef = useRef<string | null>(null);
+
   // ── Cancel ────────────────────────────────────────────────────────────────
   // BUG-GQL-R14-5 fix: guard with mountedRef for consistency with async paths.
-  // closeTab calls cancelForCloseRef.current() which invokes this — if the page
-  // is unmounting simultaneously, we must not call setState.
   const cancel = useCallback(() => {
     if (abortCtrlRef.current) {
       abortCtrlRef.current.abort();
@@ -98,13 +185,27 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   // ── Execute ───────────────────────────────────────────────────────────────
   const execute = useCallback(
     (params: ExecuteParams) => {
-      const { endpoint, query, variables, operationName, headers, skipTlsVerify, formData, onUploadProgress } = params;
+      const {
+        endpoint,
+        query,
+        variables,
+        operationName,
+        headers,
+        skipTlsVerify,
+        formData,
+        onUploadProgress,
+        connectionId,
+        apqEnabled,
+        apqUseGet,
+        dedupEnabled,
+        operationType = 'query',
+        _skipDedupCheck = false,
+        _skipDedupCheckOnly = false,
+      } = params;
 
       if (!endpoint.trim() || !query.trim()) return;
 
       // ── 2D-6: @defer / @stream + file upload mutual exclusion ──────────────
-      // The graphql-multipart-request-spec (file upload) uses multipart/form-data
-      // while @defer/@stream responses use multipart/mixed. These cannot be combined.
       if (formData && hasIncrementalDirective(query)) {
         const errorResp: GraphqlResponse = {
           data: null,
@@ -123,16 +224,53 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         return;
       }
 
-      // Cancel any in-flight request before starting a new one
-      abortCtrlRef.current?.abort();
+      // Parse variables for dedup key calculation
+      let parsedVarsObj: Record<string, unknown> = {};
+      try {
+        const trimmed = variables.trim();
+        if (trimmed && trimmed !== '{}') {
+          const parsed = JSON.parse(trimmed) as unknown;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            parsedVarsObj = parsed as Record<string, unknown>;
+          }
+        }
+      } catch { /* ignore malformed JSON — server will report it */ }
+
+      const isIncremental = !formData && hasIncrementalDirective(query);
+      const isApq = !!(apqEnabled && !formData && !isIncremental);
+      const isDedupActive = !!(dedupEnabled && connectionId && !formData && !isIncremental);
+
+      // ── Phase 3F: Dedup check ──────────────────────────────────────────────
+      // _skipDedupCheck:     skip detection AND registration (send alongside original — sendAnyway)
+      // _skipDedupCheckOnly: skip detection only, still register (cancel original — track replacement)
+      const skipDetection = _skipDedupCheck || _skipDedupCheckOnly;
+      if (isDedupActive && !skipDetection) {
+        const dedupKey = buildDedupKey(connectionId!, query, parsedVarsObj, operationName);
+        const existing = getInFlight(dedupKey);
+        if (existing) {
+          // Duplicate detected — pause and wait for user's choice
+          setIsDuplicate(true);
+          pendingDedupRef.current = { params, key: dedupKey, promise: existing.promise };
+          return;
+        }
+      }
+
+      // Cancel any in-flight request before starting a new one.
+      // Clean up previous dedup registration.
+      // Exception: _skipDedupCheck (sendAnyway) — do NOT abort abortCtrlRef because it
+      // may point to the original in-flight request that we want to keep running alongside.
+      if (currentDedupKeyRef.current) {
+        removeInFlight(currentDedupKeyRef.current);
+        currentDedupKeyRef.current = null;
+      }
+      if (!_skipDedupCheck) {
+        abortCtrlRef.current?.abort();
+      }
       const ctrl = new AbortController();
       abortCtrlRef.current = ctrl;
 
       // BUG-GQL-R8-3 fix: snapshot the current (completed) state so that Cancel
       // can restore it rather than showing an empty panel.
-      // BUG-GQL-R11-15 fix: avoid calling setResponse inside a setStatus updater —
-      // cross-hook setState inside updaters has unpredictable ordering under React
-      // concurrent features. Snapshot synchronously from refs, then batch updates.
       const prevStatus = statusRef.current;
       const prevResponse = responseRef.current;
       if (prevStatus !== 'loading') {
@@ -140,10 +278,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
       }
       setResponse(null);
       setStatus('loading');
+      setIsDuplicate(false);
+      setApqInfo(null); // Reset APQ badge so a non-APQ run clears the previous hit/miss indicator
 
       const startTime = performance.now();
 
-      // For file uploads, skip JSON body construction — formData is used directly
       const requestBody: Record<string, unknown> = {};
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -152,9 +291,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
       };
 
       if (!formData) {
-        // Build the JSON request body
         requestBody.query = query;
-        // Parse variables — silently skip if malformed (server will return a proper error)
         try {
           const trimmed = variables.trim();
           if (trimmed && trimmed !== '{}') {
@@ -163,19 +300,37 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               requestBody.variables = parsed;
             }
           }
-        } catch {
-          // Invalid JSON — omit variables (server will report the error)
-        }
+        } catch { /* silently ignore */ }
         if (operationName) requestBody.operationName = operationName;
       }
 
-      // ── Sprint 7 (2D): Incremental delivery path ──────────────────────────
-      // When the query contains @defer or @stream, set Accept: multipart/mixed
-      // and use browser fetch + meros to parse the streaming response.
-      const isIncremental = !formData && hasIncrementalDirective(query);
-
       if (isIncremental) {
         requestHeaders['Accept'] = 'application/json, multipart/mixed';
+      }
+
+      // ── Phase 3F: create dedup Promise ────────────────────────────────────
+      // The promise wraps the entire execution so "Wait and merge" waiters get
+      // the same result when the request settles.
+      let resolveExecPromise!: (r: GraphqlResponse) => void;
+      let rejectExecPromise!: (err: unknown) => void;
+      const execPromise = new Promise<GraphqlResponse>((res, rej) => {
+        resolveExecPromise = res;
+        rejectExecPromise = rej;
+      });
+      // Attach a no-op catch to prevent "UnhandledPromiseRejection" when the
+      // request is aborted and no dedup waiter is listening on the promise.
+      void execPromise.catch(() => {});
+
+      // When _skipDedupCheck is true (Send anyway), do NOT register this request in the
+      // in-flight map — the original request is still running alongside and must not be
+      // overwritten. _skipDedupCheckOnly (cancel replacement) still registers normally.
+      const dedupKey = (isDedupActive && !_skipDedupCheck)
+        ? buildDedupKey(connectionId!, query, parsedVarsObj, operationName)
+        : null;
+
+      if (dedupKey) {
+        currentDedupKeyRef.current = dedupKey;
+        registerInFlight(dedupKey, { controller: ctrl, promise: execPromise });
       }
 
       void (async () => {
@@ -184,8 +339,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             // ── File upload path ───────────────────────────────────────────
             const result = await gqlUpload(endpoint, formData, headers, ctrl.signal, onUploadProgress);
 
-            if (ctrl.signal.aborted) return;
+            if (ctrl.signal.aborted) { rejectExecPromise(new Error('Aborted')); return; }
             if (result.error === 'Aborted') {
+              rejectExecPromise(new Error('Aborted'));
               if (!mountedRef.current) return;
               setStatus(lastCompletedResponseRef.current.status);
               setResponse(lastCompletedResponseRef.current.response);
@@ -193,34 +349,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             }
 
             const latencyMs = Math.round(performance.now() - startTime);
-            const gqlResponse: GraphqlResponse = {
-              httpStatus: result.status,
-              httpHeaders: result.headers,
-              latencyMs,
-              timestamp: Date.now(),
-            };
-
-            if (result.status === 0 && result.error) {
-              gqlResponse.data = null;
-              gqlResponse.errors = [{ message: result.error }];
-            } else {
-              try {
-                const parsed = JSON.parse(result.body) as Record<string, unknown>;
-                gqlResponse.data = parsed.data ?? null;
-                if (Array.isArray(parsed.errors)) gqlResponse.errors = parsed.errors as GraphqlError[];
-                if (parsed.extensions && typeof parsed.extensions === 'object') {
-                  gqlResponse.extensions = parsed.extensions as Record<string, unknown>;
-                }
-              } catch {
-                const preview = result.body.length > 200 ? `${result.body.slice(0, 200)}…` : result.body;
-                gqlResponse.data = null;
-                gqlResponse.errors = [{ message: `Server returned a non-JSON response (HTTP ${result.status})`, extensions: { rawPreview: preview } }];
-              }
-            }
-
-            const hasErrors = gqlResponse.errors && gqlResponse.errors.length > 0;
+            const gqlResponse = parseHttpBody(result.status, result.headers, result.body, latencyMs, result.error);
+            const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
             const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
             lastCompletedResponseRef.current = { status: finalStatus, response: gqlResponse };
+            resolveExecPromise(gqlResponse);
             if (!mountedRef.current) return;
             setStatus(finalStatus);
             setResponse(gqlResponse);
@@ -230,14 +363,6 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
           if (isIncremental) {
             // ── Incremental delivery path (Sprint 7 — 2D) ─────────────────
-            // Use raw fetch so we can stream the response body with meros.
-            // Do NOT use gqlFetch/httpFetch here — they buffer with .text().
-            //
-            // Bug fix: when skipTlsVerify is true, browser fetch() cannot skip
-            // TLS certificate validation. Route through the server proxy
-            // (/api/graphql/query) which uses Node.js https.Agent with
-            // rejectUnauthorized:false. The proxy streams the response body
-            // without buffering, so meros still works correctly.
             let fetchUrl: string;
             let fetchBody: string;
             let fetchHeaders: Record<string, string>;
@@ -249,7 +374,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 query,
                 variables:     requestBody.variables,
                 operationName: requestBody.operationName,
-                headers:       headers,
+                headers,
                 skipTlsVerify: true,
               });
               fetchHeaders = {
@@ -272,6 +397,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               });
             } catch (err) {
               if (ctrl.signal.aborted) {
+                rejectExecPromise(new Error('Aborted'));
                 if (!mountedRef.current) return;
                 setStatus(lastCompletedResponseRef.current.status);
                 setResponse(lastCompletedResponseRef.current.response);
@@ -283,6 +409,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 timestamp: Date.now(), data: null, errors: [{ message }],
               };
               lastCompletedResponseRef.current = { status: 'error', response: errorResp };
+              rejectExecPromise(new Error(message));
               if (!mountedRef.current) return;
               setStatus('error');
               setResponse(errorResp);
@@ -295,8 +422,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             const contentType = resp.headers.get('content-type') ?? '';
 
             if (contentType.includes('multipart/mixed')) {
-              // True incremental delivery — stream chunks
               let chunkIdx = 0;
+              let lastChunkResp: GraphqlResponse | null = null;
               await parseMultipartMixed(resp, (chunk) => {
                 if (!mountedRef.current || ctrl.signal.aborted) return;
                 chunkIdx++;
@@ -316,12 +443,14 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 const finalStatus: ExecutionStatus = isLast
                   ? (!hasErrors || gqlResp.data !== null ? 'success' : 'error')
                   : 'loading';
-                if (isLast) lastCompletedResponseRef.current = { status: finalStatus, response: gqlResp };
+                if (isLast) {
+                  lastCompletedResponseRef.current = { status: finalStatus, response: gqlResp };
+                  lastChunkResp = gqlResp;
+                }
                 setStatus(finalStatus);
                 setResponse(gqlResp);
               });
-              // If parseMultipartMixed exited without emitting any chunks (empty/malformed
-              // stream), UI is stuck in 'loading'. Transition to error.
+
               if (chunkIdx === 0 && mountedRef.current && !ctrl.signal.aborted) {
                 const emptyResp: GraphqlResponse = {
                   httpStatus: resp.status, httpHeaders: respHeaders,
@@ -329,8 +458,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   data: null, errors: [{ message: `Server returned multipart/mixed but no incremental chunks were received (HTTP ${resp.status})` }],
                 };
                 lastCompletedResponseRef.current = { status: 'error', response: emptyResp };
+                rejectExecPromise(new Error('No incremental chunks'));
                 setStatus('error');
                 setResponse(emptyResp);
+              } else if (lastChunkResp) {
+                resolveExecPromise(lastChunkResp);
               }
               if (abortCtrlRef.current === ctrl) abortCtrlRef.current = null;
               return;
@@ -339,23 +471,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             // Server didn't honor multipart — fall through to single JSON parse
             const body = await resp.text().catch(() => '');
             const latencyMs = Math.round(performance.now() - startTime);
-            const gqlResponse: GraphqlResponse = {
-              httpStatus: resp.status, httpHeaders: respHeaders, latencyMs, timestamp: Date.now(),
-            };
-            try {
-              const parsed = JSON.parse(body) as Record<string, unknown>;
-              gqlResponse.data = parsed.data ?? null;
-              if (Array.isArray(parsed.errors)) gqlResponse.errors = parsed.errors as GraphqlError[];
-              if (parsed.extensions && typeof parsed.extensions === 'object') {
-                gqlResponse.extensions = parsed.extensions as Record<string, unknown>;
-              }
-            } catch {
-              gqlResponse.data = null;
-              gqlResponse.errors = [{ message: `Server returned a non-JSON response (HTTP ${resp.status})` }];
-            }
-            const hasErr2 = gqlResponse.errors && gqlResponse.errors.length > 0;
+            const gqlResponse = parseHttpBody(resp.status, respHeaders, body, latencyMs);
+            const hasErr2 = (gqlResponse.errors?.length ?? 0) > 0;
             const fs2: ExecutionStatus = !hasErr2 || gqlResponse.data !== null ? 'success' : 'error';
             lastCompletedResponseRef.current = { status: fs2, response: gqlResponse };
+            resolveExecPromise(gqlResponse);
             if (!mountedRef.current) return;
             setStatus(fs2);
             setResponse(gqlResponse);
@@ -364,80 +484,168 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           }
 
           // ── Standard HTTP path (queries / mutations without @defer/@stream) ──
-          const result = await gqlFetch(
-            endpoint,
-            'POST',
-            requestHeaders,
-            JSON.stringify(requestBody),
-            ctrl.signal,
-            skipTlsVerify,
-          );
 
-          // Guard: ignore if this request was already superseded by a cancel()
-          if (ctrl.signal.aborted) return;
+          let gqlResponse: GraphqlResponse;
 
-          // Treat the httpFetch "Aborted" sentinel as a cancel — restore prior result
-          if (result.error === 'Aborted') {
+          if (isApq) {
+            // ── APQ two-step flow ──────────────────────────────────────────
+            // Build a sendFn that handles both GET (hash-only) and POST (full)
+            const apqSendFn: APQSendFn = async (bodyFields, method) => {
+              if (method === 'GET') {
+                const getHeaders: Record<string, string> = { Accept: 'application/json', ...headers };
+                delete getHeaders['Content-Type'];
+
+                if (skipTlsVerify) {
+                  // TLS skip requires routing through Node.js proxy (browser can't bypass TLS)
+                  const proxyParams = new URLSearchParams();
+                  proxyParams.set('endpoint', endpoint);
+                  for (const [k, v] of Object.entries(bodyFields)) {
+                    proxyParams.set(k, JSON.stringify(v));
+                  }
+                  // Forward operationName for multi-operation documents
+                  if (requestBody.operationName != null) {
+                    proxyParams.set('operationName', String(requestBody.operationName));
+                  }
+                  proxyParams.set('skipTlsVerify', 'true');
+                  const result = await gqlFetch(
+                    `/api/graphql/query?${proxyParams.toString()}`,
+                    'GET',
+                    getHeaders,
+                    undefined,
+                    ctrl.signal,
+                    false, // TLS is handled server-side by the proxy
+                  );
+                  return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
+                }
+
+                // No TLS skip: make the APQ GET directly to the upstream endpoint.
+                // This works in all environments (web, Tauri, production) since it's
+                // a standard browser GET request — no proxy needed.
+                let apqUrl: URL;
+                try {
+                  apqUrl = new URL(endpoint);
+                } catch {
+                  // Fallback if endpoint is not a valid absolute URL
+                  apqUrl = new URL(endpoint, window.location.href);
+                }
+                for (const [k, v] of Object.entries(bodyFields)) {
+                  apqUrl.searchParams.set(k, JSON.stringify(v));
+                }
+                // Forward operationName so multi-operation documents work with APQ GET
+                if (requestBody.operationName != null) {
+                  apqUrl.searchParams.set('operationName', String(requestBody.operationName));
+                }
+                const result = await gqlFetch(
+                  apqUrl.toString(),
+                  'GET',
+                  getHeaders,
+                  undefined,
+                  ctrl.signal,
+                  false,
+                );
+                return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
+              } else {
+                // Standard POST — build the body carefully.
+                // When bodyFields has no `query` (hash-only APQ step), we must NOT
+                // inject requestBody.query — sending the full query in the hash-only
+                // step defeats APQ's bandwidth savings and can confuse strict servers.
+                // Only operationName is carried across from requestBody.
+                const isHashOnly = !('query' in bodyFields);
+                const fullBody: Record<string, unknown> = isHashOnly
+                  ? { ...bodyFields, ...(requestBody.operationName !== undefined ? { operationName: requestBody.operationName } : {}) }
+                  : { ...requestBody, ...bodyFields };
+                const result = await gqlFetch(
+                  endpoint,
+                  'POST',
+                  requestHeaders,
+                  JSON.stringify(fullBody),
+                  ctrl.signal,
+                  skipTlsVerify,
+                );
+                return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
+              }
+            };
+
+            const apqResult = await executeWithAPQ(
+              apqSendFn,
+              query,
+              parsedVarsObj,
+              operationType,
+              apqUseGet ?? false,
+              ctrl.signal,
+            );
+
+            gqlResponse = {
+              ...apqResult.response,
+              apqHash: apqResult.hash,
+              apqCacheHit: apqResult.cacheHit,
+              apqUnsupported: apqResult.unsupported,
+            };
+
+            if (ctrl.signal.aborted) {
+              // Reject so dedup "wait" waiters are not stuck in loading state,
+              // then restore prior UI state (mirrors the other abort paths).
+              rejectExecPromise(new Error('Aborted'));
+              if (mountedRef.current) {
+                setStatus(lastCompletedResponseRef.current.status);
+                setResponse(lastCompletedResponseRef.current.response);
+              }
+              return;
+            }
             if (!mountedRef.current) return;
-            setStatus(lastCompletedResponseRef.current.status);
-            setResponse(lastCompletedResponseRef.current.response);
+            setApqInfo({ hash: apqResult.hash, cacheHit: apqResult.cacheHit, unsupported: apqResult.unsupported });
+          } else {
+            // ── Standard POST (no APQ) ─────────────────────────────────────
+            const result = await gqlFetch(
+              endpoint,
+              'POST',
+              requestHeaders,
+              JSON.stringify(requestBody),
+              ctrl.signal,
+              skipTlsVerify,
+            );
+
+            if (ctrl.signal.aborted) {
+              // Reject so dedup "wait" waiters are not stuck in loading state
+              rejectExecPromise(new Error('Aborted'));
+              return;
+            }
+
+            if (result.error === 'Aborted') {
+              rejectExecPromise(new Error('Aborted'));
+              if (!mountedRef.current) return;
+              setStatus(lastCompletedResponseRef.current.status);
+              setResponse(lastCompletedResponseRef.current.response);
+              return;
+            }
+
+            gqlResponse = parseHttpBody(
+              result.status,
+              result.headers,
+              result.body,
+              Math.round(performance.now() - startTime),
+              result.error,
+            );
+          }
+
+          if (ctrl.signal.aborted) {
+            // Reject so dedup "wait" waiters are not stuck in loading state
+            rejectExecPromise(new Error('Aborted'));
             return;
           }
 
-          const latencyMs = Math.round(performance.now() - startTime);
-
-          const gqlResponse: GraphqlResponse = {
-            httpStatus: result.status,
-            httpHeaders: result.headers,
-            latencyMs,
-            timestamp: Date.now(),
-          };
-
-          // ── Parse response body ──────────────────────────────────────────
-          if (result.status === 0 && result.error) {
-            // Network / transport error
-            gqlResponse.data = null;
-            gqlResponse.errors = [{ message: result.error }];
-          } else {
-            try {
-              const parsed = JSON.parse(result.body) as Record<string, unknown>;
-              // Normalize undefined to null: some servers omit "data" entirely on
-              // pure errors. Keeping undefined would cause the isSuccess check to
-              // treat `undefined !== null` as true and wrongly report 'success'.
-              gqlResponse.data = parsed.data ?? null;
-              if (Array.isArray(parsed.errors)) {
-                gqlResponse.errors = parsed.errors as GraphqlError[];
-              }
-              if (parsed.extensions && typeof parsed.extensions === 'object') {
-                gqlResponse.extensions = parsed.extensions as Record<string, unknown>;
-              }
-            } catch {
-              // Non-JSON body (HTML error page, plain text, etc.)
-              const preview =
-                result.body.length > 200 ? `${result.body.slice(0, 200)}…` : result.body;
-              gqlResponse.data = null;
-              gqlResponse.errors = [
-                {
-                  message: `Server returned a non-JSON response (HTTP ${result.status})`,
-                  extensions: { rawPreview: preview },
-                },
-              ];
-            }
-          }
-
-          const hasErrors = gqlResponse.errors && gqlResponse.errors.length > 0;
-          // Partial success: data present alongside errors → 'success' with error indicators.
-          // Pure error: no data (null) + errors → 'error'.
+          const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
           const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
-          // BUG-GQL-R8-3 fix: save completed state before setting it so cancel() can restore it
           lastCompletedResponseRef.current = { status: finalStatus, response: gqlResponse };
+          resolveExecPromise(gqlResponse);
           if (!mountedRef.current) return;
           setStatus(finalStatus);
           setResponse(gqlResponse);
           if (abortCtrlRef.current === ctrl) abortCtrlRef.current = null;
         } catch (err) {
           if (ctrl.signal.aborted) {
-            // BUG-GQL-R8-3 fix: restore prior result instead of going blank
+            // Reject so dedup "wait" waiters are not stuck in loading state
+            rejectExecPromise(new Error('Aborted'));
             if (!mountedRef.current) return;
             setStatus(lastCompletedResponseRef.current.status);
             setResponse(lastCompletedResponseRef.current.response);
@@ -453,16 +661,85 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             data: null,
             errors: [{ message }],
           };
-          // BUG-GQL-R8-3 fix: save error response so cancel (on a future request) can restore it
           lastCompletedResponseRef.current = { status: 'error', response: errorResponse };
+          rejectExecPromise(err);
           if (!mountedRef.current) return;
           setStatus('error');
           setResponse(errorResponse);
           if (abortCtrlRef.current === ctrl) abortCtrlRef.current = null;
+        } finally {
+          // Only remove the dedup map entry if it is still OUR own promise.
+          // After a 'cancel original' user choice, the replacement request re-registers
+          // under the same key BEFORE this finally block runs. Without this guard the
+          // original's finally would delete the replacement's registration, causing the
+          // next identical send to bypass dedup detection while the replacement is in-flight.
+          if (dedupKey) {
+            const currentEntry = getInFlight(dedupKey);
+            const stillOurs = !currentEntry || currentEntry.promise === execPromise;
+            if (stillOurs) {
+              removeInFlight(dedupKey);
+              if (currentDedupKeyRef.current === dedupKey) {
+                currentDedupKeyRef.current = null;
+              }
+            }
+          }
         }
       })();
     },
     [],
+  );
+
+  // ── resolveDedupChoice ────────────────────────────────────────────────────
+  // Called when the user makes a choice in the duplicate-in-flight badge dropdown.
+  const resolveDedupChoice = useCallback(
+    (choice: DedupChoice) => {
+      const pending = pendingDedupRef.current;
+      if (!pending) return;
+
+      if (choice === 'wait') {
+        // Subscribe to the shared promise — zero extra network calls.
+        // AbortController isolation: aborting this "waiter" does NOT abort
+        // the shared underlying request (other waiters remain unaffected).
+        pendingDedupRef.current = null;
+        setIsDuplicate(false);
+        setStatus('loading');
+
+        void pending.promise
+          .then((resp) => {
+            if (!mountedRef.current) return;
+            const hasErrors = (resp.errors?.length ?? 0) > 0;
+            const fs: ExecutionStatus = !hasErrors || resp.data !== null ? 'success' : 'error';
+            lastCompletedResponseRef.current = { status: fs, response: resp };
+            setStatus(fs);
+            setResponse(resp);
+          })
+          .catch(() => {
+            // Original was cancelled or errored — restore prior state
+            if (!mountedRef.current) return;
+            setStatus(lastCompletedResponseRef.current.status);
+            setResponse(lastCompletedResponseRef.current.response);
+          });
+        return;
+      }
+
+      if (choice === 'cancel') {
+        // Abort the original request; the replacement should be tracked as a new dedup entry
+        handleDedupGuard(pending.key, 'cancel');
+        const savedParams = pending.params;
+        pendingDedupRef.current = null;
+        setIsDuplicate(false);
+        // _skipDedupCheckOnly: skip detection (no duplicate in map now that original was removed)
+        // but still register the new request so future identical sends are dedup-detected.
+        execute({ ...savedParams, _skipDedupCheckOnly: true });
+        return;
+      }
+      // sendAnyway: run alongside the original — skip detection AND registration
+      const savedParams = pending.params;
+      pendingDedupRef.current = null;
+      setIsDuplicate(false);
+      execute({ ...savedParams, _skipDedupCheck: true });
+    },
+    [execute],
   );
 
   // BUG-GQL-R9-4 fix: abort any in-flight request when the component unmounts.
@@ -470,7 +747,12 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   useEffect(() => () => {
     mountedRef.current = false;
     abortCtrlRef.current?.abort();
+    // Clean up dedup registration on unmount
+    if (currentDedupKeyRef.current) {
+      removeInFlight(currentDedupKeyRef.current);
+      currentDedupKeyRef.current = null;
+    }
   }, []);
 
-  return { status, response, execute, cancel };
+  return { status, response, execute, cancel, isDuplicate, apqInfo, resolveDedupChoice };
 }

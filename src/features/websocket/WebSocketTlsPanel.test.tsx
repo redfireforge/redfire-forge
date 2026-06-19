@@ -138,4 +138,95 @@ describe('WebSocketTlsPanel', () => {
     expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).disabled).toBe(false);
     expect((screen.getByTestId('tls-client-key') as HTMLTextAreaElement).disabled).toBe(false);
   });
+
+  it('shows Configure label when not disabled and View when disabled', () => {
+    const { rerender } = render(<WebSocketTlsPanel {...defaultProps({ disabled: false })} />);
+    expect(screen.getByTestId('tls-toggle').textContent).toBe('Configure');
+
+    rerender(<WebSocketTlsPanel {...defaultProps({ disabled: true })} />);
+    expect(screen.getByTestId('tls-toggle').textContent).toBe('View');
+  });
+
+  it('shows mode badges for skip verify, custom CA, and mTLS', () => {
+    const { rerender } = render(
+      <WebSocketTlsPanel {...defaultProps({ tlsConfig: { rejectUnauthorized: false } })} />,
+    );
+    expect(screen.getByTestId('tls-indicator').textContent).toBe('Skip Verify');
+
+    rerender(<WebSocketTlsPanel {...defaultProps({ tlsConfig: { caCert: 'ca' } })} />);
+    expect(screen.getByTestId('tls-indicator').textContent).toBe('Custom CA');
+
+    rerender(
+      <WebSocketTlsPanel
+        {...defaultProps({ tlsConfig: { clientCert: 'cert', clientKey: 'key' } })}
+      />,
+    );
+    expect(screen.getByTestId('tls-indicator').textContent).toBe('mTLS');
+  });
+
+  it('shows hint when no TLS content is configured', () => {
+    render(<WebSocketTlsPanel {...defaultProps({ tlsConfig: { rejectUnauthorized: true } })} />);
+    expect(screen.getByText('No certificates configured')).toBeTruthy();
+  });
+
+  it('cancel reverts TLS changes when snapshot exists', () => {
+    const onChange = vi.fn();
+    render(
+      <WebSocketTlsPanel
+        {...defaultProps({
+          onTlsChange: onChange,
+          tlsConfig: { rejectUnauthorized: true, caCert: 'original-ca' },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+    fireEvent.change(screen.getByTestId('tls-ca-cert'), { target: { value: 'changed-ca' } });
+
+    fireEvent.click(screen.getByTestId('tls-cancel'));
+    expect(onChange).toHaveBeenLastCalledWith({ rejectUnauthorized: true, caCert: 'original-ca' });
+    expect(screen.queryByTestId('tls-body')).toBeNull();
+  });
+
+  it('save commits changes and disables save until next edit', () => {
+    const onChange = vi.fn();
+    render(<WebSocketTlsPanel {...defaultProps({ onTlsChange: onChange })} />);
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+
+    const saveBtn = screen.getByTestId('tls-save') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+
+    fireEvent.change(screen.getByTestId('tls-ca-cert'), { target: { value: 'new-ca' } });
+    expect(saveBtn.disabled).toBe(false);
+
+    fireEvent.click(saveBtn);
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('close button closes modal without reverting', () => {
+    render(<WebSocketTlsPanel {...defaultProps()} />);
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+    expect(screen.getByTestId('tls-body')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('tls-close'));
+    expect(screen.queryByTestId('tls-body')).toBeNull();
+  });
+
+  it('clears client cert and key when textarea is emptied', () => {
+    const onChange = vi.fn();
+    render(
+      <WebSocketTlsPanel
+        {...defaultProps({
+          onTlsChange: onChange,
+          tlsConfig: { clientCert: 'cert', clientKey: 'key' },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+
+    fireEvent.change(screen.getByTestId('tls-client-cert'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith({ clientCert: undefined });
+
+    fireEvent.change(screen.getByTestId('tls-client-key'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith({ clientKey: undefined });
+  });
 });

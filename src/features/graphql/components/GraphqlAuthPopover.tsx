@@ -19,7 +19,8 @@
  *   - BUG-1D-V5: Added aria-modal="true" to the dialog
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -183,20 +184,12 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose, anchorRef]);
 
-  // BUG-1D-V3 fix: stopPropagation prevents global Escape → cancel-execution from firing
-  // BUG-1D-R4-20 fix: restore focus to the trigger button when closed via keyboard
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        // Return focus to trigger before closing — per ARIA dialog close-on-Escape pattern
-        anchorRef?.current?.focus();
-        onClose();
-      }
-    }
-    document.addEventListener('keydown', handleKey, { capture: true });
-    return () => document.removeEventListener('keydown', handleKey, { capture: true });
+  const handleEscapeClose = useCallback(() => {
+    anchorRef?.current?.focus();
+    onClose();
   }, [onClose, anchorRef]);
+
+  useModalEscapeClose(handleEscapeClose, { capture: true });
 
   function handleTypeChange(type: SelectableAuthType) {
     if (type === AUTH_TYPE_NONE) {

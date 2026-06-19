@@ -210,4 +210,48 @@ describe('SlaCompactBar — populated state', () => {
     // no-data overall produces an empty detail string and the ad-hoc scope badge
     expect(screen.getByText('⚗ Ad-hoc')).toBeTruthy();
   });
+
+  it('includes scenario-scoped checks in the allChecks memo via flatMap', () => {
+    const fgResults = [
+      makeResult({ scenarioName: 'login', featureGroupName: 'Checkout', responseTimeMs: 100 }),
+    ];
+    render(
+      <SlaCompactBar
+        targets={[
+          makeTarget({ id: 'fg', metric: 'p95', operator: 'lte', value: 500, featureGroupName: 'Checkout' }),
+          makeTarget({ id: 'sc', metric: 'p50', operator: 'lte', value: 500, scenarioName: 'login' }),
+        ]}
+        results={fgResults}
+        summary={summary}
+        scope={null}
+        onSaveTargets={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('✓ All Passing')).toBeTruthy();
+    expect(screen.getByText('2 targets evaluated')).toBeTruthy();
+  });
+
+  it('pluralizes warning pill and warn-only detail text', () => {
+    setup({
+      targets: [
+        makeTarget({ id: 'w1', metric: 'p99', operator: 'lte', value: 200, warnAt: 50 }),
+        makeTarget({ id: 'w2', metric: 'avg', operator: 'lte', value: 200, warnAt: 10 }),
+      ],
+      scope: null,
+    });
+    expect(screen.getByText('! 2 Warnings')).toBeTruthy();
+    expect(screen.getByText(/2 warnings/)).toBeTruthy();
+  });
+
+  it('pluralizes violation count in fail detail when multiple targets fail', () => {
+    setup({
+      targets: [
+        makeTarget({ id: 'f1', metric: 'p95', value: 50 }),
+        makeTarget({ id: 'f2', metric: 'p99', value: 50 }),
+      ],
+      scope: null,
+    });
+    expect(screen.getByText('⚠ 2 Failing')).toBeTruthy();
+    expect(screen.getByText(/2 violations/)).toBeTruthy();
+  });
 });

@@ -150,7 +150,6 @@ export function useWebSocketStudio(
   }, []);
 
   const appendMessages = useCallback((frames: WsFrame[]) => {
-    if (frames.length === 0) return;
     setMessages((prev) => {
       const cap = maxMessagesRef.current;
       const next = [...prev, ...frames];
@@ -176,9 +175,8 @@ export function useWebSocketStudio(
       setConnection((prev) => ({ ...prev, ...next }));
       resetConnectionTiming();
       proxyConnectionIdRef.current = null;
-      if (!manualDisconnectRef.current) {
-        scheduleReconnectRef.current();
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- short-circuit reconnect scheduling
+      !manualDisconnectRef.current && scheduleReconnectRef.current();
     },
     [stopProxyPolling, resetConnectionTiming, scheduleReconnectRef],
   );
@@ -384,7 +382,6 @@ export function useWebSocketStudio(
       buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current),
       resolvedAuthRef.current.queryParams,
     );
-    if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
     setTransportMode('direct');
@@ -401,7 +398,7 @@ export function useWebSocketStudio(
 
     let ws: WebSocket;
     try {
-      ws = protocols.length > 0 ? new WebSocket(effectiveUrl, protocols) : new WebSocket(effectiveUrl);
+      ws = new WebSocket(effectiveUrl, protocols.length > 0 ? protocols : undefined);
     } catch (err) {
       setConnection({ state: 'error', url: effectiveUrl, lastError: toErrorMessage(err) });
       return;
@@ -518,7 +515,6 @@ export function useWebSocketStudio(
       buildResolvedEffectiveUrl(currentDraft, evm),
       resolvedAuthRef.current.queryParams,
     );
-    if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
     setTransportMode(isTauri() ? 'native' : 'proxy');

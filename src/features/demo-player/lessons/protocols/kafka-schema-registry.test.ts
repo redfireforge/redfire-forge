@@ -193,7 +193,53 @@ describe('kafka-schema-registry lesson', () => {
     const clearCall = fillCalls.find(c => c[1] === '');
     expect(clearCall).toBeTruthy();
   });
-});
 
-// ─── K8: kafka-stream-mode ──────────────────────────────────────
+  it('step sr-intro preAction clears selected class from subject table rows', async () => {
+    document.body.innerHTML = `
+      <table class="kafka-schema-subject-table">
+        <tbody><tr class="selected"></tr></tbody>
+      </table>`;
+    const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-intro')!;
+    await step.preAction!(makeCtx());
+    expect(document.querySelector('.kafka-schema-subject-table tr.selected')).toBeNull();
+  });
+
+  it('ensureSubjectSelected clicks first subject row when detail panel absent', async () => {
+    const table = document.createElement('table');
+    table.setAttribute('data-testid', 'subject-table');
+    const tbody = document.createElement('tbody');
+    const row = document.createElement('tr');
+    row.setAttribute('style', 'cursor:pointer');
+    const clickSpy = vi.fn();
+    row.addEventListener('click', clickSpy);
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+    document.body.appendChild(table);
+
+    const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-schema')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('ensureSubjectSelected returns early when detail panel already visible', async () => {
+    const detail = document.createElement('div');
+    detail.setAttribute('data-testid', 'schema-detail-panel');
+    document.body.appendChild(detail);
+
+    const table = document.createElement('table');
+    table.setAttribute('data-testid', 'subject-table');
+    const tbody = document.createElement('tbody');
+    const row = document.createElement('tr');
+    row.setAttribute('style', 'cursor:pointer');
+    const clickSpy = vi.fn();
+    row.addEventListener('click', clickSpy);
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+    document.body.appendChild(table);
+
+    const step = kafkaSchemaRegistryLesson.steps.find((s) => s.id === 'sr-schema')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+});
 

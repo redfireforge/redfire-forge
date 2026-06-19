@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { wsMockPool, type WebSocketMockService } from '../websocket/websocket-mock-service.js';
 import type { LogLine } from '../../src/shared/types/server-api';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 
 const VALID_FALLBACKS = new Set(['echo', 'ignore', 'close']);
 
@@ -66,7 +67,7 @@ export function createWebSocketMockRouter(options: CreateMockRouterOptions = {})
       });
       return json200(res, status);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = toErrorMessage(err);
       const code = msg.includes('EADDRINUSE') ? 'MOCK_PORT_IN_USE' : 'MOCK_START_FAILED';
       log(`Start failed: ${msg}`);
       return jsonError(res, 500, code, msg);

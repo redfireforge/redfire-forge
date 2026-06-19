@@ -16,7 +16,8 @@
  *   - No duplicate close buttons — only × in header
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
@@ -90,17 +91,12 @@ export function GraphqlProfileModal({
     });
   };
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        restoreFocusToTrigger();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handler, { capture: true });
-    return () => document.removeEventListener('keydown', handler, { capture: true });
+  const handleEscapeClose = useCallback(() => {
+    restoreFocusToTrigger();
+    onClose();
   }, [onClose]);
+
+  useModalEscapeClose(handleEscapeClose, { capture: true });
 
   // Click outside closes
   const handleOverlayClick = (e: React.MouseEvent) => {

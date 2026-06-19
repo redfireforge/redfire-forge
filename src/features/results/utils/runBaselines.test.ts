@@ -28,6 +28,7 @@ import {
   type BaselineMark,
 } from './runBaselines';
 import type { TestRun } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeSummary(overrides: Partial<TestRun['summary']> = {}): TestRun['summary'] {
   return {
@@ -65,20 +66,14 @@ function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {},
 }
 
 function makeResult(scenarioName: string, responseTimeMs: number, httpStatus = 200): TestRun['results'][0] {
-  return {
-    id: crypto.randomUUID(),
-    scenarioId: 's1',
+  return _makeResult({
     scenarioName,
     url: 'http://test.com',
-    method: 'GET',
     httpStatus,
     responseTimeMs,
     responseBody: '',
-    timestamp: Date.now(),
     passed: httpStatus < 400,
-    validationMode: 'none' as const,
-    failureDetails: [],
-  };
+  });
 }
 
 describe('Baseline CRUD', () => {

@@ -184,6 +184,18 @@ describe('TypeDetail — SDL tab', () => {
     // No copy button renders when sdlFragment is absent — just check no error
     expect(screen.queryByTestId('gql-se-copy-sdl-btn')).toBeNull();
   });
+
+  it('handles clipboard write failures gracefully', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+    render(<TypeDetail {...defaultProps} type={makeObjectType()} detailTab="sdl" />);
+    fireEvent.click(screen.getByTestId('gql-se-copy-sdl-btn'));
+    await vi.waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalled();
+    });
+    expect(screen.queryByLabelText('Copied to clipboard')).toBeNull();
+  });
 });
 
 describe('TypeDetail — ENUM type', () => {
@@ -280,5 +292,21 @@ describe('TypeDetail — empty type', () => {
     };
     render(<TypeDetail {...defaultProps} type={emptyType} />);
     expect(screen.getByText(/this type has no fields defined/i)).toBeTruthy();
+  });
+
+  it('shows Implemented by label for interface possible types', () => {
+    const iface: GraphqlTypeNode = {
+      name: 'Node',
+      kind: 'INTERFACE',
+      possibleTypes: ['User', 'Product'],
+    };
+    render(
+      <TypeDetail
+        {...defaultProps}
+        type={iface}
+        navigableTypes={new Set(['User', 'Product'])}
+      />,
+    );
+    expect(screen.getByText('Implemented by:')).toBeTruthy();
   });
 });

@@ -247,6 +247,23 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
             </span>
           </div>
         )}
+        {/* APQ metadata (3F-2) — shown when this response was sent via APQ */}
+        {response.apqHash && (
+          <div className="gql-rv-meta-row">
+            <span className="gql-rv-meta-label">APQ Hash</span>
+            <span className="gql-rv-meta-value gql-rv-meta-mono" data-testid="gql-rv-meta-apq-hash">
+              {response.apqHash.slice(0, 16)}…
+              {response.apqCacheHit != null && (
+                <span className={`gql-rv-meta-apq-badge${response.apqCacheHit ? ' gql-rv-meta-apq-badge--hit' : ' gql-rv-meta-apq-badge--miss'}`}>
+                  {response.apqCacheHit ? 'cache hit' : 'cache miss'}
+                </span>
+              )}
+              {response.apqUnsupported && (
+                <span className="gql-rv-meta-apq-badge gql-rv-meta-apq-badge--unsupported">unsupported</span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* GraphQL error detail cards */}

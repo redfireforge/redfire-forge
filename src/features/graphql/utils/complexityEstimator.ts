@@ -191,6 +191,18 @@ function depthMultiplier(cost: number, depth: number, maxDepth: number): number 
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/** Per-field cost entry shown in the complexity gate modal breakdown table. */
+export interface FieldCostEntry {
+  /** Field name as it appears in the query (e.g. "users", "orders") */
+  fieldName: string;
+  /** Parent type name (e.g. "Query", "User") */
+  typeName: string;
+  /** Estimated cost contribution of this field and its subtree */
+  cost: number;
+  /** True if this field is a list type (contributing to high cost via multiplier) */
+  isList: boolean;
+}
+
 export interface ComplexityResult {
   /** Estimated cost score (integer ≥ 0). */
   score: number;
@@ -200,6 +212,8 @@ export interface ComplexityResult {
   shouldBlock: boolean;
   /** The configured threshold used for level computation. */
   threshold: number;
+  /** Top-level field cost breakdown — populated when score > 0. */
+  fieldBreakdown: FieldCostEntry[];
 }
 
 /**
@@ -220,7 +234,7 @@ export function computeQueryComplexity(
   const listMul     = options?.listMultiplier  ?? DEFAULT_LIST_MULTIPLIER;
   const maxDepth    = options?.maxDepth        ?? DEFAULT_MAX_DEPTH;
 
-  const noResult: ComplexityResult = { score: 0, level: 'ok', shouldBlock: false, threshold };
+  const noResult: ComplexityResult = { score: 0, level: 'ok', shouldBlock: false, threshold, fieldBreakdown: [] };
 
   if (!schemaInfo?.types?.length || !query.trim()) return noResult;
 
@@ -242,6 +256,7 @@ export function computeQueryComplexity(
   const mType  = schemaInfo.mutationType ?? 'Mutation';
 
   let totalScore = 0;
+  const fieldBreakdown: FieldCostEntry[] = [];
 
   for (const def of doc.definitions) {
     if (def.kind !== Kind.OPERATION_DEFINITION) continue;
@@ -252,17 +267,37 @@ export function computeQueryComplexity(
       def.operation === 'subscription' ? (schemaInfo.subscriptionType ?? 'Subscription') :
       qType;
 
-    totalScore += scoreSelectionSet(
-      def.selectionSet,
-      rootTypeName,
-      types,
-      fragments,
-      0,
-      maxDepth,
-      listMul,
-      new Set<string>([rootTypeName]),
-    );
+    const rootType = findType(rootTypeName, types);
+    const visited = new Set<string>([rootTypeName]);
+
+    // Collect per-top-level-field costs for the breakdown table
+    for (const selection of def.selectionSet.selections) {
+      if (selection.kind === Kind.FIELD) {
+        const fieldCost = scoreField(selection, rootType, types, fragments, 0, maxDepth, listMul, visited);
+        const fieldDef = rootType?.fields?.find((f) => f.name === selection.name.value);
+        const typeStr = fieldDef?.type ?? '';
+        fieldBreakdown.push({
+          fieldName: selection.name.value,
+          typeName: rootTypeName,
+          cost: Math.round(fieldCost),
+          isList: isListType(typeStr),
+        });
+        totalScore += fieldCost;
+      } else {
+        // Inline fragments and fragment spreads — score without breakdown
+        let fragmentCost = 0;
+        if (selection.kind === Kind.INLINE_FRAGMENT) {
+          fragmentCost = scoreInlineFragment(selection, rootTypeName, types, fragments, 0, maxDepth, listMul, visited);
+        } else if (selection.kind === Kind.FRAGMENT_SPREAD) {
+          fragmentCost = scoreFragmentSpread(selection, types, fragments, 0, maxDepth, listMul, visited);
+        }
+        totalScore += fragmentCost;
+      }
+    }
   }
+
+  // Sort breakdown by cost descending so the most expensive fields appear first
+  fieldBreakdown.sort((a, b) => b.cost - a.cost);
 
   const score = Math.round(totalScore);
   const level: ComplexityResult['level'] =
@@ -275,5 +310,6 @@ export function computeQueryComplexity(
     level,
     shouldBlock: score > threshold * 2,
     threshold,
+    fieldBreakdown,
   };
 }

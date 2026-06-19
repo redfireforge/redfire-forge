@@ -10,30 +10,20 @@ import { act, renderHook } from '@testing-library/react';
 import { buildGroups, type GroupByLevel } from '../../test-runner/utils/resultsGrouping';
 import { useResultsGrouping } from './useResultsGrouping';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
-/**
- * Since the hook wraps buildGroups + useMemo/useState, we test the core grouping
- * logic directly to avoid OOM issues with heavy jsdom + renderHook import chains.
- */
-
-function makeResult(overrides?: Partial<RequestResult>): RequestResult {
-  return {
+const makeResult = (overrides?: Partial<RequestResult>): RequestResult =>
+  _makeResult({
     id: 'r-1',
     scenarioName: 'Login',
     url: '/api/login',
     method: 'POST',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    passed: true,
     errorMessage: '',
-    failureDetails: [],
     responseBody: '',
-    validationMode: 'none',
     featureGroupName: 'Auth',
     groupName: 'Login Group',
     ...overrides,
-  } as RequestResult;
-}
+  }) as RequestResult;
 
 describe('useResultsGrouping — grouping logic', () => {
   it('builds feature groups from results', () => {

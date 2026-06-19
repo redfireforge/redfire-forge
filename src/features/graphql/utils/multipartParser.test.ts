@@ -66,6 +66,12 @@ describe('applyPatch', () => {
     expect(base.b.c).toBe(2); // original unchanged
     expect((result as typeof base).b.c).toBe(99);
   });
+
+  it('returns base unchanged when path key is neither string nor number', () => {
+    const base = { a: 1 };
+    const result = applyPatch(base, [true as unknown as string], 'x');
+    expect(result).toEqual(base);
+  });
 });
 
 // ─── parseMultipartMixed ──────────────────────────────────────────────────────

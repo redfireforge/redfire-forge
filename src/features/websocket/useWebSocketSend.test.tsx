@@ -262,8 +262,10 @@ describe('useWebSocketSend', () => {
       renderCompose({ effectiveProtocol: 'graphql-ws' });
       expect(screen.getByTestId('gql-compose-fields')).toBeInTheDocument();
       expect(screen.getByTestId('gql-operation-name')).toBeInTheDocument();
-      expect(screen.getByTestId('gql-variables')).toBeInTheDocument();
       expect(screen.getByTestId('gql-op-id')).toHaveTextContent('#1');
+      // Variables editor is in the Variables tab — click to show it
+      fireEvent.click(screen.getByRole('tab', { name: /variables/i }));
+      expect(screen.getByTestId('gql-variables')).toBeInTheDocument();
     });
 
     it('shows GraphQL badge', () => {
@@ -309,7 +311,7 @@ describe('useWebSocketSend', () => {
     it('shows empty state when no templates', () => {
       renderCompose({ templates: [] });
       fireEvent.click(screen.getByTestId('template-trigger'));
-      expect(screen.getByTestId('template-empty')).toHaveTextContent('No templates yet');
+      expect(screen.getByTestId('template-empty')).toHaveTextContent('No saved templates');
     });
 
     it('lists templates and loads on click', () => {
@@ -360,4 +362,169 @@ describe('useWebSocketSend', () => {
       expect(onPing).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('compose utilities', () => {
+    it('clears compose text via clear button', () => {
+      renderCompose();
+      const input = screen.getByLabelText('Message input');
+      fireEvent.change(input, { target: { value: 'draft text' } });
+      fireEvent.click(screen.getByTestId('compose-clear-btn'));
+      expect(input).toHaveValue('');
+    });
+
+    it('shows line and character count when text is present', () => {
+      const { container } = renderCompose();
+      const input = screen.getByLabelText('Message input');
+      fireEvent.change(input, { target: { value: 'ab\ncd' } });
+      const counter = container.querySelector('.ws-compose-char-count');
+      expect(counter?.textContent).toBe('2L · 5c');
+    });
+  });
+
+  describe('Socket.IO extended', () => {
+    it('sends plain-text payload when JSON parse fails', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'socket-io', onSend });
+      fireEvent.change(screen.getByTestId('sio-event-name'), { target: { value: 'chat' } });
+      fireEvent.change(screen.getByTestId('sio-namespace'), { target: { value: '/admin' } });
+      fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'not-json' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(onSend).toHaveBeenCalledTimes(1);
+      expect(onSend.mock.calls[0][0]).toContain('chat');
+    });
+  });
+
+  describe('STOMP extended', () => {
+    it('sends CONNECT with login and passcode', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'stomp', onSend });
+      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'CONNECT' } });
+      fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'localhost' } });
+      fireEvent.change(screen.getByTestId('stomp-login'), { target: { value: 'guest' } });
+      fireEvent.change(screen.getByTestId('stomp-passcode'), { target: { value: 'secret' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      const encoded = onSend.mock.calls[0][0] as string;
+      expect(encoded).toContain('CONNECT');
+      expect(encoded).toContain('login');
+      expect(encoded).toContain('passcode');
+    });
+
+    it('sends SUBSCRIBE frame with destination', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'stomp', onSend });
+      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'SUBSCRIBE' } });
+      fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: '/topic/news' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(onSend.mock.calls[0][0]).toContain('SUBSCRIBE');
+    });
+
+    it('sends UNSUBSCRIBE with subscription id', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'stomp', onSend });
+      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'UNSUBSCRIBE' } });
+      fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'sub-0' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(onSend.mock.calls[0][0]).toContain('UNSUBSCRIBE');
+    });
+
+    it('sends ACK with message id', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'stomp', onSend });
+      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'ACK' } });
+      fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-42' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(onSend.mock.calls[0][0]).toContain('ACK');
+    });
+
+    it('sends NACK with message id', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'stomp', onSend });
+      fireEvent.change(screen.getByTestId('stomp-command'), { target: { value: 'NACK' } });
+      fireEvent.change(screen.getByTestId('stomp-destination'), { target: { value: 'msg-99' } });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      expect(onSend.mock.calls[0][0]).toContain('NACK');
+    });
+  });
+
+  describe('GraphQL extended', () => {
+    it('sends subscription with variables and operation name', () => {
+      const onSend = vi.fn();
+      renderCompose({ effectiveProtocol: 'graphql-ws', onSend });
+      fireEvent.change(screen.getByTestId('gql-operation-name'), { target: { value: 'OnMsg' } });
+      // Switch to Variables tab to fill variables, then back to Query to send
+      fireEvent.click(screen.getByRole('tab', { name: /variables/i }));
+      fireEvent.change(screen.getByTestId('gql-variables'), { target: { value: '{"id":"1"}' } });
+      fireEvent.click(screen.getByRole('tab', { name: /query/i }));
+      fireEvent.change(screen.getByLabelText('Message input'), {
+        target: { value: 'subscription { onMsg { id } }' },
+      });
+      fireEvent.click(screen.getByTestId('send-btn'));
+      const payload = JSON.parse(onSend.mock.calls[0][0] as string);
+      expect(payload.payload.variables).toEqual({ id: '1' });
+      expect(payload.payload.operationName).toBe('OnMsg');
+      // Valid JSON indicator visible in Variables tab label
+      expect(screen.getByLabelText('Valid JSON')).toBeInTheDocument();
+    });
+
+    it('shows invalid JSON indicator for bad variables', () => {
+      renderCompose({ effectiveProtocol: 'graphql-ws' });
+      fireEvent.click(screen.getByRole('tab', { name: /variables/i }));
+      fireEvent.change(screen.getByTestId('gql-variables'), { target: { value: '{bad' } });
+      expect(screen.getByLabelText('Invalid JSON')).toBeInTheDocument();
+    });
+  });
+
+  describe('template modal', () => {
+    it('closes on Escape key', () => {
+      renderCompose();
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      expect(screen.getByTestId('template-dropdown')).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByTestId('template-dropdown')).not.toBeInTheDocument();
+    });
+
+    it('closes when clicking the overlay backdrop', () => {
+      renderCompose();
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      fireEvent.click(screen.getByTestId('template-dropdown'));
+      expect(screen.queryByTestId('template-dropdown')).not.toBeInTheDocument();
+    });
+
+    it('closes via the header close button', () => {
+      renderCompose();
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      fireEvent.click(screen.getByLabelText('Close'));
+      expect(screen.queryByTestId('template-dropdown')).not.toBeInTheDocument();
+    });
+
+    it('does not load template when onLoadTemplate returns null', () => {
+      const tpl = { id: 't1', name: 'Ghost', body: 'x', format: 'text' as const };
+      const onLoadTemplate = vi.fn().mockReturnValue(null);
+      renderCompose({ templates: [tpl], onLoadTemplate });
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      fireEvent.click(screen.getByText('Ghost'));
+      expect(onLoadTemplate).toHaveBeenCalledWith('t1');
+      expect(screen.getByLabelText('Message input')).toHaveValue('');
+    });
+
+    it('truncates long template preview in the list', () => {
+      const longBody = 'x'.repeat(150);
+      const tpl = { id: 'long', name: 'Long', body: longBody, format: 'text' as const };
+      renderCompose({ templates: [tpl] });
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      expect(screen.getByText(`${'x'.repeat(120)}…`)).toBeInTheDocument();
+    });
+
+    it('saves template when Enter is pressed in name field', async () => {
+      const onSaveTemplate = vi.fn().mockResolvedValue(undefined);
+      renderCompose({ onSaveTemplate });
+      fireEvent.change(screen.getByLabelText('Message input'), { target: { value: 'payload' } });
+      fireEvent.click(screen.getByTestId('template-trigger'));
+      const nameInput = screen.getByTestId('template-save-name');
+      fireEvent.change(nameInput, { target: { value: 'Enter Save' } });
+      fireEvent.keyDown(nameInput, { key: 'Enter' });
+      expect(onSaveTemplate).toHaveBeenCalledWith('Enter Save', 'payload', 'text');
+    });
+  });
 });
+

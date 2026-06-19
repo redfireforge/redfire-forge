@@ -15,6 +15,7 @@
  */
 
 import { useRef, useState } from 'react';
+import type React from 'react';
 import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { useGqlPollingPopover } from '../hooks/useGqlPollingPopover';
@@ -72,6 +73,17 @@ interface GraphqlConnectionBarProps {
   onSubscriptionTransportChange?: (t: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse') => void;
   complexityScore?: number;
   complexityLevel?: 'ok' | 'warn' | 'danger';
+  // Phase 3F
+  advancedSettingsOpen?: boolean;
+  onAdvancedSettingsClick?: () => void;
+  advSettingsBtnRef?: React.RefObject<HTMLButtonElement | null>;
+  batchEnabled?: boolean;
+  batchedTabCount?: number;
+  batchExecuting?: boolean;
+  onSendBatch?: () => void;
+  apqCacheHit?: boolean;
+  apqHash?: string;
+  apqUnsupported?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -118,6 +130,16 @@ export function GraphqlConnectionBar({
   onSubscriptionTransportChange,
   complexityScore,
   complexityLevel = 'ok',
+  advancedSettingsOpen = false,
+  onAdvancedSettingsClick,
+  advSettingsBtnRef,
+  batchEnabled = false,
+  batchedTabCount = 0,
+  batchExecuting = false,
+  onSendBatch,
+  apqCacheHit,
+  apqHash,
+  apqUnsupported = false,
 }: GraphqlConnectionBarProps) {
   const noEndpoint = !endpoint.trim();
 
@@ -634,6 +656,52 @@ export function GraphqlConnectionBar({
             />
           )}
         </div>
+      )}
+
+      {/* Phase 3F: APQ cache-hit/miss badge */}
+      {apqHash && (
+        <span
+          className={`gql-apq-badge${apqCacheHit ? ' gql-apq-badge--hit' : apqUnsupported ? ' gql-apq-badge--unsupported' : ' gql-apq-badge--miss'}`}
+          title={apqUnsupported ? `APQ not supported by server (hash: ${apqHash})` : `APQ hash: ${apqHash}`}
+          aria-label={apqCacheHit ? `APQ cache hit: ${apqHash.slice(0, 16)}…` : apqUnsupported ? 'APQ unsupported by server' : `APQ cache miss: ${apqHash.slice(0, 16)}…`}
+        >
+          {apqCacheHit ? `APQ hit: ${apqHash.slice(0, 16)}…` : apqUnsupported ? 'APQ unsupported' : `APQ miss: ${apqHash.slice(0, 16)}…`}
+        </span>
+      )}
+
+      {/* Phase 3F: Send Batch button */}
+      {batchEnabled && batchedTabCount >= 2 && (
+        <button
+          type="button"
+          className="gql-btn gql-btn--batch"
+          disabled={batchExecuting || noEndpoint}
+          onClick={onSendBatch}
+          data-testid="gql-send-batch-btn"
+          aria-label={`Send batch of ${batchedTabCount} operations`}
+          title={`Send ${batchedTabCount} operations in one batch request`}
+        >
+          {batchExecuting ? 'Batching…' : `Send Batch (${batchedTabCount})`}
+        </button>
+      )}
+
+      {/* Phase 3F: Advanced settings gear button */}
+      {onAdvancedSettingsClick && (
+        <button
+          ref={advSettingsBtnRef ?? undefined}
+          type="button"
+          className={`gql-adv-settings-btn${advancedSettingsOpen ? ' gql-adv-settings-btn--active' : ''}`}
+          onClick={onAdvancedSettingsClick}
+          aria-label="Advanced query settings (APQ, batch, dedup, complexity gate)"
+          aria-expanded={advancedSettingsOpen}
+          aria-haspopup="dialog"
+          data-testid="gql-adv-settings-btn"
+          title="Advanced settings"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
       )}
     </div>
   );

@@ -137,6 +137,51 @@ describe('handleSubscribe', () => {
     const call = (subscription.subscribe as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
     expect(call.variables).toEqual({});
   });
+
+  it('uses empty object when variables resolve to "{}" (branch: t !== "{}")', () => {
+    const { result, subscription } = renderOrchestration({
+      activeTab: makeTab({ variables: '{}' }),
+    });
+    act(() => result.current.handleSubscribe());
+    const call = (subscription.subscribe as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    expect(call.variables).toEqual({});
+  });
+
+  it('uses empty object when variables resolve to an array (not a plain object)', () => {
+    const { result, subscription } = renderOrchestration({
+      activeTab: makeTab({ variables: '[1, 2, 3]' }),
+    });
+    act(() => result.current.handleSubscribe());
+    const call = (subscription.subscribe as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    expect(call.variables).toEqual({});
+  });
+
+  it('resolves custom headers by iterating activeTabHeaders (covers loop body L56)', () => {
+    const subMock = makeSub();
+    const { result: r } = renderHook(() =>
+      useSubscriptionOrchestration({
+        activeTab: makeTab(),
+        endpoint: 'http://localhost:4000/graphql',
+        auth: null,
+        activeEnvironment: null,
+        activeTabHeaders: { 'X-Custom': 'val' },
+        selectedOperation: undefined,
+        skipTlsVerify: false,
+        subscription: subMock,
+      }),
+    );
+    act(() => r.current.handleSubscribe());
+    const call = (subMock.subscribe as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    expect((call.headers as Record<string, string>)['X-Custom']).toBe('val');
+  });
+
+  it('does nothing when endpoint contains unresolved env vars', () => {
+    const { result, subscription } = renderOrchestration({
+      endpoint: 'http://{{HOST}}/graphql',
+    });
+    act(() => result.current.handleSubscribe());
+    expect(subscription.subscribe).not.toHaveBeenCalled();
+  });
 });
 
 // ─── handleStopSubscription ───────────────────────────────────────────────────
@@ -205,6 +250,74 @@ describe('handleExportSubscription', () => {
     act(() => result.current.handleExportSubscription());
     // Should not contain $ or other special chars
     expect(capturedFilename).toMatch(/^graphql-subscription-[a-z0-9_-]+-\d+\.json$/);
+  });
+
+  it('uses "Subscription" when operationType is not subscription (branch L88)', () => {
+    const { result } = renderOrchestration({
+      activeTab: makeTab({ operationType: 'query' }),
+      sub: { transport: null },
+    });
+    let capturedFilename = '';
+    const mockAnchor = {
+      href: '',
+      click: vi.fn(),
+      get download() { return capturedFilename; },
+      set download(v: string) { capturedFilename = v; },
+    } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(mockAnchor as unknown as HTMLElement);
+    act(() => result.current.handleExportSubscription());
+    expect(capturedFilename).toContain('subscription');
+  });
+
+  it('uses "Subscription" when selectedOperation is undefined (branch L89 ?? fallback)', () => {
+    const { result } = renderHook(() =>
+      useSubscriptionOrchestration({
+        activeTab: makeTab(),
+        endpoint: 'http://localhost:4000/graphql',
+        auth: null,
+        activeEnvironment: null,
+        activeTabHeaders: {},
+        selectedOperation: undefined,
+        skipTlsVerify: false,
+        subscription: makeSub({ transport: null }),
+      }),
+    );
+    let capturedFilename = '';
+    const mockAnchor = {
+      href: '',
+      click: vi.fn(),
+      get download() { return capturedFilename; },
+      set download(v: string) { capturedFilename = v; },
+    } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(mockAnchor as unknown as HTMLElement);
+    act(() => result.current.handleExportSubscription());
+    // operationName falls back to 'Subscription' when selectedOperation is undefined
+    expect(capturedFilename).toContain('graphql-subscription-subscription');
+  });
+
+  it('uses safeName fallback "export" when name sanitizes to empty (branch L116)', () => {
+    const { result } = renderHook(() =>
+      useSubscriptionOrchestration({
+        activeTab: makeTab(),
+        endpoint: 'http://localhost:4000/graphql',
+        auth: null,
+        activeEnvironment: null,
+        activeTabHeaders: {},
+        selectedOperation: '!!!',
+        skipTlsVerify: false,
+        subscription: makeSub({ transport: null }),
+      }),
+    );
+    let capturedFilename = '';
+    const mockAnchor = {
+      href: '',
+      click: vi.fn(),
+      get download() { return capturedFilename; },
+      set download(v: string) { capturedFilename = v; },
+    } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(mockAnchor as unknown as HTMLElement);
+    act(() => result.current.handleExportSubscription());
+    expect(capturedFilename).toContain('graphql-subscription-export-');
   });
 
   it('revokes the object URL after a delay', () => {

@@ -91,6 +91,19 @@ describe('wsSchemaInference', () => {
       expect(schema.properties.created.format).toBe('date-time');
     });
 
+    it('detects date and uri string formats', () => {
+      const frames = [makeFrame('{"born":"2024-01-01","link":"https://example.com"}', 'received')];
+      const result = inferSchemaFromMessages(frames, 'received');
+      const schema = JSON.parse(result!);
+      expect(schema.properties.born.format).toBe('date');
+      expect(schema.properties.link.format).toBe('uri');
+    });
+
+    it('returns null schema when no json messages match direction', () => {
+      const frames = [makeFrame('plain text', 'sent')];
+      expect(inferSchemaFromMessages(frames, 'received')).toBeNull();
+    });
+
     it('handles nested objects', () => {
       const frames = [makeFrame('{"user": {"name": "Alice", "role": "admin"}}', 'received')];
       const result = inferSchemaFromMessages(frames, 'received');

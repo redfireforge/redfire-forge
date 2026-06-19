@@ -59,6 +59,14 @@ describe('SharedDataSourceTableEditor', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('defaults missing columns and rows arrays on a partial data source', () => {
+    render(<SharedDataSourceTableEditor
+      dataSource={{ id: 'ds-partial', source: { type: 'inline' } } as DataSource}
+      onChange={vi.fn()}
+    />);
+    expect(screen.getByText('No rows yet')).toBeInTheDocument();
+  });
+
   it('renders empty state and adds first row', () => {
     const onChange = vi.fn();
     render(<SharedDataSourceTableEditor dataSource={makeDs({ rows: [] })} onChange={onChange} />);
@@ -266,5 +274,120 @@ describe('SharedDataSourceTableEditor', () => {
     const dropEvt = { ...makeDragEvent(), dataTransfer: { ...makeDragEvent().dataTransfer, getData: vi.fn(() => 'unknown') } };
     fireEvent.drop(headers[1], dropEvt as never);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('reorders column forward when dragging left column onto a later target', () => {
+    const cols: DataSourceColumn[] = [
+      { id: 'c1', name: 'A', type: 'path', mapping: 'a' },
+      { id: 'c2', name: 'B', type: 'param', mapping: 'b' },
+      { id: 'c3', name: 'C', type: 'body', mapping: 'c' },
+    ];
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs({ columns: cols, rows: [{ id: 'r1', values: { c1: '1', c2: '2', c3: '3' }, enabled: true }] })} onChange={onChange} />);
+    const handles = screen.getAllByLabelText('Drag to reorder column');
+    fireEvent.dragStart(handles[0], makeDragEvent() as never);
+    const headers = document.querySelectorAll('.shared-ds-table-header');
+    fireEvent.drop(headers[2], makeDragEvent() as never);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ columns: [cols[1], cols[0], cols[2]] }));
+  });
+
+  it('does not call onChange when move row up is clicked on the first row', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
+    fireEvent.click(screen.getAllByTitle('Move up')[0]);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not call onChange when move row down is clicked on the last row', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
+    fireEvent.click(screen.getAllByTitle('Move down')[1]);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('ignores drag-over when already hovering the same column', () => {
+    render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={vi.fn()} />);
+    const handles = screen.getAllByLabelText('Drag to reorder column');
+    const headers = document.querySelectorAll('.shared-ds-table-header');
+    fireEvent.dragStart(handles[0], makeDragEvent() as never);
+    fireEvent.dragOver(headers[1], makeDragEvent() as never);
+    fireEvent.dragOver(headers[1], makeDragEvent() as never);
+    expect(document.querySelector('.shared-ds-table-header-drop')).toBeInTheDocument();
+  });
+
+  it('syncs mapping when column had an empty mapping', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs({
+      columns: [{ id: 'c1', name: 'VIN', type: 'path', mapping: '' }],
+      rows: [{ id: 'r1', values: { c1: 'x' }, enabled: true }],
+    })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('VIN'), { target: { value: 'VID' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      columns: [expect.objectContaining({ name: 'VID', mapping: 'VID' })],
+    }));
+  });
+
+  it('leaves sibling columns unchanged when renaming one of three columns', () => {
+    const cols: DataSourceColumn[] = [
+      { id: 'c1', name: 'A', type: 'path', mapping: 'a' },
+      { id: 'c2', name: 'B', type: 'param', mapping: 'custom-b' },
+      { id: 'c3', name: 'C', type: 'body', mapping: 'c' },
+    ];
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs({
+      columns: cols,
+      rows: [{ id: 'r1', values: { c1: '1', c2: '2', c3: '3' }, enabled: true }],
+    })} onChange={onChange} />);
+    fireEvent.change(screen.getAllByDisplayValue('B')[0], { target: { value: 'Beta' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      columns: [
+        cols[0],
+        expect.objectContaining({ name: 'Beta', mapping: 'custom-b' }),
+        cols[2],
+      ],
+    }));
+  });
+
+  it('renames a column that has an undefined name', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs({
+      columns: [{ id: 'c1', name: undefined as unknown as string, type: 'path', mapping: '' }],
+      rows: [{ id: 'r1', values: { c1: 'x' }, enabled: true }],
+    })} onChange={onChange} />);
+    const input = document.querySelector('.shared-ds-col-name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Named' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      columns: [expect.objectContaining({ name: 'Named', mapping: 'Named' })],
+    }));
+  });
+
+  it('handleCellBlur is a no-op when no cell is being edited', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
+    fireEvent.blur(document.body);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('skips cell commit when the edited row no longer exists', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
+    fireEvent.doubleClick(screen.getByText('AAA'));
+    const input = screen.getByDisplayValue('AAA');
+    rerender(<SharedDataSourceTableEditor dataSource={makeDs({ rows: [ROWS[1]] })} onChange={onChange} />);
+    fireEvent.change(input, { target: { value: 'ZZZ' } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('uses dataTransfer column id when dropping without dragStart state', () => {
+    const onChange = vi.fn();
+    render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
+    const headers = document.querySelectorAll('.shared-ds-table-header');
+    const dropEvt = {
+      ...makeDragEvent(),
+      dataTransfer: { ...makeDragEvent().dataTransfer, getData: vi.fn(() => 'c2') },
+    };
+    fireEvent.drop(headers[0], dropEvt as never);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ columns: [COLS[1], COLS[0]] }));
   });
 });

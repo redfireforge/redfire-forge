@@ -22,6 +22,7 @@ export default function DemoHub({ hub }: DemoHubProps) {
         domain={state.selectedDomain}
         lesson={state.selectedLesson}
         onBack={hub.goBack}
+        onBackToDomains={hub.goToDomains}
       />
       <div className="demo-hub-body">
         {state.view === 'domains' && (

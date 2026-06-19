@@ -138,3 +138,21 @@ describe('GraphqlTracingView', () => {
     expect(screen.getByText('→ User')).toBeInTheDocument();
   });
 });
+
+  // ─── totalDuration = 0 edge case (lines 55-56 in ResolverRow) ───────────────
+
+  it('renders ResolverRow with zero totalDuration (fallback leftPct=0, widthPct=0.3)', () => {
+    const tracing = makeTracing({ duration: 0 });
+    render(<GraphqlTracingView tracing={tracing} />);
+    // With duration=0, ResolverRow falls back to leftPct=0 and widthPct=0.3
+    const rows = screen.getAllByTestId('gql-trace-resolver-row');
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  // ─── null/undefined resolvers (lines 104, 122 — `?? []` false branch) ───────
+
+  it('shows empty state when execution.resolvers is undefined', () => {
+    const tracing = { ...makeTracing(), execution: { resolvers: undefined as unknown as [] } };
+    render(<GraphqlTracingView tracing={tracing} />);
+    expect(screen.getByTestId('gql-trace-empty')).toBeInTheDocument();
+  });

@@ -184,4 +184,39 @@ describe('useSharedDataSourceHandlers', () => {
     });
     expect(hook.result.current.currentEditingDraft).toBeUndefined();
   });
+
+  it('promotes with fetchConfig headers omitted', () => {
+    const setSharedDataSources = vi.fn();
+    const { hook } = setup({ setSharedDataSources });
+    act(() => {
+      hook.result.current.handlePromoteToShared(
+        { rows: [] } as unknown as DataSource,
+        'NoHeaders',
+        [],
+        { url: '/z', method: 'GET', headers: undefined as unknown as [] },
+      );
+    });
+    const updater = setSharedDataSources.mock.calls[0][0] as (prev: SharedDataSource[]) => SharedDataSource[];
+    expect(updater([])[0].fetchConfig?.headers).toEqual([]);
+  });
+
+  it('only adds test to matching feature group and scenario', () => {
+    const setFeatureGroups = vi.fn();
+    const { hook } = setup({
+      setFeatureGroups,
+      featureGroups: [
+        makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'A', tests: [] }] }),
+        makeFg({ id: 'fg-2', scenarios: [{ id: 'sc-2', name: 'B', tests: [] }] }),
+      ],
+    });
+    const sharedDs = { id: 'sds-3', name: 'Shared' } as unknown as SharedDataSource;
+    act(() => hook.result.current.handleCreateTestFromSharedDs(sharedDs, 'fg-2', 'sc-2', 'Targeted'));
+    const updater = setFeatureGroups.mock.calls[0][0] as (prev: FeatureGroup[]) => FeatureGroup[];
+    const next = updater([
+      makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'A', tests: [] }] }),
+      makeFg({ id: 'fg-2', scenarios: [{ id: 'sc-2', name: 'B', tests: [] }] }),
+    ]);
+    expect(next[0].scenarios[0].tests).toHaveLength(0);
+    expect(next[1].scenarios[0].tests).toHaveLength(1);
+  });
 });

@@ -83,10 +83,6 @@ export function useWebSocketMetrics(
 
   useEffect(() => {
     if (connectionState !== 'connected') {
-      if (timerRef.current !== null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
       if (connectionState === 'disconnected' || connectionState === 'error') {
         historyRef.current = [];
         accSentRef.current = 0;
@@ -105,13 +101,16 @@ export function useWebSocketMetrics(
       }
       return;
     }
-    if (timerRef.current === null) {
-      accSentRef.current = 0;
-      accReceivedRef.current = 0;
-      accBytesInRef.current = 0;
-      accBytesOutRef.current = 0;
-      timerRef.current = setInterval(sample, SAMPLE_INTERVAL_MS);
+
+    accSentRef.current = 0;
+    accReceivedRef.current = 0;
+    accBytesInRef.current = 0;
+    accBytesOutRef.current = 0;
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
     }
+    timerRef.current = setInterval(sample, SAMPLE_INTERVAL_MS);
+
     return () => {
       if (timerRef.current !== null) {
         clearInterval(timerRef.current);
@@ -140,11 +139,6 @@ export function useWebSocketMetrics(
     } else {
       const foundIdx = messages.findIndex((m) => m.id === lastProcessedIdRef.current);
       startIdx = foundIdx >= 0 ? foundIdx + 1 : 0;
-    }
-
-    if (startIdx >= len) {
-      lastProcessedIdRef.current = currentLastId;
-      return;
     }
 
     let newSent = 0;

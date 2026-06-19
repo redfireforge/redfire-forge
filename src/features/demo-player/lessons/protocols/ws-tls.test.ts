@@ -72,15 +72,49 @@ describe('ws-tls lesson', () => {
 
   // ─── Step: tls-intro ──────────────────────────────────────
 
-  it('step tls-intro highlights URL input', () => {
+  it('step tls-intro highlights TLS toggle', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
-    expect(step.highlight).toContain('WebSocket URL');
+    expect(step.highlight).toContain('tls-toggle');
   });
 
-  it('step tls-intro action fills wss:// URL', async () => {
+  it('step tls-intro preAction switches to Connect tab and pre-fills wss URL when empty', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      expect.stringContaining('wss://'),
+    );
+  });
+
+  it('step tls-intro preAction skips URL fill when wss:// already set', async () => {
+    const urlInput = document.createElement('input');
+    urlInput.setAttribute('aria-label', 'WebSocket URL');
+    urlInput.value = 'wss://echo.websocket.org';
+    document.body.appendChild(urlInput);
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it('step tls-intro preAction closes TLS modal when close button is present', async () => {
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'tls-close');
+    const clickSpy = vi.fn();
+    closeBtn.addEventListener('click', clickSpy);
+    document.body.appendChild(closeBtn);
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step tls-intro action clears then fills wss:// URL', async () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-intro')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('WebSocket URL'), '');
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('WebSocket URL'),
       expect.stringContaining('wss://'),
@@ -166,6 +200,18 @@ describe('ws-tls lesson', () => {
       expect.stringContaining('WebSocket URL'),
       expect.stringContaining('wss://'),
     );
+  });
+
+  it('step tls-connect preAction closes TLS modal when close button is present', async () => {
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'tls-close');
+    const clickSpy = vi.fn();
+    closeBtn.addEventListener('click', clickSpy);
+    document.body.appendChild(closeBtn);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-connect')!;
+    await step.preAction!(makeCtx());
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('step tls-connect preAction clicks disconnect btn if present', async () => {
@@ -357,6 +403,11 @@ describe('ws-tls lesson', () => {
     expect(caCert.focus).toHaveBeenCalled();
   });
 
+  it('step tls-certs action is a no-op when CA cert textarea is absent', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-certs')!;
+    await expect(step.action!(makeCtx())).resolves.not.toThrow();
+  });
+
   // ─── Step: tls-transport ──────────────────────────────────
 
   it('step tls-transport highlights transport badge', () => {
@@ -393,6 +444,31 @@ describe('ws-tls lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
   });
 
+  it('step tls-transport preAction closes TLS modal after resetting skip-cert', async () => {
+    const toggle = document.createElement('button');
+    toggle.setAttribute('data-testid', 'tls-toggle');
+    toggle.setAttribute('aria-expanded', 'true');
+    document.body.appendChild(toggle);
+
+    const label = document.createElement('label');
+    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    label.appendChild(checkbox);
+    document.body.appendChild(label);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('data-testid', 'tls-close');
+    const closeSpy = vi.fn();
+    closeBtn.addEventListener('click', closeSpy);
+    document.body.appendChild(closeBtn);
+
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    await step.preAction!(makeCtx());
+    expect(closeSpy).toHaveBeenCalled();
+  });
+
   it('step tls-transport preAction connects when disconnected and switches back to Connect tab', async () => {
     // No status-connected element → disconnected state
 
@@ -421,7 +497,25 @@ describe('ws-tls lesson', () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  it('step tls-transport action is a no-op when transport badge is absent', async () => {
+    const step = wsTlsLesson.steps.find(s => s.id === 'tls-transport')!;
+    await expect(step.action!(makeCtx())).resolves.not.toThrow();
+  });
+
   // ─── Setup / Cleanup ─────────────────────────────────────
+
+  it('setup clears subprotocol and resets protocol to raw to undo GraphQL-WS demo leftovers', async () => {
+    const ctx = makeCtx();
+    await wsTlsLesson.setup!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('Subprotocols'),
+      '',
+    );
+    expect(ctx.selectOption).toHaveBeenCalledWith(
+      expect.stringContaining('protocol-select'),
+      'raw',
+    );
+  });
 
   it('setup switches to client mode, disconnects, resets TLS skip-cert before clearing URL, and resets tabs', async () => {
     // Setup the TLS toggle so ensureTlsPanelExpanded can expand it
@@ -447,12 +541,14 @@ describe('ws-tls lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
-    // Must fill wss:// URL first (TLS panel appears), expand panel, reset skip-cert, then clear
+    // Must fill wss:// URL first (TLS panel appears), expand panel, reset skip-cert, then clear URL
+    // Note: setup also clears the subprotocol field ('') before filling wss://, so we use
+    // findLastIndex for the URL clear to skip the earlier subprotocol fill.
     const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
     const wssIdx = fillCalls.findIndex(([, v]) => String(v).startsWith('wss://'));
-    const clearIdx = fillCalls.findIndex(([, v]) => v === '');
+    const urlClearIdx = fillCalls.findLastIndex(([sel, v]) => v === '' && String(sel).includes('WebSocket URL'));
     expect(wssIdx).toBeGreaterThanOrEqual(0);
-    expect(clearIdx).toBeGreaterThan(wssIdx);       // clear happens AFTER wss:// fill
+    expect(urlClearIdx).toBeGreaterThan(wssIdx);       // URL clear happens AFTER wss:// fill
     // setSkipCert uses waitFor + MouseEvent click to properly update React state
     expect(skipCertClickSpy).toHaveBeenCalled();
     expect(checkbox.checked).toBe(false);           // skip-cert was reset to false

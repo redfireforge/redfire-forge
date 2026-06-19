@@ -109,6 +109,14 @@ describe('deriveTabLabel', () => {
   it('returns hostname without port when port is empty', () => {
     expect(deriveTabLabel('ws://echo.websocket.org')).toBe('echo.websocket.org');
   });
+
+  it('returns null when URL constructor throws and regex does not match', () => {
+    expect(deriveTabLabel('ws://  ')).toBeNull();
+  });
+
+  it('regex fallback returns host with port when URL constructor throws', () => {
+    expect(deriveTabLabel('ws://my%server:1234')).toBe('my%server:1234');
+  });
 });
 
 // ── Studio Shell Layout ─────────────────────────────────────────────────────

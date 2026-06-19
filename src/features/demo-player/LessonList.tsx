@@ -1,5 +1,5 @@
 /** Lesson List — shows lessons within a domain with optional category tabs */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DemoDomain, DemoLesson, DemoProgress } from './types';
 
 interface LessonListProps {
@@ -28,6 +28,17 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
     return firstWithLessons?.id ?? domain.categories![0].id;
   });
 
+  // Keep activeCategory in sync when navigating back from a lesson.
+  // LessonList is unmounted while in concept/live view and remounts on back-navigation,
+  // so useState runs fresh — but if the prop changes while mounted (e.g. progress update),
+  // this effect ensures the tab follows the lesson the user came from.
+  useEffect(() => {
+    if (!hasCategories) return;
+    if (initialCategory && domain.categories!.some(c => c.id === initialCategory)) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory, domain, hasCategories]);
+
   /** Lesson id that is pending single-lesson reset confirmation */
   const [pendingResetId, setPendingResetId] = useState<string | null>(null);
   /** Whether the "reset all" confirmation is showing */
@@ -42,7 +53,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
     : null;
 
   const anyCompleted = domain.lessons.some(l =>
-    progress.completedLessons.includes(l.id),
+    progress.completedLessons.includes(l.id) ||
+    progress.lessonSteps[l.id] !== undefined,
   );
 
   const handleResetLesson = (lessonId: string) => {
@@ -57,7 +69,6 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
 
   return (
     <div className="demo-lesson-list">
-      <p className="demo-hub-subtitle">{domain.description}</p>
 
       {/* Category filter tabs */}
       {hasCategories && (
@@ -81,7 +92,7 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 <span className="demo-category-icon">{cat.icon}</span>
                 <span className="demo-category-label">{cat.label}</span>
                 {catLessons.length > 0 && (
-                  <span className="demo-category-count">
+                  <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}`}>
                     {completedCount}/{catLessons.length}
                   </span>
                 )}
@@ -104,24 +115,27 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
         {visibleLessons.map((lesson, idx) => {
           const isComplete = progress.completedLessons.includes(lesson.id);
           const lastStep = progress.lessonSteps[lesson.id];
-          const hasProgress = lastStep !== undefined && lastStep > 0 && !isComplete;
+          const isInProgress = lastStep !== undefined && !isComplete;
           const isPendingReset = pendingResetId === lesson.id;
+
+          const statusClass = isComplete ? 'completed' : isInProgress ? 'in-progress' : '';
 
           return (
             <div
               key={lesson.id}
-              className={`demo-lesson-row ${isComplete ? 'completed' : ''}`}
+              className={`demo-lesson-row ${statusClass}`}
             >
               <button
-                className={`demo-lesson-item ${isComplete ? 'completed' : ''}`}
+                className={`demo-lesson-item ${statusClass}`}
                 onClick={() => {
                   if (isPendingReset) return;
                   onSelect(lesson);
                 }}
               >
-                <span className={`demo-lesson-status ${isComplete ? 'completed' : ''}`}>
+                <span className={`demo-lesson-status ${statusClass}`}>
                   <span className="demo-lesson-number">{idx + 1}</span>
                   {isComplete && <span className="demo-lesson-check" aria-label="Completed">✓</span>}
+                  {isInProgress && <span className="demo-lesson-progress-dot" aria-label="In progress">▶</span>}
                 </span>
                 <div className="demo-lesson-info">
                   <span className="demo-lesson-name">
@@ -134,10 +148,10 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 </div>
                 <div className="demo-lesson-meta">
                   <span className="demo-lesson-time">~{lesson.estimatedMinutes} min</span>
-                  {hasProgress && (
+                  {isInProgress && (
                     <span className="demo-lesson-resume-badge">Resume</span>
                   )}
-                  {!hasProgress && !isComplete && (
+                  {!isInProgress && !isComplete && (
                     <span className="demo-lesson-start-badge">Start</span>
                   )}
                   {isComplete && !isPendingReset && (
@@ -146,8 +160,8 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 </div>
               </button>
 
-              {/* Per-lesson reset controls — only for completed lessons */}
-              {isComplete && (
+              {/* Per-lesson reset controls — for completed and in-progress lessons */}
+              {(isComplete || isInProgress) && (
                 <div className="demo-lesson-reset-zone">
                   {isPendingReset ? (
                     <div className="demo-lesson-reset-confirm" data-testid={`reset-confirm-${lesson.id}`}>

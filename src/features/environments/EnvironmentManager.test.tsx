@@ -400,4 +400,95 @@ describe('EnvironmentManager', () => {
     const names = Array.from(document.querySelectorAll('.settings-chip span:nth-child(2)')).map((n) => n.textContent);
     expect(names[0]).toBe('alpha');
   });
+
+  it('uses plural wording in delete-environment warning for multiple dependents', () => {
+    const confirmSpy = vi.fn((_msg: string, onConfirm: () => void) => onConfirm());
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[
+          svc({ id: 's1', baseUrls: { e1: 'http://a' } }),
+          svc({ id: 's2', baseUrls: { e1: 'http://b' } }),
+        ]}
+        featureGroups={[
+          fgWith({ environmentId: 'e1', scenarios: [{ id: 's1', name: 'a', kind: 'standard', tests: [{ id: 't1', name: 't1' }, { id: 't2', name: 't2' }] }] }),
+          fgWith({ environmentId: 'e1', scenarios: [{ id: 's2', name: 'b', kind: 'standard', tests: [{ id: 't3', name: 't3' }] }] }),
+        ]}
+        confirm={confirmSpy}
+      />,
+    );
+    const chip = screen.getByText('t01').closest('.settings-chip')!;
+    fireEvent.click(within(chip as HTMLElement).getByTitle('Delete'));
+    const detail = confirmSpy.mock.calls[0][2] as string;
+    expect(detail).toContain('2 microservices');
+    expect(detail).toContain('2 feature groups');
+    expect(detail).toContain('2 scenarios');
+    expect(detail).toContain('3 tests');
+  });
+
+  it('uses plural wording in delete-microservice warning for multiple dependents', () => {
+    const confirmSpy = vi.fn((_msg: string, onConfirm: () => void) => onConfirm());
+    render(
+      <Harness
+        microservices={[svc({ id: 'svc-1', name: 'orders' })]}
+        featureGroups={[
+          fgWith({
+            microserviceId: 'svc-1',
+            scenarios: [
+              { id: 's1', name: 'a', kind: 'standard', tests: [{ id: 't1', name: 't1' }, { id: 't2', name: 't2' }] },
+              { id: 's2', name: 'b', kind: 'standard', tests: [{ id: 't3', name: 't3' }] },
+            ],
+          }),
+          fgWith({ microserviceId: 'svc-1' }),
+        ]}
+        confirm={confirmSpy}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    const detail = confirmSpy.mock.calls[0][2] as string;
+    expect(detail).toContain('2 feature groups');
+    expect(detail).toContain('3 scenarios');
+    expect(detail).toContain('4 tests');
+  });
+
+  it('does not log auth profile audit when the selection is unchanged', () => {
+    const profiles: GlobalAuthProfile[] = [{ id: 'p1', name: 'Bearer Profile', auth: { type: 'bearer' } }];
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({ baseUrls: { e1: 'http://x' }, authProfileIds: { e1: 'p1' } })]}
+        appGlobalAuthProfiles={profiles}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'p1' } });
+    expect(mockedSvcUpdated).not.toHaveBeenCalled();
+  });
+
+  it('prevents duplicate additional env names against global environments', () => {
+    render(<Harness environments={[env('e1', 't01')]} microservices={[svc()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    const addInput = screen.getByPlaceholderText('+ Add additional environment (e.g. staging-2)');
+    fireEvent.change(addInput, { target: { value: 'T01' } });
+    fireEvent.submit(addInput.closest('form')!);
+    expect(screen.queryByText('T01')).not.toBeInTheDocument();
+  });
+
+  it('logs base URL audit using custom environment name', () => {
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({ customEnvs: [{ id: 'c1', name: 'staging-2' }], baseUrls: { c1: '' } })]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByPlaceholderText('https://svc-one.staging-2.example.com'), { target: { value: 'http://custom' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(mockedSvcUpdated).toHaveBeenCalledWith(
+      'svc-one',
+      'svc-1',
+      expect.arrayContaining([expect.objectContaining({ field: 'baseUrl[staging-2]' })]),
+    );
+  });
 });

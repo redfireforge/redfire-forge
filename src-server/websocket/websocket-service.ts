@@ -20,6 +20,7 @@ import {
   type WsTlsConfig,
   type WsRouteEnvelope,
 } from './contracts.js';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_BUFFER_SIZE = 2000;
@@ -152,7 +153,7 @@ export class WebSocketProxyService {
           ? new WebSocket(url, protocols, wsOptions)
           : new WebSocket(url, wsOptions);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = toErrorMessage(err);
         return resolve(createWsErrorEnvelope('connect', {
           code: 'WS_CONNECT_FAILED',
           message: `Failed to initiate connection: ${message}`,
@@ -207,7 +208,7 @@ export class WebSocketProxyService {
         if (!resolved) {
           resolved = true;
           clearTimeout(timeout);
-          const message = err instanceof Error ? err.message : String(err);
+          const message = toErrorMessage(err);
           resolve(createWsErrorEnvelope('connect', {
             code: 'WS_CONNECT_FAILED',
             message: `Connection failed: ${message}`,
@@ -289,7 +290,7 @@ export class WebSocketProxyService {
 
     handle.ws.on('error', (err) => {
       handle.state = 'error';
-      handle.lastError = err instanceof Error ? err.message : String(err);
+      handle.lastError = toErrorMessage(err);
     });
   }
 
@@ -305,7 +306,7 @@ export class WebSocketProxyService {
         handle.ws.send(request.data);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       return createWsErrorEnvelope('send', {
         code: 'WS_SEND_FAILED',
         message: `Failed to send message: ${message}`,
@@ -330,7 +331,7 @@ export class WebSocketProxyService {
       const pingData = request.data ? Buffer.from(request.data) : undefined;
       handle.ws.ping(pingData);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       return createWsErrorEnvelope('ping', {
         code: 'WS_SEND_FAILED',
         message: `Failed to send ping: ${message}`,

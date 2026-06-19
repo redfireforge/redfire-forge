@@ -163,8 +163,8 @@ describe('kafka-topic-explorer lesson', () => {
   });
 
   it('detail tab preAction clicks messagesTab when present (line 283 true branch)', async () => {
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-consume')!;
-    if (!step) return; // skip if step doesn't exist with this id
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    expect(step).toBeDefined();
     // Create DOM for ensureTopicSelected to pass
     const table = document.createElement('table');
     table.className = 'kafka-explorer-topic-table';
@@ -187,9 +187,13 @@ describe('kafka-topic-explorer lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step te-filter preAction uses detail-tabs when present (line 237 true branch)', async () => {
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-filter')!;
-    if (!step) return;
+  it('step te-select preAction clears search when input has value (line 237 true branch)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-select')!;
+    expect(step).toBeDefined();
+    const searchInput = document.createElement('input');
+    searchInput.setAttribute('data-testid', 'topic-search');
+    searchInput.value = 'orders';
+    document.body.appendChild(searchInput);
     const table = document.createElement('table');
     table.className = 'kafka-explorer-topic-table';
     const tbody = document.createElement('tbody');
@@ -198,18 +202,14 @@ describe('kafka-topic-explorer lesson', () => {
     tbody.appendChild(row);
     table.appendChild(tbody);
     document.body.appendChild(table);
-    const detailTabs = document.createElement('div');
-    detailTabs.setAttribute('data-testid', 'detail-tabs');
-    document.body.appendChild(detailTabs);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('topic-search'), '');
   });
 
-  it('ensureTopicSelected clicks row when detail-tabs absent (line 34/37 true branches — via te-consume preAction)', async () => {
-    // te-consume preAction calls ensureTopicSelected
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-consume')!;
-    if (!step?.preAction) return;
+  it('ensureTopicSelected clicks row when detail-tabs absent (line 34/37 true branches — via te-browse preAction)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    expect(step?.preAction).toBeDefined();
     // Provide topic table with row but NO detail tabs (so ensureTopicSelected clicks it)
     const table = document.createElement('table');
     table.className = 'kafka-explorer-topic-table';
@@ -226,9 +226,9 @@ describe('kafka-topic-explorer lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('ensureTopicSelected clears search and clicks row (line 29 true + 34 true branch — via te-consume preAction)', async () => {
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-consume')!;
-    if (!step?.preAction) return;
+  it('ensureTopicSelected clears search and clicks row (line 29 true + 34 true branch — via te-browse preAction)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    expect(step?.preAction).toBeDefined();
     // Search input with existing value
     const searchInput = document.createElement('input');
     searchInput.setAttribute('data-testid', 'topic-search');
@@ -324,9 +324,9 @@ describe('kafka-topic-explorer lesson', () => {
     expect(delayCalls).toBeLessThan(10);
   });
 
-  it('step te-consume action injects sample data when results zone is absent (line 295/298/302/303 branches)', async () => {
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-consume')!;
-    if (!step?.action) return;
+  it('step te-browse action injects sample data when results zone is absent (line 295/298/302/303 branches)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    expect(step?.action).toBeDefined();
     // Create detail messages tab with action row but no results zone
     const messagesTab = document.createElement('div');
     messagesTab.setAttribute('data-testid', 'detail-messages-tab');
@@ -340,9 +340,9 @@ describe('kafka-topic-explorer lesson', () => {
     expect(messagesTab.querySelector('[data-testid="detail-results"]')).toBeTruthy();
   });
 
-  it('step te-groups action injects sample group data when empty state present (line 371/371 branches)', async () => {
-    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-groups')!;
-    if (!step?.action) return;
+  it('step te-cg action injects sample group data when empty state present (line 371 branches)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-cg')!;
+    expect(step?.action).toBeDefined();
     // Create detail groups tab with empty state
     const groupsTab = document.createElement('div');
     groupsTab.setAttribute('data-testid', 'detail-groups-tab');
@@ -366,6 +366,68 @@ describe('kafka-topic-explorer lesson', () => {
     await step.action(ctx);
     // Groups tab should have been populated (innerHTML changed)
     expect(groupsTab.innerHTML).toContain('kafka-consumer-group-table');
+  });
+
+  it('te-intro preAction removes selected class from topic rows (line 168)', async () => {
+    const table = document.createElement('table');
+    table.className = 'kafka-explorer-topic-table';
+    const tbody = document.createElement('tbody');
+    const row = document.createElement('tr');
+    row.classList.add('selected');
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+    document.body.appendChild(table);
+
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(row.classList.contains('selected')).toBe(false);
+  });
+
+  it('ensureTopicSelected clicks row when no detail tabs (line 37 true branch)', async () => {
+    const table = document.createElement('table');
+    table.className = 'kafka-explorer-topic-table';
+    const tbody = document.createElement('tbody');
+    const row = document.createElement('tr');
+    row.setAttribute('style', 'cursor:pointer');
+    const clickSpy = vi.fn();
+    row.addEventListener('click', clickSpy);
+    tbody.appendChild(row);
+    table.appendChild(tbody);
+    document.body.appendChild(table);
+
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-metrics')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('te-browse action injects sample data when empty state present (line 293 emptyMsg branch)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    const messagesTab = document.createElement('div');
+    messagesTab.setAttribute('data-testid', 'detail-messages-tab');
+    const resultsZone = document.createElement('div');
+    resultsZone.setAttribute('data-testid', 'detail-results');
+    const emptyState = document.createElement('div');
+    emptyState.className = 'kafka-ms-empty-state';
+    resultsZone.appendChild(emptyState);
+    messagesTab.appendChild(resultsZone);
+    document.body.appendChild(messagesTab);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(messagesTab.querySelector('.kafka-ms-results-table')).toBeTruthy();
+  });
+
+  it('te-browse action appends results zone when no action row (line 303 else branch)', async () => {
+    const step = kafkaTopicExplorerLesson.steps.find((s) => s.id === 'te-browse')!;
+    const messagesTab = document.createElement('div');
+    messagesTab.setAttribute('data-testid', 'detail-messages-tab');
+    document.body.appendChild(messagesTab);
+
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(messagesTab.querySelector('[data-testid="detail-results"]')).toBeTruthy();
   });
 });
 

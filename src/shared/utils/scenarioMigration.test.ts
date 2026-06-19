@@ -1,19 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { migrateScenarioKinds, inferScenarioKind } from './scenarioMigration';
 import type { FeatureGroup, TestScenario, Scenario, DataSource, ScenarioKind } from '../types';
+import { makeScenario as _makeScenario } from '../../test-utils/factories';
 
 function makeTest(id: string, overrides: Partial<Scenario> = {}): Scenario {
-  return {
+  return _makeScenario({
     id,
     name: `Test ${id}`,
     url: '/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  } as Scenario;
+  }) as Scenario;
 }
 
 const sampleDataSource: DataSource = {

@@ -2,11 +2,13 @@
  * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   createHttpTransport,
   createWsTransport,
   createSseTransport,
+  createWsProxyTransport,
+  createSseProxyTransport,
   selectTransport,
   deriveWsEndpoint,
   deriveSseEndpoint,
@@ -803,9 +805,14 @@ describe('requiresWsProxy', () => {
     expect(requiresWsProxy({ skipTlsVerify: false })).toBe(false);
   });
 
-  it('returns true in Tauri regardless of auth', () => {
+  it('returns false in Tauri when skipTlsVerify is not set (WebView supports WebSocket natively)', () => {
     mockIsTauri.mockReturnValue(true);
-    expect(requiresWsProxy({})).toBe(true);
+    expect(requiresWsProxy({})).toBe(false);
+  });
+
+  it('returns true in Tauri when skipTlsVerify is true', () => {
+    mockIsTauri.mockReturnValue(true);
+    expect(requiresWsProxy({ skipTlsVerify: true })).toBe(true);
   });
 });
 
@@ -862,7 +869,6 @@ describe('selectTransport', () => {
   });
 
   it('returns WS for explicitly non-stream URL even if "stream" appears elsewhere in path', () => {
-    // e.g. https://api.example.com/streaming/graphql — does NOT end in /stream
     expect(selectTransport(
       { subscriptionTransport: 'auto', endpoint: 'https://api.example.com/streaming/graphql' },
       'subscription',
@@ -870,10 +876,373 @@ describe('selectTransport', () => {
   });
 
   it('passes graphql-ws subprotocol when graphql-ws is selected', () => {
-    // Legacy WS transport should NOT immediately error — it opens a WebSocket.
-    // The transport type is still 'ws'.
     const transport = selectTransport({ subscriptionTransport: 'graphql-ws' }, 'subscription');
     expect(transport.type).toBe('ws');
+  });
+
+  // Proxy routing when skipTlsVerify=true
+  it('returns WS proxy transport for subscription when skipTlsVerify=true', () => {
+    const transport = selectTransport({ skipTlsVerify: true }, 'subscription');
+    expect(transport.type).toBe('ws');
+  });
+
+  it('returns SSE proxy transport for sse preference + skipTlsVerify=true', () => {
+    const transport = selectTransport(
+      { subscriptionTransport: 'sse', skipTlsVerify: true },
+      'subscription',
+    );
+    expect(transport.type).toBe('sse');
+  });
+
+  it('returns SSE proxy transport for auto /stream endpoint + skipTlsVerify=true', () => {
+    const transport = selectTransport(
+      { subscriptionTransport: 'auto', endpoint: 'https://api.example.com/graphql/stream', skipTlsVerify: true },
+      'subscription',
+    );
+    expect(transport.type).toBe('sse');
+  });
+
+  it('returns WS proxy transport for auto non-stream endpoint + skipTlsVerify=true', () => {
+    const transport = selectTransport(
+      { subscriptionTransport: 'auto', endpoint: 'https://api.example.com/graphql', skipTlsVerify: true },
+      'subscription',
+    );
+    expect(transport.type).toBe('ws');
+  });
+});
+
+// ─── createWsProxyTransport ────────────────────────────────────────────────────
+
+describe('createWsProxyTransport', () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+    mockIsTauri.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('has type "ws"', () => {
+    expect(createWsProxyTransport().type).toBe('ws');
+  });
+
+  it('execute() returns error (WS does not support queries)', async () => {
+    const result = await createWsProxyTransport().execute('query { x }', {}, undefined, {
+      endpoint: 'ws://localhost/graphql', headers: {},
+    });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0].message).toMatch(/proxy transport does not support queries/);
+  });
+
+  it('subscribe() calls onError immediately when signal is already aborted', () => {
+    const abort = new AbortController();
+    abort.abort();
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {}, signal: abort.signal }, callbacks);
+    expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining('Aborted'));
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('subscribe() sends POST to /api/graphql/subscribe with correct body', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('event: connected\ndata: {}\n\n'));
+        ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n'));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport('graphql-transport-ws').subscribe(
+      'subscription OnCount { count }',
+      { id: '1' },
+      'OnCount',
+      { endpoint: 'wss://api.example.com/graphql', headers: {}, skipTlsVerify: true },
+      callbacks,
+    );
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/graphql/subscribe');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.endpoint).toBe('wss://api.example.com/graphql');
+    expect(body.query).toBe('subscription OnCount { count }');
+    expect(body.variables).toEqual({ id: '1' });
+    expect(body.operationName).toBe('OnCount');
+    expect(body.skipTlsVerify).toBe(true);
+  });
+
+  it('subscribe() calls onComplete when stream ends with complete event', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('event: connected\ndata: {}\n\nevent: complete\ndata: {}\n\n'));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(callbacks.onComplete).toHaveBeenCalledOnce();
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('subscribe() calls onMessage for each next event', async () => {
+    const chunks = [
+      'event: connected\ndata: {}\n\n',
+      'event: next\ndata: {"data":{"count":1}}\n\n',
+      'event: next\ndata: {"data":{"count":2}}\n\n',
+      'event: complete\ndata: {}\n\n',
+    ];
+    let i = 0;
+    const readable = new ReadableStream<Uint8Array>({
+      pull(ctrl) {
+        if (i < chunks.length) {
+          ctrl.enqueue(new TextEncoder().encode(chunks[i++]));
+        } else {
+          ctrl.close();
+        }
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { count }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(callbacks.onMessage).toHaveBeenCalledTimes(2);
+    expect(callbacks.onMessage).toHaveBeenNthCalledWith(1, { data: { count: 1 } });
+    expect(callbacks.onMessage).toHaveBeenNthCalledWith(2, { data: { count: 2 } });
+  });
+
+  it('subscribe() calls onError when error event is received', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode(
+          'event: connected\ndata: {}\n\nevent: error\ndata: [{"message":"Unauthorized"}]\n\n',
+        ));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(callbacks.onError).toHaveBeenCalledWith('Unauthorized');
+    expect(callbacks.onComplete).not.toHaveBeenCalled();
+  });
+
+  it('subscribe() calls onError when fetch fails with non-ok response', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: vi.fn().mockResolvedValue(JSON.stringify({ error: { message: 'Server error' } })),
+    });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(callbacks.onError).toHaveBeenCalled();
+  });
+
+  it('subscribe() does NOT call onError when disposed before non-ok response is processed', async () => {
+    // Simulates unsub() called while resp.text() is in-flight.
+    // The disposed guard should prevent a stale onError call.
+    let resolveText!: (v: string) => void;
+    const textPending = new Promise<string>((r) => { resolveText = r; });
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: vi.fn().mockReturnValue(textPending),
+    });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    const unsub = createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    // Let the fetch resolve but keep resp.text() pending, then unsub
+    await new Promise<void>((r) => setTimeout(r, 10));
+    unsub();
+
+    // Now resolve the body text — onError should NOT be called because disposed=true
+    resolveText('{"error":{"message":"Service Unavailable"}}');
+    await new Promise<void>((r) => setTimeout(r, 30));
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('subscribe() uses absolute URL in Tauri mode', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) { ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n')); ctrl.close(); },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:3001/api/graphql/subscribe');
+  });
+
+  it('unsubscribe() aborts the fetch', async () => {
+    let resolveBody!: () => void;
+    const readable = new ReadableStream<Uint8Array>({
+      start(_ctrl) { /* keeps open until aborted */ },
+      cancel() { resolveBody?.(); },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    const unsub = createWsProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'ws://localhost/graphql', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 10));
+    unsub();
+    // After unsubscribe, no further onComplete should be called
+    await new Promise<void>((r) => setTimeout(r, 30));
+    expect(callbacks.onComplete).not.toHaveBeenCalled();
+  });
+});
+
+// ─── createSseProxyTransport ────────────────────────────────────────────────────
+
+describe('createSseProxyTransport', () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+    mockIsTauri.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('has type "sse"', () => {
+    expect(createSseProxyTransport().type).toBe('sse');
+  });
+
+  it('execute() returns error (SSE does not support queries)', async () => {
+    const result = await createSseProxyTransport().execute('query { x }', {}, undefined, {
+      endpoint: 'https://localhost/stream', headers: {},
+    });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0].message).toMatch(/proxy transport does not support queries/);
+  });
+
+  it('subscribe() calls onError immediately when signal is already aborted', () => {
+    const abort = new AbortController();
+    abort.abort();
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'https://localhost/stream', headers: {}, signal: abort.signal }, callbacks);
+    expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining('Aborted'));
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('subscribe() sends GET to /api/graphql/sse with correct query params', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n'));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe(
+      'subscription OnVal { value }',
+      { id: '42' },
+      'OnVal',
+      { endpoint: 'https://api.example.com/stream', headers: {}, skipTlsVerify: true },
+      callbacks,
+    );
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/graphql/sse');
+    expect(url).toContain('endpoint=');
+    expect(url).toContain('query=');
+    expect(url).toContain('skipTlsVerify=true');
+    expect(url).toContain('operationName=OnVal');
+    expect(init.method).toBe('GET');
+    expect((init.headers as Record<string, string>)['Accept']).toBe('text/event-stream');
+  });
+
+  it('subscribe() calls onComplete for complete event', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n'));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'https://localhost/stream', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(callbacks.onComplete).toHaveBeenCalledOnce();
+  });
+
+  it('subscribe() pipes next events to onMessage', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode(
+          'event: next\ndata: {"data":{"x":1}}\n\nevent: complete\ndata: {}\n\n',
+        ));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'https://localhost/stream', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(callbacks.onMessage).toHaveBeenCalledWith({ data: { x: 1 } });
+  });
+
+  it('subscribe() uses absolute URL in Tauri mode', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) { ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n')); ctrl.close(); },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe('subscription { x }', {}, undefined,
+      { endpoint: 'https://localhost/stream', headers: {} }, callbacks);
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('http://localhost:3001/api/graphql/sse');
   });
 });
 
@@ -1264,6 +1633,48 @@ describe('createWsTransport — legacy graphql-ws subprotocol', () => {
     mockWs.onmessage?.(new MessageEvent('message', { data: 'this is not json {{' }));
 
     expect(cb.onError).not.toHaveBeenCalled();
+  });
+
+  it('onerror handler calls onError with WebSocket error message (covers L289-297)', () => {
+    const transport = makeLegacyTransport();
+    const cb = emptyCallbacks();
+    transport.subscribe('subscription { e }', {}, undefined, baseParams(), cb);
+    mockWs.simulateOpen();
+    // Trigger the onerror handler
+    mockWs.simulateError();
+    expect(cb.onError).toHaveBeenCalledWith('WebSocket error on legacy graphql-ws connection');
+  });
+
+  it('onerror handler after unsubscribe is a no-op (covers disposed early-return guard)', () => {
+    const transport = makeLegacyTransport();
+    const cb = emptyCallbacks();
+    const unsub = transport.subscribe('subscription { e }', {}, undefined, baseParams(), cb);
+    mockWs.simulateOpen();
+    // Unsubscribe → dispose(false) → disposed = true; ws.close() triggers onclose early-return
+    unsub();
+    // After dispose, onclose with code=1000 triggered by ws.close() — but disposed=true → early return
+    // Now trigger error — should be a no-op since disposed=true
+    mockWs.simulateError();
+    // onError should NOT be called (disposed guard prevents it)
+    expect(cb.onError).not.toHaveBeenCalled();
+  });
+
+  it('WebSocket constructor failure calls onError and returns noop unsubscribe (covers L197 catch)', () => {
+    function ThrowingCtor(): never {
+      throw new Error('WS connection refused');
+    }
+    const transport = createWsTransport(
+      'graphql-ws',
+      null,
+      0,
+      undefined,
+      ThrowingCtor as unknown as typeof WebSocket,
+    );
+    const cb = emptyCallbacks();
+    const unsub = transport.subscribe('subscription { e }', {}, undefined, baseParams(), cb);
+    expect(cb.onError).toHaveBeenCalledWith(expect.stringContaining('Failed to open legacy WebSocket'));
+    // The returned unsubscribe should be a noop (no crash)
+    expect(() => unsub()).not.toThrow();
   });
 });
 

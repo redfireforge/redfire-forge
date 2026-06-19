@@ -323,4 +323,71 @@ describe('computeQueryComplexity', () => {
     const r = computeQueryComplexity(q, schema);
     expect(r.score).toBeGreaterThan(0);
   });
+
+  it('scores top-level inline fragment (else branch in main loop)', () => {
+    // Inline fragment at the top level of the operation selection set (not inside a field)
+    const q = `{ ... on Query { user(id: "1") { name } } }`;
+    const r = computeQueryComplexity(q, makeSchema());
+    // user (2) + name (1) = 3
+    expect(r.score).toBeGreaterThan(0);
+  });
+
+  it('scores top-level fragment spread (else branch in main loop)', () => {
+    const q = `
+      fragment TopFields on Query { user(id: "1") { name email } }
+      { ...TopFields }
+    `;
+    const r = computeQueryComplexity(q, makeSchema());
+    // user (2) + name (1) + email (1) = 4
+    expect(r.score).toBeGreaterThan(0);
+  });
+
+  it('uses Query/Mutation defaults when queryType/mutationType are omitted from schemaInfo (lines 255-256 ?? branch)', () => {
+    // When schemaInfo lacks queryType/mutationType, the code falls back to 'Query'/'Mutation'
+    const schemaWithoutRootNames: Parameters<typeof computeQueryComplexity>[1] = {
+      types: [
+        {
+          name: 'Query',
+          kind: 'OBJECT',
+          fields: [
+            { name: 'user', type: 'User', args: [] },
+          ],
+        },
+        {
+          name: 'Mutation',
+          kind: 'OBJECT',
+          fields: [
+            { name: 'createUser', type: 'User', args: [] },
+          ],
+        },
+        {
+          name: 'User',
+          kind: 'OBJECT',
+          fields: [
+            { name: 'id', type: 'ID', args: [] },
+          ],
+        },
+      ],
+      // queryType and mutationType intentionally omitted → ??' Query'/'Mutation'
+    } as Parameters<typeof computeQueryComplexity>[1];
+
+    const q = '{ user { id } }';
+    const r = computeQueryComplexity(q, schemaWithoutRootNames);
+    expect(r.score).toBeGreaterThan(0);
+
+    // Also test mutation op to trigger the ?? 'Mutation' branch
+    const mq = 'mutation { createUser { id } }';
+    const mr = computeQueryComplexity(mq, schemaWithoutRootNames);
+    expect(mr.score).toBeGreaterThan(0);
+  });
+
+  it('handles fieldDef not found in rootType fields (line 278 fieldDef?.type ?? empty branch)', () => {
+    // When a queried field doesn't exist in the type's known fields,
+    // fieldDef?.type is undefined → ?? '' takes the empty-string branch
+    const q = '{ unknownField }';
+    const r = computeQueryComplexity(q, makeSchema());
+    // unknownField doesn't exist in schema types → fieldDef is undefined
+    expect(r).toBeDefined();
+    expect(typeof r.score).toBe('number');
+  });
 });

@@ -476,6 +476,146 @@ describe('useWebSocketProfiles', () => {
     expect(exported[0].tlsConfig).toBeUndefined();
   });
 
+  it('duplicates headers, queryParams, and tlsConfig deeply', async () => {
+    const existing = makeProfile({
+      id: 'p1',
+      name: 'Rich',
+      headers: [{ key: 'H', value: 'V', enabled: true }],
+      queryParams: [{ key: 'Q', value: '1', enabled: true }],
+      tlsConfig: { rejectUnauthorized: true, caCert: 'ca' },
+    });
+    mockLoad.mockResolvedValue([existing]);
+
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.duplicateProfile('p1');
+    });
+
+    const copy = result.current.profiles[1];
+    expect(copy.headers).toEqual(existing.headers);
+    expect(copy.headers).not.toBe(existing.headers);
+    expect(copy.queryParams).toEqual(existing.queryParams);
+    expect(copy.tlsConfig).toEqual(existing.tlsConfig);
+    expect(copy.tlsConfig).not.toBe(existing.tlsConfig);
+  });
+
+  it('importProfiles preserves subprotocols, autoReconnect, and notes', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const json = JSON.stringify([{
+      name: 'Full',
+      url: 'wss://full.com',
+      subprotocols: 'graphql-ws',
+      autoReconnect: true,
+      notes: 'dev only',
+      backoffMultiplier: 1,
+    }]);
+
+    await act(async () => {
+      await result.current.importProfiles(json);
+    });
+
+    const p = result.current.profiles[0];
+    expect(p.subprotocols).toBe('graphql-ws');
+    expect(p.autoReconnect).toBe(true);
+    expect(p.notes).toBe('dev only');
+    expect(p.backoffMultiplier).toBe(1);
+  });
+
+  it('exportProfiles keeps tlsConfig when only rejectUnauthorized is set', async () => {
+    mockLoad.mockResolvedValue([makeProfile({
+      id: 'tls3',
+      tlsConfig: { rejectUnauthorized: true },
+    })]);
+
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    const exported = JSON.parse(result.current.exportProfiles());
+    expect(exported[0].tlsConfig).toEqual({ rejectUnauthorized: true });
+  });
+
+  it('handles non-Error load failure', async () => {
+    mockLoad.mockRejectedValue('disk unavailable');
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    expect(result.current.error).toBe('disk unavailable');
+  });
+
+  it('handles non-Error save failure during persist', async () => {
+    mockSave.mockRejectedValue('write denied');
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.saveProfile({
+        name: 'Fail',
+        url: 'wss://fail.com',
+        headers: [],
+        queryParams: [],
+        subprotocols: '',
+        autoReconnect: false,
+        maxReconnectAttempts: 5,
+        reconnectIntervalMs: 3000,
+        maxMessages: 1000,
+      });
+    });
+
+    expect(result.current.error).toBe('write denied');
+  });
+
+  it('does not update state after unmount during initial load', async () => {
+    let resolveLoad!: (profiles: WsConnectionProfile[]) => void;
+    mockLoad.mockReturnValue(new Promise((resolve) => { resolveLoad = resolve; }));
+
+    const { result, unmount } = renderHook(() => useWebSocketProfiles());
+    expect(result.current.loading).toBe(true);
+    unmount();
+
+    await act(async () => {
+      resolveLoad([makeProfile()]);
+    });
+  });
+
+  it('does not set error after unmount when persist fails', async () => {
+    mockSave.mockRejectedValue(new Error('write failed'));
+    const { result, unmount } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    await act(async () => {
+      void result.current.saveProfile({
+        name: 'Fail',
+        url: 'wss://fail.com',
+        headers: [],
+        queryParams: [],
+        subprotocols: '',
+        autoReconnect: false,
+        maxReconnectAttempts: 5,
+        reconnectIntervalMs: 3000,
+        maxMessages: 1000,
+      });
+      unmount();
+    });
+  });
+
+  it('importProfiles with only invalid items does not persist', async () => {
+    const { result } = renderHook(() => useWebSocketProfiles());
+    await act(async () => {});
+
+    let importResult: { imported: number; errors: string[] } = { imported: 0, errors: [] };
+    await act(async () => {
+      importResult = await result.current.importProfiles('[42, null, "bad"]');
+    });
+
+    expect(importResult.imported).toBe(0);
+    expect(importResult.errors.length).toBeGreaterThan(0);
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
   it('importProfiles handles valid backoffMultiplier values', async () => {
     const { result } = renderHook(() => useWebSocketProfiles());
     await act(async () => {});

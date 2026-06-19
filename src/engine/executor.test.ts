@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '../shared/types';
 import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
@@ -21,14 +22,15 @@ vi.mock('../features/workflow/utils/workflowHostResolve', () => ({
   resolveServiceAuth: vi.fn(() => ({ type: 'bearer', token: 'svc-token', prefix: 'Bearer' })),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: 'https://example.com/api',
-    method: 'POST', headers: [], body: '{}',
-    auth: { type: 'none' }, validation: { mode: 'none' },
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: 'https://example.com/api',
+    method: 'POST',
+    body: '{}',
     ...overrides,
-  };
-}
+  });
 
 function makeScenarioWithDataRows(rowCount: number): Scenario {
   const rows = Array.from({ length: rowCount }, (_, i) => ({
@@ -230,13 +232,11 @@ describe('runTest', () => {
   });
 
   function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-    return {
-      concurrency: 1,
+    return _makeConfig({
       iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
-      executionMode: 'sequential',
       ...overrides,
-    };
+    });
   }
 
   it('runs test with sequential mode', async () => {

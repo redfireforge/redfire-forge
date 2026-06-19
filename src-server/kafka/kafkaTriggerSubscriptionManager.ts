@@ -177,7 +177,7 @@ export class KafkaTriggerSubscriptionManager {
     }).catch((err: unknown) => {
       onLog?.({
         prefix: '!',
-        text: `[KafkaTrigger] Consumer run error for ${entryKey}: ${err instanceof Error ? err.message : String(err)}`,
+        text: `[KafkaTrigger] Consumer run error for ${entryKey}: ${toErrorMessage(err)}`,
         ts: Date.now(),
       });
     });

@@ -453,6 +453,73 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(called).toBe(true);
   });
 
+  it('cleanup closes console badge when panel is open', async () => {
+    const panel = document.createElement('div');
+    panel.className = 'wf-console-panel';
+    document.body.appendChild(panel);
+    const badge = document.createElement('div');
+    badge.className = 'wf-console-badge';
+    const clickSpy = vi.fn();
+    badge.addEventListener('click', clickSpy);
+    document.body.appendChild(badge);
+    const ctx = makeCtx();
+    await kafkaWorkflowConsumeWaitLesson.cleanup!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('cw-consume-binding preAction dblclicks consume node when config modal absent', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-binding')!;
+    const node = document.createElement('div');
+    node.className = 'wf-node-kafkaConsume';
+    const dblclickSpy = vi.fn();
+    node.addEventListener('dblclick', dblclickSpy);
+    document.body.appendChild(node);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(dblclickSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(600);
+  });
+
+  it('cw-consume-binding preAction skips dblclick when config modal already open', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-consume-binding')!;
+    const modal = document.createElement('div');
+    modal.className = 'wf-config-modal';
+    document.body.appendChild(modal);
+    const section = document.createElement('div');
+    section.setAttribute('data-testid', 'output-bindings-section');
+    section.scrollIntoView = vi.fn();
+    document.body.appendChild(section);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(section.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('cw-open-console action opens console when panel is closed', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-open-console')!;
+    const badge = document.createElement('div');
+    badge.className = 'wf-console-badge';
+    const clickSpy = vi.fn();
+    badge.addEventListener('click', clickSpy);
+    document.body.appendChild(badge);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('cw-summary preAction toggles console closed when panel is open', async () => {
+    const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-summary')!;
+    const panel = document.createElement('div');
+    panel.className = 'wf-console-panel';
+    document.body.appendChild(panel);
+    const badge = document.createElement('div');
+    badge.className = 'wf-console-badge';
+    const clickSpy = vi.fn();
+    badge.addEventListener('click', clickSpy);
+    document.body.appendChild(badge);
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
 });
 
 // ─── K11: kafka-secure ──────────────────────────────────────────

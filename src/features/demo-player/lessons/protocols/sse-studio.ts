@@ -1,9 +1,11 @@
 /** Lesson 9: SSE Studio — connect to an SSE endpoint, monitor events, and explore the console */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { SSE } from '../../../../shared/selectors';
+import { APP, SSE } from '../../../../shared/selectors';
+
 
 // ── Constants ──────────────────────────────────────────────────────
 const SSE_TEST_URL = 'http://localhost:3001/api/sse-test';
+const SSE_ENV_VAR_URL = '{{baseUrl}}/api/sse-test';
 
 /** CSS selector for the connected-state indicator. Used by waitFor and replay guards. */
 const SSE_CONNECTED_DOT = '.sse-state-dot.sse-state-connected';
@@ -78,7 +80,7 @@ export const sseStudioLesson: DemoLesson = {
   category: 'sse',
   name: 'SSE Studio',
   description: 'Connect to a Server-Sent Events endpoint and monitor real-time event streams.',
-  estimatedMinutes: 2,
+  estimatedMinutes: 3,
   initialTab: 'sse-studio',
 
   setup: sseSetup,
@@ -157,7 +159,7 @@ export const sseStudioLesson: DemoLesson = {
       title: 'SSE Studio',
       description:
         'Welcome to SSE Studio — RedfireForge\'s dedicated workspace for Server-Sent Events. The layout mirrors WebSocket Studio: connection config on the left, live events on the right.',
-      highlight: SSE.STUDIO,
+      highlight: SSE.NAV_TAB,
       pauseAfter: true,
       preAction: async () => {
         document.querySelectorAll('.sse-row-selected').forEach((el) => {
@@ -166,7 +168,37 @@ export const sseStudioLesson: DemoLesson = {
       },
     },
 
-    // ── 2. Connect to SSE Endpoint ───────────────────────────────
+    // ── 2. Environment Variables in URLs ────────────────────────
+    {
+      id: 'sse-env-vars',
+      title: 'Environment Variables in URLs',
+      description:
+        'Instead of hardcoding `http://localhost:3001/api/sse-test`, use `{{baseUrl}}/api/sse-test`. ' +
+        'RedfireForge resolves `{{baseUrl}}` from the **Environment** and **Microservice** selected in the ' +
+        'header dropdowns (top-right). Each microservice stores a Base URL per environment — switching from ' +
+        '"local" to "staging" in the header instantly re-resolves the URL without touching the SSE config. ' +
+        'A **↳ Resolved:** preview appears below the input so you always see the final URL before connecting.',
+      highlight: SSE.URL_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: navigate to SSE Studio if we landed here via skip-to-step
+        if (!document.querySelector(SSE.URL_INPUT)) {
+          await ctx.click(APP.AB_PROTOCOLS);
+          await ctx.delay(300);
+          await ctx.click(APP.NAV_TAB_SSE);
+          await ctx.delay(400);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
+        await ctx.delay(1000);
+        // Reset to the real test URL so the connect step that follows works
+        await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+        await ctx.delay(400);
+      },
+    },
+
+    // ── 3. Connect to SSE Endpoint ──────────────────────────────
     {
       id: 'sse-connect',
       title: 'Connect to an Endpoint',
@@ -189,7 +221,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 3. Live Event Stream ─────────────────────────────────────
+    // ── 4. Live Event Stream ─────────────────────────────────────
     {
       id: 'sse-events',
       title: 'Live Event Stream',
@@ -206,7 +238,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 4. Event Detail ──────────────────────────────────────────
+    // ── 5. Event Detail ──────────────────────────────────────────
     {
       id: 'sse-detail',
       title: 'Event Detail',
@@ -228,7 +260,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 5. Search & Filter ───────────────────────────────────────
+    // ── 6. Search & Filter ───────────────────────────────────────
     {
       id: 'sse-filter',
       title: 'Search & Type Filter',
@@ -249,7 +281,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 6. Console ───────────────────────────────────────────────
+    // ── 7. Console ───────────────────────────────────────────────
     {
       id: 'sse-console',
       title: 'SSE Console',
@@ -271,7 +303,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 7. Disconnect ────────────────────────────────────────────
+    // ── 8. Disconnect ────────────────────────────────────────────
     {
       id: 'sse-disconnect',
       title: 'Disconnect',

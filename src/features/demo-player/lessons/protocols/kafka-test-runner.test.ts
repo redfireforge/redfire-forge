@@ -216,6 +216,41 @@ describe('kafka-test-runner lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it('step kr-badges preAction switches to Request Details tab and flat groupBy view', async () => {
+    const requestTab = document.createElement('button');
+    requestTab.className = 'results-view-tab';
+    requestTab.textContent = 'Request Details';
+    const tabSpy = vi.fn();
+    requestTab.addEventListener('click', tabSpy);
+    document.body.appendChild(requestTab);
+
+    const groupBySelect = document.createElement('select');
+    const opt = document.createElement('option');
+    opt.value = 'test';
+    groupBySelect.appendChild(opt);
+    const changeSpy = vi.fn();
+    groupBySelect.addEventListener('change', changeSpy);
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'group-by-controls';
+    groupWrap.appendChild(groupBySelect);
+    document.body.appendChild(groupWrap);
+
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-badges')!;
+    await step.preAction!(makeCtx());
+
+    expect(tabSpy).toHaveBeenCalled();
+    expect(changeSpy).toHaveBeenCalled();
+    expect(groupBySelect.value).toBe('test');
+  });
+
+  it('selectKafkaProduceDemo skips click when dropdown item is absent', async () => {
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-pick')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.wfp-dropdown-panel');
+  });
+
   // ─── All remaining step actions ────────────────────────────────
 
   it('all steps preActions run without throwing on empty DOM', async () => {

@@ -93,6 +93,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         className={`ab-btn ${domainOf(activeTab) === 'protocols' ? 'active' : ''}`}
         onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab('kafka-message-studio'); }}
         title="Protocols"
+        data-testid="ab-protocols"
       >
         <span className="ab-icon">
           <ActivityBarIcon>
@@ -125,6 +126,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
         onClick={() => { if (!isSettingsTab(activeTab)) setActiveTab('environments'); }}
         title="Settings"
+        data-testid="ab-settings"
       >
         <span className="ab-icon">
           <ActivityBarIcon>

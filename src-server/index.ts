@@ -17,6 +17,7 @@ import { initScheduler, stopScheduler } from './cron-scheduler.js';
 import { createCorrelationStore } from './correlation-store-factory.js';
 import { setCorrelationStore } from './correlation-handler.js';
 import { wsMockPool } from './websocket/websocket-mock-service.js';
+import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
@@ -60,7 +61,7 @@ async function startServer() {
         await wsMockPool.getOrCreate(9876).start({ port: 9876, rules: [], fallback: 'echo' });
         console.log('  ✅ WS echo mock server listening on ws://127.0.0.1:9876');
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = toErrorMessage(err);
         // EADDRINUSE means another process already has the port — treat as OK
         if (msg.includes('EADDRINUSE')) {
           console.log('  ⚠️  ws://127.0.0.1:9876 already in use — skipping mock server start');
