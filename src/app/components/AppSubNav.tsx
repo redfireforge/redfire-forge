@@ -55,6 +55,7 @@ function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab
       key={tab}
       className={`sub-nav-tab ${activeTab === tab ? 'active' : ''}`}
       onClick={() => setActiveTab(tab)}
+      data-testid={`nav-tab-${tab}`}
     >
       {label}
     </button>

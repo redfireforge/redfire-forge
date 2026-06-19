@@ -8,6 +8,7 @@ import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
 import { WorkflowNode, HttpNodeData } from '../../types/workflow';
 import { Scenario } from '../../../../shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({
@@ -290,13 +291,14 @@ vi.mock('../configs/NodeConfigLogsTab', () => ({
   )),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: '/api/test', method: 'GET',
-    headers: [], body: '', auth: { type: 'none' }, validation: {},
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: '/api/test',
+    validation: {},
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 function makeHttpNode(overrides: Partial<HttpNodeData> = {}): WorkflowNode {
   return {

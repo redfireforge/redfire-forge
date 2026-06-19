@@ -14,7 +14,7 @@ describe('sse-studio lesson', () => {
     expect(sseStudioLesson.id).toBe('sse-studio');
     expect(sseStudioLesson.domainId).toBe('protocols');
     expect(sseStudioLesson.name).toBe('SSE Studio');
-    expect(sseStudioLesson.steps.length).toBe(7);
+    expect(sseStudioLesson.steps.length).toBe(8);
     expect(sseStudioLesson.concept.title).toBeTruthy();
     expect(sseStudioLesson.concept.body).toBeTruthy();
     expect(sseStudioLesson.initialTab).toBe('sse-studio');
@@ -59,19 +59,57 @@ describe('sse-studio lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = sseStudioLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'sse-nav', 'sse-connect', 'sse-events', 'sse-detail',
+      'sse-nav', 'sse-env-vars',
+      'sse-connect', 'sse-events', 'sse-detail',
       'sse-filter', 'sse-console', 'sse-disconnect',
     ]);
   });
 
-  it('estimated time is 2 minutes', () => {
-    expect(sseStudioLesson.estimatedMinutes).toBe(2);
+  it('estimated time is 3 minutes', () => {
+    expect(sseStudioLesson.estimatedMinutes).toBe(3);
+  });
+
+  it('does not have allowedTabs (no external navigation needed)', () => {
+    expect(sseStudioLesson.allowedTabs).toBeUndefined();
   });
 
   it('step sse-nav has no action', () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-nav')!;
     expect(step.action).toBeUndefined();
     expect(step.highlight).toBeTruthy();
+  });
+
+  it('step sse-env-vars action fills URL with env var placeholder then resets to test URL', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
+    expect(fillCalls[0]).toEqual(['[data-testid="sse-url-input"]', '{{baseUrl}}/api/sse-test']);
+    expect(fillCalls[1]).toEqual(['[data-testid="sse-url-input"]', 'http://localhost:3001/api/sse-test']);
+  });
+
+  it('step sse-env-vars preAction navigates to SSE Studio when URL input is absent', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
+    const ctx = makeCtx();
+    // No URL input in DOM → guard should navigate
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="ab-protocols"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="nav-tab-sse-studio"]');
+  });
+
+  it('step sse-env-vars preAction skips navigation when already on SSE Studio', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
+    const ctx = makeCtx();
+    const urlInput = document.createElement('input');
+    urlInput.setAttribute('data-testid', 'sse-url-input');
+    document.body.appendChild(urlInput);
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="ab-protocols"]');
+  });
+
+  it('step sse-env-vars highlights the URL input', () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
+    expect(step.highlight).toContain('sse-url-input');
   });
 
   it('step sse-connect action fills URL and clicks connect with waitFor (Rule 5)', async () => {
@@ -274,6 +312,15 @@ describe('sse-studio lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');
+  });
+
+  it('step sse-nav preAction clears selected row class', async () => {
+    const row = document.createElement('div');
+    row.classList.add('sse-row-selected');
+    document.body.appendChild(row);
+    const step = sseStudioLesson.steps.find((s) => s.id === 'sse-nav')!;
+    await step.preAction!({} as never);
+    expect(row.classList.contains('sse-row-selected')).toBe(false);
   });
 });
 

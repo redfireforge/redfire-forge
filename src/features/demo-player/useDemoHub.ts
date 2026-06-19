@@ -162,6 +162,29 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
   }, [progress]);
 
+  /** Jump directly to the domain selector from any view — used by the
+   *  "Learning Hub" breadcrumb so it always lands on the root, not the
+   *  intermediate lessons list. */
+  const goToDomains = useCallback(() => {
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++;
+    abortRef.current?.abort();
+    progress.setLastView('domains');
+    setState(prev => ({
+      ...prev,
+      view: 'domains' as HubView,
+      selectedDomain: null,
+      isPlaying: false,
+    }));
+  }, [progress]);
+
+  // ─── Lesson Completion ────────────────────────────────────────
+  /** User clicked "Complete" — mark lesson done. exitLiveDemo is called separately. */
+  const confirmLessonComplete = useCallback(() => {
+    const lesson = state.selectedLesson;
+    if (lesson) progress.markLessonComplete(lesson.id);
+  }, [state.selectedLesson, progress]);
+
   // ─── Action Context Builder ────────────────────────────────────
   const buildContext = useCallback((): DemoActionContext => ({
     navigateToTab,
@@ -400,25 +423,19 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
     await executeCurrentStep(lesson.steps[clamped], state.speed);
     progress.setLessonStep(lesson.id, clamped);
-    // Mark the lesson complete when the last step is reached via manual navigation
-    // (auto-play marks complete through its own effect; nextStep marks complete
-    // when the user presses → again after already being on the last step)
+    // At the last step: stop auto-play so the user can read before choosing to Complete.
     if (clamped >= lesson.steps.length - 1) {
-      progress.markLessonComplete(lesson.id);
+      setState(prev => ({ ...prev, isPlaying: false }));
     }
   }, [state.selectedLesson, state.speed, executeCurrentStep, progress]);
 
   const nextStep = useCallback(() => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
-    if (state.stepIndex >= lesson.steps.length - 1) {
-      // Lesson complete
-      setState(prev => ({ ...prev, isPlaying: false }));
-      progress.markLessonComplete(lesson.id);
-      return;
-    }
+    // At the last step the Next button is disabled in LiveDemo; nothing to do here.
+    if (state.stepIndex >= lesson.steps.length - 1) return;
     goToStep(state.stepIndex + 1);
-  }, [state.selectedLesson, state.stepIndex, goToStep, progress]);
+  }, [state.selectedLesson, state.stepIndex, goToStep]);
 
 
   const toggleAutoPlay = useCallback(() => {
@@ -475,7 +492,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // Stable progress callbacks — useCallback([update]) where update is useCallback([])
   // so these never change reference across renders. Destructured here to keep
   // the auto-play effect deps stable (avoids re-firing when progress.data updates).
-  const { setLessonStep: progressSetStep, markLessonComplete: progressMarkComplete, resetLesson, resetProgress } = progress;
+  const { setLessonStep: progressSetStep, resetLesson, resetProgress } = progress;
 
   // Auto-play effect: step execution includes its own reading pauses,
   // so we just chain steps sequentially when playing
@@ -484,7 +501,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     if (state.stepIndex >= lesson.steps.length - 1) {
       setState(prev => ({ ...prev, isPlaying: false }));
-      progressMarkComplete(lesson.id);
       return;
     }
 
@@ -516,7 +532,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     }, breathingPause);
 
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
-  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep, progressMarkComplete]);
+  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep]);
 
   const restartDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
@@ -578,12 +594,14 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     selectDomain,
     selectLesson,
     goBack,
+    goToDomains,
     startLiveDemo,
     exitLiveDemo,
     goToStep,
     nextStep,
     toggleAutoPlay,
     restartDemo,
+    confirmLessonComplete,
     resetLesson,
     resetProgress,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),

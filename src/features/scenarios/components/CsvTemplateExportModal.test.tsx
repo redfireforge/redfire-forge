@@ -231,4 +231,66 @@ describe('CsvTemplateExportModal — Step 3 review & export', () => {
     expect(opts.dataRows).toBeUndefined();
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('handles invalid test URL when building query param metadata', () => {
+    render(<CsvTemplateExportModal test={makeTest({ url: 'not-a-valid-url' })} onClose={vi.fn()} />);
+    expect(screen.getByText('Query Params')).toBeInTheDocument();
+    expect(screen.getAllByText('None').length).toBeGreaterThan(0);
+  });
+
+  it('flags invalid column name characters and disables Next', () => {
+    mockBuildColumnDefs.mockReturnValue([
+      { type: 'name', fullKey: 'name', mapping: '', autoName: 'test_name', customName: 'bad-name' },
+    ]);
+    render(<CsvTemplateExportModal test={makeTest()} onClose={vi.fn()} />);
+    goToColumns();
+    expect(screen.getByText('invalid chars')).toBeInTheDocument();
+    expect(screen.getByText('Next: Review')).toBeDisabled();
+  });
+
+  it('exports data source rows with name-type column mapping', async () => {
+    const onClose = vi.fn();
+    mockBuildColumnDefs.mockReturnValue([
+      { type: 'name', fullKey: 'name', mapping: '', autoName: 'test_name', customName: 'test_name' },
+      { type: 'path', fullKey: 'path:userId', mapping: 'userId', autoName: 'userId', customName: 'userId' },
+    ]);
+    const test = makeTest({
+      dataSource: {
+        columns: [{ id: 'colP', name: 'userId', type: 'path', mapping: 'userId' }],
+        rows: [{ id: 'rowA', values: { colP: '999' }, enabled: true }],
+        source: { type: 'inline' },
+      } as Scenario['dataSource'],
+    });
+    render(<CsvTemplateExportModal test={test} onClose={onClose} />);
+    goToReview();
+    fireEvent.click(screen.getByText(/Confirm.*Download/));
+    await waitFor(() => expect(mockDownloadExcel).toHaveBeenCalled());
+    const opts = mockGenerateExcelTemplate.mock.calls[0][0] as { dataRows?: { values: Record<string, string> }[] };
+    expect(opts.dataRows?.[0].values.test_name).toBe('Get User');
+  });
+
+  it('shows body form metadata and review config without raw body', () => {
+    render(<CsvTemplateExportModal test={makeTest({
+      body: '',
+      bodyType: 'form',
+      bodyForm: [{ key: 'a', value: '1' }],
+      validation: { mode: 'none', expectedFields: [] } as Scenario['validation'],
+    })} onClose={vi.fn()} />);
+    expect(screen.getByText('FORM')).toBeInTheDocument();
+    goToReview();
+    expect(screen.queryByText('Body: included')).not.toBeInTheDocument();
+  });
+
+  it('renders empty review cells when path, param, and validate mappings are missing', () => {
+    mockBuildColumnDefs.mockReturnValue([
+      { type: 'path', fullKey: 'path:missing', mapping: 'missing', autoName: 'missing', customName: 'missing' },
+      { type: 'param', fullKey: 'param:q2', mapping: 'q2', autoName: 'q2', customName: 'q2' },
+      { type: 'validate', fullKey: 'validate:$.x', mapping: '$.x', autoName: 'x', customName: 'x' },
+    ]);
+    render(<CsvTemplateExportModal test={makeTest()} onClose={vi.fn()} />);
+    goToReview();
+    const cells = document.querySelectorAll('.excel-review-table tbody td');
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells[0].textContent).toBe('');
+  });
 });

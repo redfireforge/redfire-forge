@@ -3858,6 +3858,31 @@
   font-weight: 600;
 }
 
+/* APQ metadata badge (3F-2) */
+.gql-rv-meta-apq-badge {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--text-muted) 15%, var(--surface));
+  color: var(--text-muted);
+}
+.gql-rv-meta-apq-badge--hit {
+  background: color-mix(in srgb, var(--success, #a6e3a1) 15%, var(--surface));
+  color: var(--success, #a6e3a1);
+}
+.gql-rv-meta-apq-badge--miss {
+  background: color-mix(in srgb, var(--warning, #f9e2af) 15%, var(--surface));
+  color: var(--warning, #f9e2af);
+}
+.gql-rv-meta-apq-badge--unsupported {
+  background: color-mix(in srgb, var(--danger, #f38ba8) 15%, var(--surface));
+  color: var(--danger, #f38ba8);
+}
+
 /* Status badge in metadata */
 .gql-rv-meta-status {
   display: inline-flex;
@@ -7374,4 +7399,1778 @@
   border-top: 1px solid var(--border);
   margin-top: 0;
   flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase 3D — Schema Diff & Changelog
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Schema Explorer: main tab bar (Types / Changelog) ─────────────────── */
+.gql-se-main-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-se-main-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  border-radius: 4px 4px 0 0;
+}
+.gql-se-main-tab:hover { color: var(--text); }
+.gql-se-main-tab--active {
+  color: var(--text);
+  border-bottom-color: var(--primary);
+}
+.gql-se-snap-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.gql-se-save-snap-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.gql-se-save-snap-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--primary);
+}
+.gql-se-save-snap-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Changelog Panel ────────────────────────────────────────────────────── */
+.gql-changelog-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+.gql-changelog-empty-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.gql-changelog-empty-body {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+.gql-changelog-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+}
+.gql-changelog-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.gql-changelog-row:hover { background: var(--surface-hover); }
+.gql-changelog-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gql-changelog-row-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gql-changelog-row-date {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.gql-changelog-row-types {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.gql-changelog-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gql-changelog-compare-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 4px 6px;
+  appearance: none;
+}
+.gql-changelog-compare-select:focus { outline: none; border-color: var(--primary); }
+.gql-changelog-diff-btn {
+  background: var(--primary);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gql-changelog-diff-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.gql-changelog-diff-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.gql-changelog-delete-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+.gql-changelog-delete-btn:hover { color: var(--gql-danger); border-color: var(--gql-danger); }
+
+/* ── Schema Diff Modal ──────────────────────────────────────────────────── */
+.gql-diff-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gql-diff-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: min(900px, 96vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+.gql-diff-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-diff-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.gql-diff-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.gql-diff-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gql-diff-summary {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.gql-diff-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.gql-diff-count--breaking  { background: rgba(239,68,68,0.2);  color: #fca5a5; }
+.gql-diff-count--dangerous { background: rgba(251,146,60,0.2); color: #fdba74; }
+.gql-diff-count--safe      { background: rgba(74,222,128,0.2); color: #86efac; }
+.gql-diff-count--deprecated{ background: rgba(250,204,21,0.2); color: #fde68a; }
+.gql-diff-count--nochange  { background: var(--bg); color: var(--text-muted); }
+.gql-diff-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.gql-diff-close:hover { background: var(--surface-hover); color: var(--text); }
+
+/* ── Diff toolbar (view toggle + filters) ───────────────────────────────── */
+.gql-diff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.gql-diff-view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.gql-diff-view-btn {
+  background: none;
+  border: none;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.gql-diff-view-btn--active {
+  background: var(--primary);
+  color: #fff;
+}
+.gql-diff-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.gql-diff-filter {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.gql-diff-filter:hover { background: var(--surface-hover); color: var(--text); }
+.gql-diff-filter--active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.gql-diff-filter-count {
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.gql-diff-filter--breaking.gql-diff-filter--active  { background: #dc2626; border-color: #dc2626; }
+.gql-diff-filter--dangerous.gql-diff-filter--active { background: #ea580c; border-color: #ea580c; }
+.gql-diff-filter--safe.gql-diff-filter--active      { background: #16a34a; border-color: #16a34a; }
+.gql-diff-filter--deprecated.gql-diff-filter--active{ background: #b45309; border-color: #b45309; }
+
+/* ── Diff content area ──────────────────────────────────────────────────── */
+.gql-diff-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+.gql-diff-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* 3D-6: Broken operations warning banner */
+.gql-diff-broken-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 18px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--warning, #f9e2af) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning, #f9e2af) 40%, var(--border));
+  border-radius: 6px;
+  color: var(--warning, #f9e2af);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.gql-diff-broken-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0.9;
+}
+
+/* ── Change rows ─────────────────────────────────────────────────────────── */
+.gql-diff-row {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.gql-diff-row--acked { opacity: 0.65; }
+.gql-diff-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gql-diff-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-top: 1px;
+}
+.gql-diff-badge--breaking  { background: rgba(239,68,68,0.2);  color: #fca5a5; }
+.gql-diff-badge--dangerous { background: rgba(251,146,60,0.2); color: #fdba74; }
+.gql-diff-badge--safe      { background: rgba(74,222,128,0.2); color: #86efac; }
+.gql-diff-badge--deprecated{ background: rgba(250,204,21,0.2); color: #fde68a; }
+.gql-diff-row-path {
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 0.78rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.gql-diff-row-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+}
+.gql-diff-ack-btn, .gql-diff-unack-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.gql-diff-ack-btn:hover { color: var(--primary); border-color: var(--primary); }
+.gql-diff-unack-btn     { color: #4ade80; border-color: rgba(74,222,128,0.4); }
+.gql-diff-unack-btn:hover { color: var(--text-muted); border-color: var(--border); }
+.gql-diff-ack-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 4px;
+}
+.gql-diff-ack-note {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 5px 8px;
+}
+.gql-diff-ack-note:focus { outline: none; border-color: var(--primary); }
+.gql-diff-ack-confirm {
+  background: var(--primary);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gql-diff-ack-note-display {
+  margin-top: 4px;
+  padding-left: 4px;
+  font-size: 0.72rem;
+  color: #4ade80;
+  font-style: italic;
+}
+.gql-diff-acked-section {
+  border-top: 1px solid var(--border);
+}
+.gql-diff-acked-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 18px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.gql-diff-acked-toggle:hover { color: var(--text); background: var(--surface-hover); }
+
+/* ── SDL diff view ───────────────────────────────────────────────────────── */
+.gql-diff-sdl-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.gql-diff-sdl-header {
+  display: flex;
+  padding: 6px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  gap: 18px;
+  flex-shrink: 0;
+}
+.gql-diff-sdl-col-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.gql-diff-sdl-col-label--removed  { color: #f87171; }
+.gql-diff-sdl-col-label--added    { color: #4ade80; }
+.gql-diff-sdl-col-label--unchanged { color: var(--text-muted); }
+.gql-diff-sdl-body {
+  overflow-y: auto;
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+}
+.gql-diff-sdl-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 1px 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.gql-diff-sdl-line--removed { background: rgba(239,68,68,0.12); color: #fca5a5; }
+.gql-diff-sdl-line--added   { background: rgba(74,222,128,0.12); color: #86efac; }
+.gql-diff-sdl-line--unchanged{ color: var(--text-muted); }
+.gql-diff-sdl-marker {
+  flex-shrink: 0;
+  width: 12px;
+  font-weight: 700;
+}
+
+/* ── Diff footer ─────────────────────────────────────────────────────────── */
+.gql-diff-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-diff-footer-spacer { flex: 1; }
+.gql-diff-action-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.gql-diff-action-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+.gql-diff-action-btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.gql-diff-action-btn--primary:hover {
+  filter: brightness(1.1);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* ── Schema change toast (3D-5) ─────────────────────────────────────────── */
+.gql-schema-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 3000;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  font-size: 0.8rem;
+  color: var(--text);
+  max-width: 320px;
+  animation: gql-toast-slide-in 0.2s ease;
+}
+@keyframes gql-toast-slide-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.gql-schema-toast-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0;
+  text-decoration: underline;
+}
+.gql-schema-toast-link:hover { opacity: 0.8; }
+.gql-schema-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.gql-schema-toast-close:hover { color: var(--text); }
+
+/* ── Deprecated Usage Panel (3D-7) ──────────────────────────────────────── */
+.gql-se-snap-count--warn {
+  background: #b45309;
+}
+.gql-deprecated-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+}
+.gql-deprecated-group {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.gql-deprecated-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.gql-deprecated-field-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(250,204,21,0.2);
+  color: #fde68a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.gql-deprecated-field-path {
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.gql-deprecated-reason {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+.gql-deprecated-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 4px;
+}
+.gql-deprecated-item-link {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--primary);
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gql-deprecated-item-link:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 3E — GraphQL Mock Server Panel
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Desktop guard ───────────────────────────────────────────────────────── */
+.gql-mock-guard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+  height: 100%;
+}
+.gql-mock-guard-icon { font-size: 2.5rem; }
+.gql-mock-guard-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.gql-mock-guard-body  { font-size: 0.8rem; color: var(--text-muted); max-width: 260px; line-height: 1.5; }
+.gql-mock-guard-link  {
+  font-size: 0.78rem;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Panel layout ────────────────────────────────────────────────────────── */
+.gql-mock-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-size: 0.8rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.gql-mock-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-mock-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.gql-mock-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.gql-mock-toggle-input { display: none; }
+.gql-mock-toggle-slider {
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.gql-mock-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.2s;
+}
+.gql-mock-toggle-input:checked + .gql-mock-toggle-slider { background: var(--primary); }
+.gql-mock-toggle-input:checked + .gql-mock-toggle-slider::after { left: 19px; }
+.gql-mock-toggle-input:disabled + .gql-mock-toggle-slider { opacity: 0.4; cursor: not-allowed; }
+/* When the checkbox is disabled the whole label should show not-allowed, not pointer */
+.gql-mock-toggle-input:disabled ~ .gql-mock-toggle-text { opacity: 0.55; }
+.gql-mock-toggle-label:has(.gql-mock-toggle-input:disabled) { cursor: not-allowed; }
+.gql-mock-toggle-text { font-size: 0.82rem; color: var(--text); font-weight: 500; }
+.gql-mock-syncing { color: var(--text-muted); animation: gql-spin 1s linear infinite; display: inline-block; }
+@keyframes gql-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.gql-mock-no-sdl {
+  font-size: 0.7rem;
+  color: var(--danger, #f87171);
+  font-style: italic;
+}
+.gql-mock-sync-error {
+  font-size: 0.72rem;
+  color: var(--danger, #f87171);
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+.gql-mock-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.gql-mock-status-badge {
+  background: #92400e;
+  color: #fde68a;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ── Schema source ───────────────────────────────────────────────────────── */
+.gql-mock-section {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-mock-section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.gql-mock-radio-group {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.gql-mock-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.79rem;
+}
+.gql-mock-sdl-editor {
+  margin-top: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  padding: 8px;
+  resize: vertical;
+}
+.gql-mock-sdl-editor:focus { border-color: var(--primary); outline: none; }
+
+/* ── Latency section ─────────────────────────────────────────────────────── */
+.gql-mock-latency-section { gap: 0; }
+.gql-mock-latency-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.gql-mock-latency-row:last-child { margin-bottom: 0; }
+.gql-mock-field-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: 72px;
+  flex-shrink: 0;
+}
+.gql-mock-slider {
+  flex: 1;
+  accent-color: var(--primary);
+}
+.gql-mock-latency-value {
+  font-size: 0.72rem;
+  color: var(--text);
+  width: 44px;
+  text-align: right;
+}
+.gql-mock-number-input {
+  width: 80px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 3px 6px;
+  font-size: 0.76rem;
+}
+.gql-mock-number-input:focus { border-color: var(--primary); outline: none; }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.gql-mock-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-mock-tab {
+  flex: 1;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.gql-mock-tab:hover { color: var(--text); }
+.gql-mock-tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+.gql-mock-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.gql-mock-empty {
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Resolvers tab ───────────────────────────────────────────────────────── */
+.gql-mock-resolvers-list { padding: 4px 0; }
+.gql-mock-type-group {
+  border-bottom: 1px solid var(--border);
+}
+.gql-mock-type-group--overridden .gql-mock-type-header {
+  color: var(--primary);
+}
+.gql-mock-type-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+}
+.gql-mock-type-header:hover { background: var(--surface-hover); }
+.gql-mock-type-toggle { font-size: 0.6rem; color: var(--text-muted); }
+.gql-mock-type-name   { font-weight: 600; }
+.gql-mock-type-override-count {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* ── Field resolver row ──────────────────────────────────────────────────── */
+.gql-mock-field-row {
+  padding: 5px 12px 5px 28px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.gql-mock-field-row--overridden {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+.gql-mock-field-row-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gql-mock-field-name  { flex: 1; color: var(--text); font-size: 0.78rem; font-weight: 500; }
+.gql-mock-field-type  { color: var(--text-muted); font-size: 0.72rem; font-family: monospace; }
+.gql-mock-resolver-select {
+  appearance: none;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a8b8cc'/%3E%3C/svg%3E") no-repeat right 6px center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 3px 22px 3px 6px;
+  cursor: pointer;
+}
+.gql-mock-resolver-select:focus { border-color: var(--primary); outline: none; }
+.gql-mock-fixed-input, .gql-mock-script-input {
+  margin-top: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.73rem;
+  padding: 4px 6px;
+  resize: none;
+}
+.gql-mock-fixed-input:focus,
+.gql-mock-script-input:focus { border-color: var(--primary); outline: none; }
+
+/* ── Scenarios tab ───────────────────────────────────────────────────────── */
+.gql-mock-scenarios { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.gql-mock-scenario-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+.gql-mock-scenario-card--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+.gql-mock-scenario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.gql-mock-scenario-name { font-weight: 600; color: var(--text); font-size: 0.8rem; }
+.gql-mock-scenario-actions { display: flex; gap: 5px; align-items: center; }
+.gql-mock-scenario-activate, .gql-mock-scenario-deactivate {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gql-mock-scenario-activate {
+  background: none;
+  color: var(--primary);
+}
+.gql-mock-scenario-activate:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.gql-mock-scenario-deactivate {
+  background: var(--primary);
+  color: #fff;
+}
+.gql-mock-scenario-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+}
+.gql-mock-scenario-delete:hover { color: var(--danger, #f87171); }
+.gql-mock-scenario-resolvers-count { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+
+.gql-mock-scenario-add-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 0;
+}
+.gql-mock-scenario-name-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+.gql-mock-scenario-name-input:focus { border-color: var(--primary); outline: none; }
+.gql-mock-add-btn, .gql-mock-cancel-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.73rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.gql-mock-add-btn { background: var(--primary); color: #fff; border-color: var(--primary); }
+.gql-mock-cancel-btn { background: none; color: var(--text-muted); }
+.gql-mock-add-scenario-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  padding: 7px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  width: 100%;
+  text-align: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.gql-mock-add-scenario-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── Scalar factories tab ────────────────────────────────────────────────── */
+.gql-mock-scalar-factories { padding: 4px 0; }
+.gql-mock-scalar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  flex-wrap: wrap;
+}
+.gql-mock-scalar-name { font-weight: 600; color: var(--text); min-width: 100px; font-size: 0.78rem; }
+
+/* ── Request log tab ─────────────────────────────────────────────────────── */
+.gql-mock-log { display: flex; flex-direction: column; }
+.gql-mock-log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gql-mock-log-count { font-size: 0.72rem; color: var(--text-muted); }
+.gql-mock-refresh-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.gql-mock-refresh-btn:hover { color: var(--text); border-color: var(--primary); }
+.gql-mock-log-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.gql-mock-log-row-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: wrap;
+}
+.gql-mock-log-row-summary:hover { background: var(--surface-hover); }
+.gql-mock-log-time     { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+.gql-mock-log-op       { flex: 1; font-size: 0.75rem; color: var(--text); font-weight: 500; min-width: 60px; }
+.gql-mock-log-latency  { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+.gql-mock-log-scenario { font-size: 0.66rem; color: var(--primary); font-family: monospace; }
+.gql-mock-log-error-badge { font-size: 0.68rem; color: var(--danger, #f87171); }
+.gql-mock-log-expand-icon { font-size: 0.6rem; color: var(--text-muted); margin-left: auto; }
+.gql-mock-log-detail {
+  padding: 8px 16px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.gql-mock-log-detail-section { margin-bottom: 10px; }
+.gql-mock-log-detail-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+.gql-mock-log-code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.gql-mock-footer {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.gql-mock-footer-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  position: relative;
+}
+.gql-mock-footer-btn:hover { color: var(--text); border-color: var(--primary); }
+.gql-mock-footer-btn--danger:hover { color: var(--danger, #f87171); border-color: var(--danger, #f87171); }
+.gql-mock-import-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+.gql-mock-import-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--danger, #f38ba8) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger, #f38ba8) 40%, var(--border));
+  border-radius: 5px;
+  color: var(--danger, #f38ba8);
+  font-size: 0.78rem;
+}
+.gql-mock-import-error-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.gql-mock-import-error-close:hover { opacity: 1; }
+.gql-mock-scenario-snap-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase 3F — Advanced Query Features CSS
+   (APQ badge, advanced settings popover, batch results, complexity gate modal,
+    dedup banner, batch button, batch tab checkbox)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── APQ badge in connection bar ─────────────────────────────────────────── */
+.gql-apq-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.gql-apq-badge--hit {
+  background: color-mix(in srgb, #a6e3a1 15%, transparent);
+  color: #a6e3a1;
+  border: 1px solid color-mix(in srgb, #a6e3a1 35%, transparent);
+}
+.gql-apq-badge--miss {
+  background: color-mix(in srgb, #f9e2af 15%, transparent);
+  color: #f9e2af;
+  border: 1px solid color-mix(in srgb, #f9e2af 35%, transparent);
+}
+.gql-apq-badge--unsupported {
+  background: color-mix(in srgb, #f38ba8 15%, transparent);
+  color: #f38ba8;
+  border: 1px solid color-mix(in srgb, #f38ba8 35%, transparent);
+}
+
+/* ── Send Batch button ───────────────────────────────────────────────────── */
+.gql-btn--batch {
+  background: color-mix(in srgb, #89b4fa 18%, #1e293b);
+  color: #89b4fa;
+  border: 1px solid color-mix(in srgb, #89b4fa 40%, transparent);
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gql-btn--batch:hover:not(:disabled) {
+  background: color-mix(in srgb, #89b4fa 28%, #1e293b);
+  border-color: #89b4fa;
+}
+.gql-btn--batch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Advanced settings gear button ──────────────────────────────────────── */
+.gql-adv-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.gql-adv-settings-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--text);
+}
+.gql-adv-settings-btn--active {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  border-color: var(--primary);
+  color: #89b4fa;
+}
+
+/* ── Advanced settings popover ───────────────────────────────────────────── */
+.gql-advsettings-popover {
+  position: fixed;
+  top: 50px;
+  right: 16px;
+  z-index: 300;
+  width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.gql-advsettings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.gql-advsettings-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.gql-advsettings-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 3px;
+}
+.gql-advsettings-close:hover { color: var(--text); background: var(--surface-hover); }
+
+.gql-advsettings-tabs {
+  display: flex;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.gql-advsettings-tab {
+  flex: 1;
+  padding: 7px 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.gql-advsettings-tab.active,
+.gql-advsettings-tab[aria-selected="true"] {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+.gql-advsettings-tab:hover:not(.active) { color: var(--text); }
+
+.gql-advsettings-body { padding: 12px 14px; }
+.gql-advsettings-section { display: flex; flex-direction: column; gap: 8px; }
+.gql-advsettings-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.gql-advsettings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text);
+}
+.gql-advsettings-indent { margin-left: 20px; }
+.gql-advsettings-label { flex: 0 0 80px; color: var(--text-muted); font-size: 0.72rem; }
+.gql-advsettings-input-sm {
+  width: 80px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.73rem;
+}
+.gql-advsettings-input-sm:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.gql-advsettings-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+.gql-advsettings-note {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+  margin: 2px 0 0;
+  font-style: italic;
+}
+.gql-advsettings-badge-warn {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #f9e2af 20%, transparent);
+  color: #f9e2af;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.gql-advsettings-warn-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, #f9e2af 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, #f9e2af 30%, transparent);
+  font-size: 0.71rem;
+  color: #f9e2af;
+}
+.gql-advsettings-reset-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  align-self: flex-start;
+}
+.gql-advsettings-reset-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--primary);
+}
+
+/* ── Dedup in-flight banner ──────────────────────────────────────────────── */
+.gql-dedup-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, #f9e2af 10%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, #f9e2af 30%, transparent);
+  font-size: 0.73rem;
+}
+.gql-dedup-badge {
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #f9e2af 20%, transparent);
+  border: 1px solid color-mix(in srgb, #f9e2af 40%, transparent);
+  color: #f9e2af;
+  font-size: 0.67rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.gql-dedup-msg {
+  color: var(--text-muted);
+  flex: 1;
+  font-size: 0.72rem;
+}
+.gql-dedup-btn {
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gql-dedup-btn:hover { background: var(--surface-hover); border-color: var(--primary); }
+.gql-dedup-btn--cancel { color: #f38ba8; border-color: color-mix(in srgb, #f38ba8 35%, transparent); }
+.gql-dedup-btn--cancel:hover { background: color-mix(in srgb, #f38ba8 12%, var(--surface)); border-color: #f38ba8; }
+.gql-dedup-btn--anyway { color: var(--text-muted); }
+
+/* ── Batch result overlay ────────────────────────────────────────────────── */
+.gql-batch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.gql-batch-results {
+  width: 620px;
+  max-width: 95vw;
+  max-height: 80vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: all;
+}
+.gql-batch-results-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.gql-batch-results-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.gql-batch-results-summary {
+  display: flex;
+  gap: 6px;
+  font-size: 0.72rem;
+}
+.gql-batch-summary-passed { color: #a6e3a1; font-weight: 600; }
+.gql-batch-summary-failed { color: #f38ba8; font-weight: 600; }
+.gql-batch-unsupported-badge {
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: color-mix(in srgb, #f9e2af 15%, transparent);
+  color: #f9e2af;
+  border: 1px solid color-mix(in srgb, #f9e2af 30%, transparent);
+}
+.gql-batch-results-dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.gql-batch-results-dismiss:hover { color: var(--text); background: var(--surface-hover); }
+.gql-batch-cards {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px;
+}
+.gql-batch-card {
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.gql-batch-card--success { border-left: 3px solid #a6e3a1; }
+.gql-batch-card--error   { border-left: 3px solid #f38ba8; }
+.gql-batch-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.73rem;
+  color: var(--text);
+  transition: background 0.12s;
+}
+.gql-batch-card-header:hover { background: var(--surface-hover); }
+.gql-batch-card-indicator {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.gql-batch-card--success .gql-batch-card-indicator { color: #a6e3a1; }
+.gql-batch-card--error   .gql-batch-card-indicator { color: #f38ba8; }
+.gql-batch-card-name { flex: 1; font-weight: 500; }
+.gql-batch-card-meta { display: flex; gap: 6px; }
+.gql-batch-card-status { color: var(--text-muted); font-size: 0.68rem; }
+.gql-batch-card-latency { color: var(--text-muted); font-size: 0.68rem; }
+.gql-batch-card-chevron { color: var(--text-muted); font-size: 0.65rem; }
+.gql-batch-card-body {
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.gql-batch-card-errors { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.gql-batch-card-error-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px;
+  background: color-mix(in srgb, #f38ba8 8%, var(--surface));
+  border-radius: 4px;
+  border-left: 2px solid #f38ba8;
+}
+.gql-batch-card-error-msg { font-size: 0.73rem; color: #f38ba8; }
+.gql-batch-card-error-path { font-size: 0.65rem; color: var(--text-muted); }
+.gql-batch-card-data {
+  font-size: 0.72rem;
+  color: var(--text);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.gql-batch-card-empty { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
+
+/* ── Complexity gate modal ───────────────────────────────────────────────── */
+.gql-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+.gql-gate-modal {
+  width: 440px;
+  max-width: 95vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.gql-gate-icon-row { display: flex; }
+.gql-gate-warning-icon {
+  width: 40px;
+  height: 40px;
+  color: #f9e2af;
+}
+.gql-gate-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  text-align: center;
+}
+.gql-gate-message {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+.gql-gate-message strong { color: var(--text); }
+.gql-gate-score-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gql-gate-score-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.gql-gate-score-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f9e2af 0%, #f38ba8 100%);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.gql-gate-score-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.gql-gate-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+  font-style: italic;
+}
+/* Field breakdown table (3F-8) */
+.gql-gate-breakdown {
+  width: 100%;
+  margin: 2px 0 12px;
+}
+.gql-gate-breakdown-title {
+  font-size: 0.71rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+}
+.gql-gate-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.73rem;
+}
+.gql-gate-breakdown-table th {
+  text-align: left;
+  padding: 3px 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+.gql-gate-breakdown-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  color: var(--text);
+}
+.gql-gate-breakdown-cost-col { text-align: right; }
+.gql-gate-breakdown-cost { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.gql-gate-breakdown-field { font-family: monospace; }
+.gql-gate-breakdown-type { color: var(--text-muted); font-size: 0.68rem; }
+.gql-gate-breakdown-list-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--warning, #f9e2af) 12%, var(--surface));
+  color: var(--warning, #f9e2af);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* "Remember for this session" checkbox (3F-8) */
+.gql-gate-remember {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 4px 0 12px;
+  width: 100%;
+}
+.gql-gate-remember input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gql-gate-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+}
+.gql-gate-btn-cancel {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gql-gate-btn-cancel:hover { background: var(--surface-hover); border-color: var(--primary); }
+.gql-gate-btn-send {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #f9e2af 40%, transparent);
+  background: color-mix(in srgb, #f9e2af 12%, var(--surface));
+  color: #f9e2af;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gql-gate-btn-send:hover {
+  background: color-mix(in srgb, #f9e2af 20%, var(--surface));
+  border-color: #f9e2af;
+}
+
+/* ── Batch tab checkbox ──────────────────────────────────────────────────── */
+.gql-tab-batch-cb {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  position: relative;
+  vertical-align: middle;
+}
+.gql-tab-batch-cb:hover { border-color: #89b4fa; }
+.gql-tab-batch-cb--checked {
+  background: #89b4fa;
+  border-color: #89b4fa;
+}
+.gql-tab-batch-cb--checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  width: 4px;
+  height: 6px;
+  border: 1.5px solid #1e293b;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
 }

@@ -1,9 +1,20 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SlaStatusAccordion } from './SlaStatusAccordion';
 import type { SlaTarget } from '../utils/slaTargets';
 import { makeSummary, makeResult } from '../../../test-utils/factories';
+
+const slaHelpers = vi.hoisted(() => ({
+  evaluateSlaTreeMock: vi.fn(),
+  realEvaluateSlaTree: null as (...args: Parameters<typeof import('../utils/slaTargets').evaluateSlaTree>) => ReturnType<typeof import('../utils/slaTargets').evaluateSlaTree>,
+}));
+
+vi.mock('../utils/slaTargets', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/slaTargets')>();
+  slaHelpers.realEvaluateSlaTree = actual.evaluateSlaTree;
+  return { ...actual, evaluateSlaTree: slaHelpers.evaluateSlaTreeMock };
+});
 
 function makeTarget(overrides: Partial<SlaTarget> = {}): SlaTarget {
   return { id: 't1', metric: 'p95', operator: 'lte', value: 50, ...overrides };
@@ -11,6 +22,10 @@ function makeTarget(overrides: Partial<SlaTarget> = {}): SlaTarget {
 
 // summary.p95ResponseTime=90, p99=95, p50=45, tps=2 by default.
 const summary = makeSummary();
+
+beforeEach(() => {
+  slaHelpers.evaluateSlaTreeMock.mockImplementation((...args) => slaHelpers.realEvaluateSlaTree(...args));
+});
 
 describe('SlaStatusAccordion', () => {
   it('renders nothing when there are no targets', () => {
@@ -157,5 +172,87 @@ describe('SlaStatusAccordion', () => {
     // login has 2 checks, cart has 1 check
     expect(screen.getByText('2 checks')).toBeTruthy();
     expect(screen.getByText('1 check')).toBeTruthy();
+  });
+
+  it('toggles derived per-test scenario sections in the breakdown', () => {
+    const results = [
+      makeResult({ id: 'r1', scenarioName: 'login', responseTimeMs: 100 }),
+      makeResult({ id: 'r2', scenarioName: 'checkout', responseTimeMs: 100 }),
+    ];
+    const targets = [makeTarget({ id: 'agg', metric: 'p95', operator: 'lte', value: 50 })];
+    render(<SlaStatusAccordion targets={targets} results={results} summary={summary} />);
+
+    expect(screen.getByText('Per-Test Breakdown')).toBeTruthy();
+    expect(screen.getByText('login')).toBeTruthy();
+    expect(screen.getByText('checkout')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('login'));
+    fireEvent.click(screen.getByText('login'));
+    expect(screen.getByText('login')).toBeTruthy();
+  });
+
+  it('shows pass-only summary pills when all configured checks pass', () => {
+    const targets = [makeTarget({ id: 'pass1', metric: 'p95', operator: 'lte', value: 500 })];
+    render(<SlaStatusAccordion targets={targets} results={[makeResult()]} summary={summary} />);
+    expect(screen.getByText('1 Passing')).toBeTruthy();
+    expect(screen.queryByText(/Failing/)).toBeNull();
+    expect(screen.getByText('1 check total')).toBeTruthy();
+  });
+
+  it('shows warning-only summary when checks warn but none fail', () => {
+    const targets = [
+      makeTarget({ id: 'w1', metric: 'p99', operator: 'lte', value: 200, warnAt: 50 }),
+    ];
+    render(<SlaStatusAccordion targets={targets} results={[makeResult()]} summary={summary} />);
+    expect(screen.getByText('1 Warning')).toBeTruthy();
+    expect(screen.queryByText(/Failing/)).toBeNull();
+  });
+
+  it('uses singular warning label in the summary bar', () => {
+    const targets = [
+      makeTarget({ id: 'w1', metric: 'p99', operator: 'lte', value: 200, warnAt: 50 }),
+      makeTarget({ id: 'w2', metric: 'avg', operator: 'lte', value: 200, warnAt: 10 }),
+    ];
+    render(<SlaStatusAccordion targets={targets} results={[makeResult()]} summary={summary} />);
+    expect(screen.getByText('2 Warnings')).toBeTruthy();
+  });
+
+  it('renders derived feature sections when multiple derived nodes exist', () => {
+    slaHelpers.evaluateSlaTreeMock.mockReturnValue({
+      featureNodes: [],
+      derivedFeatureNodes: [
+        {
+          featureGroupName: 'Derived A',
+          status: 'fail',
+          featureChecks: [],
+          scenarios: [{
+            scenarioName: 'login',
+            status: 'fail',
+            checks: [{ target: makeTarget(), actual: 100, status: 'fail' as const }],
+          }],
+        },
+        {
+          featureGroupName: 'Derived B',
+          status: 'pass',
+          featureChecks: [],
+          scenarios: [],
+        },
+      ],
+      aggregateChecks: [],
+      aggregateStatus: null,
+      overall: 'fail',
+    });
+    render(
+      <SlaStatusAccordion
+        targets={[makeTarget()]}
+        results={[makeResult({ scenarioName: 'login' })]}
+        summary={summary}
+      />,
+    );
+    expect(screen.getByText('Per-Test Breakdown')).toBeTruthy();
+    expect(screen.getByText('Derived A')).toBeTruthy();
+    expect(screen.getByText('Derived B')).toBeTruthy();
+    fireEvent.click(screen.getByText('Derived A'));
+    expect(screen.getByText('Derived A')).toBeTruthy();
   });
 });

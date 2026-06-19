@@ -10,11 +10,13 @@
 import type {
   GraphqlResponse,
   GraphqlSchemaInfo,
+  GraphqlSchemaSnapshot,
   GraphqlSubscriptionAssertion,
   GraphqlSubscriptionMessage,
   SubscriptionState,
   SubscriptionStats,
 } from '../../../shared/types/graphql';
+import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { GraphqlResponseViewer } from './GraphqlResponseViewer';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import { GraphqlSubscriptionLog } from './GraphqlSubscriptionLog';
@@ -67,6 +69,14 @@ interface GqlRightPaneProps {
   subscriptionLog?: SubscriptionLogProps | null;
   /** Optional: insert a field into the active query editor (powers "Try →" in schema explorer) */
   onInsertField?: (fieldName: string, fieldType: string, hasArgs: boolean) => void;
+  // 3D-2: schema snapshot / changelog props
+  snapshots?: GraphqlSchemaSnapshot[];
+  onSaveSnapshot?: () => Promise<void>;
+  onDeleteSnapshot?: (id: string) => void;
+  onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
+  // 3D-7: deprecated field usages
+  deprecatedUsages?: DeprecatedFieldUsage[];
+  onOpenCollectionItem?: (itemId: string) => void;
 }
 
 export function GqlRightPane({
@@ -83,6 +93,12 @@ export function GqlRightPane({
   activeOperationType,
   subscriptionLog,
   onInsertField,
+  snapshots,
+  onSaveSnapshot,
+  onDeleteSnapshot,
+  onOpenDiff,
+  deprecatedUsages,
+  onOpenCollectionItem,
 }: GqlRightPaneProps) {
   const hasErrors = !!(response?.errors?.length);
   const hasData = response?.data != null;
@@ -244,6 +260,12 @@ export function GqlRightPane({
             onIntrospect={onIntrospect}
             introspecting={introspecting}
             onInsertField={onInsertField}
+            snapshots={snapshots}
+            onSaveSnapshot={onSaveSnapshot}
+            onDeleteSnapshot={onDeleteSnapshot}
+            onOpenDiff={onOpenDiff}
+            deprecatedUsages={deprecatedUsages ?? []}
+            onOpenCollectionItem={onOpenCollectionItem}
           />
         )}
       </div>

@@ -5,15 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDemoHub } from './useDemoHub';
 import type { DemoLesson } from './types';
-
-/** jsdom has no layout engine — getBoundingClientRect always returns zero.
- *  firstVisible skips zero-rect elements. Call makeVisible so they are found. */
-function makeVisible(el: Element): void {
-  (el as HTMLElement).getBoundingClientRect = () => ({
-    width: 100, height: 20, top: 0, left: 0,
-    right: 100, bottom: 20, x: 0, y: 0, toJSON: () => '{}',
-  } as DOMRect);
-}
+import { makeVisible } from './lessons/protocols/ws-test-utils';
 
 function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
   return {
@@ -128,7 +120,7 @@ describe('useDemoHub (async execution)', () => {
     expect(result.current.state.stepIndex).toBe(0);
   });
 
-  it('goToStep marks lesson complete when navigating to last step', async () => {
+  it('goToStep shows completion prompt when navigating to last step', async () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     const lesson = makeLesson(); // 3 steps (indices 0-2)
     act(() => result.current.selectLesson(lesson));
@@ -143,6 +135,10 @@ describe('useDemoHub (async execution)', () => {
       await vi.advanceTimersByTimeAsync(6000);
       await p;
     });
+    // Lesson is NOT auto-marked; user must click Complete.
+    expect(result.current.progress.completedLessons).not.toContain(lesson.id);
+    // confirmLessonComplete simulates clicking the Complete button.
+    act(() => { result.current.confirmLessonComplete(); });
     expect(result.current.progress.completedLessons).toContain(lesson.id);
   });
 

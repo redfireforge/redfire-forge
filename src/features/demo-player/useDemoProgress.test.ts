@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDemoProgress } from './useDemoProgress';
 
@@ -117,5 +117,45 @@ describe('useDemoProgress', () => {
     expect(result.current.data.completedLessons).toEqual(['x']);
     expect(result.current.data.lessonSteps).toEqual({});
     expect(result.current.data.speed).toBe(1);
+  });
+
+  it('setLastView saves view', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.setLastView('concept'));
+    expect(result.current.data.lastView).toBe('concept');
+    act(() => result.current.setLastView('lessons'));
+    expect(result.current.data.lastView).toBe('lessons');
+  });
+
+  it('getLessonStatus returns not_started, in_progress, and completed', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    expect(result.current.getLessonStatus('lesson-1')).toBe('not_started');
+    act(() => result.current.setLessonStep('lesson-1', 2));
+    expect(result.current.getLessonStatus('lesson-1')).toBe('in_progress');
+    act(() => result.current.markLessonComplete('lesson-1'));
+    expect(result.current.getLessonStatus('lesson-1')).toBe('completed');
+  });
+
+  it('resetLesson clears completion and step for one lesson only', () => {
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => {
+      result.current.markLessonComplete('lesson-1');
+      result.current.setLessonStep('lesson-1', 3);
+      result.current.setLessonStep('lesson-2', 1);
+    });
+    act(() => result.current.resetLesson('lesson-1'));
+    expect(result.current.data.completedLessons).not.toContain('lesson-1');
+    expect(result.current.data.lessonSteps['lesson-1']).toBeUndefined();
+    expect(result.current.data.lessonSteps['lesson-2']).toBe(1);
+  });
+
+  it('handles localStorage setItem failure gracefully', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    const { result } = renderHook(() => useDemoProgress());
+    act(() => result.current.markLessonComplete('lesson-1'));
+    expect(result.current.data.completedLessons).toContain('lesson-1');
+    setItemSpy.mockRestore();
   });
 });

@@ -3,19 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wsTabsLesson } from './ws-tabs';
-import { makeCtx } from './ws-test-utils';
-
-/**
- * jsdom does not do layout, so getBoundingClientRect() always returns zero.
- * firstVisibleEl() relies on non-zero width/height to detect visibility.
- * This helper patches selected elements so they appear visible in tests.
- */
-function makeVisible(el: Element): void {
-  (el as HTMLElement).getBoundingClientRect = () => ({
-    width: 100, height: 20, top: 0, left: 0, right: 100, bottom: 20, x: 0, y: 0,
-    toJSON: () => '{}',
-  } as DOMRect);
-}
+import { makeCtx, makeVisible } from './ws-test-utils';
 
 /** Build a minimal tab bar with N tab elements that are visible. */
 function buildTabBar(count: number): void {
@@ -174,6 +162,14 @@ describe('ws-tabs lesson', () => {
     expect(step.verify).toContain('mock-log');
   });
 
+  it('tabs-mock-log-tab1 highlight targets the Server Log TAB BUTTON not the log content', () => {
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-mock-log-tab1')!;
+    // mock-tab-log is always visible in Mock Server mode; mock-log is only
+    // visible after the tab has been opened — using mock-log would give 📖 Guide
+    expect(step.highlight).toContain('mock-tab-log');
+    expect(step.highlight).not.toContain('"mock-log"');
+  });
+
   it('tabs-send-tab2 has verify for mock log', () => {
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-send-tab2')!;
     expect(step.verify).toContain('mock-log');
@@ -181,10 +177,22 @@ describe('ws-tabs lesson', () => {
 
   // ─── Step actions ───────────────────────────────────────────
 
-  it('step tabs-intro has no action (read-only)', () => {
+  it('step tabs-intro has no action but has a preAction', () => {
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-intro')!;
     expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    // preAction switches to Mock Server mode so the description claim
+    // ("Tab 1 is already running a mock echo server on :9876") is
+    // visually confirmed during the reading pause.
+    expect(step.preAction).toBeDefined();
+  });
+
+  it('step tabs-intro preAction switches to Mock Server mode', async () => {
+    buildTabBar(1);
+    const ctx = makeCtx();
+    const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-intro')!;
+    await step.preAction!(ctx);
+    const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
+    expect(clickCalls.some((c: [string]) => c[0].includes('mode-mock'))).toBe(true);
   });
 
   it('step tabs-add action clicks CONN_TAB_ADD', async () => {
@@ -398,7 +406,7 @@ describe('ws-tabs lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('step tabs-close preAction disconnects Tab 2 before closing', async () => {
+  it('step tabs-close preAction navigates to Connect sub-tab then disconnects Tab 2', async () => {
     buildTabBar(2);
     const disconnectBtn = document.createElement('button');
     disconnectBtn.setAttribute('data-testid', 'disconnect-btn');
@@ -410,6 +418,10 @@ describe('ws-tabs lesson', () => {
     const step = wsTabsLesson.steps.find((s) => s.id === 'tabs-close')!;
     await step.preAction!(ctx);
 
+    // Must explicitly navigate to the Connect sub-tab so the Disconnect button is
+    // visible — step 8 leaves Tab 2 on the Send sub-tab where it is not rendered.
+    const clickCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls;
+    expect(clickCalls.some((c: [string]) => c[0].includes('left-tab-connect'))).toBe(true);
     expect(disconnectSpy).toHaveBeenCalled();
   });
 

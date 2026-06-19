@@ -882,6 +882,10 @@ export default function App() {
           onSkipReading={demoHub.skipReading}
           onRestart={demoHub.restartDemo}
           onExit={() => { void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub')); }}
+          onComplete={() => {
+            demoHub.confirmLessonComplete();
+            void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub'));
+          }}
         />
       )}
 

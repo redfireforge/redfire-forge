@@ -29,84 +29,23 @@ import { createClient as createSseClient } from 'graphql-sse';
 import { parse, visit } from 'graphql';
 import { gqlFetch } from './gqlFetch';
 import { buildAuthHeaders, buildConnectionParams } from './authUtils';
-import { isTauri } from '../../../shared/utils/platform';
 import type { GraphqlResponse, GraphqlAuth, GraphqlError } from '../../../shared/types/graphql';
-
-// ─── Transport interface ───────────────────────────────────────────────────────
-
-/** All resolved (post-interpolation) parameters for a single operation. */
-export interface GraphqlOperationParams {
-  /** GraphQL endpoint URL. */
-  endpoint: string;
-  /** Resolved request headers (user headers + auth headers, already merged). */
-  headers: Record<string, string>;
-  /** Whether to skip TLS certificate validation for self-signed/dev endpoints. */
-  skipTlsVerify?: boolean;
-  /** AbortSignal for cancellation. */
-  signal?: AbortSignal;
-}
-
-export interface GraphqlSubscribeCallbacks {
-  /** Invoked for each `data` / `next` frame from the subscription stream. */
-  onMessage: (data: unknown) => void;
-  /** Invoked when the subscription encounters an error. */
-  onError: (error: string) => void;
-  /** Invoked when the subscription stream ends cleanly. */
-  onComplete: () => void;
-}
-
-/**
- * Discriminated union of all transport implementations.
- * Sprint 2/3 will replace the 'ws' / 'sse' stubs with real implementations.
- */
-export type GraphqlTransportType = 'http' | 'ws' | 'sse';
-
-export interface GraphqlTransport {
-  /** Transport discriminant — useful for debugging and logging. */
-  readonly type: GraphqlTransportType;
-
-  /**
-   * Execute a query or mutation.
-   * Returns a Promise that resolves with the GraphQL response.
-   * Subscriptions via this method are not supported — use `subscribe()`.
-   */
-  execute(
-    query: string,
-    variables: Record<string, unknown>,
-    operationName: string | undefined,
-    params: GraphqlOperationParams,
-  ): Promise<GraphqlResponse>;
-
-  /**
-   * Open a subscription stream.
-   * Returns an `unsubscribe` function — call it to close the stream.
-   */
-  subscribe(
-    query: string,
-    variables: Record<string, unknown>,
-    operationName: string | undefined,
-    params: GraphqlOperationParams,
-    callbacks: GraphqlSubscribeCallbacks,
-  ): () => void;
-}
-
-// ─── Connection config slice used by selectTransport ─────────────────────────
-
-export interface GraphqlTransportSelector {
-  /** Resolved auth config for the active connection (if any). */
-  auth?: GraphqlAuth | null;
-  /** Skip TLS verification. */
-  skipTlsVerify?: boolean;
-  /**
-   * The resolved endpoint URL — used for auto-detection heuristic (e.g. /stream → SSE).
-   */
-  endpoint?: string;
-  /**
-   * Preferred subscription transport. 'auto' applies Option C routing rules.
-   * Explicit values override the routing logic.
-   */
-  subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
-}
+import {
+  createWsProxyTransport as _createWsProxyTransport,
+  createSseProxyTransport as _createSseProxyTransport,
+} from './graphqlProxyTransports';
+import type {
+  GraphqlSubscribeCallbacks,
+  GraphqlTransport,
+  GraphqlTransportSelector,
+} from './graphqlTransportTypes';
+export type {
+  GraphqlOperationParams,
+  GraphqlSubscribeCallbacks,
+  GraphqlTransportType,
+  GraphqlTransport,
+  GraphqlTransportSelector,
+} from './graphqlTransportTypes';
 
 // ─── HTTP transport ───────────────────────────────────────────────────────────
 
@@ -714,24 +653,25 @@ export function deriveWsEndpoint(httpUrl: string): string {
   return httpUrl; // already ws:// / wss:// or unknown protocol
 }
 
+// ─── Proxy transports — re-exported from graphqlProxyTransports.ts ───────────
+
+export { createWsProxyTransport, createSseProxyTransport } from './graphqlProxyTransports';
+
 // ─── Transport factory / router ───────────────────────────────────────────────
 
 /**
- * Returns true when the connection config requires proxying for WS subscriptions.
+ * Returns true when the connection config requires proxying for WS/SSE subscriptions.
  *
- * Conditions that require the proxy (can't use a direct browser WebSocket):
- *   1. Auth headers need to be injected (browser WebSocket cannot send headers).
- *   2. TLS skip is requested (requires server-side undici Agent with rejectUnauthorized:false).
- *   3. Running in Tauri (handled via localhost proxy on port 3001).
+ * The only condition that requires the proxy is `skipTlsVerify=true`:
+ * browsers (and Tauri's webview) cannot bypass TLS certificate errors on
+ * WebSocket or fetch connections. The Node.js proxy server can use
+ * `rejectUnauthorized: false` on its server-side undici/https.Agent.
  *
- * Auth that only injects into `connectionParams` (bearer, basic, apiKey) can use
- * the direct path because connectionParams is sent in the `connection_init` message,
- * not as HTTP headers.
+ * Note: Tauri's WKWebView (macOS) supports WebSocket natively for valid certs,
+ * so we only route through the proxy when TLS skip is explicitly requested.
  */
 export function requiresWsProxy(selector: GraphqlTransportSelector): boolean {
-  if (isTauri()) return true;
-  if (selector.skipTlsVerify) return true;
-  return false;
+  return !!selector.skipTlsVerify;
 }
 
 /**
@@ -740,6 +680,7 @@ export function requiresWsProxy(selector: GraphqlTransportSelector): boolean {
  * Operation routing (Option C hybrid — §23.16.1):
  *   'query' | 'mutation'  → HTTP transport (always)
  *   'subscription'        → WS (graphql-transport-ws / graphql-ws) or SSE (graphql-sse)
+ *                           Proxy variants used when skipTlsVerify=true.
  *
  * Auto-detection heuristic for SSE (Sprint 3):
  *   When `subscriptionTransport === 'auto'` and the endpoint URL ends with `/stream`
@@ -759,22 +700,29 @@ export function selectTransport(
   }
 
   const pref = selector.subscriptionTransport ?? 'auto';
+  const needsProxy = requiresWsProxy(selector);
 
   if (pref === 'sse') {
-    return createSseTransport(selector.auth, 5, onStateChange);
+    return needsProxy
+      ? _createSseProxyTransport(selector.auth, onStateChange)
+      : createSseTransport(selector.auth, 5, onStateChange);
   }
 
   if (pref === 'auto') {
     // Heuristic: endpoints ending in /stream → SSE by default
     const url = (selector.endpoint ?? '').toLowerCase();
     if (url.endsWith('/stream') || url.includes('/stream?')) {
-      return createSseTransport(selector.auth, 5, onStateChange);
+      return needsProxy
+        ? _createSseProxyTransport(selector.auth, onStateChange)
+        : createSseTransport(selector.auth, 5, onStateChange);
     }
   }
 
   // 'auto' (non-stream URL), 'graphql-transport-ws', or 'graphql-ws' → WS transport
   const subprotocol = pref === 'graphql-ws' ? 'graphql-ws' : 'graphql-transport-ws';
-  return createWsTransport(subprotocol, selector.auth, 5, onStateChange);
+  return needsProxy
+    ? _createWsProxyTransport(subprotocol, selector.auth, onStateChange)
+    : createWsTransport(subprotocol, selector.auth, 5, onStateChange);
 }
 
 // ─── Incremental delivery utilities (Sprint 7 — 2D-5) ────────────────────────

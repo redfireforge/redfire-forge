@@ -46,7 +46,7 @@ vi.mock('../../../shared/components/data-mapper', () => ({
       <button onClick={() => onSave([{ name: 'mapped', source: 'body', expression: '$.x' }])}>Apply Map</button>
       <button onClick={() => {
         if (initialData && initialData.length === 1) {
-          onSave([{ ...initialData[0], expression: '$.data.id' }]);
+          onSave([{ ...initialData[0], expression: '$.data.id', fallback: 'default-val' }]);
         }
       }}>Apply Path</button>
       <button onClick={onCancel}>Close Modal</button>
@@ -63,6 +63,14 @@ vi.mock('../../../shared/components/data-mapper', () => ({
       deserialize: (e: unknown[]) => e,
     };
   },
+  createWsExtractionAdapter: () => ({
+    contextId: 'ws-extraction',
+    title: 'WS Test',
+    sources: [{ id: 'response-body', label: 'Response Body', sampleData: undefined }],
+    target: { label: 'Variables', sampleData: undefined, allowCustomFields: true },
+    serialize: (m: unknown[]) => m,
+    deserialize: (e: unknown[]) => e,
+  }),
   splitExtractions: (all: Extraction[]) => ({
     body: all.filter((e: Extraction) => e.source === 'body'),
     nonBody: all.filter((e: Extraction) => e.source !== 'body'),
@@ -406,6 +414,13 @@ describe('ExtractionEditor', () => {
     expect(screen.getByText('Fetching...')).toBeTruthy();
   });
 
+  it('calls fetchSample.onFetch when the Fetch Response button is clicked', () => {
+    const onFetch = vi.fn();
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={{ onFetch, fetching: false, error: null }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Response' }));
+    expect(onFetch).toHaveBeenCalled();
+  });
+
   it('shows Override host checkbox and enabled input when host.enabled is true', () => {
     const setEnabled = vi.fn();
     const setOverride = vi.fn();
@@ -432,16 +447,50 @@ describe('ExtractionEditor', () => {
     expect(setEnabled).toHaveBeenCalled();
   });
 
-  it('returns empty paths array when sampleResponseBody is invalid JSON', () => {
-    // With invalid JSON the samplePaths memo returns [] and pick button still renders
+  it('shows resolved target URL when host override is disabled', () => {
+    const fetchSample = {
+      onFetch: vi.fn(), fetching: false, error: null,
+      host: { enabled: false, override: '', setEnabled: vi.fn(), setOverride: vi.fn(), resolvedBaseUrl: 'http://api.local' },
+    };
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
+    expect(screen.getByText('http://api.local')).toBeTruthy();
+  });
+
+  it('uses WS source list when transportType is ws', () => {
     render(
       <ExtractionEditor
+        transportType="ws"
         extractions={[makeExtraction({ source: 'body' })]}
         onChange={vi.fn()}
-        sampleResponseBody="not-json"
       />,
     );
-    // Pick button still renders with empty paths (no crash)
-    expect(screen.getByTitle('Browse JSON and pick a path')).toBeTruthy();
+    const sourceSelect = screen.getByLabelText('Source') as HTMLSelectElement;
+    expect(sourceSelect.options).toHaveLength(1);
+    expect(sourceSelect.options[0].text).toBe('Body');
+  });
+
+  it('applies fallback from path picker save', () => {
+    const onChange = vi.fn();
+    render(
+      <ExtractionEditor
+        extractions={[{ name: 'existing', source: 'body', expression: '', fallback: '' }]}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
+    fireEvent.click(screen.getByText('Apply Path'));
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ expression: '$.data.id', fallback: 'default-val' }),
+    ]);
+  });
+
+  it('renders fallback input with empty string when fallback is undefined', () => {
+    render(
+      <ExtractionEditor
+        extractions={[{ name: 'n', source: 'body', expression: '$.x' }]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByLabelText('Fallback') as HTMLInputElement).value).toBe('');
   });
 });

@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceTags } from './useDataSourceTags';
 import type { Scenario, DataSource } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 function makeScenario(rows: DataSource['rows'] = [], subsets?: DataSource['subsets']): Scenario {
   const ds: DataSource = {
@@ -10,17 +11,10 @@ function makeScenario(rows: DataSource['rows'] = [], subsets?: DataSource['subse
     rows,
     subsets,
   };
-  return {
-    id: 'sc-1',
-    name: 'Test',
+  return _makeScenario({
     url: 'https://api.example.com/{{vin}}',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     dataSource: ds,
-  };
+  });
 }
 
 describe('useDataSourceTags', () => {

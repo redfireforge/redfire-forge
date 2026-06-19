@@ -13,6 +13,7 @@ import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessag
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from './types';
 import { exportResultSet } from './kafkaMessageStudioUtils';
+import { installClipboardMock } from '../../test-utils/clipboardMock';
 
 function baseConsumeDraft(): KafkaConsumeDraft {
   return {
@@ -686,10 +687,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
   });
 
   it('copies payload to clipboard when Copy Payload clicked', async () => {
-    const clipboardMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: clipboardMock }, configurable: true,
-    });
+    const clipboardMock = installClipboardMock();
     renderConsume({
       studio: {
         consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
@@ -701,10 +699,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
   });
 
   it('copies key to clipboard when Copy Key clicked with key present', async () => {
-    const clipboardMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: clipboardMock }, configurable: true,
-    });
+    const clipboardMock = installClipboardMock();
     renderConsume({
       studio: {
         consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
@@ -918,8 +913,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyKey: uses selectedStreamMessage when mode is stream', async () => {
     // Covers line 137 [0]: mode === 'stream' true branch → uses selectedStreamMessage
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       stream: {
@@ -941,8 +935,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyKey: no-op when msg.key is null/undefined (if msg?.key false branch)', async () => {
     // Covers line 138 [1]: msg.key is falsy → clipboard not called
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       studio: {
@@ -961,8 +954,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyPayload: uses selectedStreamMessage when mode is stream', async () => {
     // Covers line 142 [0]: mode === 'stream' true branch
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       stream: {
@@ -983,8 +975,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyPayload: no-op when no message selected (if msg false branch)', async () => {
     // Covers line 143 [1]: msg is null → clipboard not called
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({ studio: { selectedMessage: null, selectedMessageIndex: null } });
     const copyPayloadBtn = screen.queryByText('Copy Payload');

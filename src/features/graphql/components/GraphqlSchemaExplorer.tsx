@@ -22,13 +22,16 @@
  *   └────────────────────────────────────────────────────────────────────┘
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot, GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { KIND_ABBR, KIND_CSS, KIND_LABEL, fieldCountText } from '../utils/schemaExplorerUtils';
 import { TypeDetail, type DetailTab } from './explorer/TypeDetail';
 import { SchemaIdleState, SchemaLoadingState, SchemaIntrospectionDisabledState, SchemaErrorState } from './explorer/SchemaEmptyStates';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type ExplorerMainTab = 'types' | 'changelog' | 'deprecated';
 
 interface GraphqlSchemaExplorerProps {
   schemaInfo: GraphqlSchemaInfo | null;
@@ -38,6 +41,14 @@ interface GraphqlSchemaExplorerProps {
   introspecting?: boolean;
   /** Optional: insert a field into the active query editor (powers "Try →" buttons) */
   onInsertField?: (fieldName: string, fieldType: string, hasArgs: boolean) => void;
+  // 3D-2: snapshot / changelog props
+  snapshots?: GraphqlSchemaSnapshot[];
+  onSaveSnapshot?: () => Promise<void>;
+  onDeleteSnapshot?: (id: string) => void;
+  onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
+  // 3D-7: deprecated field usage from collection items
+  deprecatedUsages?: DeprecatedFieldUsage[];
+  onOpenCollectionItem?: (itemId: string) => void;
 }
 
 type TypeKind = GraphqlTypeNode['kind'];
@@ -67,11 +78,19 @@ export function GraphqlSchemaExplorer({
   onIntrospect,
   introspecting = false,
   onInsertField,
+  snapshots = [],
+  onSaveSnapshot,
+  onDeleteSnapshot,
+  onOpenDiff,
+  deprecatedUsages = [],
+  onOpenCollectionItem,
 }: GraphqlSchemaExplorerProps) {
-  const [kindFilter, setKindFilter] = useState<KindFilter>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [mainTab, setMainTab]           = useState<ExplorerMainTab>('types');
+  const [kindFilter, setKindFilter]     = useState<KindFilter>('ALL');
+  const [searchQuery, setSearchQuery]   = useState('');
   const [selectedTypeName, setSelectedTypeName] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<DetailTab>('fields');
+  const [detailTab, setDetailTab]       = useState<DetailTab>('fields');
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
 
   // ── Filtered type list ─────────────────────────────────────────────────────
   const filteredTypes = useMemo<GraphqlTypeNode[]>(() => {
@@ -148,6 +167,14 @@ export function GraphqlSchemaExplorer({
     }
   };
 
+  const handleSaveSnapshot = () => {
+    if (!onSaveSnapshot || savingSnapshot) return;
+    setSavingSnapshot(true);
+    onSaveSnapshot()
+      .catch(() => {})
+      .finally(() => setSavingSnapshot(false));
+  };
+
   // ── Non-loaded states ─────────────────────────────────────────────────────
   if (status === 'idle') {
     return <SchemaIdleState onIntrospect={onIntrospect} introspecting={introspecting} />;
@@ -178,6 +205,69 @@ export function GraphqlSchemaExplorer({
   // ── Schema loaded ─────────────────────────────────────────────────────────
   return (
     <div className="gql-se-root" data-testid="gql-schema-explorer">
+      {/* Main tab bar: Types | Changelog */}
+      <div className="gql-se-main-tabs">
+        <button
+          type="button"
+          className={`gql-se-main-tab${mainTab === 'types' ? ' gql-se-main-tab--active' : ''}`}
+          onClick={() => setMainTab('types')}
+          data-testid="gql-se-tab-types"
+        >
+          Types
+        </button>
+        <button
+          type="button"
+          className={`gql-se-main-tab${mainTab === 'changelog' ? ' gql-se-main-tab--active' : ''}`}
+          onClick={() => setMainTab('changelog')}
+          data-testid="gql-se-tab-changelog"
+        >
+          Changelog {snapshots.length > 0 && <span className="gql-se-snap-count">{snapshots.length}</span>}
+        </button>
+        {deprecatedUsages.length > 0 && (
+          <button
+            type="button"
+            className={`gql-se-main-tab${mainTab === 'deprecated' ? ' gql-se-main-tab--active' : ''}`}
+            onClick={() => setMainTab('deprecated')}
+            data-testid="gql-se-tab-deprecated"
+          >
+            Deprecated <span className="gql-se-snap-count gql-se-snap-count--warn">{deprecatedUsages.length}</span>
+          </button>
+        )}
+        {onSaveSnapshot && mainTab === 'types' && (
+          <button
+            type="button"
+            className="gql-se-save-snap-btn"
+            onClick={handleSaveSnapshot}
+            disabled={savingSnapshot || !schemaInfo?.sdl}
+            title="Save a snapshot of the current schema for future diff comparisons"
+            data-testid="gql-se-save-snapshot"
+          >
+            {savingSnapshot ? '…' : '📷 Save Snapshot'}
+          </button>
+        )}
+      </div>
+
+      {/* Deprecated usage tab (3D-7) */}
+      {mainTab === 'deprecated' && (
+        <DeprecatedUsagePanel
+          usages={deprecatedUsages}
+          onOpenItem={onOpenCollectionItem}
+        />
+      )}
+
+      {/* Changelog tab */}
+      {mainTab === 'changelog' && (
+        <ChangelogPanel
+          snapshots={snapshots}
+          currentSdl={schemaInfo?.sdl ?? ''}
+          onDelete={onDeleteSnapshot}
+          onOpenDiff={onOpenDiff}
+        />
+      )}
+
+      {/* Types tab */}
+      {mainTab === 'types' && (
+      <>
       <div className="gql-se-body">
 
         {/* Left: type list column */}
@@ -381,6 +471,181 @@ export function GraphqlSchemaExplorer({
           </span>
         </div>
       )}
+      </>
+      )}
+    </div>
+  );
+}
+
+// ─── ChangelogPanel ───────────────────────────────────────────────────────────
+
+interface ChangelogPanelProps {
+  snapshots: GraphqlSchemaSnapshot[];
+  currentSdl: string;
+  onDelete?: (id: string) => void;
+  onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
+}
+
+function ChangelogPanel({ snapshots, currentSdl, onDelete, onOpenDiff }: ChangelogPanelProps) {
+  const [compareTargets, setCompareTargets] = useState<Record<string, string>>({});
+
+  // When a snapshot is deleted, purge any compareTarget pointing to its id
+  const snapshotIds = useMemo(() => new Set(snapshots.map((s) => s.id)), [snapshots]);
+  const prevSnapshotIdsRef = useRef(snapshotIds);
+  useEffect(() => {
+    const prev = prevSnapshotIdsRef.current;
+    prevSnapshotIdsRef.current = snapshotIds;
+    // Find ids that disappeared
+    const removed = [...prev].filter((id) => !snapshotIds.has(id));
+    if (removed.length === 0) return;
+    setCompareTargets((ct) => {
+      const next = { ...ct };
+      let changed = false;
+      for (const key of Object.keys(next)) {
+        // Clear if the row's own key or the compareToId was deleted
+        if (removed.includes(key) || removed.includes(next[key])) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? next : ct;
+    });
+  }, [snapshotIds]);
+
+  if (snapshots.length === 0) {
+    return (
+      <div className="gql-changelog-empty" data-testid="gql-changelog-empty">
+        <div className="gql-changelog-empty-title">No snapshots yet</div>
+        <div className="gql-changelog-empty-body">
+          Click "📷 Save Snapshot" in the Types tab to capture the current schema for future diff comparisons.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="gql-changelog-panel" data-testid="gql-changelog-panel">
+      {snapshots.map((snap) => {
+        const compareToId = compareTargets[snap.id];
+        const d = new Date(snap.capturedAt);
+        const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
+          ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return (
+          <div key={snap.id} className="gql-changelog-row" data-testid="gql-changelog-row">
+            <div className="gql-changelog-row-meta">
+              <span className="gql-changelog-row-label">{snap.label ?? 'Snapshot'}</span>
+              <span className="gql-changelog-row-date">{dateStr}</span>
+              <span className="gql-changelog-row-types">{snap.typesCount} types</span>
+            </div>
+            <div className="gql-changelog-row-actions">
+              {/* Compare target selector */}
+              <select
+                className="gql-changelog-compare-select"
+                value={compareToId ?? ''}
+                onChange={(e) => setCompareTargets((p) => ({ ...p, [snap.id]: e.target.value }))}
+                title="Compare against…"
+                data-testid="gql-changelog-compare-select"
+              >
+                <option value="">vs. Current Schema</option>
+                {snapshots
+                  .filter((s) => s.id !== snap.id)
+                  .map((s) => {
+                    const sd = new Date(s.capturedAt);
+                    const sDateStr = sd.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
+                      ' ' + sd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <option key={s.id} value={s.id}>{s.label ?? sDateStr}</option>
+                    );
+                  })}
+              </select>
+              <button
+                type="button"
+                className="gql-changelog-diff-btn"
+                onClick={() => onOpenDiff?.(snap, compareToId || undefined)}
+                disabled={!currentSdl && !compareToId}
+                title={compareToId ? 'Compare two snapshots' : 'Compare to current schema'}
+                data-testid="gql-changelog-diff-btn"
+              >
+                Diff
+              </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  className="gql-changelog-delete-btn"
+                  onClick={() => onDelete(snap.id)}
+                  title="Delete snapshot"
+                  data-testid="gql-changelog-delete-btn"
+                  aria-label={`Delete snapshot ${snap.label ?? 'from ' + dateStr}`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+// ─── DeprecatedUsagePanel ─────────────────────────────────────────────────────
+
+interface DeprecatedUsagePanelProps {
+  usages: DeprecatedFieldUsage[];
+  onOpenItem?: (itemId: string) => void;
+}
+
+function DeprecatedUsagePanel({ usages, onOpenItem }: DeprecatedUsagePanelProps) {
+  // Group by fieldPath
+  const grouped = useMemo(() => {
+    const map = new Map<string, { deprecationReason: string; items: Array<{ id: string; name: string }> }>();
+    for (const u of usages) {
+      const existing = map.get(u.fieldPath);
+      if (existing) {
+        existing.items.push({ id: u.itemId, name: u.itemName });
+      } else {
+        map.set(u.fieldPath, { deprecationReason: u.deprecationReason, items: [{ id: u.itemId, name: u.itemName }] });
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [usages]);
+
+  if (grouped.length === 0) {
+    return (
+      <div className="gql-changelog-empty" data-testid="gql-deprecated-empty">
+        <div className="gql-changelog-empty-title">No deprecated field usage</div>
+        <div className="gql-changelog-empty-body">
+          None of your collection operations use fields marked @deprecated in the current schema.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="gql-deprecated-panel" data-testid="gql-deprecated-panel">
+      {grouped.map(([fieldPath, { deprecationReason, items }]) => (
+        <div key={fieldPath} className="gql-deprecated-group" data-testid="gql-deprecated-group">
+          <div className="gql-deprecated-field-row">
+            <span className="gql-deprecated-field-badge">@deprecated</span>
+            <span className="gql-deprecated-field-path">{fieldPath}</span>
+          </div>
+          <div className="gql-deprecated-reason">{deprecationReason}</div>
+          <div className="gql-deprecated-items">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="gql-deprecated-item-link"
+                onClick={() => onOpenItem?.(item.id)}
+                title="Open this operation"
+                data-testid="gql-deprecated-item-link"
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -360,4 +360,90 @@ describe('websocket-routes', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  describe('router without onLog', () => {
+    it('handles requests when onLog is omitted', async () => {
+      const noLogApp = express();
+      noLogApp.use(express.json());
+      noLogApp.use(createWebSocketRouter({ service: mockService as never }));
+      const res = await request(noLogApp)
+        .post('/api/ws/connect')
+        .send({ url: 'ws://localhost:8765' });
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('invalid request bodies', () => {
+    it('rejects array body for disconnect', async () => {
+      const res = await request(app)
+        .post('/api/ws/disconnect')
+        .send([1, 2, 3]);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('WS_INVALID_REQUEST');
+    });
+  });
+
+  describe('default wsProxyService', () => {
+    it('uses wsProxyService when service option is omitted', async () => {
+      const { wsProxyService } = await import('../websocket/websocket-service.js');
+      const connectSpy = vi.spyOn(wsProxyService, 'connect').mockResolvedValue(
+        createWsSuccessEnvelope('connect', {
+          connectionId: 'default-svc',
+          protocol: '',
+          extensions: '',
+          latencyMs: 1,
+        }),
+      );
+
+      const noServiceApp = express();
+      noServiceApp.use(express.json());
+      noServiceApp.use(createWebSocketRouter({ onLog: vi.fn() }));
+
+      const res = await request(noServiceApp)
+        .post('/api/ws/connect')
+        .send({ url: 'ws://localhost:8765' });
+
+      expect(res.status).toBe(200);
+      expect(connectSpy).toHaveBeenCalled();
+      connectSpy.mockRestore();
+    });
+  });
+
+  describe('onLog fallback labels', () => {
+    it('logs (no url) when connect body omits url', async () => {
+      const onLog = vi.fn();
+      const logApp = buildApp(mockService, onLog);
+      await request(logApp).post('/api/ws/connect').send({});
+      expect(onLog).toHaveBeenCalledWith(
+        expect.objectContaining({ text: expect.stringContaining('(no url)') }),
+      );
+    });
+
+    it('logs (no id) when disconnect body omits connectionId', async () => {
+      const onLog = vi.fn();
+      const logApp = buildApp(mockService, onLog);
+      await request(logApp).post('/api/ws/disconnect').send({});
+      expect(onLog).toHaveBeenCalledWith(
+        expect.objectContaining({ text: expect.stringContaining('(no id)') }),
+      );
+    });
+
+    it('logs (no id) when send body omits connectionId', async () => {
+      const onLog = vi.fn();
+      const logApp = buildApp(mockService, onLog);
+      await request(logApp).post('/api/ws/send').send({ data: 'hello' });
+      expect(onLog).toHaveBeenCalledWith(
+        expect.objectContaining({ text: expect.stringContaining('(no id)') }),
+      );
+    });
+
+    it('logs (no id) when ping body omits connectionId', async () => {
+      const onLog = vi.fn();
+      const logApp = buildApp(mockService, onLog);
+      await request(logApp).post('/api/ws/ping').send({});
+      expect(onLog).toHaveBeenCalledWith(
+        expect.objectContaining({ text: expect.stringContaining('(no id)') }),
+      );
+    });
+  });
 });

@@ -278,6 +278,122 @@ describe('handleWsConnectNode', () => {
       queryParams: { version: '2' },
     }));
   });
+
+  it('resolves subprotocols and omits empty optional connect params', async () => {
+    const ops = mockWsOps({
+      connect: vi.fn().mockResolvedValue({
+        connectionId: 'auto-id',
+        protocol: '',
+        extensions: '',
+        latencyMs: 1,
+      } as WsConnectResult),
+    });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = connectNode('c1', {
+      connectionId: '',
+      subprotocols: [' {{sp}} ', ''],
+      headers: [{ id: 'h1', key: '', value: 'x', enabled: true }],
+      queryParams: [{ id: 'q1', key: 'k', value: 'v', enabled: false }],
+    });
+    hCtx.ctx.set('sp', 'graphql-ws');
+
+    await handleWsConnectNode('c1', node, hCtx, passed);
+
+    expect(ops.connect).toHaveBeenCalledWith({
+      url: 'ws://localhost:8080/ws',
+      connectionId: undefined,
+      headers: undefined,
+      queryParams: undefined,
+      subprotocols: ['graphql-ws'],
+      timeoutMs: 5000,
+    });
+  });
+
+  it('logs protocol on successful connect', async () => {
+    const ops = mockWsOps({
+      connect: vi.fn().mockResolvedValue({
+        connectionId: 'c1',
+        protocol: 'graphql-ws',
+        extensions: '',
+        latencyMs: 10,
+      } as WsConnectResult),
+    });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      wsOperations: ops,
+      log: (line) => cbResult.logLines.push(line),
+    });
+    const passed = makePassedFlag();
+    const node = connectNode('c1');
+
+    await handleWsConnectNode('c1', node, hCtx, passed);
+
+    expect(cbResult.logLines.some((l) => l.text.includes('protocol: graphql-ws'))).toBe(true);
+  });
+
+  it('skips disabled output bindings', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = connectNode('c1', {
+      outputBindings: [
+        { field: 'protocol', variableName: 'p', enabled: false },
+        { field: 'latencyMs', variableName: '', enabled: true },
+      ],
+    });
+
+    await handleWsConnectNode('c1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('p')).toBeUndefined();
+  });
+
+  it('fails when resolved URL is whitespace only', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = connectNode('c1', { url: '{{blank}}' });
+    hCtx.ctx.set('blank', '   ');
+
+    await handleWsConnectNode('c1', node, hCtx, passed);
+
+    expect(passed.value).toBe(false);
+    expect(ops.connect).not.toHaveBeenCalled();
+  });
+
+  it('connects with minimal node data defaults', async () => {
+    const ops = mockWsOps({
+      connect: vi.fn().mockResolvedValue({
+        connectionId: 'auto',
+        protocol: '',
+        extensions: 'ext',
+        latencyMs: 3,
+      } as WsConnectResult),
+    });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = makeNode('c-min', 'wsConnect', {
+      url: 'ws://minimal/ws',
+      outputBindings: [{ field: 'extensions', variableName: 'ext', enabled: true }],
+    });
+
+    await handleWsConnectNode('c-min', node, hCtx, passed);
+
+    expect(ops.connect).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 10000 }));
+    expect(hCtx.ctx.get('ext')).toBe('ext');
+  });
+
+  it('uses data.connectionId in connect error capture when resolved id empty', async () => {
+    const ops = mockWsOps({ connect: vi.fn().mockRejectedValue(new Error('fail')) });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = connectNode('c1', { connectionId: 'fallback-conn', headers: [] });
+
+    await handleWsConnectNode('c1', node, hCtx, passed);
+
+    expect(passed.value).toBe(false);
+    expect(hCtx.results[0].requestLog?.headers).toEqual({});
+  });
 });
 
 // ── handleWsSendNode ──
@@ -414,6 +530,103 @@ describe('handleWsSendNode', () => {
 
     expect(passed.value).toBe(false);
     expect(cbResult.states['s1']?.state).toBe('fail');
+  });
+
+  it('sends binary messages and truncates long previews', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      wsOperations: ops,
+      log: (line) => cbResult.logLines.push(line),
+    });
+    const passed = makePassedFlag();
+    const longMsg = 'x'.repeat(350);
+    const node = sendNode('s1', { message: longMsg, messageType: 'binary' });
+
+    await handleWsSendNode('s1', node, hCtx, passed);
+
+    expect(ops.send).toHaveBeenCalledWith(expect.objectContaining({ type: 'binary' }));
+    expect(cbResult.logLines.some((l) => l.text.includes('…'))).toBe(true);
+  });
+
+  it('uses default response timeout when waitForResponse is true', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = sendNode('s1', {
+      waitForResponse: true,
+      responseTimeoutMs: undefined,
+      outputBindings: [{ field: 'latencyMs', variableName: 'lat', enabled: true }],
+    });
+
+    await handleWsSendNode('s1', node, hCtx, passed);
+
+    expect(ops.waitForMessage).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 5000 }));
+    expect(hCtx.ctx.get('lat')).toBeTruthy();
+  });
+
+  it('logs truncated response preview when waiting for response', async () => {
+    const ops = mockWsOps({
+      waitForMessage: vi.fn().mockResolvedValue({
+        data: 'y'.repeat(350),
+        type: 'text',
+        timestamp: Date.now(),
+      } as WsReceivedMessage),
+    });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      wsOperations: ops,
+      log: (line) => cbResult.logLines.push(line),
+    });
+    const passed = makePassedFlag();
+    const node = sendNode('s1', { waitForResponse: true });
+
+    await handleWsSendNode('s1', node, hCtx, passed);
+
+    expect(cbResult.logLines.some((l) => l.text.includes('Response:') && l.text.includes('…'))).toBe(true);
+  });
+
+  it('handles send errors without a message body', async () => {
+    const ops = mockWsOps({ send: vi.fn().mockRejectedValue(new Error('send failed')) });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = sendNode('s1', { message: '' });
+
+    await handleWsSendNode('s1', node, hCtx, passed);
+
+    expect(passed.value).toBe(false);
+    expect(hCtx.results[0].requestLog).toBeUndefined();
+  });
+
+  it('send with undefined message uses empty string', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = makeNode('s-min', 'wsSend', { connectionId: 'conn-1', label: 'WS Send' });
+
+    await handleWsSendNode('s-min', node, hCtx, passed);
+
+    expect(ops.send).toHaveBeenCalledWith(expect.objectContaining({ data: '', type: 'text' }));
+  });
+
+  it('captures empty response body when waiting for response', async () => {
+    const ops = mockWsOps({
+      waitForMessage: vi.fn().mockResolvedValue({
+        data: '',
+        type: 'text',
+        timestamp: Date.now(),
+      } as WsReceivedMessage),
+    });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = sendNode('s1', {
+      waitForResponse: true,
+      outputBindings: [{ field: 'responseBody', variableName: 'body', enabled: true }],
+    });
+
+    await handleWsSendNode('s1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('body')).toBe('');
   });
 });
 
@@ -588,6 +801,86 @@ describe('handleWsReceiveNode', () => {
 
     expect(passed.value).toBe(false);
     expect(cbResult.states['r1']?.state).toBe('fail');
+  });
+
+  it('sets latencyMs output binding and truncates long received body', async () => {
+    const ops = mockWsOps({
+      waitForMessage: vi.fn().mockResolvedValue({
+        data: 'z'.repeat(350),
+        type: 'text',
+        timestamp: 123,
+      } as WsReceivedMessage),
+    });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      wsOperations: ops,
+      log: (line) => cbResult.logLines.push(line),
+    });
+    const passed = makePassedFlag();
+    const node = receiveNode('r1', {
+      outputBindings: [{ field: 'latencyMs', variableName: 'lat', enabled: true }],
+    });
+
+    await handleWsReceiveNode('r1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('lat')).toBeTruthy();
+    expect(cbResult.logLines.some((l) => l.text.includes('Body:') && l.text.includes('…'))).toBe(true);
+  });
+
+  it('waits without match criteria object when none configured', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = receiveNode('r1', { matchCriteria: {} });
+
+    await handleWsReceiveNode('r1', node, hCtx, passed);
+
+    expect(ops.waitForMessage).toHaveBeenCalledWith(expect.objectContaining({ matchCriteria: undefined }));
+  });
+
+  it('includes match criteria in error result when receive fails', async () => {
+    const ops = mockWsOps({ waitForMessage: vi.fn().mockRejectedValue(new Error('timeout')) });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = receiveNode('r1', { matchCriteria: { contentContains: 'ping' } });
+
+    await handleWsReceiveNode('r1', node, hCtx, passed);
+
+    expect(passed.value).toBe(false);
+    expect(hCtx.results[0].requestLog?.body).toContain('contentContains');
+  });
+
+  it('receive with undefined matchCriteria skips criteria block', async () => {
+    const ops = mockWsOps();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = makeNode('r-min', 'wsReceive', {
+      connectionId: 'conn-1',
+      label: 'WS Receive',
+      extractionRules: [],
+      outputBindings: [],
+    });
+
+    await handleWsReceiveNode('r-min', node, hCtx, passed);
+
+    expect(passed.value).toBe(true);
+  });
+
+  it('receive handles empty message body in capture', async () => {
+    const ops = mockWsOps({
+      waitForMessage: vi.fn().mockResolvedValue({
+        data: '',
+        type: 'text',
+        timestamp: 1,
+      } as WsReceivedMessage),
+    });
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks, wsOperations: ops });
+    const passed = makePassedFlag();
+    const node = receiveNode('r1');
+
+    await handleWsReceiveNode('r1', node, hCtx, passed);
+
+    expect(passed.value).toBe(true);
   });
 });
 
@@ -853,5 +1146,97 @@ describe('handleWsTriggerNode', () => {
 
     expect(passed.value).toBe(true);
     expect(cbResult.states['t1']?.state).toBe('pass');
+  });
+
+  it('parses runtime message provided as object', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    hCtx.ctx.set('__wsTriggerMessage', {
+      data: '{"ok":true}',
+      type: 'text',
+      url: 'ws://obj/ws',
+      connectionId: 'obj-conn',
+    });
+    const node = triggerNode('t1');
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('ws.trigger.url')).toBe('ws://obj/ws');
+    expect(hCtx.ctx.get('ws.trigger.connectionId')).toBe('obj-conn');
+  });
+
+  it('uses sample payload with binary match criteria type', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    const node = triggerNode('t1', {
+      samplePayload: 'payload',
+      matchCriteria: { messageType: 'binary' },
+    });
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('ws.trigger.messageType')).toBe('binary');
+    expect(passed.value).toBe(true);
+  });
+
+  it('passes contentContains match criteria', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    hCtx.ctx.set('__wsTriggerMessage', JSON.stringify({ data: 'hello world', type: 'text' }));
+    const node = triggerNode('t1', { matchCriteria: { contentContains: 'world' } });
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(passed.value).toBe(true);
+  });
+
+  it('logs truncated trigger message preview for long payloads', async () => {
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      log: (line) => cbResult.logLines.push(line),
+    });
+    const passed = makePassedFlag();
+    hCtx.ctx.set('__wsTriggerMessage', JSON.stringify({ data: 'm'.repeat(350), type: 'text' }));
+    const node = triggerNode('t1');
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(cbResult.logLines.some((l) => l.text.includes('message:') && l.text.includes('…'))).toBe(true);
+  });
+
+  it('skips trigger extraction when sample body is not JSON', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    const node = triggerNode('t1', {
+      samplePayload: 'plain-text',
+      extractionRules: [{ variableName: 'x', jsonPath: '$.a' }],
+    });
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('x')).toBeUndefined();
+    expect(passed.value).toBe(true);
+  });
+
+  it('passes jsonPathMatch without jsonPathValue when value exists', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    hCtx.ctx.set('__wsTriggerMessage', JSON.stringify({ data: '{"status":"ok"}', type: 'text' }));
+    const node = triggerNode('t1', { matchCriteria: { jsonPathMatch: 'status' } });
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(passed.value).toBe(true);
+  });
+
+  it('uses sample payload without url or connectionId', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    const node = triggerNode('t1', { samplePayload: '{}', url: '', connectionId: '' });
+
+    await handleWsTriggerNode('t1', node, hCtx, passed);
+
+    expect(hCtx.ctx.get('ws.trigger.url')).toBe('');
+    expect(hCtx.ctx.get('ws.trigger.connectionId')).toBe('');
   });
 });

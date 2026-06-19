@@ -115,6 +115,15 @@ describe('kafka-quick-start lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
   });
 
+  it('step ks-intro preAction clears selected class from cluster cards', async () => {
+    const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
+    const card = document.createElement('div');
+    card.className = 'kafka-cluster-card selected';
+    document.body.appendChild(card);
+    await step.preAction!({} as never);
+    expect(card.classList.contains('selected')).toBe(false);
+  });
+
   it('step ks-intro has highlight and preAction that clears selected cards', () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
     expect(step.highlight).toContain('kafka-settings-page');

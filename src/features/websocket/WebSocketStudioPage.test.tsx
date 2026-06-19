@@ -771,6 +771,25 @@ describe('WebSocketStudioPage', () => {
     });
   });
 
+  describe('tab limits and add-with-url', () => {
+    it('does not add a tab when max tabs is reached', async () => {
+      const tabs = Array.from({ length: 8 }, (_, i) => ({
+        id: `ws-tab-${i}`,
+        label: `Tab ${i}`,
+        url: '',
+        viewTab: 'connect' as const,
+      }));
+      vi.spyOn(storageModule, 'loadWsTabState').mockResolvedValue({
+        tabs,
+        activeTabId: 'ws-tab-0',
+        renamedTabIds: [],
+      });
+      await renderStudioPage();
+      expect(screen.queryByTestId('conn-tab-add')).toBeNull();
+      expect(screen.getByTestId('conn-tab-bar').querySelectorAll('.ws-conn-tab').length).toBe(8);
+    });
+  });
+
 });
 // Note: deriveTabLabel unit tests and studio shell layout tests are in
 // WebSocketStudioPage.shell.test.tsx

@@ -13,20 +13,16 @@ vi.mock('../shared/utils/bodySerializer', () => ({
 import { httpFetch } from '../shared/utils/httpClient';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
-function makeScenario(assertions: Assertion[], overrides?: Partial<Scenario>): Scenario {
-  return {
+const makeScenario = (assertions: Assertion[], overrides?: Partial<Scenario>): Scenario =>
+  _makeScenario({
     id: 'test-1',
     name: 'Test',
     url: 'http://example.com/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
     validation: { mode: 'none', assertions },
     ...overrides,
-  };
-}
+  });
 
 describe('requestExecution with rich assertions', () => {
   let runSequential: typeof import('./requestExecution').runSequential;

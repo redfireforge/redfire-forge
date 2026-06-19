@@ -1,14 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { Scenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
-function makeScenario(overrides?: Partial<Scenario>): Scenario {
-  return {
-    id: 't1', name: 'Get Users', url: 'https://api.example.com/users',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
+const makeScenario = (overrides?: Partial<Scenario>): Scenario =>
+  _makeScenario({ id: 't1', name: 'Get Users', ...overrides });
 
 describe('Origin badge display logic', () => {
   it('shows when sourceRequestId is set', () => {

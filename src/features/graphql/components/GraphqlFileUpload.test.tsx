@@ -253,3 +253,121 @@ describe('GraphqlFileUpload', () => {
     expect(progressBar).toHaveAttribute('aria-valuenow', '60');
   });
 });
+
+  // ─── Soft cap (lines 39-41 in validateFileSize) ───────────────────────────
+
+  it('returns soft-cap error when file exceeds maxFileSizeMb', () => {
+    const onChange = vi.fn();
+    // Use maxFileSizeMb=1 (1 MB) and add a 2 MB file (< hard cap 200 MB)
+    render(<GraphqlFileUpload {...defaultProps({ onEntriesChange: onChange, maxFileSizeMb: 1 })} />);
+
+    const bigFile = makeFile('large.bin', 2 * 1024 * 1024);
+    const input = screen.getByTestId('gql-file-input');
+    Object.defineProperty(input, 'files', {
+      value: { 0: bigFile, length: 1, item: () => bigFile, [Symbol.iterator]: function* () { yield bigFile; } },
+      configurable: true,
+    });
+    fireEvent.change(input);
+
+    const [calledWith] = (onChange as ReturnType<typeof vi.fn>).mock.calls[0] as [typeof import('../utils/multipartBuilder').FileEntry[]];
+    expect(calledWith[0].error).toMatch(/too large/);
+  });
+
+  // ─── makeDefaultVarPath multi-file (line 50: `return 'files.${index}'`) ────
+
+  it('assigns "files.N" varPath when adding multiple files at once', () => {
+    const onChange = vi.fn();
+    render(<GraphqlFileUpload {...defaultProps({ onEntriesChange: onChange })} />);
+
+    const file1 = makeFile('a.png');
+    const file2 = makeFile('b.png');
+    const input = screen.getByTestId('gql-file-input');
+    Object.defineProperty(input, 'files', {
+      value: { 0: file1, 1: file2, length: 2, item: (i: number) => [file1, file2][i], [Symbol.iterator]: function* () { yield file1; yield file2; } },
+      configurable: true,
+    });
+    fireEvent.change(input);
+
+    const [calledWith] = (onChange as ReturnType<typeof vi.fn>).mock.calls[0] as [typeof import('../utils/multipartBuilder').FileEntry[]];
+    expect(calledWith[0].varPath).toBe('files.0');
+    expect(calledWith[1].varPath).toBe('files.1');
+  });
+
+  // ─── onKeyDown Enter on dropzone (line 178) ──────────────────────────────
+
+  it('Enter key on dropzone activates file picker via React onKeyDown', () => {
+    render(<GraphqlFileUpload {...defaultProps()} />);
+    const dz = screen.getByTestId('gql-file-dropzone');
+    const inputEl = screen.getByTestId('gql-file-input');
+    const clickSpy = vi.spyOn(inputEl, 'click').mockImplementation(() => {});
+    fireEvent.keyDown(dz, { key: 'Enter', bubbles: true, cancelable: true });
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  // ─── Dropzone onClick triggers file picker (line 178) ───────────────────────
+
+  it('clicking dropzone activates file picker (onClick handler)', () => {
+    render(<GraphqlFileUpload {...defaultProps()} />);
+    const dz = screen.getByTestId('gql-file-dropzone');
+    const inputEl = screen.getByTestId('gql-file-input');
+    const clickSpy = vi.spyOn(inputEl, 'click').mockImplementation(() => {});
+    fireEvent.click(dz);
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  // ─── maxFileSizeMb = 0 (line 74: uses DEFAULT_MAX_BYTES) ─────────────────
+
+  it('uses DEFAULT_MAX_BYTES when maxFileSizeMb is 0', () => {
+    const onChange = vi.fn();
+    render(<GraphqlFileUpload {...defaultProps({ onEntriesChange: onChange, maxFileSizeMb: 0 })} />);
+
+    const smallFile = makeFile('small.png', 512); // well within any limit
+    const input = screen.getByTestId('gql-file-input');
+    Object.defineProperty(input, 'files', {
+      value: { 0: smallFile, length: 1, item: () => smallFile, [Symbol.iterator]: function* () { yield smallFile; } },
+      configurable: true,
+    });
+    fireEvent.change(input);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ error: null })]),
+    );
+  });
+
+  // ─── formatBytes < 1KB branch (line 29) ──────────────────────────────────
+
+  it('shows file size in bytes for files < 1024 bytes', () => {
+    const tinyFile = makeFile('tiny.txt', 512);
+    render(<GraphqlFileUpload {...defaultProps({
+      entries: [{ id: 'e1', file: tinyFile, varPath: 'avatar', error: null }],
+    })} />);
+    // formatBytes(512) should render "512 B"
+    expect(screen.getByText(/512 B/)).toBeInTheDocument();
+  });
+
+  // ─── Space key on dropzone (line 179 e.key === ' ' branch) ───────────────
+
+  it('Space key on dropzone activates file picker via React onKeyDown (" " branch)', () => {
+    render(<GraphqlFileUpload {...defaultProps()} />);
+    const dz = screen.getByTestId('gql-file-dropzone');
+    const inputEl = screen.getByTestId('gql-file-input');
+    const clickSpy = vi.spyOn(inputEl, 'click').mockImplementation(() => {});
+    fireEvent.keyDown(dz, { key: ' ', bubbles: true, cancelable: true });
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  // ─── addFiles with empty FileList (line 80: early return) ────────────────
+
+  it('does not call onEntriesChange when dropping empty file list', () => {
+    const onChange = vi.fn();
+    render(<GraphqlFileUpload {...defaultProps({ onEntriesChange: onChange })} />);
+    const dz = screen.getByTestId('gql-file-dropzone');
+    fireEvent.drop(dz, {
+      dataTransfer: {
+        files: { length: 0, item: () => null, [Symbol.iterator]: function* () {} },
+      },
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });

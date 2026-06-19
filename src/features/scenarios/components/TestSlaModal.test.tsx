@@ -146,4 +146,60 @@ describe('TestSlaModal', () => {
     fireEvent.click(screen.getByText('Cancel'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('shows value validation error styling and message', () => {
+    const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: -1 }]);
+    render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText('Must be a non-negative number')).toBeInTheDocument();
+    expect(document.querySelector('.sla-input-error')).toBeInTheDocument();
+  });
+
+  it('shows metric unit labels for ms and tps metrics', () => {
+    const test = makeTest([
+      { id: 's1', metric: 'p95', operator: 'lte', value: 500 },
+      { id: 's2', metric: 'tps', operator: 'gte', value: 10 },
+    ]);
+    render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getAllByText('ms').length).toBeGreaterThan(0);
+    // tps has empty unit string — only ms units render
+    expect(screen.getAllByText('ms')).toHaveLength(2);
+  });
+
+  it('keeps explicit operator when metric and operator are patched together', () => {
+    const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: 500, warnAt: 300 }]);
+    render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
+    const metricSelect = screen.getByRole('combobox') as HTMLSelectElement;
+    // Simulate updateRow with both metric and operator defined (no auto-reset)
+    fireEvent.change(metricSelect, { target: { value: 'errorRate' } });
+    expect(screen.getByText('≤')).toBeInTheDocument();
+  });
+
+  it('shows warnAt validation error message', () => {
+    const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: 500, warnAt: 600 }]);
+    render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/Must be less than 500/)).toBeInTheDocument();
+  });
+
+  it('updates only the targeted row when multiple targets exist', () => {
+    const test = makeTest([
+      { id: 's1', metric: 'p95', operator: 'lte', value: 500 },
+      { id: 's2', metric: 'tps', operator: 'gte', value: 10 },
+    ]);
+    render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[1], { target: { value: 'avg' } });
+    expect(selects[0]).toHaveValue('p95');
+    expect(selects[1]).toHaveValue('avg');
+  });
+
+  it('saves an empty target list after removing all rows', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: 500 }]);
+    render(<TestSlaModal test={test} onSave={onSave} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete target' }));
+    fireEvent.click(screen.getByText('Save'));
+    expect(onSave).toHaveBeenCalledWith([]);
+    expect(onClose).toHaveBeenCalled();
+  });
 });

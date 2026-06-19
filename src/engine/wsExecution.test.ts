@@ -3,24 +3,19 @@ import { executeWsAction } from './wsExecution';
 import type { Scenario, WsConnectActionConfig, WsSendActionConfig, WsReceiveActionConfig } from '../shared/types';
 import type { WsNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { resetResultIdCounter } from './requestExecution';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 // ---------------------------------------------------------------------------
 // Factories
 // ---------------------------------------------------------------------------
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     name: 'WS Test',
     url: 'ws://localhost:8080',
     method: 'WEBSOCKET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 function makeWsOps(overrides: Partial<WsNodeOperations> = {}): WsNodeOperations {
   return {

@@ -27,7 +27,17 @@ export interface GraphqlConnection {
   historyMaxItems?: number;        // ring buffer size for operation history (default: 100, range: 10–500)
   // Phase 3 — APQ
   apqEnabled?: boolean;            // enable Automatic Persisted Queries (default: false)
+  apqUseGet?: boolean;             // when APQ is on: use GET for hash-only query requests (default: false)
   apqUnsupportedDetected?: boolean; // true after server-not-supported detection; disables APQ toggle UI
+  // Phase 3 — query batching
+  batchEnabled?: boolean;          // enable "Batch" checkbox per tab + Send Batch button (default: false)
+  batchTimeoutMs?: number;         // timeout for batch requests in ms (default: 30000)
+  batchUnsupportedDetected?: boolean; // true after server returned 400/405/non-array for a batch attempt
+  // Phase 3 — request deduplication
+  dedupEnabled?: boolean;          // deduplicate identical in-flight requests (default: true)
+  // Phase 3F — complexity gate
+  complexityBlockEnabled?: boolean;    // block queries exceeding blockThreshold (default: false)
+  complexityBlockThreshold?: number;   // block threshold (default: 1000); only active when blockEnabled
 }
 
 // Phase 1 — represents a single editor tab in GraphqlStudioPage
@@ -43,6 +53,8 @@ export interface GraphqlOperationTab {
   /** Name of the operation the user last selected in this tab's operation picker.
    *  undefined = auto (use first operation). Persisted so the selection survives tab switches. */
   selectedOperation?: string;
+  /** Phase 3F: true when this tab is checked for inclusion in a batch request */
+  isBatched?: boolean;
 }
 
 export interface GraphqlHeaderRow {
@@ -89,6 +101,13 @@ export interface GraphqlResponse {
   isStreaming?: boolean;
   /** number of multipart chunks received so far (undefined for non-incremental requests) */
   chunkCount?: number;
+  // Phase 3F — APQ metadata
+  /** SHA-256 hex hash of the normalized query (only set when APQ was used) */
+  apqHash?: string;
+  /** true = hash-only request succeeded (server cache hit); false = cache miss + retry */
+  apqCacheHit?: boolean;
+  /** true = server does not support APQ; connection should auto-disable APQ */
+  apqUnsupported?: boolean;
 }
 
 export interface GraphqlError {
@@ -96,6 +115,21 @@ export interface GraphqlError {
   locations?: Array<{ line: number; column: number }>;
   path?: Array<string | number>;
   extensions?: Record<string, unknown>;
+}
+
+// Phase 3F — batch execution result
+export interface GraphqlBatchOperationResult {
+  /** Original request index (preserves request-index order) */
+  index: number;
+  /** Operation name from the tab (for display in result card header) */
+  operationName?: string;
+  response: GraphqlResponse;
+}
+
+export interface GraphqlBatchResult {
+  results: GraphqlBatchOperationResult[];
+  /** true if the upstream server does not support array batching */
+  batchUnsupported: boolean;
 }
 
 export interface GraphqlSchemaInfo {
@@ -135,13 +169,17 @@ export interface GraphqlArgNode {
   defaultValue?: string;
 }
 
+// Phase 3A — `response` is a JSON-serialized string (capped at 512KB before write).
+// Denormalized `latencyMs`, `status`, and `timestamp` fields allow fast list rendering
+// without deserializing the full response string.
 export interface GraphqlHistoryItem {
-  id: string;
+  id: string;                        // crypto.randomUUID() — NOT connectionId+timestamp (collision risk)
   operation: GraphqlOperation;
-  response: GraphqlResponse;
+  response: string;                  // JSON.stringify(GraphqlResponse), truncated to 512KB
   connectionId: string;
-  timestamp: number;           // denormalized from response.timestamp for fast sorting/indexing without deserializing the full response
-  latencyMs: number;           // denormalized from response for fast display in history list without parsing response
+  timestamp: number;                 // Unix ms — compound IDB index key with connectionId
+  latencyMs: number;
+  status: 'success' | 'error';       // 'error' = GraphQL errors[] present OR HTTP non-2xx
 }
 
 // Phase 1 — named environment containing resolved key-value variable pairs
@@ -279,23 +317,40 @@ export interface IncrementalDeliveryResult {
   hasNext:     boolean;                         // false when the final chunk has been received
 }
 
-export interface GraphqlCollectionFolder {
+// Phase 3A — collection root entity
+export interface GraphqlCollection {
   id: string;
   name: string;
-  parentId?: string;           // undefined = root
+  variables: Record<string, string>; // collection-scoped vars; script-only, not merged into global env
+  preRequestScript: string;          // runs before every item in this collection
+  postResponseScript: string;        // runs after every item in this collection
   createdAt: number;
 }
 
+// Phase 3A — folder within a collection; supports infinite nesting via parentId
+export interface GraphqlCollectionFolder {
+  id: string;
+  collectionId: string;              // which GraphqlCollection this folder belongs to
+  name: string;
+  parentId?: string;                 // undefined = root of collection
+  sortOrder: number;                 // display order within parent; used for IDB compound index
+  createdAt: number;
+}
+
+// Phase 3A — a single saved operation item inside a collection
 export interface GraphqlCollectionItem {
   id: string;
+  collectionId: string;              // which GraphqlCollection this item belongs to
   name: string;
-  description?: string;        // user-written notes for this operation
-  folderId?: string;           // undefined = root collection
+  description?: string;              // user-written notes for this operation
+  folderId?: string;                 // undefined = root of collection
+  sortOrder: number;                 // display order within folder; drives drag-and-drop reorder
   operation: GraphqlOperation;
-  connectionId?: string;       // optional — saved connection context
-  scripts?: GraphqlScriptConfig;  // per-item pre/post-request scripts (Phase 3)
+  connectionId?: string;             // optional — saved connection context
+  scripts?: GraphqlScriptConfig;     // per-item pre/post-request scripts (Phase 3B)
   isPinned?: boolean;
-  tags?: string[];             // user-defined tags for filtering/grouping
+  tags?: string[];                   // user-defined tags for filtering/grouping
+  lastExecutedAt?: number;           // Unix ms of last successful run; drives "Recent" pinned section
   createdAt: number;
   updatedAt: number;
 }
@@ -303,9 +358,37 @@ export interface GraphqlCollectionItem {
 export interface GraphqlScriptConfig {
   preRequest?: string;         // JavaScript source for pre-request script (sandboxed)
   postResponse?: string;       // JavaScript source for post-response script (sandboxed)
-  timeout?: number;            // max execution time ms (default: 5000)
+  timeout?: number;            // max execution time ms (default: 10000 per 3B-1)
   enabled?: boolean;           // false = scripts defined but not executed (default: true)
 }
+
+// Phase 3A — collection runner result per named rf.test() assertion
+export interface CollectionRunTestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+}
+
+// Phase 3A — event emitted by useGraphqlCollectionRunner for each item
+export interface ScriptLogEntry {
+  /** log/warn/error = rf.log/warn/error output; pass/fail = rf.test() named assertion result */
+  level: 'log' | 'warn' | 'error' | 'pass' | 'fail';
+  message: string;
+  timestamp: number;
+}
+
+export interface CollectionRunEvent {
+  type: 'start' | 'result' | 'error' | 'skip';
+  itemId: string;
+  latencyMs?: number;
+  tests?: CollectionRunTestResult[];
+  error?: { phase: 'pre-script' | 'http' | 'post-script'; message: string };
+  /** Phase 3B — script console output (rf.log/warn/error calls) captured during this item's execution */
+  logs?: ScriptLogEntry[];
+}
+
+// Phase 3A — which tab is active in GraphqlStudioActivityBar
+export type GraphqlStudioActivityTab = 'history' | 'collections' | 'mock';
 
 export interface RfResponseContext {
   httpStatus:  number;
@@ -313,6 +396,34 @@ export interface RfResponseContext {
   data:        unknown;
   errors?:     GraphqlError[];
   latencyMs:   number;
+}
+
+// Phase 3B-7 — typed error classes thrown by rf.abort() and rf.skip()
+export class ScriptAbortError extends Error {
+  constructor(message?: string) {
+    super(message ?? 'Script aborted');
+    this.name = 'ScriptAbortError';
+  }
+}
+
+export class ScriptSkipError extends Error {
+  constructor(message?: string) {
+    super(message ?? 'Script requested skip');
+    this.name = 'ScriptSkipError';
+  }
+}
+
+// Phase 3B — thrown by rf.assert(condition, msg) when condition is false.
+// Behavior by context:
+//   - Inside rf.test() fn body: caught per-test and recorded as a failed test result.
+//   - Top-level in pre-request phase: runner classifies as isAssertionFailure=true and
+//     blocks the HTTP request (same effect as rf.abort() — the assertion is an explicit gate).
+//   - Top-level in post-response phase: non-blocking; runner logs a warn and continues.
+export class GraphqlAssertionError extends Error {
+  constructor(message?: string) {
+    super(message ?? 'Assertion failed');
+    this.name = 'GraphqlAssertionError';
+  }
 }
 
 // The `rf` object injected into pre-request and post-response scripts
@@ -323,6 +434,17 @@ export interface RfContext {
   removeHeader(name: string): void;
   response?: RfResponseContext;  // undefined in pre-request; populated in post-response
   assert(condition: boolean, message?: string): void;
+  // Phase 3B-7 — throws ScriptAbortError; blocks the HTTP request (pre-request only)
+  abort(message?: string): never;
+  // Phase 3B-7 — throws ScriptSkipError; marks item as skipped in collection runner
+  skip(message?: string): never;
+  // Phase 3B-7 — named assertion; async fn supported; collected via pendingTests[]
+  test(name: string, fn: () => void | Promise<void>): void;
+  // Phase 3B-7 — shared key-value store across items in a collection run; no-op stub outside runner
+  store: Map<string, unknown>;
+  // Phase 3B-7 — collection-scoped variables; silent no-op outside a collection context
+  getCollectionVar(key: string): string | undefined;
+  setCollectionVar(key: string, value: string): void;
   log(...args: unknown[]): void;
   warn(...args: unknown[]): void;
   error(...args: unknown[]): void;
@@ -335,14 +457,6 @@ export interface RfContext {
   };
 }
 
-export interface GraphqlCodeGenOptions {
-  target: 'typescript-graphql-request' | 'typescript-urql' | 'typescript-apollo' |
-          'typescript-fetch' | 'python-gql' | 'curl' | 'httpie';
-  includeTypes: boolean;          // prepend TypeScript interface definitions
-  useEnvVarsForHeaders: boolean;  // replace {{var}} with process.env / os.environ / $VAR
-  includeErrorHandling: boolean;  // wrap client call in try/catch (TS) or try/except (Python);
-                                  // adds GraphQL errors check (if result.errors throw/raise)
-}
 
 export interface GraphqlSchemaSnapshot {
   id: string;
@@ -354,11 +468,14 @@ export interface GraphqlSchemaSnapshot {
 }
 
 export interface GraphqlSchemaDiffChange {
-  criticality: 'BREAKING' | 'DANGEROUS' | 'SAFE';
+  criticality: 'BREAKING' | 'DANGEROUS' | 'SAFE' | 'DEPRECATED';
   path: string;                // e.g. "Query.user" or "Order.items[first: Int]"
   description: string;         // human-readable change description
   oldValue?: string;
   newValue?: string;
+  // Phase 3D — per-change acknowledgement (merged from graphql-diff-acknowledgements IDB store)
+  acknowledged?: boolean;
+  acknowledgeNote?: string;
 }
 
 export interface GraphqlSchemaDiffResult {
@@ -366,17 +483,39 @@ export interface GraphqlSchemaDiffResult {
   breakingCount: number;
   dangerousCount: number;
   safeCount: number;
+  deprecatedCount: number;
 }
 
 export type MockResolver =
   | { type: 'random' }
   | { type: 'fixed';  value: unknown }
-  | { type: 'script'; code: string };  // JS arrow function body: "() => new Date().toISOString()"
+  | { type: 'script'; code: string }   // function body using `return`, e.g. "return new Date().toISOString()". Context: field, typeName, args, log
+  | { type: 'error';  message: string }; // always returns a GraphQL error for this field
+
+// Phase 3E — custom scalar value factory preset
+export type MockScalarPreset = 'email' | 'date-iso' | 'uuid' | 'url' | 'phone' | 'name' | 'sentence';
+
+export interface MockScalarFactory {
+  scalarName: string;          // e.g. "DateTime", "EmailAddress"
+  preset?: MockScalarPreset;   // built-in generator (no faker.js)
+  scriptCode?: string;         // function body using `return`, e.g. "return new Date().toISOString()". Context: field, typeName, args, log
+}
+
+// Phase 3E — a named set of resolver overrides for quick scenario switching
+export interface MockScenario {
+  id: string;
+  name: string;
+  resolvers: Record<string, Record<string, MockResolver>>;  // typeName → fieldName → resolver override
+}
 
 export interface GraphqlMockConfig {
   connectionId: string;
   enabled: boolean;
   resolvers: Record<string, Record<string, MockResolver>>;  // typeName → fieldName → resolver
   globalLatencyMs: number;    // added to every mock response (0 = no delay)
+  jitterMs?: number;          // random jitter added to latency (0–jitterMs); default 0
   seed?: number;              // random seed for deterministic mock data generation
+  scenarios?: MockScenario[];
+  activeScenarioId?: string;  // id of the currently-active scenario (undefined = base resolvers)
+  scalarFactories?: MockScalarFactory[];
 }

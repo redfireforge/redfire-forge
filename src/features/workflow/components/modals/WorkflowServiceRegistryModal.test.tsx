@@ -196,6 +196,64 @@ describe('WorkflowServiceRegistryModal', () => {
     expect(screen.getByText('svc-a')).toBeTruthy();
   });
 
+  it('selects a different service row and shows missing env dot', () => {
+    const twoServices: WorkflowService[] = [
+      {
+        id: 's1',
+        name: 'svc-a',
+        endpoints: [
+          { envId: 'env1', url: 'http://x', enabled: true, authMode: 'inherit', source: 'manual' },
+          { envId: 'env2', url: 'http://y', enabled: true, authMode: 'inherit', source: 'manual' },
+        ],
+        defaultAuth: { type: 'none' },
+      } as unknown as WorkflowService,
+      { id: 's2', name: 'svc-b', endpoints: [], defaultAuth: { type: 'none' } } as unknown as WorkflowService,
+    ];
+    render(<WorkflowServiceRegistryModal {...baseProps} services={twoServices} selectedEnvId="env2" />);
+    expect(document.querySelector('.wf-svc-env-dot.ready')).toBeTruthy();
+    fireEvent.click(screen.getByText('svc-b'));
+    expect((document.querySelector('.wf-svc-top-fields input') as HTMLInputElement).value).toBe('svc-b');
+    expect(document.querySelector('.wf-svc-env-dot.missing')).toBeTruthy();
+  });
+
+  it('expands custom auth row without inherit prefill', () => {
+    const customSvc: WorkflowService[] = [{
+      id: 's3',
+      name: 'custom-auth',
+      endpoints: [{
+        envId: 'env1',
+        url: 'http://x',
+        enabled: true,
+        authMode: 'custom',
+        auth: { type: 'bearer', token: 'x' },
+        source: 'manual',
+      }],
+      defaultAuth: { type: 'none' },
+    } as unknown as WorkflowService];
+    render(<WorkflowServiceRegistryModal {...baseProps} services={customSvc} />);
+    const toggle = document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    expect(document.querySelector('.wf-svc-matrix-auth-expanded')).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(document.querySelector('.wf-svc-matrix-auth-expanded')).toBeNull();
+  });
+
+  it('changes global profile in expanded inline auth', () => {
+    const profiles: GlobalAuthProfile[] = [
+      globalAuthProfiles[0],
+      { id: 'gp2', name: 'Alt', auth: { type: 'basic', username: 'u' } } as unknown as GlobalAuthProfile,
+    ];
+    render(<WorkflowServiceRegistryModal {...baseProps} globalAuthProfiles={profiles} />);
+    fireEvent.click(document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement);
+    const authSelect = document.querySelector('.wf-svc-matrix-auth-expanded select') as HTMLSelectElement;
+    fireEvent.change(authSelect, { target: { value: 'global-profile' } });
+    const profileSelect = Array.from(document.querySelectorAll('.wf-svc-matrix-auth-expanded select')).find(
+      (s) => Array.from(s.options).some((o) => o.value === 'gp2'),
+    ) as HTMLSelectElement;
+    fireEvent.change(profileSelect, { target: { value: 'gp2' } });
+    expect(profileSelect.value).toBe('gp2');
+  });
+
   describe('resolveInheritLabel', () => {
     it('no microservice linked', () => {
       expect(resolveInheritLabel('env1', undefined, microservices, globalAuthProfiles)).toBe('No microservice linked');
@@ -239,6 +297,10 @@ describe('WorkflowServiceRegistryModal', () => {
       expect(found).toBe('Corp');
       const notFound = authSummary(ep({ auth: { type: 'bearer', globalProfileId: 'gpX' } }), da, globalAuthProfiles);
       expect(notFound).toBe('profile');
+    });
+    it('apikey without name and unknown auth type fallback', () => {
+      expect(authSummary(ep({ auth: { type: 'apikey' } }), da, globalAuthProfiles)).toBe('Key: …');
+      expect(authSummary(ep({ auth: { type: 'digest' } as never }), da, globalAuthProfiles)).toBe('digest');
     });
   });
 });

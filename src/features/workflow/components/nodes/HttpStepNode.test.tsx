@@ -6,6 +6,7 @@ import { render, fireEvent, screen } from '@testing-library/react';
 import HttpStepNode from './HttpStepNode';
 import type { HttpNodeData } from '../../types/workflow';
 import type { Scenario } from '../../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
 
 const openStepDetail = vi.fn();
 const handleConfigure = vi.fn();
@@ -48,20 +49,13 @@ vi.mock('./NodePausedOverlay', () => ({
   NodePausedOverlay: () => <div data-testid="paused" />,
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     name: 'API',
     url: 'https://api.example.com/path',
-    method: 'GET',
-    headers: [],
-    body: '',
     bodyType: 'none',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
-}
+  });
 
 function makeProps(data: HttpNodeData, selected = false) {
   return {
