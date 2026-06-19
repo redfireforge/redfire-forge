@@ -102,6 +102,7 @@ export const WS = {
   CONNECT_BTN:       '[data-testid="connect-btn"]',
   DISCONNECT_BTN:    '[data-testid="disconnect-btn"]',
   URL_INPUT:         '[aria-label="WebSocket URL"]',
+  SUBPROTOCOLS:      '[aria-label="Subprotocols"]',
   PROTOCOL_SELECT:   '[data-testid="protocol-select"]',
 
   // Socket.IO send-pane fields (shown when protocol = socket-io)
