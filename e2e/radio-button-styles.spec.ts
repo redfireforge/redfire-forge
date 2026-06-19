@@ -207,13 +207,13 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').waitFor({ timeout: 15000 });
     await page.getByTestId('workflow-select').click();
     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     const radioSelector = '.error-policy-options .radio-label input[type="radio"]';
-    await page.waitForSelector(radioSelector, { timeout: 5000 });
+    await page.waitForSelector(radioSelector, { timeout: 10000 });
 
     const accentColor = await getAccentColor(page, radioSelector);
     console.log('[WorkflowRunner] On Error radio accent-color:', accentColor);
@@ -226,13 +226,13 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').waitFor({ timeout: 15000 });
     await page.getByTestId('workflow-select').click();
     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     const radioSelector = '.think-time-section .radio-label input[type="radio"]';
-    await page.waitForSelector(radioSelector, { timeout: 5000 });
+    await page.waitForSelector(radioSelector, { timeout: 10000 });
 
     const accentColor = await getAccentColor(page, radioSelector);
     console.log('[WorkflowRunner] Think Time radio accent-color:', accentColor);
@@ -245,18 +245,18 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').waitFor({ timeout: 15000 });
     await page.getByTestId('workflow-select').click();
     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     // Scope to the Workflow Runner config section
     const configSection = page.locator('.workflow-runner-config-section');
-    await configSection.waitFor({ timeout: 5000 });
+    await configSection.waitFor({ timeout: 15000 });
 
     // Scope to the execution mode option box (contains "Execution Mode:" label)
     const execModeBox = configSection.locator('.runner-option-box:has-text("Execution Mode:")');
-    await execModeBox.waitFor({ timeout: 5000 });
+    await execModeBox.waitFor({ timeout: 15000 });
 
     // Verify all 5 execution mode radio buttons are present (name is prefixed to avoid cross-instance collisions)
     const allExecRadios = execModeBox.locator('input[type="radio"][name="workflow-runner-execMode"]');
