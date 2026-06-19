@@ -5,7 +5,7 @@
  * Requires: backend on 3001 (mock WS echo on 9876), Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio } from './ws-helpers';
+import { gotoWsStudio, ensureWsMockServer, getActiveWsPane } from './ws-helpers';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -14,21 +14,11 @@ const MOCK_URL = 'ws://localhost:9876';
 
 /* ── Ensure mock echo server is running ──────────────── */
 
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  const resp = await page.request.post('http://localhost:3001/api/ws/mock/start', {
-    data: { port: 9876, rules: [], fallback: 'echo' },
-  });
-  expect(resp.ok()).toBeTruthy();
-  await ctx.close();
-});
+test.beforeAll(async ({ browser }) => { await ensureWsMockServer(browser); });
 
 /* ── helpers ─────────────────────────────────────────── */
 
-function activePane(page: Page) {
-  return page.locator('[data-testid^="conn-tab-pane-"]:visible');
-}
+const activePane = getActiveWsPane;
 
 async function connectTo(page: Page, url = MOCK_URL) {
   const pane = activePane(page);

@@ -5,14 +5,13 @@
  * Requires: backend on 3001 (mock WS echo on 9876), Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio } from './ws-helpers';
+import { gotoWsStudio, getWsTabs, getWsAddTabBtn } from './ws-helpers';
 
 
 /* ── helpers ─────────────────────────────────────────── */
 
-const tabBar = (page: Page) => page.locator('[data-testid="conn-tab-bar"]');
-const allTabs = (page: Page) => tabBar(page).locator('[role="tab"]');
-const addBtn = (page: Page) => page.locator('[data-testid="conn-tab-add"]');
+const allTabs = getWsTabs;
+const addBtn = getWsAddTabBtn;
 
 async function addTabs(page: Page, count: number) {
   for (let i = 0; i < count; i++) {

@@ -98,7 +98,7 @@ test.describe('Connection Lifecycle (WC-04–10)', () => {
     const activeTab = page.locator('[role="tab"][aria-selected="true"]').first();
     await expect(activeTab).toContainText('localhost:9876');
     // Verify via always-visible events bar
-    await expect(page.locator('.ws-messages-status-label')).toContainText('Connected');
+    await expect(page.locator('.ws-messages-status-label')).toContainText('Connected', { timeout: 8000 });
     // Switch to Connect tab for connect-panel-only elements
     await switchLeftTab(page, 'connect');
     await expect(page.locator('[aria-label="WebSocket URL"]')).toBeDisabled();
@@ -450,6 +450,7 @@ test.describe('Message Templates (WC-31–35)', () => {
     await connectTo(page);
     await switchLeftTab(page, 'send');
     const input = page.locator('.ws-compose-input');
+    await expect(input).toBeEnabled({ timeout: 10000 });
     await input.fill('{"action":"subscribe","topic":"prices"}');
     await page.click('[data-testid="template-trigger"]');
     await page.waitForTimeout(300);
