@@ -66,6 +66,11 @@ export function useGraphqlSchemaSnapshots(
   const [schemaDiffToast, setSchemaDiffToast] = useState(false);
   const prevSchemaHashRef = useRef<string | null>(null);
   const toastBaselineSnapshotIdRef = useRef<string | null>(null);
+  // Keep a ref to snapshots so the schema-change detection effect can read the
+  // latest snapshot list without adding `snapshots` to its deps (which would
+  // spuriously re-run on every snapshot save/delete).
+  const snapshotsRef = useRef<GraphqlSchemaSnapshot[]>(snapshots);
+  snapshotsRef.current = snapshots;
 
   // Auto-dismiss schema-change toast after 8 s
   useEffect(() => {
@@ -86,18 +91,20 @@ export function useGraphqlSchemaSnapshots(
       .catch(() => {});
   }, [connectionId]);
 
-  // Detect schema changes between introspections and show a toast
+  // Detect schema changes between introspections and show a toast.
+  // Uses snapshotsRef (kept in sync above) instead of the `snapshots` state
+  // value to avoid re-running the effect on every snapshot save/delete while
+  // still reading the latest snapshot list at the moment a change is detected.
   useEffect(() => {
     if (schemaStatus !== 'loaded' || !schemaInfo?.sdl) return;
 
     const prev = prevSchemaHashRef.current;
     prevSchemaHashRef.current = schemaInfo.sdl;
     if (prev !== null && prev !== schemaInfo.sdl) {
-      toastBaselineSnapshotIdRef.current = snapshots[0]?.id ?? null;
+      toastBaselineSnapshotIdRef.current = snapshotsRef.current[0]?.id ?? null;
       setSchemaDiffToast(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemaStatus, schemaInfo?.fetchedAt]);
+  }, [schemaStatus, schemaInfo?.fetchedAt, schemaInfo?.sdl]);
 
   // Scan collection items for deprecated field usage on schema or collection change
   useEffect(() => {

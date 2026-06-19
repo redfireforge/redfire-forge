@@ -240,11 +240,14 @@ describe('idbSaveHistoryItem', () => {
     expect(forConn.some((x) => x.id === 'b')).toBe(true);
   });
 
-  it('swallows save errors without blocking subsequent saves', async () => {
+  it('propagates IDB errors to the caller while queue continues for subsequent saves', async () => {
     vi.mocked(openDB).mockRejectedValueOnce(new Error('IDB open failed'));
 
-    await expect(idbSaveHistoryItem(makeHistoryItem({ id: 'fail' }), 10)).resolves.toBeUndefined();
+    // Error should now reject the caller's promise so the caller can choose
+    // whether to update in-memory state (it should NOT on failure).
+    await expect(idbSaveHistoryItem(makeHistoryItem({ id: 'fail' }), 10)).rejects.toThrow('IDB open failed');
 
+    // Despite the failure, the queue must remain healthy — subsequent saves work.
     const okItem = makeHistoryItem({ id: 'ok-after-fail' });
     await idbSaveHistoryItem(okItem, 10);
     expect(stores[HISTORY_STORE]!.has('ok-after-fail')).toBe(true);

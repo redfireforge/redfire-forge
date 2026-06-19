@@ -571,7 +571,7 @@ describe('normalizeImportData — v1.0 backward compat', () => {
     expect(saved.operation.variables).toBe('{"k":"v"}');
   });
 
-  it('handles items with no operation field (partial legacy data)', async () => {
+  it('handles items with no operation field by inserting a placeholder operation', async () => {
     const col = makeCollection({ id: 'no-op-col' });
     const legacyItem = {
       id: 'no-op-i',
@@ -585,7 +585,11 @@ describe('normalizeImportData — v1.0 backward compat', () => {
     await idbImportCollections(data, 'replace');
 
     const saved = stores['graphql-collection-items']!.get('no-op-i') as GraphqlCollectionItem;
-    expect(saved.operation).toBeUndefined();
+    // Missing operation is replaced with a safe placeholder so the item is
+    // importable without crashing downstream consumers.
+    expect(saved.operation).toBeDefined();
+    expect(saved.operation.query).toBe('');
+    expect(saved.operation.operationType).toBe('query');
   });
 
   it('normalizes folder with missing collectionId from legacy data', async () => {
@@ -662,7 +666,7 @@ describe('idbImportCollections — keep-both with nested parentId (L235 truthy b
   });
 });
 
-describe('normalizeImportData — updatedAt ?? createdAt ?? now fallback (L317)', () => {
+describe('normalizeImportData — updatedAt ?? createdAt ?? now fallback', () => {
   it('uses Date.now() when both updatedAt and createdAt are absent from legacy item', async () => {
     const before = Date.now();
     const col = makeCollection({ id: 'du-col' });
@@ -680,6 +684,45 @@ describe('normalizeImportData — updatedAt ?? createdAt ?? now fallback (L317)'
 
     const saved = stores['graphql-collection-items']!.get('du-i') as GraphqlCollectionItem;
     expect(saved.updatedAt).toBeGreaterThanOrEqual(before);
+    // createdAt should also be defaulted to now
+    expect(saved.createdAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('defaults collection.createdAt to now when absent in legacy data', async () => {
+    const before = Date.now();
+    // Legacy collection without createdAt
+    const legacyCol = { id: 'lca-col', name: 'Legacy', variables: {}, preRequestScript: '', postResponseScript: '' } as unknown as GraphqlCollection;
+    const data = makeExportData([{ collection: legacyCol }]);
+
+    await idbImportCollections(data, 'replace');
+
+    const saved = stores['graphql-collections']!.get('lca-col') as GraphqlCollection;
+    expect(saved.createdAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('defaults folder.createdAt to now when absent in legacy data', async () => {
+    const before = Date.now();
+    const col = makeCollection({ id: 'lcaf-col' });
+    // Folder without createdAt
+    const legacyFolder = { id: 'lcaf-f', name: 'LF', collectionId: 'lcaf-col', sortOrder: 0 } as unknown as GraphqlCollectionFolder;
+    const data = makeExportData([{ collection: col, folders: [legacyFolder] }]);
+
+    await idbImportCollections(data, 'replace');
+
+    const saved = stores['graphql-collection-folders']!.get('lcaf-f') as GraphqlCollectionFolder;
+    expect(saved.createdAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('preserves existing createdAt when present', async () => {
+    const col = makeCollection({ id: 'pca-col' });
+    const item = makeItem({ id: 'pca-i', collectionId: 'pca-col', createdAt: 1111, updatedAt: 2222 });
+    const data = makeExportData([{ collection: col, items: [item] }]);
+
+    await idbImportCollections(data, 'replace');
+
+    const saved = stores['graphql-collection-items']!.get('pca-i') as GraphqlCollectionItem;
+    expect(saved.createdAt).toBe(1111);
+    expect(saved.updatedAt).toBe(2222);
   });
 });
 

@@ -268,7 +268,10 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
           />
         </div>
         <div className="gql-mock-latency-row">
-          <label className="gql-mock-field-label">Seed</label>
+          <label className="gql-mock-field-label" title="Seed-based deterministic randomness is not yet implemented — this value is stored but has no effect on generated mock data">
+            Seed
+            <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: '0.7rem' }}>(coming soon)</span>
+          </label>
           <input
             type="number"
             min={0}
@@ -277,6 +280,7 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
             className="gql-mock-number-input"
             placeholder="Random"
             data-testid="gql-mock-seed-input"
+            title="Seed-based deterministic randomness is not yet implemented"
           />
         </div>
       </div>

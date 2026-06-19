@@ -654,20 +654,19 @@
 }
 
 .ws-connect-url-row {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: 4px 8px;
 }
 
 .ws-connect-label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #999);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-muted, #a8b8cc);
+  letter-spacing: 0px;
   margin-bottom: 4px;
 }
 
@@ -675,7 +674,7 @@
 .ws-connect-url-row > .ws-connect-label,
 .ws-connect-field-row > .ws-connect-label {
   flex-shrink: 0;
-  width: 96px;
+  width: 88px;
   margin-bottom: 0;
 }
 
@@ -688,7 +687,7 @@
 .ws-connect-url-row > .ws-connect-env-warning,
 .ws-connect-url-row > .ws-connect-url-hint {
   flex-basis: 100%;
-  margin-left: 106px;
+  margin-left: 96px;
 }
 
 .ws-connect-url-wrapper {
@@ -750,10 +749,10 @@
    the SSE Studio. */
 
 .ws-connect-field-row {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .ws-connect-subprotocols {

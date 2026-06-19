@@ -66,6 +66,7 @@ export function GraphqlCollections({
   const [saveTarget, setSaveTarget]     = useState<{ collectionId: string; folderId?: string } | null>(null);
   const [saveVarsError, setSaveVarsError] = useState<string | null>(null);
   const [importPending, setImportPending] = useState<{ data: CollectionExportData } | null>(null);
+  const [importError, setImportError]     = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const [varsOpenId, setVarsOpenId] = useState<string | null>(null);
@@ -143,7 +144,7 @@ export function GraphqlCollections({
   const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert('File is larger than 10 MB.'); return; }
+    if (file.size > 10 * 1024 * 1024) { setImportError('File is larger than 10 MB.'); return; }
     try {
       const text = await file.text();
       const raw = JSON.parse(text) as Record<string, unknown>;
@@ -152,8 +153,9 @@ export function GraphqlCollections({
       const version = (raw._exportMeta as Record<string, unknown> | undefined)?.version;
       if (version && version !== '1.0' && version !== '1.1') console.warn(`[Import] Unknown collection export version: ${String(version)}`);
       setImportPending({ data: raw as unknown as CollectionExportData });
+      setImportError(null);
     } catch (err) {
-      alert(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      setImportError(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       if (importInputRef.current) importInputRef.current.value = '';
     }
@@ -171,7 +173,7 @@ export function GraphqlCollections({
         await collections.importCollections(importPending.data, 'replace');
       }
     } catch (err) {
-      alert(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      setImportError(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [collections, importPending]);
 
@@ -321,6 +323,12 @@ export function GraphqlCollections({
               <button type="button" className="gql-import-mode-btn gql-import-mode-btn--cancel" onClick={() => setImportPending(null)} data-testid="gql-import-mode-cancel">Cancel</button>
             </div>
           </div>
+        </div>
+      )}
+      {importError && (
+        <div className="gql-import-error" role="alert" data-testid="gql-import-error">
+          <span>{importError}</span>
+          <button type="button" className="gql-import-error-dismiss" aria-label="Dismiss" onClick={() => setImportError(null)}>×</button>
         </div>
       )}
     </div>

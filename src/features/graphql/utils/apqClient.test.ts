@@ -189,6 +189,22 @@ describe('isAPQUnsupported', () => {
     });
     expect(isAPQUnsupported(resp)).toBe(false);
   });
+
+  it('returns false for HTTP 400 that has a data field (unrelated server error, NOT APQ unsupported)', () => {
+    // Narrowing: a 400 that returns data is NOT an APQ-structure rejection.
+    const resp = makeOkResponse({ httpStatus: 400, data: { someField: 'value' }, errors: [] });
+    expect(isAPQUnsupported(resp)).toBe(false);
+  });
+
+  it('returns true for PERSISTED_QUERY_NOT_SUPPORTED regardless of data field', () => {
+    // Explicit code always wins, even if data is present
+    const resp = makeOkResponse({
+      httpStatus: 200,
+      data: { foo: 'bar' },
+      errors: [{ message: 'APQ not supported', extensions: { code: 'PERSISTED_QUERY_NOT_SUPPORTED' } }],
+    });
+    expect(isAPQUnsupported(resp)).toBe(true);
+  });
 });
 
 // ─── executeWithAPQ ──────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
+import { isTauri } from '../../../shared/utils/platform';
 import type {
   GraphqlMockConfig,
   MockResolver,
@@ -141,11 +142,14 @@ export function useGraphqlMockServer(
 
     // When switching connections, immediately tell the server to disable its mock so it
     // doesn't keep serving the previous connection's schema while the UI loads the new one.
-    void fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false }),
-    }).catch(() => { /* non-fatal: proxy may not be running */ });
+    // Only on desktop — the mock proxy is not available in web mode.
+    if (isTauri()) {
+      void fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+      }).catch(() => { /* non-fatal: proxy may not be running */ });
+    }
 
     if (!connectionId) {
       setConfig(defaultConfig(''));
@@ -226,6 +230,9 @@ export function useGraphqlMockServer(
     immediate = false,
     revertOnFailure = immediate,
   ) => {
+    // Mock server is a desktop-only feature (runs inside the Tauri proxy).
+    // On web, the mock proxy is not available — skip all network calls silently.
+    if (!isTauri()) return;
     if (!immediate && !cfg.enabled) return;
 
     if (!cfg.enabled) {
@@ -310,6 +317,7 @@ export function useGraphqlMockServer(
 
   // ── Log polling ───────────────────────────────────────────────────────────
   const fetchLog = useCallback(async () => {
+    if (!isTauri()) return;
     try {
       const resp = await fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/log?limit=50`);
       if (resp.ok) {
@@ -320,6 +328,7 @@ export function useGraphqlMockServer(
   }, []);
 
   const fetchStatus = useCallback(async () => {
+    if (!isTauri()) return;
     try {
       const resp = await fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/status`);
       if (resp.ok) {
@@ -576,11 +585,13 @@ export function useGraphqlMockServer(
       schemaSourceRef.current = 'custom';
     }
     // Explicitly disable the proxy mock server so a running mock stops immediately
-    void fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false }),
-    }).catch(() => { /* non-fatal */ });
+    if (isTauri()) {
+      void fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+      }).catch(() => { /* non-fatal */ });
+    }
   }, []);
 
   const resetAll = useCallback(() => {

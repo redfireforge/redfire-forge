@@ -48,11 +48,28 @@ export function idbSaveHistoryItem(
 ): Promise<void> {
   const connectionId = item.connectionId;
   const prev = _saveQueues.get(connectionId) ?? Promise.resolve();
-  // Chain the new save onto the tail; errors are swallowed per-call so a failed
-  // save does not block the queue for subsequent saves.
-  const next = prev.then(() => _doSaveHistoryItem(item, maxItems)).catch(() => {});
-  _saveQueues.set(connectionId, next);
-  return next;
+
+  // Two promises:
+  //   callerPromise — rejects on IDB failure so the caller knows not to update
+  //                   in-memory state (fixes data-divergence bug).
+  //   queueTail    — always resolves so subsequent saves aren't blocked by a
+  //                   failure in this save (queue remains healthy).
+  let resolveCallerPromise!: () => void;
+  let rejectCallerPromise!: (err: unknown) => void;
+  const callerPromise = new Promise<void>((res, rej) => {
+    resolveCallerPromise = res;
+    rejectCallerPromise = rej;
+  });
+
+  const queueTail = prev
+    .then(() => _doSaveHistoryItem(item, maxItems))
+    .then(resolveCallerPromise, (err) => {
+      // Propagate failure to caller but keep the queue chain resolved.
+      rejectCallerPromise(err);
+    });
+
+  _saveQueues.set(connectionId, queueTail);
+  return callerPromise;
 }
 
 async function _doSaveHistoryItem(

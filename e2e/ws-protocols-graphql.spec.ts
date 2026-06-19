@@ -159,21 +159,25 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     // Operation name input should be visible
     await expect(page.locator('[data-testid="gql-operation-name"]')).toBeVisible();
 
-    // Variables textarea should be visible
+    // Variables textarea is in a tab — switch to it before asserting
+    await page.locator('[data-testid="gql-tab-variables"]').click();
     await expect(page.locator('[data-testid="gql-variables"]')).toBeVisible();
 
-    // Operation ID badge should be visible and show "Op #1"
+    // Operation ID badge should be visible and show "#1"
     const opId = page.locator('[data-testid="gql-op-id"]');
     await expect(opId).toBeVisible();
-    await expect(opId).toHaveText('Op #1');
+    await expect(opId).toHaveText('#1');
+
+    // Switch back to Query tab — message input is hidden while Variables tab is active
+    await page.locator('[data-testid="gql-tab-query"]').click();
 
     // Send a subscription to verify op ID increments
     await page.locator('[aria-label="Message input"]').fill('subscription { countdown(from: 0) }');
     await page.locator('[data-testid="send-btn"]').click();
     await page.waitForTimeout(500);
 
-    // Op ID should now show "Op #2" (incremented after send)
-    await expect(opId).toHaveText('Op #2');
+    // Op ID should now show "#2" (incremented after send)
+    await expect(opId).toHaveText('#2');
 
     await disconnect(page);
   });
