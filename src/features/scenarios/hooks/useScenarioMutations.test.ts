@@ -700,6 +700,99 @@ describe('useScenarioMutations', () => {
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].validation.mode).toBe('none');
     });
+
+    it('saveTest is blocked for wsConnect without url', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({
+          ...prev,
+          name: 'WS Connect',
+          url: '',
+          actionType: 'wsConnect',
+          wsConnectAction: { url: '  ', headers: [], timeoutMs: 5000 },
+        }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('saveTest is blocked for wsSend without connectionRef', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({
+          ...prev,
+          name: 'WS Send',
+          url: '',
+          actionType: 'wsSend',
+          wsSendAction: { connectionRef: '', payload: '{}' },
+        }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('saveTest is blocked for wsReceive without connectionRef', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({
+          ...prev,
+          name: 'WS Receive',
+          url: '',
+          actionType: 'wsReceive',
+          wsReceiveAction: { connectionRef: '', timeoutMs: 10_000, matchCriteria: {} },
+        }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('saveTest is blocked for wsReceive with jsonPathValue but no jsonPathMatch', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({
+          ...prev,
+          name: 'WS Receive Match',
+          url: '',
+          actionType: 'wsReceive',
+          wsReceiveAction: {
+            connectionRef: 'chat',
+            timeoutMs: 10_000,
+            matchCriteria: { jsonPathValue: 'hello' },
+          },
+        }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('saveTest succeeds for wsReceive with valid match criteria', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({
+          ...prev,
+          name: 'WS Receive OK',
+          url: '',
+          actionType: 'wsReceive',
+          wsReceiveAction: {
+            connectionRef: 'chat',
+            timeoutMs: 10_000,
+            matchCriteria: { jsonPathValue: 'hello', jsonPathMatch: '$.msg' },
+          },
+        }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests[0].actionType).toBe('wsReceive');
+    });
   });
 
   describe('createParameterizedCopy', () => {
@@ -975,6 +1068,42 @@ describe('useScenarioMutations', () => {
         const saved = getFeatureGroups()[0].slaTargets!;
         expect(saved).toHaveLength(1);
         expect(saved[0].id).toBe('sla-new');
+      });
+    });
+
+    describe('updateTestSlaTargets', () => {
+      it('sets slaTargets on the matching test', () => {
+        const test = scenarioFixture({ id: 't-1', name: 'Login', url: '/login' });
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Auth', kind: 'standard', tests: [test] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        const targets = [makeTarget({ id: 'sla-test', value: 400 })];
+        act(() => { result.current.updateTestSlaTargets('fg-1', 'sc-1', 't-1', targets); });
+        expect(getFeatureGroups()[0].scenarios[0].tests[0].slaTargets).toEqual(targets);
+      });
+
+      it('does not affect sibling tests or other scenarios', () => {
+        const t1 = scenarioFixture({ id: 't-1', name: 'A', url: '/a' });
+        const t2 = scenarioFixture({ id: 't-2', name: 'B', url: '/b' });
+        const fg = makeFg({
+          scenarios: [
+            { id: 'sc-1', name: 'One', kind: 'standard' as const, tests: [t1, t2] },
+            { id: 'sc-2', name: 'Two', kind: 'standard' as const, tests: [scenarioFixture({ id: 't-3', name: 'C', url: '/c' })] },
+          ],
+        });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateTestSlaTargets('fg-1', 'sc-1', 't-1', [makeTarget()]); });
+        expect(getFeatureGroups()[0].scenarios[0].tests[1].slaTargets).toBeUndefined();
+        expect(getFeatureGroups()[0].scenarios[1].tests[0].slaTargets).toBeUndefined();
+      });
+
+      it('is a no-op when feature group, scenario, or test id is unknown', () => {
+        const test = scenarioFixture({ id: 't-1', name: 'Login', url: '/login' });
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Auth', kind: 'standard', tests: [test] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateTestSlaTargets('fg-NOPE', 'sc-1', 't-1', [makeTarget()]); });
+        act(() => { result.current.updateTestSlaTargets('fg-1', 'sc-NOPE', 't-1', [makeTarget()]); });
+        act(() => { result.current.updateTestSlaTargets('fg-1', 'sc-1', 't-NOPE', [makeTarget()]); });
+        expect(getFeatureGroups()[0].scenarios[0].tests[0].slaTargets).toBeUndefined();
       });
     });
   });

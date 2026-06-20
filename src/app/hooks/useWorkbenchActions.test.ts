@@ -91,4 +91,11 @@ describe('useWorkbenchActions', () => {
     act(() => hook.result.current.handleEditSubCollection('c1', 'missing'));
     expect(hook.result.current.subColForEdit).toBeNull();
   });
+
+  it('returns null subColForEdit when collection exists but has no folders array', () => {
+    const col = { id: 'c1', name: 'C', requests: [] } as unknown as RequestCollection;
+    const { hook } = setup([col]);
+    act(() => hook.result.current.handleEditSubCollection('c1', 'f1'));
+    expect(hook.result.current.subColForEdit).toBeNull();
+  });
 });

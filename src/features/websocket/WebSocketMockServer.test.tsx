@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { WebSocketMockServer } from './WebSocketMockServer';
+import { WebSocketMockServer, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import type { WsMockRule, WsMockLogEntry } from '../../shared/websocket/types';
 
@@ -714,5 +714,148 @@ describe('WebSocketMockServer', () => {
     fireEvent.click(screen.getByText('CR'));
     fireEvent.change(screen.getByTestId('rule-close-reason-r1'), { target: { value: 'goodbye' } });
     expect(setRules).toHaveBeenCalled();
+  });
+
+  it('commits port on Enter key', () => {
+    const onPortChange = vi.fn();
+    const mock = makeMockReturn({ config: { port: 9876, fallback: 'echo' } });
+    render(<WebSocketMockServer mock={mock} onPortChange={onPortChange} />);
+    const portInput = screen.getByTestId('mock-port-input') as HTMLInputElement;
+    fireEvent.change(portInput, { target: { value: '9999' } });
+    fireEvent.keyDown(portInput, { key: 'Enter' });
+    fireEvent.blur(portInput);
+    expect(onPortChange).toHaveBeenCalledWith(9999);
+  });
+
+  it('resets port input on Escape key', () => {
+    const mock = makeMockReturn({ config: { port: 9876, fallback: 'echo' } });
+    render(<WebSocketMockServer mock={mock} />);
+    const portInput = screen.getByTestId('mock-port-input') as HTMLInputElement;
+    fireEvent.change(portInput, { target: { value: '9999' } });
+    fireEvent.keyDown(portInput, { key: 'Escape' });
+    expect(portInput.value).toBe('9876');
+  });
+
+  it('swallows stop errors', async () => {
+    const stop = vi.fn().mockRejectedValue(new Error('stop failed'));
+    const mock = makeMockReturn({
+      status: { running: true, port: 9876, clientCount: 0, clients: [] },
+      stop,
+    });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('mock-stop-btn'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(stop).toHaveBeenCalled();
+  });
+
+  it('does not broadcast empty text', () => {
+    const broadcast = vi.fn();
+    const mock = makeMockReturn({
+      status: { running: true, port: 9876, clientCount: 1, clients: [{ id: 'c1', connectedAt: '', messageCount: 0 }] },
+      broadcast,
+    });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('mock-broadcast-btn'));
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('does not push rules when toggling while server is stopped', () => {
+    const pushRulesToServer = vi.fn();
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Rule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules, pushRulesToServer, status: { running: false, port: 9876, clientCount: 0, clients: [] } });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('rule-toggle-r1'));
+    expect(setRules).toHaveBeenCalled();
+    expect(pushRulesToServer).not.toHaveBeenCalled();
+  });
+
+  it('swallows broadcast errors', async () => {
+    const broadcast = vi.fn().mockRejectedValue(new Error('broadcast failed'));
+    const mock = makeMockReturn({
+      status: { running: true, port: 9876, clientCount: 1, clients: [{ id: 'c1', connectedAt: '', messageCount: 0 }] },
+      broadcast,
+    });
+    render(<WebSocketMockServer mock={mock} />);
+    const input = screen.getByTestId('mock-broadcast-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByTestId('mock-broadcast-btn'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(broadcast).toHaveBeenCalled();
+  });
+
+  it('shows enabled rule count in strip stats', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'Only', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules });
+    render(<WebSocketMockServer mock={mock} />);
+    expect(document.querySelector('.ws-mock-strip-stat')?.textContent).toMatch(/Rules\s+1\s+active/);
+  });
+
+  it('swallows start errors', async () => {
+    const start = vi.fn().mockRejectedValue(new Error('start failed'));
+    const mock = makeMockReturn({ start });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByTestId('mock-start-btn'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(start).toHaveBeenCalled();
+  });
+
+  it('renders close response fields in rule editor', () => {
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'CloseRule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'close', closeCode: 1000, closeReason: 'bye' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules: vi.fn() });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('CloseRule'));
+    expect(screen.getByTestId('rule-close-code-r1')).toBeTruthy();
+    expect(screen.getByTestId('rule-close-reason-r1')).toBeTruthy();
+  });
+
+  it('updates response type via select onChange', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'TypeRule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo' } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('TypeRule'));
+    fireEvent.change(screen.getByTestId('rule-response-type-r1'), { target: { value: 'static' } });
+    expect(setRules).toHaveBeenCalled();
+  });
+
+  it('updates delay via onChange', () => {
+    const setRules = vi.fn();
+    const rules: WsMockRule[] = [
+      { id: 'r1', name: 'DelayRule', enabled: true, match: { type: 'any', pattern: '' }, response: { type: 'echo', delay: 0 } },
+    ];
+    const mock = makeMockReturn({ rules, setRules });
+    render(<WebSocketMockServer mock={mock} />);
+    fireEvent.click(screen.getByText('DelayRule'));
+    fireEvent.change(screen.getByTestId('rule-delay-r1'), { target: { value: '250' } });
+    expect(setRules).toHaveBeenCalled();
+  });
+});
+
+function MockRulesPaneHarness({ mock }: { mock: UseWebSocketMockServerReturn }) {
+  const ui = useMockServerUi(mock);
+  return <WebSocketMockRulesPane ui={ui} showTabs={true} />;
+}
+
+describe('WebSocketMockRulesPane (tabbed layout)', () => {
+  it('switches between rules and server log tabs', () => {
+    const logs: WsMockLogEntry[] = [
+      { id: 1, ts: '2026-06-09T10:00:00Z', event: 'start' },
+    ];
+    const mock = makeMockReturn({ logs });
+    render(<MockRulesPaneHarness mock={mock} />);
+    expect(screen.getByTestId('mock-tab-rules')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mock-tab-log'));
+    expect(screen.getByTestId('mock-log')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mock-tab-rules'));
+    expect(screen.getByTestId('mock-add-rule')).toBeTruthy();
   });
 });

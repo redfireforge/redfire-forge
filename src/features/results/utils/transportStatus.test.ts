@@ -1,21 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { formatTransportStatus, getTransportMethodLabel, isHttpResult, getTransportFamily } from './transportStatus';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
+const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>
+  _makeResult({
     id: 'r1',
-    scenarioId: 's1',
     scenarioName: 'Test',
-    passed: true,
-    httpStatus: 200,
-    responseTimeMs: 100,
     method: 'GET',
     url: '/test',
-    failureDetails: [],
     ...overrides,
-  };
-}
+  });
 
 describe('formatTransportStatus', () => {
   it('returns HTTP status code for http transport (default)', () => {

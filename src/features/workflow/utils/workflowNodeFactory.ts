@@ -32,6 +32,10 @@ import type {
   WsSendNodeData,
   WsReceiveNodeData,
   WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -61,6 +65,11 @@ import WsConnectNode from '../components/nodes/WsConnectNode';
 import WsSendNode from '../components/nodes/WsSendNode';
 import WsReceiveNode from '../components/nodes/WsReceiveNode';
 import WsTriggerNode from '../components/nodes/WsTriggerNode';
+import GraphqlQueryNode from '../components/nodes/GraphqlQueryNode';
+import GraphqlMutationNode from '../components/nodes/GraphqlMutationNode';
+import GraphqlSubscriptionNode from '../components/nodes/GraphqlSubscriptionNode';
+import GraphqlIntrospectNode from '../components/nodes/GraphqlIntrospectNode';
+import GraphqlAssertNode from '../components/nodes/GraphqlAssertNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -93,6 +102,11 @@ export const nodeTypes = {
   wsSend: WsSendNode,
   wsReceive: WsReceiveNode,
   wsTrigger: WsTriggerNode,
+  graphqlQuery: GraphqlQueryNode,
+  graphqlMutation: GraphqlMutationNode,
+  graphqlSubscription: GraphqlSubscriptionNode,
+  graphqlIntrospect: GraphqlIntrospectNode,
+  graphqlAssert: GraphqlAssertNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -212,6 +226,11 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'wsSend':       return defaultWsSendNodeData();
     case 'wsReceive':    return defaultWsReceiveNodeData();
     case 'wsTrigger':    return defaultWsTriggerNodeData();
+    case 'graphqlQuery':        return defaultGraphqlQueryNodeData();
+    case 'graphqlMutation':     return defaultGraphqlMutationNodeData();
+    case 'graphqlSubscription': return defaultGraphqlSubscriptionNodeData();
+    case 'graphqlIntrospect':   return defaultGraphqlIntrospectNodeData();
+    case 'graphqlAssert':       return defaultGraphqlAssertNodeData();
   }
 }
 
@@ -319,5 +338,66 @@ export function defaultWsTriggerNodeData(): WsTriggerNodeData {
     connectionId: 'ws1',
     matchCriteria: { messageType: 'any' },
     extractionRules: [],
+  };
+}
+
+// ── GraphQL Node Defaults ────────────────────────────────────────────────────
+
+export function defaultGraphqlQueryNodeData(): GraphqlQueryNodeData {
+  return {
+    label: 'GraphQL Query',
+    endpoint: '',
+    query: 'query {\n  \n}',
+    variables: '{}',
+    headers: [],
+    timeoutMs: 30000,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlMutationNodeData(): GraphqlQueryNodeData {
+  return {
+    label: 'GraphQL Mutation',
+    endpoint: '',
+    query: 'mutation {\n  \n}',
+    variables: '{}',
+    headers: [],
+    timeoutMs: 30000,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlSubscriptionNodeData(): GraphqlSubscriptionNodeData {
+  return {
+    label: 'GraphQL Subscription',
+    endpoint: '',
+    subscriptionQuery: 'subscription {\n  \n}',
+    variables: '{}',
+    headers: [],
+    subscriptionTransport: 'auto',
+    stopAfterMessages: 10,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlIntrospectNodeData(): GraphqlIntrospectNodeData {
+  return {
+    label: 'GraphQL Introspect',
+    endpoint: '',
+    headers: [],
+    timeoutMs: 30000,
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlAssertNodeData(): GraphqlAssertNodeData {
+  return {
+    label: 'GraphQL Assert',
+    sourceVariable: '',
+    assertions: [],
+    failBehavior: 'error',
   };
 }

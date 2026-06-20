@@ -44,7 +44,8 @@ describe('ws-reliability lesson', () => {
   it('concept has a diagram', () => {
     expect(wsReliabilityLesson.concept.diagram).toBeTruthy();
     expect(wsReliabilityLesson.concept.diagram).toContain('Stats');
-    expect(wsReliabilityLesson.concept.diagram).toContain('Reconnect');
+    // Diagram contains "Auto-reconnect" text (lowercase r is OK)
+    expect(wsReliabilityLesson.concept.diagram).toMatch(/[Rr]econnect/);
   });
 
   it('all steps have id, title, and description', () => {

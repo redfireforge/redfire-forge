@@ -295,7 +295,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByText('This workflow has no defined variables.')).toBeInTheDocument();
+    expect(screen.getByText(/No.*found in this workflow/)).toBeInTheDocument();
   });
 
   it('disables inputs when disabled prop is true', () => {

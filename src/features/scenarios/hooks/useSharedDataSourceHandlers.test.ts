@@ -130,4 +130,93 @@ describe('useSharedDataSourceHandlers', () => {
     act(() => hook.result.current.setShowFromSharedDsPicker({ fgId: 'fg-1', scId: 'sc-1' }));
     expect(hook.result.current.showFromSharedDsPicker).toEqual({ fgId: 'fg-1', scId: 'sc-1' });
   });
+
+  it('promotes with no fetchConfig — uses defaults for method/headers', () => {
+    const setSharedDataSources = vi.fn();
+    const { hook } = setup({ setSharedDataSources });
+    let id = '';
+    act(() => {
+      id = hook.result.current.handlePromoteToShared({ rows: [] } as unknown as DataSource, 'NoConfig');
+    });
+    expect(id).toBeTruthy();
+    const updater = setSharedDataSources.mock.calls[0][0] as (prev: SharedDataSource[]) => SharedDataSource[];
+    const next = updater([]);
+    expect(next[0].fetchConfig).toBeUndefined();
+  });
+
+  it('promotes with fetchConfig missing method — defaults to GET', () => {
+    const setSharedDataSources = vi.fn();
+    const { hook } = setup({ setSharedDataSources });
+    act(() => {
+      hook.result.current.handlePromoteToShared(
+        { rows: [] } as unknown as DataSource,
+        'NoMethod',
+        [],
+        { url: '/y', method: '', headers: [] },
+      );
+    });
+    const updater = setSharedDataSources.mock.calls[0][0] as (prev: SharedDataSource[]) => SharedDataSource[];
+    const next = updater([]);
+    expect(next[0].fetchConfig?.method).toBe('GET');
+  });
+
+  it('creates test from shared DS with no fetchConfig — uses empty defaults', () => {
+    const setFeatureGroups = vi.fn();
+    const setDraft = vi.fn();
+    const setEditingTest = vi.fn();
+    const setInputMode = vi.fn();
+    const setActiveTab = vi.fn();
+    const { hook } = setup({ setFeatureGroups, setDraft, setEditingTest, setInputMode, setActiveTab });
+    const sharedDs = { id: 'sds-2', name: 'NoConfig' } as unknown as SharedDataSource;
+    act(() => hook.result.current.handleCreateTestFromSharedDs(sharedDs, 'fg-1', 'sc-1', 'FromEmpty'));
+    const draft = setDraft.mock.calls[0][0] as Scenario;
+    expect(draft.url).toBe('');
+    expect(draft.method).toBe('GET');
+    expect(draft.headers).toEqual([]);
+    expect(draft.auth).toEqual({ type: 'none' });
+  });
+
+  it('returns undefined currentEditingDraft when scenario not found', () => {
+    const { hook } = setup({
+      featureGroups: [makeFg({ id: 'fg-1', scenarios: [] })],
+      editingTest: { featureId: 'fg-1', scenarioId: 'missing', testId: 't-1' },
+      draft: makeDraft(),
+    });
+    expect(hook.result.current.currentEditingDraft).toBeUndefined();
+  });
+
+  it('promotes with fetchConfig headers omitted', () => {
+    const setSharedDataSources = vi.fn();
+    const { hook } = setup({ setSharedDataSources });
+    act(() => {
+      hook.result.current.handlePromoteToShared(
+        { rows: [] } as unknown as DataSource,
+        'NoHeaders',
+        [],
+        { url: '/z', method: 'GET', headers: undefined as unknown as [] },
+      );
+    });
+    const updater = setSharedDataSources.mock.calls[0][0] as (prev: SharedDataSource[]) => SharedDataSource[];
+    expect(updater([])[0].fetchConfig?.headers).toEqual([]);
+  });
+
+  it('only adds test to matching feature group and scenario', () => {
+    const setFeatureGroups = vi.fn();
+    const { hook } = setup({
+      setFeatureGroups,
+      featureGroups: [
+        makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'A', tests: [] }] }),
+        makeFg({ id: 'fg-2', scenarios: [{ id: 'sc-2', name: 'B', tests: [] }] }),
+      ],
+    });
+    const sharedDs = { id: 'sds-3', name: 'Shared' } as unknown as SharedDataSource;
+    act(() => hook.result.current.handleCreateTestFromSharedDs(sharedDs, 'fg-2', 'sc-2', 'Targeted'));
+    const updater = setFeatureGroups.mock.calls[0][0] as (prev: FeatureGroup[]) => FeatureGroup[];
+    const next = updater([
+      makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'A', tests: [] }] }),
+      makeFg({ id: 'fg-2', scenarios: [{ id: 'sc-2', name: 'B', tests: [] }] }),
+    ]);
+    expect(next[0].scenarios[0].tests).toHaveLength(0);
+    expect(next[1].scenarios[0].tests).toHaveLength(1);
+  });
 });

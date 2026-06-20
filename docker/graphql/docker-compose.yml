@@ -1,0 +1,37 @@
+# GraphQL Test Server — Apollo Server 4 (port 4010)
+#
+# Used by GraphQL Studio E2E tests (task 4F-11) and manual workflow scenarios.
+#
+# Usage:
+#   docker compose up -d
+#   curl http://localhost:4010/health
+#
+# Endpoints:
+#   HTTP  http://localhost:4010/graphql
+#   WS    ws://localhost:4010/graphql
+#   GET   http://localhost:4010/health → { "status": "ok" }
+#
+# Schema operations:
+#   Query.user(id)              — fetch user by ID
+#   Query.health                — health sentinel query
+#   Mutation.createUser         — create user (faker-backed defaults)
+#   Mutation.createOrder        — create order
+#   Mutation.deleteUser         — delete user
+#   Subscription.orderStatus    — PENDING → PROCESSING → COMPLETE progression
+#
+# Features: Apollo Tracing v1, APQ, CORS, graphql-ws subscriptions
+services:
+  graphql-test-server:
+    build: .
+    container_name: graphql-test-server
+    ports:
+      - "4010:4010"
+    environment:
+      - PORT=4010
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4010/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped

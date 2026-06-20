@@ -6,6 +6,7 @@ import {
 } from './columnMappingAdapter';
 import type { Mapping } from '../types';
 import type { DataSourceColumn, Scenario } from '../../../types';
+import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
 
 // ─── Test helpers ────────────────────────────────────────────
 
@@ -17,19 +18,13 @@ function makeColumn(overrides: Partial<DataSourceColumn> & { id: string; name: s
   };
 }
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     id: 'test-scenario',
-    name: 'Test Scenario',
     url: 'https://api.example.com/vehicles/{{vin}}/status?channel={{channel}}',
-    method: 'GET',
     headers: [{ key: 'Authorization', value: 'Bearer {{token}}' }],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
-}
+  });
 
 const COLUMNS: DataSourceColumn[] = [
   makeColumn({ id: 'c1', name: 'VIN', type: 'path', mapping: 'vin' }),

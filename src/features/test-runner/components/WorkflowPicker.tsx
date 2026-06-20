@@ -12,6 +12,7 @@ import {
 } from '../utils/workflowRunConfigStorage';
 import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
 import { highlightSearchMatch } from '../../../shared/utils/consoleLogUtils';
+import { buildInitialRunnerVariables } from '../../workflow/utils/countWorkflowDesignerVariables';
 
 interface Props {
   workflows: Workflow[];
@@ -136,7 +137,7 @@ export default function WorkflowPicker({
     const wf = workflows.find(w => w.id === workflowId);
     if (wf) {
       onWorkflowChange(workflowId);
-      onVariablesChange({ ...wf.variables });
+      onVariablesChange(buildInitialRunnerVariables(wf));
       setDropdownOpen(false);
       setSearchQuery('');
       setNavFolderId(null);
@@ -597,7 +598,7 @@ export default function WorkflowPicker({
                 ))}
               </div>
             ) : (
-              <p className="empty-vars-hint">This workflow has no defined variables.</p>
+              <p className="empty-vars-hint">No <code>{'{{variables}}'}</code> found in this workflow.</p>
             )}
           </div>
         </>

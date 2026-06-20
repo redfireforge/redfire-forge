@@ -110,8 +110,11 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       }
 
       // === PHASE 3: Navigate to Demo Hub and start TLS demo ===
-      await page.locator('button[title="Demo Hub"]').click();
-      await page.waitForSelector('.demo-domain-grid', { timeout: 5000 });
+      // Clear persisted demo navigation state so we always land on the domains grid
+      // (a previous failed run can leave lastView='concept' in localStorage).
+      await page.evaluate(() => { localStorage.removeItem('redfire-demo-progress-v2'); });
+      await page.goto(`${APP_BASE}/?tab=demo-hub`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('.demo-domain-grid', { timeout: 10000 });
       await page.locator('.demo-domain-card').filter({ hasText: 'Protocols' }).click();
       await page.waitForSelector('.demo-category-tabs', { timeout: 5000 });
       await page.locator('.demo-category-tab').filter({ hasText: 'WebSocket' }).click();
@@ -147,7 +150,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       });
 
       // Exit demo
-      await page.locator('button[title="Exit (Esc)"]').click();
+      await page.locator('button[title="Close (Esc)"], button[title="Exit (Esc)"]').first().click();
       await page.waitForTimeout(2000);
 
       // Navigate to WS studio and connect

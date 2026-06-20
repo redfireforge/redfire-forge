@@ -22,6 +22,7 @@ vi.mock('../../shared/utils/platform', () => ({
 import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
 import { listenWsMessage, listenWsConnectionClosed } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
+import * as wsAuthResolveModule from './wsAuthResolve';
 const mockDispatch = vi.mocked(dispatchWsOperation);
 const mockIsTauri = vi.mocked(isTauri);
 const mockListenWsMessage = vi.mocked(listenWsMessage);
@@ -2504,6 +2505,28 @@ describe('useWebSocketStudio', () => {
       expect(pong).toBeDefined();
       expect(result.current.sentCount).toBeGreaterThanOrEqual(1);
     });
+
+    it('ignores native messages for a different connection id', async () => {
+      let messageCallback: ((p: { connectionId: string; data: string; messageType: string }) => void) | null = null;
+      mockIsTauri.mockReturnValue(true);
+      mockListenWsMessage.mockImplementation(async (cb) => {
+        messageCallback = cb as typeof messageCallback;
+        return vi.fn();
+      });
+      mockListenWsConnectionClosed.mockResolvedValue(vi.fn());
+
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:9090' }));
+      mockDispatch.mockResolvedValueOnce(makeConnectResult('tauri-active'));
+      await act(async () => { result.current.connect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+
+      const countBefore = result.current.messages.length;
+      await act(async () => {
+        messageCallback?.({ connectionId: 'other-id', data: 'hello', messageType: 'text' });
+      });
+      expect(result.current.messages.length).toBe(countBefore);
+    });
   });
 
   describe('connect with auth configured', () => {
@@ -2529,6 +2552,413 @@ describe('useWebSocketStudio', () => {
 
       // Header-based bearer auth forces the proxy transport in the browser.
       expect(mockDispatch).toHaveBeenCalledWith('connect', expect.anything());
+    });
+  });
+
+  describe('branch coverage — auth, disconnect, send, poll', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('sets error state when auth resolution fails', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      vi.spyOn(wsAuthResolveModule, 'resolveEffectiveAuth').mockReturnValue({ type: 'bearer', token: 'bad' });
+      vi.spyOn(wsAuthResolveModule, 'resolveAuthForConnect').mockRejectedValue(new Error('OAuth failed'));
+
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:8080',
+        auth: { type: 'bearer', token: 'bad' },
+      }));
+
+      await act(async () => {
+        result.current.connect();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(result.current.connection.state).toBe('error');
+      expect(result.current.connection.lastError).toContain('Auth failed');
+    });
+
+    it('disconnect with detail closes non-OPEN websocket immediately', () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:8765' }));
+      act(() => result.current.connect());
+      // WS still CONNECTING — not OPEN
+      act(() => result.current.disconnect({ code: 4001, reason: 'Going away' }));
+      expect(lastMockWs().close).toHaveBeenCalledWith(4001, 'Going away');
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy disconnect success appends ACK close frame', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-ack');
+      mockDispatch.mockResolvedValueOnce({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.disconnect({ code: 4000, reason: 'Done' }); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      const ack = result.current.messages.find((m) => m.type === 'close' && m.direction === 'received');
+      expect(ack).toBeDefined();
+      expect(result.current.connection.closeCode).toBe(4000);
+    });
+
+    it('proxy poll detects server-side disconnect from messages response', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-poll-close');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.resolve({
+            ok: true, op: 'messages',
+            data: { messages: [], cursor: 0, state: 'disconnected', closeCode: 1006, closeReason: 'Lost' },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy poll failure with status check failure disconnects', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-poll-fail');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') return Promise.reject(new Error('poll failed'));
+        if (op === 'status') return Promise.reject(new Error('status failed'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy send WS_NOT_CONNECTED tears down when status is not connected', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-send-fail');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('WS_NOT_CONNECTED'));
+        if (op === 'status') {
+          return Promise.resolve({
+            ok: true, op: 'status',
+            data: { state: 'disconnected', lastError: 'gone' },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.send('hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy send WS_NOT_CONNECTED keeps connection when status is still connected', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-send-ok');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('WS_NOT_CONNECTED'));
+        if (op === 'status') {
+          return Promise.resolve({
+            ok: true, op: 'status',
+            data: { state: 'connected' },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.send('hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.state).toBe('error');
+      expect(result.current.connection.lastError).toContain('Send failed');
+    });
+
+    it('proxy send WS_NOT_CONNECTED with status check error sets error state', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-send-err');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('not open'));
+        if (op === 'status') return Promise.reject(new Error('status down'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.send('hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.state).toBe('error');
+    });
+
+    it('proxy send generic error sets lastError without disconnecting', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-send-generic');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('rate limited'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.send('hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.state).toBe('connected');
+      expect(result.current.connection.lastError).toContain('Send failed');
+    });
+
+    it('proxy connect with empty response sets error state', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:8765',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+      mockDispatch.mockResolvedValueOnce({
+        ok: true, op: 'connect', data: undefined, meta: { timestamp: '' },
+      });
+      await act(async () => { result.current.connect(); });
+      expect(result.current.connection.state).toBe('error');
+      expect(result.current.connection.lastError).toContain('no connection data');
+    });
+
+    it('sendPing failure sets lastError on proxy connection', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-ping-fail');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'ping') return Promise.reject(new Error('ping failed'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.sendPing(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.lastError).toContain('Ping failed');
+    });
+
+    it('sendPing success appends ping frame on proxy connection', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-ping-ok');
+      mockDispatch.mockResolvedValue({ ok: true, op: 'ping', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.sendPing(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.messages.some((m) => m.type === 'ping' && m.direction === 'sent')).toBe(true);
+    });
+
+    it('disconnect when already disconnected is a no-op state change', () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.disconnect());
+      expect(result.current.connection.state).toBe('disconnected');
+      act(() => result.current.disconnect());
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy poll with error state disconnects with error', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-poll-err');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.resolve({
+            ok: true, op: 'messages',
+            data: { messages: [], cursor: 0, state: 'error', lastError: 'Server error' },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.connection.state).toBe('error');
+    });
+
+    it('direct websocket auto-responds to socket.io ping on message', () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('socket-io'));
+      act(() => result.current.setDraft({ url: 'ws://localhost:8765' }));
+      act(() => result.current.connect());
+      act(() => lastMockWs().simulateOpen());
+      act(() => lastMockWs().simulateMessage('2'));
+      const pong = result.current.messages.find((m) => m.data === '3' && m.direction === 'sent');
+      expect(pong).toBeDefined();
+    });
+
+    it('proxy connect runs early protocol detection in auto mode', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setProtocolMode('auto'));
+      await connectViaProxy(
+        result,
+        'wss://example.com/socket.io/?EIO=4&transport=websocket',
+        'conn-early-detect',
+      );
+      expect(result.current.detectedProtocol).not.toBeNull();
+      expect(result.current.detectedProtocol!.protocol).toBe('socket-io');
+    });
+
+    it('does not schedule reconnect after manual disconnect triggers poll failure', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-manual-disc');
+      mockEmptyPoll();
+      act(() => { result.current.disconnect(); });
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') return Promise.reject(new Error('poll failed'));
+        if (op === 'status') return Promise.reject(new Error('status failed'));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('proxy poll disconnect omits closeReason when server does not send one', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-no-reason');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.resolve({
+            ok: true, op: 'messages',
+            data: { messages: [], cursor: 0, state: 'disconnected', closeCode: 1006 },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.connection.state).toBe('disconnected');
+      expect(result.current.connection.closeCode).toBe(1006);
+    });
+
+    it('send success after unmount does not append frames', async () => {
+      let resolveSend: (() => void) | undefined;
+      const sendPromise = new Promise<void>((resolve) => { resolveSend = resolve; });
+      const { result, unmount } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-send-unmount');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return sendPromise.then(() => ({ ok: true, op: 'send', data: {}, meta: { timestamp: '' } }));
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      act(() => { result.current.send('late'); });
+      unmount();
+      await act(async () => { resolveSend?.(); await Promise.resolve(); });
+    });
+
+    it('send WS_NOT_CONNECTED with missing status data tears down connection', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-no-status');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'send') return Promise.reject(new Error('WS_NOT_CONNECTED'));
+        if (op === 'status') return Promise.resolve({ ok: true, op: 'status', data: undefined, meta: { timestamp: '' } });
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { result.current.send('hello'); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      expect(result.current.connection.state).toBe('disconnected');
+    });
+
+    it('connect error after manual disconnect does not schedule reconnect', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({
+        url: 'ws://localhost:8765',
+        headers: [{ key: 'X-Key', value: 'val', enabled: true }],
+      }));
+      act(() => { result.current.disconnect(); });
+      mockDispatch.mockRejectedValueOnce(new Error('connect refused'));
+      await act(async () => { result.current.connect(); });
+      expect(result.current.connection.state).toBe('error');
+    });
+
+    it('proxy disconnect ack after unmount does not update state', async () => {
+      let resolveDisconnect: (() => void) | undefined;
+      const disconnectPromise = new Promise<{ ok: boolean; op: string; data: object; meta: { timestamp: string } }>((resolve) => {
+        resolveDisconnect = () => resolve({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+      });
+      const { result, unmount } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-disc-unmount');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'disconnect') return disconnectPromise;
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      act(() => { result.current.disconnect({ code: 4000, reason: 'bye' }); });
+      unmount();
+      await act(async () => { resolveDisconnect?.(); await Promise.resolve(); });
+    });
+
+    it('proxy disconnect catch after unmount does not update state', async () => {
+      let rejectDisconnect: ((err: Error) => void) | undefined;
+      const disconnectPromise = new Promise<{ ok: boolean; op: string; data: object; meta: { timestamp: string } }>((_, reject) => {
+        rejectDisconnect = reject;
+      });
+      const { result, unmount } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-disc-catch');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'disconnect') return disconnectPromise;
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      act(() => { result.current.disconnect({ code: 4000, reason: 'bye' }); });
+      unmount();
+      await act(async () => { rejectDisconnect?.(new Error('disconnect failed')); await Promise.resolve(); });
+    });
+
+    it('sendPing no-ops on direct connection', () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setDraft({ url: 'ws://localhost:8765' }));
+      act(() => result.current.connect());
+      act(() => lastMockWs().simulateOpen());
+      mockDispatch.mockClear();
+      act(() => result.current.sendPing());
+      expect(mockDispatch).not.toHaveBeenCalledWith('ping', expect.anything());
+    });
+
+    it('proxy disconnect without detail omits sent close frame', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-no-detail');
+      mockDispatch.mockResolvedValue({ ok: true, op: 'disconnect', data: {}, meta: { timestamp: '' } });
+      await act(async () => { result.current.disconnect(); });
+      await act(async () => { vi.advanceTimersByTime(10); });
+      const sentClose = result.current.messages.find((m) => m.type === 'close' && m.direction === 'sent');
+      expect(sentClose).toBeUndefined();
+    });
+
+    it('does not schedule reconnect when poll fails after manual disconnect', async () => {
+      let resolvePoll: ((value: unknown) => void) | undefined;
+      const pollPromise = new Promise((resolve) => { resolvePoll = resolve; });
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setAutoReconnect(true));
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-manual-poll');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') return pollPromise;
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      act(() => { result.current.disconnect(); });
+      await act(async () => {
+        resolvePoll?.({
+          ok: true, op: 'messages',
+          data: { messages: [], cursor: 0, state: 'disconnected', closeCode: 1006 },
+          meta: { timestamp: '' },
+        });
+        await Promise.resolve();
+      });
+      expect(result.current.reconnectState.active).toBe(false);
+    });
+
+    it('schedules reconnect when proxy poll detects unexpected disconnect', async () => {
+      const { result } = renderHook(() => useWebSocketStudio());
+      act(() => result.current.setAutoReconnect(true));
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-reconn-poll');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') {
+          return Promise.resolve({
+            ok: true, op: 'messages',
+            data: { messages: [], cursor: 0, state: 'disconnected', closeCode: 1006 },
+            meta: { timestamp: '' },
+          });
+        }
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(result.current.reconnectState.active).toBe(true);
+    });
+
+    it('ignores proxy poll results after unmount', async () => {
+      let resolvePoll: ((v: unknown) => void) | undefined;
+      const pollPromise = new Promise((resolve) => { resolvePoll = resolve; });
+      const { result, unmount } = renderHook(() => useWebSocketStudio());
+      await connectViaProxy(result, 'ws://localhost:8765', 'conn-poll-unmount');
+      mockDispatch.mockImplementation((op: string) => {
+        if (op === 'messages') return pollPromise;
+        return Promise.resolve({ ok: true, op, data: {}, meta: { timestamp: '' } });
+      });
+      unmount();
+      await act(async () => {
+        resolvePoll?.({
+          ok: true, op: 'messages',
+          data: { messages: [{ data: 'late', type: 'text', receivedAt: '', size: 4 }], cursor: 1 },
+          meta: { timestamp: '' },
+        });
+        await Promise.resolve();
+      });
     });
   });
 });

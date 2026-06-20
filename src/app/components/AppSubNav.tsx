@@ -42,6 +42,7 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
     { tab: 'kafka-message-studio', label: 'Kafka' },
     { tab: 'websocket-studio', label: 'WebSocket' },
     { tab: 'sse-studio', label: 'SSE' },
+    { tab: 'graphql-studio', label: 'GraphQL' },
   ],
   demo: [
     { tab: 'demo-hub', label: 'Learning Hub' },
@@ -54,6 +55,7 @@ function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab
       key={tab}
       className={`sub-nav-tab ${activeTab === tab ? 'active' : ''}`}
       onClick={() => setActiveTab(tab)}
+      data-testid={`nav-tab-${tab}`}
     >
       {label}
     </button>

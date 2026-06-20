@@ -434,6 +434,8 @@ describe('ws-power-user lesson', () => {
 
   // ─── Step: pu-auth-persist ────────────────────────────────
 
+  // ─── Step: pu-auth-persist (updated preAction) ──────────────
+
   it('step pu-auth-persist has a preAction', () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-auth-persist')!;
     expect(typeof step.preAction).toBe('function');
@@ -453,7 +455,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-auth-persist preAction is a no-op when 2+ tabs already exist', async () => {
+  it('step pu-auth-persist preAction resets left pane to Connect', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     for (let i = 0; i < 2; i++) {
@@ -466,7 +468,9 @@ describe('ws-power-user lesson', () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-auth-persist')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
+    // No add-tab and LEFT_TAB_CONNECT reset is applied
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
   it('step pu-auth-persist action switches to auth tab', async () => {
@@ -498,7 +502,7 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
   });
 
-  // ─── Step: pu-pane-persist ────────────────────────────────
+  // ─── Step: pu-pane-persist (redesigned preAction + action) ─────
 
   it('step pu-pane-persist preAction has a tab guard', () => {
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
@@ -519,7 +523,32 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-pane-persist preAction is a no-op tab-guard when 2+ tabs exist', async () => {
+  it('step pu-pane-persist preAction sets Auth+Events on last tab and Connect+Console on first tab', async () => {
+    const bar = document.createElement('div');
+    bar.setAttribute('data-testid', 'conn-tab-bar');
+    const tab1 = document.createElement('div');
+    tab1.setAttribute('role', 'tab');
+    const tab2 = document.createElement('div');
+    tab2.setAttribute('role', 'tab');
+    const tab2ClickSpy = vi.spyOn(tab2, 'click');
+    bar.append(tab1, tab2);
+    document.body.appendChild(bar);
+
+    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    // Last tab should be clicked to apply its state
+    expect(tab2ClickSpy).toHaveBeenCalled();
+    // Auth on last tab, Connect on first tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-auth'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    // First tab state
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
+  });
+
+  it('step pu-pane-persist preAction does not add a tab when 2+ tabs exist', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     for (let i = 0; i < 2; i++) {
@@ -535,30 +564,26 @@ describe('ws-power-user lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('conn-tab-add'));
   });
 
-  it('step pu-pane-persist preAction switches to console tab', async () => {
-    const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-console'));
-  });
-
-  it('step pu-pane-persist action switches between events and console', async () => {
+  it('step pu-pane-persist action switches connection tabs to demonstrate persistence', async () => {
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
     const tab1 = document.createElement('div');
     tab1.setAttribute('role', 'tab');
-    tab1.setAttribute('aria-selected', 'true');
-    bar.appendChild(tab1);
     const tab2 = document.createElement('div');
     tab2.setAttribute('role', 'tab');
-    tab2.setAttribute('aria-selected', 'false');
-    bar.appendChild(tab2);
+    const tab2ClickSpy = vi.spyOn(tab2, 'click');
+    bar.append(tab1, tab2);
     document.body.appendChild(bar);
 
     const step = wsPowerUserLesson.steps.find(s => s.id === 'pu-pane-persist')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+
+    // Action switches to last tab, back to first, then to last again
+    expect(tab2ClickSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining(':first-child'));
+    // Action no longer sets right-tab-events — that is preAction's job
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
   // ─── Setup / Cleanup ─────────────────────────────────────
@@ -617,7 +642,7 @@ describe('ws-power-user lesson', () => {
   // ─── Branch-coverage: pu-pane-persist action (lines 379, 391) ───
   // Both `if (tabs.length >= 2)` conditions FALSE when only 1 tab in DOM.
 
-  it('step pu-pane-persist action skips tab clicks when fewer than 2 tabs (false branch lines 379,391)', async () => {
+  it('step pu-pane-persist action skips tab clicks when fewer than 2 tabs (false branch)', async () => {
     // 1 tab only → both if (tabs.length >= 2) conditions are false → no lastTab.click()
     const bar = document.createElement('div');
     bar.setAttribute('data-testid', 'conn-tab-bar');
@@ -630,9 +655,9 @@ describe('ws-power-user lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
 
-    // Even with 1 tab, RIGHT_TAB_EVENTS and CONN_TAB_FIRST are still clicked
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    // With 1 tab, only CONN_TAB_FIRST is clicked — no right-pane tab switches
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('first-child'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
   });
 
   // ─── Branch-coverage: getTabByIndex ?? null (line 52) ───────────

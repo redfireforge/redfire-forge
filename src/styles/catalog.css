@@ -550,7 +550,6 @@
   display: flex; align-items: center; justify-content: center;
   height: 100%; color: var(--text-muted);
 }
-.cat-overview { padding: 24px 32px; overflow-y: auto; height: 100%; }
 .cat-overview-header { margin-bottom: 20px; }
 .cat-overview-title { font-size: 1.3rem; margin: 0 0 6px; }
 .cat-overview-meta {
@@ -668,7 +667,6 @@
   border: 1px solid var(--border); border-radius: var(--radius);
   outline: none; font-family: 'SF Mono','Consolas','Menlo',monospace;
 }
-.ceb-host-input:focus { border-color: var(--primary); }
 .ceb-host-input:focus { border-color: var(--primary); }
 .ceb-auth-btn {
   padding: 6px 14px; font-size: 0.78rem; font-weight: 600;

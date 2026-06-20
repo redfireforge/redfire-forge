@@ -263,4 +263,25 @@ describe('printConsoleSummary', () => {
     const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
     expect(output).toContain('CONSUME');
   });
+
+  it('prints WS_RECEIVE in failed data row details for WebSocket receive results', () => {
+    const summary = makeSummary({ failedRequests: 1 });
+    const config = makeConfig();
+    const results = [
+      makeResult({
+        dataRowId: 'row-3',
+        dataRowLabel: 'Row 3',
+        passed: false,
+        transportType: 'wsReceive',
+        method: 'WS',
+        httpStatus: undefined as unknown as number,
+        failureDetails: [],
+      }),
+    ];
+
+    printConsoleSummary(summary, config, results);
+
+    const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+    expect(output).toContain('WS_RECEIVE');
+  });
 });

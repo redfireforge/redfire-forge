@@ -28,6 +28,7 @@ import {
   type ScenarioMetrics,
 } from './slaTargets';
 import type { TestSummary, RequestResult, TestRun, TestConfig } from '../../../shared/types';
+import { makeResult as _makeResult, makeConfig as _makeConfig } from '../../../test-utils/factories';
 
 // ── Helpers ──
 
@@ -265,23 +266,14 @@ describe('overallSlaStatus', () => {
 
 // ── Phase A — Per-scenario computation ──
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: 'r1',
-    scenarioId: 's1',
+const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>
+  _makeResult({
     scenarioName: 'checkout',
     url: 'http://example.com',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '',
     timestamp: 1000,
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
+    responseBody: '',
     ...overrides,
-  };
-}
+  });
 
 // ── computeScenarioMetrics ──
 
@@ -541,15 +533,12 @@ describe('evaluateSlaForScenario — evaluation correctness', () => {
 
 // ── helpers ──
 
-function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-  return {
-    concurrency: 1,
+const makeConfig = (overrides: Partial<TestConfig> = {}): TestConfig =>
+  _makeConfig({
     iterations: 1,
     scenarioWeights: [],
-    executionMode: 'sequential',
     ...overrides,
-  };
-}
+  });
 
 function makeTestRun(overrides: Partial<TestRun> = {}): TestRun {
   return {

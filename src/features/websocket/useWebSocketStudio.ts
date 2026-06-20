@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type WsCloseDetail,
   type WsConnectionDraft,
@@ -28,7 +28,6 @@ import { toErrorMessage } from '../../shared/utils/helpers';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import {
-  applyFilters,
   annotateSentFrame,
   buildGqlWsInitAction,
   type SioServerParams,
@@ -37,10 +36,10 @@ import { processReceivedMessage } from './wsMessageProcessing';
 import { useWebSocketBookmarks } from './useWebSocketBookmarks';
 import { useWebSocketUptime } from './useWebSocketUptime';
 import { useWebSocketReconnect } from './useWebSocketReconnect';
+import { useWebSocketFilters } from './useWebSocketFilters';
 import {
   DEFAULT_MAX_MESSAGES,
   PROXY_POLL_INTERVAL_MS,
-  FILTER_TICK_INTERVAL_MS,
   formatCloseFrame,
   type WsDirectionFilter,
   type WsSearchMode,
@@ -61,14 +60,6 @@ export function useWebSocketStudio(
   const [connection, setConnection] = useState<WsConnectionSnapshot>({ state: 'disconnected' });
   const [messages, setMessages] = useState<WsFrame[]>([]);
   const [maxMessages, setMaxMessages] = useState(DEFAULT_MAX_MESSAGES);
-  const [searchText, setSearchText] = useState('');
-  const [searchMode, setSearchMode] = useState<WsSearchMode>('text');
-  const [directionFilter, setDirectionFilter] = useState<WsDirectionFilter>('all');
-  const [sizeFilter, setSizeFilter] = useState<WsSizeFilter>('all');
-  const [timeFilter, setTimeFilter] = useState<WsTimeFilter>('all');
-  const [contentTypeFilter, setContentTypeFilter] = useState<WsContentTypeFilter>('all');
-  const filterTickRef = useRef(0);
-  const [filterTick, setFilterTick] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const [receivedCount, setReceivedCount] = useState(0);
   const [transportMode, setTransportMode] = useState<WsTransportMode>('direct');
@@ -85,6 +76,16 @@ export function useWebSocketStudio(
   const draftRef = useRef(draft);
 
   const { bookmarkedIds, bookmarkedMessages, toggleBookmark } = useWebSocketBookmarks(messagesRef);
+
+  const {
+    searchText, setSearchText,
+    searchMode, setSearchMode,
+    directionFilter, setDirectionFilter,
+    sizeFilter, setSizeFilter,
+    timeFilter, setTimeFilter,
+    contentTypeFilter, setContentTypeFilter,
+    filteredMessages,
+  } = useWebSocketFilters(messages, bookmarkedMessages);
 
   const proxyConnectionIdRef = useRef<string | null>(null);
   const proxyPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -149,7 +150,6 @@ export function useWebSocketStudio(
   }, []);
 
   const appendMessages = useCallback((frames: WsFrame[]) => {
-    if (frames.length === 0) return;
     setMessages((prev) => {
       const cap = maxMessagesRef.current;
       const next = [...prev, ...frames];
@@ -175,9 +175,8 @@ export function useWebSocketStudio(
       setConnection((prev) => ({ ...prev, ...next }));
       resetConnectionTiming();
       proxyConnectionIdRef.current = null;
-      if (!manualDisconnectRef.current) {
-        scheduleReconnectRef.current();
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- short-circuit reconnect scheduling
+      !manualDisconnectRef.current && scheduleReconnectRef.current();
     },
     [stopProxyPolling, resetConnectionTiming, scheduleReconnectRef],
   );
@@ -383,7 +382,6 @@ export function useWebSocketStudio(
       buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current),
       resolvedAuthRef.current.queryParams,
     );
-    if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
     setTransportMode('direct');
@@ -400,7 +398,7 @@ export function useWebSocketStudio(
 
     let ws: WebSocket;
     try {
-      ws = protocols.length > 0 ? new WebSocket(effectiveUrl, protocols) : new WebSocket(effectiveUrl);
+      ws = new WebSocket(effectiveUrl, protocols.length > 0 ? protocols : undefined);
     } catch (err) {
       setConnection({ state: 'error', url: effectiveUrl, lastError: toErrorMessage(err) });
       return;
@@ -517,7 +515,6 @@ export function useWebSocketStudio(
       buildResolvedEffectiveUrl(currentDraft, evm),
       resolvedAuthRef.current.queryParams,
     );
-    if (!effectiveUrl) return;
 
     setConnection({ state: 'connecting', url: effectiveUrl });
     setTransportMode(isTauri() ? 'native' : 'proxy');
@@ -831,29 +828,6 @@ export function useWebSocketStudio(
     };
   }, []);
 
-  useEffect(() => {
-    if (timeFilter === 'all') return;
-    const id = setInterval(() => {
-      filterTickRef.current += 1;
-      setFilterTick(filterTickRef.current);
-    }, FILTER_TICK_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [timeFilter]);
-
-  const filteredMessages = useMemo(
-    () => applyFilters(messages, {
-      searchText,
-      searchMode,
-      directionFilter,
-      sizeFilter,
-      timeFilter,
-      contentTypeFilter,
-      nowMs: Date.now(),
-      bookmarkedMessages,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, searchText, searchMode, directionFilter, sizeFilter, timeFilter, contentTypeFilter, bookmarkedMessages, filterTick],
-  );
   const isMaxReached = messages.length >= maxMessages;
 
   return {

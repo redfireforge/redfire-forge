@@ -1,0 +1,110 @@
+---
+description: UI/UX design system rules — colors, forms, visual consistency, and validation
+alwaysApply: true
+---
+
+# UI Design System
+
+## Core Principle — Never Hardcode Colors
+
+Always use CSS design token variables. **Never** use `rgba()` transparent overlays or hardcoded hex colors for anything that should adapt to the theme.
+
+| Token | Default Value | Usage |
+|---|---|---|
+| `--bg` | `#0f172a` | Page background, label columns, input backgrounds |
+| `--surface` | `#1e293b` | Cards, panels, elevated rows |
+| `--surface-hover` | `#2d3a4d` | Hover state backgrounds |
+| `--border` | `#3b4a60` | All borders — always visible, never subtle |
+| `--text` | `#f1f5f9` | Primary text, input values |
+| `--text-muted` | `#a8b8cc` | Labels, hints, secondary text |
+| `--primary` | `#3b82f6` | Accent, focus rings, hover borders |
+
+```css
+/* ❌ WRONG — invisible on dark theme */
+background: rgba(0,0,0,0.18);
+border: 1px solid rgba(255,255,255,0.12);
+color: #d8e8f6;
+
+/* ✅ CORRECT — theme-aware and visible */
+background: var(--bg);
+border: 1px solid var(--border);
+color: var(--text);
+```
+
+## Two-Tone Properties Panel Pattern
+
+For any horizontal label + control form (settings, request forms, config panels):
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ [Label col: var(--bg)] │ [Control area: var(--surface)]      │
+│ [Label col: var(--bg)] │ [input: var(--bg) + var(--border)]  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Form card**: `background: var(--surface); border: 1px solid var(--border); border-radius: 8px;`
+- **Label column**: `flex: 0 0 152px; background: var(--bg); border-right: 1px solid var(--border);` — always darker than the row
+- **Row height**: Fixed `min-height: 48px; max-height: 74px; overflow: hidden;`
+- **Labels**: Sentence-case (NOT all-caps), `font-size: 0.76rem; font-weight: 500; color: var(--text-muted);`
+- **Row focus**: `color-mix(in srgb, var(--primary) 8%, var(--surface))`
+
+## Form Controls
+
+```css
+/* All inputs and selects */
+background: var(--bg);
+border: 1px solid var(--border);
+color: var(--text);
+border-radius: 5px;
+padding: 6px 10px;
+
+/* Hover */
+border-color: var(--primary);
+
+/* Focus */
+border-color: var(--primary);
+box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+
+/* Placeholder */
+color: var(--text-muted); opacity: 0.55; font-style: italic;
+```
+
+**Custom select arrows** — always use `appearance: none` + SVG arrow. Never rely on native browser dropdown arrows (inconsistent across OS/theme).
+
+## Layout Rules
+
+- **Inline controls** (input + optional hint beside it): use `flex-direction: row; align-items: center; justify-content: flex-start;`
+- **Stacked controls** (input + sub-hint below): use `flex-direction: column; justify-content: center;`
+- **Never use `justify-content: center` in a row-direction flex** — it horizontally centers content, which looks wrong for form fields
+- **Controls that are single items** (one dropdown, one short input): always use the inline/row layout so rows stay compact
+
+## Hint Text
+
+- **Inline hint** (beside control): `font-size: 0.7rem; color: var(--text-muted); opacity: 0.75; white-space: nowrap;`
+- **Sub-label hint** (below control): `font-size: 0.68rem; color: var(--text-muted); opacity: 0.7; margin-top: 2px;`
+- Keep hints short — one clause, not a full sentence when possible
+
+## Visual Validation Requirement
+
+After any UI change, always validate in **real Chrome** (not headless):
+
+```javascript
+const browser = await chromium.launch({ headless: false, channel: 'chrome' });
+```
+
+Take screenshots at 1280×900. Check:
+- [ ] Row heights are uniform
+- [ ] Controls are left-aligned (not centered)
+- [ ] Label column is visibly darker than row background
+- [ ] Input borders are clearly visible
+- [ ] No transparent/invisible inputs
+- [ ] Hover and focus states work
+
+## Consistency Checklist — Audit Existing UI
+
+When working in any `.tsx` or `.css` file containing forms or settings panels:
+1. Replace any `rgba(0,0,0,...)` or `rgba(255,255,255,...)` used for backgrounds/borders with design tokens
+2. Ensure all form rows have consistent height (48px standard)
+3. Ensure `justify-content: flex-start` on inline/row-direction ctrl containers
+4. Ensure labels are sentence-case (never ALL-CAPS in rendered text)
+5. Ensure selects use `appearance: none` + custom SVG chevron

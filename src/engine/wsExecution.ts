@@ -101,7 +101,18 @@ async function executeWsConnect(
 
   const responseTimeMs = roundMs(performance.now() - start);
 
-  return buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta);
+  const result = buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta);
+  // Store connection config so the modal can show it as "Connection Config"
+  const connHeaders = cfg.headers ? kvToRecord(cfg.headers) : {};
+  result.requestLog = {
+    headers: connHeaders,
+    body: JSON.stringify({
+      url: cfg.url,
+      connectionId: cfg.connectionId ?? '(auto)',
+      ...(cfg.subprotocols ? { subprotocols: cfg.subprotocols } : {}),
+    }),
+  };
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +190,13 @@ async function executeWsSend(
 
   const responseTimeMs = roundMs(performance.now() - start);
 
-  return buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta, responseObj);
+  const result = buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta, responseObj);
+  // Store the sent message so the modal can show it as "Sent Message"
+  result.requestLog = {
+    headers: {},
+    body: cfg.message,
+  };
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +263,15 @@ async function executeWsReceive(
 
   const responseTimeMs = roundMs(performance.now() - start);
 
-  return buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta, responseObj);
+  const result = buildWsResult(id, scenario, wsActionType, httpStatus, responseTimeMs, responseBody, errorMessage, wsResultMeta, responseObj);
+  // Store match criteria so the modal can show it as "Match Criteria"
+  if (cfg.matchCriteria) {
+    result.requestLog = {
+      headers: {},
+      body: JSON.stringify(cfg.matchCriteria),
+    };
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

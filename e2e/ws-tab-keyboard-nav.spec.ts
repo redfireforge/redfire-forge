@@ -9,32 +9,19 @@
  * via the MCP bridge (`mcp_mcp-server-ta_webview_keyboard`).
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio, ensureWsMockServer, getWsTabBar, getWsTabs, getWsAddTabBtn } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 
 /* ── Ensure mock echo server is running ──────────────── */
 
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  const resp = await page.request.post('http://localhost:3001/api/ws/mock/start', {
-    data: { port: 9876, rules: [], fallback: 'echo' },
-  });
-  expect(resp.ok()).toBeTruthy();
-  await ctx.close();
-});
+test.beforeAll(async ({ browser }) => { await ensureWsMockServer(browser); });
 
 /* ── helpers ─────────────────────────────────────────── */
 
-const tabBar = (page: Page) => page.locator('[data-testid="conn-tab-bar"]');
-const allTabs = (page: Page) => tabBar(page).locator('[role="tab"]');
-const activeTab = (page: Page) => tabBar(page).locator('[role="tab"][aria-selected="true"]');
-const addBtn = (page: Page) => page.locator('[data-testid="conn-tab-add"]');
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
+const tabBar = getWsTabBar;
+const allTabs = getWsTabs;
+const activeTab = (page: Page) => getWsTabBar(page).locator('[role="tab"][aria-selected="true"]');
+const addBtn = getWsAddTabBtn;
 
 /** Add N extra tabs (starts with 1 tab, ends with 1+N) */
 async function addTabs(page: Page, count: number) {

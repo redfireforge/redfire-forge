@@ -96,6 +96,7 @@ function makeHub(overrides: Partial<ReturnType<typeof useDemoHub>> = {}): Return
     selectDomain: vi.fn(),
     selectLesson: vi.fn(),
     goBack: vi.fn(),
+    goToDomains: vi.fn(),
     startLiveDemo: vi.fn(),
     exitLiveDemo: vi.fn(),
     goToStep: vi.fn(),

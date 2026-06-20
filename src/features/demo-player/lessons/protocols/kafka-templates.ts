@@ -1,5 +1,5 @@
 /** Lesson K5: Templates — save, load, and delete Kafka form configurations */
-import type { DemoLesson } from '../../types';
+import type { DemoLesson, DemoActionContext } from '../../types';
 import { KAFKA } from '../../../../shared/selectors';
 import { KAFKA_PUBLISH_TEMPLATES_KEY } from '../../../../shared/kafka/kafkaStorage';
 
@@ -15,6 +15,40 @@ const TEMPLATE_ITEM = '.kafka-ms-template-item';
 /** Selector for the delete (×) button on the first template row. */
 const TEMPLATE_DELETE_BTN = '.kafka-ms-template-item-delete';
 
+/** Selector for the template controls container. */
+const TEMPLATE_CONTROLS = '.kafka-ms-template-controls';
+
+/**
+ * Remove any "Orders Template" leftover from a previous run.
+ * Uses localStorage directly (safe because templates also use localStorage).
+ */
+function removeOrdersTemplate(): void {
+  try {
+    const raw = localStorage.getItem(KAFKA_PUBLISH_TEMPLATES_KEY);
+    if (raw) {
+      const templates = JSON.parse(raw) as Array<{ id: string; name: string }>;
+      const filtered = templates.filter((t) => t.name !== 'Orders Template');
+      localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify(filtered));
+    }
+  } catch {
+    // non-fatal
+  }
+}
+
+/**
+ * Setup: navigate to Publish tab, clear any stale templates, and reset form
+ * fields so the demo starts from a clean state.
+ */
+async function kafkaTemplatesSetup(ctx: DemoActionContext): Promise<void> {
+  removeOrdersTemplate();
+  await ctx.click(KAFKA.PUBLISH_TAB);
+  await ctx.delay(300);
+  await ctx.fill(KAFKA.PUB_TOPIC_INPUT, '');
+  await ctx.delay(100);
+  await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, '');
+  await ctx.delay(100);
+}
+
 export const kafkaTemplatesLesson: DemoLesson = {
   id: 'kafka-templates',
   domainId: 'protocols',
@@ -26,21 +60,10 @@ export const kafkaTemplatesLesson: DemoLesson = {
   initialTab: 'kafka-message-studio',
   // No Docker needed — templates work without a live broker connection.
 
-  /**
-   * Cleanup: remove any "Orders Template" that may have been left in localStorage
-   * if the lesson was stopped mid-way (e.g., abandoned between Step 3 and Step 5).
-   */
+  setup: kafkaTemplatesSetup,
+
   cleanup: async () => {
-    try {
-      const raw = localStorage.getItem(KAFKA_PUBLISH_TEMPLATES_KEY);
-      if (raw) {
-        const templates = JSON.parse(raw) as Array<{ id: string; name: string }>;
-        const filtered = templates.filter((t) => t.name !== 'Orders Template');
-        localStorage.setItem(KAFKA_PUBLISH_TEMPLATES_KEY, JSON.stringify(filtered));
-      }
-    } catch {
-      // Ignore parse or storage errors — non-fatal.
-    }
+    removeOrdersTemplate();
   },
 
   concept: {
@@ -53,7 +76,7 @@ export const kafkaTemplatesLesson: DemoLesson = {
 
 **Persistence:** Templates are stored in \`localStorage\` and survive page reloads, browser restarts, and app updates.
 
-**Where to find them:** Both the Publish tab and the Consume tab have **Save** and **Load ▾** buttons directly above the form fields.`,
+**Where to find them:** Both the Publish tab and the Consume tab have **Load ▾** and **Save** buttons in the card header, directly above the form fields.`,
     keyTerms: [
       {
         term: 'Publish Template',
@@ -95,17 +118,20 @@ export const kafkaTemplatesLesson: DemoLesson = {
   steps: [
     {
       id: 'tmpl-intro',
-      title: 'Saving a Publish Template',
+      title: 'Template Controls',
       description:
-        'The Publish tab has two template buttons above the form: **Save** (captures the current form state) and **Load ▾** (opens a dropdown of saved templates). No broker connection is required — templates work entirely in the browser.',
-      highlight: KAFKA.PUB_SAVE_BTN,
-      // Informational — no action.
+        'The Publish tab has two template buttons in the card header: **Load ▾** (opens a dropdown of saved templates) and **Save** (captures the current form state). No broker connection is required — templates work entirely in the browser.',
+      highlight: TEMPLATE_CONTROLS,
+      preAction: async (ctx) => {
+        await ctx.click(KAFKA.PUBLISH_TAB);
+        await ctx.delay(300);
+      },
     },
     {
       id: 'tmpl-fill-pub',
       title: 'Fill a Publish Form',
       description:
-        'Watch the form fill in automatically: **topic** is set to `orders.events` and a simple JSON body is entered. These values will be captured when you save the template.',
+        'Watch the form fill in automatically: **Topic** is set to `orders.events` and a simple JSON body is entered. These values will be captured when you save the template in the next step.',
       highlight: KAFKA.PUB_TOPIC_INPUT,
       action: async (ctx) => {
         await ctx.fill(KAFKA.PUB_TOPIC_INPUT, 'orders.events');
@@ -118,27 +144,32 @@ export const kafkaTemplatesLesson: DemoLesson = {
       id: 'tmpl-save-pub',
       title: 'Save as "Orders Template"',
       description:
-        'Click **Save** — a name input slides in. Type a name and click ✓ to confirm. The template is immediately available in the **Load ▾** dropdown.',
+        'Click **Save** in the header — a name input slides in. The name "Orders Template" is typed and confirmed with ✓. The template is immediately available in the **Load ▾** dropdown.',
       highlight: KAFKA.PUB_SAVE_BTN,
       action: async (ctx) => {
-        // 1. Click Save to reveal the inline name input (showSaveInput → true)
+        // 1. Click Save to reveal the inline name input
         await ctx.click(KAFKA.PUB_SAVE_BTN);
-        await ctx.delay(500); // wait for React re-render
+        // Wait for the save input to actually appear in the DOM
+        await ctx.waitFor(SAVE_INPUT, 3000);
+        await ctx.delay(300);
 
-        // 2. Fill the template name (React-controlled input via native setter + input event)
+        // 2. Fill the template name
         await ctx.fill(SAVE_INPUT, 'Orders Template');
-        await ctx.delay(300); // ensure React re-renders and removes disabled from ✓ button
-
-        // 3. Click the ✓ confirm button to submit
-        await ctx.click(SAVE_CONFIRM_BTN);
+        // Wait for React to re-render so confirm button becomes enabled
         await ctx.delay(400);
+
+        // 3. Click the ✓ confirm button
+        await ctx.click(SAVE_CONFIRM_BTN);
+        // Wait for the save to complete and save-row to disappear
+        await ctx.waitFor(KAFKA.PUB_SAVE_BTN, 3000);
+        await ctx.delay(300);
       },
     },
     {
       id: 'tmpl-load-pub',
       title: 'Load ▾ the Template',
       description:
-        'The topic field is cleared first so you can see the template restore it. Click **Load ▾** — "Orders Template" appears. Click it and watch topic and body instantly refill.',
+        'The topic field is cleared first so you can see the template restore it. Click **Load ▾** in the header — "Orders Template" appears in the dropdown. Click it to instantly refill topic and body.',
       highlight: KAFKA.PUB_LOAD_BTN,
       action: async (ctx) => {
         // Clear the topic so the template reload is visually obvious
@@ -147,35 +178,39 @@ export const kafkaTemplatesLesson: DemoLesson = {
 
         // Open the Load dropdown
         await ctx.click(KAFKA.PUB_LOAD_BTN);
-        await ctx.delay(400);
+        // Wait for the dropdown items to render
+        await ctx.waitFor(TEMPLATE_ITEM, 3000);
+        await ctx.delay(300);
 
         // Click the template item (closes dropdown, restores form fields)
         await ctx.click(TEMPLATE_ITEM);
-        await ctx.delay(300);
+        await ctx.delay(400);
       },
     },
     {
       id: 'tmpl-delete-pub',
       title: 'Delete the Template',
       description:
-        'Open **Load ▾** again — "Orders Template" is listed. Click the **×** next to it to delete it. The dropdown immediately shows "No saved templates".',
+        'Open **Load ▾** again — "Orders Template" is listed. Click the **×** button next to it to delete. The dropdown updates to show "No saved templates".',
       highlight: KAFKA.PUB_LOAD_BTN,
       action: async (ctx) => {
         // Re-open the Load dropdown
         await ctx.click(KAFKA.PUB_LOAD_BTN);
-        await ctx.delay(400);
-
-        // Click the × delete button on the first (and only) template item
-        await ctx.click(TEMPLATE_DELETE_BTN);
+        // Wait for the template items and delete button to render
+        await ctx.waitFor(TEMPLATE_DELETE_BTN, 3000);
         await ctx.delay(300);
+
+        // Click the × delete button on the template item
+        await ctx.click(TEMPLATE_DELETE_BTN);
+        await ctx.delay(400);
       },
     },
     {
       id: 'tmpl-consume',
       title: 'Consume Templates Work the Same',
       description:
-        'Switch to the **Consume** tab — it has identical **Save** and **Load ▾** template controls. Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
-      highlight: KAFKA.CON_SAVE_BTN,
+        'Switch to the **Consume** tab — it has identical **Load ▾** and **Save** template controls in the header. Consume templates save all fields except the consumer group ID, which is stripped on load to avoid offset conflicts.',
+      highlight: TEMPLATE_CONTROLS,
       preAction: async (ctx) => {
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
@@ -186,9 +221,8 @@ export const kafkaTemplatesLesson: DemoLesson = {
       title: 'Templates Persist Across Reloads',
       description:
         'Templates are stored in your browser\'s **localStorage** — they survive page reloads, browser restarts, and app updates. To verify: click **Save**, enter any name, confirm — then reload the page and open **Load ▾**. Your template will still be there.',
-      highlight: KAFKA.PUB_LOAD_BTN,
+      highlight: TEMPLATE_CONTROLS,
       preAction: async (ctx) => {
-        // Return to Publish tab so the PUB_LOAD_BTN highlight is visible
         await ctx.click(KAFKA.PUBLISH_TAB);
         await ctx.delay(300);
       },

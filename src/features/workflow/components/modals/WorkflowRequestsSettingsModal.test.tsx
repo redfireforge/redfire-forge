@@ -193,4 +193,78 @@ describe('WorkflowRequestsSettingsModal', () => {
     fireEvent.click(screen.getByText('Cancel'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('switches back to harness bar host mode and changes microservice', () => {
+    render(<WorkflowRequestsSettingsModal {...baseProps} />);
+    const radios = document.querySelectorAll('input[name="wf-bulk-host-mode"]');
+    fireEvent.click(radios[1]);
+    const msSelect = Array.from(document.querySelectorAll('.wf-config-field select')).find(
+      (s) => Array.from(s.options).some((o) => o.value === 'ms1'),
+    ) as HTMLSelectElement;
+    fireEvent.change(msSelect, { target: { value: 'ms1' } });
+    expect(msSelect.value).toBe('ms1');
+    fireEvent.click(radios[0]);
+    expect(screen.queryByText('Environment')).toBeNull();
+  });
+
+  it('shows HTTP step fallback label when label is empty', () => {
+    const wf: Workflow = {
+      ...workflow,
+      nodes: [{
+        id: 'h0',
+        type: 'http',
+        position: { x: 0, y: 0 },
+        data: { label: '', scenario: { name: '', method: 'GET', url: '/x', auth: { type: 'none' } } },
+      } as unknown as WorkflowNode],
+    };
+    render(<WorkflowRequestsSettingsModal {...baseProps} workflow={wf} />);
+    expect(screen.getByText('HTTP step')).toBeTruthy();
+  });
+
+  it('changes auth type to apikey and oauth2', () => {
+    render(<WorkflowRequestsSettingsModal {...baseProps} />);
+    const authSelect = Array.from(document.querySelectorAll('select')).find((s) =>
+      Array.from(s.options).some((o) => o.value === 'apikey'),
+    ) as HTMLSelectElement;
+    fireEvent.change(authSelect, { target: { value: 'apikey' } });
+    fireEvent.change(authSelect, { target: { value: 'oauth2' } });
+    expect(authSelect.value).toBe('oauth2');
+  });
+
+  it('global-profile option does nothing when no profiles exist', () => {
+    render(<WorkflowRequestsSettingsModal {...baseProps} globalAuthProfiles={[]} />);
+    const authSelect = Array.from(document.querySelectorAll('select')).find((s) =>
+      Array.from(s.options).some((o) => o.value === 'bearer'),
+    ) as HTMLSelectElement;
+    expect(Array.from(authSelect.options).some((o) => o.value === 'global-profile')).toBe(false);
+  });
+
+  it('changes environment and clears microservice when env reset', () => {
+    const extraMs: Microservice[] = [
+      ...microservices,
+      { id: 'ms2', name: 'Orders', baseUrls: { env2: 'http://orders.prod' } } as unknown as Microservice,
+    ];
+    render(<WorkflowRequestsSettingsModal {...baseProps} microservices={extraMs} />);
+    fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[1]);
+    const selects = document.querySelectorAll('.wf-config-field select');
+    const envSelect = selects[0] as HTMLSelectElement;
+    fireEvent.change(envSelect, { target: { value: 'env2' } });
+    expect(envSelect.value).toBe('env2');
+    const msSelect = selects[1] as HTMLSelectElement;
+    fireEvent.change(msSelect, { target: { value: '' } });
+    expect(msSelect.value).toBe('');
+  });
+
+  it('does not switch to per-request host mode when no environments exist', () => {
+    render(
+      <WorkflowRequestsSettingsModal
+        {...baseProps}
+        environments={[]}
+        harnessEnvId=""
+        harnessSvcId=""
+      />,
+    );
+    fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[1]);
+    expect(screen.queryByText('Environment')).toBeNull();
+  });
 });

@@ -1,6 +1,25 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+
+const wssCtorMode = vi.hoisted(() => ({ mode: 'normal' as 'normal' | 'throw' | 'throw-string' }));
+
+vi.mock('ws', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('ws')>();
+  class PatchedWebSocketServer extends actual.WebSocketServer {
+    constructor(...args: ConstructorParameters<typeof actual.WebSocketServer>) {
+      if (wssCtorMode.mode === 'throw') {
+        throw new Error('constructor boom');
+      }
+      if (wssCtorMode.mode === 'throw-string') {
+        throw 'plain failure';
+      }
+      super(...args);
+    }
+  }
+  return { ...actual, WebSocketServer: PatchedWebSocketServer };
+});
+
 import WebSocket from 'ws';
-import { WebSocketMockService, WebSocketMockPool } from './websocket-mock-service';
+import { WebSocketMockService, WebSocketMockPool } from './websocket-mock-service.js';
 import type { WsMockRule } from '../../src/shared/websocket/types';
 
 function makeRule(overrides: Partial<WsMockRule> = {}): WsMockRule {
@@ -37,6 +56,7 @@ describe('WebSocketMockService', () => {
   const port = 19876 + Math.floor(Math.random() * 1000);
 
   afterEach(async () => {
+    wssCtorMode.mode = 'normal';
     service?.destroy();
     await waitMs(50);
   });
@@ -469,17 +489,162 @@ describe('WebSocketMockService', () => {
     await waitMs(50);
   });
 
-  it('triggers client ws error handler without crashing', async () => {
-    const service = new WebSocketMockService();
-    const PORT = 19380;
-    await service.start({ port: PORT, rules: [], fallback: 'echo' });
-    const client = await connectClient(PORT);
+  it('triggers server-side ws error handler', async () => {
+    service = new WebSocketMockService();
+    const errPort = port + 50;
+    await service.start({ port: errPort, rules: [], fallback: 'echo' });
+    const client = await connectClient(errPort);
     await waitMs(30);
-    const logs = service.getLogs();
-    expect(logs.some((l) => l.event === 'client-connect')).toBe(true);
+    const internal = service as unknown as { clients: Map<string, { ws: WebSocket }> };
+    const serverWs = [...internal.clients.values()][0]?.ws;
+    expect(serverWs).toBeDefined();
+    serverWs!.emit('error', new Error('server ws error'));
+    await waitMs(30);
+    expect(service.getLogs().some((l) => l.event === 'error' && l.data === 'server ws error')).toBe(true);
     client.close();
     await waitMs(50);
-    await service.stop();
+  });
+
+  it('trims log buffer when exceeding MAX_LOG_ENTRIES', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'ignore' });
+    const client = await connectClient(port);
+    for (let i = 0; i < 210; i += 1) {
+      client.send(`msg-${i}`);
+      await waitMs(1);
+    }
+    await waitMs(100);
+    expect(service.getLogs().length).toBeLessThanOrEqual(200);
+    client.close();
+    await waitMs(50);
+  });
+
+  it('handles binary client messages as utf-8 strings', async () => {
+    service = new WebSocketMockService();
+    await service.start({
+      port,
+      rules: [makeRule({ match: { type: 'exact', pattern: 'binary-data' }, response: { type: 'static', data: 'ok' } })],
+      fallback: 'ignore',
+    });
+
+    const client = await connectClient(port);
+    const msgPromise = waitForMessage(client);
+    client.send(Buffer.from('binary-data'));
+    expect(await msgPromise).toBe('ok');
+    client.close();
+    await waitMs(50);
+  });
+
+  it('ignores messages when fallback is ignore and no rule matches', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'ignore' });
+
+    const client = await connectClient(port);
+    let received = false;
+    client.on('message', () => { received = true; });
+    client.send('unmatched-message');
+    await waitMs(80);
+    expect(received).toBe(false);
+    expect(service.getLogs().some((l) => l.event === 'message-in' && l.data === 'unmatched-message')).toBe(true);
+    expect(service.getLogs().some((l) => l.event === 'response-out')).toBe(false);
+
+    client.close();
+    await waitMs(50);
+  });
+
+  it('broadcast skips closed clients and omits log when nothing sent', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'ignore' });
+    expect(service.broadcast('nobody listening')).toBe(0);
+    expect(service.getLogs().some((l) => l.event === 'response-out')).toBe(false);
+  });
+
+  it('broadcast sends to open clients and logs outbound data', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'ignore' });
+    const client = await connectClient(port);
+    const msgPromise = waitForMessage(client);
+    const sent = service.broadcast('broadcast-msg');
+    expect(sent).toBe(1);
+    expect(await msgPromise).toBe('broadcast-msg');
+    expect(service.getLogs().some((l) => l.event === 'response-out' && l.data?.includes('broadcast-msg'))).toBe(true);
+    client.close();
+    await waitMs(50);
+  });
+
+  it('rejects start when WebSocketServer constructor throws synchronously', async () => {
+    wssCtorMode.mode = 'throw';
+    service = new WebSocketMockService();
+    await expect(service.start({ port: port + 200, rules: [], fallback: 'echo' }))
+      .rejects.toThrow('constructor boom');
+    expect(service.getLogs().some((l) => l.event === 'error' && l.data === 'constructor boom')).toBe(true);
+  });
+
+  it('rejects start when constructor throws a non-Error value', async () => {
+    wssCtorMode.mode = 'throw-string';
+    service = new WebSocketMockService();
+    await expect(service.start({ port: port + 201, rules: [], fallback: 'echo' }))
+      .rejects.toThrow('plain failure');
+    expect(service.getLogs().some((l) => l.event === 'error' && l.data === 'plain failure')).toBe(true);
+  });
+
+  it('rejects start when server emits error before listening', async () => {
+    service = new WebSocketMockService();
+    const conflictPort = port + 300;
+    await service.start({ port: conflictPort, rules: [], fallback: 'echo' });
+    const service2 = new WebSocketMockService();
+    await expect(service2.start({ port: conflictPort, rules: [], fallback: 'echo' }))
+      .rejects.toThrow(/EADDRINUSE|listen/);
+    expect(service2.getStatus().error).toBeTruthy();
+  });
+
+  it('skips delayed response when client disconnects before delay elapses', async () => {
+    service = new WebSocketMockService();
+    await service.start({
+      port,
+      rules: [makeRule({ response: { type: 'static', data: 'delayed', delay: 200 } })],
+      fallback: 'ignore',
+    });
+    const client = await connectClient(port);
+    let received = false;
+    client.on('message', () => { received = true; });
+    client.send('trigger');
+    client.close();
+    await waitMs(250);
+    expect(received).toBe(false);
+    expect(service.getLogs().some((l) => l.event === 'response-out')).toBe(false);
+    await waitMs(50);
+  });
+
+  it('logs unknown remote address when socket has no remoteAddress', async () => {
+    service = new WebSocketMockService();
+    const listenPort = port + 400;
+    await service.start({ port: listenPort, rules: [], fallback: 'echo' });
+    const internal = service as unknown as {
+      wss: { emit: (event: string, ws: WebSocket, req: { socket: { remoteAddress?: string } }) => void };
+    };
+    const syntheticWs = Object.assign(new EventTarget(), {
+      readyState: WebSocket.OPEN,
+      send: vi.fn(),
+      close: vi.fn(),
+      terminate: vi.fn(),
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (event === 'message') {
+          (syntheticWs as { _msgHandler?: (...args: unknown[]) => void })._msgHandler = handler;
+        }
+      }),
+    }) as unknown as WebSocket;
+    internal.wss.emit('connection', syntheticWs, { socket: { remoteAddress: undefined } });
+    expect(service.getLogs().some((l) => l.event === 'client-connect' && l.data === 'unknown')).toBe(true);
+  });
+
+  it('broadcast skips clients that are no longer open', async () => {
+    service = new WebSocketMockService();
+    await service.start({ port, rules: [], fallback: 'ignore' });
+    const client = await connectClient(port);
+    client.close();
+    await waitMs(50);
+    expect(service.broadcast('after-close')).toBe(0);
   });
 });
 

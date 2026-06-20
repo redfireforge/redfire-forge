@@ -191,7 +191,8 @@ export const kafkaPublishLesson: DemoLesson = {
       highlight: KAFKA.PUB_SEND_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.PUB_SEND_BTN);
-        await ctx.delay(900);
+        await ctx.waitFor(`${KAFKA.PUB_RESULT}, ${KAFKA.PUB_ERROR}`, 15000);
+        await ctx.delay(400);
       },
       verify: KAFKA.PUB_RESULT,
     },

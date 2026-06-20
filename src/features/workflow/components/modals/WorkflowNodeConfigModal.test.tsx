@@ -8,6 +8,8 @@ import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
 import { WorkflowNode, HttpNodeData } from '../../types/workflow';
 import { Scenario } from '../../../../shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
+import { defaultGraphqlQueryNodeData } from '../../utils/workflowNodeFactory';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({
@@ -290,13 +292,14 @@ vi.mock('../configs/NodeConfigLogsTab', () => ({
   )),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: '/api/test', method: 'GET',
-    headers: [], body: '', auth: { type: 'none' }, validation: {},
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: '/api/test',
+    validation: {},
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 function makeHttpNode(overrides: Partial<HttpNodeData> = {}): WorkflowNode {
   return {
@@ -606,7 +609,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
-    expect(screen.getByText('Max Concurrent Runs')).toBeTruthy();
+    expect(screen.getByText('Max Concurrent')).toBeTruthy();
     expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
@@ -618,7 +621,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('payments.done')).toBeTruthy();
     expect(screen.getByText('Correlation Matching')).toBeTruthy();
-    expect(screen.getByText('Correlation Source')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
   });
 
   // ── Draft / base URL / HTTP callbacks ──
@@ -819,5 +822,21 @@ describe('WorkflowNodeConfigModal', () => {
       expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);
       unmount();
     }
+  });
+
+  it('disables Save for graphql query node with validation errors', () => {
+    const node = makeNode('graphqlQuery', defaultGraphqlQueryNodeData());
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).toBeDisabled();
+  });
+
+  it('enables Save for graphql query node when config is valid', () => {
+    const node = makeNode('graphqlQuery', {
+      ...defaultGraphqlQueryNodeData(),
+      endpoint: 'http://api.example.com/graphql',
+      query: 'query { user { id } }',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).not.toBeDisabled();
   });
 });

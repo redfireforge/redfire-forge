@@ -9,19 +9,13 @@
  * Tests run serially within each describe block to share a consistent page state.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const PORT1 = 9876;
 const PORT2 = 9877;
 const PORT3 = 9878;
 
 // ─── Low-level helpers ────────────────────────────────────────────
-
-/** Navigate to WS Studio and wait for UI to be ready. */
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 8000 });
-}
 
 /** Switch to the active pane's mode. */
 async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
@@ -176,9 +170,9 @@ async function assertStillConnected(page: Page) {
   // Also check status dot — looking for the connection status indicator
   const pane = page.locator('[data-testid^="conn-tab-pane-"]:visible');
   await pane.locator('[data-testid="left-tab-connect"]').click();
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(200);
   // If connect-btn is shown (not disconnect-btn), client has been dropped
-  const hasDisconnectBtn = await pane.locator('[data-testid="disconnect-btn"]').isVisible({ timeout: 500 }).catch(() => false);
+  const hasDisconnectBtn = await pane.locator('[data-testid="disconnect-btn"]').isVisible({ timeout: 2000 }).catch(() => false);
   expect(hasDisconnectBtn, 'disconnect-btn should be visible when connected').toBe(true);
 }
 
@@ -832,15 +826,24 @@ test.describe('MM-13: Log clears on server restart', () => {
 // ─── MM-14: Port change — new server starts on new port ──────────
 
 test.describe('MM-14: Port edit — server starts on user-specified port', () => {
-  test.describe.configure({ timeout: 60_000 });
+  test.describe.configure({ timeout: 90_000 });
 
   test('user can change port and connect client to the new port', async ({ page }) => {
     await gotoWsStudio(page);
     await switchMode(page, 'mock');
 
-    // Change port from 9876 to PORT3 (9878) while stopped
+    // Ensure the mock server is stopped before editing the port (it may be running from a prior test)
     const pane = page.locator('[data-testid^="conn-tab-pane-"]:visible');
+    const stopBtn = pane.locator('[data-testid="mock-stop-btn"]');
+    if (await stopBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await stopBtn.click();
+      await pane.locator('[data-testid="mock-start-btn"]').waitFor({ timeout: 6000 });
+      await page.waitForTimeout(300);
+    }
+
+    // Change port from 9876 to PORT3 (9878) while stopped
     const portInput = pane.locator('[data-testid="mock-port-input"]');
+    await expect(portInput).toBeEditable({ timeout: 5000 });
     await portInput.click({ clickCount: 3 });
     await portInput.fill(String(PORT3));
     await portInput.press('Enter');

@@ -163,6 +163,13 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to load execution history');
     });
+
+    it('handles non-Error rejections in execution history', async () => {
+      mockGetExecutionHistory.mockRejectedValue('db string failure');
+      const res = await request(app).get('/api/executions');
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('db string failure');
+    });
   });
 
   describe('PUT /api/workflows/:id', () => {
@@ -232,6 +239,15 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to load webhook deliveries');
+    });
+
+    it('handles non-Error rejections in webhook deliveries', async () => {
+      mockGetWebhookDeliveries.mockRejectedValue('string-delivery-error');
+
+      const res = await request(app).get('/api/webhook-deliveries');
+
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('string-delivery-error');
     });
   });
 
@@ -628,12 +644,93 @@ describe('GET /api/sse-test', () => {
     const allData = chunks.join('');
     expect(allData).toContain('"counter":6');
   });
+
+  it('treats invalid last-event-id as zero', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get({
+          hostname: 'localhost',
+          port,
+          path: '/api/sse-test',
+          headers: { 'Last-Event-ID': 'not-a-number' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('"counter":1');
+  });
+
+  it('emits status events on interval counter divisible by three', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const server = app.listen(0, '127.0.0.1', () => {
+        const addr = server.address() as import('net').AddressInfo;
+        const req = http.get({
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/api/sse-test',
+          headers: { 'Last-Event-ID': '5' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+          res.on('error', reject);
+        });
+        req.on('error', reject);
+        setTimeout(() => {
+          req.destroy();
+          server.close(() => resolve());
+        }, 3200);
+      });
+      server.on('error', reject);
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('event: status');
+  }, 10_000);
+
+  it('sends additional interval events after the greeting', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const server = app.listen(0, '127.0.0.1', () => {
+        const addr = server.address() as import('net').AddressInfo;
+        const req = http.get(`http://127.0.0.1:${addr.port}/api/sse-test`, (res) => {
+          res.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+          res.on('error', reject);
+        });
+        req.on('error', reject);
+        setTimeout(() => {
+          req.destroy();
+          server.close(() => resolve());
+        }, 2500);
+      });
+      server.on('error', reject);
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('Event #2');
+    expect(allData).toMatch(/event: (message|update|status)/);
+  }, 10_000);
 });
 
 // ── shutdown / graceful cleanup ────────────────────────────────────────────
 
 describe('webhook-server — shutdown', () => {
-  it('shutdown deactivates Kafka subscriptions and exits', async () => {
+  it('shutdown deactivates Kafka subscriptions and exits on SIGTERM', async () => {
     const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -642,6 +739,21 @@ describe('webhook-server — shutdown', () => {
     process.emit('SIGTERM');
 
     // Allow the async shutdown to complete
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    exitSpy.mockRestore();
+    consoleSpy.mockRestore();
+  });
+
+  it('shutdown deactivates Kafka subscriptions and exits on SIGINT', async () => {
+    const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    process.emit('SIGINT');
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
     expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();

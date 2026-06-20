@@ -1,7 +1,49 @@
 /** Lesson K7: Schema Registry — browse Avro/Protobuf subjects, view and version schemas */
-import type { DemoLesson } from '../../types';
+import type { DemoLesson, DemoActionContext } from '../../types';
 import { kafkaSchemaSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '../../../../shared/selectors';
+
+const REGISTRY_URL = 'http://localhost:8085';
+
+/**
+ * Ensure the schema registry URL is filled and subjects are loaded.
+ * Idempotent — skips if subjects are already visible.
+ */
+async function ensureRegistryConnected(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(KAFKA.SCHEMA_SUBJECT_TABLE)) return;
+
+  const urlInput = document.querySelector<HTMLInputElement>(KAFKA.SCHEMA_URL_INPUT);
+  if (urlInput && !urlInput.value.trim()) {
+    await ctx.fill(KAFKA.SCHEMA_URL_INPUT, REGISTRY_URL);
+    await ctx.delay(200);
+  }
+
+  const connectBtn = document.querySelector<HTMLButtonElement>(KAFKA.SCHEMA_CONNECT_BTN);
+  if (connectBtn && !connectBtn.disabled) {
+    await ctx.click(KAFKA.SCHEMA_CONNECT_BTN);
+    try {
+      await ctx.waitFor(KAFKA.SCHEMA_SUBJECT_TABLE, 10000);
+    } catch { /* subjects may not load if docker is down */ }
+    await ctx.delay(400);
+  }
+}
+
+/** Click the first visible subject row if none is selected. */
+async function ensureSubjectSelected(ctx: DemoActionContext): Promise<void> {
+  await ensureRegistryConnected(ctx);
+  if (document.querySelector(KAFKA.SCHEMA_DETAIL_PANEL)) return;
+
+  const row = document.querySelector<HTMLElement>(
+    `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[style]`,
+  );
+  if (row) {
+    row.click();
+    try {
+      await ctx.waitFor(KAFKA.SCHEMA_DETAIL_PANEL, 5000);
+    } catch { /* detail panel may not appear */ }
+    await ctx.delay(400);
+  }
+}
 
 export const kafkaSchemaRegistryLesson: DemoLesson = {
   id: 'kafka-schema-registry',
@@ -107,6 +149,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       preAction: async (ctx) => {
         await ctx.click(KAFKA.SCHEMA_TAB);
         await ctx.delay(400);
+        document.querySelectorAll('.kafka-schema-subject-table tbody tr.selected').forEach((el) => {
+          el.classList.remove('selected');
+        });
       },
     },
 
@@ -118,7 +163,7 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
         'Type the Schema Registry URL — for the local Docker stack it\'s `http://localhost:8085`. For Confluent Cloud, use the full HTTPS URL. You can also add HTTP Basic auth credentials for protected registries.',
       highlight: KAFKA.SCHEMA_URL_INPUT,
       preAction: async (ctx) => {
-        await ctx.fill(KAFKA.SCHEMA_URL_INPUT, 'http://localhost:8085');
+        await ctx.fill(KAFKA.SCHEMA_URL_INPUT, REGISTRY_URL);
         await ctx.delay(300);
       },
     },
@@ -144,6 +189,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'Each row shows the subject name and its **format badge** (Avro / Protobuf / JSON Schema). The naming convention `<topic>-value` and `<topic>-key` links each subject to its Kafka topic. The latest version is shown in the row.',
       highlight: KAFKA.SCHEMA_SUBJECT_TABLE,
+      preAction: async (ctx) => {
+        await ensureRegistryConnected(ctx);
+      },
     },
 
     // Step 5: Filter subjects
@@ -154,6 +202,7 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
         'Use the **Filter** input to search subjects by name. For registries with hundreds of subjects, filtering by topic prefix (e.g., "orders") narrows the list immediately.',
       highlight: KAFKA.SCHEMA_SEARCH,
       preAction: async (ctx) => {
+        await ensureRegistryConnected(ctx);
         await ctx.fill(KAFKA.SCHEMA_SEARCH, 'orders');
         await ctx.delay(400);
       },
@@ -166,17 +215,27 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'Click any subject row to open its detail panel. The **format badge**, **compatibility level**, and **latest version** appear at the top. The schema content renders below.',
       highlight: KAFKA.SCHEMA_SUBJECT_TABLE,
+      preAction: async (ctx) => {
+        await ensureRegistryConnected(ctx);
+        // Clear the filter so all subjects are visible
+        const filterInput = document.querySelector<HTMLInputElement>(KAFKA.SCHEMA_SEARCH);
+        if (filterInput && filterInput.value) {
+          await ctx.fill(KAFKA.SCHEMA_SEARCH, '');
+          await ctx.delay(200);
+        }
+      },
       action: async (ctx) => {
-        // Click the first visible subject row
         const row = document.querySelector<HTMLElement>(
-          `${KAFKA.SCHEMA_SUBJECT_TABLE} tr:not([class*="header"]):first-child, ${KAFKA.SCHEMA_SUBJECT_TABLE} [data-testid="subject-row"]:first-child, ${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr:first-child`,
+          `${KAFKA.SCHEMA_SUBJECT_TABLE} tbody tr[style]`,
         );
         if (row) {
           row.click();
         } else {
           await ctx.click(KAFKA.SCHEMA_SUBJECT_TABLE);
         }
-        await ctx.waitFor(KAFKA.SCHEMA_DETAIL_PANEL, 5000);
+        try {
+          await ctx.waitFor(KAFKA.SCHEMA_DETAIL_PANEL, 5000);
+        } catch { /* detail panel may not appear if no subjects */ }
         await ctx.delay(500);
       },
     },
@@ -188,6 +247,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'The **schema viewer** shows the raw Avro JSON, Protobuf IDL, or JSON Schema definition. You can read the field names, types, defaults, and documentation strings directly — no CLI required.',
       highlight: KAFKA.SCHEMA_CONTENT,
+      preAction: async (ctx) => {
+        await ensureSubjectSelected(ctx);
+      },
     },
 
     // Step 8: Switch schema version
@@ -197,6 +259,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'Use the **Version** dropdown to navigate between schema versions. Comparing v1 and v2 shows exactly which fields were added, removed, or changed — useful for debugging compatibility issues.',
       highlight: KAFKA.SCHEMA_VERSION_SELECT,
+      preAction: async (ctx) => {
+        await ensureSubjectSelected(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.SCHEMA_VERSION_SELECT);
         await ctx.delay(400);
@@ -210,6 +275,9 @@ RedfireForge reads the registry to populate the **Schema** selector in the Publi
       description:
         'Click **Copy to Clipboard** to copy the full schema definition. You can paste it into your producer code, a workflow node\'s schema config, or share it with the team. The **Export** button downloads it as a `.json` or `.proto` file.',
       highlight: KAFKA.SCHEMA_COPY_BTN,
+      preAction: async (ctx) => {
+        await ensureSubjectSelected(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.SCHEMA_COPY_BTN);
         await ctx.delay(400);

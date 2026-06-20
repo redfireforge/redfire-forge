@@ -8,19 +8,22 @@ import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: (opts: { count: number; estimateSize: () => number }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: opts.count }, (_, i) => ({
-        index: i,
-        start: i * opts.estimateSize(),
-        size: opts.estimateSize(),
-        end: (i + 1) * opts.estimateSize(),
-        key: i,
-        lane: 0,
-      })),
-    getTotalSize: () => opts.count * opts.estimateSize(),
-    scrollToIndex: vi.fn(),
-  }),
+  useVirtualizer: (opts: { count: number; getScrollElement?: () => unknown; estimateSize: () => number }) => {
+    opts.getScrollElement?.();
+    return {
+      getVirtualItems: () =>
+        Array.from({ length: opts.count }, (_, i) => ({
+          index: i,
+          start: i * opts.estimateSize(),
+          size: opts.estimateSize(),
+          end: (i + 1) * opts.estimateSize(),
+          key: i,
+          lane: 0,
+        })),
+      getTotalSize: () => opts.count * opts.estimateSize(),
+      scrollToIndex: vi.fn(),
+    };
+  },
 }));
 
 vi.mock('../../shared/utils/fileSaver', () => ({
@@ -133,6 +136,17 @@ describe('WebSocketMessageLog', () => {
       expect(data[0].data).toBe('test-data');
       expect(filename).toMatch(/^ws-messages-.*\.json$/);
     });
+
+    it('swallows export failures when save dialog is cancelled', async () => {
+      const { saveJsonFile } = await import('../../shared/utils/fileSaver');
+      vi.mocked(saveJsonFile).mockRejectedValueOnce(new Error('cancelled'));
+      const msgs = [makeFrame()];
+      render(<WebSocketMessageLog {...defaultProps({ messages: msgs, totalCount: 1, allMessages: msgs })} />);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-messages-btn'));
+      });
+      expect(saveJsonFile).toHaveBeenCalled();
+    });
   });
 
   describe('search mode and filter UI', () => {
@@ -151,6 +165,42 @@ describe('WebSocketMessageLog', () => {
         fireEvent.click(screen.getByTestId('search-mode-regex'));
       });
       expect(setSearchMode).toHaveBeenCalledWith('regex');
+    });
+
+    it('calls setSearchMode for jsonpath pill', async () => {
+      const setSearchMode = vi.fn();
+      render(<WebSocketMessageLog {...defaultProps({ setSearchMode })} />);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('search-mode-jsonpath'));
+      });
+      expect(setSearchMode).toHaveBeenCalledWith('jsonpath');
+    });
+
+    it('clears active filters from the filter bar', async () => {
+      const setSizeFilter = vi.fn();
+      const setTimeFilter = vi.fn();
+      const setContentTypeFilter = vi.fn();
+      render(
+        <WebSocketMessageLog
+          {...defaultProps({
+            sizeFilter: 'large',
+            timeFilter: 'last5m',
+            contentTypeFilter: 'json',
+            setSizeFilter,
+            setTimeFilter,
+            setContentTypeFilter,
+          })}
+        />,
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('clear-filters-btn'));
+      });
+      expect(setSizeFilter).toHaveBeenCalledWith('all');
+      expect(setTimeFilter).toHaveBeenCalledWith('all');
+      expect(setContentTypeFilter).toHaveBeenCalledWith('all');
     });
 
     it('renders filter toggle button', () => {
@@ -311,7 +361,10 @@ describe('WebSocketMessageLog', () => {
         onStopReplay: vi.fn(),
         replayProgress: { current: 3, total: 10, elapsedMs: 1000, durationMs: 5000 },
       })} />);
-      expect(screen.getByTestId('replay-progress').textContent).toContain('3 / 10');
+      const progress = screen.getByTestId('replay-progress');
+      expect(progress.textContent).toContain('3');
+      expect(progress.textContent).toContain('10');
+      expect(progress.textContent).toContain('events');
     });
 
     it('shows resume button when paused', () => {

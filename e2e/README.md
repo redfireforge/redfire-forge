@@ -60,6 +60,26 @@ Quick reference:
 | `ws-protocols-graphql.spec.ts` | `docker/websocket/graphql/docker-compose.yml` | 4100 |
 | `ws-protocols-stomp.spec.ts` | `docker/websocket/stomp/docker-compose.yml` | 15674 |
 | `ws-tls-local-demo.spec.ts` | `docker/websocket/tls/docker-compose.yml` | — |
+| `graphql-test-server.spec.ts` | `docker/graphql/docker-compose.yml` | 4010 |
+
+## GraphQL test server (port 4010)
+
+The Apollo Server 4 test server is started automatically by `e2e/global-setup.ts` when
+`E2E_WITH_DOCKER=1` or `E2E_GRAPHQL_SERVER=1` is set:
+
+```bash
+# GraphQL server smoke tests only (global-setup starts Docker automatically)
+E2E_GRAPHQL_SERVER=1 npx playwright test e2e/graphql-test-server.spec.ts --reporter=list
+
+# Full Docker suite (includes graphql-test-server via global-setup)
+E2E_WITH_DOCKER=1 npx playwright test --project=docker --reporter=list
+
+# Manual start (for manual workflow scenarios)
+cd docker/graphql && docker compose up -d
+curl http://localhost:4010/health
+```
+
+Set `E2E_DOCKER_TEARDOWN=1` to stop containers after the run (default: leave running).
 
 ## How it works
 

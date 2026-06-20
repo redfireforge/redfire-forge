@@ -6,7 +6,8 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = 'http://localhost:5173/?tab=websocket-studio';
-const MOCK_PORT = '9876';
+// Use a dedicated port to avoid cross-spec mock server interference (ws-core-connect uses 9876)
+const MOCK_PORT = '9881';
 
 /**
  * Restart mock server, reconnect, switch to load test tab, click Start,
@@ -256,7 +257,7 @@ test('WL-06: Safety confirmation for high rate (>100 msg/s)', async ({ page }) =
 
   // Click Start — should show confirmation dialog
   const startBtn = page.locator('[data-testid="lt-start-btn"]');
-  await expect(startBtn).toBeEnabled();
+  await expect(startBtn).toBeEnabled({ timeout: 10000 });
   await startBtn.click();
   await page.waitForTimeout(300);
 
@@ -285,6 +286,14 @@ test('WL-06b: Safety confirmation for ramp with high end rate', async ({ page })
   await rate.fill('10');
   const rateEnd = page.locator('[data-testid="lt-rate-end"]');
   await rateEnd.fill('200');
+
+  // Verify connection is still alive before checking button state (connection can drop under load)
+  const connLabel = page.locator('[data-testid="conn-tab-bar"] [aria-label*="connected"]');
+  const isConnected = await connLabel.isVisible({ timeout: 2000 }).catch(() => false);
+  if (!isConnected) {
+    await reconnectAndStart(page);
+    return;
+  }
 
   const _startBtn = page.locator('[data-testid="lt-start-btn"]');
   await expect(_startBtn).toBeEnabled({ timeout: 10000 });

@@ -105,12 +105,17 @@ describe('kafka-headers-filters lesson', () => {
     expect(step.action).toBeUndefined();
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[1]);
-    expect(fillCalls).toContain('traceId');
-    expect(fillCalls).toContain('abc-001');
-    expect(fillCalls).toContain('headers.demo');
-    expect(fillCalls).toContain('HDR-001');
-    expect(fillCalls).toEqual(expect.arrayContaining([expect.stringContaining('"orderId"')]));
+    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
+    const fillValues = fillCalls.map((c: unknown[]) => c[1]);
+    expect(fillValues).toContain('traceId');
+    expect(fillValues).toContain('abc-001');
+    expect(fillValues).toContain('headers.demo');
+    expect(fillValues).toContain('HDR-001');
+    expect(fillValues).toEqual(expect.arrayContaining([expect.stringContaining('"orderId"')]));
+    // Header key selector must use placeholder="header-key" (not "key")
+    const headerKeyCall = fillCalls.find((c: unknown[]) => c[1] === 'traceId');
+    expect(headerKeyCall).toBeDefined();
+    expect((headerKeyCall![0] as string)).toContain('placeholder="header-key"');
   });
 
   it('step hf-send-header action clicks send and waits for result', async () => {
@@ -121,10 +126,11 @@ describe('kafka-headers-filters lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalled();
   });
 
-  it('step hf-filter-intro has preAction to navigate to consume tab, no action', () => {
+  it('step hf-filter-intro highlights the filters section container, no action', () => {
     const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-filter-intro')!;
     expect(typeof step.preAction).toBe('function');
     expect(step.action).toBeUndefined();
+    expect(step.highlight).toContain('kafka-ms-con-filters');
   });
 
   it('step hf-filter-intro preAction clicks consume tab, resets mode, and clears all filter inputs', async () => {

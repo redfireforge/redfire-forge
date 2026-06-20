@@ -113,4 +113,24 @@ describe('WorkflowDesignerBody', () => {
     fireEvent.click(screen.getByTestId('ver-close'));
     expect(closeVersionPanel).toHaveBeenCalled();
   });
+
+  it('passes empty array when selected.versions is undefined (line 74 ??[] false branch)', () => {
+    const selectedNoVersions = { id: 'w2', name: 'WF2' } as unknown as Workflow;
+    render(
+      <WorkflowDesignerBody
+        vm={makeVm({
+          versioning: {
+            versionPanelOpen: true,
+            handleVersionRestore: vi.fn(),
+            handleVersionDelete: vi.fn(),
+            handleVersionRename: vi.fn(),
+            handleVersionCompare: vi.fn(),
+            closeVersionPanel: vi.fn(),
+          } as unknown as WorkflowDesignerViewModel['versioning'],
+        })}
+        selected={selectedNoVersions}
+      />,
+    );
+    expect(screen.getByTestId('version-panel')).toBeTruthy();
+  });
 });

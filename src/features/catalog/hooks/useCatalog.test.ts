@@ -115,6 +115,29 @@ describe('useCatalog', () => {
     expect(result.current.selectedEntry?.currentVersionId).toBe('v1');
   });
 
+  it('addVersionToEntry skips prune when entry id is unknown', async () => {
+    const { result } = await setup([makeEntry()]);
+    await act(async () => {
+      await result.current.addVersionToEntry('unknown', makeParsed('vNew'));
+    });
+    expect(storage.removeCatalogRawSpec).not.toHaveBeenCalled();
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0].currentVersionId).toBe('v1');
+  });
+
+  it('addVersionToEntry leaves other entries unchanged', async () => {
+    const { result } = await setup([
+      makeEntry({ id: 'e1', name: 'API A' }),
+      makeEntry({ id: 'e2', name: 'API B', currentVersionId: 'v1' }),
+    ]);
+    await act(async () => {
+      await result.current.addVersionToEntry('e1', makeParsed('vNew'));
+    });
+    const untouched = result.current.entries.find((e) => e.id === 'e2');
+    expect(untouched?.currentVersionId).toBe('v1');
+    expect(untouched?.versions).toHaveLength(1);
+  });
+
   it('switches version by reparsing the raw spec', async () => {
     const entry = makeEntry({
       versions: [
@@ -146,6 +169,24 @@ describe('useCatalog', () => {
     expect(result.current.selectedEntry?.currentVersionId).toBe('v1');
   });
 
+  it('switchVersion leaves other entries unchanged', async () => {
+    const entry1 = makeEntry({
+      id: 'e1',
+      versions: [
+        { id: 'v1', version: '1', importedAt: 1, specHash: 'h', specSize: 1 },
+        { id: 'v2', version: '2', importedAt: 2, specHash: 'h', specSize: 1 },
+      ],
+    });
+    const entry2 = makeEntry({ id: 'e2', name: 'Other API' });
+    const { result } = await setup([entry1, entry2]);
+    storage.loadCatalogRawSpec.mockResolvedValue('raw-v2');
+    mockParse.mockResolvedValue(makeParsed('v2'));
+    await act(async () => { await result.current.switchVersion('e1', 'v2'); });
+    const untouched = result.current.entries.find((e) => e.id === 'e2');
+    expect(untouched?.currentVersionId).toBe('v1');
+    expect(result.current.entries.find((e) => e.id === 'e1')?.currentVersionId).toBe('v2');
+  });
+
   it('removes an entry and clears selection', async () => {
     const { result } = await setup([makeEntry()]);
     await act(async () => { await result.current.removeEntry('e1'); });
@@ -155,10 +196,38 @@ describe('useCatalog', () => {
     expect(storage.removeCatalogEndpointValues).toHaveBeenCalledWith('e1');
   });
 
+  it('removes a non-selected entry without clearing selection', async () => {
+    const { result } = await setup([
+      makeEntry({ id: 'e1', name: 'Keep' }),
+      makeEntry({ id: 'e2', name: 'Remove' }),
+    ]);
+    act(() => result.current.selectEntry('e1'));
+    await act(async () => { await result.current.removeEntry('e2'); });
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.selectedEntryId).toBe('e1');
+    expect(storage.removeAllCatalogRawSpecs).toHaveBeenCalledWith('e2', ['v1']);
+  });
+
   it('updates an entry', async () => {
     const { result } = await setup([makeEntry()]);
     act(() => result.current.updateEntry('e1', { name: 'Renamed' }));
     expect(result.current.selectedEntry?.name).toBe('Renamed');
+  });
+
+  it('updateEntry leaves other entries unchanged', async () => {
+    const { result } = await setup([
+      makeEntry({ id: 'e1', name: 'API A' }),
+      makeEntry({ id: 'e2', name: 'API B' }),
+    ]);
+    act(() => result.current.updateEntry('e1', { name: 'Renamed A' }));
+    expect(result.current.entries.find((e) => e.id === 'e2')?.name).toBe('API B');
+  });
+
+  it('removeEntry for unknown id skips storage cleanup', async () => {
+    const { result } = await setup([makeEntry()]);
+    await act(async () => { await result.current.removeEntry('unknown'); });
+    expect(result.current.entries).toHaveLength(1);
+    expect(storage.removeAllCatalogRawSpecs).not.toHaveBeenCalled();
   });
 
   it('selects entry and endpoint', async () => {
@@ -189,5 +258,35 @@ describe('useCatalog', () => {
     await act(async () => { await result.current.removeVersion('e1', 'v2'); });
     expect(result.current.selectedEntry?.versions).toHaveLength(1);
     expect(result.current.selectedEntry?.currentVersionId).toBe('v1');
+  });
+
+  it('removes a non-current version without changing currentVersionId', async () => {
+    const entry = makeEntry({
+      currentVersionId: 'v2',
+      versions: [
+        { id: 'v1', version: '1', importedAt: 1, specHash: 'h', specSize: 1 },
+        { id: 'v2', version: '2', importedAt: 2, specHash: 'h', specSize: 1 },
+      ],
+    });
+    const { result } = await setup([entry]);
+    await act(async () => { await result.current.removeVersion('e1', 'v1'); });
+    expect(result.current.selectedEntry?.versions).toHaveLength(1);
+    expect(result.current.selectedEntry?.currentVersionId).toBe('v2');
+  });
+
+  it('removeVersion leaves other entries unchanged', async () => {
+    const entry1 = makeEntry({
+      id: 'e1',
+      versions: [
+        { id: 'v1', version: '1', importedAt: 1, specHash: 'h', specSize: 1 },
+        { id: 'v2', version: '2', importedAt: 2, specHash: 'h', specSize: 1 },
+      ],
+    });
+    const entry2 = makeEntry({ id: 'e2', name: 'Other API' });
+    const { result } = await setup([entry1, entry2]);
+    await act(async () => { await result.current.removeVersion('e1', 'v2'); });
+    const untouched = result.current.entries.find((e) => e.id === 'e2');
+    expect(untouched?.versions).toHaveLength(1);
+    expect(untouched?.currentVersionId).toBe('v1');
   });
 });

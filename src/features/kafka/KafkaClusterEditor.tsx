@@ -202,10 +202,10 @@ export function KafkaClusterEditor({
                     </span>
                   </div>
                   <div className="kafka-editor-field">
-                    <label htmlFor="kafka-auth-mode">Authentication</label>
+                    <label htmlFor="kafka-auth-mode">Mechanism</label>
                     <select
                       id="kafka-auth-mode"
-                      value={draft.authMode}
+                      value={draft.authMode ?? 'none'}
                       onChange={(event) =>
                         updateDraft({ authMode: event.target.value as KafkaClusterDraft['authMode'] })
                       }
@@ -216,7 +216,7 @@ export function KafkaClusterEditor({
                       <option value="scram-sha-512">SCRAM-SHA-512</option>
                     </select>
                   </div>
-                  {draft.authMode !== 'none' && (
+                  {(draft.authMode ?? 'none') !== 'none' && (
                     <div className="kafka-subcard-fields">
                       <div className="kafka-editor-field">
                         <label htmlFor="kafka-auth-username">Username</label>

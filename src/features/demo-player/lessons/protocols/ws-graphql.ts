@@ -18,6 +18,9 @@ import { WS } from '../../../../shared/selectors';
 // ── Constants ──────────────────────────────────────────────────
 const GQL_URL = 'ws://localhost:4100/graphql';
 const GQL_SUBPROTOCOL = 'graphql-transport-ws';
+const GQL_OP_NAME = 'CountdownSub';
+const GQL_QUERY_PARAM = 'subscription CountdownSub($start: Int!) {\n  countdown(from: $start)\n}';
+const GQL_VARIABLES_JSON = '{\n  "start": 5\n}';
 
 // ── Setup / Cleanup ─────────────────────────────────────────────
 
@@ -83,15 +86,15 @@ When you click **Connect** with Protocol set to GraphQL-WS, RedfireForge automat
 
 **Starting a subscription:**
 
-Instead of typing raw JSON, you write a **GraphQL query** in the Compose panel:
+Instead of typing raw JSON, you fill three fields in the **Send** panel:
 
 \`\`\`graphql
-subscription {
-  countdown(from: 5)
+subscription CountdownSub($start: Int!) {
+  countdown(from: $start)
 }
 \`\`\`
 
-RedfireForge wraps this into a \`subscribe\` frame with an auto-assigned operation ID and sends it to the server.
+Set **Op. Name** to \`CountdownSub\`, pass \`{"start": 5}\` in the **Variables** tab, and RedfireForge bundles all three into a single \`subscribe\` frame — \`{"type":"subscribe","id":"1","payload":{"operationName":"CountdownSub","query":"...","variables":{"start":5}}}\` — sent to the server.
 
 **What you'll see in the Events log:**
 
@@ -230,25 +233,48 @@ GraphQL-WS needs two settings:
     },
     {
       id: 'gql-compose',
-      title: 'GraphQL-WS Compose Fields',
-      description: 'The Compose panel has three GraphQL-specific fields: **Operation Name** (optional label for the operation, e.g. `CountdownSub`), **Variables** (a JSON textarea for `$variables` in parameterized queries), and the **Op # counter** — an auto-incrementing ID that RedfireForge assigns to each subscription so the Events log can track which `next` frames belong to which operation.',
+      title: 'Operation Name, Query & Variables',
+      description:
+        'The **Send** panel has three linked fields working together:\n\n' +
+        '1. **Op. Name** — type `CountdownSub` to give this operation a human-readable label. It appears in the Events log and inside the `subscribe` frame payload.\n' +
+        '2. **Query tab** — write the GraphQL operation using `$start` as a typed parameter: `subscription CountdownSub($start: Int!) { countdown(from: $start) }`. The `$start` variable references whatever JSON value you put in step 3.\n' +
+        '3. **Variables tab** — paste `{"start": 5}` here. When you click Send, RedfireForge merges the query, the operation name, and these variables into a single `subscribe` frame sent to the server.\n\n' +
+        'Watch the demo fill all three in sequence.',
       highlight: WS.GQL_COMPOSE_FIELDS,
       pauseAfter: true,
-      // preAction navigates to Compose before the spotlight so gql-compose-fields is in the DOM
       preAction: async (ctx: DemoActionContext) => {
         await ctx.click(WS.LEFT_TAB_SEND);
+        await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
+        // 1. Fill operation name
+        await ctx.fill(WS.GQL_OPERATION_NAME, GQL_OP_NAME);
+        await ctx.delay(600);
+        // 2. Fill the parameterized query in the Query tab (default active tab)
+        await ctx.fill(WS.MESSAGE_INPUT, GQL_QUERY_PARAM);
+        await ctx.delay(700);
+        // 3. Switch to Variables tab to show the JSON input
+        await ctx.click(WS.GQL_TAB_VARIABLES);
         await ctx.delay(500);
+        // 4. Fill the variables JSON
+        await ctx.fill(WS.GQL_VARIABLES, GQL_VARIABLES_JSON);
+        await ctx.delay(800);
+        // 5. Return to Query tab so the viewer sees the full picture before Send
+        await ctx.click(WS.GQL_TAB_QUERY);
+        await ctx.delay(400);
       },
     },
     {
       id: 'gql-subscribe',
-      title: 'Start a Countdown Subscription',
-      description: 'The query `subscription { countdown(from: 5) }` is pre-filled and ready in the Compose panel. Clicking **Send** wraps it in a `subscribe` frame with the current Op ID, sends it to the server, then switches to the Events tab to watch the countdown arrive. The server streams back six **next** frames — `5, 4, 3, 2, 1, 0` — one every 500ms, then a **complete** to signal end of stream.',
+      title: 'Send — All Three Fields in One Frame',
+      description:
+        'The compose panel is fully configured: **Op. Name** `CountdownSub`, **Query** uses `$start`, and **Variables** `{"start": 5}`. ' +
+        'Clicking **Send** bundles all three into a single `subscribe` frame:\n\n' +
+        '```json\n{\n  "type": "subscribe",\n  "id": "1",\n  "payload": {\n    "operationName": "CountdownSub",\n    "query": "subscription CountdownSub($start: Int!) { ... }",\n    "variables": { "start": 5 }\n  }\n}\n```\n\n' +
+        'The server runs `countdown(from: 5)` and streams back six **next** frames — `5, 4, 3, 2, 1, 0` — then **complete**. ' +
+        'Every frame in the Events log is tagged with **Op #1** so you can track it even if you had multiple subscriptions running in parallel.',
       highlight: WS.SEND_BTN,
       pauseAfter: true,
-      // preAction ensures connection + sets up the Compose panel with the subscription query
       preAction: async (ctx: DemoActionContext) => {
         // Ensure WebSocket is connected before trying to send (skip-to-step guard)
         if (!document.querySelector(WS.STATUS_CONNECTED)) {
@@ -260,18 +286,26 @@ GraphQL-WS needs two settings:
         }
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(200);
-        await ctx.fill(WS.MESSAGE_INPUT, 'subscription { countdown(from: 5) }');
-        await ctx.delay(300);
+        // Re-establish all three fields silently in case this step was skipped to
+        await ctx.fill(WS.GQL_OPERATION_NAME, GQL_OP_NAME);
+        await ctx.delay(100);
+        await ctx.fill(WS.MESSAGE_INPUT, GQL_QUERY_PARAM);
+        await ctx.delay(100);
+        // Switch to Variables tab to fill JSON, then back to Query tab
+        await ctx.click(WS.GQL_TAB_VARIABLES);
+        await ctx.delay(200);
+        await ctx.fill(WS.GQL_VARIABLES, GQL_VARIABLES_JSON);
+        await ctx.delay(100);
+        await ctx.click(WS.GQL_TAB_QUERY);
+        await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
-        // Send the subscription — op ID increments to 2 after this
         await ctx.click(WS.SEND_BTN);
         await ctx.delay(500);
         // Switch to Events to show subscribe frame + incoming next frames
         await ctx.click(WS.RIGHT_TAB_EVENTS);
         await ctx.delay(500);
         // Wait for the full countdown: 6 values × 500ms + buffer = ~3.8s
-        // By the time pauseAfter kicks in, ALL data (including complete) is visible.
         await ctx.delay(3800);
       },
     },

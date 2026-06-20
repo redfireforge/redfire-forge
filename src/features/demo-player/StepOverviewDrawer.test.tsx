@@ -3,7 +3,7 @@
  * Unit tests for StepOverviewDrawer component.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import StepOverviewDrawer from './StepOverviewDrawer';
 import type { DemoLesson } from './types';
 
@@ -240,9 +240,160 @@ describe('StepOverviewDrawer', () => {
     );
     const header = container.querySelector('.demo-overview-modal-header');
     expect(header).toBeTruthy();
-    // Should not throw when dragging
     fireEvent.mouseDown(header!, { clientX: 100, clientY: 100 });
     fireEvent.mouseMove(document, { clientX: 150, clientY: 150 });
     fireEvent.mouseUp(document);
+  });
+
+  it('ignores drag when mousedown starts on close button', () => {
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const modal = container.querySelector('.demo-overview-modal') as HTMLElement;
+    const closeBtn = screen.getByLabelText('Close steps overview');
+    fireEvent.mouseDown(closeBtn, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 200, clientY: 200 });
+    expect(modal.style.top).toBe('');
+  });
+
+  it('resizes panel via bottom-right handle', () => {
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const modal = container.querySelector('.demo-overview-modal') as HTMLElement;
+    const initialWidth = modal.style.width;
+    const handle = container.querySelector('.demo-overview-resize-handle') as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 180, clientY: 160 });
+    fireEvent.mouseUp(document);
+    expect(modal.style.width).not.toBe(initialWidth);
+  });
+
+  it('shows done checkmark for steps before current index', () => {
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={2}
+        onClose={onClose}
+      />,
+    );
+    expect(container.querySelectorAll('.demo-overview-check').length).toBe(2);
+  });
+
+  it('shows jump hint in footer when onGoToStep is provided', () => {
+    render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onGoToStep={onGoToStep}
+        onClose={onClose}
+      />,
+    );
+    expect(screen.getByText(/Click to jump/)).toBeTruthy();
+  });
+
+  it('scrolls active step into view via callback ref', () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView');
+    render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={1}
+        onClose={onClose}
+      />,
+    );
+    expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('closes when clicking outside the modal after pointerdown delay', async () => {
+    vi.useFakeTimers();
+    render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(150); });
+    fireEvent.pointerDown(document.body);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('does not close when clicking inside the modal', async () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(150); });
+    const modal = container.querySelector('.demo-overview-modal')!;
+    fireEvent.pointerDown(modal);
+    expect(onClose).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('drag clamps position within viewport bounds', () => {
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const modal = container.querySelector('.demo-overview-modal') as HTMLElement;
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      top: 0, left: 0, width: 360, height: 500,
+      right: 360, bottom: 500, x: 0, y: 0, toJSON: () => ({}),
+    });
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 600, configurable: true });
+
+    const header = container.querySelector('.demo-overview-modal-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 900, clientY: 700 });
+    fireEvent.mouseUp(document);
+
+    expect(parseInt(modal.style.left, 10)).toBeLessThanOrEqual(800 - 360);
+    expect(parseInt(modal.style.top, 10)).toBeLessThanOrEqual(600 - 500);
+  });
+
+  it('resize clamps width and height to min/max bounds', () => {
+    const { container } = render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const modal = container.querySelector('.demo-overview-modal') as HTMLElement;
+    const handle = container.querySelector('.demo-overview-resize-handle') as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 2000, clientY: 2000 });
+    fireEvent.mouseUp(document);
+    expect(parseInt(modal.style.width, 10)).toBeLessThanOrEqual(720);
+    expect(parseInt(modal.style.height, 10)).toBeLessThanOrEqual(900);
+  });
+
+  it('shows read-only footer hint without jump text when onGoToStep omitted', () => {
+    render(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={0}
+        onClose={onClose}
+      />,
+    );
+    expect(screen.getByText(/Drag header to reposition/)).toBeTruthy();
+    expect(screen.queryByText(/Click to jump/)).toBeNull();
   });
 });

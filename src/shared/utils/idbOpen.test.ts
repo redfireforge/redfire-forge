@@ -159,7 +159,13 @@ describe('idbOpen.openDB', () => {
     const mockDb = {
       objectStoreNames: {
         contains: vi.fn((name: string) =>
-          ['testRuns', 'featureGroups', 'sharedDataSources', 'trash', 'workflows', 'workflowFolders', 'requests', 'catalog', 'projects'].includes(name),
+          [
+            'testRuns', 'featureGroups', 'sharedDataSources', 'trash', 'workflows', 'workflowFolders',
+            'requests', 'catalog', 'projects',
+            // v6: GraphQL Studio Phase 3 stores
+            'graphql-history', 'graphql-collections', 'graphql-collection-folders',
+            'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
+          ].includes(name),
         ),
       },
       createObjectStore: vi.fn(),
@@ -244,7 +250,10 @@ describe('idbOpen.openDB', () => {
     expect(storesCreated).toEqual([
       'featureGroups', 'sharedDataSources', 'trash',
       'workflows', 'workflowFolders', 'requests', 'catalog', 'projects',
+      // v6: GraphQL Studio Phase 3 stores (added after base stores)
+      'graphql-history', 'graphql-collections', 'graphql-collection-folders',
+      'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
     ]);
-    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(8);
+    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(14);
   });
 });

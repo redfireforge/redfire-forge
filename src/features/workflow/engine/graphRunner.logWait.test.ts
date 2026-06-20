@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runGraph, type GraphRunCallbacks } from './graphRunner';
-import { WorkflowNode, WorkflowEdge, LogDebugNodeData, WaitForConditionNodeData, HttpNodeData } from '../types/workflow';
+import { WorkflowNode, WorkflowEdge, LogDebugNodeData, WaitForConditionNodeData } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -65,26 +66,6 @@ function waitNode(id: string, overrides?: Partial<WaitForConditionNodeData>): Wo
       maxAttempts: 5,
       ...overrides,
     } as WaitForConditionNodeData,
-  };
-}
-
-function httpNode(id: string, label = 'HTTP'): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id, name: label,
-        url: 'https://example.com/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none', assertions: [] },
-      },
-    } as unknown as HttpNodeData,
   };
 }
 

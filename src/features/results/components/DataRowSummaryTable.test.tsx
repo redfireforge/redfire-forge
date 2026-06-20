@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(
   id: string,
@@ -11,24 +12,20 @@ function makeResult(
   dataRowId?: string,
   overrides: Partial<Omit<RequestResult, 'id'>> = {},
 ): RequestResult {
-  return {
+  return _makeResult({
     id,
     scenarioId: 'sc1',
     scenarioName: 'Test',
     url: '/api',
-    method: 'GET',
-    requestHeaders: [],
     httpStatus: passed ? 200 : 500,
-    responseTimeMs: 100,
     passed,
-    failureDetails: [],
+    requestHeaders: [],
     responseHeaders: [],
     requestTimestamp: Date.now(),
     dataRowId,
     dataRowLabel: dataRowId ? `Row ${dataRowId}` : undefined,
-    validationMode: 'none',
     ...overrides,
-  } as RequestResult;
+  }) as RequestResult;
 }
 
 describe('DataRowSummaryTable', () => {

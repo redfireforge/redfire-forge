@@ -554,6 +554,10 @@ vi.mock('../features/test-runner/components/RustExecutorTestPanel', () => ({
   default: () => <div data-testid="rust-panel" />,
 }));
 
+vi.mock('../features/graphql/GraphqlStudioPage', () => ({
+  GraphqlStudioPage: () => <div data-testid="graphql-studio-page" />,
+}));
+
 import App from './App';
 
 // real sample workflow id for the load-template happy path

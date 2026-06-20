@@ -562,4 +562,111 @@ describe('WebSocketLoadTest', () => {
     render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
     expect(screen.getByTestId('lt-summary').textContent).toContain('high rate');
   });
+
+  it('renders statsPanel while running when provided', () => {
+    const lt = makeLT({
+      state: 'running',
+      progress: { elapsedMs: 1000, totalSent: 5, totalReceived: 4, targetRate: 10, actualRate: 5, errorCount: 0 },
+    });
+    render(
+      <WebSocketLoadTest
+        loadTest={lt}
+        isConnected={true}
+        statsPanel={<div data-testid="inline-stats">Stats</div>}
+      />,
+    );
+    expect(screen.getByTestId('inline-stats')).toBeTruthy();
+  });
+
+  it('formatRate shows Max for infinite burst target rate while running', () => {
+    const lt = makeLT({
+      state: 'running',
+      config: { ...createDefaultLoadTestConfig(), profile: 'burst' },
+      progress: {
+        elapsedMs: 1000,
+        totalSent: 5,
+        totalReceived: 4,
+        targetRate: Infinity,
+        actualRate: 50,
+        errorCount: 0,
+      },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.getByTestId('lt-running').textContent).toContain('Max');
+  });
+
+  it('run again does nothing when disconnected', () => {
+    const startFn = vi.fn();
+    const lt = makeLT({ start: startFn, state: 'done', result: makeResult() });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={false} />);
+    fireEvent.click(screen.getByTestId('lt-run-again-btn'));
+    expect(startFn).not.toHaveBeenCalled();
+  });
+
+  it('shows duration in minutes for long results', () => {
+    const lt = makeLT({
+      state: 'done',
+      result: makeResult({ durationMs: 125_000 }),
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.getByTestId('lt-results').textContent).toMatch(/2m/);
+  });
+
+  it('ignores import when no file is selected', () => {
+    const loadResultFn = vi.fn();
+    const lt = makeLT({ state: 'done', result: makeResult(), loadResult: loadResultFn });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [] } });
+    expect(loadResultFn).not.toHaveBeenCalled();
+  });
+
+  it('omits sparkline when throughput history has fewer than two points', () => {
+    const lt = makeLT({
+      state: 'done',
+      result: makeResult({ throughputHistory: [{ ts: 1000, sent: 10, received: 9 }] }),
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(document.querySelector('.ws-lt-sparkline')).toBeNull();
+  });
+
+  it('cancels high-rate confirmation without starting', () => {
+    const startFn = vi.fn();
+    const lt = makeLT({
+      start: startFn,
+      config: { ...createDefaultLoadTestConfig(), rate: 200 },
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-start-btn'));
+    fireEvent.click(screen.getByTestId('lt-confirm-no'));
+    expect(startFn).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('lt-confirm')).toBeNull();
+  });
+
+  it('shows formatRate in kilo for rates above 1000 in results', () => {
+    const lt = makeLT({
+      state: 'done',
+      result: makeResult({ avgSendRate: 2500 }),
+    });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    expect(screen.getByTestId('lt-result-cards').textContent).toContain('2.5k/s');
+  });
+
+  it('falls back to minimum rate when rate input is cleared', () => {
+    const setConfig = vi.fn();
+    const lt = makeLT({ setConfig });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.change(screen.getByTestId('lt-rate'), { target: { value: '' } });
+    expect(setConfig).toHaveBeenCalledWith({ rate: 1 });
+  });
+
+  it('clears prior format timer when format is clicked twice', () => {
+    vi.useFakeTimers();
+    const lt = makeLT({ config: { ...createDefaultLoadTestConfig(), messageTemplate: '{"a":1}' } });
+    render(<WebSocketLoadTest loadTest={lt} isConnected={true} />);
+    fireEvent.click(screen.getByTestId('lt-format-btn'));
+    fireEvent.click(screen.getByTestId('lt-format-btn'));
+    vi.advanceTimersByTime(1600);
+    vi.useRealTimers();
+  });
 });

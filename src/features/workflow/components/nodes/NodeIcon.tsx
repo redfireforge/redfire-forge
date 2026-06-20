@@ -269,6 +269,59 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
       </>
     ),
   },
+  graphqlQuery: {
+    category: 'integration',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
+        <path d="M9.5 9.5l5 5" />
+        <path d="M14.5 9.5l-5 5" />
+      </>
+    ),
+  },
+  graphqlMutation: {
+    category: 'integration',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
+        <circle cx="12" cy="12" r="2" />
+      </>
+    ),
+  },
+  graphqlSubscription: {
+    category: 'integration',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M5 12a7 7 0 0 1 14 0" />
+        <path d="M8 12a4 4 0 0 1 8 0" />
+        <circle cx="12" cy="12" r="1" />
+      </>
+    ),
+  },
+  graphqlIntrospect: {
+    category: 'action',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v4" />
+        <path d="M12 16h.01" />
+      </>
+    ),
+  },
+  graphqlAssert: {
+    category: 'logic',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9 12l2 2 4-4" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {

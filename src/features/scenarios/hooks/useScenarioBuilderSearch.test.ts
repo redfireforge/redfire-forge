@@ -5,20 +5,10 @@ import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioBuilderSearch } from './useScenarioBuilderSearch';
 import type { FeatureGroup, Scenario, TestScenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'test-1',
-    name: 'Test Scenario',
-    url: 'https://api.example.com/users',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({ id: 'test-1', ...overrides });
 
 function makeTestScenario(overrides: Partial<TestScenario> = {}): TestScenario {
   return {

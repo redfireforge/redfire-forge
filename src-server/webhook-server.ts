@@ -13,6 +13,7 @@ import { createKafkaRouter } from './routes/kafka-routes.js';
 import { createKafkaTriggerRouter } from './routes/kafka-trigger-routes.js';
 import { createWebSocketRouter } from './routes/websocket-routes.js';
 import { createWebSocketMockRouter } from './routes/websocket-mock-routes.js';
+import { createGraphqlRouter } from './routes/graphql/graphql-routes.js';
 import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
@@ -134,6 +135,9 @@ app.use(createKafkaTriggerRouter({ onLog: broadcastLog }));
 
 // WebSocket proxy routes
 app.use(createWebSocketRouter({ onLog: broadcastLog }));
+
+// GraphQL Studio proxy routes (Phase 2.0 — subscribe/SSE/upload)
+app.use(createGraphqlRouter({ onLog: broadcastLog }));
 
 // WebSocket mock server routes
 app.use(createWebSocketMockRouter({ onLog: broadcastLog }));

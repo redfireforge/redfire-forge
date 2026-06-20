@@ -253,4 +253,42 @@ describe('WebSocketSchemaPanel', () => {
     fireEvent.click(screen.getByTestId('ws-schema-generate-btn'));
     expect(screen.getByTestId('ws-schema-editor').textContent).toContain('No JSON messages found');
   });
+
+  it('expands and collapses schema JSON preview', () => {
+    const schema = makeSchema({ schema: '{"type":"object","properties":{}}' });
+    render(<WebSocketSchemaPanel {...defaultProps} schemas={[schema]} />);
+    const collapseBtn = screen.getByTestId('ws-schema-collapse-btn');
+    expect(collapseBtn.textContent).toBe('▸');
+    fireEvent.click(collapseBtn);
+    expect(screen.getByTestId('ws-schema-card-json')).toBeInTheDocument();
+    expect(collapseBtn.textContent).toBe('▾');
+    fireEvent.click(collapseBtn);
+    expect(screen.queryByTestId('ws-schema-card-json')).toBeNull();
+  });
+
+  it('disables collapse button while editing', () => {
+    const schema = makeSchema();
+    render(<WebSocketSchemaPanel {...defaultProps} schemas={[schema]} />);
+    fireEvent.click(screen.getByText('Edit'));
+    expect(screen.getByTestId('ws-schema-collapse-btn')).toBeDisabled();
+  });
+
+  it('uses fallback error when onAddSchema fails without a message', () => {
+    const onAdd = vi.fn(() => ({ ok: false }));
+    render(<WebSocketSchemaPanel {...defaultProps} onAddSchema={onAdd} />);
+    fireEvent.click(screen.getByTestId('ws-schema-add-btn'));
+    fireEvent.change(screen.getByTestId('ws-schema-name-input'), { target: { value: 'X' } });
+    fireEvent.change(screen.getByTestId('ws-schema-textarea'), { target: { value: '{}' } });
+    fireEvent.click(screen.getByTestId('ws-schema-save-btn'));
+    expect(screen.getByTestId('ws-schema-error')).toHaveTextContent('Failed to add schema');
+  });
+
+  it('uses fallback error when onUpdateSchema fails without a message', () => {
+    const schema = makeSchema({ id: 's1', name: 'Schema' });
+    const onUpdate = vi.fn(() => ({ ok: false }));
+    render(<WebSocketSchemaPanel {...defaultProps} schemas={[schema]} onUpdateSchema={onUpdate} />);
+    fireEvent.click(screen.getByText('Edit'));
+    fireEvent.click(screen.getByTestId('ws-schema-save-btn'));
+    expect(screen.getByTestId('ws-schema-editor').textContent).toContain('Failed to update schema');
+  });
 });

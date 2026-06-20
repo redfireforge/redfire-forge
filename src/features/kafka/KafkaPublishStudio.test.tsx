@@ -58,7 +58,7 @@ const defaultTemplateProps = () => ({
 describe('KafkaPublishStudio', () => {
   it('renders topic input with current value', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    const input = screen.getByLabelText('Topic') as HTMLInputElement;
+    const input = screen.getByTestId('pub-topic-input') as HTMLInputElement;
     expect(input.value).toBe('orders.events');
   });
 
@@ -135,7 +135,7 @@ describe('KafkaPublishStudio', () => {
   it('calls setPublishDraft when topic input changes', () => {
     const studio = makeStudio();
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'new-topic' } });
+    fireEvent.change(screen.getByTestId('pub-topic-input'), { target: { value: 'new-topic' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ topic: 'new-topic' });
   });
 
@@ -150,7 +150,7 @@ describe('KafkaPublishStudio', () => {
 
   it('shows "No headers" when headers array is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    expect(screen.getByText('No headers')).toBeTruthy();
+    expect(screen.getByText(/no headers/i)).toBeTruthy();
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -159,7 +159,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-topic-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Topic'));
+    fireEvent.blur(screen.getByTestId('pub-topic-input'));
     expect(screen.getByTestId('pub-topic-hint').textContent).toBe('Topic is required');
   });
 
@@ -349,7 +349,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Key input changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Key'), { target: { value: 'my-key' } });
+    fireEvent.change(screen.getByTestId('pub-key-input'), { target: { value: 'my-key' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ key: 'my-key' });
   });
 
@@ -384,7 +384,7 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
 
   it('calls setPublishDraft when header key changes', () => {
     const studio = renderWithHeader();
-    fireEvent.change(screen.getByPlaceholderText('key'), { target: { value: 'x-region' } });
+    fireEvent.change(screen.getByPlaceholderText('header-key'), { target: { value: 'x-region' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith(
       expect.objectContaining({ headers: [expect.objectContaining({ key: 'x-region' })] }),
     );
@@ -504,5 +504,69 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.getByTestId('pub-result').textContent).toContain('ts 1700000000000');
+  });
+
+  it('shows decode-preview badge when bodyFormat is base64 and calls handler', async () => {
+    // Covers lines 66-72: handleDecodePreview for base64 format
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: 'aGVsbG8=', bodyFormat: 'base64', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    const badge = screen.getByTestId('pub-decode-preview-badge');
+    expect(badge).toBeTruthy();
+    fireEvent.click(badge);
+    // After click, the decode preview result should appear
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+    });
+  });
+
+  it('shows decode-preview badge for hex format and handles invalid hex', async () => {
+    // Covers lines 67 cond-expr: fmt === 'base64' is false, so validateHex is called
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: 'ZZ ZZ ZZ', bodyFormat: 'hex', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    const badge = screen.getByTestId('pub-decode-preview-badge');
+    fireEvent.click(badge);
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+    });
+  });
+
+  it('decode preview shows utf8Preview with "…" for long base64 body (line 69 cond-expr)', async () => {
+    // A base64 string that decodes to >60 bytes
+    const longStr = 'A'.repeat(70);
+    const encoded = btoa(longStr);
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: encoded, bodyFormat: 'base64', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('pub-decode-preview-badge'));
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+      // Long body (>60 bytes) should include '…'
+      expect(result?.textContent).toContain('…');
+    });
+  });
+
+  it('acks 0 shows "fire and forget" hint, acks -1 shows durability hint (lines 169/170)', () => {
+    // Test acks = 0 hint
+    const studio0 = makeStudio({
+      publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: 0, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    const { unmount } = render(<KafkaPublishStudio studio={studio0} clusterId="c" {...defaultTemplateProps()} />);
+    expect(document.body.textContent).toContain('fire and forget');
+    unmount();
+
+    // Test acks = -1 hint
+    const studioN1 = makeStudio({
+      publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: -1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studioN1} clusterId="c" {...defaultTemplateProps()} />);
+    expect(document.body.textContent).toContain('strongest durability');
   });
 });
