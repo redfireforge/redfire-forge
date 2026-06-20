@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 
-export type ResizeEdge = 'right' | 'corner';
+export type ResizeEdge = 'right' | 'corner' | 'bottom';
 
 interface ResizeState {
   startX: number;
@@ -42,9 +42,11 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
         if (!s) return;
         const dx = ev.clientX - s.startX;
         const dy = ev.clientY - s.startY;
-        const newW = Math.max(minWidth, s.origW + dx);
-        const newH = s.edge === 'corner' ? Math.max(minHeight, s.origH + dy) : (size?.h ?? s.origH);
-        setSize({ w: newW, h: s.edge === 'corner' ? newH : newH });
+        const resizesW = s.edge === 'right' || s.edge === 'corner';
+        const resizesH = s.edge === 'corner' || s.edge === 'bottom';
+        const newW = resizesW ? Math.max(minWidth, s.origW + dx) : (size?.w ?? s.origW);
+        const newH = resizesH ? Math.max(minHeight, s.origH + dy) : (size?.h ?? s.origH);
+        setSize({ w: newW, h: newH });
       };
 
       const handleUp = () => {
@@ -69,6 +71,11 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
     [startResize],
   );
 
+  const onBottomEdge = useCallback(
+    (e: React.MouseEvent) => startResize(e, 'bottom'),
+    [startResize],
+  );
+
   // Component remount resets size automatically via useState initial value.
 
   const resizeStyle: React.CSSProperties | undefined = size
@@ -81,5 +88,5 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
       }
     : undefined;
 
-  return { resizeStyle, onRightEdge, onCorner, resetSize: () => setSize(null) } as const;
+  return { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize: () => setSize(null) } as const;
 }

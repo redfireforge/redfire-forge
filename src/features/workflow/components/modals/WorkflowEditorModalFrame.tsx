@@ -56,7 +56,7 @@ export default function WorkflowEditorModalFrame({
   minWidth,
   minHeight,
 }: Props) {
-  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
+  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner, onBottomEdge } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
@@ -108,7 +108,7 @@ export default function WorkflowEditorModalFrame({
           </div>
         ) : null}
 
-        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
     </div>
   );

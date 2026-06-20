@@ -62,6 +62,10 @@ export function useDemoProgress() {
     update(prev => ({ ...prev, lastLesson: lessonId }));
   }, [update]);
 
+  const setLastView = useCallback((view: 'domains' | 'lessons' | 'concept') => {
+    update(prev => ({ ...prev, lastView: view }));
+  }, [update]);
+
   const setSpeed = useCallback((speed: SpeedMultiplier) => {
     update(prev => ({ ...prev, speed }));
   }, [update]);
@@ -74,6 +78,24 @@ export function useDemoProgress() {
     return data.lessonSteps[lessonId] ?? 0;
   }, [data.lessonSteps]);
 
+  const getLessonStatus = useCallback((lessonId: string): 'not_started' | 'in_progress' | 'completed' => {
+    if (data.completedLessons.includes(lessonId)) return 'completed';
+    if (data.lessonSteps[lessonId] !== undefined) return 'in_progress';
+    return 'not_started';
+  }, [data.completedLessons, data.lessonSteps]);
+
+  const resetLesson = useCallback((lessonId: string) => {
+    update(prev => {
+      const lessonSteps = { ...prev.lessonSteps };
+      delete lessonSteps[lessonId];
+      return {
+        ...prev,
+        completedLessons: prev.completedLessons.filter(id => id !== lessonId),
+        lessonSteps,
+      };
+    });
+  }, [update]);
+
   const resetProgress = useCallback(() => {
     update(() => DEFAULT_PROGRESS);
   }, [update]);
@@ -84,9 +106,12 @@ export function useDemoProgress() {
     setLessonStep,
     setLastDomain,
     setLastLesson,
+    setLastView,
     setSpeed,
     isLessonComplete,
     getLessonStep,
+    getLessonStatus,
+    resetLesson,
     resetProgress,
   };
 }

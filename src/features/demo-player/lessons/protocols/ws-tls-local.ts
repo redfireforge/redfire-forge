@@ -123,6 +123,12 @@ iAU+tJGKIkZm8s8ILh0GJWVcfQ==
  * `aria-expanded` attribute, so checking that property always returns null.
  * Instead we check whether the modal body (`data-testid="tls-body"`) is
  * already present in the DOM — if so, the modal is open and we skip the click.
+ *
+ * The modal is portal-rendered to `document.body` (see createPortal in
+ * WebSocketTlsPanel). React renders portals asynchronously, so a fixed
+ * delay(300) is not reliable on slow machines or when React is busy.
+ * We use `waitFor(TLS_BODY, 2000)` to poll until the portal is actually
+ * in the DOM before returning.
  */
 async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(WS.TLS_TOGGLE, 2000);
@@ -131,7 +137,9 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
     const toggle = document.querySelector(WS.TLS_TOGGLE) as HTMLElement | null;
     if (toggle) {
       toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-      await ctx.delay(300);
+      // Wait for the portal to actually render into document.body — not just a
+      // fixed delay. On slow machines the portal can take > 300ms to appear.
+      await ctx.waitFor(WS.TLS_BODY, 2000);
     }
   }
 }
@@ -139,13 +147,22 @@ async function ensureTlsPanelExpanded(ctx: DemoActionContext): Promise<void> {
 /**
  * Closes the TLS modal if it is currently open, by clicking its Close button.
  * Must be called before connecting so the Connect tab is fully visible.
+ *
+ * After dispatching the click we poll until `tls-body` leaves the DOM — the
+ * portal unmount is async and a fixed delay(300) can be too short on busy
+ * machines, leaving the overlay visible long enough to intercept clicks.
  */
 async function closeTlsModal(ctx: DemoActionContext): Promise<void> {
   const closeBtn = document.querySelector('[data-testid="tls-close"]') as HTMLElement | null;
-  if (closeBtn) {
-    closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await ctx.delay(300);
+  if (!closeBtn) return; // already closed
+  closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  // Poll until portal is unmounted (max 20 × 50 ms ≈ 1 s in real usage).
+  // Bounded iteration count instead of a deadline so unit tests with mocked
+  // ctx.delay (which resolves instantly) terminate after ≤20 iterations.
+  for (let i = 0; i < 20 && !!document.querySelector(WS.TLS_BODY); i++) {
+    await ctx.delay(50);
   }
+  await ctx.delay(100); // Extra tick for React to stabilize
 }
 
 /**
@@ -190,6 +207,11 @@ async function localTlsSetup(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WS.RIGHT_TAB_EVENTS);
   await ctx.delay(200);
 
+  // Clear any leftover subprotocol (e.g. graphql-transport-ws from GraphQL Studio)
+  // before filling the TLS URL — a stale subprotocol causes WS_CONNECT_FAILED.
+  await ctx.fill(WS.SUBPROTOCOLS, '');
+  await ctx.delay(100);
+
   // Fill the wss:// URL to mount the TLS panel, reset its state, then CLEAR the
   // URL so step 1 shows the full "wss:// → TLS panel appears" moment visually.
   await ctx.fill(WS.URL_INPUT, TLS_URL);
@@ -215,6 +237,8 @@ async function localTlsCleanup(ctx: DemoActionContext): Promise<void> {
   await setSkipCert(ctx, false);
   await clearCertFields(ctx);
   await ctx.fill(WS.URL_INPUT, '');
+  // Clear any subprotocol that was set during the lesson
+  await ctx.fill(WS.SUBPROTOCOLS, '');
   await ctx.delay(200);
   await closeExtraConnectionTabs(ctx);
 }
@@ -365,7 +389,7 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       title: 'Phase 1 — The Local TLS Server',
       description:
         'Type `wss://localhost:8766` — the local nginx reverse proxy with a self-signed certificate. Notice the **TLS / mTLS Configuration** panel appears the moment you enter a `wss://` URL. This is your signal that encrypted transport is involved and configuration is available.',
-      highlight: WS.TLS_PANEL,
+      highlight: WS.URL_INPUT,
       preAction: async (ctx) => {
         await ctx.click(WS.MODE_CLIENT);
         await ctx.delay(200);
@@ -406,14 +430,17 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
       },
       action: async (ctx) => {
         await setSkipCert(ctx, true);
-        await ctx.delay(600);
+        await ctx.delay(400);
+        // Close the TLS modal so the transport badge in the connect panel is visible
+        await closeTlsModal(ctx);
+        await ctx.delay(500);
         // Briefly highlight the transport badge so viewers see the Direct→Proxy change
         const badge = document.querySelector(WS.TRANSPORT_BADGE) as HTMLElement | null;
         if (badge) {
           badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
           badge.style.outline = '2px solid var(--accent-primary, #e96b3a)';
           badge.style.borderRadius = '4px';
-          await ctx.delay(800);
+          await ctx.delay(1000);
           badge.style.outline = '';
           badge.style.borderRadius = '';
         }
@@ -486,9 +513,18 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         // Uncheck skip-cert — Phase 2 uses CA cert, not skip-cert
         await setSkipCert(ctx, false);
         await ctx.delay(300);
+        // Wait for CA cert textarea to be in the DOM (it's inside the portal)
+        await ctx.waitFor(WS.TLS_CA_CERT, 2000);
+        // Pre-fill CA cert so it is visible while the user reads the description
+        const caField = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
+        if (!caField?.value?.trim()) {
+          await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
+        }
       },
       action: async (ctx) => {
-        // Paste the dev Root CA into the CA Certificate textarea
+        // Re-animate: clear and re-fill to show the "paste" moment visually
+        await ctx.fill(WS.TLS_CA_CERT, '');
+        await ctx.delay(300);
         await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
         await ctx.delay(800);
       },
@@ -559,7 +595,10 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         await clearCertFields(ctx);
         // Set the CA cert again (needed to validate the mTLS server's leaf cert too)
         await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
-        await ctx.delay(800);
+        await ctx.delay(600);
+        // Close the modal so the URL input (wss://localhost:8768) is visible during the pause
+        await closeTlsModal(ctx);
+        await ctx.delay(400);
       },
       pauseAfter: true,
     },
@@ -579,10 +618,30 @@ The server uses a **self-signed certificate** from a dev Root CA, exactly what y
         await ctx.click(WS.LEFT_TAB_CONNECT);
         await ctx.delay(200);
         await ensureTlsPanelExpanded(ctx);
+        // Wait for cert textareas to be in the DOM (portal renders async)
+        await ctx.waitFor(WS.TLS_CA_CERT, 2000);
+        // Guard: ensure CA cert is present (may be missing if user navigated back)
+        const caField = document.querySelector(WS.TLS_CA_CERT) as HTMLTextAreaElement | null;
+        if (!caField?.value?.trim()) {
+          await ctx.fill(WS.TLS_CA_CERT, DEV_CA_CERT);
+        }
+        // Pre-fill client cert + key so the fields are visible while the user reads
+        // the description — the action will re-animate them for the visual effect.
+        await ctx.waitFor(WS.TLS_CLIENT_CERT, 2000);
+        const certField = document.querySelector(WS.TLS_CLIENT_CERT) as HTMLTextAreaElement | null;
+        if (!certField?.value?.trim()) {
+          await ctx.fill(WS.TLS_CLIENT_CERT, DEV_CLIENT_CERT);
+          await ctx.fill(WS.TLS_CLIENT_KEY, DEV_CLIENT_KEY);
+        }
       },
       action: async (ctx) => {
+        // Re-animate: clear and re-fill so viewers see the "paste" moment
+        await ctx.fill(WS.TLS_CLIENT_CERT, '');
+        await ctx.delay(300);
         await ctx.fill(WS.TLS_CLIENT_CERT, DEV_CLIENT_CERT);
         await ctx.delay(600);
+        await ctx.fill(WS.TLS_CLIENT_KEY, '');
+        await ctx.delay(300);
         await ctx.fill(WS.TLS_CLIENT_KEY, DEV_CLIENT_KEY);
         await ctx.delay(800);
       },

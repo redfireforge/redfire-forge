@@ -125,4 +125,46 @@ describe('WorkflowDetailModal', () => {
     fireEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('ignores clipboard write failures', async () => {
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('denied'));
+    render(<WorkflowDetailModal {...baseProps} body="failcopy" />);
+    fireEvent.click(screen.getByText('Copy'));
+    await Promise.resolve();
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('failcopy');
+  });
+
+  it('renders empty textarea when variableValue is undefined', () => {
+    render(<WorkflowDetailModal {...baseProps} variableMode />);
+    const ta = document.querySelector('.wf-detail-modal-textarea') as HTMLTextAreaElement;
+    expect(ta.value).toBe('');
+  });
+
+  it('falls back to textarea when pretty mode has empty value after rerender', () => {
+    const { rerender } = render(
+      <WorkflowDetailModal {...baseProps} variableMode variableValue='{"a":1}' />,
+    );
+    fireEvent.click(screen.getByText('Pretty Format'));
+    rerender(<WorkflowDetailModal {...baseProps} variableMode variableValue="" />);
+    expect(document.querySelector('.wf-detail-modal-textarea')).not.toBeNull();
+  });
+
+  it('falls back to textarea when pretty mode has invalid json after rerender', () => {
+    const { rerender } = render(
+      <WorkflowDetailModal {...baseProps} variableMode variableValue='{"a":1}' />,
+    );
+    fireEvent.click(screen.getByText('Pretty Format'));
+    rerender(<WorkflowDetailModal {...baseProps} variableMode variableValue="not-json" />);
+    expect(document.querySelector('.wf-detail-modal-textarea')).not.toBeNull();
+  });
+
+  it('resets pretty toggle when modal reopens', () => {
+    const { rerender } = render(
+      <WorkflowDetailModal {...baseProps} variableMode variableValue='{"a":1}' />,
+    );
+    fireEvent.click(screen.getByText('Pretty Format'));
+    rerender(<WorkflowDetailModal {...baseProps} open={false} variableMode variableValue='{"a":1}' />);
+    rerender(<WorkflowDetailModal {...baseProps} open variableMode variableValue='{"a":1}' />);
+    expect(screen.getByText('Pretty Format')).toBeTruthy();
+  });
 });

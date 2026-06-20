@@ -44,9 +44,10 @@ export function WebSocketTlsPanel({
   }, [onTlsChange]);
 
   const handleSave = useCallback(() => {
-    // Changes are already applied via onTlsChange — just update snapshot
+    // Changes are already applied via onTlsChange — update snapshot and close
     snapshotRef.current = { ...tlsConfig };
     setDirty(false);
+    setOpen(false);
   }, [tlsConfig]);
 
   const handleClose = useCallback(() => {

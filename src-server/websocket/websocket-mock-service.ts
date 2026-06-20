@@ -9,6 +9,7 @@ import type {
   WsMockServerConfig,
 } from '../../src/shared/websocket/types.js';
 import { evaluateRules, expandTemplate } from '../../src/features/websocket/wsMockRuleEngine.js';
+import { toErrorMessage } from '../../src/shared/utils/helpers.js';
 
 const MAX_LOG_ENTRIES = 200;
 
@@ -71,7 +72,7 @@ export class WebSocketMockService {
       try {
         this.wss = new WebSocketServer({ port: this.port, host: '127.0.0.1' });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = toErrorMessage(err);
         this.lastError = msg;
         this.pushLog('error', msg);
         reject(new Error(msg));

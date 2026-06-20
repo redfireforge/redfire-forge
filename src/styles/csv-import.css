@@ -403,6 +403,9 @@
   flex: 1.2;
   overflow-y: auto;
   padding: 16px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  border-right: 1px solid var(--border);
 }
 .csv-export-right {
   flex: 1;
@@ -419,11 +422,6 @@
 .csv-export-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .csv-export-left::-webkit-scrollbar-thumb:hover,
 .csv-export-right::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-.csv-export-left {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-  border-right: 1px solid var(--border);
-}
 
 .csv-panel-title {
   font-size: 0.82rem;

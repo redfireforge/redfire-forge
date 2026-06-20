@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 5;
+const DB_VERSION = 6; // v6: adds 5 graphql Phase-3 stores (history, collections, folders, schema-snapshots, diff-acks)
 const OPEN_TIMEOUT_MS = 3000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -61,6 +61,43 @@ export function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('projects')) {
         db.createObjectStore('projects');
+      }
+      // v6: GraphQL Studio Phase 3 stores
+      if (!db.objectStoreNames.contains('graphql-history')) {
+        const historyStore = db.createObjectStore('graphql-history', { keyPath: 'id' });
+        historyStore.createIndex('connectionId', 'connectionId', { unique: false });
+        historyStore.createIndex('timestamp', 'timestamp', { unique: false });
+        // Compound index for efficient per-connection chronological range queries.
+        // Supports IDBKeyRange.bound([connectionId, 0], [connectionId, Infinity]).
+        historyStore.createIndex('connectionId_timestamp', ['connectionId', 'timestamp'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains('graphql-collections')) {
+        const colStore = db.createObjectStore('graphql-collections', { keyPath: 'id' });
+        colStore.createIndex('name', 'name', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('graphql-collection-folders')) {
+        const folderStore = db.createObjectStore('graphql-collection-folders', { keyPath: 'id' });
+        folderStore.createIndex('collectionId', 'collectionId', { unique: false });
+        folderStore.createIndex('parentId', 'parentId', { unique: false });
+        // Compound index for ordered folder loads within a collection.
+        folderStore.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains('graphql-collection-items')) {
+        const itemStore = db.createObjectStore('graphql-collection-items', { keyPath: 'id' });
+        itemStore.createIndex('collectionId', 'collectionId', { unique: false });
+        itemStore.createIndex('folderId', 'folderId', { unique: false });
+        // Compound index for ordered item loads within a folder.
+        itemStore.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains('graphql-schema-snapshots')) {
+        const snapStore = db.createObjectStore('graphql-schema-snapshots', { keyPath: 'id' });
+        snapStore.createIndex('connectionId', 'connectionId', { unique: false });
+        snapStore.createIndex('capturedAt', 'capturedAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('graphql-diff-acknowledgements')) {
+        const ackStore = db.createObjectStore('graphql-diff-acknowledgements', { keyPath: 'id' });
+        ackStore.createIndex('connectionId', 'connectionId', { unique: false });
+        ackStore.createIndex('snapshotId', 'snapshotId', { unique: false });
       }
     };
     req.onblocked = () => {

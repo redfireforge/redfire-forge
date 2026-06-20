@@ -1,7 +1,7 @@
 /**
  * Lesson 18: SSE Advanced Features
  *
- * Builds on Lesson 9 (SSE Studio) with production-level features:
+ * Builds on SSE Studio with production-level features:
  *  - Bookmarks and bookmark filtering
  *  - Stats footer (Events, Showing, Uptime, Types)
  *  - Auto-reconnect toggle
@@ -98,7 +98,7 @@ export const sseStudioAdvancedLesson: DemoLesson = {
   category: 'sse',
   name: 'SSE Advanced Features',
   description: 'Master bookmarks, stats, auto-reconnect, Last-Event-ID, and export in SSE Studio.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'sse-studio',
 
   setup: sseAdvancedSetup,
@@ -106,7 +106,7 @@ export const sseStudioAdvancedLesson: DemoLesson = {
 
   concept: {
     title: 'SSE Advanced Features',
-    body: `Lesson 9 covered the SSE basics — connecting, viewing live events, and exploring the console. Now we go deeper into the features that matter for **production SSE workflows**.
+    body: `SSE Studio covered the SSE basics — connecting, viewing live events, and exploring the console. Now we go deeper into the features that matter for **production SSE workflows**.
 
 **What You'll Learn**
 - **Bookmarks** — Star important events and filter the log to show only bookmarked items
@@ -162,14 +162,17 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
   },
 
   steps: [
-    // ── 1. Pick Up Where Lesson 9 Left Off ─────────────────────
+    // ── 1. Welcome Back to SSE Studio ─────────────────────────
     {
       id: 'sse-adv-intro',
-      title: 'Pick Up Where Lesson 9 Left Off',
+      title: 'Welcome Back to SSE Studio',
       description:
-        'Welcome back to SSE Studio. In Lesson 9 you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
+        'Welcome back to SSE Studio. In the SSE Studio lesson you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
       highlight: SSE.STUDIO,
       preAction: async (ctx) => {
+        document.querySelectorAll('.sse-row-selected').forEach((el) => {
+          el.classList.remove('sse-row-selected');
+        });
         const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
         if (!connectBtn?.textContent?.includes('Disconnect')) {
           await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
@@ -342,6 +345,32 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         await ctx.delay(800);
       },
       pauseAfter: true,
+    },
+
+    // ── 8. Disconnect ───────────────────────────────────────────────
+    {
+      id: 'sse-adv-disconnect',
+      title: 'Disconnect',
+      description:
+        'Click **Disconnect** to close the SSE stream. The status badge returns to grey and the uptime counter stops. ' +
+        'Because **Auto-reconnect** is enabled, SSE Studio will only stay disconnected if you click Disconnect manually — ' +
+        'any unexpected drop would trigger an automatic retry. You now have a complete picture of the SSE Studio advanced toolkit: ' +
+        'bookmarks, live stats, resilient reconnection, and export.',
+      highlight: SSE.CONNECT_BTN,
+      pauseAfter: true,
+      preAction: async (ctx) => {
+        // Ensure we're on the Connect tab so the button is visible
+        await ctx.click(SSE.LEFT_TAB_CONNECT);
+        await ctx.delay(300);
+      },
+      action: async (ctx) => {
+        // Only disconnect if currently connected
+        const btn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
+        if (btn?.textContent?.includes('Disconnect')) {
+          await ctx.click(SSE.CONNECT_BTN);
+          await ctx.delay(800);
+        }
+      },
     },
   ],
 };

@@ -156,7 +156,7 @@ describe('WebSocketStudioShell', () => {
     expect(divider).toHaveAttribute('aria-label', 'Resize left and right panes');
     expect(divider).toHaveAttribute('tabindex', '0');
     expect(divider).toHaveAttribute('aria-valuenow');
-    expect(divider).toHaveAttribute('aria-valuemin', '440');
+    expect(divider).toHaveAttribute('aria-valuemin', '500');
     expect(divider).toHaveAttribute('aria-valuemax');
   });
 

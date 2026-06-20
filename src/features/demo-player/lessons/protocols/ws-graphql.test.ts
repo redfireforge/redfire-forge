@@ -170,7 +170,7 @@ describe('ws-graphql lesson', () => {
 
   // ─── Step: gql-compose ──────────────────────────────────────
 
-  it('step gql-compose has a preAction that navigates to compose tab', async () => {
+  it('step gql-compose has a preAction that navigates to send tab', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-compose')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -178,11 +178,37 @@ describe('ws-graphql lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
   });
 
-  it('step gql-compose action calls ctx.delay (observation pause)', async () => {
+  it('step gql-compose action fills operation name', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-compose')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('gql-operation-name'),
+      'CountdownSub',
+    );
+  });
+
+  it('step gql-compose action fills parameterized query with $start variable', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-compose')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('$start'),
+    );
+  });
+
+  it('step gql-compose action switches to Variables tab and fills JSON', async () => {
+    const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-compose')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('gql-tab-variables'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('gql-variables'),
+      expect.stringContaining('"start"'),
+    );
+    // Returns to Query tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('gql-tab-query'));
   });
 
   it('step gql-compose highlights gql-compose-fields', () => {
@@ -190,16 +216,17 @@ describe('ws-graphql lesson', () => {
     expect(step.highlight).toContain('gql-compose-fields');
   });
 
-  it('step gql-compose description mentions operation name, variables, and op ID', () => {
+  it('step gql-compose description mentions Op. Name, Query, Variables, and parameterized query', () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-compose')!;
-    expect(step.description).toContain('Operation Name');
-    expect(step.description).toContain('Variables');
-    expect(step.description).toContain('Op #');
+    expect(step.description).toContain('Op. Name');
+    expect(step.description).toContain('Query tab');
+    expect(step.description).toContain('Variables tab');
+    expect(step.description).toContain('$start');
   });
 
   // ─── Step: gql-subscribe ────────────────────────────────────
 
-  it('step gql-subscribe has a preAction that navigates to compose and fills the query when connected', async () => {
+  it('step gql-subscribe has a preAction that restores all three fields when connected', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
     expect(typeof step.preAction).toBe('function');
     const ctx = makeCtx();
@@ -209,21 +236,33 @@ describe('ws-graphql lesson', () => {
     document.body.appendChild(dot);
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
+    // Operation name
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('gql-operation-name'),
+      'CountdownSub',
+    );
+    // Parameterized query
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining('countdown'),
+      expect.stringContaining('$start'),
     );
+    // Variables tab + JSON
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('gql-tab-variables'));
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('gql-variables'),
+      expect.stringContaining('"start"'),
+    );
+    // Returns to Query tab
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('gql-tab-query'));
   });
 
-  it('step gql-subscribe preAction connects when not connected before filling compose', async () => {
+  it('step gql-subscribe preAction connects when not connected before restoring fields', async () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
     const ctx = makeCtx();
-    // No STATUS_CONNECTED element → should navigate to connect tab and click connect
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'));
-    // Then should navigate to compose and fill the query
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('countdown'));
   });
@@ -241,9 +280,11 @@ describe('ws-graphql lesson', () => {
     expect(step.highlight).toContain('send-btn');
   });
 
-  it('step gql-subscribe description mentions countdown and next frames', () => {
+  it('step gql-subscribe description mentions subscribe frame, operationName, variables, next, complete', () => {
     const step = wsGraphqlLesson.steps.find(s => s.id === 'gql-subscribe')!;
-    expect(step.description).toContain('countdown');
+    expect(step.description).toContain('subscribe');
+    expect(step.description).toContain('operationName');
+    expect(step.description).toContain('variables');
     expect(step.description).toContain('next');
     expect(step.description).toContain('complete');
   });

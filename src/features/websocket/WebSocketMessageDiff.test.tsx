@@ -109,4 +109,53 @@ describe('WebSocketMessageDiff', () => {
     expect(text).toContain('+++');
     expect(text).toContain('@@ @@');
   });
+
+  it('shows zero size delta label for equal sizes', () => {
+    const sameSizeRight = makeFrame({ data: '{"x":2}', size: 24 });
+    render(<WebSocketMessageDiff left={left} right={sameSizeRight} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(screen.getByTestId('diff-meta-right').textContent).toContain('±0');
+  });
+
+  it('shows negative size delta when right is smaller', () => {
+    const smaller = makeFrame({ data: '{"x":1}', size: 10 });
+    render(<WebSocketMessageDiff left={left} right={smaller} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(screen.getByTestId('diff-meta-right').textContent).toContain('-');
+  });
+
+  it('shows received direction arrows in meta', () => {
+    const recvLeft = makeFrame({ direction: 'received', data: '{"a":1}', size: 10 });
+    const recvRight = makeFrame({ direction: 'received', data: '{"a":2}', size: 10 });
+    render(<WebSocketMessageDiff left={recvLeft} right={recvRight} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(screen.getByTestId('diff-meta-left').textContent).toContain('↓');
+    expect(screen.getByTestId('diff-meta-right').textContent).toContain('↓');
+  });
+
+  it('uses singular structural change label for one JSON diff entry', () => {
+    const addedOnlyLeft = makeFrame({ data: '{"keep":true}', size: 15 });
+    const addedOnlyRight = makeFrame({ data: '{"keep":true,"new":1}', size: 22 });
+    render(<WebSocketMessageDiff left={addedOnlyLeft} right={addedOnlyRight} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(screen.getByTestId('diff-summary').textContent).toContain('1 structural change');
+    expect(screen.getByTestId('diff-summary').textContent).not.toContain('changes');
+  });
+
+  it('renders removed entry values', () => {
+    const before = makeFrame({ data: '{"gone":true,"stay":1}', size: 20 });
+    const after = makeFrame({ data: '{"stay":1}', size: 12 });
+    render(<WebSocketMessageDiff left={before} right={after} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(screen.getByTestId('diff-entries').textContent).toContain('removed');
+  });
+
+  it('does not close on non-Escape keys', () => {
+    const onClose = vi.fn();
+    render(<WebSocketMessageDiff left={left} right={right} onClose={onClose} onSwap={vi.fn()} />);
+    fireEvent.keyDown(screen.getByTestId('diff-overlay'), { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('swallows clipboard write failures', () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<WebSocketMessageDiff left={left} right={right} onClose={vi.fn()} onSwap={vi.fn()} />);
+    expect(() => fireEvent.click(screen.getByTestId('diff-copy'))).not.toThrow();
+  });
 });

@@ -15,6 +15,7 @@ interface LiveDemoProps {
   onSkipReading: () => void;
   onRestart: () => void;
   onExit: () => void;
+  onComplete: () => void;
 }
 
 /** Returns inline style + drag handlers to make an element freely draggable.
@@ -72,6 +73,7 @@ export default function LiveDemo({
   onSkipReading,
   onRestart,
   onExit,
+  onComplete,
 }: LiveDemoProps) {
   const step = lesson.steps[stepIndex];
   const [targetFound, setTargetFound] = useState(false);
@@ -79,6 +81,9 @@ export default function LiveDemo({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const { style: dragStyle, onMouseDown: onDragMouseDown } = useDraggable(panelRef);
+
+  // Auto-close the overview whenever the user advances to a new step
+  useEffect(() => { setOverviewOpen(false); }, [stepIndex]);
 
   // Retry-based spotlight: poll every 100ms for up to 2s
   useEffect(() => {
@@ -131,8 +136,8 @@ export default function LiveDemo({
 
   return (
     <>
-      {/* Spotlight ring on target element */}
-      {targetFound && step.highlight && (
+      {/* Spotlight ring on target element — hidden during preAction to avoid mis-positioned flash */}
+      {targetFound && step.highlight && stepPhase !== 'pre' && (
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 
@@ -214,10 +219,20 @@ export default function LiveDemo({
           >
             ▶
           </button>
+          {isLast && canNavigate && (
+            <button
+              className="demo-live-btn demo-live-complete-btn"
+              onClick={onComplete}
+              title="Mark lesson as complete"
+              aria-label="Complete lesson"
+            >
+              ✓ Complete
+            </button>
+          )}
           <button
             className="demo-live-btn demo-live-exit-btn"
             onClick={onExit}
-            title="Exit (Esc)"
+            title="Close (Esc)"
           >
             ✕
           </button>

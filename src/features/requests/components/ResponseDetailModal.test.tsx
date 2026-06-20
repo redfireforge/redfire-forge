@@ -4,21 +4,17 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResponseDetailModal from './ResponseDetailModal';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
+const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>
+  _makeResult({
     id: 'r1',
-    scenarioId: 's1',
     scenarioName: 'Test Scenario',
-    passed: true,
-    httpStatus: 200,
-    responseTimeMs: 150,
     method: 'GET',
     url: 'http://api.example.com/users',
-    failureDetails: [],
+    responseTimeMs: 150,
     ...overrides,
-  };
-}
+  });
 
 vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   default: ({ children, title }: { children: React.ReactNode; title: string }) => (
@@ -290,7 +286,7 @@ describe('ResponseDetailModal', () => {
         failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
       });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('Validation Failures (1)')).toBeInTheDocument();
+      expect(screen.getByText('Validation Failures')).toBeInTheDocument();
       expect(screen.getByText('$.id')).toBeInTheDocument();
     });
 
@@ -334,7 +330,7 @@ describe('ResponseDetailModal', () => {
         responseBody: '{"result":"ok"}',
       });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
+      expect(screen.getByText('Response Body')).toBeInTheDocument();
     });
 
     it('shows URL in meta row', () => {
@@ -416,7 +412,7 @@ describe('ResponseDetailModal', () => {
     it('handles non-JSON response body gracefully', () => {
       const r = makeResult({ responseBody: 'plain text not json' });
       render(<ResponseDetailModal result={r} onClose={vi.fn()} />);
-      expect(screen.getByText('RESPONSE BODY')).toBeInTheDocument();
+      expect(screen.getByText('Response Body')).toBeInTheDocument();
     });
 
     it('masks authorization header case-insensitively', () => {

@@ -101,11 +101,41 @@ describe('ws-tls-local lesson', () => {
     expect(ctx.click).toHaveBeenCalled();
   });
 
-  it('step 4 (local-tls-ca-intro) action fills CA cert text', async () => {
+  it('step 4 (local-tls-ca-intro) action clears then re-fills CA cert', async () => {
     const ctx = makeCtx();
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro');
     if (step?.action) await step.action(ctx);
-    expect(ctx.fill).toHaveBeenCalled();
+    const calls = vi.mocked(ctx.fill).mock.calls;
+    // First fill clears (empty string), second fill sets the cert
+    expect(calls.some(([, val]) => val === '')).toBe(true);
+    expect(calls.some(([, val]) => val.includes('BEGIN CERTIFICATE'))).toBe(true);
+  });
+
+  it('step 4 (local-tls-ca-intro) preAction fills CA cert when textarea is empty', async () => {
+    const ctx = makeCtx();
+    // Add an empty CA cert textarea to DOM
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'tls-ca-cert');
+    ta.value = '';
+    document.body.appendChild(ta);
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro')!;
+    if (step.preAction) await step.preAction(ctx);
+    // Pre-fill guard fires because textarea is empty
+    expect(vi.mocked(ctx.fill).mock.calls.some(([, val]) => val.includes('BEGIN CERTIFICATE'))).toBe(true);
+    ta.remove();
+  });
+
+  it('step 4 (local-tls-ca-intro) preAction skips fill when CA cert already present', async () => {
+    const ctx = makeCtx();
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-testid', 'tls-ca-cert');
+    ta.value = '-----BEGIN CERTIFICATE-----\nALREADY_SET\n-----END CERTIFICATE-----';
+    document.body.appendChild(ta);
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-ca-intro')!;
+    if (step.preAction) await step.preAction(ctx);
+    // Guard skips because textarea already has a value
+    expect(vi.mocked(ctx.fill).mock.calls.some(([, val]) => val.includes('BEGIN CERTIFICATE'))).toBe(false);
+    ta.remove();
   });
 
   it('step 5 (local-tls-ca-connect) action reconnects with CA cert', async () => {
@@ -123,11 +153,49 @@ describe('ws-tls-local lesson', () => {
     expect(ctx.fill.mock.calls.length + ctx.click.mock.calls.length).toBeGreaterThan(0);
   });
 
-  it('step 7 (local-tls-mtls-creds) fills client cert and key', async () => {
+  it('step 7 (local-tls-mtls-creds) action clears then re-fills client cert and key', async () => {
     const ctx = makeCtx();
     const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds');
     if (step?.action) await step.action(ctx);
-    expect(ctx.fill).toHaveBeenCalled();
+    const calls = vi.mocked(ctx.fill).mock.calls;
+    // Action clears cert and key (empty string) then re-fills both
+    const emptyCount = calls.filter(([, val]) => val === '').length;
+    expect(emptyCount).toBeGreaterThanOrEqual(2);
+    expect(calls.some(([, val]) => val.includes('BEGIN CERTIFICATE'))).toBe(true);
+    expect(calls.some(([, val]) => val.includes('BEGIN RSA PRIVATE KEY') || val.includes('BEGIN PRIVATE KEY'))).toBe(true);
+  });
+
+  it('step 7 (local-tls-mtls-creds) preAction fills client cert and key when empty', async () => {
+    const ctx = makeCtx();
+    // Add empty client cert textarea
+    const certTa = document.createElement('textarea');
+    certTa.setAttribute('data-testid', 'tls-client-cert');
+    certTa.value = '';
+    document.body.appendChild(certTa);
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds')!;
+    if (step.preAction) await step.preAction(ctx);
+    // Pre-fill guard fires because textarea is empty
+    expect(vi.mocked(ctx.fill).mock.calls.some(([, val]) => val.includes('BEGIN CERTIFICATE'))).toBe(true);
+    certTa.remove();
+  });
+
+  it('step 7 (local-tls-mtls-creds) preAction skips fill when client cert already present', async () => {
+    const ctx = makeCtx();
+    // Add a CA cert textarea with a value so the CA cert guard is also satisfied
+    const caTa = document.createElement('textarea');
+    caTa.setAttribute('data-testid', 'tls-ca-cert');
+    caTa.value = '-----BEGIN CERTIFICATE-----\nCA_ALREADY_SET\n-----END CERTIFICATE-----';
+    document.body.appendChild(caTa);
+    const certTa = document.createElement('textarea');
+    certTa.setAttribute('data-testid', 'tls-client-cert');
+    certTa.value = '-----BEGIN CERTIFICATE-----\nALREADY_SET\n-----END CERTIFICATE-----';
+    document.body.appendChild(certTa);
+    const step = wsTlsLocalLesson.steps.find(s => s.id === 'local-tls-mtls-creds')!;
+    if (step.preAction) await step.preAction(ctx);
+    // Both guards skip — no ctx.fill calls at all
+    expect(vi.mocked(ctx.fill).mock.calls.length).toBe(0);
+    caTa.remove();
+    certTa.remove();
   });
 
   it('step 8 (local-tls-mtls-connect) connects with mTLS', async () => {

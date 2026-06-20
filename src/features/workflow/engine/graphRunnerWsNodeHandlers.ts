@@ -16,7 +16,7 @@ import type {
   WsExtractionRule,
 } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag, WsNodeOperations, WsMessageMatchCriteria } from './graphRunnerNodeHandlerContext';
-import type { RequestResult, CapturedWsNodeDetails, WsFailureClass, TransportType } from '../../../shared/types';
+import type { RequestResult, CapturedWsNodeDetails, WsFailureClass, TransportType, WsResultMeta } from '../../../shared/types';
 import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
 import { getByPath } from '../../../shared/utils/jsonPath';
 import { nextResultId } from '../../../engine/requestExecution';
@@ -78,6 +78,12 @@ function captureWsDetails(
   hCtx.capturedWsDetails?.set(nodeId, details);
 }
 
+interface WsResultExtras {
+  requestLog?: { headers: Record<string, string>; body?: string };
+  responseBody?: string;
+  wsResultMeta?: WsResultMeta;
+}
+
 function buildWsResult(
   nodeId: string,
   label: string,
@@ -86,6 +92,7 @@ function buildWsResult(
   durationMs: number,
   passed: boolean,
   errorMessage?: string,
+  extras?: WsResultExtras,
 ): RequestResult {
   return {
     id: nextResultId(),
@@ -95,7 +102,7 @@ function buildWsResult(
     method: transportType === 'wsConnect' ? 'CONNECT' : transportType === 'wsSend' ? 'SEND' : transportType === 'wsTrigger' ? 'TRIGGER' : 'RECEIVE',
     httpStatus: passed ? 200 : 0,
     responseTimeMs: durationMs,
-    responseBody: '',
+    responseBody: extras?.responseBody ?? '',
     timestamp: Date.now(),
     passed,
     validationMode: 'none',
@@ -103,6 +110,8 @@ function buildWsResult(
     workflowNodeId: nodeId,
     transportType,
     errorMessage,
+    requestLog: extras?.requestLog,
+    wsResultMeta: extras?.wsResultMeta,
   };
 }
 
@@ -194,7 +203,27 @@ export async function handleWsConnectNode(
       extensions: result.extensions,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsConnect', resolvedUrl, durationMs, true));
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsConnect', resolvedUrl, durationMs, true, undefined, {
+      requestLog: {
+        headers: hdrEntries.length > 0 ? resolvedHeaders : {},
+        body: JSON.stringify({
+          url: resolvedUrl,
+          connectionId: resolvedConnId ?? '(auto)',
+          ...(resolvedSubprotocols.length > 0 && { subprotocols: resolvedSubprotocols }),
+        }),
+      },
+      responseBody: JSON.stringify({
+        connectionId: resolvedConnId || result.connectionId,
+        protocol: result.protocol,
+        extensions: result.extensions,
+        latencyMs: result.latencyMs,
+      }),
+      wsResultMeta: {
+        url: resolvedUrl,
+        connectionId: resolvedConnId || result.connectionId,
+        protocol: result.protocol,
+      },
+    }));
 
     hCtx.log({ prefix: '✓', text: `[${label}] Connected — ${durationMs}ms` });
     if (result.protocol) {
@@ -215,7 +244,13 @@ export async function handleWsConnectNode(
       failureClass,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsConnect', resolvedUrl, durationMs, false, msg));
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsConnect', resolvedUrl, durationMs, false, msg, {
+      requestLog: {
+        headers: hdrEntries.length > 0 ? resolvedHeaders : {},
+        body: JSON.stringify({ url: resolvedUrl, connectionId: resolvedConnId ?? '(auto)' }),
+      },
+      wsResultMeta: { url: resolvedUrl },
+    }));
 
     hCtx.log({ prefix: '!', text: `[${label}] Connect failed [${failureClass}] — ${durationMs}ms` });
     hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });
@@ -318,7 +353,15 @@ export async function handleWsSendNode(
       bodyPreview,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsSend', connId, durationMs, true));
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsSend', connId, durationMs, true, undefined, {
+      requestLog: { headers: {}, body: resolvedMessage || undefined },
+      responseBody: receivedMsg?.data ?? '',
+      wsResultMeta: {
+        connectionId: connId,
+        messageSize: new TextEncoder().encode(resolvedMessage).length,
+        frameType: receivedMsg?.type,
+      },
+    }));
 
     hCtx.log({ prefix: '✓', text: `[${label}] Sent — ${durationMs}ms` });
     if (receivedMsg) {
@@ -340,7 +383,10 @@ export async function handleWsSendNode(
       bodyPreview: resolvedMessage ? truncate(resolvedMessage, MAX_BODY_PREVIEW) : undefined,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsSend', connId, durationMs, false, msg));
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsSend', connId, durationMs, false, msg, {
+      requestLog: resolvedMessage ? { headers: {}, body: resolvedMessage } : undefined,
+      wsResultMeta: { connectionId: connId },
+    }));
 
     hCtx.log({ prefix: '!', text: `[${label}] Send failed [${failureClass}] — ${durationMs}ms` });
     hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });
@@ -438,7 +484,16 @@ export async function handleWsReceiveNode(
       bodyPreview: receivedMsg.data ? truncate(receivedMsg.data, MAX_BODY_PREVIEW) : undefined,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsReceive', connId, durationMs, true));
+    const hasMatchCriteria = Object.keys(matchCriteria).length > 0;
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsReceive', connId, durationMs, true, undefined, {
+      requestLog: hasMatchCriteria ? { headers: {}, body: JSON.stringify(matchCriteria) } : undefined,
+      responseBody: receivedMsg.data,
+      wsResultMeta: {
+        connectionId: connId,
+        frameType: receivedMsg.type,
+        messageSize: new TextEncoder().encode(receivedMsg.data).length,
+      },
+    }));
 
     const bodyPreview = receivedMsg.data.length > 300 ? receivedMsg.data.slice(0, 300) + '…' : receivedMsg.data;
     hCtx.log({ prefix: '✓', text: `[${label}] Received — ${durationMs}ms` });
@@ -460,7 +515,10 @@ export async function handleWsReceiveNode(
       failureClass,
     });
 
-    hCtx.results.push(buildWsResult(nodeId, label, 'wsReceive', connId, durationMs, false, msg));
+    hCtx.results.push(buildWsResult(nodeId, label, 'wsReceive', connId, durationMs, false, msg, {
+      requestLog: Object.keys(matchCriteria).length > 0 ? { headers: {}, body: JSON.stringify(matchCriteria) } : undefined,
+      wsResultMeta: { connectionId: connId },
+    }));
 
     hCtx.log({ prefix: '!', text: `[${label}] Receive failed [${failureClass}] — ${durationMs}ms` });
     hCtx.log({ prefix: '!', text: `[${label}]   ${msg}` });

@@ -1,0 +1,526 @@
+/**
+ * GraphqlSchemaDiff.test.tsx
+ * @vitest-environment jsdom
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+import { GraphqlSchemaDiff } from './GraphqlSchemaDiff';
+import type { GraphqlSchemaDiffResult, GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+
+function makeChange(overrides: Partial<GraphqlSchemaDiffChange> = {}): GraphqlSchemaDiffChange {
+  return {
+    criticality: 'BREAKING',
+    path: 'Query.users',
+    description: 'Field removed from Query',
+    acknowledged: false,
+    acknowledgeNote: undefined,
+    ...overrides,
+  };
+}
+
+function makeResult(overrides: Partial<GraphqlSchemaDiffResult> = {}): GraphqlSchemaDiffResult {
+  return {
+    changes: [],
+    breakingCount: 0,
+    dangerousCount: 0,
+    safeCount: 0,
+    deprecatedCount: 0,
+    ...overrides,
+  };
+}
+
+const defaultProps = {
+  result: makeResult(),
+  oldSdl: 'type Query { users: [User] }',
+  newSdl: 'type Query { user(id: ID!): User }',
+  oldLabel: 'v1.0 snapshot',
+  newLabel: 'Current schema',
+  onClose: vi.fn(),
+};
+
+// Mock URL and blob APIs
+beforeEach(() => {
+  vi.clearAllMocks();
+  URL.createObjectURL = vi.fn().mockReturnValue('blob:test');
+  URL.revokeObjectURL = vi.fn();
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('GraphqlSchemaDiff', () => {
+  // ─── Rendering ─────────────────────────────────────────────────────────────
+
+  it('renders modal with correct title and labels', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    expect(screen.getByText('Schema Diff')).toBeInTheDocument();
+    expect(screen.getByText('v1.0 snapshot → Current schema')).toBeInTheDocument();
+  });
+
+  it('renders aria-label with old/new labels', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Schema diff: v1.0 snapshot → Current schema');
+  });
+
+  it('shows No changes when result has no changes', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    expect(screen.getByText('No changes')).toBeInTheDocument();
+  });
+
+  it('shows empty state message when no changes', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    expect(screen.getByText('No changes between the two schema versions.')).toBeInTheDocument();
+  });
+
+  // ─── Summary counts ────────────────────────────────────────────────────────
+
+  it('shows breaking count when > 0', () => {
+    const result = makeResult({ breakingCount: 2, changes: [makeChange(), makeChange({ path: 'Mutation.deleteUser' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('2 Breaking')).toBeInTheDocument();
+  });
+
+  it('shows dangerous count', () => {
+    const result = makeResult({ dangerousCount: 1, changes: [makeChange({ criticality: 'DANGEROUS' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('1 Dangerous')).toBeInTheDocument();
+  });
+
+  it('shows safe count', () => {
+    const result = makeResult({ safeCount: 3, changes: [makeChange({ criticality: 'SAFE' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('3 Safe')).toBeInTheDocument();
+  });
+
+  it('shows deprecated count', () => {
+    const result = makeResult({ deprecatedCount: 1, changes: [makeChange({ criticality: 'DEPRECATED' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('1 Deprecated')).toBeInTheDocument();
+  });
+
+  it('does not show breaking count span when breakingCount is 0', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    // The summary span "N Breaking" should not be present (filter tabs still have "Breaking")
+    expect(screen.queryByText(/^\d+ Breaking$/)).not.toBeInTheDocument();
+  });
+
+  // ─── Change rows ───────────────────────────────────────────────────────────
+
+  it('renders change rows', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange({ path: 'Query.users', description: 'Field removed' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('Query.users')).toBeInTheDocument();
+    expect(screen.getByText('Field removed')).toBeInTheDocument();
+    expect(screen.getAllByTestId('gql-diff-row')).toHaveLength(1);
+  });
+
+  it('shows badge with correct criticality label', () => {
+    const result = makeResult({ breakingCount: 1, changes: [makeChange()] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    // Badge is in gql-diff-badge element; filter tabs also have "Breaking" text
+    const badges = document.querySelectorAll('.gql-diff-badge');
+    expect(Array.from(badges).some(b => b.textContent === 'Breaking')).toBe(true);
+  });
+
+  it('shows SAFE badge for safe changes', () => {
+    const result = makeResult({ safeCount: 1, changes: [makeChange({ criticality: 'SAFE' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    const badges = document.querySelectorAll('.gql-diff-badge');
+    expect(Array.from(badges).some(b => b.textContent === 'Safe')).toBe(true);
+  });
+
+  it('shows DANGEROUS badge for dangerous changes', () => {
+    const result = makeResult({ dangerousCount: 1, changes: [makeChange({ criticality: 'DANGEROUS' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    const badges = document.querySelectorAll('.gql-diff-badge');
+    expect(Array.from(badges).some(b => b.textContent === 'Dangerous')).toBe(true);
+  });
+
+  it('shows DEPRECATED badge for deprecated changes', () => {
+    const result = makeResult({ deprecatedCount: 1, changes: [makeChange({ criticality: 'DEPRECATED' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    const badges = document.querySelectorAll('.gql-diff-badge');
+    expect(Array.from(badges).some(b => b.textContent === 'Deprecated')).toBe(true);
+  });
+
+  // ─── Acknowledge button ────────────────────────────────────────────────────
+
+  it('shows Acknowledge button for breaking changes when snapshotId is set', () => {
+    const result = makeResult({ breakingCount: 1, changes: [makeChange()] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onAcknowledge={vi.fn()} />);
+    expect(screen.getByTestId('gql-diff-ack-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-diff-ack-btn')).toHaveTextContent('Acknowledge');
+  });
+
+  it('does NOT show Acknowledge button when snapshotId is undefined', () => {
+    const result = makeResult({ breakingCount: 1, changes: [makeChange()] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.queryByTestId('gql-diff-ack-btn')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show Acknowledge button for non-breaking changes', () => {
+    const result = makeResult({ safeCount: 1, changes: [makeChange({ criticality: 'SAFE' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" />);
+    expect(screen.queryByTestId('gql-diff-ack-btn')).not.toBeInTheDocument();
+  });
+
+  it('toggles ack form on Acknowledge button click', () => {
+    const result = makeResult({ breakingCount: 1, changes: [makeChange()] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onAcknowledge={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('gql-diff-ack-btn'));
+    expect(screen.getByTestId('gql-diff-ack-note')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-diff-ack-btn')).toHaveTextContent('Cancel');
+  });
+
+  it('collapses ack form on second Acknowledge button click (cancel)', () => {
+    const result = makeResult({ breakingCount: 1, changes: [makeChange()] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onAcknowledge={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('gql-diff-ack-btn'));
+    fireEvent.click(screen.getByTestId('gql-diff-ack-btn'));
+    expect(screen.queryByTestId('gql-diff-ack-note')).not.toBeInTheDocument();
+  });
+
+  it('submits acknowledgement on Confirm button click', () => {
+    const onAcknowledge = vi.fn();
+    const result = makeResult({ breakingCount: 1, changes: [makeChange({ path: 'Query.users' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onAcknowledge={onAcknowledge} />);
+    fireEvent.click(screen.getByTestId('gql-diff-ack-btn'));
+    fireEvent.change(screen.getByTestId('gql-diff-ack-note'), { target: { value: 'Intentional' } });
+    fireEvent.click(screen.getByTestId('gql-diff-ack-confirm'));
+    expect(onAcknowledge).toHaveBeenCalledWith('Query.users', 'Intentional');
+  });
+
+  it('submits acknowledgement on Enter key in note input', () => {
+    const onAcknowledge = vi.fn();
+    const result = makeResult({ breakingCount: 1, changes: [makeChange({ path: 'Query.users' })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onAcknowledge={onAcknowledge} />);
+    fireEvent.click(screen.getByTestId('gql-diff-ack-btn'));
+    fireEvent.keyDown(screen.getByTestId('gql-diff-ack-note'), { key: 'Enter' });
+    expect(onAcknowledge).toHaveBeenCalledWith('Query.users', '');
+  });
+
+  // ─── Acknowledged section ──────────────────────────────────────────────────
+
+  it('shows acknowledged section when there are acknowledged changes', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange({ acknowledged: true })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onUnacknowledge={vi.fn()} />);
+    expect(screen.getByTestId('gql-diff-acked-section')).toBeInTheDocument();
+    expect(screen.getByText(/acknowledged \(1\)/i)).toBeInTheDocument();
+  });
+
+  it('expands acknowledged section on click', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange({ acknowledged: true, path: 'Query.acked' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onUnacknowledge={vi.fn()} />);
+    fireEvent.click(screen.getByText(/acknowledged \(1\)/i));
+    expect(screen.getByText('Query.acked')).toBeInTheDocument();
+  });
+
+  it('shows unacknowledge button for acknowledged changes with snapshotId', () => {
+    const onUnacknowledge = vi.fn();
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange({ acknowledged: true })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onUnacknowledge={onUnacknowledge} />);
+    fireEvent.click(screen.getByText(/acknowledged \(1\)/i));
+    expect(screen.getByTestId('gql-diff-unack-btn')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-diff-unack-btn'));
+    expect(onUnacknowledge).toHaveBeenCalledWith('Query.users');
+  });
+
+  it('shows acknowledge note when change has acknowledgeNote', () => {
+    const result = makeResult({
+      changes: [makeChange({ acknowledged: true, acknowledgeNote: 'Intentional' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} snapshotId="snap-1" onUnacknowledge={vi.fn()} />);
+    fireEvent.click(screen.getByText(/acknowledged \(1\)/i));
+    expect(screen.getByText(/intentional/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show unacknowledge button when snapshotId is undefined', () => {
+    const result = makeResult({ changes: [makeChange({ acknowledged: true })] });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    fireEvent.click(screen.getByText(/acknowledged \(1\)/i));
+    expect(screen.queryByTestId('gql-diff-unack-btn')).not.toBeInTheDocument();
+  });
+
+  // ─── Severity filters ──────────────────────────────────────────────────────
+
+  it('renders filter tabs', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /breaking/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /dangerous/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /safe/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /deprecated/i })).toBeInTheDocument();
+  });
+
+  it('filters changes by breaking severity', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      safeCount: 1,
+      changes: [
+        makeChange({ criticality: 'BREAKING', path: 'Query.users' }),
+        makeChange({ criticality: 'SAFE', path: 'Query.newField' }),
+      ],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    fireEvent.click(screen.getByRole('tab', { name: /breaking/i }));
+    expect(screen.getByText('Query.users')).toBeInTheDocument();
+    expect(screen.queryByText('Query.newField')).not.toBeInTheDocument();
+  });
+
+  it('shows "no match" message when filter produces empty results', () => {
+    const result = makeResult({
+      safeCount: 1,
+      changes: [makeChange({ criticality: 'SAFE' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    fireEvent.click(screen.getByRole('tab', { name: /breaking/i }));
+    expect(screen.getByText('No changes matching the selected filter.')).toBeInTheDocument();
+  });
+
+  it('filters by dangerous', () => {
+    const result = makeResult({
+      dangerousCount: 1,
+      breakingCount: 1,
+      changes: [
+        makeChange({ criticality: 'DANGEROUS', path: 'Query.dangerous' }),
+        makeChange({ criticality: 'BREAKING', path: 'Query.breaking' }),
+      ],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    fireEvent.click(screen.getByRole('tab', { name: /dangerous/i }));
+    expect(screen.getByText('Query.dangerous')).toBeInTheDocument();
+    expect(screen.queryByText('Query.breaking')).not.toBeInTheDocument();
+  });
+
+  it('filters by deprecated', () => {
+    const result = makeResult({
+      deprecatedCount: 1,
+      safeCount: 1,
+      changes: [
+        makeChange({ criticality: 'DEPRECATED', path: 'Query.deprecated' }),
+        makeChange({ criticality: 'SAFE', path: 'Query.safe' }),
+      ],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    fireEvent.click(screen.getByRole('tab', { name: /deprecated/i }));
+    expect(screen.getByText('Query.deprecated')).toBeInTheDocument();
+    expect(screen.queryByText('Query.safe')).not.toBeInTheDocument();
+  });
+
+  // ─── Close behavior ────────────────────────────────────────────────────────
+
+  it('calls onClose when Done button clicked', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('gql-diff-done'));
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when backdrop clicked', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('gql-diff-backdrop'));
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onClose when clicking inside modal', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('gql-diff-modal'));
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+  });
+
+  it('calls onClose on Escape key', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up Escape listener on unmount', () => {
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    const { unmount } = render(<GraphqlSchemaDiff {...defaultProps} />);
+    unmount();
+    expect(removeSpy).toHaveBeenCalled();
+  });
+
+  // ─── Export buttons ────────────────────────────────────────────────────────
+
+  it('calls downloadBlob for JSON export', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
+    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
+    fireEvent.click(screen.getByTestId('gql-diff-export-json'));
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    appendSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('calls downloadBlob for HTML export', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
+    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
+    fireEvent.click(screen.getByTestId('gql-diff-export-html'));
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    appendSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('calls downloadBlob for SDL download', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
+    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
+    fireEvent.click(screen.getByTestId('gql-diff-download-sdl'));
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    appendSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('revokes URL after timeout', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
+    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
+    fireEvent.click(screen.getByTestId('gql-diff-export-json'));
+    act(() => vi.advanceTimersByTime(200));
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
+    appendSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  // ─── SDL diff view ─────────────────────────────────────────────────────────
+
+  it('switches to SDL diff view on SDL Diff button click', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const sdlBtn = screen.getAllByText('SDL Diff').find(el => el.tagName === 'BUTTON') ||
+      screen.getByRole('button', { name: 'SDL Diff' });
+    fireEvent.click(sdlBtn!);
+    expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
+  });
+
+  it('hides filter tabs in SDL diff view', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
+
+  it('switches back to changes view', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Changes' }));
+    expect(screen.queryByTestId('gql-diff-sdl-view')).not.toBeInTheDocument();
+    expect(screen.getByText('No changes between the two schema versions.')).toBeInTheDocument();
+  });
+
+  it('renders SDL diff with added and removed lines', () => {
+    render(<GraphqlSchemaDiff
+      {...defaultProps}
+      oldSdl={'type Query {\n  users: [User]\n}'}
+      newSdl={'type Query {\n  user(id: ID!): User\n}'}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
+    // Shows diff lines
+    const addedLines = document.querySelectorAll('.gql-diff-sdl-line--added, .gql-diff-sdl-line--removed');
+    expect(addedLines.length).toBeGreaterThan(0);
+  });
+
+  // ─── Broken items banner ───────────────────────────────────────────────────
+
+  it('shows broken items banner when brokenItemCount > 0', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} brokenItemCount={3} />);
+    expect(screen.getByTestId('gql-diff-broken-banner')).toBeInTheDocument();
+    expect(screen.getByText(/3 collection operations/i)).toBeInTheDocument();
+  });
+
+  it('shows singular "operation" for 1 broken item', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} brokenItemCount={1} />);
+    expect(screen.getByText(/1 collection operation no longer/i)).toBeInTheDocument();
+  });
+
+  it('does not show broken banner when brokenItemCount is 0', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} brokenItemCount={0} />);
+    expect(screen.queryByTestId('gql-diff-broken-banner')).not.toBeInTheDocument();
+  });
+
+  it('hides broken banner in SDL diff view', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} brokenItemCount={3} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.queryByTestId('gql-diff-broken-banner')).not.toBeInTheDocument();
+  });
+
+  // ─── HTML report with acknowledged note ───────────────────────────────────
+
+  it('generates HTML report with acknowledged changes with note', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange({ acknowledged: true, acknowledgeNote: 'Done' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
+    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
+    fireEvent.click(screen.getByTestId('gql-diff-export-html'));
+    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    appendSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  // ─── Filter count display ──────────────────────────────────────────────────
+
+  it('shows filter count spans for non-all filters', () => {
+    const result = makeResult({
+      breakingCount: 2,
+      changes: [makeChange(), makeChange({ path: 'Mutation.delete' })],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    // Filter counts are shown inside the filter buttons
+    const filterBtns = screen.getAllByRole('tab');
+    expect(filterBtns.length).toBe(5); // all, breaking, dangerous, safe, deprecated
+  });
+
+  // ─── Multiple changes visible ──────────────────────────────────────────────
+
+  it('renders multiple change rows', () => {
+    const result = makeResult({
+      breakingCount: 2,
+      safeCount: 1,
+      changes: [
+        makeChange({ path: 'Query.a', description: 'Change A' }),
+        makeChange({ path: 'Query.b', description: 'Change B' }),
+        makeChange({ criticality: 'SAFE', path: 'Query.c', description: 'Change C' }),
+      ],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getAllByTestId('gql-diff-row')).toHaveLength(3);
+  });
+
+  // ─── SDL diff view with identical SDLs ────────────────────────────────────
+
+  it('renders SDL diff for identical SDLs', () => {
+    const sameSdl = 'type Query { hello: String }';
+    render(<GraphqlSchemaDiff {...defaultProps} oldSdl={sameSdl} newSdl={sameSdl} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
+    // With identical SDLs, all lines are unchanged
+    const diffLines = document.querySelectorAll('.gql-diff-sdl-line--unchanged');
+    expect(diffLines.length).toBeGreaterThan(0);
+  });
+
+  it('renders SDL diff fallback for empty old+new SDLs', () => {
+    // Both empty: computeLineDiff('', '') → both have 1 element [''] each
+    render(<GraphqlSchemaDiff {...defaultProps} oldSdl="" newSdl="" />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
+  });
+});

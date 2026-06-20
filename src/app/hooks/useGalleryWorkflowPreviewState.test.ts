@@ -88,6 +88,19 @@ describe('useGalleryWorkflowPreviewState', () => {
     expect(mockSavePreviewSampleId).toHaveBeenCalledWith(null);
   });
 
+  it('handles null folderId in handleTemplatePickFolder (lines 25/30 ??undefined false branches)', () => {
+    mockLoadPreviewSampleId.mockReturnValue('sample-1');
+    const wfHook = makeWfHook();
+    const { result } = renderHook(() => useGalleryWorkflowPreviewState(wfHook));
+    act(() => result.current.handleUseWorkflowAsTemplate(wf({ id: 'sample-1', name: 'Sample: One' })));
+    // Pass null folderId — triggers folderId ?? undefined fallback
+    act(() => result.current.handleTemplatePickFolder(null));
+    expect(wfHook.insert).toHaveBeenCalled();
+    const insertedCopy = (wfHook.insert as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0];
+    // folderId should be undefined (not null)
+    expect(insertedCopy?.folderId).toBeUndefined();
+  });
+
   it('does nothing when picking a folder with no pending import', () => {
     mockLoadPreviewSampleId.mockReturnValue(null);
     const wfHook = makeWfHook();

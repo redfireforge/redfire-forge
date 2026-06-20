@@ -36,6 +36,10 @@ import {
   handleWsSendNode,
   handleWsReceiveNode,
   handleWsTriggerNode,
+  handleGraphqlQueryNode,
+  handleGraphqlSubscriptionNode,
+  handleGraphqlIntrospectNode,
+  handleGraphqlAssertNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
@@ -290,6 +294,14 @@ export async function runGraph(
         await handleWsReceiveNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'wsTrigger') {
         await handleWsTriggerNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlQuery' || node.type === 'graphqlMutation') {
+        await handleGraphqlQueryNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlSubscription') {
+        await handleGraphqlSubscriptionNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlIntrospect') {
+        await handleGraphqlIntrospectNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlAssert') {
+        await handleGraphqlAssertNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }

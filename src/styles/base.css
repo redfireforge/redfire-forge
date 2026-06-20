@@ -18,7 +18,7 @@
   box-shadow: var(--card-shadow);
 }
 .app-header h1 { font-size: 1.1rem; white-space: nowrap; }
-.tab-nav { flex: 0 0 auto; }
+.tab-nav { flex: 0 0 auto; display: flex; gap: 4px; }
 .header-selectors { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .settings-btn { font-size: 1rem; padding: 4px 8px; line-height: 1; }
 .theme-picker {
@@ -626,7 +626,6 @@
 .req-no-sidebar .req-main { flex: 1; }
 
 /* Tabs */
-.tab-nav { display: flex; gap: 4px; }
 .tab {
   background: transparent;
   border: none;
@@ -1637,6 +1636,15 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   cursor: ew-resize;
   z-index: 10;
 }
+.modal-resize-edge-bottom {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 16px;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 10;
+}
 .modal-resize-corner {
   position: absolute;
   bottom: -3px;
@@ -1665,6 +1673,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .modal-no-chrome .modal-expand-btn,
 .modal-no-chrome .ram-modal-close,
 .modal-no-chrome .modal-resize-edge-right,
+.modal-no-chrome .modal-resize-edge-bottom,
 .modal-no-chrome .modal-resize-corner { display: none !important; }
 .modal-no-chrome .ram-header,
 .modal-no-chrome .modal-header { cursor: default; }
@@ -2454,7 +2463,6 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 /* ═══ Variable Panel ═══ */
 
 .var-panel { padding: 8px 0; }
-.var-panel-title { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px; }
 .var-panel-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
 .var-panel-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .var-chip {
@@ -2540,6 +2548,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   cursor: not-allowed;
 }
 .workflow-picker-selector {
+  position: relative;
   margin-bottom: 8px;
 }
 .workflow-picker-select {
@@ -2558,10 +2567,6 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 
 /* ── Custom Searchable Dropdown ──────────────────────── */
-
-.workflow-picker-selector {
-  position: relative;
-}
 
 .wfp-dropdown-trigger {
   width: 100%;
@@ -2780,6 +2785,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--text);
+  margin-bottom: 8px;
 }
 .var-panel-title svg {
   color: var(--primary);
@@ -3637,18 +3643,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .sla-scope-cell { display: flex; flex-direction: column; gap: 4px; }
 .sla-level-select { font-size: 0.8rem; width: 100%; }
 .sla-name-select  { font-size: 0.8rem; width: 100%; }
-/* Scope badge (🔒 This Run / 🔗 Workflow SLA) */
-.sla-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-  letter-spacing: 0.2px;
-}
+/* Scope badge (🔒 This Run / 🔗 Workflow SLA) — full styles defined below */
 .sla-scope-run {
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
@@ -4016,8 +4011,6 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   font-size: 0.82rem; font-weight: 500;
 }
 .sla-defs-toggle:hover { background: rgba(255,255,255,0.06); }
-.sla-chevron { font-size: 0.62rem; color: var(--text-muted); }
-
 .sla-defs-table {
   width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 8px; table-layout: fixed;
 }
@@ -4041,7 +4034,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 /* Scope badges */
 .sla-scope-badge {
   display: inline-block; border-radius: 4px; padding: 2px 8px;
-  font-size: 0.72rem; white-space: nowrap;
+  font-size: 0.72rem; font-weight: 600; white-space: nowrap; letter-spacing: 0.2px;
 }
 .sla-scope-test { background: rgba(96,165,250,0.12); color: #93c5fd; }
 .sla-scope-agg  { background: rgba(168,85,247,0.12); color: #c4b5fd; }

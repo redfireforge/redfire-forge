@@ -53,6 +53,28 @@ export function makeNode(id: string, type: WorkflowNodeType, data: Record<string
   return { id, type, position: { x: 0, y: 0 }, data: { label: type, ...data } };
 }
 
+export function httpNode(id: string, label = id): WorkflowNode {
+  return {
+    id, type: 'http', position: { x: 0, y: 0 },
+    data: {
+      label,
+      scenario: {
+        id, name: label, url: `https://example.com/${id}`,
+        method: 'GET', headers: [], body: '',
+        auth: { type: 'none' }, validation: { mode: 'none' },
+      },
+    },
+  };
+}
+
+export function startNode(id = 'start'): WorkflowNode {
+  return { id, type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start', inputVariables: [] } };
+}
+
+export function endNode(id = 'end'): WorkflowNode {
+  return { id, type: 'end', position: { x: 0, y: 0 }, data: { label: 'End' } };
+}
+
 export function makeEdge(id: string, source: string, target: string, sourceHandle?: string, label?: string): WorkflowEdge {
   return { id, source, target, sourceHandle, label } as WorkflowEdge;
 }

@@ -5,6 +5,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { makeCtx } from './ws-test-utils';
 import { kafkaTestRunnerLesson } from './kafka-test-runner';
 
+vi.mock('../setup-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../setup-helpers')>();
+  return {
+    ...actual,
+    ensureKafkaConnected: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 describe('kafka-test-runner lesson', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
   afterEach(() => {
@@ -54,13 +62,20 @@ describe('kafka-test-runner lesson', () => {
 
   // ─── Setup ──────────────────────────────────────────────────────
 
-  it('setup runs without __wfDeleteByName or __wfInsertWorkflow (no-op window globals)', async () => {
+  it('setup connects via API and seeds workflow', async () => {
     const ctx = makeCtx();
     await kafkaTestRunnerLesson.setup!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
 
-  it('setup calls __wfDeleteByName and __wfInsertWorkflow when available (lines 84-88)', async () => {
+  it('setup calls ensureKafkaConnected before seeding workflow', async () => {
+    const { ensureKafkaConnected } = await import('../setup-helpers');
+    const ctx = makeCtx();
+    await kafkaTestRunnerLesson.setup!(ctx);
+    expect(ensureKafkaConnected).toHaveBeenCalled();
+  });
+
+  it('setup calls __wfDeleteByName and __wfInsertWorkflow when available', async () => {
     const deleteSpy = vi.fn();
     const insertSpy = vi.fn();
     (window as Record<string, unknown>).__wfDeleteByName = deleteSpy;
@@ -147,14 +162,34 @@ describe('kafka-test-runner lesson', () => {
 
   // ─── kr-iterations step ──────────────────────────────────────────
 
-  it('step kr-iterations preAction fills iterations and concurrency inputs (lines 295-305)', async () => {
+  it('step kr-iterations preAction uses DOM traversal to fill labeled inputs', async () => {
+    // Create .resilience-field elements with Iterations and Concurrency labels
+    const makeField = (labelText: string, value = '1') => {
+      const field = document.createElement('div');
+      field.className = 'resilience-field';
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = value;
+      field.appendChild(label);
+      field.appendChild(input);
+      return { field, input };
+    };
+    const { field: iterField, input: iterInput } = makeField('Iterations');
+    const { field: concField, input: concInput } = makeField('Concurrency');
+    document.body.appendChild(iterField);
+    document.body.appendChild(concField);
+
     const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-iterations')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
-    expect(fillCalls.length).toBe(2);
-    expect(fillCalls[0][1]).toBe('3');
-    expect(fillCalls[1][1]).toBe('1');
+
+    expect(iterInput.value).toBe('3');
+    expect(concInput.value).toBe('1');
+
+    document.body.removeChild(iterField);
+    document.body.removeChild(concField);
   });
 
   // ─── kr-dashboard step ───────────────────────────────────────────
@@ -179,6 +214,41 @@ describe('kafka-test-runner lesson', () => {
     await step.action!(ctx);
 
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('step kr-badges preAction switches to Request Details tab and flat groupBy view', async () => {
+    const requestTab = document.createElement('button');
+    requestTab.className = 'results-view-tab';
+    requestTab.textContent = 'Request Details';
+    const tabSpy = vi.fn();
+    requestTab.addEventListener('click', tabSpy);
+    document.body.appendChild(requestTab);
+
+    const groupBySelect = document.createElement('select');
+    const opt = document.createElement('option');
+    opt.value = 'test';
+    groupBySelect.appendChild(opt);
+    const changeSpy = vi.fn();
+    groupBySelect.addEventListener('change', changeSpy);
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'group-by-controls';
+    groupWrap.appendChild(groupBySelect);
+    document.body.appendChild(groupWrap);
+
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-badges')!;
+    await step.preAction!(makeCtx());
+
+    expect(tabSpy).toHaveBeenCalled();
+    expect(changeSpy).toHaveBeenCalled();
+    expect(groupBySelect.value).toBe('test');
+  });
+
+  it('selectKafkaProduceDemo skips click when dropdown item is absent', async () => {
+    const step = kafkaTestRunnerLesson.steps.find((s) => s.id === 'kr-pick')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="workflow-select"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('.wfp-dropdown-panel');
   });
 
   // ─── All remaining step actions ────────────────────────────────

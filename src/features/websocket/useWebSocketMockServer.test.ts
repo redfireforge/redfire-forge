@@ -392,4 +392,120 @@ describe('useWebSocketMockServer', () => {
       }, { timeout: 5000 });
     });
   });
+
+  it('ignores load results after port changes before persistence resolves', async () => {
+    let resolveRules!: (rules: WsMockRule[]) => void;
+    mockedLoadMockRules.mockReturnValue(new Promise((resolve) => { resolveRules = resolve; }));
+    mockedLoadMockConfig.mockResolvedValue(null);
+
+    const { rerender } = renderHook(
+      ({ port }) => useWebSocketMockServer(port, false),
+      { initialProps: { port: 9876 } },
+    );
+
+    rerender({ port: 9877 });
+    await act(async () => {
+      resolveRules([makeMockRule({ id: 'late' })]);
+      await Promise.resolve();
+    });
+  });
+
+  it('pollStatus leaves status unchanged when backend fails while already stopped', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/status')) {
+        return mockFetchNetworkError();
+      }
+      if (typeof url === 'string' && url.includes('/log')) {
+        return mockFetchResponse({ entries: [], cursor: 0 });
+      }
+      return mockFetchResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, unmount } = renderHook(() => useWebSocketMockServer(9876, true));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(result.current.status.running).toBe(false);
+    expect(result.current.status.error).toBeUndefined();
+    unmount();
+  });
+
+  it('truncates polled logs to the most recent 200 entries', async () => {
+    const manyEntries = Array.from({ length: 210 }, (_, i) => ({
+      id: i + 1,
+      ts: new Date().toISOString(),
+      event: 'client-connect' as const,
+      clientId: `c-${i}`,
+    }));
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/status')) {
+        return mockFetchResponse(makeStatus({ running: true }));
+      }
+      if (typeof url === 'string' && url.includes('/log')) {
+        return mockFetchResponse({ entries: manyEntries, cursor: 210 });
+      }
+      return mockFetchResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, unmount } = renderHook(() => useWebSocketMockServer(9876, true));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(result.current.logs.length).toBe(200);
+    unmount();
+  });
+
+  it('start surfaces non-JSON backend responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/start')) {
+        return Promise.resolve({
+          status: 500,
+          json: () => Promise.reject(new Error('not json')),
+        } as Response);
+      }
+      return mockFetchResponse({});
+    }));
+
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
+    await act(async () => { await vi.runAllTimersAsync(); });
+
+    let caught: Error | null = null;
+    await act(async () => {
+      try {
+        await result.current.start();
+      } catch (err) {
+        caught = err as Error;
+      }
+    });
+    expect(caught?.message).toContain('non-JSON response');
+  });
+
+  it('start surfaces unknown mock server errors', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/start')) {
+        return Promise.resolve({
+          status: 200,
+          json: () => Promise.resolve({ ok: false }),
+        } as Response);
+      }
+      return mockFetchResponse({});
+    }));
+
+    const { result } = renderHook(() => useWebSocketMockServer(9876, false));
+    await act(async () => { await vi.runAllTimersAsync(); });
+
+    let caught: Error | null = null;
+    await act(async () => {
+      try {
+        await result.current.start();
+      } catch (err) {
+        caught = err as Error;
+      }
+    });
+    expect(caught?.message).toBe('Unknown mock server error');
+  });
 });

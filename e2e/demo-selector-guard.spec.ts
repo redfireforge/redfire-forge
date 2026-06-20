@@ -8,13 +8,12 @@
  */
 import { test, expect } from '@playwright/test';
 import { WS } from '../src/shared/selectors';
-
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
+import { WS_STUDIO_BASE } from './ws-helpers';
 
 /* ── helpers ─────────────────────────────────────────── */
 
 async function gotoWsStudio(page: import('@playwright/test').Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
   await page.waitForSelector(WS.MODE_CLIENT, { timeout: 5000 });
 }
 

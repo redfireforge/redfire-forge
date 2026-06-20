@@ -153,6 +153,17 @@ describe('WsConnectNode', () => {
     const { container } = render(<WsConnectNode {...nodeProps('wc-9', 'wsConnect', makeData({ connectionId: '' }))} />);
     expect(container.textContent).toContain('ws1');
   });
+
+  it('handles undefined headers array', () => {
+    const data = { ...makeData(), headers: undefined } as WsConnectNodeData;
+    const { container } = render(<WsConnectNode {...nodeProps('wc-10', 'wsConnect', data)} />);
+    expect(container.textContent).not.toContain('header');
+  });
+
+  it('uses fallback label when label is empty', () => {
+    const { container } = render(<WsConnectNode {...nodeProps('wc-11', 'wsConnect', makeData({ label: '' }))} />);
+    expect(container.textContent).toContain('WS Connect');
+  });
 });
 
 // ── WsSendNode ──
@@ -203,6 +214,31 @@ describe('WsSendNode', () => {
     const { getByTestId, container } = render(<WsSendNode {...nodeProps('ws-6', 'wsSend', makeData())} />);
     expect(getByTestId('icon-wsSend')).toBeTruthy();
     expect(container.querySelectorAll('[data-testid^="handle-"]')).toHaveLength(2);
+  });
+
+  it('renders custom label and fallback when empty', () => {
+    const { container: custom } = render(<WsSendNode {...nodeProps('ws-7', 'wsSend', makeData({ label: 'Send Ping' }))} />);
+    expect(custom.textContent).toContain('Send Ping');
+    const { container: fallback } = render(<WsSendNode {...nodeProps('ws-8', 'wsSend', makeData({ label: '' }))} />);
+    expect(fallback.textContent).toContain('WS Send');
+  });
+
+  it('defaults connectionId to ws1 when empty', () => {
+    const { container } = render(<WsSendNode {...nodeProps('ws-9', 'wsSend', makeData({ connectionId: '' }))} />);
+    expect(container.textContent).toContain('ws1');
+  });
+
+  it('applies selected class when selected', () => {
+    const { container: selected } = render(<WsSendNode {...nodeProps('ws-10', 'wsSend', makeData(), true)} />);
+    expect(selected.querySelector('.wf-node-selected')).toBeTruthy();
+    const { container: unselected } = render(<WsSendNode {...nodeProps('ws-11', 'wsSend', makeData())} />);
+    expect(unselected.querySelector('.wf-node-selected')).toBeNull();
+  });
+
+  it('renders category sublabel and configure button', () => {
+    const { container, getByTestId } = render(<WsSendNode {...nodeProps('ws-12', 'wsSend', makeData())} />);
+    expect(container.textContent).toContain('WebSocket');
+    expect(getByTestId('configure')).toBeTruthy();
   });
 });
 
@@ -283,6 +319,54 @@ describe('WsReceiveNode', () => {
     const { container } = render(<WsReceiveNode {...nodeProps('wr-9', 'wsReceive', makeData({ timeoutMs: 0 }))} />);
     expect(container.textContent).not.toContain('Timeout');
   });
+
+  it('shows "any message" when no match criteria is set (all ternary false paths)', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-10', 'wsReceive', makeData({
+      matchCriteria: { messageType: 'any' },
+    }))} />);
+    expect(container.textContent).toContain('any message');
+  });
+
+  it('falls back to ws1 when connectionId is empty', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-11', 'wsReceive', makeData({ connectionId: '' }))} />);
+    expect(container.textContent).toContain('ws1');
+  });
+
+  it('shows jsonPathMatch filter preview', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-12', 'wsReceive', makeData({
+      matchCriteria: { jsonPathMatch: '$.data.type' },
+    }))} />);
+    expect(container.textContent).toContain('$.data.type');
+  });
+
+  it('shows contentRegex filter preview', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-13', 'wsReceive', makeData({
+      matchCriteria: { contentRegex: 'order.*' },
+    }))} />);
+    expect(container.textContent).toContain('/order.*/');
+  });
+
+  it('applies wf-node-selected class when selected=true (line 28 cond-expr true)', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-14', 'wsReceive', makeData(), true)} />);
+    expect(container.querySelector('.wf-node-selected')).toBeTruthy();
+  });
+
+  it('does not apply wf-node-selected class when selected=false (line 28 cond-expr false)', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-15', 'wsReceive', makeData(), false)} />);
+    expect(container.querySelector('.wf-node-selected')).toBeNull();
+  });
+
+  it('falls back to WS Receive label when label is empty (line 32 binary-expr false)', () => {
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-16', 'wsReceive', makeData({ label: '' }))} />);
+    expect(container.textContent).toContain('WS Receive');
+  });
+
+  it('falls back to [] when extractionRules is undefined (line 44 nullish-coalescing false)', () => {
+    const data = { ...makeData(), extractionRules: undefined } as WsReceiveNodeData;
+    const { container } = render(<WsReceiveNode {...nodeProps('wr-17', 'wsReceive', data)} />);
+    // No extraction count shown
+    expect(container.textContent).not.toContain('extraction');
+  });
 });
 
 // ── WsTriggerNode ──
@@ -333,5 +417,20 @@ describe('WsTriggerNode', () => {
   it('renders custom label', () => {
     const { container } = render(<WsTriggerNode {...nodeProps('wt-6', 'wsTrigger', makeData({ label: 'My Trigger' }))} />);
     expect(container.textContent).toContain('My Trigger');
+  });
+
+  it('renders "WS Trigger" fallback when label is empty', () => {
+    const { container } = render(<WsTriggerNode {...nodeProps('wt-7', 'wsTrigger', makeData({ label: '' }))} />);
+    expect(container.textContent).toContain('WS Trigger');
+  });
+
+  it('adds wf-node-selected class when selected=true', () => {
+    const { container } = render(<WsTriggerNode {...nodeProps('wt-8', 'wsTrigger', makeData(), true)} />);
+    expect(container.querySelector('.wf-node-selected')).toBeTruthy();
+  });
+
+  it('does not add wf-node-selected when selected=false', () => {
+    const { container } = render(<WsTriggerNode {...nodeProps('wt-9', 'wsTrigger', makeData(), false)} />);
+    expect(container.querySelector('.wf-node-selected')).toBeNull();
   });
 });

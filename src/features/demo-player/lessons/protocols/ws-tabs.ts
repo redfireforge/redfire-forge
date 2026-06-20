@@ -159,6 +159,15 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       description:
         'Each tab is a fully independent workspace — its own URL, connection state, message log, and built-in mock server. Tab 1 is already running a mock echo server on **:9876**. Let\'s add a second tab and explore the power of per-tab isolation.',
       highlight: WS.CONN_TAB_BAR,
+      // Switch to Mock Server mode so the "already running on :9876" claim in the
+      // description is visually confirmed — viewer sees the green "Running on :9876"
+      // status during the reading pause instead of just the Client connect form.
+      preAction: async (ctx) => {
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(150);
+        await ctx.click(WS.MODE_MOCK);
+        await ctx.delay(300);
+      },
       pauseAfter: true,
     },
 
@@ -186,7 +195,7 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       title: 'Start Tab 2\'s Mock Server on :9877',
       description:
         'Tab 2\'s mock server shows **port 9877**. Click **Start Server** to launch it. Tab 1\'s server on **:9876** is already running in the background — both will operate simultaneously, completely independent.',
-      highlight: WS.MOCK_SERVER_PANEL,
+      highlight: WS.MOCK_START_BTN,
       preAction: async (ctx) => {
         await ensureTwoTabs(ctx);
         await switchToLastTab(ctx);
@@ -194,22 +203,13 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
         await ctx.delay(300);
       },
       action: async (ctx) => {
-        // Start Tab 2's mock server (9877) if not already running
+        // Start Tab 2's mock server (9877) — stay on Tab 2 the whole time so
+        // the spotlight never jumps to Tab 1's panel.
         if (!firstVisibleEl(WS.MOCK_STOP_BTN)) {
-          const startBtn = firstVisibleEl<HTMLButtonElement>(WS.MOCK_START_BTN);
-          if (startBtn && !startBtn.disabled) startBtn.click();
+          await ctx.click(WS.MOCK_START_BTN);
           await ctx.waitFor(WS.MOCK_STOP_BTN, 6000);
         }
-        await ctx.delay(400);
-        // Briefly flip to Tab 1 to show :9876 is ALSO running simultaneously
-        await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(200);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(700);
-        // Return to Tab 2 Mock mode so user sees :9877 in focus
-        await switchToLastTab(ctx);
-        await ctx.click(WS.MODE_MOCK);
-        await ctx.delay(400);
+        await ctx.delay(600);
       },
       verify: WS.MOCK_STOP_BTN,
       pauseAfter: true,
@@ -318,7 +318,11 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       title: 'Tab 1 Mock Server Log — :9876 Recorded It',
       description:
         'Switch to Tab 1\'s **Mock Server** mode and open the **Log** tab. The server recorded every detail: **message-in**, **response-out**, client ID, and timestamp. This is :9876\'s log — Tab 2\'s :9877 log has nothing yet.',
-      highlight: WS.MOCK_LOG,
+      // Highlight the "Server Log" TAB BUTTON — it is always visible in Mock Server
+      // mode (even before the log is opened). WS.MOCK_LOG points to the log content
+      // area which only exists once the tab has been clicked, so using that selector
+      // here would leave the spotlight unable to find an element (📖 Guide badge).
+      highlight: WS.MOCK_TAB_LOG,
       preAction: async (ctx) => {
         await ctx.click(WS.CONN_TAB_FIRST);
         await ctx.delay(150);
@@ -391,14 +395,19 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
         'Click **×** on Tab 2 to close it. Its mock server on **:9877** stops automatically — no orphaned processes. Tab 1 and its **:9876** server are completely unaffected. Connected tabs show a confirmation before closing.',
       highlight: WS.CONN_TAB_LAST,
       preAction: async (ctx) => {
-        // Disconnect Tab 2 first to avoid the confirmation modal blocking the demo
+        // Disconnect Tab 2 first to avoid the confirmation modal blocking the demo.
+        // We must navigate to the Connect sub-tab explicitly because the Disconnect
+        // button only appears there (step 8 left Tab 2 on the Send sub-tab).
+        await ensureTwoTabs(ctx);
         await switchToLastTab(ctx);
         await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(150);
+        await ctx.click(WS.LEFT_TAB_CONNECT); // ensure Disconnect btn is visible
         await ctx.delay(150);
         const disconnectBtn = firstVisibleEl<HTMLButtonElement>(WS.DISCONNECT_BTN);
         if (disconnectBtn && !disconnectBtn.disabled) {
           disconnectBtn.click();
-          await ctx.delay(300);
+          await ctx.delay(400);
         }
         // Switch to Tab 1 so the close button on Tab 2 is visible in the tab bar
         await ctx.click(WS.CONN_TAB_FIRST);

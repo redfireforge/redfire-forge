@@ -66,20 +66,41 @@ describe('kafka-quick-start lesson', () => {
     expect(kafkaQuickStartLesson.dockerCommand).toContain('docker compose up');
   });
 
-  it('has no setup function (starts directly on kafka-settings)', () => {
-    expect(kafkaQuickStartLesson.setup).toBeUndefined();
+  it('has a setup function that cleans stale clusters before starting', () => {
+    expect(typeof kafkaQuickStartLesson.setup).toBe('function');
   });
 
-  it('has a cleanup function that deletes Demo Cluster so restart restores first-time experience', () => {
+  it('setup navigates to kafka-settings and handles empty DOM gracefully', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = '';
+    await expect(kafkaQuickStartLesson.setup!(ctx)).resolves.not.toThrow();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('has a cleanup function', () => {
     expect(typeof kafkaQuickStartLesson.cleanup).toBe('function');
   });
 
-  it('cleanup navigates to kafka-settings and deletes Demo Cluster when present', async () => {
+  it('cleanup navigates to kafka-settings and handles empty DOM gracefully', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = '';
+    await expect(kafkaQuickStartLesson.cleanup!(ctx)).resolves.not.toThrow();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  });
+
+  it('cleanup clicks Edit then Delete when a cluster card exists', async () => {
     const ctx = makeCtx();
 
-    // Simulate DOM: a cluster card, the delete button, and confirm button
+    // Simulate: card div with Edit button inside
     const card = document.createElement('div');
     card.setAttribute('data-testid', 'kafka-cluster-card-demo-cluster');
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'kafka-cluster-card-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn';
+    editBtn.textContent = 'Edit';
+    actionsDiv.appendChild(editBtn);
+    card.appendChild(actionsDiv);
     document.body.appendChild(card);
 
     const deleteBtn = document.createElement('button');
@@ -91,49 +112,57 @@ describe('kafka-quick-start lesson', () => {
     document.body.appendChild(confirmBtn);
 
     await kafkaQuickStartLesson.cleanup!(ctx);
-
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
   });
 
-  it('cleanup is a no-op when no cluster cards exist (already clean)', async () => {
-    const ctx = makeCtx();
-    document.body.innerHTML = ''; // No cluster cards
-    await expect(kafkaQuickStartLesson.cleanup!(ctx)).resolves.not.toThrow();
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
+  it('step ks-intro preAction clears selected class from cluster cards', async () => {
+    const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
+    const card = document.createElement('div');
+    card.className = 'kafka-cluster-card selected';
+    document.body.appendChild(card);
+    await step.preAction!({} as never);
+    expect(card.classList.contains('selected')).toBe(false);
   });
 
-  it('step ks-intro has highlight and no action (informational)', () => {
+  it('step ks-intro has highlight and preAction that clears selected cards', () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-intro')!;
     expect(step.highlight).toContain('kafka-settings-page');
     expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(step.preAction).toBeDefined();
   });
 
-  it('step ks-create action clicks empty-state btn when present (first run)', async () => {
+  it('step ks-create action clicks empty-state btn when present', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-create')!;
     const ctx = makeCtx();
 
     const emptyBtn = document.createElement('button');
     emptyBtn.setAttribute('data-testid', 'kafka-empty-create-btn');
     document.body.appendChild(emptyBtn);
+
+    // Also add a cluster editor element so waitFor succeeds
+    const editor = document.createElement('div');
+    editor.setAttribute('data-testid', 'kafka-cluster-editor');
+    document.body.appendChild(editor);
+
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
-  it('step ks-create is a no-op when clusters already exist (no emptyBtn)', async () => {
-    // On repeat runs the empty-state button is gone (clusters exist).
-    // Falling back to "+ New" would create a duplicate cluster ID and break
-    // subsequent steps, so the action must be a safe no-op.
+  it('step ks-create falls back to add-cluster-btn when empty-state is gone', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-create')!;
     const ctx = makeCtx();
-    document.body.innerHTML = '';
-    // Only the toolbar "+ New" button is in DOM (clusters exist)
+
+    // Only "+ New" button is present (no empty state button)
     const addBtn = document.createElement('button');
     addBtn.setAttribute('data-testid', 'kafka-add-cluster-btn');
     document.body.appendChild(addBtn);
+
+    const editor = document.createElement('div');
+    editor.setAttribute('data-testid', 'kafka-cluster-editor');
+    document.body.appendChild(editor);
+
     await step.action!(ctx);
-    // Must NOT click addBtn and must NOT call delay
-    expect(ctx.delay).not.toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
   it('step ks-create does nothing when no btn is in DOM', async () => {
@@ -143,18 +172,21 @@ describe('kafka-quick-start lesson', () => {
     await step.action!(ctx); // should not throw
   });
 
-  it('step ks-fill action fills the cluster name input', async () => {
+  it('step ks-fill action waits for name input and fills it', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-fill')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith('#kafka-cluster-name', 3000);
     expect(ctx.fill).toHaveBeenCalledWith('#kafka-cluster-name', 'Demo Cluster');
   });
 
-  it('step ks-save action clicks the save button', async () => {
+  it('step ks-save action waits for save button, clicks it, and waits for card', async () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-save')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('kafka-save-cluster-btn'), 3000);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('kafka-save-cluster-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid^="kafka-cluster-card-"]', 3000);
   });
 
   it('step ks-connect action waits for and clicks the connect button', async () => {
@@ -176,15 +208,12 @@ describe('kafka-quick-start lesson', () => {
     document.body.appendChild(connectBtn);
     const ctx = makeCtx();
     await step.action!(ctx);
-    // waitFor is called, but no click
     expect(ctx.waitFor).toHaveBeenCalled();
     expect(ctx.delay).not.toHaveBeenCalledWith(800);
   });
 
   it('step ks-connect verify waits for the Disconnect button (confirms actual connection)', () => {
     const step = kafkaQuickStartLesson.steps.find((s) => s.id === 'ks-connect')!;
-    // Must wait for kafka-disconnect-btn (only rendered when connected), not
-    // kafka-settings-list which is already present the moment a cluster exists.
     expect(step.verify).toContain('kafka-disconnect-btn');
   });
 
@@ -207,4 +236,3 @@ describe('kafka-quick-start lesson', () => {
 });
 
 // ─── K3: kafka-consume ─────────────────────────────────────────────────────
-

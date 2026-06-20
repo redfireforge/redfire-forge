@@ -95,6 +95,19 @@ describe('useWebSocketUptime', () => {
     expect(result.current.uptime).toBeLessThan(2000);
   });
 
+  it('does not update uptime when connectedAtRef is null during tick (line 33 false branch)', () => {
+    const { result } = renderHook(() => useWebSocketUptime());
+    // Start timer without setting connectedAtRef
+    act(() => {
+      result.current.startUptimeTimer();
+    });
+    // Advance timer — connectedAtRef is null, so uptime stays at 0
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current.uptime).toBe(0);
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });

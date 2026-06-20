@@ -782,4 +782,88 @@ describe('WebSocketProxyService', () => {
       }
     });
   });
+
+  describe('branch coverage gaps', () => {
+    it('getConnection reports (none) when connectionId is undefined', () => {
+      const result = service.getStatus({ connectionId: undefined as unknown as string });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain('(none)');
+      }
+    });
+
+    it('connect uses default wss agent for wss URLs without explicit tls config', async () => {
+      const env = await service.connect({
+        url: `wss://127.0.0.1:${TEST_PORT}`,
+        timeoutMs: 500,
+      });
+      expect(env.ok).toBe(false);
+    });
+
+    it('buildTlsAgent sets rejectUnauthorized=false for localhost wss without caCert', () => {
+      const agent = service.buildTlsAgent({}, 'wss://127.0.0.1:8765');
+      expect(agent).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((agent as any).options.rejectUnauthorized).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((agent as any).options.proxy).toBe(false);
+    });
+
+    it('GC closes idle connections after TTL', async () => {
+      vi.useFakeTimers();
+      const gcService = new WebSocketProxyService(100);
+      try {
+        const env = await gcService.connect({ url: `ws://localhost:${TEST_PORT}` });
+        expect(env.ok).toBe(true);
+        await vi.advanceTimersByTimeAsync(IDLE_TTL_MS + GC_INTERVAL_MS + 1000);
+        expect(gcService.getConnectionCount()).toBe(0);
+      } finally {
+        gcService.stopGc();
+        await gcService.disconnectAll();
+        vi.useRealTimers();
+      }
+    });
+
+    it('send failure coerces non-Error throws', async () => {
+      const env = await service.connect({ url: `ws://localhost:${TEST_PORT}` });
+      if (!env.ok) return;
+      const cid = env.data.connectionId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = (service as any).connections.get(cid);
+      handle.ws.send = () => { throw 'send-string-error'; };
+      const result = service.send({ connectionId: cid, data: 'x', type: 'text' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain('send-string-error');
+      }
+    });
+
+    it('ping failure coerces non-Error throws', async () => {
+      const env = await service.connect({ url: `ws://localhost:${TEST_PORT}` });
+      if (!env.ok) return;
+      const cid = env.data.connectionId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = (service as any).connections.get(cid);
+      handle.ws.ping = () => { throw 'ping-string-error'; };
+      const result = service.ping({ connectionId: cid });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain('ping-string-error');
+      }
+    });
+
+    it('records ws error state with non-Error payload', async () => {
+      const env = await service.connect({ url: `ws://localhost:${TEST_PORT}` });
+      if (!env.ok) return;
+      const cid = env.data.connectionId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = (service as any).connections.get(cid);
+      handle.ws.emit('error', 'plain-error');
+      expect(handle.state).toBe('error');
+      expect(handle.lastError).toBe('plain-error');
+    });
+  });
 });
+
+const IDLE_TTL_MS = 5 * 60 * 1000;
+const GC_INTERVAL_MS = 60 * 1000;

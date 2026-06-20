@@ -25,7 +25,7 @@ export function useModalFrame({
   const { expanded, setExpanded, toggleExpand, expandClass } = useModalExpand(initialExpanded, expandMode);
   const dragEnabled = !expanded;
   const { onDragStart, isDragged: rawDragged, overlayStyle: draggedOverlayStyle, modalStyle } = useModalDrag(open && dragEnabled);
-  const { resizeStyle, onRightEdge, onCorner, resetSize } = useModalResize(minWidth, minHeight);
+  const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(minWidth, minHeight);
 
   const isDragged = rawDragged && dragEnabled;
   const overlayStyle = isDragged ? draggedOverlayStyle : undefined;
@@ -46,6 +46,7 @@ export function useModalFrame({
     resizeStyle,
     onRightEdge,
     onCorner,
+    onBottomEdge,
     resetSize,
   } as const;
 }

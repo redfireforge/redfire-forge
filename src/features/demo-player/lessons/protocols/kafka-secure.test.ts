@@ -51,7 +51,7 @@ describe('kafka-secure lesson', () => {
     const step = kafkaSecureLesson.steps.find((s) => s.id === 'sec-auth')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'SCRAM-SHA-256');
+    expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'scram-sha-256');
   });
 
   it('step sec-creds preAction fills username and password', async () => {
@@ -144,6 +144,12 @@ describe('kafka-secure lesson', () => {
     const clickSpy = vi.fn();
     connectBtn.addEventListener('click', clickSpy);
     document.body.appendChild(connectBtn);
+    // Disconnect button starts disabled; poll loop waits for it to become enabled
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
+    disconnectBtn.disabled = true;
+    document.body.appendChild(disconnectBtn);
+    setTimeout(() => { disconnectBtn.disabled = false; }, 100);
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(clickSpy).toHaveBeenCalled();

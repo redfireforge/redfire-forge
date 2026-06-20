@@ -49,6 +49,12 @@ describe('ConsolePanel', () => {
     expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ view: 'raw' }));
   });
 
+  it('toggles back to the structured view', () => {
+    const { onSettingsChange } = renderPanel({ view: 'raw' });
+    fireEvent.click(screen.getByTestId('ws-console-view-structured'));
+    expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ view: 'structured' }));
+  });
+
   it('renders raw timeline lines when view is raw', () => {
     renderPanel({ view: 'raw' });
     expect(screen.getByText('GET / HTTP/1.1')).toBeInTheDocument();
@@ -107,6 +113,39 @@ describe('ConsolePanel', () => {
     expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ autoScroll: false }));
   });
 
+  it('shows auto-scroll checkmark only when enabled', () => {
+    const { unmount } = render(
+      <ConsolePanel
+        entries={entries}
+        settings={{ ...WS_CONSOLE_DEFAULT_SETTINGS, autoScroll: false }}
+        onSettingsChange={vi.fn()}
+        onClear={vi.fn()}
+        variant="ws"
+      />,
+    );
+    expect(screen.getByTestId('ws-console-autoscroll')).toHaveTextContent('Auto-scroll');
+    expect(screen.getByTestId('ws-console-autoscroll')).not.toHaveTextContent('✓');
+    unmount();
+
+    render(
+      <ConsolePanel
+        entries={entries}
+        settings={{ ...WS_CONSOLE_DEFAULT_SETTINGS, autoScroll: true }}
+        onSettingsChange={vi.fn()}
+        onClear={vi.fn()}
+        variant="ws"
+      />,
+    );
+    expect(screen.getByTestId('ws-console-autoscroll')).toHaveTextContent('✓');
+  });
+
+  it('shows no-matching-entries empty state when filters exclude all rows', () => {
+    renderPanel();
+    fireEvent.change(screen.getByTestId('ws-console-search'), { target: { value: 'does-not-exist-xyz' } });
+    expect(screen.getByText('No Matching Entries')).toBeInTheDocument();
+    expect(screen.getByText('🔍')).toBeInTheDocument();
+  });
+
   it('scrolls to the bottom when auto-scroll is enabled', () => {
     // Exercises the auto-scroll effect body (sets scrollTop = scrollHeight).
     renderPanel({ autoScroll: true });
@@ -149,6 +188,34 @@ describe('ConsolePanel', () => {
     // Space collapses it again (covers the Set.delete branch in toggleExpanded).
     fireEvent.keyDown(screen.getByTestId('ws-console-entry-2'), { key: ' ' });
     expect(screen.queryByText(/GET \/ HTTP\/1\.1/)).not.toBeInTheDocument();
+  });
+
+  it('ignores non-toggle keys on expandable rows', () => {
+    renderPanel();
+    const row = screen.getByTestId('ws-console-entry-2');
+    fireEvent.keyDown(row, { key: 'Tab' });
+    expect(screen.queryByText(/GET \/ HTTP\/1\.1/)).not.toBeInTheDocument();
+  });
+
+  it('renders fallback level badge label for unknown levels', () => {
+    const customEntry: WsConsoleEntry = {
+      id: '99',
+      level: 'trace' as WsConsoleEntry['level'],
+      direction: 'info',
+      category: 'system',
+      message: 'trace line',
+      timestamp: new Date().toISOString(),
+    };
+    render(
+      <ConsolePanel
+        entries={[customEntry]}
+        settings={WS_CONSOLE_DEFAULT_SETTINGS}
+        onSettingsChange={vi.fn()}
+        onClear={vi.fn()}
+        variant="ws"
+      />,
+    );
+    expect(screen.getByText('TRACE')).toBeInTheDocument();
   });
 });
 
@@ -213,6 +280,15 @@ describe('ConsolePanel — command line (Phase 10)', () => {
     const input = screen.getByTestId('ws-console-cmd-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'draft' } });
     fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('draft');
+  });
+
+  it('ArrowDown is a no-op when there is no history', () => {
+    const onCommand = vi.fn();
+    renderPanel({}, { onCommand });
+    const input = screen.getByTestId('ws-console-cmd-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'draft' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(input.value).toBe('draft');
   });
 });

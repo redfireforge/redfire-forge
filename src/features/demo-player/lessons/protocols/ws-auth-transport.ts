@@ -242,7 +242,7 @@ export const wsAuthTransportLesson: DemoLesson = {
     {
       id: 'auth-compose-send',
       title: 'Send an Authenticated Message',
-      description: 'Switch to Compose, write a message, and send it. The echo server mirrors it back — proving the authenticated connection works end-to-end.',
+      description: 'Switch to **Send**, write a message, and send it. The echo server mirrors it back — proving the authenticated connection works end-to-end.',
       highlight: WS.LEFT_TAB_SEND,
       preAction: async (ctx) => {
         // Ensure connection is live before attempting to send (handles skip-to-step)

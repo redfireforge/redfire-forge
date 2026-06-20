@@ -498,10 +498,12 @@ test.describe('Live Demo Controls — Regression', () => {
     await selectDomain(page);
     await selectCategory(page, 'WebSocket');
     await openLesson(page, 'Filtering, Diff');
-    const steps = page.locator('.demo-sidebar-item--expandable');
+    // Sidebar renders step nav items with class demo-sidebar-nav-item (includes Concept + all steps)
+    const steps = page.locator('.demo-sidebar-nav-item');
     const count = await steps.count();
-    expect(count).toBeGreaterThan(0);
-    console.log(`[PASS] Sidebar: ${count} step items visible for Filtering lesson`);
+    // Expect at least 2: the Concept item + at least one step
+    expect(count).toBeGreaterThan(1);
+    console.log(`[PASS] Sidebar: ${count} nav items visible for Filtering lesson`);
   });
 
   test('back navigation from lesson returns to lesson list', async ({ page }) => {

@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runGraph, type GraphRunCallbacks } from './graphRunner';
-import { WorkflowNode, WorkflowEdge, SetVariableNodeData, AggregateNodeData, HttpNodeData } from '../types/workflow';
+import { WorkflowNode, WorkflowEdge, SetVariableNodeData, AggregateNodeData } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -31,21 +32,6 @@ function makeCallbacks() {
   };
   const statesFor = (id: string) => states.filter(s => s.id === id && s.state !== 'pending').map(s => s.state);
   return { states, vars, callbacks, statesFor };
-}
-
-function httpNode(id: string, label = 'HTTP'): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      method: 'GET',
-      url: 'https://example.com/api',
-      headers: [],
-      assertions: [],
-    } as HttpNodeData,
-  };
 }
 
 const startNode: WorkflowNode = {

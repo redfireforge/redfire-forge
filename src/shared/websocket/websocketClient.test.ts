@@ -307,4 +307,124 @@ describe('defaultWsTransport', () => {
       expect.stringContaining('"connectionId":"c1"'),
     );
   });
+
+  it('omits body for GET requests', async () => {
+    mockHttpFetch.mockResolvedValue(okResponse('status', { state: 'connected' }));
+
+    await defaultWsTransport({
+      op: 'status',
+      method: 'GET',
+      path: '/api/ws/status',
+      query: { connectionId: 'c1' },
+    });
+
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      '/api/ws/status?connectionId=c1',
+      'GET',
+      { Accept: 'application/json' },
+      undefined,
+    );
+  });
+});
+
+describe('query building edge cases', () => {
+  it('skips null, empty, and non-finite query values', async () => {
+    mockHttpFetch.mockResolvedValue(okResponse('messages', { messages: [], cursor: 0 }));
+
+    await dispatchWsOperation('messages', {
+      connectionId: '  ',
+      sinceCursor: Number.NaN,
+      ignored: null,
+    });
+
+    expect(mockHttpFetch).toHaveBeenCalledWith('/api/ws/messages', 'GET', expect.any(Object), undefined);
+  });
+
+  it('skips non-string non-number query values', async () => {
+    mockHttpFetch.mockResolvedValue(okResponse('messages', { messages: [], cursor: 0 }));
+
+    await dispatchWsOperation('messages', {
+      connectionId: 'abc',
+      sinceCursor: true,
+      flag: { nested: true },
+    });
+
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      expect.stringContaining('connectionId=abc'),
+      'GET',
+      expect.any(Object),
+      undefined,
+    );
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      expect.not.stringContaining('sinceCursor'),
+      'GET',
+      expect.any(Object),
+      undefined,
+    );
+  });
+
+  it('stringifies empty object when POST body is undefined', async () => {
+    mockHttpFetch.mockResolvedValue(okResponse('connect', { connectionId: 'c1' }));
+
+    await defaultWsTransport({
+      op: 'connect',
+      method: 'POST',
+      path: '/api/ws/connect',
+      query: {},
+      body: undefined,
+    });
+
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      '/api/ws/connect',
+      'POST',
+      expect.objectContaining({ 'Content-Type': 'application/json' }),
+      '{}',
+    );
+  });
+
+  it('includes numeric query values when finite', async () => {
+    mockHttpFetch.mockResolvedValue(okResponse('messages', { messages: [], cursor: 5 }));
+
+    await dispatchWsOperation('messages', { connectionId: 'abc', sinceCursor: 5 });
+
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      expect.stringContaining('sinceCursor=5'),
+      'GET',
+      expect.any(Object),
+      undefined,
+    );
+  });
+});
+
+describe('WsClientError defaults', () => {
+  it('uses default code and retryable when options are omitted', () => {
+    const err = new WsClientError('connect', 'boom');
+    expect(err.code).toBe('WS_CLIENT_ERROR');
+    expect(err.retryable).toBe(true);
+    expect(err.name).toBe('WsClientError');
+  });
+});
+
+describe('throwIfWsEnvelopeNotOk fallbacks', () => {
+  it('uses generic fallback when code and message are blank', () => {
+    const envelope: WsEnvelope = {
+      ok: false,
+      op: 'ping',
+      error: { code: '   ', message: '   ' },
+    };
+
+    try {
+      throwIfWsEnvelopeNotOk('ping', envelope);
+      expect.fail('should throw');
+    } catch (e) {
+      const err = e as WsClientError;
+      expect(err.message).toBe('WebSocket ping failed');
+      expect(err.code).toBe('WS_OPERATION_FAILED');
+    }
+  });
+
+  it('parses empty JSON body as empty object envelope failure', async () => {
+    mockHttpFetch.mockResolvedValue({ status: 200, body: '', headers: {} });
+    await expect(dispatchWsOperation('connect', { url: 'ws://x' })).rejects.toThrow(WsClientError);
+  });
 });

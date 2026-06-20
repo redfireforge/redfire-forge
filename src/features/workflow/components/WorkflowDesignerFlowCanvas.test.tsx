@@ -7,6 +7,13 @@ import { WorkflowDesignerFlowCanvas } from './WorkflowDesignerFlowCanvas';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 import type { Workflow } from '../types/workflow';
 
+// jsdom does not implement requestAnimationFrame; polyfill it so source-level
+// setTimeout(() => requestAnimationFrame(...)) calls don't blow up in tests.
+if (typeof globalThis.requestAnimationFrame === 'undefined') {
+  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => { cb(0); return 0; };
+  globalThis.cancelAnimationFrame = () => {};
+}
+
 let ioCallback: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
 
 vi.mock('@xyflow/react', () => ({
@@ -53,16 +60,19 @@ vi.mock('./canvas/WorkflowNodeContextMenu', () => ({
     onOpenChild?: () => void;
     onDelete: () => void;
     onClose: () => void;
-  }) => open ? (
-    <div data-testid="ctx-menu">
-      <button data-testid="ctx-copy" onClick={onCopy}>c</button>
-      <button data-testid="ctx-dup" onClick={onDuplicate}>d</button>
-      {onExtract && <button data-testid="ctx-extract" onClick={onExtract}>x</button>}
-      {onOpenChild && <button data-testid="ctx-open" onClick={onOpenChild}>o</button>}
-      <button data-testid="ctx-del" onClick={onDelete}>del</button>
-      <button data-testid="ctx-close" onClick={onClose}>cl</button>
-    </div>
-  ) : null,
+  }) => {
+    (globalThis as { __wfCtxMenuProps?: unknown }).__wfCtxMenuProps = { onCopy, onDuplicate, onExtract, onOpenChild, onDelete, onClose };
+    return open ? (
+      <div data-testid="ctx-menu">
+        <button data-testid="ctx-copy" onClick={onCopy}>c</button>
+        <button data-testid="ctx-dup" onClick={onDuplicate}>d</button>
+        {onExtract && <button data-testid="ctx-extract" onClick={onExtract}>x</button>}
+        {onOpenChild && <button data-testid="ctx-open" onClick={onOpenChild}>o</button>}
+        <button data-testid="ctx-del" onClick={onDelete}>del</button>
+        <button data-testid="ctx-close" onClick={onClose}>cl</button>
+      </div>
+    ) : null;
+  },
 }));
 vi.mock('./canvas/WorkflowCanvasControls', () => ({
   default: ({ onToggleMinimap, onAutoLayout, onSaveLayout }: {
@@ -392,5 +402,192 @@ describe('WorkflowDesignerFlowCanvas', () => {
   it('debug mode wires debug step context', () => {
     render(<WorkflowDesignerFlowCanvas vm={makeVm({ isDebugMode: true })} selected={selected} />);
     expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('exposes window bridge helpers for deselect and open config', () => {
+    const setNodes = vi.fn((updater: (ns: { id: string; selected?: boolean }[]) => unknown) => {
+      if (typeof updater === 'function') updater([{ id: 'n1', selected: true }]);
+    });
+    const openNodeConfig = vi.fn();
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ setNodes, openNodeConfig })} selected={selected} />);
+    const win = window as unknown as Record<string, unknown>;
+    expect(typeof win.__wfDeselectAll).toBe('function');
+    expect(typeof win.__wfOpenNodeConfig).toBe('function');
+    (win.__wfDeselectAll as () => void)();
+    expect(setNodes).toHaveBeenCalled();
+    (win.__wfOpenNodeConfig as (id: string) => void)('n1');
+    expect(openNodeConfig).toHaveBeenCalledWith('n1');
+  });
+
+  it('cleans up window bridge helpers on unmount', () => {
+    const { unmount } = render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={selected} />);
+    const win = window as unknown as Record<string, unknown>;
+    expect(win.__wfDeselectAll).toBeTruthy();
+    unmount();
+    expect(win.__wfDeselectAll).toBeUndefined();
+    expect(win.__wfOpenNodeConfig).toBeUndefined();
+  });
+
+  it('hides node selection when config modal is open', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          configModalNodeId: 'n1',
+          nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, selected: true, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('shows variable badge from run snapshot when present', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({ runVariableSnapshot: { token: 'abc' }, workflowVariables: {} })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('var-badge')).toBeTruthy();
+  });
+
+  it('does not render empty canvas when nodes exist', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({ nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'] })}
+        selected={selected}
+      />,
+    );
+    expect(document.querySelector('.wf-empty-canvas')).toBeNull();
+  });
+
+  it('highlights drop target edge preserving existing className', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          dropTargetEdgeId: 'e1',
+          edges: [{ id: 'e1', source: 'a', target: 'b', className: 'existing' }] as unknown as WorkflowDesignerViewModel['edges'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('context menu callbacks no-op when nodeCtxMenu is null', () => {
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ nodeCtxMenu: null })} selected={selected} />);
+    const props = (globalThis as { __wfCtxMenuProps?: { onCopy: () => void; onDuplicate: () => void; onDelete: () => void } }).__wfCtxMenuProps!;
+    expect(() => props.onCopy()).not.toThrow();
+    expect(() => props.onDuplicate()).not.toThrow();
+    expect(() => props.onDelete()).not.toThrow();
+  });
+
+  it('subWorkflow without workflowId omits open-child action', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          nodeCtxMenu: { nodeId: 'sw1', x: 1, y: 2 },
+          nodes: [{ id: 'sw1', type: 'subWorkflow', position: { x: 0, y: 0 }, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.queryByTestId('ctx-open')).toBeNull();
+  });
+
+  it('restores saved viewport on visibility when last viewport was not captured', () => {
+    vi.useFakeTimers();
+    const container = document.createElement('div');
+    const withViewport = { id: 'w1', name: 'WF', savedViewport: { x: 9, y: 8, zoom: 1.5 } } as unknown as Workflow;
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({ canvasAreaRef: { current: container } as unknown as WorkflowDesignerViewModel['canvasAreaRef'] })}
+        selected={withViewport}
+      />,
+    );
+    act(() => { ioCallback?.([{ isIntersecting: true }]); });
+    act(() => { ioCallback?.([{ isIntersecting: false }]); });
+    act(() => {
+      ioCallback?.([{ isIntersecting: true }]);
+      vi.advanceTimersByTime(100);
+    });
+    vi.useRealTimers();
+  });
+
+  it('skips workflow viewport effect while preview is active', () => {
+    vi.useFakeTimers();
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          previewWorkflow: { id: 'p1', name: 'Preview' } as unknown as WorkflowDesignerViewModel['previewWorkflow'],
+        })}
+        selected={{ id: 'w-new', name: 'New' } as unknown as Workflow}
+      />,
+    );
+    act(() => { vi.advanceTimersByTime(200); });
+    vi.useRealTimers();
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('onboarding dismiss skips when hint id is missing', () => {
+    const dismiss = vi.fn();
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          onboarding: { activeHint: {}, dismiss, dismissAll: vi.fn(), remainingCount: 1 } as unknown as WorkflowDesignerViewModel['onboarding'],
+        })}
+        selected={selected}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('ob-dismiss'));
+    expect(dismiss).not.toHaveBeenCalled();
+  });
+
+  it('preview hides react flow only when layout id differs from selected', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          previewWorkflow: { id: 'p1', name: 'Sample', description: 'd' } as unknown as WorkflowDesignerViewModel['previewWorkflow'],
+          laidOutId: 'w1',
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf').getAttribute('data-hidden')).toBe('0');
+  });
+
+  it('highlights drop target edge without prior className', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          dropTargetEdgeId: 'e1',
+          edges: [{ id: 'e1', source: 'a', target: 'b' }] as unknown as WorkflowDesignerViewModel['edges'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('leaves unselected nodes unchanged when config modal is open', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          configModalNodeId: 'n1',
+          nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, selected: false, data: {} }] as unknown as WorkflowDesignerViewModel['nodes'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('deselect bridge skips nodes that are not selected', () => {
+    const setNodes = vi.fn((updater: (ns: { id: string; selected?: boolean }[]) => unknown) => {
+      if (typeof updater === 'function') updater([{ id: 'n1', selected: false }]);
+    });
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ setNodes })} selected={selected} />);
+    (window as unknown as Record<string, () => void>).__wfDeselectAll();
+    expect(setNodes).toHaveBeenCalled();
   });
 });

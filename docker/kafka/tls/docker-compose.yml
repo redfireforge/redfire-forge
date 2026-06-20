@@ -71,7 +71,7 @@ services:
 
         for topic in redfireforge.workflow.test orders.created orders.enriched orders.submitted \
                      payments.confirmed orders.approved notifications.email users.avro \
-                     headers.inbound headers.outbound; do
+                     headers.inbound headers.outbound tls.demo.orders; do
           rpk topic create $$topic --partitions 1 \
             -X brokers=redpanda-tls:9092 \
             -X user=admin \

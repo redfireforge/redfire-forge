@@ -1,10 +1,31 @@
 /** Lesson K8: Stream Mode — watch Kafka messages arrive in real time */
-import type { DemoLesson } from '../../types';
+import type { DemoLesson, DemoActionContext } from '../../types';
 import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '../../../../shared/selectors';
 
-/** Topic used for the live stream demo. */
-const STREAM_TOPIC = 'redfireforge.debug.consume';
+/** Topic used for the live stream demo — same topic K2 published to. */
+const STREAM_TOPIC = 'orders.created';
+
+/**
+ * Stream mode setup: ensure cluster is connected, then publish a test message
+ * so the results table is non-empty when the stream starts from `earliest`.
+ */
+async function kafkaStreamModeSetup(ctx: DemoActionContext): Promise<void> {
+  await kafkaPublishSetup(ctx);
+  // Publish one test message so the stream immediately shows a row.
+  await ctx.click(KAFKA.PUBLISH_TAB);
+  await ctx.delay(200);
+  await ctx.fill(KAFKA.PUB_TOPIC_INPUT, STREAM_TOPIC);
+  await ctx.delay(100);
+  await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, '{"streamDemo":true}');
+  await ctx.delay(100);
+  await ctx.click(KAFKA.PUB_SEND_BTN);
+  await ctx.waitFor(KAFKA.PUB_RESULT, 5000);
+  await ctx.delay(300);
+  // Return to Consume tab for the lesson start.
+  await ctx.click(KAFKA.CONSUME_TAB);
+  await ctx.delay(300);
+}
 
 export const kafkaStreamModeLesson: DemoLesson = {
   id: 'kafka-stream-mode',
@@ -20,7 +41,7 @@ export const kafkaStreamModeLesson: DemoLesson = {
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
 
-  setup: kafkaPublishSetup,
+  setup: kafkaStreamModeSetup,
   cleanup: kafkaCleanup,
 
   concept: {
@@ -91,32 +112,34 @@ Key UI elements in Stream mode:
   },
 
   steps: [
-    // Step 1: Navigate to Consume tab and show mode selector
+    // Step 1: Navigate to Consume tab and show the form
     {
       id: 'sm-intro',
       title: 'Stream Mode',
       description:
-        'In the **Consume** tab you\'ll find two mode buttons at the top: **Consume Once** (a bounded batch fetch) and **Stream** (an unbounded live consumer). Stream mode is the diagnostic superpower — use it whenever you need to watch messages arrive in real time.',
-      highlight: KAFKA.CON_MODE_TABS,
+        'The **Consume** tab has a shared form at the top for Topic, Consumer Group, Start Position, and filters. Scroll to the bottom of the form to find two mode buttons: **Consume Once** (a bounded batch fetch) and **Stream** (an unbounded live consumer). Stream mode is the diagnostic superpower — use it whenever you need to watch messages arrive in real time.',
+      highlight: KAFKA.CONSUME_TAB,
       preAction: async (ctx) => {
         await ctx.click(KAFKA.CONSUME_TAB);
         await ctx.delay(300);
       },
     },
 
-    // Step 2: Select Stream mode and set topic
+    // Step 2: Switch to Stream mode, fill topic, set position
     {
       id: 'sm-topic',
-      title: 'Set the Topic',
+      title: 'Switch to Stream Mode & Set Topic',
       description:
-        `Click **Stream** to switch mode. Set the topic to \`${STREAM_TOPIC}\` and the start position to **Latest** — you'll only see new messages from this point forward, which keeps the view clean during live debugging.`,
-      highlight: KAFKA.CON_TOPIC_INPUT,
+        `Scroll down to the mode strip and click **Stream**. Then set **Topic** to \`${STREAM_TOPIC}\` and **Start Position** to **Earliest** — this replays any previously published messages immediately when the stream opens, so you see real rows right away.`,
+      highlight: KAFKA.CON_MODE_TABS,
       preAction: async (ctx) => {
+        // Switch to stream mode
         await ctx.click(KAFKA.CON_MODE_STREAM);
         await ctx.delay(300);
+        // Fill topic and set earliest position
         await ctx.fill(KAFKA.CON_TOPIC_INPUT, STREAM_TOPIC);
         await ctx.delay(200);
-        await ctx.selectOption(KAFKA.CON_POSITION_SELECT, 'latest');
+        await ctx.selectOption(KAFKA.CON_POSITION_SELECT, 'earliest');
         await ctx.delay(200);
       },
     },
@@ -126,11 +149,13 @@ Key UI elements in Stream mode:
       id: 'sm-start',
       title: 'Start Stream',
       description:
-        'Click **Start Stream**. The consumer connects to the broker and the **LIVE badge** appears — a pulsing green dot that confirms messages are being received. Any messages produced to this topic now will appear in the table.',
-      highlight: KAFKA.STREAM_START_BTN,
+        'Scroll down past the mode strip and click **Start Stream**. The consumer connects to the broker and the **LIVE badge** appears — a pulsing green dot that confirms messages are being received. Any messages produced to this topic will appear in the table below.',
+      highlight: KAFKA.STREAM_ACTION_ROW,
       action: async (ctx) => {
         await ctx.click(KAFKA.STREAM_START_BTN);
-        await ctx.delay(800);
+        // Wait for LIVE badge — confirms broker connection established
+        await ctx.waitFor(KAFKA.STREAM_LIVE_BADGE, 8000);
+        await ctx.delay(500);
       },
     },
 
@@ -139,7 +164,7 @@ Key UI elements in Stream mode:
       id: 'sm-live',
       title: 'LIVE Badge & Counter',
       description:
-        'The **LIVE** badge pulses while the stream is active. Next to it, a counter shows how many messages have arrived since the stream started. The counter updates in real time — no refresh needed.',
+        'The **LIVE** badge pulses green while the stream is active. Next to it, a counter shows how many messages have arrived since the stream started. Because setup published a message to `orders.created`, you should see at least **1 message** already in the table below.',
       highlight: KAFKA.STREAM_LIVE_BADGE,
     },
 
@@ -148,7 +173,7 @@ Key UI elements in Stream mode:
       id: 'sm-scroll',
       title: 'Auto-Scroll',
       description:
-        'The results table **auto-scrolls** to the newest row as messages arrive. Scrolling up pauses auto-scroll so you can read earlier messages — a scroll-to-bottom button appears. Scroll back down (or click it) to resume.',
+        'The results table below the LIVE badge **auto-scrolls** to the newest row as messages arrive. Scrolling up pauses auto-scroll so you can read earlier messages — a scroll-to-bottom button appears. Scroll back down (or click it) to resume.',
       highlight: KAFKA.STREAM_RESULTS_ZONE,
     },
 
@@ -157,19 +182,31 @@ Key UI elements in Stream mode:
       id: 'sm-row',
       title: 'Inspect a Streamed Message',
       description:
-        'Click any row to open the **Detail Pane** — the same pane as Consume Once. You get partition, offset, timestamp, key, headers, and formatted payload. The stream continues running in the background while you read.',
+        'The stream table already has the message published during setup. Click any **row** to open the **Detail Pane** on the right — showing partition, offset, timestamp, key, headers, and formatted payload. The stream continues running in the background while you read.',
       highlight: KAFKA.STREAM_RESULTS_ZONE,
+      preAction: async (ctx) => {
+        // Ensure stream mode is active — re-apply in case earlier steps were skipped
+        const streamBtn = document.querySelector<HTMLElement>(KAFKA.CON_MODE_STREAM);
+        if (streamBtn && !streamBtn.classList.contains('active')) {
+          streamBtn.click();
+          await ctx.delay(300);
+        }
+        // Scroll stream results zone into view
+        const zone = document.querySelector<HTMLElement>(KAFKA.STREAM_RESULTS_ZONE);
+        if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(400);
+      },
       action: async (ctx) => {
+        // Click first available stream row
         const row = document.querySelector<HTMLElement>(
-          `${KAFKA.STREAM_RESULTS_ZONE} tr:not([class*="header"]):first-child, ${KAFKA.STREAM_RESULTS_ZONE} [data-testid="stream-row"]:first-child, ${KAFKA.STREAM_RESULTS_ZONE} tbody tr:first-child`,
+          `${KAFKA.STREAM_RESULTS_ZONE} tbody tr`,
         );
         if (row) {
           row.click();
-        } else {
-          await ctx.click(KAFKA.STREAM_RESULTS_ZONE);
+          await ctx.delay(500);
         }
-        await ctx.delay(500);
       },
+      verify: KAFKA.CON_DETAIL_PANE,
     },
 
     // Step 7: Stop the stream
@@ -177,7 +214,7 @@ Key UI elements in Stream mode:
       id: 'sm-stop',
       title: 'Stop Stream',
       description:
-        'Click **Stop Stream** to close the consumer. All messages captured during the session remain in the table — you can continue reading, clicking rows, and filtering. The LIVE badge disappears.',
+        'Click **Stop Stream** to close the consumer. All messages captured during the session remain in the table — you can keep reading, clicking rows, and filtering. The LIVE badge disappears and the **Export Stream** button becomes available.',
       highlight: KAFKA.STREAM_STOP_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.STREAM_STOP_BTN);
@@ -190,7 +227,7 @@ Key UI elements in Stream mode:
       id: 'sm-export',
       title: 'Export Stream',
       description:
-        'Click **Export Stream** to download the full captured session as a JSON file — each entry has partition, offset, timestamp, key, headers, and payload. Import it into any analytics tool or share it with your team for offline analysis.',
+        'Click **Export Stream** to download the captured session as a JSON file — each entry has partition, offset, timestamp, key, headers, and payload. Import it into any analytics tool or share it with your team for offline analysis.',
       highlight: KAFKA.STREAM_EXPORT_BTN,
       action: async (ctx) => {
         await ctx.click(KAFKA.STREAM_EXPORT_BTN);

@@ -7,8 +7,8 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio, switchWsLeftTab, switchWsRightTab } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const SIO_URL = 'ws://localhost:3100/socket.io/?EIO=4&transport=websocket';
 const SIO_HEALTH = 'http://localhost:3100/health';
 
@@ -35,20 +35,8 @@ test.beforeAll(async ({ browser }) => {
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
-
-async function switchLeftTab(page: Page, tab: string) {
-  await page.click(`[data-testid="left-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
-
-async function switchRightTab(page: Page, tab: string) {
-  await page.click(`[data-testid="right-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
+const switchLeftTab = (page: Page, tab: string) => switchWsLeftTab(page, tab);
+const switchRightTab = (page: Page, tab: string) => switchWsRightTab(page, tab);
 
 async function connectToSio(page: Page) {
   await switchLeftTab(page, 'connect');

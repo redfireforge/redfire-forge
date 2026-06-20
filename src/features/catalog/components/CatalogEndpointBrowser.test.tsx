@@ -269,4 +269,124 @@ describe('CatalogEndpointBrowser', () => {
     await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalledWith('entry2'));
     expect(screen.getByText('Other API')).toBeInTheDocument();
   });
+
+  it('disables From Spec when entry has no servers', () => {
+    const entry = makeEntry({ servers: [], folders: [], endpoints: [] });
+    renderBrowser({ entry });
+    expect(screen.getByRole('button', { name: 'From Spec' })).toBeDisabled();
+  });
+
+  it('switches to Custom URL strategy via toolbar button', async () => {
+    const { onHostChange } = renderBrowser({ entry: makeEntry({ folders: [], endpoints: [] }) });
+    await userEvent.click(screen.getByRole('button', { name: 'Custom URL' }));
+    expect(onHostChange).toHaveBeenCalledWith(expect.objectContaining({ strategy: 'hardcoded' }));
+  });
+
+  it('renders entry description when present', () => {
+    const entry = makeEntry({ description: 'API docs for users', folders: [], endpoints: [] });
+    renderBrowser({ entry });
+    expect(screen.getByText('API docs for users')).toBeInTheDocument();
+  });
+
+  it('filters endpoints by method and operationId', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [
+        makeEndpoint({ id: 'ep1', path: '/alpha', method: 'POST', operationId: 'createAlpha' }),
+        makeEndpoint({ id: 'ep2', path: '/beta', method: 'GET', operationId: 'getBeta' }),
+      ],
+    });
+    renderBrowser({ entry });
+    await userEvent.type(screen.getByPlaceholderText('Filter endpoints...'), 'createAlpha');
+    await waitFor(() => {
+      expect(screen.getByText('/alpha')).toBeInTheDocument();
+      expect(screen.queryByText('/beta')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows folder description in tag header', async () => {
+    const entry = makeEntry({
+      folders: [makeFolder({ id: 'f1', name: 'Users', description: 'User ops', endpoints: [makeEndpoint({ id: 'ep1', path: '/users' })] })],
+      endpoints: [],
+    });
+    renderBrowser({ entry });
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(screen.getByText('User ops')).toBeInTheDocument();
+  });
+
+  it('passes coverage map to endpoint cards', async () => {
+    const { getEndpointCoverage } = await import('../utils/coverageChecker');
+    const coverageMap = new Map([['GET /users', { exported: true, count: 1, locations: [] }]]);
+    render(
+      <CatalogEndpointBrowser
+        entry={baseEntry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+        coverageMap={coverageMap}
+      />,
+    );
+    await waitFor(() => expect(getEndpointCoverage).toHaveBeenCalled());
+  });
+
+  it('clears pending save timer when values change rapidly', async () => {
+    vi.useFakeTimers();
+    try {
+      renderBrowser();
+      await vi.waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+      const valsBtn = [...document.querySelectorAll('button')].find(b => b.textContent?.startsWith('vals-'))!;
+      fireEvent.click(valsBtn);
+      vi.advanceTimersByTime(200);
+      fireEvent.click(valsBtn);
+      vi.advanceTimersByTime(700);
+      expect(saveCatalogEndpointValues).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows microservice env option with auth profile but no base URL', async () => {
+    const svc: Microservice = {
+      id: 'svc1',
+      name: 'Svc',
+      baseUrls: {},
+      authProfileIds: { e1: 'profile1' },
+      customEnvs: [{ id: 'e1', name: 'Auth Only' }],
+    };
+    const entry = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e1' }),
+      folders: [],
+      endpoints: [],
+    });
+    render(
+      <CatalogEndpointBrowser
+        entry={entry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+        appMicroservices={[svc]}
+      />,
+    );
+    expect(screen.getByText(/Auth Only \(no base URL\)/)).toBeInTheDocument();
+  });
+
+  it('highlights authorize button when auth is configured', () => {
+    renderBrowser({ auth: { type: 'bearer', token: 'secret-token-value' } });
+    expect(document.querySelector('.ceb-auth-btn.active')).toBeTruthy();
+  });
+
+  it('cancels stale endpoint value load when entry id changes quickly', async () => {
+    let resolveLoad: (v: Record<string, unknown>) => void = () => {};
+    loadCatalogEndpointValues.mockImplementation(() => new Promise((r) => { resolveLoad = r; }));
+    const { rerender } = render(
+      <CatalogEndpointBrowser entry={baseEntry} auth={noAuth} onAuthChange={vi.fn()} onHostChange={vi.fn()} />,
+    );
+    const entry2 = makeEntry({ id: 'entry2', name: 'Late API', folders: [], endpoints: [] });
+    rerender(
+      <CatalogEndpointBrowser entry={entry2} auth={noAuth} onAuthChange={vi.fn()} onHostChange={vi.fn()} />,
+    );
+    resolveLoad({ ep1: { params: {}, headers: {}, body: '' } });
+    await waitFor(() => expect(screen.getByText('Late API')).toBeInTheDocument());
+  });
 });

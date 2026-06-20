@@ -2,15 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { promoteToFeatureGroups, batchPromoteCollection } from './promoteToHarness';
 import type { FeatureGroup, RequestCollection, Scenario } from '../../../shared/types';
 import type { PromotionContext } from './requestToScenario';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
-function makeScenario(overrides?: Partial<Scenario>): Scenario {
-  return {
-    id: 'test-1', name: 'Get Users', url: 'https://api.example.com/users',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
+const makeScenario = (overrides?: Partial<Scenario>): Scenario =>
+  _makeScenario({ id: 'test-1', name: 'Get Users', ...overrides });
 
 function makeGroups(): FeatureGroup[] {
   return [

@@ -1,5 +1,4 @@
 /* JSON Path Builder */
-.json-path-builder {}
 
 /* Fetch host override */
 .fetch-host-override-row {
@@ -144,8 +143,6 @@
   font-size: 0.82rem;
 }
 
-.json-tree-node {}
-
 .json-tree-row {
   display: flex;
   align-items: center;
@@ -183,8 +180,6 @@
 }
 .json-tree-row:hover .json-tree-path { opacity: 1; }
 
-.json-tree-children {}
-
 /* Generated rules summary */
 .jpb-summary { margin-top: 4px; }
 .kv-header-left { display: flex; align-items: center; gap: 12px; }
@@ -209,11 +204,11 @@
   border: 1px solid var(--border);
   text-align: left;
 }
-.jpb-rules-table th { white-space: nowrap; }
 .jpb-rules-table th {
   background: var(--bg);
   color: var(--accent);
   font-weight: 600;
+  white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 1;
