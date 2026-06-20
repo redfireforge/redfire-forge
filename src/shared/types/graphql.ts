@@ -95,6 +95,8 @@ export interface GraphqlResponse {
   latencyMs: number;
   httpStatus: number;
   httpHeaders: Record<string, string>;
+  /** Outgoing request headers sent with this operation (auth + custom, env-resolved). */
+  requestHeaders?: Record<string, string>;
   timestamp: number;
   // Sprint 7 (2D) — incremental delivery metadata
   /** true while a multipart/mixed stream is still delivering chunks */

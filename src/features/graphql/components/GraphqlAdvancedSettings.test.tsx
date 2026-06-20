@@ -20,6 +20,12 @@ function makeValues(overrides: Partial<AdvancedSettingsValues> = {}): AdvancedSe
     dedupEnabled: false,
     complexityBlockEnabled: false,
     complexityBlockThreshold: 1000,
+    subscriptionTransport: 'auto',
+    sseMode: 'distinct',
+    wsEndpointOverride: '',
+    historyMaxItems: 100,
+    subscriptionBufferSize: 5000,
+    maxFileSizeMb: 50,
     ...overrides,
   };
 }
@@ -300,5 +306,79 @@ describe('GraphqlAdvancedSettings', () => {
     const checkbox = screen.getByLabelText('Enable complexity gate');
     fireEvent.click(checkbox);
     expect(props.onChange).toHaveBeenCalledWith({ complexityBlockEnabled: true });
+  });
+
+  // ── Transport Tab ───────────────────────────────────────────────────────────
+
+  it('renders Transport and Limits tabs', () => {
+    renderSettings();
+    expect(screen.getByRole('tab', { name: /Transport/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Limits/i })).toBeInTheDocument();
+  });
+
+  it('calls onChange with subscriptionTransport when transport select changes', () => {
+    const { props } = renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /Transport/i }));
+    fireEvent.change(screen.getByLabelText('Subscription transport protocol'), { target: { value: 'graphql-ws' } });
+    expect(props.onChange).toHaveBeenCalledWith({ subscriptionTransport: 'graphql-ws' });
+  });
+
+  it('shows SSE mode radios when subscription transport is sse', () => {
+    renderSettings({ values: makeValues({ subscriptionTransport: 'sse', sseMode: 'distinct' }) });
+    fireEvent.click(screen.getByRole('tab', { name: /Transport/i }));
+    expect(screen.getByDisplayValue('distinct')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('single')).toBeInTheDocument();
+  });
+
+  it('updates sseMode and wsEndpointOverride in transport tab', () => {
+    const { props } = renderSettings({ values: makeValues({ subscriptionTransport: 'sse', sseMode: 'distinct' }) });
+    fireEvent.click(screen.getByRole('tab', { name: /Transport/i }));
+
+    fireEvent.click(screen.getByDisplayValue('single'));
+    fireEvent.change(screen.getByLabelText('WebSocket endpoint override'), { target: { value: 'wss://ws.example.com/graphql' } });
+
+    expect(props.onChange).toHaveBeenCalledWith({ sseMode: 'single' });
+    expect(props.onChange).toHaveBeenCalledWith({ wsEndpointOverride: 'wss://ws.example.com/graphql' });
+  });
+
+  // ── Limits Tab ──────────────────────────────────────────────────────────────
+
+  it('updates limits with valid values', () => {
+    const { props } = renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /Limits/i }));
+
+    fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: '250' } });
+    fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '9000' } });
+    fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '80' } });
+
+    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 250 });
+    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 9000 });
+    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 80 });
+  });
+
+  it('applies fallback defaults for invalid limit values', () => {
+    const { props } = renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /Limits/i }));
+
+    fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '0' } });
+
+    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 100 });
+    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 5000 });
+    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 50 });
+  });
+
+  it('clamps limits to their max bounds', () => {
+    const { props } = renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /Limits/i }));
+
+    fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: '999' } });
+    fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '99999' } });
+    fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '999' } });
+
+    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 500 });
+    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 10000 });
+    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 100 });
   });
 });

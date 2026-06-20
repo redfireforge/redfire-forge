@@ -7,6 +7,13 @@ import { WorkflowDesignerFlowCanvas } from './WorkflowDesignerFlowCanvas';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 import type { Workflow } from '../types/workflow';
 
+// jsdom does not implement requestAnimationFrame; polyfill it so source-level
+// setTimeout(() => requestAnimationFrame(...)) calls don't blow up in tests.
+if (typeof globalThis.requestAnimationFrame === 'undefined') {
+  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => { cb(0); return 0; };
+  globalThis.cancelAnimationFrame = () => {};
+}
+
 let ioCallback: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
 
 vi.mock('@xyflow/react', () => ({

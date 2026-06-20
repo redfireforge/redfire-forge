@@ -34,6 +34,9 @@ import { kafkaWorkflowConsumeWaitLesson } from './protocols/kafka-workflow-consu
 import { kafkaSecureLesson } from './protocols/kafka-secure';
 import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
+import { gqlFirstQueryLesson, gqlVariablesLesson, gqlMutationsLesson, gqlSchemaLesson, gqlSubscriptionsLesson, gqlAuthHeadersLesson, gqlQueryBuilderLesson, gqlCollectionsHistoryLesson, gqlExportShareLesson, gqlPerformanceTracingLesson, gqlWorkflowIntegrationLesson, gqlSchemaDiffLesson, gqlMockServerLesson } from './protocols/graphql-lessons';
+
+const graphqlLessons = [gqlFirstQueryLesson, gqlVariablesLesson, gqlMutationsLesson, gqlSchemaLesson, gqlSubscriptionsLesson, gqlAuthHeadersLesson, gqlQueryBuilderLesson, gqlCollectionsHistoryLesson, gqlExportShareLesson, gqlPerformanceTracingLesson, gqlWorkflowIntegrationLesson, gqlSchemaDiffLesson, gqlMockServerLesson];
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -41,14 +44,15 @@ export const protocolsDomain: DemoDomain = {
   id: 'protocols',
   name: 'Protocols',
   icon: '📡',
-  description: 'Master WebSocket, SSE, and Kafka real-time protocols.',
+  description: 'Master WebSocket, SSE, Kafka, and GraphQL real-time protocols.',
   available: true,
   categories: [
     { id: 'kafka',     label: 'Kafka',     icon: '📨' },
     { id: 'websocket', label: 'WebSocket', icon: '🔌' },
     { id: 'sse',       label: 'SSE',       icon: '📡' },
+    { id: 'graphql',   label: 'GraphQL',   icon: '◈' },
   ],
-  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons],
 };
 
 export const apiDomain: DemoDomain = {

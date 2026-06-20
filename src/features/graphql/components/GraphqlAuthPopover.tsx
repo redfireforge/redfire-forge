@@ -256,6 +256,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
           className="gql-auth-popover-close"
           onClick={() => { anchorRef?.current?.focus(); onClose(); }}
           aria-label="Close authentication settings"
+          data-testid="gql-auth-popover-close"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -388,7 +389,7 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <code className="gql-auth-preview">{preview()}</code>
+        <code className="gql-auth-preview" data-testid="gql-auth-preview">{preview()}</code>
       </div>
     </div>
   );

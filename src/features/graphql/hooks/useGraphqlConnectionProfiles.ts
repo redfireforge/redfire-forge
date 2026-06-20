@@ -10,24 +10,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { writeKey } from '../../../shared/utils/storage';
+import {
+  GQL_PROFILES_STORAGE_KEY,
+  readConnectionProfiles,
+  type ConnectionProfile,
+} from '../utils/connectionProfileStorage';
 
-const PROFILES_KEY = 'gql_profiles_v1';
-
-// ─── Type ─────────────────────────────────────────────────────────────────────
-
-export interface ConnectionProfile {
-  id: string;
-  name: string;
-  endpoint: string;
-  auth: GraphqlAuth | null;
-  createdAt: number;
-}
-
-// ─── Persistence helpers ──────────────────────────────────────────────────────
+export type { ConnectionProfile } from '../utils/connectionProfileStorage';
 
 function persistProfiles(profiles: ConnectionProfile[]): void {
-  writeKey(PROFILES_KEY, JSON.stringify(profiles)).catch(() => { /* quota exceeded — silent */ });
+  writeKey(GQL_PROFILES_STORAGE_KEY, JSON.stringify(profiles)).catch(() => { /* quota exceeded — silent */ });
 }
 
 function generateId(): string {
@@ -51,21 +44,9 @@ export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResu
 
   // Load from storage on mount
   useEffect(() => {
-    readKey(PROFILES_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (!Array.isArray(parsed)) return;
-        setProfiles(parsed.filter(
-          (p): p is ConnectionProfile =>
-            p !== null &&
-            typeof p === 'object' &&
-            typeof (p as Record<string, unknown>).id === 'string' &&
-            typeof (p as Record<string, unknown>).name === 'string' &&
-            typeof (p as Record<string, unknown>).endpoint === 'string',
-        ));
-      } catch { /* corrupt data — ignore */ }
-    }).catch(() => { /* storage unavailable */ });
+    readConnectionProfiles()
+      .then(setProfiles)
+      .catch(() => { /* storage unavailable */ });
   }, []);
 
   const saveProfile = useCallback((

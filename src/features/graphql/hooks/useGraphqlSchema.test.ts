@@ -641,3 +641,18 @@ describe('useGraphqlSchema — unmount cleanup', () => {
     // No errors thrown — test passes
   });
 });
+
+describe('useGraphqlSchema — StrictMode remount', () => {
+  it('updates state after StrictMode remount (mountedRef reset on mount)', async () => {
+    const schema = makeSchemaInfo({ types: [{ name: 'Query', kind: 'OBJECT', fields: [], description: null, enumValues: [], inputFields: [], possibleTypes: [], isBuiltIn: false }] });
+    mockGqlFetch.mockResolvedValue(makeGqlFetchSuccess());
+    mockParseIntrospection.mockReturnValue(schema);
+
+    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT), { reactStrictMode: true });
+
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+    expect(result.current.schemaInfo).toEqual(schema);
+  });
+});

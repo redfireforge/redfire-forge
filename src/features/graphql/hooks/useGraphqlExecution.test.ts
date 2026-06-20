@@ -1356,6 +1356,21 @@ describe('useGraphqlExecution — unmount cleanup', () => {
 
     // No crash — test passes if no error is thrown
   });
+
+  it('updates state after StrictMode remount (mountedRef reset on mount)', async () => {
+    vi.mocked(gqlFetch).mockResolvedValue(makeSuccessResponse());
+
+    const { result } = renderHook(() => useGraphqlExecution(), { reactStrictMode: true });
+
+    act(() => { result.current.execute(baseParams()); });
+
+    await act(async () => {
+      await new Promise<void>((r) => setTimeout(r, 0));
+    });
+
+    expect(result.current.status).toBe('success');
+    expect(result.current.response?.data).toEqual({ user: { id: '1', name: 'Alice' } });
+  });
 });
 
 // ─── Incremental + skipTlsVerify path ─────────────────────────────────────────

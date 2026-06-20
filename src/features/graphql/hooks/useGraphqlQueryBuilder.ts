@@ -23,6 +23,36 @@ export type FieldPath = string;
  */
 export type BuilderArgValues = Record<FieldPath, Record<string, string>>;
 
+/**
+ * Directive configuration for a single directive on a single field.
+ * `ifVar` holds the condition expression — a {{varRef}} / $varRef pattern
+ * or a bare `true`/`false` literal.
+ */
+export interface BuilderDirective {
+  enabled: boolean;
+  /** Condition expression: "{{showOrders}}", "$showOrders", "true", or "false". */
+  ifVar: string;
+}
+
+/** Per-field directive config — supports @include and @skip. */
+export interface BuilderFieldDirectives {
+  include?: BuilderDirective;
+  skip?: BuilderDirective;
+}
+
+/** A named GraphQL fragment defined in the builder. */
+export interface BuilderFragment {
+  /** Fragment name — must be a valid GraphQL identifier. */
+  name: string;
+  /** The GraphQL type this fragment spreads on, e.g. "User". */
+  onType: string;
+  /**
+   * Dot-paths (relative to the root type) that form the fragment body.
+   * The generator will render them as a selection set.
+   */
+  fieldPaths: FieldPath[];
+}
+
 export interface BuilderState {
   operationType:  'query' | 'mutation' | 'subscription';
   operationName:  string;
@@ -43,6 +73,27 @@ export interface BuilderState {
   expandedPaths:  ReadonlySet<string>;
   /** Free-text search query for 2F-5 schema search. */
   searchQuery:    string;
+  /**
+   * Per-field alias names.  Key = dot-path, value = alias string.
+   * Generated SDL: `alias: fieldName { ... }`.
+   */
+  fieldAliases: Record<FieldPath, string>;
+  /**
+   * Per-field directive config.  Key = dot-path, value = directive map.
+   * Applied after the field name + arg clause in the generated SDL.
+   */
+  fieldDirectives: Record<FieldPath, BuilderFieldDirectives>;
+  /**
+   * Named fragment definitions.  Key = fragment name (must be a valid GQL identifier).
+   * Emitted at the end of the generated document after the main operation.
+   */
+  fragments: Record<string, BuilderFragment>;
+  /**
+   * Fragment spreads: top-level fragment names that are spread at the root of the
+   * main operation selection set.  Each entry emits `...FragmentName` in the
+   * operation body.
+   */
+  activeFragmentSpreads: string[];
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -58,6 +109,13 @@ type BuilderAction =
   | { type: 'EXPAND_PATH';       path: FieldPath }
   | { type: 'COLLAPSE_PATH';     path: FieldPath }
   | { type: 'SET_SEARCH';        query: string }
+  | { type: 'SET_ALIAS';         path: FieldPath; alias: string }
+  | { type: 'SET_DIRECTIVE';     path: FieldPath; which: 'include' | 'skip'; enabled: boolean; ifVar: string }
+  | { type: 'REMOVE_DIRECTIVE';  path: FieldPath; which: 'include' | 'skip' }
+  | { type: 'ADD_FRAGMENT';      fragment: BuilderFragment }
+  | { type: 'UPDATE_FRAGMENT';   name: string; patch: Partial<Omit<BuilderFragment, 'name'>> }
+  | { type: 'REMOVE_FRAGMENT';   name: string }
+  | { type: 'TOGGLE_SPREAD';     name: string }
   | { type: 'RESET' };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
@@ -69,6 +127,10 @@ const INITIAL_STATE: BuilderState = {
   argValues:      {},
   expandedPaths:  new Set<string>(),
   searchQuery:    '',
+  fieldAliases:   {},
+  fieldDirectives: {},
+  fragments:       {},
+  activeFragmentSpreads: [],
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -159,6 +221,80 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     case 'SET_SEARCH':
       return { ...state, searchQuery: action.query };
 
+    case 'SET_ALIAS': {
+      const nextAliases = { ...state.fieldAliases };
+      if (action.alias.trim() === '') {
+        delete nextAliases[action.path];
+      } else {
+        nextAliases[action.path] = action.alias.trim();
+      }
+      return { ...state, fieldAliases: nextAliases };
+    }
+
+    case 'SET_DIRECTIVE': {
+      const existing = state.fieldDirectives[action.path] ?? {};
+      const updated: BuilderFieldDirectives = {
+        ...existing,
+        [action.which]: { enabled: action.enabled, ifVar: action.ifVar },
+      };
+      return {
+        ...state,
+        fieldDirectives: { ...state.fieldDirectives, [action.path]: updated },
+      };
+    }
+
+    case 'REMOVE_DIRECTIVE': {
+      const existing = state.fieldDirectives[action.path];
+      if (!existing) return state;
+      const updated = { ...existing };
+      delete updated[action.which];
+      const nextDirectives = { ...state.fieldDirectives };
+      if (Object.keys(updated).length === 0) {
+        delete nextDirectives[action.path];
+      } else {
+        nextDirectives[action.path] = updated;
+      }
+      return { ...state, fieldDirectives: nextDirectives };
+    }
+
+    case 'ADD_FRAGMENT': {
+      // Overwrite if same name already exists
+      return { ...state, fragments: { ...state.fragments, [action.fragment.name]: action.fragment } };
+    }
+
+    case 'UPDATE_FRAGMENT': {
+      const existing = state.fragments[action.name];
+      if (!existing) return state;
+      return {
+        ...state,
+        fragments: {
+          ...state.fragments,
+          [action.name]: { ...existing, ...action.patch },
+        },
+      };
+    }
+
+    case 'REMOVE_FRAGMENT': {
+      const next = { ...state.fragments };
+      delete next[action.name];
+      // Also remove from spreads if present
+      return {
+        ...state,
+        fragments: next,
+        activeFragmentSpreads: state.activeFragmentSpreads.filter((n) => n !== action.name),
+      };
+    }
+
+    case 'TOGGLE_SPREAD': {
+      const active = state.activeFragmentSpreads.includes(action.name);
+      return {
+        ...state,
+        activeFragmentSpreads: active
+          ? state.activeFragmentSpreads.filter((n) => n !== action.name)
+          : [...state.activeFragmentSpreads, action.name],
+      };
+    }
+
     case 'RESET':
       return {
         ...INITIAL_STATE,
@@ -185,6 +321,13 @@ export interface UseGraphqlQueryBuilderResult {
   expandPath:        (path: FieldPath) => void;
   collapsePath:      (path: FieldPath) => void;
   setSearchQuery:    (query: string) => void;
+  setFieldAlias:     (path: FieldPath, alias: string) => void;
+  setFieldDirective: (path: FieldPath, which: 'include' | 'skip', enabled: boolean, ifVar: string) => void;
+  removeFieldDirective: (path: FieldPath, which: 'include' | 'skip') => void;
+  addFragment:       (fragment: BuilderFragment) => void;
+  updateFragment:    (name: string, patch: Partial<Omit<BuilderFragment, 'name'>>) => void;
+  removeFragment:    (name: string) => void;
+  toggleSpread:      (name: string) => void;
   reset:             () => void;
 
   // Derived: number of selected leaf fields
@@ -195,6 +338,12 @@ export interface UseGraphqlQueryBuilderResult {
   argsCount:         number;
   // Derived: number of auto-generated variables
   variablesCount:    number;
+  // Derived: number of fields with a non-empty alias
+  aliasCount:        number;
+  // Derived: number of fields with at least one enabled directive
+  directiveCount:    number;
+  // Derived: number of defined fragments
+  fragmentCount:     number;
 }
 
 export function useGraphqlQueryBuilder(): UseGraphqlQueryBuilderResult {
@@ -251,6 +400,44 @@ export function useGraphqlQueryBuilder(): UseGraphqlQueryBuilderResult {
     [],
   );
 
+  const setFieldAlias = useCallback(
+    (path: FieldPath, alias: string) => dispatch({ type: 'SET_ALIAS', path, alias }),
+    [],
+  );
+
+  const setFieldDirective = useCallback(
+    (path: FieldPath, which: 'include' | 'skip', enabled: boolean, ifVar: string) =>
+      dispatch({ type: 'SET_DIRECTIVE', path, which, enabled, ifVar }),
+    [],
+  );
+
+  const removeFieldDirective = useCallback(
+    (path: FieldPath, which: 'include' | 'skip') =>
+      dispatch({ type: 'REMOVE_DIRECTIVE', path, which }),
+    [],
+  );
+
+  const addFragment = useCallback(
+    (fragment: BuilderFragment) => dispatch({ type: 'ADD_FRAGMENT', fragment }),
+    [],
+  );
+
+  const updateFragment = useCallback(
+    (name: string, patch: Partial<Omit<BuilderFragment, 'name'>>) =>
+      dispatch({ type: 'UPDATE_FRAGMENT', name, patch }),
+    [],
+  );
+
+  const removeFragment = useCallback(
+    (name: string) => dispatch({ type: 'REMOVE_FRAGMENT', name }),
+    [],
+  );
+
+  const toggleSpread = useCallback(
+    (name: string) => dispatch({ type: 'TOGGLE_SPREAD', name }),
+    [],
+  );
+
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
 
   // Derived statistics
@@ -271,6 +458,14 @@ export function useGraphqlQueryBuilder(): UseGraphqlQueryBuilderResult {
   }
   const variablesCount = variableNames.size;
 
+  const aliasCount = Object.values(state.fieldAliases).filter((a) => a.trim() !== '').length;
+
+  const directiveCount = Object.values(state.fieldDirectives).filter(
+    (d) => d.include?.enabled || d.skip?.enabled,
+  ).length;
+
+  const fragmentCount = Object.keys(state.fragments).length;
+
   return {
     state,
     setOperationType,
@@ -283,10 +478,20 @@ export function useGraphqlQueryBuilder(): UseGraphqlQueryBuilderResult {
     expandPath,
     collapsePath,
     setSearchQuery,
+    setFieldAlias,
+    setFieldDirective,
+    removeFieldDirective,
+    addFragment,
+    updateFragment,
+    removeFragment,
+    toggleSpread,
     reset,
     selectedCount,
     maxDepth,
     argsCount,
     variablesCount,
+    aliasCount,
+    directiveCount,
+    fragmentCount,
   };
 }

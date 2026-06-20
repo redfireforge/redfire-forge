@@ -130,7 +130,23 @@ function parseHttpBody(
     base.data = null;
     base.errors = [{ message: `Server returned a non-JSON response (HTTP ${status})`, extensions: { rawPreview: preview } }];
   }
+
+  // BUG-GQL-EXEC-1: Ensure 4xx/5xx HTTP responses always have at least one error
+  // so they are marked as failed execution. If the server returned a non-GraphQL
+  // error response (e.g., { error: 'message' }) or no errors field, add one.
+  if (status >= 400 && (!base.errors || base.errors.length === 0)) {
+    base.data = null;
+    base.errors = [{ message: `HTTP ${status}: ${body ? body.slice(0, 100) : 'Server error'}` }];
+  }
+
   return base;
+}
+
+function stampRequestHeaders(
+  response: GraphqlResponse,
+  requestHeaders: Record<string, string>,
+): GraphqlResponse {
+  return { ...response, requestHeaders: { ...requestHeaders } };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -384,7 +400,10 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             }
 
             const latencyMs = Math.round(performance.now() - startTime);
-            const gqlResponse = parseHttpBody(result.status, result.headers, result.body, latencyMs, result.error);
+            const gqlResponse = stampRequestHeaders(
+              parseHttpBody(result.status, result.headers, result.body, latencyMs, result.error),
+              requestHeaders,
+            );
             const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
             const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
             lastCompletedResponseRef.current = { status: finalStatus, response: gqlResponse };
@@ -462,7 +481,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               await parseMultipartMixed(resp, (chunk) => {
                 if (!mountedRef.current || ctrl.signal.aborted) return;
                 chunkIdx++;
-                const gqlResp: GraphqlResponse = {
+                const gqlResp: GraphqlResponse = stampRequestHeaders({
                   data: chunk.merged,
                   errors: chunk.errors,
                   extensions: chunk.extensions,
@@ -472,7 +491,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   timestamp: Date.now(),
                   isStreaming: chunk.hasNext,
                   chunkCount: chunkIdx,
-                };
+                }, requestHeaders);
                 const isLast = !chunk.hasNext;
                 const hasErrors = !!(gqlResp.errors && gqlResp.errors.length > 0);
                 const finalStatus: ExecutionStatus = isLast
@@ -506,7 +525,10 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             // Server didn't honor multipart — fall through to single JSON parse
             const body = await resp.text().catch(() => '');
             const latencyMs = Math.round(performance.now() - startTime);
-            const gqlResponse = parseHttpBody(resp.status, respHeaders, body, latencyMs);
+            const gqlResponse = stampRequestHeaders(
+              parseHttpBody(resp.status, respHeaders, body, latencyMs),
+              requestHeaders,
+            );
             const hasErr2 = (gqlResponse.errors?.length ?? 0) > 0;
             const fs2: ExecutionStatus = !hasErr2 || gqlResponse.data !== null ? 'success' : 'error';
             lastCompletedResponseRef.current = { status: fs2, response: gqlResponse };
@@ -610,12 +632,12 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               ctrl.signal,
             );
 
-            gqlResponse = {
+            gqlResponse = stampRequestHeaders({
               ...apqResult.response,
               apqHash: apqResult.hash,
               apqCacheHit: apqResult.cacheHit,
               apqUnsupported: apqResult.unsupported,
-            };
+            }, requestHeaders);
 
             if (ctrl.signal.aborted) {
               // Reject so dedup "wait" waiters are not stuck in loading state,
@@ -654,12 +676,15 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               return;
             }
 
-            gqlResponse = parseHttpBody(
+            gqlResponse = stampRequestHeaders(
+              parseHttpBody(
               result.status,
               result.headers,
               result.body,
               Math.round(performance.now() - startTime),
               result.error,
+            ),
+              requestHeaders,
             );
           }
 
@@ -790,19 +815,23 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
   // BUG-GQL-R9-4 fix: abort any in-flight request when the component unmounts.
   // BUG-GQL-R13-1 fix: also clear mountedRef so async handlers skip setState.
-  useEffect(() => () => {
-    mountedRef.current = false;
-    abortCtrlRef.current?.abort();
-    // Cancel any active wait-for-shared-promise subscription
-    if (waitCancelRef.current) {
-      waitCancelRef.current();
-      waitCancelRef.current = null;
-    }
-    // Clean up dedup registration on unmount
-    if (currentDedupKeyRef.current) {
-      removeInFlight(currentDedupKeyRef.current);
-      currentDedupKeyRef.current = null;
-    }
+  // React 18 StrictMode remounts in dev — reset mountedRef on mount (see useWebSocketStudio).
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortCtrlRef.current?.abort();
+      // Cancel any active wait-for-shared-promise subscription
+      if (waitCancelRef.current) {
+        waitCancelRef.current();
+        waitCancelRef.current = null;
+      }
+      // Clean up dedup registration on unmount
+      if (currentDedupKeyRef.current) {
+        removeInFlight(currentDedupKeyRef.current);
+        currentDedupKeyRef.current = null;
+      }
+    };
   }, []);
 
   return { status, response, execute, cancel, isDuplicate, apqInfo, resolveDedupChoice };
