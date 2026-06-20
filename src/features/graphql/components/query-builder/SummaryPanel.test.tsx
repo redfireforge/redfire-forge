@@ -34,6 +34,8 @@ function makeState(overrides: Partial<BuilderState> = {}): BuilderState {
     expandedPaths: new Set(),
     argValues: {},
     searchQuery: '',
+    fieldAliases: {},
+    fieldDirectives: {},
     ...overrides,
   };
 }
@@ -44,10 +46,14 @@ function defaultProps(overrides = {}) {
     maxDepth: 0,
     argsCount: 0,
     variablesCount: 0,
+    aliasCount: 0,
+    directiveCount: 0,
     schemaInfo: null,
     state: makeState(),
     onSetSearch: vi.fn(),
     onSearchExpand: vi.fn(),
+    onSetAlias: vi.fn(),
+    onSetDirective: vi.fn(),
     ...overrides,
   };
 }
@@ -261,5 +267,507 @@ describe('SummaryPanel', () => {
     render(<SummaryPanel {...defaultProps()} />);
     expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
     expect(screen.getByText('Toggle field')).toBeInTheDocument();
+  });
+
+  // ── Field Options Section ────────────────────────────────────────────────
+
+  it('does not render Field Options when no fields selected', () => {
+    render(<SummaryPanel {...defaultProps({ selectedCount: 0 })} />);
+    expect(screen.queryByTestId('gql-qb-field-options')).toBeNull();
+  });
+
+  it('renders Field Options section when fields are selected', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+        })}
+      />,
+    );
+    expect(screen.getByTestId('gql-qb-field-options')).toBeInTheDocument();
+    expect(screen.getByText('Field Options')).toBeInTheDocument();
+  });
+
+  it('shows one row per selected leaf path', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 2,
+          state: makeState({ selectedFields: { 'user.id': true, 'user.name': true } }),
+        })}
+      />,
+    );
+    expect(screen.getByText('id')).toBeInTheDocument();
+    expect(screen.getByText('name')).toBeInTheDocument();
+  });
+
+  it('shows overflow count when more than 12 fields selected', () => {
+    const selectedFields = Object.fromEntries(
+      Array.from({ length: 14 }, (_, i) => [`field${i}`, true]),
+    );
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 14,
+          state: makeState({ selectedFields }),
+        })}
+      />,
+    );
+    expect(screen.getByText('+2 more fields')).toBeInTheDocument();
+  });
+
+  it('shows alias count badge when aliasCount > 0', () => {
+    render(<SummaryPanel {...defaultProps({ aliasCount: 3 })} />);
+    expect(screen.getByText('Aliases')).toBeInTheDocument();
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0);
+  });
+
+  it('shows directive count badge when directiveCount > 0', () => {
+    render(<SummaryPanel {...defaultProps({ directiveCount: 2 })} />);
+    expect(screen.getByText('Directives')).toBeInTheDocument();
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+  });
+
+  it('expands a field row to show alias input and directive toggles', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+        })}
+      />,
+    );
+    const expandBtn = screen.getByRole('button', { name: /expand options for id/i });
+    fireEvent.click(expandBtn);
+    expect(screen.getByTestId('gql-fo-alias-user.id')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-fo-include-user.id')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-fo-skip-user.id')).toBeInTheDocument();
+  });
+
+  it('calls onSetAlias when alias input changes', () => {
+    const onSetAlias = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+          onSetAlias,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.change(screen.getByTestId('gql-fo-alias-user.id'), { target: { value: 'userId' } });
+    expect(onSetAlias).toHaveBeenCalledWith('user.id', 'userId');
+  });
+
+  it('calls onSetDirective when @include toggle is clicked', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-include-user.id'));
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', true, '');
+  });
+
+  it('shows @include ifVar input when directive entry exists', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { include: { enabled: true, ifVar: '{{showUser}}' } } },
+          }),
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    expect(screen.getByTestId('gql-fo-include-if-user.id')).toHaveValue('{{showUser}}');
+  });
+
+  it('existing alias is pre-filled in the alias input', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldAliases: { 'user.id': 'userId' },
+          }),
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    expect(screen.getByTestId('gql-fo-alias-user.id')).toHaveValue('userId');
+  });
+
+  // ── Arguments & Variables Display ────────────────────────────────────────
+
+  it('shows arguments count in summary', () => {
+    render(<SummaryPanel {...defaultProps({ argsCount: 5 })} />);
+    expect(screen.getByText('Arguments')).toBeInTheDocument();
+    const labels = screen.getAllByText('5');
+    expect(labels.length).toBeGreaterThan(0);
+  });
+
+  it('shows variables count in summary', () => {
+    render(<SummaryPanel {...defaultProps({ variablesCount: 3 })} />);
+    expect(screen.getByText('Variables')).toBeInTheDocument();
+    const labels = screen.getAllByText('3');
+    expect(labels.length).toBeGreaterThan(0);
+  });
+
+  // ── @skip Directive Tests ────────────────────────────────────────────────
+
+  it('calls onSetDirective when @skip toggle is clicked', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-skip-user.id'));
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', true, '');
+  });
+
+  it('shows @skip ifVar input when skip directive entry exists', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { skip: { enabled: true, ifVar: '{{hideUser}}' } } },
+          }),
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    expect(screen.getByTestId('gql-fo-skip-if-user.id')).toHaveValue('{{hideUser}}');
+  });
+
+  it('updates @include ifVar when input changes', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { include: { enabled: true, ifVar: '{{old}}' } } },
+          }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.change(screen.getByTestId('gql-fo-include-if-user.id'), {
+      target: { value: '{{newVar}}' },
+    });
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', true, '{{newVar}}');
+  });
+
+  it('updates @skip ifVar when input changes', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { skip: { enabled: true, ifVar: '{{old}}' } } },
+          }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.change(screen.getByTestId('gql-fo-skip-if-user.id'), {
+      target: { value: '{{newSkipVar}}' },
+    });
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', true, '{{newSkipVar}}');
+  });
+
+  it('toggles @include directive off when already enabled', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { include: { enabled: true, ifVar: '{{var}}' } } },
+          }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-include-user.id'));
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', false, '{{var}}');
+  });
+
+  it('toggles @skip directive off when already enabled', () => {
+    const onSetDirective = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldDirectives: { 'user.id': { skip: { enabled: true, ifVar: '{{var}}' } } },
+          }),
+          onSetDirective,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-skip-user.id'));
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', false, '{{var}}');
+  });
+
+  // ── Field Path Display Tests ─────────────────────────────────────────────
+
+  it('shows multi-segment field path with parent context', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.posts.title': true } }),
+        })}
+      />,
+    );
+    expect(screen.getByText('title')).toBeInTheDocument();
+    // Parent path should be shown in parentheses
+    expect(screen.getByText('(user.posts)')).toBeInTheDocument();
+  });
+
+  it('expands field row for nested path', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.profile.bio': true } }),
+        })}
+      />,
+    );
+    const expandBtn = screen.getByRole('button', { name: /expand options for bio/i });
+    fireEvent.click(expandBtn);
+    expect(screen.getByTestId('gql-fo-alias-user.profile.bio')).toBeInTheDocument();
+  });
+
+  it('shows has-options styling when field has alias or directives', () => {
+    const { container } = render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({
+            selectedFields: { 'user.id': true },
+            fieldAliases: { 'user.id': 'userId' },
+          }),
+        })}
+      />,
+    );
+    const fieldRow = container.querySelector('.gql-qb-fo-row--has-options');
+    expect(fieldRow).toBeInTheDocument();
+  });
+
+  it('does not show has-options styling when field has no alias/directives', () => {
+    const { container } = render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+        })}
+      />,
+    );
+    const fieldRow = container.querySelector('.gql-qb-fo-row--has-options');
+    expect(fieldRow).not.toBeInTheDocument();
+  });
+
+  // ── Fragment Section Tests ───────────────────────────────────────────────
+
+  it('renders Fragment Section', () => {
+    const onAddFragment = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          onAddFragment,
+        })}
+      />,
+    );
+    expect(screen.getByText('Fragments')).toBeInTheDocument();
+  });
+
+  it('does not show fragment count when fragmentCount is 0', () => {
+    render(<SummaryPanel {...defaultProps({ fragmentCount: 0 })} />);
+    const fragmentLabels = screen.queryAllByText('Fragments');
+    // Should only have the "Fragments" section header, not a count badge
+    expect(fragmentLabels.length).toBe(1);
+  });
+
+  it('shows fragment count badge when fragmentCount > 0', () => {
+    render(<SummaryPanel {...defaultProps({ fragmentCount: 2 })} />);
+    const fragmentLabels = screen.queryAllByText('Fragments');
+    // Should have both the label in the summary grid and the section header
+    expect(fragmentLabels.length).toBeGreaterThanOrEqual(1);
+    const labels = screen.getAllByText('2');
+    expect(labels.length).toBeGreaterThan(0);
+  });
+
+  // ── Path Search Results Display ──────────────────────────────────────────
+
+  it('displays field type in search results', () => {
+    mockSearchFields.mockReturnValue([{ path: 'user.id', fieldName: 'id', fieldType: 'ID!' }]);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: { queryType: 'Query', types: [] } })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+    fireEvent.change(input, { target: { value: 'id' } });
+
+    expect(screen.getByText('ID!')).toBeInTheDocument();
+  });
+
+  it('renders field path with multiple segments in results', () => {
+    mockSearchFields.mockReturnValue([
+      { path: 'author.profile.bio', fieldName: 'bio', fieldType: 'String' },
+    ]);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: { queryType: 'Query', types: [] } })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+    fireEvent.change(input, { target: { value: 'bio' } });
+
+    // Check for path segments
+    expect(screen.getByText('author')).toBeInTheDocument();
+    expect(screen.getByText('profile')).toBeInTheDocument();
+    expect(screen.getByText('bio')).toBeInTheDocument();
+  });
+
+  // ── Edge Cases ───────────────────────────────────────────────────────────
+
+  it('handles field with no parent path (single segment)', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user': true } }),
+        })}
+      />,
+    );
+    const expandBtn = screen.getByRole('button', { name: /expand options for user/i });
+    fireEvent.click(expandBtn);
+    expect(screen.getByTestId('gql-fo-alias-user')).toBeInTheDocument();
+  });
+
+  it('does not show parent path when field is root-level', () => {
+    const { container } = render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user': true } }),
+        })}
+      />,
+    );
+    // Parent path wrapper should not exist for root-level fields
+    const parentSpans = container.querySelectorAll('.gql-qb-fo-parent');
+    // Should be 0 since 'user' is not nested
+    expect(parentSpans.length).toBe(0);
+  });
+
+  it('clears field path search when input is empty and result exists', () => {
+    mockSearchFields.mockReturnValueOnce([{ path: 'user.id', fieldName: 'id', fieldType: 'ID' }]);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: { queryType: 'Query', types: [] } })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+
+    fireEvent.change(input, { target: { value: 'id' } });
+    expect(screen.getByTitle('Navigate to: user.id')).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(screen.queryByTitle('Navigate to: user.id')).not.toBeInTheDocument();
+  });
+
+  it('handles search with empty query (returns nothing)', () => {
+    mockSearchFields.mockReturnValue([]);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: { queryType: 'Query', types: [] } })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+
+    fireEvent.change(input, { target: { value: '   ' } });
+    // No results shown for whitespace-only query
+    expect(screen.queryByTitle(/Navigate to/)).not.toBeInTheDocument();
+  });
+
+  it('does not render search results when schema is null', () => {
+    mockSearchFields.mockReturnValue([{ path: 'user.id', fieldName: 'id', fieldType: 'ID' }]);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: null })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+
+    fireEvent.change(input, { target: { value: 'id' } });
+    // mockSearchFields still returns results, but handler checks for rootTypeName
+    // which is null, so should not search
+    expect(screen.queryByTitle(/Navigate to/)).not.toBeInTheDocument();
+  });
+
+  it('limits search results to 10 entries', () => {
+    const results = Array.from({ length: 20 }, (_, i) => ({
+      path: `field${i}`,
+      fieldName: `field${i}`,
+      fieldType: 'String',
+    }));
+    mockSearchFields.mockReturnValue(results);
+
+    render(<SummaryPanel {...defaultProps({ schemaInfo: { queryType: 'Query', types: [] } })} />);
+    const input = screen.getByTestId('gql-qb-path-search');
+
+    fireEvent.change(input, { target: { value: 'field' } });
+    const buttons = screen.queryAllByRole('button', { name: /Navigate to/ });
+    // The implementation slices to 10, so max 10 results shown
+    expect(buttons.length).toBeLessThanOrEqual(10);
+  });
+
+  it('shows single field when no suffix', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'name': true } }),
+        })}
+      />,
+    );
+    expect(screen.getByText('name')).toBeInTheDocument();
+  });
+
+  it('handles fragment count of 0 gracefully', () => {
+    render(<SummaryPanel {...defaultProps({ fragmentCount: 0 })} />);
+    expect(screen.queryByText(/\+\d+ more/)).not.toBeInTheDocument();
+  });
+
+  it('shows overflow message with singular "field" when overflow is 1', () => {
+    const selectedFields = Object.fromEntries(
+      Array.from({ length: 13 }, (_, i) => [`field${i}`, true]),
+    );
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 13,
+          state: makeState({ selectedFields }),
+        })}
+      />,
+    );
+    expect(screen.getByText('+1 more field')).toBeInTheDocument();
   });
 });
