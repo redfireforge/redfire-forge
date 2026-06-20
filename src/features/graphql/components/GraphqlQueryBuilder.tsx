@@ -154,10 +154,19 @@ export const GraphqlQueryBuilder = memo(function GraphqlQueryBuilder({
           maxDepth={builder.maxDepth}
           argsCount={builder.argsCount}
           variablesCount={actualVariablesCount}
+          aliasCount={builder.aliasCount}
+          directiveCount={builder.directiveCount}
+          fragmentCount={builder.fragmentCount}
           schemaInfo={schemaInfo}
           state={builder.state}
           onSetSearch={builder.setSearchQuery}
           onSearchExpand={handleSearchExpand}
+          onSetAlias={builder.setFieldAlias}
+          onSetDirective={builder.setFieldDirective}
+          onAddFragment={builder.addFragment}
+          onUpdateFragment={builder.updateFragment}
+          onRemoveFragment={builder.removeFragment}
+          onToggleSpread={builder.toggleSpread}
         />
       </div>
     </div>

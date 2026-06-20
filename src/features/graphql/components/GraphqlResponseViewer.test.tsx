@@ -86,6 +86,20 @@ describe('GraphqlResponseViewer', () => {
     expect(screen.getByTestId('gql-rv-metadata')).toBeTruthy();
   });
 
+  it('renders request headers section in metadata tab when present', () => {
+    const response = makeResponse({
+      requestHeaders: {
+        Authorization: 'Bearer lesson6-demo-jwt',
+        'Content-Type': 'application/json',
+      },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-request-headers')).toBeTruthy();
+    expect(screen.getByTestId('gql-rv-request-header-key-Authorization').textContent).toBe('Authorization');
+    expect(screen.getByTestId('gql-rv-request-header-val-Authorization').textContent).toBe('Bearer lesson6-demo-jwt');
+  });
+
   it('shows header badge count on headers tab', () => {
     const response = makeResponse({ httpHeaders: { 'x-a': '1', 'x-b': '2' } });
     render(<GraphqlResponseViewer response={response} />);

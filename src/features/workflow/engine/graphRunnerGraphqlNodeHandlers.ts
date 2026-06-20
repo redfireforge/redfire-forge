@@ -15,6 +15,7 @@
  */
 
 import { buildClientSchema, printSchema, isObjectType } from 'graphql';
+import { INTROSPECTION_QUERY } from '../../graphql/utils/graphqlIntrospectionQuery';
 import type { WorkflowNode } from '../types/workflow';
 import type {
   GraphqlQueryNodeData,
@@ -33,10 +34,14 @@ import { getByPath } from '../../../shared/utils/jsonPath';
 import { nextResultId } from '../../../engine/requestExecution';
 import { evaluateFieldOperator } from '../../../engine/fieldOperatorEvaluation';
 import { buildAuthHeaders } from '../../graphql/utils/authUtils';
-import { getProxyBase, createWsProxyTransport } from '../../graphql/utils/graphqlProxyTransports';
+import { getProxyBase, createWsProxyTransport, createSseProxyTransport } from '../../graphql/utils/graphqlProxyTransports';
 import { deriveWsEndpoint } from '../../graphql/utils/graphqlClient';
 import { computeAPQHash } from '../../graphql/utils/apqClient';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import {
+  buildExtractedVariableMap,
+  buildGraphqlRunSnapshot,
+} from '../../graphql/utils/graphqlConfigTestHelpers';
 
 // ── Bounded defaults ───────────────────────────────────────────────────────────
 
@@ -193,6 +198,7 @@ export async function handleGraphqlQueryNode(
   }
 
   const endpoint = hCtx.ctx.resolve(rawEndpoint);
+  const resolvedQuery = hCtx.ctx.resolve(data.query);
   const rawVariables = hCtx.ctx.resolve(data.variables ?? '{}');
 
   let parsedVariables: Record<string, unknown>;
@@ -207,9 +213,16 @@ export async function handleGraphqlQueryNode(
     return;
   }
 
-  const headers = buildGraphqlHeaders(data.headers ?? [], data.auth, hCtx.ctx);
+  // Headers go in the body — the proxy reads `body.headers` and forwards them to upstream.
+  // Do NOT pass them as HTTP-level headers on the proxy request (the proxy ignores those).
+  const graphqlHeaders = buildGraphqlHeaders(data.headers ?? [], data.auth, hCtx.ctx);
   const proxyBase = getProxyBase();
   const timeoutMs = data.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Enforce per-request timeout via AbortSignal.timeout, composed with the workflow abort signal.
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const fetchSignal = hCtx.abortSignal
+    ? AbortSignal.any([timeoutSignal, hCtx.abortSignal])
+    : timeoutSignal;
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
   hCtx.log({ prefix: '→', text: `[${label}] ${isMutation ? 'MUTATION' : 'QUERY'} ${endpoint}` });
@@ -218,20 +231,55 @@ export async function handleGraphqlQueryNode(
   try {
     const resp = await fetch(`${proxyBase}/api/graphql/query`, {
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint, query: data.query, variables: parsedVariables, timeoutMs }),
-      signal: hCtx.abortSignal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint,
+        query: resolvedQuery,
+        variables: parsedVariables,
+        headers: graphqlHeaders,
+        skipTlsVerify: data.skipTlsVerify,
+      }),
+      signal: fetchSignal,
     });
     const durationMs = Math.round(performance.now() - t0);
 
-    const body = await resp.json() as { data?: unknown; errors?: unknown[] };
     const transportType = isMutation ? 'graphqlMutation' as const : 'graphqlQuery' as const;
+
+    // ── Check proxy-level HTTP status first ──
+    if (!resp.ok) {
+      let proxyErrMsg = `Proxy request failed: HTTP ${resp.status}`;
+      try {
+        const errBody = await resp.json() as { error?: { message?: string }; message?: string };
+        if (errBody?.error?.message) proxyErrMsg = errBody.error.message;
+        else if (errBody?.message) proxyErrMsg = errBody.message;
+      } catch { /* keep default */ }
+      passed.value = false;
+      hCtx.results.push(buildGraphqlResult(nodeId, label, transportType, endpoint, durationMs, false, resp.status, proxyErrMsg));
+      hCtx.log({ prefix: '!', text: `[${label}] ${isMutation ? 'Mutation' : 'Query'} failed — ${durationMs}ms: ${proxyErrMsg}` });
+      hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: proxyErrMsg });
+      return;
+    }
+
+    const body = await resp.json() as { data?: unknown; errors?: unknown[] };
+    const extracted = buildExtractedVariableMap(data.extractionRules ?? [], body.data);
+    const runDetail = buildGraphqlRunSnapshot({
+      data: body.data,
+      errors: body.errors,
+      httpStatus: resp.status,
+      latencyMs: durationMs,
+    });
+    const runStateBase = {
+      statusCode: resp.status,
+      responseTimeMs: durationMs,
+      extracted: Object.keys(extracted).length > 0 ? extracted : undefined,
+      responseDetail: runDetail,
+    };
 
     // ── Apply extraction rules ──
     for (const rule of data.extractionRules ?? []) {
       if (!rule.variableName?.trim() || !rule.jsonPath?.trim()) continue;
-      const extracted = getByPath(body.data, rule.jsonPath);
-      hCtx.ctx.set(rule.variableName, extracted === undefined ? '' : JSON.stringify(extracted));
+      const extractedVal = getByPath(body.data, rule.jsonPath);
+      hCtx.ctx.set(rule.variableName, extractedVal === undefined ? '' : JSON.stringify(extractedVal));
     }
 
     // ── Apply output bindings ──
@@ -251,13 +299,17 @@ export async function handleGraphqlQueryNode(
       passed.value = false;
       hCtx.results.push(buildGraphqlResult(nodeId, label, transportType, endpoint, durationMs, false, resp.status, `GraphQL errors: ${errSummary}`));
       hCtx.log({ prefix: '!', text: `[${label}] GraphQL errors — ${durationMs}ms: ${errSummary}` });
-      hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: `GraphQL errors: ${errSummary}` });
+      hCtx.callbacks.onNodeStateChange(nodeId, {
+        state: 'fail',
+        error: `GraphQL errors: ${errSummary}`,
+        ...runStateBase,
+      });
       return;
     }
 
     hCtx.results.push(buildGraphqlResult(nodeId, label, transportType, endpoint, durationMs, true, resp.status));
     hCtx.log({ prefix: '✓', text: `[${label}] ${isMutation ? 'Mutation' : 'Query'} succeeded — ${durationMs}ms` });
-    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass', ...runStateBase });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
   } catch (err) {
     const durationMs = Math.round(performance.now() - t0);
@@ -305,11 +357,15 @@ export async function handleGraphqlSubscriptionNode(
 
   if (hCtx.abortSignal?.aborted) {
     passed.value = false;
-    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted before subscription started' });
+    const msg = 'Aborted before subscription started';
+    hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
+    hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlSubscription', rawEndpoint, 0, false, 0, msg));
     return;
   }
 
   const endpoint = deriveWsEndpoint(hCtx.ctx.resolve(rawEndpoint));
+  const resolvedSubscriptionQuery = hCtx.ctx.resolve(data.subscriptionQuery);
   const rawVariables = hCtx.ctx.resolve(data.variables ?? '{}');
 
   let parsedVariables: Record<string, unknown>;
@@ -327,7 +383,9 @@ export async function handleGraphqlSubscriptionNode(
   const headers = buildGraphqlHeaders(data.headers ?? [], data.auth, hCtx.ctx);
   const subprotocol: 'graphql-transport-ws' | 'graphql-ws' =
     (data.subscriptionTransport === 'graphql-ws') ? 'graphql-ws' : 'graphql-transport-ws';
-  const transport = createWsProxyTransport(subprotocol, data.auth);
+  const transport = data.subscriptionTransport === 'sse'
+    ? createSseProxyTransport(data.auth)
+    : createWsProxyTransport(subprotocol, data.auth);
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
   hCtx.log({ prefix: '→', text: `[${label}] SUBSCRIBE ${endpoint}` });
@@ -353,20 +411,32 @@ export async function handleGraphqlSubscriptionNode(
       }
 
       unsubscribe = transport.subscribe(
-        data.subscriptionQuery,
+        resolvedSubscriptionQuery,
         parsedVariables,
         undefined,
-        { endpoint, headers, skipTlsVerify: data.auth == null ? false : false, signal: hCtx.abortSignal },
+        { endpoint, headers, skipTlsVerify: false, signal: hCtx.abortSignal },
         {
           onMessage(msgData: unknown) {
             if (firstMsgLatency < 0) firstMsgLatency = performance.now() - t0;
             messages.push(msgData);
 
+            // Apply per-message extraction rules into workflow variables.
+            // extractionRules.jsonPath is applied to the inner `data` object of each
+            // GraphQL message (e.g. `$.field`) — consistent with query/mutation extraction
+            // and the interface JSDoc ("JSONPath applied to the response `data` object").
+            const msgInnerData = (msgData as { data?: unknown }).data;
+            for (const rule of data.extractionRules ?? []) {
+              if (!rule.variableName?.trim() || !rule.jsonPath?.trim()) continue;
+              const extracted = getByPath(msgInnerData, rule.jsonPath);
+              hCtx.ctx.set(rule.variableName, extracted === undefined ? '' : JSON.stringify(extracted));
+            }
+
             if (data.stopAfterMessages && messages.length >= data.stopAfterMessages) {
               cleanup(); resolve(); return;
             }
             if (data.stopCondition) {
-              const condMet = getByPath(msgData, data.stopCondition);
+              // stopCondition JSONPath is applied to msg.data (same root as extractionRules)
+              const condMet = getByPath(msgInnerData, data.stopCondition);
               if (condMet) { cleanup(); resolve(); return; }
             }
           },
@@ -383,18 +453,36 @@ export async function handleGraphqlSubscriptionNode(
     const durationMs = Math.round(performance.now() - t0);
 
     applySubscriptionOutputBindings(data.outputBindings ?? [], {
-      messages,
+      // For output bindings, expose the inner `data` of each message (same root as
+      // extractionRules and stopCondition) so assertions use consistent JSONPath roots.
+      messages: messages.map(m => (m as { data?: unknown }).data ?? m),
       messageCount: messages.length,
-      firstMessage: messages[0] ?? null,
-      lastMessage: messages[messages.length - 1] ?? null,
+      firstMessage: (messages[0] as { data?: unknown } | undefined)?.data ?? messages[0] ?? null,
+      lastMessage: (messages[messages.length - 1] as { data?: unknown } | undefined)?.data ?? messages[messages.length - 1] ?? null,
       latencyMs: firstMsgLatency >= 0 ? Math.round(firstMsgLatency) : durationMs,
     }, hCtx.ctx);
 
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
+    const lastInnerData = messages.length > 0
+      ? (messages[messages.length - 1] as { data?: unknown }).data
+      : undefined;
+    const extracted = buildExtractedVariableMap(data.extractionRules ?? [], lastInnerData);
+    const runDetail = buildGraphqlRunSnapshot({
+      subscriptionLastData: lastInnerData,
+      httpStatus: 200,
+      latencyMs: durationMs,
+    });
+    const runStateBase = {
+      statusCode: 200,
+      responseTimeMs: durationMs,
+      extracted: Object.keys(extracted).length > 0 ? extracted : undefined,
+      responseDetail: runDetail,
+    };
+
     hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlSubscription', endpoint, durationMs, true, 200));
     hCtx.log({ prefix: '✓', text: `[${label}] Subscription complete — ${messages.length} message(s) — ${durationMs}ms` });
-    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass', ...runStateBase });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
   } catch (err) {
     const durationMs = Math.round(performance.now() - t0);
@@ -433,27 +521,61 @@ export async function handleGraphqlIntrospectNode(
   }
 
   const endpoint = hCtx.ctx.resolve(rawEndpoint);
-  const headers = buildGraphqlHeaders(data.headers ?? [], data.auth, hCtx.ctx);
+  // Headers go in the body — the proxy reads `body.headers` and forwards them to upstream.
+  const graphqlHeaders = buildGraphqlHeaders(data.headers ?? [], data.auth, hCtx.ctx);
   const proxyBase = getProxyBase();
   const timeoutMs = data.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Enforce per-request timeout via AbortSignal.timeout, composed with the workflow abort signal.
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const fetchSignal = hCtx.abortSignal
+    ? AbortSignal.any([timeoutSignal, hCtx.abortSignal])
+    : timeoutSignal;
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
   hCtx.log({ prefix: '→', text: `[${label}] INTROSPECT ${endpoint}` });
 
   const t0 = performance.now();
   try {
-    const resp = await fetch(`${proxyBase}/api/graphql/introspect`, {
+    // Use /api/graphql/query with the standard introspection query.
+    // There is no dedicated /api/graphql/introspect route — introspection is a
+    // regular GraphQL query sent to the endpoint.
+    const resp = await fetch(`${proxyBase}/api/graphql/query`, {
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint, timeoutMs }),
-      signal: hCtx.abortSignal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint,
+        query: INTROSPECTION_QUERY,
+        headers: graphqlHeaders,
+        skipTlsVerify: data.skipTlsVerify,
+      }),
+      signal: fetchSignal,
     });
 
     const durationMs = Math.round(performance.now() - t0);
-    const introspectionResult = await resp.json() as { data?: unknown };
 
-    if (!resp.ok || !introspectionResult.data) {
-      const msg = `Introspection failed with status ${resp.status}`;
+    // ── Check proxy-level HTTP status first ──
+    if (!resp.ok) {
+      let proxyErrMsg = `Proxy request failed: HTTP ${resp.status}`;
+      try {
+        const errBody = await resp.json() as { error?: { message?: string }; message?: string };
+        if (errBody?.error?.message) proxyErrMsg = errBody.error.message;
+        else if (errBody?.message) proxyErrMsg = errBody.message;
+      } catch { /* keep default */ }
+      passed.value = false;
+      hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlIntrospect', endpoint, durationMs, false, resp.status, proxyErrMsg));
+      hCtx.log({ prefix: '!', text: `[${label}] ${proxyErrMsg}` });
+      hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: proxyErrMsg });
+      return;
+    }
+
+    const introspectionResult = await resp.json() as { data?: unknown; errors?: unknown[] };
+
+    // Check for GraphQL errors (e.g., introspection disabled)
+    if ((introspectionResult.errors?.length ?? 0) > 0 || !introspectionResult.data) {
+      const errDetail = introspectionResult.errors
+        ? JSON.stringify(introspectionResult.errors)
+        : 'No schema data returned (introspection may be disabled)';
+      const msg = `Introspection failed: ${errDetail}`;
       passed.value = false;
       hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlIntrospect', endpoint, durationMs, false, resp.status, msg));
       hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });
@@ -568,11 +690,17 @@ export async function handleGraphqlAssertNode(
 
   const failures: string[] = [];
   for (const assertion of data.assertions ?? []) {
-    const actual = getByPath(sourceValue, assertion.jsonPath);
-    const result = evaluateFieldOperator(actual, assertion.operator, assertion.expectedValue, assertion.expectedValue ?? '');
+    // Resolve jsonPath and expectedValue through the template engine so users can
+    // reference workflow variables (e.g. {{expectedUserId}}) in assertions.
+    const resolvedJsonPath = hCtx.ctx.resolve(assertion.jsonPath);
+    const resolvedExpected = assertion.expectedValue != null
+      ? hCtx.ctx.resolve(assertion.expectedValue)
+      : undefined;
+    const actual = getByPath(sourceValue, resolvedJsonPath);
+    const result = evaluateFieldOperator(actual, assertion.operator, undefined, resolvedExpected ?? '');
     if (!result.pass) {
       const msg = assertion.description
-        ?? `${assertion.jsonPath} ${assertion.operator} ${assertion.expectedValue ?? ''}: got ${JSON.stringify(actual)}`;
+        ?? `${resolvedJsonPath} ${assertion.operator} ${resolvedExpected ?? ''}: got ${JSON.stringify(actual)}`;
       failures.push(msg);
     }
   }

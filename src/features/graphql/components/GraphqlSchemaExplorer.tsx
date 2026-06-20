@@ -176,31 +176,58 @@ export function GraphqlSchemaExplorer({
   };
 
   // ── Non-loaded states ─────────────────────────────────────────────────────
-  if (status === 'idle') {
-    return <SchemaIdleState onIntrospect={onIntrospect} introspecting={introspecting} />;
-  }
-  if (status === 'loading') {
-    return <SchemaLoadingState />;
-  }
-  if (status === 'introspection-disabled') {
+  // Keep Changelog accessible even before first introspection so users can
+  // inspect/delete previously saved snapshots without loading a schema first.
+  if (status !== 'loaded' || !schemaInfo) {
+    const showChangelog = mainTab === 'changelog';
     return (
-      <SchemaIntrospectionDisabledState
-        errorMessage={errorMessage}
-        onIntrospect={onIntrospect}
-        introspecting={introspecting}
-      />
+      <div className="gql-se-root" data-testid="gql-schema-explorer">
+        <div className="gql-se-main-tabs">
+          <button
+            type="button"
+            className={`gql-se-main-tab${mainTab === 'types' ? ' gql-se-main-tab--active' : ''}`}
+            onClick={() => setMainTab('types')}
+            data-testid="gql-se-tab-types"
+          >
+            Types
+          </button>
+          <button
+            type="button"
+            className={`gql-se-main-tab${showChangelog ? ' gql-se-main-tab--active' : ''}`}
+            onClick={() => setMainTab('changelog')}
+            data-testid="gql-se-tab-changelog"
+          >
+            Changelog {snapshots.length > 0 && <span className="gql-se-snap-count">{snapshots.length}</span>}
+          </button>
+        </div>
+
+        {showChangelog ? (
+          <ChangelogPanel
+            snapshots={snapshots}
+            currentSdl={schemaInfo?.sdl ?? ''}
+            onDelete={onDeleteSnapshot}
+            onOpenDiff={onOpenDiff}
+          />
+        ) : status === 'loading' ? (
+          <SchemaLoadingState />
+        ) : status === 'introspection-disabled' ? (
+          <SchemaIntrospectionDisabledState
+            errorMessage={errorMessage}
+            onIntrospect={onIntrospect}
+            introspecting={introspecting}
+          />
+        ) : status === 'error' ? (
+          <SchemaErrorState
+            errorMessage={errorMessage}
+            onIntrospect={onIntrospect}
+            introspecting={introspecting}
+          />
+        ) : (
+          <SchemaIdleState onIntrospect={onIntrospect} introspecting={introspecting} />
+        )}
+      </div>
     );
   }
-  if (status === 'error') {
-    return (
-      <SchemaErrorState
-        errorMessage={errorMessage}
-        onIntrospect={onIntrospect}
-        introspecting={introspecting}
-      />
-    );
-  }
-  if (!schemaInfo) return null;
 
   // ── Schema loaded ─────────────────────────────────────────────────────────
   return (

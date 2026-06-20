@@ -26,6 +26,13 @@ export interface AdvancedSettingsValues {
   dedupEnabled: boolean;
   complexityBlockEnabled: boolean;
   complexityBlockThreshold: number;
+  // Phase 2 Deferred — Transport + Limits
+  subscriptionTransport: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
+  sseMode: 'distinct' | 'single';
+  wsEndpointOverride: string;
+  historyMaxItems: number;
+  subscriptionBufferSize: number;
+  maxFileSizeMb: number;
 }
 
 interface GraphqlAdvancedSettingsProps {
@@ -36,7 +43,16 @@ interface GraphqlAdvancedSettingsProps {
   onClose: () => void;
 }
 
-type SettingsTab = 'apq' | 'batch' | 'dedup' | 'performance';
+type SettingsTab = 'apq' | 'batch' | 'dedup' | 'performance' | 'transport' | 'limits';
+
+const TAB_LABELS: Record<SettingsTab, string> = {
+  apq: 'APQ',
+  batch: 'Batch',
+  dedup: 'Dedup',
+  performance: 'Performance',
+  transport: 'Transport',
+  limits: 'Limits',
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -95,7 +111,7 @@ export function GraphqlAdvancedSettings({
 
       {/* Tab bar */}
       <div className="gql-advsettings-tabs" role="tablist">
-        {(['apq', 'batch', 'dedup', 'performance'] as SettingsTab[]).map((tab) => (
+        {(['apq', 'batch', 'dedup', 'performance', 'transport', 'limits'] as SettingsTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -104,7 +120,7 @@ export function GraphqlAdvancedSettings({
             className={`gql-advsettings-tab${activeTab === tab ? ' active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'apq' ? 'APQ' : tab === 'batch' ? 'Batch' : tab === 'dedup' ? 'Dedup' : 'Performance'}
+            {TAB_LABELS[tab]}
           </button>
         ))}
       </div>
@@ -275,7 +291,6 @@ export function GraphqlAdvancedSettings({
                   value={values.complexityBlockThreshold}
                   onChange={(e) => {
                     const n = Number(e.target.value);
-                    // Guard NaN and values below the configured minimum (100 cost units)
                     onChange({ complexityBlockThreshold: Number.isFinite(n) && n >= 100 ? n : 1000 });
                   }}
                   className="gql-advsettings-input-sm"
@@ -284,6 +299,143 @@ export function GraphqlAdvancedSettings({
                 <span className="gql-advsettings-hint">cost units</span>
               </label>
             )}
+          </div>
+        )}
+
+        {/* ── Transport tab ─────────────────────────────────────────────────── */}
+        {activeTab === 'transport' && (
+          <div className="gql-advsettings-section">
+            <p className="gql-advsettings-desc">
+              Control which WebSocket sub-protocol or streaming transport is used
+              for subscriptions. "Auto" lets the server negotiate.
+            </p>
+
+            <label className="gql-advsettings-row">
+              <span className="gql-advsettings-label">Subscription transport</span>
+              <select
+                value={values.subscriptionTransport}
+                onChange={(e) =>
+                  onChange({ subscriptionTransport: e.target.value as AdvancedSettingsValues['subscriptionTransport'] })
+                }
+                className="gql-advsettings-select"
+                aria-label="Subscription transport protocol"
+              >
+                <option value="auto">Auto (negotiate)</option>
+                <option value="graphql-transport-ws">graphql-transport-ws (WS)</option>
+                <option value="graphql-ws">graphql-ws (legacy WS)</option>
+                <option value="sse">Server-Sent Events (SSE)</option>
+              </select>
+            </label>
+
+            {values.subscriptionTransport === 'sse' && (
+              <fieldset className="gql-advsettings-fieldset">
+                <legend className="gql-advsettings-legend">SSE mode</legend>
+                <label className="gql-advsettings-row">
+                  <input
+                    type="radio"
+                    name="sseMode"
+                    value="distinct"
+                    checked={values.sseMode === 'distinct'}
+                    onChange={() => onChange({ sseMode: 'distinct' })}
+                  />
+                  <span>
+                    Distinct connection
+                    <span className="gql-advsettings-hint">New SSE stream per subscription</span>
+                  </span>
+                </label>
+                <label className="gql-advsettings-row">
+                  <input
+                    type="radio"
+                    name="sseMode"
+                    value="single"
+                    checked={values.sseMode === 'single'}
+                    onChange={() => onChange({ sseMode: 'single' })}
+                  />
+                  <span>
+                    Single connection
+                    <span className="gql-advsettings-hint">Multiplex over one SSE stream</span>
+                  </span>
+                </label>
+              </fieldset>
+            )}
+
+            <label className="gql-advsettings-row">
+              <span className="gql-advsettings-label">WS endpoint override</span>
+              <input
+                type="url"
+                value={values.wsEndpointOverride}
+                placeholder="wss://example.com/graphql (leave blank to use main endpoint)"
+                onChange={(e) => onChange({ wsEndpointOverride: e.target.value })}
+                className="gql-advsettings-input"
+                aria-label="WebSocket endpoint override"
+              />
+            </label>
+            <p className="gql-advsettings-note">
+              Leave blank to derive the WebSocket URL from the main HTTP endpoint.
+            </p>
+          </div>
+        )}
+
+        {/* ── Limits tab ────────────────────────────────────────────────────── */}
+        {activeTab === 'limits' && (
+          <div className="gql-advsettings-section">
+            <p className="gql-advsettings-desc">
+              Tune in-memory buffer sizes and file upload limits.
+            </p>
+
+            <label className="gql-advsettings-row">
+              <span className="gql-advsettings-label">History buffer</span>
+              <input
+                type="number"
+                min={10}
+                max={500}
+                step={10}
+                value={values.historyMaxItems}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  onChange({ historyMaxItems: Number.isFinite(n) && n >= 10 ? Math.min(n, 500) : 100 });
+                }}
+                className="gql-advsettings-input-sm"
+                aria-label="History buffer size"
+              />
+              <span className="gql-advsettings-hint">items (10–500)</span>
+            </label>
+
+            <label className="gql-advsettings-row">
+              <span className="gql-advsettings-label">Subscription buffer</span>
+              <input
+                type="number"
+                min={100}
+                max={10000}
+                step={100}
+                value={values.subscriptionBufferSize}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  onChange({ subscriptionBufferSize: Number.isFinite(n) && n >= 100 ? Math.min(n, 10000) : 5000 });
+                }}
+                className="gql-advsettings-input-sm"
+                aria-label="Subscription buffer size"
+              />
+              <span className="gql-advsettings-hint">messages (100–10000)</span>
+            </label>
+
+            <label className="gql-advsettings-row">
+              <span className="gql-advsettings-label">Max file size</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                value={values.maxFileSizeMb}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  onChange({ maxFileSizeMb: Number.isFinite(n) && n >= 1 ? Math.min(n, 100) : 50 });
+                }}
+                className="gql-advsettings-input-sm"
+                aria-label="Max file upload size in megabytes"
+              />
+              <span className="gql-advsettings-hint">MB (1–100)</span>
+            </label>
           </div>
         )}
       </div>

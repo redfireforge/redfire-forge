@@ -214,6 +214,8 @@ describe('generateQuery', () => {
     operationName: 'TestQuery',
     selectedFields: {},
     argValues:      {},
+    fieldAliases:   {} as Record<string, string>,
+    fieldDirectives: {} as Record<string, import('../hooks/useGraphqlQueryBuilder').BuilderFieldDirectives>,
   };
 
   it('returns a placeholder when no fields selected', () => {
@@ -336,6 +338,135 @@ describe('generateQuery', () => {
     };
     const { variables } = generateQuery(state, SCHEMA_INFO);
     expect(variables).toHaveProperty('myVar');
+  });
+
+  // ── Aliases ──────────────────────────────────────────────────────────────
+
+  it('prefixes an aliased leaf field', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   { 'user.id': 'userId' },
+      fieldDirectives: {},
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('userId: id');
+  });
+
+  it('prefixes an aliased object field', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   { user: 'me' },
+      fieldDirectives: {},
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('me: user {');
+  });
+
+  it('ignores blank alias', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   { 'user.id': '   ' },
+      fieldDirectives: {},
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).not.toContain(':');
+    expect(sdl).toContain('id');
+  });
+
+  // ── Directives ────────────────────────────────────────────────────────────
+
+  it('appends @include directive with {{var}} condition', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: { include: { enabled: true, ifVar: '{{showUser}}' } },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('@include(if: $showUser)');
+    expect(sdl).toContain('$showUser: Boolean!');
+  });
+
+  it('appends @skip directive with $varRef condition', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: { skip: { enabled: true, ifVar: '$adminOnly' } },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('@skip(if: $adminOnly)');
+  });
+
+  it('does not emit directive when enabled but ifVar is empty', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: { include: { enabled: true, ifVar: '' } },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).not.toContain('@include');
+    // No Boolean variable should be added either
+    expect(sdl).not.toContain('Boolean');
+  });
+
+  it('does not emit directive when enabled but ifVar is whitespace only', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: { skip: { enabled: true, ifVar: '   ' } },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).not.toContain('@skip');
+  });
+
+  it('does not append disabled directive', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: { include: { enabled: false, ifVar: '{{showUser}}' } },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).not.toContain('@include');
+  });
+
+  it('appends both @include and @skip when both enabled', () => {
+    const state = {
+      ...baseState,
+      selectedFields: { 'user.id': true },
+      fieldAliases:   {},
+      fieldDirectives: {
+        user: {
+          include: { enabled: true, ifVar: '{{show}}' },
+          skip: { enabled: true, ifVar: '{{hide}}' },
+        },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('@include(if: $show)');
+    expect(sdl).toContain('@skip(if: $hide)');
+  });
+
+  it('works without fieldAliases/fieldDirectives keys in state', () => {
+    // Backwards-compat: state without the new keys (e.g. loaded from old storage)
+    const { sdl } = generateQuery(baseState, SCHEMA_INFO);
+    expect(sdl).toContain('query TestQuery');
   });
 });
 

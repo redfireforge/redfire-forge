@@ -13,12 +13,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
 import { GraphqlTracingView } from './GraphqlTracingView';
+import { GqlLatencyHistogram } from './GqlLatencyHistogram';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GraphqlResponseViewerProps {
   response: GraphqlResponse | null;
   loading?: boolean;
+  /** Ring buffer of recent latency values (ms). Histogram shown when length ≥ 2. */
+  latencyHistory?: number[];
 }
 
 type ResponseTab = 'body' | 'headers' | 'metadata' | 'tracing';
@@ -266,6 +269,28 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
         )}
       </div>
 
+      {response.requestHeaders && Object.keys(response.requestHeaders).length > 0 && (
+        <div className="gql-rv-meta-section" data-testid="gql-rv-request-headers">
+          <div className="gql-rv-meta-section-title">Request headers</div>
+          <table className="gql-rv-headers-table">
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(response.requestHeaders).map(([key, value], idx) => (
+                <tr key={`${key}-${idx}`}>
+                  <td className="gql-rv-header-name" data-testid={`gql-rv-request-header-key-${key}`}>{key}</td>
+                  <td className="gql-rv-header-value" data-testid={`gql-rv-request-header-val-${key}`}>{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* GraphQL error detail cards */}
       {response.errors && response.errors.length > 0 && (
         <div className="gql-rv-error-list" data-testid="gql-rv-error-list">
@@ -302,7 +327,7 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function GraphqlResponseViewer({ response, loading = false }: GraphqlResponseViewerProps) {
+export function GraphqlResponseViewer({ response, loading = false, latencyHistory = [] }: GraphqlResponseViewerProps) {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body');
   const [copied, setCopied] = useState(false);
   // BUG-GQL-R9-9 fix: track copy feedback timer for cleanup on unmount
@@ -648,6 +673,11 @@ export function GraphqlResponseViewer({ response, loading = false }: GraphqlResp
           </div>
         )}
       </div>
+
+      {/* Latency histogram strip — shown when ≥2 responses recorded */}
+      {latencyHistory.length >= 2 && (
+        <GqlLatencyHistogram latencyHistory={latencyHistory} />
+      )}
     </div>
   );
 }

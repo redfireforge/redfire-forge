@@ -18,7 +18,7 @@ import type {
   GraphqlTypeNode,
   GraphqlArgNode,
 } from '../../../shared/types/graphql';
-import type { BuilderArgValues, BuilderState } from '../hooks/useGraphqlQueryBuilder';
+import type { BuilderArgValues, BuilderFieldDirectives, BuilderState } from '../hooks/useGraphqlQueryBuilder';
 
 // ─── Public output type ───────────────────────────────────────────────────────
 
@@ -210,10 +210,46 @@ function buildArgString(
 
 // ─── Recursive SDL renderer ───────────────────────────────────────────────────
 
+/**
+ * Builds the directive clause for a field (e.g. `@include(if: $showOrders)`).
+ * As a side-effect, registers Boolean variables for {{varRef}} / $varRef patterns.
+ */
+function buildDirectiveString(
+  directives:  BuilderFieldDirectives | undefined,
+  variables:   Map<string, string>,
+): string {
+  if (!directives) return '';
+  const parts: string[] = [];
+
+  for (const which of ['include', 'skip'] as const) {
+    const dir = directives[which];
+    if (!dir?.enabled) continue;
+    const ifVar = dir.ifVar.trim();
+    if (!ifVar) continue;
+
+    const m = ifVar.match(/^\{\{(.+?)\}\}$/) ?? ifVar.match(/^\$(\w+)$/);
+    if (m) {
+      const varName = m[1];
+      if (!variables.has(varName)) {
+        variables.set(varName, 'Boolean!');
+      }
+      parts.push(`@${which}(if: $${varName})`);
+    } else {
+      // bare true / false literal
+      const lit = ifVar === 'false' ? 'false' : 'true';
+      parts.push(`@${which}(if: ${lit})`);
+    }
+  }
+
+  return parts.length > 0 ? ' ' + parts.join(' ') : '';
+}
+
 function renderNode(
   tree:         FieldTree,
   fieldPath:    string,
   argValues:    BuilderArgValues,
+  fieldAliases: Record<string, string>,
+  fieldDirectives: Record<string, BuilderFieldDirectives>,
   rootTypeName: string,
   types:        GraphqlTypeNode[],
   variables:    Map<string, string>,
@@ -226,14 +262,21 @@ function renderNode(
     const path   = fieldPath ? `${fieldPath}.${fieldName}` : fieldName;
     const argStr = buildArgString(path, argValues[path], rootTypeName, types, variables);
 
+    // Alias prefix: "alias: fieldName"
+    const alias = fieldAliases[path]?.trim();
+    const nameStr = alias ? `${alias}: ${fieldName}` : fieldName;
+
+    // Directive clause: " @include(if: $var)"
+    const dirStr = buildDirectiveString(fieldDirectives[path], variables);
+
     if (subtree === true) {
-      lines.push(`${ind}${fieldName}${argStr}`);
+      lines.push(`${ind}${nameStr}${argStr}${dirStr}`);
     } else {
       const children = renderNode(
-        subtree, path, argValues, rootTypeName, types, variables, indent + 1,
+        subtree, path, argValues, fieldAliases, fieldDirectives, rootTypeName, types, variables, indent + 1,
       );
       if (children.trim()) {
-        lines.push(`${ind}${fieldName}${argStr} {`);
+        lines.push(`${ind}${nameStr}${argStr}${dirStr} {`);
         lines.push(children);
         lines.push(`${ind}}`);
       }
@@ -254,7 +297,7 @@ function renderNode(
 export function generateQuery(
   state: Pick<
     BuilderState,
-    'operationType' | 'operationName' | 'selectedFields' | 'argValues'
+    'operationType' | 'operationName' | 'selectedFields' | 'argValues' | 'fieldAliases' | 'fieldDirectives' | 'fragments' | 'activeFragmentSpreads'
   >,
   schemaInfo: GraphqlSchemaInfo | null,
 ): GeneratedQuery {
@@ -262,7 +305,11 @@ export function generateQuery(
     (k) => state.selectedFields[k],
   );
 
-  if (selectedPaths.length === 0) {
+  const activeSpreads = state.activeFragmentSpreads ?? [];
+  const fragments = state.fragments ?? {};
+  const hasContent = selectedPaths.length > 0 || activeSpreads.length > 0;
+
+  if (!hasContent) {
     const placeholder = [
       `${state.operationType} ${state.operationName} {`,
       `  # Select fields from the tree on the left`,
@@ -276,9 +323,25 @@ export function generateQuery(
     ? getRootTypeName(state.operationType, schemaInfo)
     : 'Query';
 
-  const tree      = buildFieldTree(selectedPaths);
   const variables = new Map<string, string>(); // varName → GQL type
-  const body      = renderNode(tree, '', state.argValues, rootTypeName, types, variables, 1);
+  const bodyLines: string[] = [];
+
+  // Main field selection
+  if (selectedPaths.length > 0) {
+    const tree = buildFieldTree(selectedPaths);
+    const body = renderNode(
+      tree, '', state.argValues, state.fieldAliases ?? {}, state.fieldDirectives ?? {},
+      rootTypeName, types, variables, 1,
+    );
+    if (body.trim()) bodyLines.push(body);
+  }
+
+  // Active fragment spreads (always at the root of the operation)
+  for (const name of activeSpreads) {
+    if (fragments[name]) {
+      bodyLines.push(`  ...${name}`);
+    }
+  }
 
   // Build the operation variable declaration string
   const varDecls = Array.from(variables.entries()).map(([name, type]) => ({ name, type }));
@@ -286,7 +349,24 @@ export function generateQuery(
     ? `(${varDecls.map(({ name, type }) => `$${name}: ${type}`).join(', ')})`
     : '';
 
-  const sdl = `${state.operationType} ${state.operationName}${varStr} {\n${body}\n}`;
+  let sdl = `${state.operationType} ${state.operationName}${varStr} {\n${bodyLines.join('\n')}\n}`;
+
+  // Emit fragment definitions after the main operation
+  const fragmentDefs: string[] = [];
+  for (const frag of Object.values(fragments)) {
+    if (frag.fieldPaths.length === 0) continue;
+    const fragTree = buildFieldTree(frag.fieldPaths);
+    const fragBody = renderNode(
+      fragTree, '', state.argValues, state.fieldAliases ?? {}, state.fieldDirectives ?? {},
+      frag.onType, types, variables, 1,
+    );
+    if (fragBody.trim()) {
+      fragmentDefs.push(`\nfragment ${frag.name} on ${frag.onType} {\n${fragBody}\n}`);
+    }
+  }
+  if (fragmentDefs.length > 0) {
+    sdl += fragmentDefs.join('\n');
+  }
 
   // Build initial variable JSON for the Variables panel (empty placeholders)
   const variableValues: Record<string, unknown> = {};

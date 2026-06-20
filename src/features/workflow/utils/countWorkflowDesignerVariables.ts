@@ -1,5 +1,5 @@
 import type { WorkflowRFNode } from './workflowNodeFactory';
-import type { Workflow } from '../types/workflow';
+import type { Workflow, GraphqlQueryNodeData } from '../types/workflow';
 
 /** Count unique workflow + per-http-step initial variable keys. */
 export function countWorkflowDesignerVariables(
@@ -12,7 +12,16 @@ export function countWorkflowDesignerVariables(
     if (n.type === 'http') {
       const iv = nodeInitialVars[n.id];
       if (iv) for (const k of Object.keys(iv)) s.add(k);
+    } else if (n.type === 'graphqlQuery' || n.type === 'graphqlMutation') {
+      // 5 standard outputs + one per extraction rule
+      const d = n.data as GraphqlQueryNodeData;
+      const count = 5 + (d.extractionRules?.length ?? 0);
+      for (let i = 0; i < count; i++) s.add(`__gql_${n.id}_${i}`);
+    } else if (n.type === 'graphqlSubscription' || n.type === 'graphqlIntrospect') {
+      // 5 standard outputs each
+      for (let i = 0; i < 5; i++) s.add(`__gql_${n.id}_${i}`);
     }
+    // graphqlAssert: count = 0 (consumes variables, produces none)
   }
   return s.size;
 }

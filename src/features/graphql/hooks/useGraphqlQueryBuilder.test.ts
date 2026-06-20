@@ -201,6 +201,20 @@ describe('useGraphqlQueryBuilder', () => {
       expect(result.current.state.argValues).toEqual({});
       expect(result.current.selectedCount).toBe(0);
     });
+
+    it('clears fieldAliases and fieldDirectives on reset', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.selectPaths(['user.id']));
+      act(() => result.current.setFieldAlias('user.id', 'userId'));
+      act(() => result.current.setFieldDirective('user.id', 'include', true, '{{show}}'));
+      expect(result.current.aliasCount).toBe(1);
+      expect(result.current.directiveCount).toBe(1);
+      act(() => result.current.reset());
+      expect(result.current.state.fieldAliases).toEqual({});
+      expect(result.current.state.fieldDirectives).toEqual({});
+      expect(result.current.aliasCount).toBe(0);
+      expect(result.current.directiveCount).toBe(0);
+    });
   });
 
   describe('derived statistics', () => {
@@ -224,6 +238,161 @@ describe('useGraphqlQueryBuilder', () => {
       const { result } = renderHook(() => useGraphqlQueryBuilder());
       act(() => result.current.setArgValue('user', 'id', '$userId'));
       expect(result.current.variablesCount).toBe(1);
+    });
+  });
+
+  describe('setFieldAlias', () => {
+    it('sets an alias for a field path', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', 'me'));
+      expect(result.current.state.fieldAliases['user']).toBe('me');
+    });
+    it('removes alias when set to empty string', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', 'me'));
+      act(() => result.current.setFieldAlias('user', ''));
+      expect(result.current.state.fieldAliases['user']).toBeUndefined();
+    });
+    it('removes alias when set to whitespace-only string', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', 'me'));
+      act(() => result.current.setFieldAlias('user', '   '));
+      expect(result.current.state.fieldAliases['user']).toBeUndefined();
+    });
+    it('trims whitespace from alias value', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', '  me  '));
+      expect(result.current.state.fieldAliases['user']).toBe('me');
+    });
+    it('counts aliasCount for non-empty aliases', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', 'me'));
+      act(() => result.current.setFieldAlias('products', 'items'));
+      expect(result.current.aliasCount).toBe(2);
+    });
+    it('resets aliases on RESET', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldAlias('user', 'me'));
+      act(() => result.current.reset());
+      expect(result.current.state.fieldAliases).toEqual({});
+    });
+    it('clears aliases when operation type is changed', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.selectPaths(['user.id']));
+      act(() => result.current.setFieldAlias('user', 'me'));
+      act(() => result.current.setOperationType('mutation'));
+      expect(result.current.state.fieldAliases).toEqual({});
+      expect(result.current.state.fieldDirectives).toEqual({});
+    });
+  });
+
+  describe('setFieldDirective', () => {
+    it('sets @include directive on a field', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user.orders', 'include', true, '{{showOrders}}'));
+      expect(result.current.state.fieldDirectives['user.orders']?.include).toEqual({
+        enabled: true,
+        ifVar: '{{showOrders}}',
+      });
+    });
+    it('sets @skip directive on a field', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'skip', true, '$adminOnly'));
+      expect(result.current.state.fieldDirectives['user']?.skip).toEqual({
+        enabled: true,
+        ifVar: '$adminOnly',
+      });
+    });
+    it('can have both @include and @skip on same field', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'include', true, '{{show}}'));
+      act(() => result.current.setFieldDirective('user', 'skip', false, '{{hide}}'));
+      expect(result.current.state.fieldDirectives['user']?.include?.enabled).toBe(true);
+      expect(result.current.state.fieldDirectives['user']?.skip?.enabled).toBe(false);
+    });
+    it('counts directiveCount for enabled directives only', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'include', true, '{{show}}'));
+      act(() => result.current.setFieldDirective('products', 'skip', false, '{{hide}}'));
+      expect(result.current.directiveCount).toBe(1); // only user.include is enabled
+    });
+    it('resets directives on RESET', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'include', true, '{{show}}'));
+      act(() => result.current.reset());
+      expect(result.current.state.fieldDirectives).toEqual({});
+    });
+  });
+
+  describe('removeFieldDirective', () => {
+    it('removes a specific directive from a field', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'include', true, '{{show}}'));
+      act(() => result.current.setFieldDirective('user', 'skip', true, '{{hide}}'));
+      act(() => result.current.removeFieldDirective('user', 'include'));
+      expect(result.current.state.fieldDirectives['user']?.include).toBeUndefined();
+      expect(result.current.state.fieldDirectives['user']?.skip).toBeDefined();
+    });
+    it('removes the field entry entirely when all directives removed', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.setFieldDirective('user', 'include', true, '{{show}}'));
+      act(() => result.current.removeFieldDirective('user', 'include'));
+      expect(result.current.state.fieldDirectives['user']).toBeUndefined();
+    });
+
+    it('keeps state unchanged when removing a directive from a missing path', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      const before = result.current.state;
+      act(() => result.current.removeFieldDirective('missing.path', 'include'));
+      expect(result.current.state).toBe(before);
+    });
+  });
+
+  describe('fragments and spreads', () => {
+    it('adds, updates, and removes a fragment', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+
+      act(() => result.current.addFragment({
+        name: 'UserFields',
+        onType: 'User',
+        fieldPaths: ['id', 'name'],
+      }));
+      expect(result.current.fragmentCount).toBe(1);
+      expect(result.current.state.fragments.UserFields?.onType).toBe('User');
+
+      act(() => result.current.updateFragment('UserFields', { fieldPaths: ['id', 'email'] }));
+      expect(result.current.state.fragments.UserFields?.fieldPaths).toEqual(['id', 'email']);
+
+      act(() => result.current.removeFragment('UserFields'));
+      expect(result.current.fragmentCount).toBe(0);
+      expect(result.current.state.fragments.UserFields).toBeUndefined();
+    });
+
+    it('ignores updateFragment for missing fragment names', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      const before = result.current.state;
+      act(() => result.current.updateFragment('MissingFrag', { onType: 'Order' }));
+      expect(result.current.state).toBe(before);
+    });
+
+    it('toggles spread membership and removes spread when fragment is deleted', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+
+      act(() => result.current.addFragment({
+        name: 'OrderFields',
+        onType: 'Order',
+        fieldPaths: ['id'],
+      }));
+      act(() => result.current.toggleSpread('OrderFields'));
+      expect(result.current.state.activeFragmentSpreads).toEqual(['OrderFields']);
+
+      act(() => result.current.toggleSpread('OrderFields'));
+      expect(result.current.state.activeFragmentSpreads).toEqual([]);
+
+      act(() => result.current.toggleSpread('OrderFields'));
+      expect(result.current.state.activeFragmentSpreads).toEqual(['OrderFields']);
+      act(() => result.current.removeFragment('OrderFields'));
+      expect(result.current.state.activeFragmentSpreads).toEqual([]);
     });
   });
 });

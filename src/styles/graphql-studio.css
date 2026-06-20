@@ -6630,6 +6630,167 @@
   color: var(--text-muted);
 }
 
+/* ── Field Options section (aliases + directives) ─────────────────────────── */
+
+.gql-qb-fo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gql-qb-fo-row {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.gql-qb-fo-row--has-options {
+  border-color: rgba(137, 180, 250, 0.35);
+}
+
+.gql-qb-fo-header {
+  display: flex;
+  align-items: center;
+}
+
+.gql-qb-fo-expand {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--bg-tertiary);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.gql-qb-fo-expand:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.gql-qb-fo-expand--open {
+  background: var(--bg-hover);
+}
+
+.gql-qb-fo-leaf {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--gql-field);
+  font-weight: 500;
+}
+
+.gql-qb-fo-parent {
+  font-size: 9px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+}
+
+.gql-qb-fo-chevron {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.gql-qb-fo-body {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gql-qb-fo-option-row,
+.gql-qb-fo-directive-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gql-qb-fo-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 36px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gql-qb-fo-dir-name {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--gql-directive, #cba6f7);
+  flex-shrink: 0;
+}
+
+.gql-qb-fo-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.gql-qb-fo-input:focus {
+  border-color: var(--gql-accent);
+}
+
+.gql-qb-fo-input--if {
+  font-size: 10px;
+}
+
+/* Toggle switch */
+.gql-qb-fo-toggle {
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.gql-qb-fo-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: left 0.15s, background 0.15s;
+}
+
+.gql-qb-fo-toggle--on {
+  background: rgba(137, 180, 250, 0.3);
+}
+
+.gql-qb-fo-toggle--on::after {
+  left: 14px;
+  background: var(--gql-accent);
+}
+
+.gql-qb-fo-overflow {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 3px;
+}
+
 /* ── Builder mode toggle in the editor pane ──────────────────────────────── */
 
 .gql-mode-toggle {
@@ -9173,4 +9334,228 @@
   border-top: none;
   border-left: none;
   transform: rotate(45deg);
+}
+
+/* ── Latency Histogram Strip (Phase 2 Deferred) ──────────────────── */
+.gql-hist {
+  border-top: 1px solid #334155;
+  background: #0f172a;
+  padding: 6px 10px 4px;
+  flex-shrink: 0;
+}
+.gql-hist-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+.gql-hist-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.gql-hist-stat {
+  font-size: 10px;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+.gql-hist-stat--muted { color: #475569; }
+.gql-hist-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 36px;
+}
+.gql-hist-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+  height: 100%;
+  cursor: default;
+}
+.gql-hist-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.gql-hist-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  min-height: 0;
+  transition: height 0.15s ease;
+}
+.gql-hist-bar--ok   { background: #22c55e; }
+.gql-hist-bar--warn { background: #f59e0b; }
+.gql-hist-bar--slow { background: #ef4444; }
+.gql-hist-col:hover .gql-hist-bar { opacity: 0.8; }
+.gql-hist-label {
+  font-size: 8px;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+/* Count removed from visual — tooltip on hover provides count instead */
+.gql-hist-count { display: none; }
+.gql-hist-col { position: relative; }
+
+/* ── Fragment Section (Query Builder Summary Panel) ─────────────────── */
+.gql-qb-frag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.gql-qb-frag-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  font-size: 11px;
+}
+.gql-qb-frag-item--active {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+}
+.gql-qb-frag-name {
+  font-weight: 600;
+  color: #93c5fd;
+  flex-shrink: 0;
+}
+.gql-qb-frag-on {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.gql-qb-frag-count {
+  color: #475569;
+  font-size: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.gql-qb-frag-use {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #94a3b8;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.gql-qb-frag-use:hover { border-color: #3b82f6; color: #93c5fd; }
+.gql-qb-frag-use--active {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+.gql-qb-frag-update,
+.gql-qb-frag-delete {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.gql-qb-frag-update:hover { color: #94a3b8; border-color: #334155; }
+.gql-qb-frag-delete:hover { color: #ef4444; border-color: #334155; }
+.gql-qb-frag-new {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.gql-qb-frag-name-input,
+.gql-qb-frag-type-input,
+.gql-qb-frag-type-select {
+  width: 100%;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+.gql-qb-frag-name-input:focus,
+.gql-qb-frag-type-input:focus,
+.gql-qb-frag-type-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+.gql-qb-frag-create-btn {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px dashed #334155;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  text-align: center;
+}
+.gql-qb-frag-create-btn:hover {
+  border-color: #3b82f6;
+  color: #93c5fd;
+  background: #1e293b;
+}
+.gql-qb-frag-error {
+  color: #f87171;
+  font-size: 10px;
+  margin: 0;
+  padding: 2px 0;
+}
+
+/* ── Advanced Settings — Transport & Limits tabs (Phase 2 Deferred) ── */
+.gql-advsettings-select {
+  flex: 1;
+  min-width: 0;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.gql-advsettings-select:hover { border-color: #475569; }
+.gql-advsettings-input {
+  flex: 1;
+  min-width: 0;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.gql-advsettings-input:hover { border-color: #475569; }
+.gql-advsettings-input:focus { outline: none; border-color: #3b82f6; }
+.gql-advsettings-fieldset {
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 6px 0 0;
+}
+.gql-advsettings-legend {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 0 4px;
 }

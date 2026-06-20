@@ -21,6 +21,9 @@ import { GraphqlResponseViewer } from './GraphqlResponseViewer';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import { GraphqlSubscriptionLog } from './GraphqlSubscriptionLog';
 import type { MessageAssertionResults } from '../utils/subscriptionAssertions';
+import { useEffect, useRef, useState } from 'react';
+
+const MAX_LATENCY_HISTORY = 50;
 
 type RightPaneView = 'response' | 'schema';
 
@@ -103,6 +106,22 @@ export function GqlRightPane({
   const hasErrors = !!(response?.errors?.length);
   const hasData = response?.data != null;
   const isPartialSuccess = hasErrors && hasData;
+
+  // Accumulate latency history (capped at MAX_LATENCY_HISTORY) across tab switches.
+  // Tracks the last-seen response timestamp to avoid double-counting on re-render.
+  const latencyHistoryRef   = useRef<number[]>([]);
+  const lastTimestampRef    = useRef<number | undefined>(undefined);
+  const [latencyHistory, setLatencyHistory] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!response || response.latencyMs == null) return;
+    if (response.timestamp === lastTimestampRef.current) return;
+    lastTimestampRef.current = response.timestamp;
+    const next = [...latencyHistoryRef.current, response.latencyMs];
+    if (next.length > MAX_LATENCY_HISTORY) next.splice(0, next.length - MAX_LATENCY_HISTORY);
+    latencyHistoryRef.current = next;
+    setLatencyHistory(next);
+  }, [response]);
 
   // Show subscription log when there is an active session (state !== 'idle').
   // The log stays visible after the subscription ends (closed/error) so the user
@@ -249,7 +268,7 @@ export function GqlRightPane({
 
         {/* Query/mutation response viewer */}
         {view === 'response' && !showSubscriptionLog && !showSubscriptionHint && (
-          <GraphqlResponseViewer response={response} loading={executing} />
+          <GraphqlResponseViewer response={response} loading={executing} latencyHistory={latencyHistory} />
         )}
 
         {view === 'schema' && (

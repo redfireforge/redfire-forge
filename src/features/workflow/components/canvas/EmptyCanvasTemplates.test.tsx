@@ -39,7 +39,8 @@ describe('EmptyCanvasTemplates', () => {
     );
     for (const template of emptyCanvasTemplates) {
       const metaText = `${template.nodeCount} nodes · ${template.difficulty}`;
-      expect(screen.getByText(metaText)).toBeInTheDocument();
+      // Multiple templates may share the same nodeCount + difficulty, so use getAllByText.
+      expect(screen.getAllByText(metaText).length).toBeGreaterThan(0);
     }
   });
 

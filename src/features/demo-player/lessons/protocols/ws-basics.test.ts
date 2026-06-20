@@ -118,6 +118,41 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
+  it('ws-connect preAction starts mock server when start button is enabled', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const startBtn = document.createElement('button');
+    startBtn.setAttribute('data-testid', 'mock-start-btn');
+    document.body.appendChild(startBtn);
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx); // ensures _mockRunning = false
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+
+    await connectStep.preAction!(ctx);
+
+    // Covers ensureMockRunning() branch that actively starts the mock server.
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mock-start-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('mock-stop-btn'), expect.any(Number));
+  });
+
+  it('cleanup resets connection flags so preAction reconnects on next run', async () => {
+    const connectStep = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    const composeStep = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    await connectStep.action!(ctx); // sets _wsConnected = true
+
+    await wsBasicsLesson.cleanup!(ctx); // resets _mockRunning/_wsConnected and runs wsCleanup
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+
+    await composeStep.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
+  });
+
   // ── Step: ws-nav ───────────────────────────────────────────────
 
   it('step ws-nav has no action and highlights mode-client', () => {
