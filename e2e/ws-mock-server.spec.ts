@@ -4,58 +4,26 @@
  * Requires: backend on 3001, Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
+import {
+  gotoWsStudio,
+  switchWsMode,
+  switchWsLeftTab,
+  switchWsRightTab,
+  startWsMockFromUI,
+  stopWsMockFromUI,
+} from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
-const _MOCK_URL = 'ws://localhost:9876';
-
-/* ── helpers ─────────────────────────────────────────── */
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 15000 });
-}
-
-async function switchMode(page: Page, mode: 'client' | 'mock' | 'saved') {
-  await page.click(`[data-testid="mode-${mode}"]`);
-  await page.waitForTimeout(300);
-}
-
-async function _switchLeftTab(page: Page, tab: string) {
-  await page.click(`[data-testid="left-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
-
-async function _switchRightTab(page: Page, tab: string) {
-  await page.click(`[data-testid="right-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
+/* ── local aliases ───────────────────────────────────── */
+const switchMode = (page: Page, mode: 'client' | 'mock' | 'saved') => switchWsMode(page, mode);
+const _switchLeftTab = (page: Page, tab: string) => switchWsLeftTab(page, tab);
+const _switchRightTab = (page: Page, tab: string) => switchWsRightTab(page, tab);
+const startMockServer = (page: Page) => startWsMockFromUI(page);
+const stopMockServer = (page: Page) => stopWsMockFromUI(page);
 
 async function gotoMockMode(page: Page) {
   await gotoWsStudio(page);
   await switchMode(page, 'mock');
   await page.waitForTimeout(300);
-}
-
-async function startMockServer(page: Page) {
-  // Stop any already-running server first
-  const stopBtn = page.locator('[data-testid="mock-stop-btn"]');
-  if (await stopBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-    await stopBtn.click();
-    await page.waitForTimeout(500);
-  }
-  // Port is tab-assigned and read-only — just click Start
-  await page.click('[data-testid="mock-start-btn"]');
-  await page.waitForTimeout(1000);
-  // Wait for status to show Running
-  await expect(page.locator('[data-testid="mock-status-label"]')).toContainText(/running/i, { timeout: 5000 });
-}
-
-async function stopMockServer(page: Page) {
-  const stopBtn = page.locator('[data-testid="mock-stop-btn"]');
-  if (await stopBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-    await stopBtn.click();
-    await page.waitForTimeout(500);
-  }
 }
 
 /* ── WM-01–07: Mock Server Core ──────────────────────── */

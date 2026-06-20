@@ -471,31 +471,43 @@ describe('DemoSpotlight', () => {
 
 describe('DemoHubHeader', () => {
   it('renders hub title', () => {
-    render(<DemoHubHeader view="domains" domain={null} lesson={null} onBack={vi.fn()} />);
+    render(<DemoHubHeader view="domains" domain={null} lesson={null} onBack={vi.fn()} onBackToDomains={vi.fn()} />);
     expect(screen.getByText('🎓 Learning Hub')).toBeTruthy();
   });
 
   it('shows domain breadcrumb when domain is selected', () => {
-    render(<DemoHubHeader view="lessons" domain={makeDomain()} lesson={null} onBack={vi.fn()} />);
+    render(<DemoHubHeader view="lessons" domain={makeDomain()} lesson={null} onBack={vi.fn()} onBackToDomains={vi.fn()} />);
     expect(screen.getByText(/Protocols/)).toBeTruthy();
   });
 
   it('shows lesson breadcrumb when lesson is selected', () => {
-    render(<DemoHubHeader view="concept" domain={makeDomain()} lesson={makeLesson()} onBack={vi.fn()} />);
+    render(<DemoHubHeader view="concept" domain={makeDomain()} lesson={makeLesson()} onBack={vi.fn()} onBackToDomains={vi.fn()} />);
     expect(screen.getByText('Lesson 1')).toBeTruthy();
   });
 
   it('back button is disabled on domains view', () => {
-    render(<DemoHubHeader view="domains" domain={null} lesson={null} onBack={vi.fn()} />);
+    render(<DemoHubHeader view="domains" domain={null} lesson={null} onBack={vi.fn()} onBackToDomains={vi.fn()} />);
     const btn = screen.getByText('🎓 Learning Hub');
     expect(btn).toHaveProperty('disabled', true);
   });
 
-  it('calls onBack from lessons view', () => {
+  it('Learning Hub button calls onBackToDomains (not onBack) from any non-domains view', () => {
     const onBack = vi.fn();
-    render(<DemoHubHeader view="lessons" domain={makeDomain()} lesson={null} onBack={onBack} />);
+    const onBackToDomains = vi.fn();
+    render(<DemoHubHeader view="lessons" domain={makeDomain()} lesson={null} onBack={onBack} onBackToDomains={onBackToDomains} />);
     fireEvent.click(screen.getByText('🎓 Learning Hub'));
-    expect(onBack).toHaveBeenCalled();
+    expect(onBackToDomains).toHaveBeenCalled();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('Learning Hub button calls onBackToDomains from concept view', () => {
+    const onBack = vi.fn();
+    const onBackToDomains = vi.fn();
+    const lesson = { id: 'l1', name: 'Test Lesson', category: 'websocket' } as ReturnType<typeof makeDomain>['lessons'][0];
+    render(<DemoHubHeader view="concept" domain={makeDomain()} lesson={lesson} onBack={onBack} onBackToDomains={onBackToDomains} />);
+    fireEvent.click(screen.getByText('🎓 Learning Hub'));
+    expect(onBackToDomains).toHaveBeenCalled();
+    expect(onBack).not.toHaveBeenCalled();
   });
 });
 
@@ -576,22 +588,59 @@ describe('LessonPlayer', () => {
     expect(document.querySelector('.prereq-gate')).toBeNull();
   });
 
-  it('collapses sidebar step when clicked while already expanded', () => {
+  it('clicking a step nav item shows its description in the right panel', () => {
     render(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
       />,
     );
-    const buttons = document.querySelectorAll('.demo-sidebar-step-header');
-    expect(buttons.length).toBeGreaterThan(0);
-    const firstBtn = buttons[0] as HTMLElement;
-    // First click: expand
-    fireEvent.click(firstBtn);
-    expect(firstBtn.getAttribute('aria-expanded')).toBe('true');
-    // Second click: collapse (covers isExpanded ? null : idx → null branch)
-    fireEvent.click(firstBtn);
-    expect(firstBtn.getAttribute('aria-expanded')).toBe('false');
+    // Default: concept view is active
+    expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail')).toBeNull();
+
+    // Click step 1 in the sidebar
+    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
+    // navItems[0] = Concept, navItems[1] = Step 1, navItems[2] = Step 2
+    fireEvent.click(navItems[1]);
+
+    // Concept slide should be replaced by step detail
+    expect(document.querySelector('.demo-concept-slide')).toBeNull();
+    expect(document.querySelector('.demo-step-detail')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail-title')?.textContent).toBe('Step 1');
+    expect(document.querySelector('.demo-step-detail-num')?.textContent).toBe('Step 1');
+
+    // Clicking Concept nav item restores concept view
+    fireEvent.click(navItems[0]);
+    expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
+    expect(document.querySelector('.demo-step-detail')).toBeNull();
+  });
+
+  it('footer always shows Start Demo; Prev/Next appear only when viewing a step', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson()}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
+
+    // Concept view → Start Demo present, no step navigation
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeNull();
+    expect(screen.queryByText(/Next →/)).toBeNull();
+
+    // Step 1 (non-last, non-first) → Start Demo + Next, no Prev
+    fireEvent.click(navItems[1]);
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/Next →/)).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeNull();
+
+    // Step 2 (last) → Start Demo + Prev, no Next
+    fireEvent.click(navItems[2]);
+    expect(screen.queryByText('Start Demo →')).toBeTruthy();
+    expect(screen.queryByText(/← Prev/)).toBeTruthy();
+    expect(screen.queryByText(/Next →/)).toBeNull();
   });
 
   it('enables start button when docker gate becomes ready', async () => {
@@ -618,11 +667,41 @@ describe('LessonPlayer', () => {
     expect(onStart).toHaveBeenCalled();
     vi.useRealTimers();
   });
+
+  it('Prev and Next buttons navigate between steps', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson()}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
+    fireEvent.click(navItems[1]);
+    fireEvent.click(screen.getByText(/Next →/));
+    expect(document.querySelector('.demo-step-detail-title')?.textContent).toBe('Step 2');
+    fireEvent.click(screen.getByText(/← Prev/));
+    expect(document.querySelector('.demo-step-detail-title')?.textContent).toBe('Step 1');
+  });
+
+  it('uses default dockerCommand when lesson omits dockerCommand', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/test' })}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    expect(document.querySelector('.prereq-gate')).toBeTruthy();
+  });
 });
 
 // ── LessonList ──────────────────────────────────────────────────
 
 describe('LessonList', () => {
+  const defaultResetProps = {
+    onResetLesson: vi.fn(),
+    onResetAll: vi.fn(),
+  };
+
   it('renders lesson items', () => {
     render(
       <LessonList
@@ -630,6 +709,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Lesson 1')).toBeTruthy();
@@ -644,12 +724,26 @@ describe('LessonList', () => {
         progress={progress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('✓')).toBeTruthy();
     expect(screen.getByText('Restart')).toBeTruthy();
-    // Lesson number should still be visible even when completed
     expect(screen.getByText('1')).toBeTruthy();
+  });
+
+  it('shows in-progress indicator for lessons with step progress', () => {
+    const progress: DemoProgress = { ...baseProgress, lessonSteps: { l1: 0 } };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByLabelText('In progress')).toBeTruthy();
   });
 
   it('shows Resume badge for in-progress lessons', () => {
@@ -660,6 +754,7 @@ describe('LessonList', () => {
         progress={progress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Resume')).toBeTruthy();
@@ -673,6 +768,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={onSelect}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     fireEvent.click(screen.getByText('Lesson 1'));
@@ -687,6 +783,7 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={onBack}
+        {...defaultResetProps}
       />,
     );
     fireEvent.click(screen.getByText('← Back to all domains'));
@@ -707,10 +804,268 @@ describe('LessonList', () => {
         progress={baseProgress}
         onSelect={vi.fn()}
         onBack={vi.fn()}
+        {...defaultResetProps}
       />,
     );
     expect(screen.getByText('Basics')).toBeTruthy();
     expect(screen.getByText('Advanced')).toBeTruthy();
+  });
+
+  it('shows per-lesson reset button for completed lessons', () => {
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByTestId('reset-lesson-l1')).toBeTruthy();
+  });
+
+  it('shows inline confirm when reset lesson button clicked', () => {
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    expect(screen.getByTestId('reset-confirm-l1')).toBeTruthy();
+    expect(screen.getByText('Reset progress?')).toBeTruthy();
+  });
+
+  it('calls onResetLesson when confirmed', () => {
+    const onResetLesson = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={onResetLesson}
+        onResetAll={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    fireEvent.click(screen.getByText('↺ Yes'));
+    expect(onResetLesson).toHaveBeenCalledWith('l1');
+  });
+
+  it('dismisses confirm without resetting when ✕ clicked', () => {
+    const onResetLesson = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={onResetLesson}
+        onResetAll={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    fireEvent.click(screen.getByLabelText('Cancel reset'));
+    expect(onResetLesson).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('reset-confirm-l1')).toBeNull();
+  });
+
+  it('shows Reset all button only when at least one lesson is completed', () => {
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.queryByTestId('reset-all-btn')).toBeNull();
+
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    const { rerender } = render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByTestId('reset-all-btn')).toBeTruthy();
+    void rerender; // suppress unused warning
+  });
+
+  it('shows Reset all confirm then calls onResetAll', () => {
+    const onResetAll = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={vi.fn()}
+        onResetAll={onResetAll}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-all-btn'));
+    expect(screen.getByTestId('reset-all-confirm')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('reset-all-yes'));
+    expect(onResetAll).toHaveBeenCalled();
+  });
+
+  it('cancels Reset all without calling onResetAll', () => {
+    const onResetAll = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        onResetLesson={vi.fn()}
+        onResetAll={onResetAll}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-all-btn'));
+    fireEvent.click(screen.getByTestId('reset-all-no'));
+    expect(onResetAll).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('reset-all-confirm')).toBeNull();
+  });
+
+  it('uses initialCategory when navigating back from a lesson', () => {
+    const domain = makeDomain({
+      categories: [
+        { id: 'basics', label: 'Basics', icon: '📚' },
+        { id: 'advanced', label: 'Advanced', icon: '🚀' },
+      ],
+      lessons: [
+        makeLesson({ id: 'l1', category: 'basics', name: 'Basics Lesson' }),
+        makeLesson({ id: 'l2', category: 'advanced', name: 'Advanced Lesson' }),
+      ],
+    });
+    render(
+      <LessonList
+        domain={domain}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+        initialCategory="advanced"
+      />,
+    );
+    expect(screen.getByText('Advanced Lesson')).toBeTruthy();
+    expect(screen.queryByText('Basics Lesson')).toBeNull();
+  });
+
+  it('shows empty category tab as disabled with soon label', () => {
+    const domain = makeDomain({
+      categories: [
+        { id: 'basics', label: 'Basics', icon: '📚' },
+        { id: 'advanced', label: 'Advanced', icon: '🚀' },
+      ],
+      lessons: [makeLesson({ category: 'basics' })],
+    });
+    render(
+      <LessonList
+        domain={domain}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    const advancedTab = screen.getByText('Advanced').closest('button') as HTMLButtonElement;
+    expect(advancedTab.disabled).toBe(true);
+    expect(screen.getByText('soon')).toBeTruthy();
+  });
+
+  it('shows empty-state message when active category has no lessons', () => {
+    const domain = makeDomain({
+      categories: [{ id: 'basics', label: 'Basics', icon: '📚' }],
+      lessons: [],
+    });
+    render(
+      <LessonList
+        domain={domain}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByText(/No Basics lessons yet/)).toBeTruthy();
+  });
+
+  it('renders lesson tag badge when present', () => {
+    render(
+      <LessonList
+        domain={makeDomain({ lessons: [makeLesson({ tag: '🐳 Docker' })] })}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByText('🐳 Docker')).toBeTruthy();
+  });
+
+  it('blocks lesson select while reset confirmation is open', () => {
+    const onSelect = vi.fn();
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={onSelect}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('reset-lesson-l1'));
+    fireEvent.click(screen.getByText('Lesson 1'));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('shows all-done badge when every lesson in category is completed', () => {
+    const domain = makeDomain({
+      categories: [{ id: 'basics', label: 'Basics', icon: '📚' }],
+      lessons: [makeLesson({ id: 'l1', category: 'basics' })],
+    });
+    const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
+    const { container } = render(
+      <LessonList
+        domain={domain}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(container.querySelector('.demo-category-count.all-done')).toBeTruthy();
+  });
+
+  it('shows reset button for in-progress lessons', () => {
+    const progress: DemoProgress = { ...baseProgress, lessonSteps: { l1: 1 } };
+    render(
+      <LessonList
+        domain={makeDomain()}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByTestId('reset-lesson-l1')).toBeTruthy();
   });
 });
 
@@ -727,6 +1082,7 @@ describe('LiveDemo', () => {
     onSkipReading: vi.fn(),
     onRestart: vi.fn(),
     onExit: vi.fn(),
+    onComplete: vi.fn(),
   };
 
   it('renders step title and description', () => {
@@ -839,6 +1195,29 @@ describe('LiveDemo', () => {
   it('does not render speed selector buttons', () => {
     render(<LiveDemo {...liveProps} />);
     expect(screen.queryByRole('group', { name: 'Playback speed' })).toBeNull();
+  });
+
+  it('shows Complete button on last step when canNavigate', () => {
+    // stepIndex 1 is the last step of the 2-step lesson, stepPhase='done' → canNavigate
+    render(<LiveDemo {...liveProps} stepIndex={1} stepPhase="done" />);
+    expect(screen.getByTitle('Mark lesson as complete')).toBeTruthy();
+  });
+
+  it('does not show Complete button before last step', () => {
+    render(<LiveDemo {...liveProps} stepIndex={0} />);
+    expect(screen.queryByTitle('Mark lesson as complete')).toBeNull();
+  });
+
+  it('does not show Complete button on last step when action is executing', () => {
+    render(<LiveDemo {...liveProps} stepIndex={1} stepPhase="action" />);
+    expect(screen.queryByTitle('Mark lesson as complete')).toBeNull();
+  });
+
+  it('calls onComplete when Complete button is clicked', () => {
+    const onComplete = vi.fn();
+    render(<LiveDemo {...liveProps} stepIndex={1} stepPhase="done" onComplete={onComplete} />);
+    fireEvent.click(screen.getByTitle('Mark lesson as complete'));
+    expect(onComplete).toHaveBeenCalled();
   });
 
   it('does not render back button', () => {
@@ -1047,5 +1426,111 @@ describe('LiveDemo', () => {
     const { container } = render(<LiveDemo {...liveProps} />);
     const handle = container.querySelector('.demo-live-drag-handle');
     expect(handle?.textContent).toBe('⠿');
+  });
+
+  it('toggles steps overview drawer open and closed', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    render(<LiveDemo {...liveProps} />);
+    const overviewBtn = screen.getByLabelText('Toggle steps overview');
+    expect(document.querySelector('.demo-overview-modal')).toBeNull();
+    fireEvent.click(overviewBtn);
+    expect(document.querySelector('.demo-overview-modal')).toBeTruthy();
+    expect(overviewBtn.classList.contains('active')).toBe(true);
+    fireEvent.click(overviewBtn);
+    expect(document.querySelector('.demo-overview-modal')).toBeNull();
+  });
+
+  it('closes overview drawer via onClose callback', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    render(<LiveDemo {...liveProps} />);
+    fireEvent.click(screen.getByLabelText('Toggle steps overview'));
+    fireEvent.click(screen.getByLabelText('Close steps overview'));
+    expect(document.querySelector('.demo-overview-modal')).toBeNull();
+  });
+
+  it('hides spotlight during pre phase even when target found', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const target = document.createElement('div');
+    target.className = 'pre-phase-target';
+    target.style.width = '100px';
+    target.style.height = '50px';
+    target.scrollIntoView = vi.fn();
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 10, left: 10, width: 100, height: 50,
+      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+    });
+    document.body.appendChild(target);
+
+    const lessonHL = makeLesson({
+      steps: [
+        { id: 's1', title: 'HL', description: 'D1', highlight: '.pre-phase-target' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+
+    const { container } = render(<LiveDemo {...liveProps} lesson={lessonHL} stepPhase="pre" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(container.querySelector('.demo-spotlight')).toBeNull();
+    document.body.removeChild(target);
+    vi.useRealTimers();
+  });
+
+  it('isElementVisible rejects hidden elements (display none)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const target = document.createElement('div');
+    target.className = 'hidden-target';
+    target.style.display = 'none';
+    target.style.width = '100px';
+    target.style.height = '50px';
+    document.body.appendChild(target);
+
+    const lessonHL = makeLesson({
+      steps: [
+        { id: 's1', title: 'HL', description: 'D1', highlight: '.hidden-target' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+
+    render(<LiveDemo {...liveProps} lesson={lessonHL} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2500); });
+    expect(screen.getByText('📖 Guide')).toBeTruthy();
+    document.body.removeChild(target);
+    vi.useRealTimers();
+  });
+
+  it('polling picks first visible element among multiple matches', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const hidden = document.createElement('div');
+    hidden.className = 'multi-target';
+    hidden.style.width = '0';
+    hidden.style.height = '0';
+    document.body.appendChild(hidden);
+
+    const visible = document.createElement('div');
+    visible.className = 'multi-target';
+    visible.style.width = '100px';
+    visible.style.height = '50px';
+    visible.scrollIntoView = vi.fn();
+    vi.spyOn(visible, 'getBoundingClientRect').mockReturnValue({
+      top: 10, left: 10, width: 100, height: 50,
+      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+    });
+    document.body.appendChild(visible);
+
+    const lessonHL = makeLesson({
+      steps: [
+        { id: 's1', title: 'HL', description: 'D1', highlight: '.multi-target' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+
+    render(<LiveDemo {...liveProps} lesson={lessonHL} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(visible.scrollIntoView).toHaveBeenCalled();
+    expect(screen.getByText('🟢 Live')).toBeTruthy();
+    document.body.removeChild(hidden);
+    document.body.removeChild(visible);
+    vi.useRealTimers();
   });
 });

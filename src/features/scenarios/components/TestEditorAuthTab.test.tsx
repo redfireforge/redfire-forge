@@ -7,19 +7,16 @@ import '@testing-library/jest-dom';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import type { TestEditorAuthTabProps } from './TestEditorAuthTab';
 import type { AuthConfig, FeatureGroup, GlobalAuthProfile, Scenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
-function makeScenario(auth: AuthConfig): Scenario {
-  return {
+const makeScenario = (auth: AuthConfig): Scenario =>
+  _makeScenario({
     id: 't1',
     name: 'T',
     url: 'http://x',
-    method: 'GET',
-    headers: [],
-    body: '',
     auth,
     validation: { mode: 'status' } as Scenario['validation'],
-  };
-}
+  });
 
 function makeProps(overrides: Partial<TestEditorAuthTabProps> = {}): TestEditorAuthTabProps {
   return {

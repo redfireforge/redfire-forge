@@ -22,6 +22,7 @@ export default function DemoHub({ hub }: DemoHubProps) {
         domain={state.selectedDomain}
         lesson={state.selectedLesson}
         onBack={hub.goBack}
+        onBackToDomains={hub.goToDomains}
       />
       <div className="demo-hub-body">
         {state.view === 'domains' && (
@@ -37,6 +38,9 @@ export default function DemoHub({ hub }: DemoHubProps) {
             progress={progress}
             onSelect={hub.selectLesson}
             onBack={hub.goBack}
+            onResetLesson={hub.resetLesson}
+            onResetAll={hub.resetProgress}
+            initialCategory={state.selectedLesson?.category}
           />
         )}
         {state.view === 'concept' && state.selectedLesson && (

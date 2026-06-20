@@ -107,4 +107,41 @@ describe('buildDataRowSummary', () => {
 
     expect(summary[0].failedRowDetails[0].status).toBe('CONSUME');
   });
+
+  it('uses WS_CONNECT status label for failed WebSocket connect data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'WS',
+        transportType: 'wsConnect',
+        httpStatus: 0,
+        errorMessage: 'Connection refused',
+        wsResultMeta: { url: 'ws://localhost:9876' },
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('WS_CONNECT');
+  });
+
+  it('uses WS_SEND status label for failed WebSocket send data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'WS',
+        transportType: 'wsSend',
+        httpStatus: 0,
+        errorMessage: 'Send failed',
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('WS_SEND');
+  });
 });

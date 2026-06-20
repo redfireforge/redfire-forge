@@ -1,4 +1,4 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData, GraphqlQueryNodeData, GraphqlSubscriptionNodeData, GraphqlIntrospectNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
@@ -37,6 +37,11 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   wsSend:            { icon: '⇢',  category: 'Integrations' },
   wsReceive:         { icon: '⇠',  category: 'Integrations' },
   wsTrigger:         { icon: '⚡', category: 'Triggers' },
+  graphqlQuery:      { icon: '◈',  category: 'Integrations' },
+  graphqlMutation:   { icon: '◈',  category: 'Integrations' },
+  graphqlSubscription: { icon: '◈', category: 'Integrations' },
+  graphqlIntrospect: { icon: '◈',  category: 'Integrations' },
+  graphqlAssert:     { icon: '◈',  category: 'Logic' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
@@ -93,6 +98,7 @@ const NON_HTTP_TYPES = new Set([
   'waitForCondition', 'correlationWait', 'errorHandler', 'subWorkflow', 'end',
   'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
   'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
+  'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
@@ -456,7 +462,41 @@ export function collectConditionVariableHints(
           push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from WebSocket trigger message via JSONPath "${er.jsonPath}"`, 'string', triggerSource);
         }
       }
+    } else if (n.type === 'graphqlQuery' || n.type === 'graphqlMutation') {
+      const data = n.data as GraphqlQueryNodeData;
+      const label = data.label?.trim() || (n.type === 'graphqlMutation' ? 'GraphQL Mutation' : 'GraphQL Query');
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: n.type, category: 'Integrations' };
+      push('data',            `data ← "${label}"`,            `Full response data object from "${label}"`,                   'object',  gqlSource);
+      push('errors',          `errors ← "${label}"`,          `GraphQL errors array from "${label}" (empty if no errors)`,   'array',   gqlSource);
+      push('latencyMs',       `latencyMs ← "${label}"`,       `Round-trip latency in ms for "${label}"`,                     'number',  gqlSource);
+      push('httpStatus',      `httpStatus ← "${label}"`,      `HTTP status code returned by "${label}" (usually 200)`,       'number',  gqlSource);
+      push('operationName',   `operationName ← "${label}"`,   `GraphQL operation name label from "${label}"`,                'string',  gqlSource);
+      for (const rule of data.extractionRules ?? []) {
+        const nm = rule.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from response via JSONPath "${rule.jsonPath}"`, 'unknown', gqlSource);
+        }
+      }
+    } else if (n.type === 'graphqlSubscription') {
+      const data = n.data as GraphqlSubscriptionNodeData;
+      const label = data.label?.trim() || 'GraphQL Subscription';
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'graphqlSubscription', category: 'Integrations' };
+      push('messages',      `messages ← "${label}"`,      `Array of all collected subscription message payloads from "${label}"`,   'array',  gqlSource);
+      push('messageCount',  `messageCount ← "${label}"`,  `Total number of messages received from "${label}"`,                      'number', gqlSource);
+      push('firstMessage',  `firstMessage ← "${label}"`,  `First message payload received from "${label}"`,                         'object', gqlSource);
+      push('lastMessage',   `lastMessage ← "${label}"`,   `Last message payload received from "${label}"`,                          'object', gqlSource);
+      push('latencyMs',     `latencyMs ← "${label}"`,     `Latency to first message in ms for "${label}"`,                          'number', gqlSource);
+    } else if (n.type === 'graphqlIntrospect') {
+      const data = n.data as GraphqlIntrospectNodeData;
+      const label = data.label?.trim() || 'GraphQL Introspect';
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'graphqlIntrospect', category: 'Integrations' };
+      push('sdl',           `sdl ← "${label}"`,           `Full SDL string of the introspected schema from "${label}"`,   'string', gqlSource);
+      push('typeCount',     `typeCount ← "${label}"`,     `Number of types in the schema from "${label}"`,                'number', gqlSource);
+      push('fieldCount',    `fieldCount ← "${label}"`,    `Total number of fields across all types from "${label}"`,      'number', gqlSource);
+      push('schemaHash',    `schemaHash ← "${label}"`,    `SHA-256 hash of the SDL from "${label}" (for change detection)`, 'string', gqlSource);
+      push('queryTypeName', `queryTypeName ← "${label}"`, `Name of the root Query type from "${label}" (usually "Query")`, 'string', gqlSource);
     }
+    // graphqlAssert is excluded — it consumes variables, it does not produce them
   }
 
   out.sort((a, b) => a.ref.localeCompare(b.ref));

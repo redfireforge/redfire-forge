@@ -254,6 +254,16 @@ describe('buildWsNodeOperations', () => {
       expect(cursor).toBe('cursor-42');
     });
 
+    it('uses connectionId directly when registry has no mapping', async () => {
+      mockDispatch.mockResolvedValueOnce(envelope({ messages: [], cursor: 'direct-cursor' }));
+
+      const ops = buildWsNodeOperations();
+      const cursor = await ops.snapshotCursor({ connectionId: 'unregistered-id' });
+
+      expect(cursor).toBe('direct-cursor');
+      expect(mockDispatch).toHaveBeenCalledWith('messages', { connectionId: 'unregistered-id' });
+    });
+
     it('returns undefined when no cursor', async () => {
       mockDispatch
         .mockResolvedValueOnce(envelope({ connectionId: 'proxy-c1' }))
@@ -368,6 +378,161 @@ describe('buildWsNodeOperations', () => {
 
       const ops = buildWsNodeOperations();
       await expect(ops.connect({ url: 'ws://test' })).rejects.toThrow('missing data');
+    });
+  });
+
+  describe('waitForMessage — messageType any', () => {
+    it('accepts any message type when criteria is any', async () => {
+      mockDispatch.mockResolvedValueOnce(envelope({
+        messages: [{ data: 'binary-msg', type: 'binary', timestamp: 1000 }],
+        cursor: 'c1',
+      }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 5000,
+        matchCriteria: { messageType: 'any' },
+      });
+
+      expect(msg.data).toBe('binary-msg');
+    });
+  });
+
+  describe('waitForMessage — jsonPath string value', () => {
+    it('matches jsonPathValue against string field values', async () => {
+      mockDispatch.mockResolvedValueOnce(envelope({
+        messages: [{ data: '{"status":"ready"}', type: 'text' }],
+        cursor: 'c1',
+      }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        matchCriteria: { jsonPathMatch: 'status', jsonPathValue: 'ready' },
+      });
+      expect(msg.data).toContain('ready');
+    });
+
+    it('matches jsonPathValue against non-string JSON values', async () => {
+      mockDispatch.mockResolvedValueOnce(envelope({
+        messages: [{ data: '{"count":42}', type: 'text' }],
+        cursor: 'c1',
+      }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        matchCriteria: { jsonPathMatch: 'count', jsonPathValue: '42' },
+      });
+      expect(msg.data).toBe('{"count":42}');
+    });
+  });
+
+  describe('waitForMessage — polling with sinceCursor', () => {
+    it('advances cursor across polls until a match arrives', async () => {
+      mockDispatch
+        .mockResolvedValueOnce(envelope({ messages: [], cursor: 'c0' }))
+        .mockResolvedValueOnce(envelope({
+          messages: [{ data: 'late', type: 'text', timestamp: 1000 }],
+          cursor: 'c1',
+        }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        sinceCursor: 'c0',
+      });
+      expect(msg.data).toBe('late');
+    });
+
+    it('handles missing envelope data and default message type', async () => {
+      mockDispatch.mockResolvedValueOnce({
+        ok: true,
+        op: 'messages',
+        data: undefined,
+      } as never);
+
+      const ops = buildWsNodeOperations();
+      await expect(ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 50,
+      })).rejects.toThrow('timed out');
+    });
+
+    it('skips messages that fail jsonPath matching without a value constraint', async () => {
+      mockDispatch
+        .mockResolvedValueOnce(envelope({
+          messages: [{ data: '{"status":"pending"}', type: 'text' }],
+          cursor: 'c1',
+        }))
+        .mockResolvedValueOnce(envelope({ messages: [], cursor: 'c2' }));
+
+      const ops = buildWsNodeOperations();
+      await expect(ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 300,
+        matchCriteria: { jsonPathMatch: 'missing.path' },
+      })).rejects.toThrow('timed out');
+    });
+
+    it('defaults missing message type to text for criteria matching', async () => {
+      mockDispatch.mockResolvedValueOnce(envelope({
+        messages: [{ data: 'plain-text', timestamp: 1000 }],
+        cursor: 'c1',
+      }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        matchCriteria: { messageType: 'text' },
+      });
+      expect(msg.data).toBe('plain-text');
+      expect(msg.type).toBe('text');
+    });
+
+    it('handles null messages array in envelope data', async () => {
+      mockDispatch.mockResolvedValueOnce({
+        ok: true,
+        op: 'messages',
+        data: { messages: null, cursor: 'c1' },
+      } as never);
+
+      const ops = buildWsNodeOperations();
+      await expect(ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 50,
+      })).rejects.toThrow('timed out');
+    });
+
+    it('breaks immediately when deadline is already elapsed', async () => {
+      mockDispatch.mockResolvedValue(envelope({ messages: [], cursor: 'c1' }));
+
+      const ops = buildWsNodeOperations();
+      await expect(ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 0,
+      })).rejects.toThrow('timed out');
+    });
+
+    it('rejects when jsonPath value does not match', async () => {
+      mockDispatch
+        .mockResolvedValueOnce(envelope({
+          messages: [{ data: '{"status":"pending"}', type: 'text' }],
+          cursor: 'c1',
+        }))
+        .mockResolvedValueOnce(envelope({ messages: [], cursor: 'c2' }));
+
+      const ops = buildWsNodeOperations();
+      await expect(ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 300,
+        matchCriteria: { jsonPathMatch: 'status', jsonPathValue: 'ready' },
+      })).rejects.toThrow('timed out');
     });
   });
 });

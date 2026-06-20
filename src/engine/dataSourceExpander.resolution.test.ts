@@ -331,4 +331,55 @@ describe('resolveScenarioFromDataRow', () => {
     const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
     expect(resolved.body).toBe('{"a":""}');
   });
+
+  it('path column with empty mapping falls back to name placeholder (lines 88/90 false branch)', () => {
+    // mapping is empty, name is used as placeholder key
+    const base = makeScenario({ url: 'https://api.example.com/users/{{userId}}/orders' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'userId', type: 'path', mapping: '' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '42' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('42');
+    expect(resolved.url).not.toContain('{{userId}}');
+  });
+
+  it('path column with empty name skips name lookup (line 91 false branch)', () => {
+    // name is empty, mapping is used
+    const base = makeScenario({ url: 'https://api.example.com/users/{{uid}}/orders' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: '', type: 'path', mapping: 'uid' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '99' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('99');
+    expect(resolved.url).not.toContain('{{uid}}');
+  });
+
+  it('param column with empty mapping skips vars[mapping] (line 113 false branch)', () => {
+    const base = makeScenario({ url: 'https://api.example.com/data?x={{val}}' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'val', type: 'param', mapping: '' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'hello' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    // 'val' should be substituted via name
+    expect(resolved.url).toContain('val=hello');
+  });
+
+  it('param column with name matching mapping skips duplicate vars (line 114 false branch)', () => {
+    const base = makeScenario({ url: 'https://api.example.com/data?cat=a' });
+    // name === mapping — should not add duplicate
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'cat', type: 'param', mapping: 'cat' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'b' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('cat=b');
+  });
+
+  it('param col uses name when mapping not in existingKeys but name is (lines 127-128 false branch)', () => {
+    // URL has ?sortBy=asc — existingKeys = {'sortBy'}
+    // Column mapping='order', name='sortBy'
+    // mapping is truthy: 'order'
+    // has('order') = false, !name = false, !has('sortBy') = false
+    // => condition is false → key = 'sortBy' (name)
+    const base = makeScenario({ url: 'https://api.example.com/data?sortBy=asc' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'sortBy', type: 'param', mapping: 'order' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'desc' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('sortBy=desc');
+  });
 });

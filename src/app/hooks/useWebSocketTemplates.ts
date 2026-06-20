@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
 import { loadWsTemplates, saveWsTemplates } from '../../shared/websocket/websocketStorage';
+import {
+  applyLoadError,
+  applyLoadedTemplates,
+  applyPersistError,
+  clearErrorIfMounted,
+} from './wsTemplateMountGuards';
 
 export interface UseWebSocketTemplatesReturn {
   templates: WsMessageTemplate[];
@@ -29,16 +35,10 @@ export function useWebSocketTemplates(): UseWebSocketTemplatesReturn {
     mountedRef.current = true;
     loadWsTemplates()
       .then((loaded) => {
-        if (mountedRef.current) {
-          setTemplates(loaded);
-          setLoading(false);
-        }
+        applyLoadedTemplates(mountedRef.current, loaded, setTemplates, setLoading);
       })
       .catch((err) => {
-        if (mountedRef.current) {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        }
+        applyLoadError(mountedRef.current, err, setError, setLoading);
       });
     return () => {
       mountedRef.current = false;
@@ -49,11 +49,9 @@ export function useWebSocketTemplates(): UseWebSocketTemplatesReturn {
     setTemplates(next);
     try {
       await saveWsTemplates(next);
-      if (mountedRef.current) setError(null);
+      clearErrorIfMounted(mountedRef.current, setError);
     } catch (err) {
-      if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
+      applyPersistError(mountedRef.current, err, setError);
     }
   }, []);
 

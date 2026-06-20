@@ -6,12 +6,14 @@ import type {
   DemoLesson,
   DemoStep,
   DemoActionContext,
+  DemoProgress,
   SpeedMultiplier,
   HubView,
   StepPhase,
 } from './types';
 import { calcReadingTime } from './types';
 import { useDemoProgress } from './useDemoProgress';
+import { allDomains } from './lessons/index';
 
 /** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
 function firstVisible(selector: string): HTMLElement | null {
@@ -33,16 +35,47 @@ const INITIAL_STATE: DemoHubState = {
   speed: 1,
 };
 
+/**
+ * Restore the hub navigation position from persisted progress.
+ * Returns the view + domain/lesson the user was on before a hard refresh.
+ * Never restores 'live' — that requires setup to have run.
+ */
+function restoreStateFromProgress(progress: DemoProgress): DemoHubState {
+  const base: DemoHubState = { ...INITIAL_STATE, speed: progress.speed };
+  const { lastView, lastDomain, lastLesson } = progress;
+
+  // Restore to concept view if we have a lesson and were on concept/live
+  if (lastLesson && (lastView === 'concept' || lastView === undefined)) {
+    for (const domain of allDomains) {
+      const lesson = domain.lessons.find(l => l.id === lastLesson);
+      if (lesson && domain.available) {
+        return { ...base, view: 'concept', selectedDomain: domain, selectedLesson: lesson };
+      }
+    }
+  }
+
+  // Restore to lessons view if we have a domain (with or without a lastLesson)
+  if (lastView === 'lessons' || (lastDomain && !lastLesson)) {
+    const domain = allDomains.find(d => d.id === lastDomain);
+    if (domain?.available) {
+      // Keep lastLesson reference so the category tab is correctly highlighted
+      const lesson = lastLesson ? domain.lessons.find(l => l.id === lastLesson) ?? null : null;
+      return { ...base, view: 'lessons', selectedDomain: domain, selectedLesson: lesson };
+    }
+  }
+
+  return base;
+}
+
 export interface UseDemoHubOptions {
   navigateToTab: (tab: string) => void;
 }
 
 export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const progress = useDemoProgress();
-  const [state, setState] = useState<DemoHubState>({
-    ...INITIAL_STATE,
-    speed: progress.data.speed,
-  });
+  // Restore the last navigation position from localStorage so a hard refresh
+  // returns the user to the same page they were on.
+  const [state, setState] = useState<DemoHubState>(() => restoreStateFromProgress(progress.data));
   const [hubOpen, setHubOpen] = useState(false);
   const [stepPhase, setStepPhase] = useState<StepPhase>('done');
 
@@ -83,7 +116,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const openHub = useCallback(() => {
     setHubOpen(true);
     setState(prev => ({ ...prev, view: 'domains' }));
-  }, []);
+    progress.setLastView('domains');
+  }, [progress]);
 
   const closeHub = useCallback(() => {
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
@@ -95,26 +129,61 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   const selectDomain = useCallback((domain: DemoDomain) => {
     if (!domain.available) return;
-    setState(prev => ({ ...prev, view: 'lessons', selectedDomain: domain }));
+    // Clear selectedLesson so a fresh domain entry always starts without a category hint
+    setState(prev => ({ ...prev, view: 'lessons', selectedDomain: domain, selectedLesson: null }));
     progress.setLastDomain(domain.id);
+    progress.setLastView('lessons');
   }, [progress]);
 
   const selectLesson = useCallback((lesson: DemoLesson) => {
     setState(prev => ({ ...prev, view: 'concept', selectedLesson: lesson, stepIndex: 0 }));
     progress.setLastLesson(lesson.id);
+    progress.setLastView('concept');
   }, [progress]);
 
   const goBack = useCallback(() => {
     setState(prev => {
+      // Persist the destination view so a hard refresh restores the correct page.
       switch (prev.view) {
-        case 'lessons': return { ...prev, view: 'domains' as HubView, selectedDomain: null };
-        case 'concept': return { ...prev, view: 'lessons' as HubView, selectedLesson: null };
-        case 'live': return { ...prev, view: 'concept' as HubView, isPlaying: false };
+        case 'lessons':
+          progress.setLastView('domains');
+          return { ...prev, view: 'domains' as HubView, selectedDomain: null };
+        case 'concept':
+          // Keep selectedLesson so LessonList can restore the correct category tab.
+          // The header breadcrumb guards against showing the stale lesson name.
+          progress.setLastView('lessons');
+          return { ...prev, view: 'lessons' as HubView };
+        case 'live':
+          progress.setLastView('concept');
+          return { ...prev, view: 'concept' as HubView, isPlaying: false };
         default: return prev;
       }
     });
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
-  }, []);
+  }, [progress]);
+
+  /** Jump directly to the domain selector from any view — used by the
+   *  "Learning Hub" breadcrumb so it always lands on the root, not the
+   *  intermediate lessons list. */
+  const goToDomains = useCallback(() => {
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++;
+    abortRef.current?.abort();
+    progress.setLastView('domains');
+    setState(prev => ({
+      ...prev,
+      view: 'domains' as HubView,
+      selectedDomain: null,
+      isPlaying: false,
+    }));
+  }, [progress]);
+
+  // ─── Lesson Completion ────────────────────────────────────────
+  /** User clicked "Complete" — mark lesson done. exitLiveDemo is called separately. */
+  const confirmLessonComplete = useCallback(() => {
+    const lesson = state.selectedLesson;
+    if (lesson) progress.markLessonComplete(lesson.id);
+  }, [state.selectedLesson, progress]);
 
   // ─── Action Context Builder ────────────────────────────────────
   const buildContext = useCallback((): DemoActionContext => ({
@@ -208,8 +277,13 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (signal?.aborted) return false;
-      const el = document.querySelector(selector);
-      if (el && isElementVisible(el)) return true;
+      // Use querySelectorAll + find-visible so we handle multi-tab DOM correctly:
+      // inactive tabs are display:none — querySelector would always return the
+      // first (hidden) match, causing the wait to time out even when the
+      // intended tab's element is visible.
+      const els = document.querySelectorAll(selector);
+      const visible = Array.from(els).find(e => isElementVisible(e));
+      if (visible) return true;
       await new Promise(r => setTimeout(r, 100));
     }
     return false;
@@ -260,7 +334,9 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (step.highlight) {
         await waitForElement(step.highlight, 2000, signal);
         if (signal.aborted) return;
-        const el = document.querySelector(step.highlight);
+        // Find the visible element (same multi-tab logic as DemoSpotlight/waitForElement)
+        const allHighlight = document.querySelectorAll(step.highlight);
+        const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await abortableSleep(400, signal); // scroll settle
         if (signal.aborted) return;
@@ -342,28 +418,24 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     // Abort any running pipeline so it doesn't race with the new one
     abortRef.current?.abort();
+    // Reset phase BEFORE updating stepIndex to prevent spotlight flash
+    setStepPhase('pre');
     setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
     await executeCurrentStep(lesson.steps[clamped], state.speed);
     progress.setLessonStep(lesson.id, clamped);
-    // Mark the lesson complete when the last step is reached via manual navigation
-    // (auto-play marks complete through its own effect; nextStep marks complete
-    // when the user presses → again after already being on the last step)
+    // At the last step: stop auto-play so the user can read before choosing to Complete.
     if (clamped >= lesson.steps.length - 1) {
-      progress.markLessonComplete(lesson.id);
+      setState(prev => ({ ...prev, isPlaying: false }));
     }
   }, [state.selectedLesson, state.speed, executeCurrentStep, progress]);
 
   const nextStep = useCallback(() => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
-    if (state.stepIndex >= lesson.steps.length - 1) {
-      // Lesson complete
-      setState(prev => ({ ...prev, isPlaying: false }));
-      progress.markLessonComplete(lesson.id);
-      return;
-    }
+    // At the last step the Next button is disabled in LiveDemo; nothing to do here.
+    if (state.stepIndex >= lesson.steps.length - 1) return;
     goToStep(state.stepIndex + 1);
-  }, [state.selectedLesson, state.stepIndex, goToStep, progress]);
+  }, [state.selectedLesson, state.stepIndex, goToStep]);
 
 
   const toggleAutoPlay = useCallback(() => {
@@ -420,7 +492,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // Stable progress callbacks — useCallback([update]) where update is useCallback([])
   // so these never change reference across renders. Destructured here to keep
   // the auto-play effect deps stable (avoids re-firing when progress.data updates).
-  const { setLessonStep: progressSetStep, markLessonComplete: progressMarkComplete } = progress;
+  const { setLessonStep: progressSetStep, resetLesson, resetProgress } = progress;
 
   // Auto-play effect: step execution includes its own reading pauses,
   // so we just chain steps sequentially when playing
@@ -429,7 +501,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     if (state.stepIndex >= lesson.steps.length - 1) {
       setState(prev => ({ ...prev, isPlaying: false }));
-      progressMarkComplete(lesson.id);
       return;
     }
 
@@ -454,13 +525,14 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (autoPlayGenRef.current !== gen) return;
       /* v8 ignore stop */
       const nextIdx = state.stepIndex + 1;
+      setStepPhase('pre');
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
       await executeCurrentStep(lesson.steps[nextIdx], state.speed);
       progressSetStep(lesson.id, nextIdx);
     }, breathingPause);
 
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
-  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep, progressMarkComplete]);
+  }, [state.isPlaying, state.stepIndex, state.view, state.selectedLesson, state.speed, executeCurrentStep, progressSetStep]);
 
   const restartDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
@@ -498,6 +570,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     // Show concept view immediately — cleanup runs silently in the background.
     setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
+    progress.setLastView('concept');
     setStepPhase('done');
 
     // Run lesson cleanup after the view change so the UI is never blank.
@@ -508,7 +581,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const ctx = buildQuietContext();
       try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
     }
-  }, [state.selectedLesson, buildQuietContext]);
+  }, [state.selectedLesson, buildQuietContext, progress]);
 
   return {
     state,
@@ -521,12 +594,16 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     selectDomain,
     selectLesson,
     goBack,
+    goToDomains,
     startLiveDemo,
     exitLiveDemo,
     goToStep,
     nextStep,
     toggleAutoPlay,
     restartDemo,
+    confirmLessonComplete,
+    resetLesson,
+    resetProgress,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
   };
 }

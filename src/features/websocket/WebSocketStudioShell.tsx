@@ -33,7 +33,7 @@ const RIGHT_TAB_LABELS: Record<WsRightTab, string> = {
   schema: 'Schema',
 };
 
-const MIN_LEFT_PX = 440;
+const MIN_LEFT_PX = 500;
 const MIN_RIGHT_PX = 200;
 
 export interface WebSocketStudioShellProps {

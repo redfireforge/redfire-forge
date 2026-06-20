@@ -11,6 +11,7 @@ import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 // ── Hoisted mutable mock state ──
 const h = vi.hoisted(() => ({
   mut: {} as Record<string, unknown>,
+  mutArgs: null as { clearAuthVerifyResult?: () => void } | null,
   search: {} as Record<string, unknown>,
   dnd: {} as Record<string, unknown>,
   trash: {} as Record<string, unknown>,
@@ -31,7 +32,12 @@ vi.mock('../requests/hooks/useAuthVerify', () => ({ useAuthVerify: () => authVer
 vi.mock('./hooks/useScenarioBuilderSearch', () => ({ useScenarioBuilderSearch: () => h.search }));
 vi.mock('./hooks/useScenarioExportImport', () => ({ useScenarioExportImport: () => h.exportImport }));
 vi.mock('./hooks/useScenarioDragDrop', () => ({ useScenarioDragDrop: () => h.dnd }));
-vi.mock('./hooks/useScenarioMutations', () => ({ useScenarioMutations: () => h.mut }));
+vi.mock('./hooks/useScenarioMutations', () => ({
+  useScenarioMutations: (cfg: { clearAuthVerifyResult?: () => void }) => {
+    h.mutArgs = cfg;
+    return h.mut;
+  },
+}));
 vi.mock('./hooks/useTrash', () => ({ useTrash: () => h.trash }));
 vi.mock('./hooks/useScenarioTags', () => ({ useScenarioTags: () => h.tags }));
 vi.mock('./hooks/useSharedDataSourceHandlers', () => ({ useSharedDataSourceHandlers: () => h.sharedDs }));
@@ -95,6 +101,7 @@ vi.mock('./components/ScenarioBuilderModals', () => ({
       <button onClick={onOpenSharedDsModal}>modals-open-ds</button>
       <button onClick={() => handleMoveConfirm({ fgId: 'fg2', scenarioId: 'sc2' })}>modals-move</button>
       <button onClick={() => handleCreateParameterizedCopy({ id: 'copy1', name: 'Copy' })}>modals-param</button>
+      <button onClick={() => handleCreateParameterizedCopy({ id: 'copy2', name: 'Copy2' })}>modals-param-no-target</button>
     </div>
   ),
 }));
@@ -832,6 +839,231 @@ describe('ScenarioBuilder', () => {
       render(<ScenarioBuilder {...makeProps()} />);
       fireEvent.click(screen.getByTitle('Search syntax help'));
       expect(h.search.setShowSearchHelp).toHaveBeenCalled();
+    });
+
+    it('invokes clearAuthVerifyResult passed to useScenarioMutations', () => {
+      render(<ScenarioBuilder {...makeProps()} />);
+      h.mutArgs?.clearAuthVerifyResult?.();
+      expect(authVerify.setAuthVerifyResult).toHaveBeenCalledWith(null);
+    });
+
+    it('closes feature group, scenario, and test export popovers', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      const fgExport = screen.getAllByTitle('Export this feature group')[0];
+      fireEvent.click(fgExport);
+      expect(screen.getByTestId('export-popover')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('close-export'));
+      expect(screen.queryByTestId('export-popover')).not.toBeInTheDocument();
+
+      const scenActions = within(document.querySelector('.scenario-group-actions') as HTMLElement);
+      fireEvent.click(scenActions.getByTitle('Export this scenario'));
+      fireEvent.click(screen.getByText('close-export'));
+
+      const testActions = within(document.querySelector('.test-card-actions') as HTMLElement);
+      fireEvent.click(testActions.getByTitle('Export this test'));
+      fireEvent.click(screen.getByText('close-export'));
+      expect(screen.queryByTestId('export-popover')).not.toBeInTheDocument();
+    });
+
+    it('renders additional env indicator and missing inherit profile badge', () => {
+      const fgs = makeFGS();
+      fgs[0] = { ...fgs[0], globalAuthProfileId: 'missing-profile' };
+      render(<ScenarioBuilder {...makeProps({ featureGroups: fgs, isAdditionalEnv: true })} />);
+      expect(document.querySelector('.additional-env-indicator')).toBeInTheDocument();
+      expect(screen.getByText('Auth: inherit (missing profile)')).toBeInTheDocument();
+    });
+
+    it('shows singular search match count and feature auth type badge', () => {
+      h.search.isSearching = true;
+      h.search.matchCount = 1;
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('1 match')).toBeInTheDocument();
+      expect(screen.getByText('Auth: apiKey')).toBeInTheDocument();
+    });
+
+    it('disables shared DS picker when no shared data sources', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc2']);
+      render(<ScenarioBuilder {...makeProps({ sharedDataSources: [] })} />);
+      const btn = screen.getByTitle('No shared data sources available');
+      expect(btn).toBeDisabled();
+    });
+
+    it('consumes pendingEditTest without editing when test is missing', () => {
+      const props = makeProps({ pendingEditTest: { featureId: 'fg1', scenarioId: 'sc1', testId: 'missing' } });
+      render(<ScenarioBuilder {...props} />);
+      expect(h.mut.startEditTest).not.toHaveBeenCalled();
+      expect(props.onPendingEditConsumed).toHaveBeenCalled();
+    });
+
+    it('renders scenario inherit auth badge and singular test count', () => {
+      const fgs = makeFGS();
+      fgs[0].scenarios[0] = { ...fgs[0].scenarios[0], auth: { type: 'inherit' }, tests: [fgs[0].scenarios[0].tests[0]] };
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps({ featureGroups: fgs })} />);
+      expect(screen.getAllByText('Auth: inherit').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('1 test').length).toBeGreaterThan(0);
+    });
+
+    it('renders scenario auth panel with inherit hint', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc2']);
+      h.mut.editingScenarioAuth = 'sc2';
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getAllByTestId('auth-panel').length).toBeGreaterThan(0);
+    });
+
+    it('renders tree summary singular counts and omits badges when counts are zero', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'solo', name: 'Solo', scenarios: [{ id: 'sc', name: 'Only', kind: 'standard', tests: [{
+          id: 't', name: 'Only Test', url: 'u', method: 'GET', headers: [], body: '',
+          auth: { type: 'none' }, validation: { mode: 'none' },
+        } as never] }],
+      }];
+      h.mut.expandedFeatures = new Set(['solo']);
+      render(<ScenarioBuilder {...makeProps({
+        featureGroups: fgs,
+        sharedDataSources: [],
+      })} />);
+      expect(screen.getByText(/1 feature group · 1 scenario · 1 test/)).toBeInTheDocument();
+      expect(screen.queryByText(/Shared Data Sources/)).not.toHaveTextContent(/\d/);
+    });
+
+    it('shows unassigned plural scenario badge and custom env in assign dropdown', () => {
+      const una: FeatureGroup[] = [{
+        id: 'u1', name: 'Una', scenarios: [
+          { id: 's1', name: 'A', kind: 'standard', tests: [] },
+          { id: 's2', name: 'B', kind: 'standard', tests: [] },
+        ],
+      }];
+      render(<ScenarioBuilder {...makeProps({
+        selectedSvcId: undefined,
+        selectedEnvId: undefined,
+        unassociatedFeatureGroups: una,
+        microservices: [{ id: 'svc1', name: 'Svc', customEnvs: [{ id: 'ce1', name: 'Custom Env' }] } as never],
+      })} />);
+      expect(screen.getByText('2 scenarios')).toBeInTheDocument();
+      expect(screen.getByText('Custom Env (Svc)')).toBeInTheDocument();
+    });
+
+    it('renders auth source badges for scenario, feature, and global resolution', () => {
+      h.effAuth = { source: 'scenario', label: 'ScAuth' };
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      const { rerender } = render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('Auth: ScAuth (scenario)')).toBeInTheDocument();
+
+      h.effAuth = { source: 'feature', label: 'FgAuth' };
+      rerender(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('Auth: FgAuth (feature)')).toBeInTheDocument();
+
+      h.effAuth = { source: 'global', label: 'GlobAuth' };
+      rerender(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('Auth: GlobAuth (global)')).toBeInTheDocument();
+    });
+
+    it('renders origin badge without locate handler and omits version label', () => {
+      const fgs = makeFGS();
+      fgs[0].scenarios[0].tests[0] = {
+        ...fgs[0].scenarios[0].tests[0],
+        sourceRequestId: 'r9',
+        sourceSpecVersionLabel: undefined,
+      } as never;
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps({ featureGroups: fgs, onLocateRequest: undefined })} />);
+      expect(screen.getByText('From Requests')).toBeInTheDocument();
+    });
+
+    it('shows empty-scenario drop zone when dragging a test', () => {
+      const fgs = makeFGS();
+      fgs[0].scenarios.push({ id: 'sc-empty', name: 'Empty', kind: 'standard', tests: [] });
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc-empty']);
+      h.dnd.dragTest = { testId: 'tX', fromFeatureId: 'fg1', fromScenarioId: 'sc1' };
+      render(<ScenarioBuilder {...makeProps({ featureGroups: fgs })} />);
+      expect(screen.getByText('Drop test here')).toBeInTheDocument();
+      const body = document.querySelector('.scenario-group-body') as HTMLElement;
+      fireEvent.dragOver(body, { dataTransfer: { dropEffect: '' } });
+      fireEvent.drop(body);
+      expect(h.dnd.handleDragEnd).toHaveBeenCalled();
+    });
+
+    it('filters tests when searching and shows match highlight', () => {
+      h.search.isSearching = true;
+      h.search.testMatches = (t: { id: string }) => t.id === 't1';
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('T1')).toBeInTheDocument();
+      expect(screen.queryByText('T2')).not.toBeInTheDocument();
+    });
+
+    it('shows scenario SLA aggregate badge when tests have targets', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByTitle(/1 SLA target/)).toBeInTheDocument();
+    });
+
+    it('renders plural tree summary counts', () => {
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText(/2 feature groups · 2 scenarios · 2 tests/)).toBeInTheDocument();
+    });
+
+    it('opens shared ds modal without a linked draft id', () => {
+      h.mut.draft = { id: 't1' };
+      render(<ScenarioBuilder {...makeProps()} />);
+      fireEvent.click(screen.getByText('modals-open-ds'));
+      expect(h.sharedDs.setSharedDsModalSelectedId).toHaveBeenCalledWith(undefined);
+    });
+
+    it('ignores pending edit when the feature group is missing', () => {
+      const props = makeProps({ pendingEditTest: { featureId: 'missing', scenarioId: 'sc1', testId: 't1' } });
+      render(<ScenarioBuilder {...props} />);
+      expect(h.mut.startEditTest).not.toHaveBeenCalled();
+      expect(props.onPendingEditConsumed).toHaveBeenCalled();
+    });
+
+    it('closes context menu when the scenario disappears while open', () => {
+      h.mut.expandedFeatures = new Set(['fg1']);
+      h.mut.expandedScenarios = new Set(['sc1']);
+      const props = makeProps();
+      const { rerender } = render(<ScenarioBuilder {...props} />);
+      const header = document.querySelector('.scenario-group-header') as HTMLElement;
+      fireEvent.contextMenu(header, { clientX: 5, clientY: 5 });
+      expect(screen.getByTestId('context-menu')).toBeInTheDocument();
+      const fgs = makeFGS();
+      fgs[0].scenarios = fgs[0].scenarios.filter((s) => s.id !== 'sc1');
+      rerender(<ScenarioBuilder {...props} featureGroups={fgs} />);
+      expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
+    });
+
+    it('omits trash badge when count is zero and shows singular search match', () => {
+      h.trash.trashCount = 0;
+      h.search.isSearching = true;
+      h.search.matchCount = 1;
+      render(<ScenarioBuilder {...makeProps()} />);
+      expect(screen.getByText('1 match')).toBeInTheDocument();
+      expect(screen.getByText('Trash').closest('button')?.textContent).toBe('Trash');
+    });
+
+    it('ignores pending edit when the scenario is missing', () => {
+      const props = makeProps({ pendingEditTest: { featureId: 'fg1', scenarioId: 'missing', testId: 't1' } });
+      render(<ScenarioBuilder {...props} />);
+      expect(h.mut.startEditTest).not.toHaveBeenCalled();
+      expect(props.onPendingEditConsumed).toHaveBeenCalled();
+    });
+
+    it('passes empty resolved base url to modals and skips parameterized copy without target', () => {
+      h.mut.editingTest = null;
+      const props = makeProps({ resolvedBaseUrl: undefined });
+      render(<ScenarioBuilder {...props} />);
+      fireEvent.click(screen.getByText('modals-param-no-target'));
+      expect(props.setFeatureGroups).not.toHaveBeenCalled();
     });
   });
 });

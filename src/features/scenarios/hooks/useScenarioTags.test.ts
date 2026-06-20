@@ -5,16 +5,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioTags } from './useScenarioTags';
 import type { FeatureGroup, TestScenario } from '../../../shared/types';
+import { makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
 
-function makeScenario(overrides: Partial<TestScenario> = {}): TestScenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
-    kind: 'standard',
-    tests: [],
-    ...overrides,
-  };
-}
+const makeScenario = (overrides: Partial<TestScenario> = {}): TestScenario =>
+  _makeTestScenario({ id: 'sc-1', name: 'Test Scenario', tests: [], ...overrides });
 
 function makeFeatureGroup(scenarios: TestScenario[], overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return {

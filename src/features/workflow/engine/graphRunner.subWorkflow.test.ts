@@ -7,6 +7,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -52,27 +53,6 @@ function subWorkflowNode(
       outputMappings: [],
       ...overrides,
     } satisfies SubWorkflowNodeData,
-  };
-}
-
-function httpNode(id: string, label = 'HTTP'): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id,
-        name: label,
-        url: `https://example.com/${id}`,
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none' },
-      },
-    },
   };
 }
 

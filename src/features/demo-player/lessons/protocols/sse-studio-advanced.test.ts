@@ -14,7 +14,7 @@ describe('sse-studio-advanced lesson', () => {
     expect(sseStudioAdvancedLesson.id).toBe('sse-studio-advanced');
     expect(sseStudioAdvancedLesson.domainId).toBe('protocols');
     expect(sseStudioAdvancedLesson.name).toBe('SSE Advanced Features');
-    expect(sseStudioAdvancedLesson.steps.length).toBe(7);
+    expect(sseStudioAdvancedLesson.steps.length).toBe(8);
     expect(sseStudioAdvancedLesson.concept.title).toBeTruthy();
     expect(sseStudioAdvancedLesson.concept.body).toBeTruthy();
     expect(sseStudioAdvancedLesson.initialTab).toBe('sse-studio');
@@ -63,12 +63,12 @@ describe('sse-studio-advanced lesson', () => {
     expect(ids).toEqual([
       'sse-adv-intro', 'sse-adv-bookmark', 'sse-adv-bookmark-filter',
       'sse-adv-stats', 'sse-adv-reconnect', 'sse-adv-last-event-id',
-      'sse-adv-clear',
+      'sse-adv-clear', 'sse-adv-disconnect',
     ]);
   });
 
-  it('estimated time is 4 minutes', () => {
-    expect(sseStudioAdvancedLesson.estimatedMinutes).toBe(4);
+  it('estimated time is 5 minutes', () => {
+    expect(sseStudioAdvancedLesson.estimatedMinutes).toBe(5);
   });
 
   // ─── Step: sse-adv-intro ──────────────────────────────────
@@ -595,6 +595,48 @@ describe('sse-studio-advanced lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  // ─── Step: sse-adv-disconnect ─────────────────────────────
+
+  it('step sse-adv-disconnect highlights connect button', () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-disconnect')!;
+    expect(step.highlight).toContain('sse-connect-btn');
+  });
+
+  it('step sse-adv-disconnect has a preAction that navigates to connect tab', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-disconnect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-left-tab-connect'));
+  });
+
+  it('step sse-adv-disconnect action clicks disconnect when connected', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-disconnect')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'sse-connect-btn');
+    btn.textContent = 'Disconnect';
+    document.body.appendChild(btn);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
+  });
+
+  it('step sse-adv-disconnect action skips click when already disconnected', async () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-disconnect')!;
+    const btn = document.createElement('button');
+    btn.setAttribute('data-testid', 'sse-connect-btn');
+    btn.textContent = 'Connect';
+    document.body.appendChild(btn);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('sse-connect-btn'));
+  });
+
+  it('step sse-adv-disconnect description mentions Disconnect and auto-reconnect', () => {
+    const step = sseStudioAdvancedLesson.steps.find(s => s.id === 'sse-adv-disconnect')!;
+    expect(step.description).toContain('Disconnect');
+    expect(step.description).toContain('Auto-reconnect');
   });
 
   it('cleanup disconnects and clears', async () => {

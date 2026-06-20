@@ -177,11 +177,143 @@ describe('WorkflowPalette', () => {
     expect(screen.getByText(/No endpoints exposed/)).toBeTruthy();
   });
 
+  it('hides catalog entries when endpoints are not exposed to workflow', () => {
+    const hiddenOnly: CatalogEntry[] = [{
+      id: 'e2',
+      name: 'Hidden Cat',
+      endpoints: [{ id: 'epH', method: 'get', path: '/hidden', summary: 'Hidden', exposedToWorkflow: false }],
+      folders: [],
+    } as unknown as CatalogEntry];
+    setup({ catalogEntries: hiddenOnly });
+    fireEvent.click(screen.getByText('Catalog'));
+    expect(screen.getByText(/No endpoints exposed/)).toBeTruthy();
+  });
+
+  it('shows catalog no-results message when search has no matches', () => {
+    setup();
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'zzzznomatch' } });
+    expect(screen.getByText(/No exposed endpoints matching/)).toBeTruthy();
+  });
+
   it('filters catalog by search query', () => {
     setup();
     fireEvent.click(screen.getByText('Catalog'));
     const search = screen.getByPlaceholderText('Search catalog…');
     fireEvent.change(search, { target: { value: 'create' } });
     expect(screen.getByText('Catalog One')).toBeTruthy();
+  });
+
+  it('switches back to blocks tab and filters blocks by description', () => {
+    setup();
+    fireEvent.click(screen.getByText('Requests'));
+    fireEvent.click(screen.getByText('Blocks'));
+    const search = screen.getByPlaceholderText('Search blocks…');
+    fireEvent.change(search, { target: { value: 'cron-based' } });
+    expect(screen.getByText('Schedule Trigger')).toBeTruthy();
+    expect(document.querySelector('.wf-palette-match')).toBeTruthy();
+  });
+
+  it('shows no-results message when request search has no matches', () => {
+    setup();
+    fireEvent.click(screen.getByText('Requests'));
+    fireEvent.change(screen.getByPlaceholderText('Search requests…'), { target: { value: 'zzzznomatch' } });
+    expect(screen.getByText(/No requests matching/)).toBeTruthy();
+  });
+
+  it('filters requests by method and url', () => {
+    const cols: RequestCollection[] = [{
+      id: 'c2',
+      name: 'API',
+      requests: [{ id: 'r9', name: 'Misc', method: 'PATCH', url: 'http://x/patch-target' }],
+      folders: [{
+        id: 'f9',
+        name: 'Plain Folder',
+        isSubCollection: false,
+        requests: [],
+        folders: [],
+      }],
+    } as unknown as RequestCollection];
+    setup({ collections: cols });
+    fireEvent.click(screen.getByText('Requests'));
+    fireEvent.change(screen.getByPlaceholderText('Search requests…'), { target: { value: 'patch' } });
+    fireEvent.click(screen.getByText('API'));
+    expect(screen.getByText('Misc')).toBeTruthy();
+  });
+
+  it('renders catalog endpoint path when summary is missing', () => {
+    const noSummary: CatalogEntry[] = [{
+      id: 'e3',
+      name: 'Paths Only',
+      endpoints: [{ id: 'epP', method: 'delete', path: '/no-summary', exposedToWorkflow: true }],
+      folders: [{
+        id: 'cfEmpty',
+        name: 'Empty On Search',
+        endpoints: [{ id: 'epX', method: 'get', path: '/other', summary: 'Other', exposedToWorkflow: true }],
+        folders: [],
+      }],
+    } as unknown as CatalogEntry];
+    const { onAddFromCatalog } = setup({ catalogEntries: noSummary });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.click(screen.getByText('Paths Only'));
+    fireEvent.click(screen.getByText('/no-summary'));
+    expect(onAddFromCatalog).toHaveBeenCalledWith('e3', 'epP');
+
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'nomatchfolder' } });
+    expect(screen.queryByText('Empty On Search')).toBeNull();
+  });
+
+  it('searches catalog by path and uses fallback color for unknown methods', () => {
+    const exotic: CatalogEntry[] = [{
+      id: 'e4',
+      name: 'Exotic',
+      endpoints: [{ id: 'epF', method: 'foo', path: '/exotic-path', exposedToWorkflow: true }],
+      folders: [{
+        id: 'cf1',
+        name: 'Nested',
+        endpoints: [{ id: 'epN', method: 'bar', path: '/nested-path', summary: 'Nested EP', exposedToWorkflow: true }],
+        folders: [],
+      }],
+    } as unknown as CatalogEntry];
+    setup({ catalogEntries: exotic });
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'exotic-path' } });
+    fireEvent.click(screen.getByText('Exotic'));
+    expect(screen.getByText('/exotic-path')).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('Search catalog…'), { target: { value: 'nested-path' } });
+    fireEvent.click(screen.getByText('Nested'));
+    expect(screen.getByText('Nested EP')).toBeTruthy();
+  });
+
+  it('filters nested request folders when only nested item matches search', () => {
+    const nestedOnly: RequestCollection[] = [{
+      id: 'c3',
+      name: 'Deep',
+      requests: [],
+      folders: [{
+        id: 'df1',
+        name: 'Outer',
+        requests: [],
+        folders: [{ id: 'df2', name: 'Inner', requests: [{ id: 'rx', name: 'Leaf', method: 'CUSTOM', url: '' }], folders: [] }],
+      }],
+    } as unknown as RequestCollection];
+    setup({ collections: nestedOnly });
+    fireEvent.click(screen.getByText('Requests'));
+    fireEvent.change(screen.getByPlaceholderText('Search requests…'), { target: { value: 'leaf' } });
+    fireEvent.click(screen.getByText('Deep'));
+    fireEvent.click(screen.getByText('Outer'));
+    fireEvent.click(screen.getByText('Inner'));
+    expect(screen.getByText('Leaf')).toBeTruthy();
+  });
+
+  it('collapses catalog folder when toggled without active search', () => {
+    setup();
+    fireEvent.click(screen.getByText('Catalog'));
+    fireEvent.click(screen.getByText('Catalog One'));
+    fireEvent.click(screen.getByText('Cat Folder'));
+    expect(screen.getByText('Create thing')).toBeTruthy();
+    fireEvent.click(screen.getByText('Cat Folder'));
+    expect(screen.queryByText('Create thing')).toBeNull();
   });
 });

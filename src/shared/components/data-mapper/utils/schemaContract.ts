@@ -13,7 +13,7 @@ import type { SchemaSnapshot } from './schemaSnapshot';
 import type { SchemaDrift } from './schemaDrift';
 import { diffSchemas } from './schemaDrift';
 import { captureSchemaSnapshot } from './schemaSnapshot';
-import { readKey, writeKey } from '../../../utils/storage';
+import { readJsonObject, writeJson } from '../../../utils/jsonKeyStorage';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -46,28 +46,18 @@ function contractKey(contextId: string): string {
 export async function loadContractConfig(
   contextId: string,
 ): Promise<SchemaContractConfig | null> {
-  try {
-    const raw = await readKey(contractKey(contextId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && 'enabled' in parsed) {
-      return parsed as SchemaContractConfig;
-    }
-    return null;
-  } catch {
-    return null;
+  const parsed = await readJsonObject<SchemaContractConfig>(contractKey(contextId));
+  if (parsed && typeof parsed === 'object' && 'enabled' in parsed) {
+    return parsed;
   }
+  return null;
 }
 
 export async function saveContractConfig(
   contextId: string,
   config: SchemaContractConfig,
 ): Promise<void> {
-  try {
-    await writeKey(contractKey(contextId), JSON.stringify(config));
-  } catch {
-    // Silently degrade
-  }
+  await writeJson(contractKey(contextId), config);
 }
 
 // ─── Contract Evaluation ──────────────────────────────────

@@ -39,6 +39,15 @@ export function installClipboardMock(): Mock {
  * `writeText`/`readText` are `undefined`. Returns a `restore` function the
  * test should call to put the original clipboard back.
  */
+export function installClipboardReadMock(): Mock {
+  const readText = vi.fn().mockResolvedValue('');
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { readText },
+  });
+  return readText;
+}
+
 export function installEmptyClipboard(): () => void {
   const prev = (navigator as Navigator & { clipboard?: unknown }).clipboard;
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {} });

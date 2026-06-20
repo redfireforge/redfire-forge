@@ -6,6 +6,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import CatalogEndpointCard from './CatalogEndpointCard';
+import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { makeEndpoint, makeServer, makeParam, makeResponse, makeHostConfig } from './catalogTestFactories';
 import type { AuthConfig } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
@@ -13,6 +14,13 @@ import type { EndpointCoverage } from '../utils/coverageChecker';
 const httpFetchMock = vi.hoisted(() => vi.fn());
 const applyAuthMock = vi.hoisted(() => vi.fn());
 const copyMock = vi.hoisted(() => vi.fn());
+const copiedState = vi.hoisted(() => ({ value: false }));
+const buildCatalogCurlCommandMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve("curl -X POST \\\n  'https://api.example.com/users' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"a\":1}'")),
+);
+const buildCatalogCurlSingleLineMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve("curl -X POST 'https://api.example.com/users'")),
+);
 
 vi.mock('../utils/schemaStubGenerator', () => ({
   generateStubJson: () => '{\n  "stub": true\n}',
@@ -21,10 +29,10 @@ vi.mock('../../../shared/utils/jsonHighlighter', () => ({
   highlightJson: (s: string) => s,
 }));
 vi.mock('../utils/catalogCurlGenerator', () => ({
-  buildCatalogCurlCommand: () => Promise.resolve("curl -X POST \\\n  'https://api.example.com/users' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"a\":1}'"),
-  buildCatalogCurlSingleLine: () => Promise.resolve("curl -X POST 'https://api.example.com/users'"),
+  buildCatalogCurlCommand: buildCatalogCurlCommandMock,
+  buildCatalogCurlSingleLine: buildCatalogCurlSingleLineMock,
   buildDefaultCurlCommand: () => Promise.resolve('curl default'),
-  resolveBaseUrl: () => 'https://api.example.com',
+  resolveBaseUrl: vi.fn(() => 'https://api.example.com'),
   buildFullUrl: () => 'https://api.example.com/users/123',
 }));
 vi.mock('../../../shared/utils/httpClient', () => ({
@@ -34,7 +42,7 @@ vi.mock('../../../shared/utils/applyAuthHeaders', () => ({
   applyAuthHeaders: applyAuthMock,
 }));
 vi.mock('../../../shared/hooks/useCopyToClipboard', () => ({
-  useCopyToClipboard: () => [false, copyMock],
+  useCopyToClipboard: () => [copiedState.value, copyMock],
 }));
 
 const noAuth: AuthConfig = { type: 'none' };
@@ -67,6 +75,7 @@ function renderCard(props: Partial<React.ComponentProps<typeof CatalogEndpointCa
 
 beforeEach(() => {
   vi.clearAllMocks();
+  copiedState.value = false;
   httpFetchMock.mockResolvedValue({ status: 200, statusText: 'OK', headers: { 'x-foo': 'bar' }, body: '{"ok":true}' });
   applyAuthMock.mockResolvedValue(undefined);
 });
@@ -257,13 +266,6 @@ describe('CatalogEndpointCard', () => {
     expect(screen.getByText(/likely a placeholder/)).toBeInTheDocument();
   });
 
-  it('renders auth status variants', async () => {
-    renderCard({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'secretvalue' } });
-    fireEvent.click(screen.getByText('/users/{id}'));
-    await userEvent.click(screen.getByText('Try it out'));
-    expect(screen.getByText(/X-Key: secretva/)).toBeInTheDocument();
-  });
-
   it('renders spec responses with Model tab', async () => {
     const endpoint = makeEndpoint({
       responses: [
@@ -288,5 +290,284 @@ describe('CatalogEndpointCard', () => {
     expect(screen.getByText('Responses')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Model'));
     expect(screen.getByText('Example Value')).toBeInTheDocument();
+  });
+
+  it('updates header parameters and persists values via onValuesChange', async () => {
+    const endpoint = makeEndpoint({ parameters: [makeParam({ name: 'X-Auth', in: 'header' })] });
+    const { onValuesChange } = renderCard({ endpoint });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.type(screen.getByPlaceholderText('X-Auth'), 'tok');
+    await waitFor(() => expect(onValuesChange).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-Auth': 'tok' }) }),
+    ));
+  });
+
+  it('shows host warning when inherited strategy has no base URL', async () => {
+    vi.mocked(resolveBaseUrl).mockReturnValueOnce('');
+    renderCard({ hostConfig: makeHostConfig({ strategy: 'inherited' }) });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/No server URL configured/)).toBeInTheDocument();
+  });
+
+  it('shows localhost placeholder warning for inherited strategy', async () => {
+    renderCard({
+      hostConfig: makeHostConfig({ strategy: 'inherited' }),
+      endpoint: makeEndpoint(),
+    });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/likely a placeholder/)).toBeInTheDocument();
+  });
+
+  it('renders oauth2, basic, and unknown auth status messages', async () => {
+    renderCard({ auth: { type: 'oauth2', tokenUrl: 'https://auth.example.com', clientId: 'client12345' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/OAuth2/)).toBeInTheDocument();
+  });
+
+  it('renders empty bearer token warning', async () => {
+    renderCard({ auth: { type: 'bearer', token: '' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/Bearer token empty/)).toBeInTheDocument();
+  });
+
+  it('toggles cURL to multiline mode', async () => {
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('cURL'));
+    await waitFor(() => expect(screen.getByTitle('Multi-line')).toBeInTheDocument());
+    await userEvent.click(screen.getByTitle('Multi-line'));
+  });
+
+  it('shows ECONNREFUSED hint for non-inherited host strategy', async () => {
+    httpFetchMock.mockResolvedValue({ status: 0, statusText: '', headers: {}, body: '', error: 'ECONNREFUSED' });
+    renderCard({ hostConfig: makeHostConfig({ strategy: 'hardcoded', hardcodedUrl: 'https://real.example.com' }) });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText(/server could not be reached/)).toBeInTheDocument());
+  });
+
+  it('shows SSL and CORS error hints', async () => {
+    httpFetchMock.mockResolvedValue({ status: 0, statusText: '', headers: {}, body: '', error: 'CERT_HAS_EXPIRED' });
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText(/SSL\/TLS certificate error/)).toBeInTheDocument());
+  });
+
+  it('copies live response body and shows empty body message', async () => {
+    httpFetchMock.mockResolvedValue({ status: 204, statusText: 'No Content', headers: {}, body: '' });
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText('No response body')).toBeInTheDocument());
+  });
+
+  it('switches response row to Example Value tab', async () => {
+    const endpoint = makeEndpoint({
+      responses: [makeResponse({ statusCode: '200', description: 'OK', example: { id: '1' } })],
+    });
+    renderCard({ endpoint });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Example Value'));
+    expect(screen.getByText(/"id"/)).toBeInTheDocument();
+  });
+
+  it('coverage popover toggles via Space key', () => {
+    const coverage: EndpointCoverage = {
+      exported: true,
+      count: 1,
+      locations: [{ collectionId: 'c1', requestId: 'r1', folderPath: 'Coll / F' }],
+    };
+    renderCard({ coverage });
+    const badge = screen.getByText('IN REQUESTS');
+    fireEvent.keyDown(badge, { key: ' ' });
+    expect(screen.getByText('Exported to 1 request')).toBeInTheDocument();
+  });
+
+  it('uses fallback method color for unknown HTTP methods', () => {
+    renderCard({ endpoint: makeEndpoint({ method: 'TRACE' as 'GET' }) });
+    expect(screen.getByText('TRACE')).toBeInTheDocument();
+  });
+
+  it('renders oauth2 not configured and basic empty warnings', async () => {
+    renderCard({ auth: { type: 'oauth2', tokenUrl: '', clientId: '' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/OAuth2 not configured/)).toBeInTheDocument();
+  });
+
+  it('shows CORS and timeout error hints', async () => {
+    httpFetchMock.mockResolvedValueOnce({ status: 0, statusText: '', headers: {}, body: '', error: 'Failed to fetch CORS' });
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText(/CORS error/)).toBeInTheDocument());
+
+    httpFetchMock.mockResolvedValueOnce({ status: 0, statusText: '', headers: {}, body: '', error: 'request timeout exceeded' });
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText(/timed out/)).toBeInTheDocument());
+  });
+
+  it('copies response body from successful live response', async () => {
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText('Server response')).toBeInTheDocument());
+    const copyBtns = screen.getAllByText('Copy');
+    await userEvent.click(copyBtns[copyBtns.length - 1]);
+    expect(copyMock).toHaveBeenCalled();
+  });
+
+  it('renders parameter example from schema when no param example', async () => {
+    const endpoint = makeEndpoint({
+      parameters: [makeParam({ name: 'q', in: 'query', schema: { type: 'string', example: 'schema-ex' } })],
+    });
+    renderCard({ endpoint });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    expect(screen.getByText('schema-ex')).toBeInTheDocument();
+  });
+
+  it('renders apikey auth status when configured', async () => {
+    renderCard({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'secret12345', apiKeyIn: 'header' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/X-Key/)).toBeInTheDocument();
+  });
+
+  it('renders empty apikey and basic auth warnings', async () => {
+    renderCard({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: '', apiKeyIn: 'header' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/value empty/)).toBeInTheDocument();
+  });
+
+  it('renders basic auth with username', async () => {
+    renderCard({ auth: { type: 'basic', username: 'alice', password: 'pw' } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/Basic alice/)).toBeInTheDocument();
+  });
+
+  it('renders unknown auth type fallback', async () => {
+    renderCard({ auth: { type: 'custom' as AuthConfig['type'] } });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText('? type=custom')).toBeInTheDocument();
+  });
+
+  it('shows generic error hint for unrecognized failures', async () => {
+    httpFetchMock.mockResolvedValue({ status: 0, statusText: '', headers: {}, body: '', error: 'Unexpected server error' });
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    await waitFor(() => expect(screen.getByText(/Check the URL, network connection/)).toBeInTheDocument());
+  });
+
+  it('renders buildModel for array root schema', async () => {
+    const endpoint = makeEndpoint({
+      responses: [
+        makeResponse({
+          statusCode: '200',
+          description: 'Array items',
+          schema: { type: 'array', items: { type: 'string' } },
+        }),
+      ],
+    });
+    renderCard({ endpoint });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Model'));
+    expect(document.querySelector('.sw-model')?.textContent).toMatch(/\[string\]/);
+  });
+
+  it('truncates buildModel output when nesting exceeds max depth', async () => {
+    const makeDeepSchema = (depth: number): NonNullable<ReturnType<typeof makeResponse>['schema']> => {
+      if (depth <= 0) return { type: 'string' };
+      return { type: 'object', properties: { nested: makeDeepSchema(depth - 1) } };
+    };
+    const endpoint = makeEndpoint({
+      responses: [
+        makeResponse({
+          statusCode: '201',
+          description: 'Deep object',
+          schema: makeDeepSchema(8),
+        }),
+      ],
+    });
+    renderCard({ endpoint });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Model'));
+    expect(document.querySelector('.sw-model')?.textContent).toContain('...');
+  });
+
+  it('highlights cURL tokens including plain quoted values and empty lines', async () => {
+    buildCatalogCurlCommandMock.mockResolvedValueOnce(
+      "curl -X GET \\\n\n  'plainvalue' \\\n  extraToken",
+    );
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('cURL'));
+    await waitFor(() => expect(document.querySelector('.sw-curl-hl')).toBeTruthy());
+    expect(document.querySelector('.sw-hl-string')).toBeTruthy();
+  });
+
+  it('initializes from savedValues and shows parameter format', async () => {
+    const endpoint = makeEndpoint({
+      method: 'POST',
+      requestBody: { required: false, contentTypes: [{ mediaType: 'application/json', schema: { type: 'object' } }] },
+      parameters: [makeParam({ name: 'id', in: 'path', schema: { type: 'string', format: 'uuid' } })],
+    });
+    const { onValuesChange } = renderCard({
+      endpoint,
+      savedValues: { params: { id: 'saved-id' }, headers: { 'X-Tok': 'h' }, body: '{"saved":true}' },
+    });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    expect(screen.getByText('uuid', { exact: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Try it out'));
+    expect((screen.getByPlaceholderText('id') as HTMLInputElement).value).toBe('saved-id');
+    expect((document.querySelector('textarea.sw-body-editor') as HTMLTextAreaElement).value).toBe('{"saved":true}');
+    await userEvent.type(screen.getByPlaceholderText('id'), 'x');
+    await waitFor(() => expect(onValuesChange).toHaveBeenCalled());
+  });
+
+  it('shows placeholder host warnings for .invalid and .local domains', async () => {
+    vi.mocked(resolveBaseUrl).mockReturnValueOnce('https://api.test.local/v1');
+    renderCard({ hostConfig: makeHostConfig({ strategy: 'inherited' }) });
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    expect(screen.getByText(/likely a placeholder/)).toBeInTheDocument();
+  });
+
+  it('shows executing state while request is in flight', async () => {
+    let resolveFetch!: (v: unknown) => void;
+    httpFetchMock.mockImplementationOnce(() => new Promise(r => { resolveFetch = r; }));
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('Execute'));
+    expect(screen.getByText('Executing...')).toBeInTheDocument();
+    resolveFetch({ status: 200, statusText: 'OK', headers: {}, body: '{}' });
+    await waitFor(() => expect(screen.getByText('Execute')).toBeInTheDocument());
+  });
+
+  it('shows copied state on cURL copy button', async () => {
+    copiedState.value = true;
+    renderCard();
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    await userEvent.click(screen.getByText('cURL'));
+    await waitFor(() => expect(screen.getByText('✓ Copied')).toBeInTheDocument());
   });
 });

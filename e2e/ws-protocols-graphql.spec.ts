@@ -7,8 +7,8 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio, switchWsLeftTab, disconnectWs } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const GQL_URL = 'ws://localhost:4100/graphql';
 const GQL_HEALTH = 'http://localhost:4100/health';
 
@@ -35,15 +35,8 @@ test.beforeAll(async ({ browser }) => {
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
-
-async function switchLeftTab(page: Page, tab: string) {
-  await page.click(`[data-testid="left-tab-${tab}"]`);
-  await page.waitForTimeout(200);
-}
+const switchLeftTab = (page: Page, tab: string) => switchWsLeftTab(page, tab);
+const disconnect = (page: Page) => disconnectWs(page);
 
 async function connectToGql(page: Page) {
   await switchLeftTab(page, 'connect');
@@ -67,14 +60,6 @@ async function connectToGql(page: Page) {
   await page.waitForTimeout(500);
 }
 
-async function disconnect(page: Page) {
-  const disconnectBtn = page.locator('[data-testid="disconnect-btn"]');
-  if (!(await disconnectBtn.isVisible({ timeout: 500 }).catch(() => false))) {
-    await switchLeftTab(page, 'connect');
-  }
-  await disconnectBtn.click();
-  await page.locator('[data-testid="conn-tab-bar"] [aria-label*="disconnected"]').waitFor({ timeout: 5000 });
-}
 
 /* ── GraphQL-WS Live Tests (WP-12–15) ────────────────── */
 
@@ -174,21 +159,25 @@ test.describe('GraphQL-WS Live (WP-12–15)', () => {
     // Operation name input should be visible
     await expect(page.locator('[data-testid="gql-operation-name"]')).toBeVisible();
 
-    // Variables textarea should be visible
+    // Variables textarea is in a tab — switch to it before asserting
+    await page.locator('[data-testid="gql-tab-variables"]').click();
     await expect(page.locator('[data-testid="gql-variables"]')).toBeVisible();
 
-    // Operation ID badge should be visible and show "Op #1"
+    // Operation ID badge should be visible and show "#1"
     const opId = page.locator('[data-testid="gql-op-id"]');
     await expect(opId).toBeVisible();
-    await expect(opId).toHaveText('Op #1');
+    await expect(opId).toHaveText('#1');
+
+    // Switch back to Query tab — message input is hidden while Variables tab is active
+    await page.locator('[data-testid="gql-tab-query"]').click();
 
     // Send a subscription to verify op ID increments
     await page.locator('[aria-label="Message input"]').fill('subscription { countdown(from: 0) }');
     await page.locator('[data-testid="send-btn"]').click();
     await page.waitForTimeout(500);
 
-    // Op ID should now show "Op #2" (incremented after send)
-    await expect(opId).toHaveText('Op #2');
+    // Op ID should now show "#2" (incremented after send)
+    await expect(opId).toHaveText('#2');
 
     await disconnect(page);
   });

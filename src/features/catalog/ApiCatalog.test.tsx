@@ -52,6 +52,7 @@ vi.mock('./components/CatalogEndpointBrowser', () => ({
       <button onClick={() => onExportSingle?.({ id: 'ep1' }, { params: {}, headers: {}, body: '' })}>export-single</button>
       <button onClick={() => onSendToHarness?.({ id: 'ep1' }, true)}>send-harness</button>
       <button onClick={() => onToggleWorkflowExpose?.({ id: 'ep1' }, true, { params: { a: '1' }, headers: { h: '2' }, body: '{}' })}>toggle-expose</button>
+      <button onClick={() => onToggleWorkflowExpose?.({ id: 'ep1' }, false, { params: {}, headers: {}, body: '' })}>toggle-hide</button>
     </div>
   ),
 }));
@@ -227,6 +228,183 @@ describe('ApiCatalog', () => {
         appMicroservices={[svc]}
       />,
     );
+    expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('resets auth to none when environment changes to one without a profile', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'A', auth: { type: 'bearer', token: 'a' } },
+    ];
+    const svc: Microservice = {
+      id: 'svc1',
+      name: 'Svc',
+      baseUrls: { e1: 'https://a.com', e2: 'https://b.com' },
+      authProfileIds: { e1: 'p1' },
+    };
+    const entry1 = makeEntry({
+      microserviceId: 'svc1',
+      savedAuth: { type: 'bearer', token: 'a' },
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e1' }),
+    });
+    const catalog = makeCatalog(entry1);
+    const { rerender } = render(
+      <ApiCatalog catalog={catalog} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />,
+    );
+    const entry2 = makeEntry({
+      microserviceId: 'svc1',
+      savedAuth: { type: 'bearer', token: 'a' },
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e2' }),
+    });
+    const catalog2 = { ...catalog, selectedEntry: entry2, entries: [entry2] } as unknown as UseCatalogReturn;
+    rerender(<ApiCatalog catalog={catalog2} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />);
+    expect(catalog2.updateEntry).toHaveBeenCalledWith('entry1', { savedAuth: { type: 'none' } });
+  });
+
+  it('initializes apiKey auth in header when scheme uses header location', () => {
+    const entry = makeEntry({
+      securitySchemes: { keyAuth: makeScheme({ type: 'apiKey', name: 'X-Api-Key', in: 'header' }) },
+    });
+    render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
+    expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('falls back to plain savedAuth when global profile id is stale', () => {
+    const entry = makeEntry({
+      savedAuth: { type: 'bearer', token: 'saved-token', __globalProfileId: 'missing-profile' },
+    });
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(entry)}
+        onImport={vi.fn()}
+        globalAuthProfiles={[{ id: 'p1', name: 'Live', auth: { type: 'bearer', token: 'live' } }]}
+      />,
+    );
+    expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('resolves microservice auth via first available profile when environment is unset', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Default', auth: { type: 'bearer', token: 'fallback' } },
+    ];
+    const svc: Microservice = {
+      id: 'svc1',
+      name: 'Svc',
+      baseUrls: { e1: 'https://svc.com' },
+      authProfileIds: { e1: 'p1' },
+    };
+    const entry = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'environment' }),
+    });
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(entry)}
+        onImport={vi.fn()}
+        globalAuthProfiles={profiles}
+        appMicroservices={[svc]}
+      />,
+    );
+    expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('shows export tab when only onSendToRequests is provided', () => {
+    const entry = makeEntry();
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(entry)}
+        onImport={vi.fn()}
+        onSendToRequests={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Export to Requests')).toBeInTheDocument();
+  });
+
+  it('builds coverage map when collections are provided', () => {
+    const entry = makeEntry();
+    const collections = [{ id: 'c1', name: 'Col', requests: [] }] as unknown as import('../../shared/types').RequestCollection[];
+    buildCoverageMap.mockReturnValue(new Map([['ep1', true]]));
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(entry)}
+        onImport={vi.fn()}
+        collections={collections}
+      />,
+    );
+    expect(buildCoverageMap).toHaveBeenCalledWith('entry1', 'My API', collections);
+  });
+
+  it('clears workflow exposure when toggle is turned off', async () => {
+    const entry = makeEntry();
+    const catalog = makeCatalog(entry);
+    render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'toggle-hide' }));
+    expect(catalog.updateEntry).toHaveBeenCalledWith(
+      'entry1',
+      expect.objectContaining({
+        endpoints: expect.any(Array),
+        folders: expect.any(Array),
+      }),
+    );
+  });
+
+  it('skips env auth sync when host strategy is not environment', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'A', auth: { type: 'bearer', token: 'a' } },
+    ];
+    const svc: Microservice = {
+      id: 'svc1',
+      name: 'Svc',
+      baseUrls: { e1: 'https://a.com', e2: 'https://b.com' },
+      authProfileIds: { e1: 'p1' },
+    };
+    const entry1 = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e1' }),
+    });
+    const catalog = makeCatalog(entry1);
+    const { rerender } = render(
+      <ApiCatalog catalog={catalog} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />,
+    );
+    vi.mocked(catalog.updateEntry).mockClear();
+    const entry2 = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'hardcoded', hardcodedUrl: 'https://x.com', environmentId: 'e2' }),
+    });
+    const catalog2 = { ...catalog, selectedEntry: entry2, entries: [entry2] } as unknown as UseCatalogReturn;
+    rerender(<ApiCatalog catalog={catalog2} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />);
+    expect(catalog2.updateEntry).not.toHaveBeenCalled();
+  });
+
+  it('resets auth when env profile id is missing from global profiles', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'A', auth: { type: 'bearer', token: 'a' } },
+    ];
+    const svc: Microservice = {
+      id: 'svc1',
+      name: 'Svc',
+      baseUrls: { e1: 'https://a.com', e2: 'https://b.com' },
+      authProfileIds: { e1: 'p1', e2: 'missing' },
+    };
+    const entry1 = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e1' }),
+    });
+    const catalog = makeCatalog(entry1);
+    const { rerender } = render(
+      <ApiCatalog catalog={catalog} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />,
+    );
+    const entry2 = makeEntry({
+      microserviceId: 'svc1',
+      hostConfig: makeHostConfig({ strategy: 'environment', environmentId: 'e2' }),
+    });
+    const catalog2 = { ...catalog, selectedEntry: entry2, entries: [entry2] } as unknown as UseCatalogReturn;
+    rerender(<ApiCatalog catalog={catalog2} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />);
+    expect(catalog2.updateEntry).toHaveBeenCalledWith('entry1', { savedAuth: { type: 'none' } });
+  });
+
+  it('initializes inherited bearer scheme when security scheme is http bearer', () => {
+    const entry = makeEntry({ securitySchemes: { bearerAuth: makeScheme({ type: 'http', scheme: 'bearer' }) } });
+    render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
     expect(screen.getByTestId('browser')).toBeInTheDocument();
   });
 

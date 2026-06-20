@@ -258,4 +258,75 @@ describe('AuthConfigPanel', () => {
     setup({ auth: { type: 'none' } });
     expect(screen.queryByRole('button', { name: /Verify/ })).toBeNull();
   });
+
+  it('defaults apikey to header placement when apiKeyIn is undefined', () => {
+    const { onChange } = setup({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'v', apiKeyIn: 'query' } });
+    const headerRadio = screen.getByLabelText('Header');
+    expect(screen.getByLabelText('Query Parameter')).toBeChecked();
+    fireEvent.click(headerRadio);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ apiKeyIn: 'header' }));
+  });
+
+  it('checks header radio when apiKeyIn is undefined', () => {
+    setup({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'v' } });
+    expect(screen.getByLabelText('Header')).toBeChecked();
+  });
+
+  it('uses default feature label for inherited verify when inheritedLabel is omitted', () => {
+    setup({
+      auth: { type: 'inherit' },
+      inheritedAuth: { type: 'bearer', token: 'inh' },
+    });
+    expect(screen.getByRole('button', { name: 'Verify Inherited Auth (feature)' })).toBeInTheDocument();
+  });
+
+  it('shows Verifying... on inherited verify button while authVerifying', () => {
+    setup({
+      auth: { type: 'inherit' },
+      inheritedAuth: { type: 'bearer', token: 'inh' },
+      inheritedLabel: 'parent',
+      authVerifying: true,
+    });
+    expect(screen.getByRole('button', { name: 'Verifying...' })).toBeDisabled();
+  });
+
+  it('shows failed inherited verify result', () => {
+    setup({
+      auth: { type: 'inherit' },
+      inheritedAuth: { type: 'bearer', token: 'inh' },
+      authVerifyResult: { ok: false, message: 'Inherited failed' },
+    });
+    expect(screen.getByText('Inherited failed')).toBeInTheDocument();
+    expect(screen.getByText('✗')).toBeInTheDocument();
+  });
+
+  it('disables verify when profile selector has missing profile id', () => {
+    setup({
+      auth: { type: 'inherit' },
+      showProfileSelector: true,
+      allAuthProfiles: PROFILES,
+      globalAuthProfileId: 'missing',
+    });
+    expect(screen.getByRole('button', { name: 'Verify Auth' })).toBeDisabled();
+  });
+
+  it('does not render inherit hint when inheritHint is null', () => {
+    setup({ auth: { type: 'inherit' }, inheritHint: null });
+    expect(screen.queryByText('Inheriting from collection')).toBeNull();
+  });
+
+  it('hides inherited verify section when inherited auth is inherit type', () => {
+    setup({
+      auth: { type: 'inherit' },
+      inheritedAuth: { type: 'inherit' },
+    });
+    expect(screen.queryByRole('button', { name: /Verify Inherited Auth/ })).toBeNull();
+  });
+
+  it('toggles oauth2 secret visibility off when showSecret is true', () => {
+    const setShowSecret = vi.fn();
+    setup({ auth: { type: 'oauth2', clientSecret: 'sec' }, showSecret: true, setShowSecret });
+    fireEvent.click(screen.getByTitle('Hide'));
+    expect(setShowSecret).toHaveBeenCalled();
+  });
 });

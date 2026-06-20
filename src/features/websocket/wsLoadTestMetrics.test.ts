@@ -131,6 +131,27 @@ describe('buildLoadTestResult', () => {
     expect(result.latency.min).toBe(50);
     expect(result.latency.max).toBe(60);
   });
+
+  it('returns zero average rates when duration is zero', () => {
+    const config = createDefaultLoadTestConfig();
+    const tracker = createLatencyTracker();
+    const sampler = createThroughputSampler();
+    const result = buildLoadTestResult(
+      config,
+      '2025-01-01T00:00:00Z',
+      '2025-01-01T00:00:00Z',
+      0,
+      10,
+      5,
+      0,
+      100,
+      50,
+      tracker,
+      sampler,
+    );
+    expect(result.avgSendRate).toBe(0);
+    expect(result.avgReceiveRate).toBe(0);
+  });
 });
 
 describe('expandLoadTestTemplate', () => {
@@ -194,6 +215,26 @@ describe('computeTargetRate', () => {
     };
     expect(computeTargetRate(config, 0)).toBe(Infinity);
   });
+
+  it('returns base rate when ramp duration is zero', () => {
+    const config: WsLoadTestConfig = {
+      profile: 'ramp', messageTemplate: '', rate: 15,
+      rateEnd: 30, durationSec: 0, burstCount: 0,
+    };
+    expect(computeTargetRate(config, 1000)).toBe(15);
+  });
+
+  it('falls back to config rate for unknown profile', () => {
+    const config = {
+      profile: 'unknown',
+      messageTemplate: '',
+      rate: 22,
+      rateEnd: 0,
+      durationSec: 1,
+      burstCount: 0,
+    } as WsLoadTestConfig;
+    expect(computeTargetRate(config, 0)).toBe(22);
+  });
 });
 
 describe('computeExpectedTotal', () => {
@@ -219,6 +260,18 @@ describe('computeExpectedTotal', () => {
       rateEnd: 0, durationSec: 0, burstCount: 200,
     };
     expect(computeExpectedTotal(config)).toBe(200);
+  });
+
+  it('returns zero for unknown profile', () => {
+    const config = {
+      profile: 'unknown',
+      messageTemplate: '',
+      rate: 1,
+      rateEnd: 1,
+      durationSec: 1,
+      burstCount: 0,
+    } as WsLoadTestConfig;
+    expect(computeExpectedTotal(config)).toBe(0);
   });
 });
 

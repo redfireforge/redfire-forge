@@ -8,46 +8,15 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 import { runGraph } from './graphRunner';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { DebugController, type DebugThread } from './debugController';
+import { endNode, httpNode, startNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
-function httpNode(id: string, label: string, url?: string): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id,
-        name: label,
-        url: url || `https://example.com/${id}`,
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none' },
-      },
-    },
-  };
-}
-
-function startNode(id: string): WorkflowNode {
-  return {
-    id,
-    type: 'start',
-    position: { x: 0, y: 0 },
-    data: { label: 'Start', inputVariables: {} },
-  };
-}
-
-function endNode(id: string): WorkflowNode {
-  return {
-    id,
-    type: 'end',
-    position: { x: 0, y: 0 },
-    data: { label: 'End' },
-  };
+function httpNodeWithUrl(id: string, label: string, url: string): WorkflowNode {
+  const node = httpNode(id, label);
+  const scenario = (node.data as { scenario: { url: string } }).scenario;
+  scenario.url = url;
+  return node;
 }
 
 function conditionNode(id: string, left: string, operator: string, right: string): WorkflowNode {
@@ -295,7 +264,7 @@ describe('graphRunner - Additional Coverage', () => {
       });
 
       const nodes = [
-        httpNode('h1', 'HTTP', 'https://example.com/test'),
+        httpNodeWithUrl('h1', 'HTTP', 'https://example.com/test'),
         endNode('end'),
       ];
       const edges: WorkflowEdge[] = [];
@@ -517,7 +486,7 @@ describe('graphRunner - Additional Coverage', () => {
   describe('Variable Resolution Edge Cases', () => {
     it('resolves variables with environmentLayer as fallback', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://{{baseUrl}}/test?key={{apiKey}}'),
+        httpNodeWithUrl('h1', 'Test', 'https://{{baseUrl}}/test?key={{apiKey}}'),
       ];
 
       const cb = {
@@ -542,7 +511,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('uses resolveHttpBaseUrl callback when provided', async () => {
       const nodes = [
-        httpNode('h1', 'Test', '/api/test'),
+        httpNodeWithUrl('h1', 'Test', '/api/test'),
       ];
 
       const cb = {
@@ -562,7 +531,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('uses resolveHttpAuth callback when provided', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/test'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/test'),
       ];
 
       const cb = {
@@ -586,7 +555,7 @@ describe('graphRunner - Additional Coverage', () => {
   describe('Template Literal Edge Cases', () => {
     it('handles variables with special regex characters in values', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/api?query={{searchTerm}}'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/api?query={{searchTerm}}'),
       ];
 
       const cb = {
@@ -604,7 +573,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('handles variables with keys that have whitespace', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/api?key={{  myKey  }}'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/api?key={{  myKey  }}'),
       ];
 
       const cb = {
@@ -622,7 +591,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('handles empty string variable keys', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/api?param={{validKey}}'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/api?param={{validKey}}'),
       ];
 
       const cb = {
@@ -641,7 +610,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('handles null and undefined variable values', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/api?a={{key1}}&b={{key2}}'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/api?a={{key1}}&b={{key2}}'),
       ];
 
       const cb = {
@@ -663,7 +632,7 @@ describe('graphRunner - Additional Coverage', () => {
 
     it('handles non-string variable values by converting to string', async () => {
       const nodes = [
-        httpNode('h1', 'Test', 'https://example.com/api?count={{count}}&flag={{flag}}'),
+        httpNodeWithUrl('h1', 'Test', 'https://example.com/api?count={{count}}&flag={{flag}}'),
       ];
 
       const cb = {

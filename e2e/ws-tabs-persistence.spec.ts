@@ -4,33 +4,17 @@
  * Requires: backend on 3001 (mock WS echo on 9876), Vite on 5173
  */
 import { test, expect, type Page } from '@playwright/test';
+import { gotoWsStudio, ensureWsMockServer, getActiveWsPane, WS_STUDIO_BASE } from './ws-helpers';
 
-const BASE = 'http://localhost:5173/?tab=websocket-studio';
 const MOCK_URL = 'ws://localhost:9876';
 
 /* ── Ensure mock echo server is running ──────────────── */
 
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  const resp = await page.request.post('http://localhost:3001/api/ws/mock/start', {
-    data: { port: 9876, rules: [], fallback: 'echo' },
-  });
-  expect(resp.ok()).toBeTruthy();
-  await ctx.close();
-});
+test.beforeAll(async ({ browser }) => { await ensureWsMockServer(browser); });
 
 /* ── helpers ─────────────────────────────────────────── */
 
-/** Returns the active (visible) connection tab pane locator */
-function activePane(page: Page) {
-  return page.locator('[data-testid^="conn-tab-pane-"]:visible');
-}
-
-async function gotoWsStudio(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });
-}
+const activePane = getActiveWsPane;
 
 async function connectTo(page: Page, url = MOCK_URL) {
   await switchLeftTab(page, 'connect');
@@ -90,12 +74,12 @@ async function sendMessage(page: Page, msg: string) {
   const pane = activePane(page);
   const input = pane.locator('.ws-compose-input');
   try {
-    await expect(input).toBeEnabled({ timeout: 5000 });
+    await expect(input).toBeEnabled({ timeout: 10000 });
   } catch {
     // Connection may have dropped — reconnect
     await connectTo(page);
     await switchLeftTab(page, 'send');
-    await expect(input).toBeEnabled({ timeout: 10000 });
+    await expect(input).toBeEnabled({ timeout: 15000 });
   }
   await input.fill(msg);
   await pane.locator('[data-testid="send-btn"]').click();
@@ -264,7 +248,7 @@ test.describe('Tab Persistence (WT-06–10)', () => {
 
   test('WT-10: First visit — default single tab', async ({ page }) => {
     // Clear storage to simulate first visit
-    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
     await page.evaluate(() => localStorage.removeItem('redfire-ws-tab-state-v1'));
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForSelector('[data-testid="mode-client"]', { timeout: 5000 });

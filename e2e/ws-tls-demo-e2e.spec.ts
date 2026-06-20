@@ -99,7 +99,8 @@ async function getStepTitle(page: import('@playwright/test').Page): Promise<stri
 
 /** Exit the live demo overlay. */
 async function exitDemo(page: import('@playwright/test').Page) {
-  await page.locator('button[title="Exit (Esc)"]').click();
+  // Button title changed from "Exit (Esc)" to "Close (Esc)" in LiveDemo.tsx
+  await page.locator('button[title="Close (Esc)"], button[title="Exit (Esc)"]').first().click();
   await page.waitForTimeout(500);
 }
 

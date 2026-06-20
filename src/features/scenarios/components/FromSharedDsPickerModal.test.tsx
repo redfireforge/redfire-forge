@@ -90,4 +90,18 @@ describe('FromSharedDsPickerModal', () => {
     fireEvent.click(screen.getByText('Cancel'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('does not confirm when selected data source disappears before create', () => {
+    const onConfirm = vi.fn();
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <FromSharedDsPickerModal sharedDataSources={sharedDataSources} onConfirm={onConfirm} onClose={onClose} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Enter test name'), { target: { value: 'Ghost Test' } });
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    rerender(<FromSharedDsPickerModal sharedDataSources={[]} onConfirm={onConfirm} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Create Test'));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
 });

@@ -4,16 +4,13 @@
 import { renderHook, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCopyToClipboard } from './useCopyToClipboard';
+import { installClipboardMock } from '../../test-utils/clipboardMock';
 
 describe('useCopyToClipboard', () => {
   let writeText: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText },
-      configurable: true,
-    });
+    writeText = installClipboardMock();
     vi.useFakeTimers();
   });
 

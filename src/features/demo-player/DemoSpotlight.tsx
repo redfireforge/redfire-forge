@@ -18,7 +18,9 @@ export default function DemoSpotlight({ selector, active }: SpotlightProps) {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!active || !selector) { setRect(null); return; }
+    // Clear stale position immediately so the old highlight doesn't flash
+    setRect(null);
+    if (!active || !selector) { return; }
 
     const track = () => {
       // Find the first visible match — handles multi-tab scenarios where the

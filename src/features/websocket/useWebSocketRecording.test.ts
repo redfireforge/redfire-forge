@@ -377,4 +377,80 @@ describe('useWebSocketRecording', () => {
     act(() => { vi.advanceTimersByTime(60); });
     expect(received.length).toBe(1);
   });
+
+  it('ignores recordStateChange when not recording', () => {
+    const { result } = renderHook(() => useWebSocketRecording());
+    act(() => { result.current.recordStateChange('connected'); });
+    expect(result.current.state).toBe('idle');
+  });
+
+  it('loadRecording rejects recordings with wrong format', async () => {
+    const { result } = renderHook(() => useWebSocketRecording());
+
+    const noFormat = new File([JSON.stringify({ metadata: {}, events: [] })], 'bad.json');
+    let loaded = false;
+    await act(async () => { loaded = await result.current.loadRecording(noFormat); });
+    expect(loaded).toBe(false);
+
+    const noMetadata = new File([JSON.stringify({ _format: 'ws-recording-v1', events: [] })], 'bad2.json');
+    await act(async () => { loaded = await result.current.loadRecording(noMetadata); });
+    expect(loaded).toBe(false);
+
+    const badEvents = new File([JSON.stringify({
+      _format: 'ws-recording-v1',
+      metadata: { url: 'ws://x', protocol: 'raw', startedAt: '', durationMs: 0, messageCount: 0 },
+      events: 'not-an-array',
+    })], 'bad3.json');
+    await act(async () => { loaded = await result.current.loadRecording(badEvents); });
+    expect(loaded).toBe(false);
+  });
+
+  it('stopRecording still returns to idle when saveJsonFile rejects', async () => {
+    const fileSaver = await import('../../shared/utils/fileSaver');
+    vi.mocked(fileSaver.saveJsonFile).mockRejectedValueOnce(new Error('disk full'));
+    const { result } = renderHook(() => useWebSocketRecording());
+    act(() => { result.current.startRecording('ws://localhost', 'raw'); });
+    act(() => { result.current.stopRecording(); });
+    expect(result.current.state).toBe('idle');
+  });
+
+  it('resumeReplay is a no-op without a loaded recording', () => {
+    const { result } = renderHook(() => useWebSocketRecording());
+    act(() => { result.current.resumeReplay(); });
+    expect(result.current.state).toBe('idle');
+  });
+
+  it('max speed replay skips non-message events in the instant loop', async () => {
+    const { result } = renderHook(() => useWebSocketRecording());
+    const recording: WsRecording = {
+      _format: 'ws-recording-v1',
+      metadata: { url: 'ws://test', protocol: 'raw', startedAt: '2026-01-01T00:00:00Z', durationMs: 200, messageCount: 1 },
+      events: [
+        { type: 'state-change', relativeMs: 10, state: 'connected' },
+        { type: 'message', relativeMs: 50, frame: makeFrame({ id: 'instant-1' }) },
+      ],
+    };
+    const validFile = new File([JSON.stringify(recording)], 'rec.json');
+    await act(async () => { await result.current.loadRecording(validFile); });
+    act(() => { result.current.setReplaySpeed(0); });
+    const received: WsFrame[] = [];
+    act(() => { result.current.startReplay((f) => received.push(f)); });
+    expect(received).toHaveLength(1);
+    expect(received[0].id).toBe('instant-1');
+  });
+
+  it('cleanup clears replay timer on unmount when timer is active', async () => {
+    const { result, unmount } = renderHook(() => useWebSocketRecording());
+    const recording: WsRecording = {
+      _format: 'ws-recording-v1',
+      metadata: { url: 'ws://test', protocol: 'raw', startedAt: '2026-01-01T00:00:00Z', durationMs: 5000, messageCount: 1 },
+      events: [{ type: 'message', relativeMs: 5000, frame: makeFrame({ id: 'late' }) }],
+    };
+    await act(async () => {
+      await result.current.loadRecording(new File([JSON.stringify(recording)], 'rec.json'));
+    });
+    act(() => { result.current.startReplay(() => {}); });
+    unmount();
+    expect(() => act(() => { vi.advanceTimersByTime(6000); })).not.toThrow();
+  });
 });

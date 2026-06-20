@@ -16,6 +16,7 @@ import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/w
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { toErrorMessage } from '../../shared/utils/helpers';
+import { buildInitialRunnerVariables } from '../workflow/utils/countWorkflowDesignerVariables';
 import RunnerSlaOverridePanel from './components/RunnerSlaOverridePanel';
 import { buildSlaTargetScopeLabel } from '../results/components/slaEditorUtils';
 
@@ -102,7 +103,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       const wf = workflows.find(w => w.id === initialWorkflowId);
       if (wf) {
         setSelectedWorkflowId(initialWorkflowId);
-        setWorkflowVariables({ ...wf.variables });
+        setWorkflowVariables(buildInitialRunnerVariables(wf));
         setVariablesInitialized(true);
       }
       onClearInitialWorkflowId?.();
@@ -112,7 +113,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   // Initialize variables when workflow selection is restored from storage
   useEffect(() => {
     if (selectedWorkflow && !variablesInitialized) {
-      setWorkflowVariables({ ...selectedWorkflow.variables });
+      setWorkflowVariables(buildInitialRunnerVariables(selectedWorkflow));
       setVariablesInitialized(true);
     }
   }, [selectedWorkflow, variablesInitialized]);
@@ -546,7 +547,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
           const newId = onImportSample(wf);
           if (typeof newId === 'string') {
             setSelectedWorkflowId(newId);
-            setWorkflowVariables({ ...wf.variables });
+            setWorkflowVariables(buildInitialRunnerVariables(wf));
           }
         } : undefined}
       />

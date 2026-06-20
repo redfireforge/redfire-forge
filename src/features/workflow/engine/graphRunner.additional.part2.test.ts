@@ -7,47 +7,9 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 
 import { runGraph } from './graphRunner';
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { endNode, startNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
-
-function _httpNode(id: string, label: string, url?: string): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id,
-        name: label,
-        url: url || `https://example.com/${id}`,
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none' },
-      },
-    },
-  };
-}
-
-function startNode(id: string): WorkflowNode {
-  return {
-    id,
-    type: 'start',
-    position: { x: 0, y: 0 },
-    data: { label: 'Start', inputVariables: {} },
-  };
-}
-
-function endNode(id: string): WorkflowNode {
-  return {
-    id,
-    type: 'end',
-    position: { x: 0, y: 0 },
-    data: { label: 'End' },
-  };
-}
 
 function _conditionNode(id: string, left: string, operator: string, right: string): WorkflowNode {
   return {

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import WorkflowConfigPanel from './WorkflowConfigPanel';
 import type { WorkflowNode } from '../../types/workflow';
@@ -231,6 +231,30 @@ describe('WorkflowConfigPanel', () => {
     await user.click(screen.getByTitle('Expand to full screen'));
     expect(screen.getByRole('dialog')).toBeTruthy();
     rerender(<WorkflowConfigPanel {...baseProps} node={{ ...makeNode('delay'), id: 'n2' }} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('does not update node when validation draft changes with no node selected', () => {
+    const onUpdateNode = vi.fn();
+    render(<WorkflowConfigPanel {...baseProps} onUpdateNode={onUpdateNode} node={null} />);
+    mockCapturedDraftChange?.({ id: 's', name: 'S' });
+    expect(onUpdateNode).not.toHaveBeenCalled();
+  });
+
+  it('uses empty inputVariables when start node has none defined', () => {
+    render(<WorkflowConfigPanel {...baseProps} node={makeNode('start', {})} />);
+    expect(screen.getByText('Trigger input variables')).toBeTruthy();
+  });
+
+  it('ignores expand click while collapse animation is in progress', () => {
+    render(<WorkflowConfigPanel {...baseProps} node={makeNode('http', { label: 'Get' })} />);
+    // Expand
+    fireEvent.click(screen.getByTitle('Expand to full screen'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    // Collapse — sets collapsingRef=true, queues requestAnimationFrame
+    fireEvent.click(screen.getByTitle('Shrink back to side panel'));
+    // Immediately try to expand again before rAF fires → should be blocked
+    fireEvent.click(screen.getByTitle('Expand to full screen'));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

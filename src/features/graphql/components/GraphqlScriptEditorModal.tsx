@@ -1,0 +1,680 @@
+/**
+ * GraphqlScriptEditorModal — Phase 3B (tasks 3B-2, 3B-4, 3B-8)
+ *
+ * Modal for editing pre-request and post-response scripts for:
+ *   - Individual collection items (item.scripts.preRequest / .postResponse)
+ *   - Collection-level scripts (collection.preRequestScript / .postResponseScript)
+ *
+ * Features:
+ *   - Monaco JavaScript editor (120px min, resizable)
+ *   - rf.* completion items (3B-2)
+ *   - Script template library dropdown (3B-4) with 7 built-in templates
+ *   - Pre-Request / Post-Response tabs
+ *   - Execution order diagram (3B-10, collapsible)
+ *   - "enabled" toggle for item scripts
+ *   - Save / Cancel actions
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import Editor, { useMonaco } from '@monaco-editor/react';
+import type * as MonacoType from 'monaco-editor';
+import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '../../../shared/types/graphql';
+import { createRfContext, runScript, NO_OP_STORE } from '../utils/preRequestScriptRunner';
+
+// ─── Script template library (3B-4) ───────────────────────────────────────────
+
+interface ScriptTemplate {
+  label: string;
+  description: string;
+  code: string;
+  /** Which tab this template is intended for */
+  phase: 'pre' | 'post' | 'both';
+}
+
+const SCRIPT_TEMPLATES: ScriptTemplate[] = [
+  {
+    label: 'OAuth2 Token Refresh',
+    description: 'Check expiry via rf.getEnv, fetch a new token, and inject as Bearer header',
+    phase: 'pre',
+    code: `const expiry = parseInt(rf.getEnv('tokenExpiry') ?? '0', 10);
+if (Date.now() >= expiry) {
+  const res = await rf.fetch(rf.getEnv('tokenUrl'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: \`grant_type=client_credentials&client_id=\${rf.getEnv('clientId')}&client_secret=\${rf.getEnv('clientSecret')}\`,
+  });
+  const { access_token, expires_in } = await res.json();
+  rf.setEnv('accessToken', access_token);
+  rf.setEnv('tokenExpiry', String(Date.now() + expires_in * 1000));
+  rf.log('Token refreshed, expires in', expires_in, 's');
+}
+rf.setHeader('Authorization', \`Bearer \${rf.getEnv('accessToken')}\`);`,
+  },
+  {
+    label: 'JWT Decode (debug)',
+    description: 'Decode and log JWT payload claims from the access token',
+    phase: 'pre',
+    code: `const token = rf.getEnv('accessToken');
+if (token) {
+  const parts = token.split('.');
+  if (parts.length === 3) {
+    try {
+      const payload = JSON.parse(atob(parts[1]));
+      rf.log('JWT claims:', payload);
+    } catch {
+      rf.warn('Could not decode JWT payload');
+    }
+  }
+}`,
+  },
+  {
+    label: 'Inject Tenant ID',
+    description: 'Add X-Tenant-ID header from environment variable',
+    phase: 'pre',
+    code: `const tenantId = rf.getEnv('tenantId');
+if (!tenantId) {
+  rf.abort('tenantId env var is not set');
+}
+rf.setHeader('X-Tenant-ID', tenantId);`,
+  },
+  {
+    label: 'Assert No GraphQL Errors',
+    description: 'Fail the test if the response contains any GraphQL errors',
+    phase: 'post',
+    code: `rf.test('no GraphQL errors', () => {
+  rf.assert(
+    !rf.response?.errors?.length,
+    \`Expected no errors, got: \${rf.response?.errors?.map(e => e.message).join(', ')}\`,
+  );
+});`,
+  },
+  {
+    label: 'Extract and Chain ID',
+    description: 'Store a created resource ID into an environment variable for use in later requests',
+    phase: 'post',
+    code: `const id = rf.response?.data?.create?.id;
+if (!id) {
+  rf.warn('No id found in response.data.create.id');
+} else {
+  rf.setEnv('createdId', String(id));
+  rf.log('Stored createdId:', id);
+}`,
+  },
+  {
+    label: 'Chain with Runner Store',
+    description: 'Pass a value between items using the collection runner store',
+    phase: 'post',
+    code: `// Store a value for use in a later item's pre-request script
+const id = rf.response?.data?.create?.id;
+if (id) {
+  rf.store.set('createdId', id);
+  rf.log('Stored createdId in runner store:', id);
+}
+
+// In the later item's pre-request script, read it back:
+// const id = rf.store.get('createdId');
+// if (!id) rf.abort('createdId not found in store — run the create item first');`,
+  },
+  {
+    label: 'Skip if Env Missing',
+    description: 'Skip this item in the Collection Runner if a required env var is not set',
+    phase: 'pre',
+    code: `const apiKey = rf.getEnv('apiKey');
+if (!apiKey) {
+  rf.skip('apiKey env var is not set — skipping this item');
+}
+rf.setHeader('X-API-Key', apiKey);`,
+  },
+];
+
+// ─── rf.* completion items ────────────────────────────────────────────────────
+
+const RF_COMPLETIONS = [
+  { label: 'rf.getEnv', insertText: "rf.getEnv('${1:key}')", detail: 'getEnv(key: string): string | undefined' },
+  { label: 'rf.setEnv', insertText: "rf.setEnv('${1:key}', '${2:value}')", detail: 'setEnv(key, value): void' },
+  { label: 'rf.setHeader', insertText: "rf.setHeader('${1:name}', '${2:value}')", detail: 'setHeader(name, value): void' },
+  { label: 'rf.removeHeader', insertText: "rf.removeHeader('${1:name}')", detail: 'removeHeader(name): void' },
+  { label: 'rf.abort', insertText: "rf.abort('${1:reason}')", detail: 'abort(message): never — blocks request' },
+  { label: 'rf.skip', insertText: "rf.skip('${1:reason}')", detail: 'skip(message?): never — skips in collection runner' },
+  { label: 'rf.assert', insertText: 'rf.assert(${1:condition}, ${2:\'message\'})', detail: 'assert(condition, message?): void' },
+  { label: 'rf.test', insertText: "rf.test('${1:test name}', () => {\n\t${2:rf.assert(true);}\n})", detail: 'test(name, fn): void — named assertion' },
+  { label: 'rf.log', insertText: 'rf.log(${1:value})', detail: 'log(...args): void' },
+  { label: 'rf.warn', insertText: 'rf.warn(${1:value})', detail: 'warn(...args): void' },
+  { label: 'rf.error', insertText: 'rf.error(${1:value})', detail: 'error(...args): void' },
+  { label: 'rf.fetch', insertText: "rf.fetch('${1:url}', { method: '${2:GET}' })", detail: 'fetch(url, init?): Promise<Response>' },
+  { label: 'rf.response', insertText: 'rf.response', detail: 'response?: { httpStatus, httpHeaders, data, errors, latencyMs }' },
+  { label: 'rf.response?.data', insertText: 'rf.response?.data', detail: 'unknown — GraphQL response data' },
+  { label: 'rf.response?.errors', insertText: 'rf.response?.errors', detail: 'GraphqlError[] | undefined' },
+  { label: 'rf.response?.httpStatus', insertText: 'rf.response?.httpStatus', detail: 'number' },
+  { label: 'rf.response?.latencyMs', insertText: 'rf.response?.latencyMs', detail: 'number' },
+  { label: 'rf.store.get', insertText: "rf.store.get('${1:key}')", detail: 'get(key): unknown — runner store' },
+  { label: 'rf.store.set', insertText: "rf.store.set('${1:key}', ${2:value})", detail: 'set(key, value): void — runner store' },
+  { label: 'rf.store.delete', insertText: "rf.store.delete('${1:key}')", detail: 'delete(key): void — runner store' },
+  { label: 'rf.getCollectionVar', insertText: "rf.getCollectionVar('${1:key}')", detail: 'getCollectionVar(key): string | undefined' },
+  { label: 'rf.setCollectionVar', insertText: "rf.setCollectionVar('${1:key}', '${2:value}')", detail: 'setCollectionVar(key, value): void' },
+  { label: 'rf.operation', insertText: 'rf.operation', detail: '{ name, type, variables }' },
+  { label: 'rf.operation.name', insertText: 'rf.operation.name', detail: 'string | undefined' },
+  { label: 'rf.operation.type', insertText: 'rf.operation.type', detail: "'query' | 'mutation' | 'subscription'" },
+  { label: 'rf.operation.variables', insertText: 'rf.operation.variables', detail: 'Record<string, unknown>' },
+];
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+export type ScriptEditorContext = 'item' | 'collection';
+
+export interface GraphqlScriptEditorModalProps {
+  open: boolean;
+  /** Display name of the item or collection being edited */
+  name: string;
+  /** 'item' = per-item scripts; 'collection' = collection-level scripts */
+  context: ScriptEditorContext;
+  /** Current script config (for items) */
+  scripts?: GraphqlScriptConfig;
+  /** Pre-request script (for collection context) */
+  collectionPreScript?: string;
+  /** Post-response script (for collection context) */
+  collectionPostScript?: string;
+  /**
+   * Stable unique key for the item/collection being edited (e.g. itemId or collectionId).
+   * When this changes while `open` stays true, the modal resets all editor state so it
+   * reflects the newly-selected item rather than showing stale data.
+   */
+  resetKey?: string;
+  /**
+   * Most recent HTTP response from history — used by "Test Script" dry-run.
+   * Pre-request dry-runs always use response=undefined; post-response dry-runs
+   * inject this as rf.response if provided.
+   */
+  testResponse?: RfResponseContext;
+  /**
+   * Active environment variables snapshot — injected into the dry-run context so
+   * rf.getEnv() returns real values during "Test Script". When omitted the dry-run
+   * runs with an empty environment (all rf.getEnv() calls return undefined).
+   */
+  envSnapshot?: Record<string, string>;
+  /**
+   * Collection-level variables snapshot — injected into the dry-run context for
+   * rf.getCollectionVar() calls. Defaults to empty when omitted.
+   */
+  collectionVarsSnapshot?: Record<string, string>;
+  onSave: (updated: ScriptEditorSavePayload) => void;
+  onClose: () => void;
+}
+
+export interface ScriptEditorSavePayload {
+  context: ScriptEditorContext;
+  /** For item context — full updated GraphqlScriptConfig */
+  scripts?: GraphqlScriptConfig;
+  /** For collection context — updated collection-level pre-request script */
+  collectionPreScript?: string;
+  /** For collection context — updated collection-level post-response script */
+  collectionPostScript?: string;
+}
+
+// ─── Execution order diagram ──────────────────────────────────────────────────
+
+function ExecutionOrderDiagram() {
+  return (
+    <div className="gql-script-order-diagram">
+      <span className="gql-script-order-step">Collection pre-request</span>
+      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-step gql-script-order-step--item">Item pre-request</span>
+      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-step gql-script-order-step--http">HTTP request</span>
+      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-step gql-script-order-step--item">Item post-response</span>
+      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-step">Collection post-response</span>
+    </div>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function GraphqlScriptEditorModal({
+  open,
+  name,
+  context,
+  scripts,
+  collectionPreScript: initCollPre = '',
+  collectionPostScript: initCollPost = '',
+  resetKey,
+  testResponse,
+  envSnapshot: envSnapshotProp,
+  collectionVarsSnapshot: collectionVarsSnapshotProp,
+  onSave,
+  onClose,
+}: GraphqlScriptEditorModalProps) {
+  const monaco = useMonaco();
+
+  const [activePhase, setActivePhase] = useState<'pre' | 'post'>('pre');
+  const [showOrder, setShowOrder]     = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const templatesRef = useRef<HTMLDivElement>(null);
+
+  // Dry-run ("Test Script") state
+  const [dryRunLogs,  setDryRunLogs]  = useState<Array<ScriptLogEntry & { itemName: string }>>([]);
+  const [dryRunTests, setDryRunTests] = useState<CollectionRunTestResult[]>([]);
+  const [dryRunning,  setDryRunning]  = useState(false);
+
+  // Item script state
+  const [preScript,  setPreScript]  = useState(scripts?.preRequest  ?? '');
+  const [postScript, setPostScript] = useState(scripts?.postResponse ?? '');
+  const [timeout,    setTimeout_]   = useState(scripts?.timeout ?? 10000);
+  const [enabled,    setEnabled]    = useState(scripts?.enabled !== false);
+
+  // Collection-level script state
+  const [collPre,  setCollPre]  = useState(initCollPre);
+  const [collPost, setCollPost] = useState(initCollPost);
+
+  // Reset state when modal opens OR when the target item/collection changes.
+  // resetKey must be included so switching from item A to item B (while open stays
+  // true) loads the new item's scripts rather than showing stale data.
+  useEffect(() => {
+    if (!open) return;
+    setPreScript(scripts?.preRequest   ?? '');
+    setPostScript(scripts?.postResponse ?? '');
+    setTimeout_(scripts?.timeout ?? 10000);
+    setEnabled(scripts?.enabled !== false);
+    setCollPre(initCollPre);
+    setCollPost(initCollPost);
+    setActivePhase('pre');
+    setShowOrder(false);
+    setShowTemplates(false);
+    setDryRunLogs([]);
+    setDryRunTests([]);
+    setDryRunning(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resetKey]);
+
+  const handleEscapeClose = useCallback(() => {
+    if (open) onClose();
+  }, [open, onClose]);
+
+  useModalEscapeClose(handleEscapeClose, { capture: true });
+
+  // Register rf.* completions when Monaco is ready and the modal is open.
+  // Scoped to open state so the provider is not active on other JS editors in the app
+  // when the modal is closed but the component is still mounted.
+  useEffect(() => {
+    if (!monaco || !open) return;
+    const disposable = monaco.languages.registerCompletionItemProvider('javascript', {
+      triggerCharacters: ['.'],
+      provideCompletionItems: (model, position) => {
+        const word = model.getWordUntilPosition(position);
+        const range: MonacoType.IRange = {
+          startLineNumber: position.lineNumber,
+          endLineNumber:   position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn:   position.column,
+        };
+        const line = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+        // Only offer rf.* completions when the cursor follows a word-boundary 'rf' or 'rf.'
+        // Using a word-boundary anchored regex prevents false positives from substrings
+        // like "surf.", "href.", "dwarf." which contain the literal 'rf.' but are unrelated.
+        if (!/(^|[^a-zA-Z0-9$_])rf\.?$/.test(line)) return { suggestions: [] };
+        return {
+          suggestions: RF_COMPLETIONS.map((c) => ({
+            label: c.label,
+            kind: monaco.languages.CompletionItemKind.Method,
+            insertText: c.insertText,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: c.detail,
+            range,
+          })),
+        };
+      },
+    });
+    return () => disposable.dispose();
+  }, [monaco, open]);
+
+  // Close template dropdown on outside click
+  useEffect(() => {
+    if (!showTemplates) return;
+    const handler = (e: MouseEvent) => {
+      if (templatesRef.current && !templatesRef.current.contains(e.target as Node)) {
+        setShowTemplates(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showTemplates]);
+
+  const currentScript = context === 'collection'
+    ? (activePhase === 'pre' ? collPre : collPost)
+    : (activePhase === 'pre' ? preScript : postScript);
+
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    const v = value ?? '';
+    if (context === 'collection') {
+      if (activePhase === 'pre')  setCollPre(v);
+      else                        setCollPost(v);
+    } else {
+      if (activePhase === 'pre')  setPreScript(v);
+      else                        setPostScript(v);
+    }
+  }, [activePhase, context]);
+
+  const handleInsertTemplate = useCallback((template: ScriptTemplate) => {
+    setShowTemplates(false);
+    const inserted = '\n' + template.code + '\n';
+    if (context === 'collection') {
+      if (activePhase === 'pre')  setCollPre ((p) => (p ? p + inserted : template.code));
+      else                        setCollPost((p) => (p ? p + inserted : template.code));
+    } else {
+      if (activePhase === 'pre')  setPreScript ((p) => (p ? p + inserted : template.code));
+      else                        setPostScript((p) => (p ? p + inserted : template.code));
+    }
+  }, [activePhase, context]);
+
+  const handleSave = useCallback(() => {
+    if (context === 'collection') {
+      onSave({ context, collectionPreScript: collPre, collectionPostScript: collPost });
+    } else {
+      const hasPreScript  = preScript.trim().length > 0;
+      const hasPostScript = postScript.trim().length > 0;
+      const hasCustomTimeout = timeout !== 10000;
+      const scriptsDisabled  = !enabled;
+
+      // Only persist a scripts object when there is actual content to save.
+      // An object with no script text, default timeout, and enabled=true would be an
+      // orphan entry that could mislead callers (e.g. badge check) into thinking scripts exist.
+      const scriptsPayload =
+        hasPreScript || hasPostScript || hasCustomTimeout || scriptsDisabled
+          ? {
+              preRequest:   hasPreScript  ? preScript  : undefined,
+              postResponse: hasPostScript ? postScript : undefined,
+              timeout:      hasCustomTimeout ? timeout : undefined,
+              enabled,
+            }
+          : undefined;
+
+      onSave({ context, scripts: scriptsPayload });
+    }
+  }, [context, collPre, collPost, preScript, postScript, timeout, enabled, onSave]);
+
+  const handleTestScript = useCallback(async () => {
+    const source = context === 'collection'
+      ? (activePhase === 'pre' ? collPre : collPost)
+      : (activePhase === 'pre' ? preScript : postScript);
+    if (!source.trim()) return;
+
+    setDryRunLogs([]);
+    setDryRunTests([]);
+    setDryRunning(true);
+
+    // Script Editor dry-runs use NO_OP_STORE so rf.store.set/get are silent no-ops.
+    // This prevents scripts designed for Collection Runner use from appearing to work
+    // when tested individually (the store never persists across items anyway).
+    const dryStore = NO_OP_STORE;
+    // Seed dry-run with real env/collection vars so rf.getEnv() and rf.getCollectionVar()
+    // return actual values. Shallow-copy to prevent the dry-run from mutating the parent's
+    // snapshot (setEnv calls in the test run should not persist to the real environment).
+    const dryEnv: Record<string, string> = { ...(envSnapshotProp ?? {}) };
+    const dryCollVars: Record<string, string> = { ...(collectionVarsSnapshotProp ?? {}) };
+    // Post-response phase injects the most recent response if available;
+    // pre-request always runs without a response (rf.response === undefined).
+    const dryResponse = activePhase === 'post' ? testResponse : undefined;
+
+    const { rf, resolvePendingTests, getLogs } = createRfContext({
+      envSnapshot: dryEnv,
+      persistEnv: () => {},  // dry-run env mutations are intentionally NOT persisted
+      collectionVarsSnapshot: dryCollVars,
+      mutableHeaders: {},
+      response: dryResponse,
+      store: dryStore,
+      operation: { name: undefined, type: 'query', variables: {} },
+    });
+
+    let scriptErrorMsg: string | null = null;
+    try {
+      // Item scripts: use local `timeout` state so unsaved changes are respected.
+      // Collection scripts: hardcode 10s to match runner behavior (collections have no timeout field).
+      const dryRunTimeout = context === 'collection' ? 10_000 : timeout;
+      await runScript(source, rf, dryRunTimeout);
+    } catch (err) {
+      // Capture abort/skip/runtime/timeout errors for display — getLogs() only
+      // contains explicit rf.log/warn/error calls and would miss thrown exceptions.
+      scriptErrorMsg = err instanceof Error ? err.message : String(err);
+    }
+
+    try {
+      const tests = await resolvePendingTests();
+      const logs = getLogs().map((l) => ({ ...l, itemName: name }));
+
+      // Append script-level error (if any) as the last entry before test results
+      const errorEntries: Array<ScriptLogEntry & { itemName: string }> = scriptErrorMsg
+        ? [{ level: 'error', message: `⚠ ${scriptErrorMsg}`, timestamp: Date.now(), itemName: name }]
+        : [];
+
+      const testEntries: Array<ScriptLogEntry & { itemName: string }> = tests.map((t) => ({
+        level: t.passed ? 'pass' : 'fail',
+        message: t.passed ? `✓ ${t.name}` : `✗ ${t.name}${t.error ? ': ' + t.error : ''}`,
+        timestamp: Date.now(),
+        itemName: name,
+      }));
+
+      setDryRunLogs([...logs, ...errorEntries, ...testEntries]);
+      setDryRunTests(tests);
+    } finally {
+      setDryRunning(false);
+    }
+  }, [context, activePhase, collPre, collPost, preScript, postScript, testResponse, envSnapshotProp, collectionVarsSnapshotProp, timeout, name]);
+
+  const filteredTemplates = SCRIPT_TEMPLATES.filter((t) =>
+    t.phase === 'both' || t.phase === activePhase,
+  );
+
+  if (!open) return null;
+
+  return (
+    <div className="gql-script-modal-backdrop" onClick={onClose} data-testid="gql-script-modal-backdrop">
+      <div
+        className="gql-script-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Script editor — ${name}`}
+        onClick={(e) => e.stopPropagation()}
+        data-testid="gql-script-modal"
+      >
+        {/* Header */}
+        <div className="gql-script-modal-header">
+          <div className="gql-script-modal-title-row">
+            <span className="gql-script-modal-title">
+              {context === 'collection' ? 'Collection Scripts' : 'Item Scripts'}
+              <span className="gql-script-modal-subtitle"> — {name}</span>
+            </span>
+            <button
+              type="button"
+              className="gql-script-modal-order-toggle"
+              onClick={() => setShowOrder((v) => !v)}
+              aria-expanded={showOrder}
+              aria-label="Toggle execution order diagram"
+              data-testid="gql-script-order-toggle"
+            >
+              {showOrder ? '▲ Execution order' : '▼ Execution order'}
+            </button>
+          </div>
+          {showOrder && <ExecutionOrderDiagram />}
+        </div>
+
+        {/* Phase tabs */}
+        <div className="gql-script-tabs">
+          <button
+            type="button"
+            className={`gql-script-tab${activePhase === 'pre' ? ' gql-script-tab--active' : ''}`}
+            onClick={() => setActivePhase('pre')}
+            data-testid="gql-script-tab-pre"
+          >
+            Pre-Request
+          </button>
+          <button
+            type="button"
+            className={`gql-script-tab${activePhase === 'post' ? ' gql-script-tab--active' : ''}`}
+            onClick={() => setActivePhase('post')}
+            data-testid="gql-script-tab-post"
+          >
+            Post-Response
+          </button>
+          <div className="gql-script-tabs-spacer" />
+          {/* Template library dropdown */}
+          <div className="gql-script-template-wrap" ref={templatesRef}>
+            <button
+              type="button"
+              className="gql-script-template-btn"
+              onClick={() => setShowTemplates((v) => !v)}
+              aria-haspopup="listbox"
+              aria-expanded={showTemplates}
+              data-testid="gql-script-template-btn"
+            >
+              Insert template ▾
+            </button>
+            {showTemplates && (
+              <div className="gql-script-template-dropdown" role="listbox" data-testid="gql-script-template-dropdown">
+                {filteredTemplates.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    role="option"
+                    className="gql-script-template-item"
+                    onClick={() => handleInsertTemplate(t)}
+                    data-testid={`gql-script-template-${t.label.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
+                    <span className="gql-script-template-label">{t.label}</span>
+                    <span className="gql-script-template-desc">{t.description}</span>
+                  </button>
+                ))}
+                {filteredTemplates.length === 0 && (
+                  <div className="gql-script-template-empty">No templates for this phase</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Monaco editor */}
+        <div className="gql-script-editor-wrap" data-testid="gql-script-editor-wrap">
+          <Editor
+            height="240px"
+            language="javascript"
+            theme="vs-dark"
+            value={currentScript}
+            onChange={handleEditorChange}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 13,
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              tabSize: 2,
+              folding: false,
+              overviewRulerLanes: 0,
+              renderLineHighlight: 'line',
+              glyphMargin: false,
+              lineDecorationsWidth: 4,
+            }}
+          />
+        </div>
+
+        {/* Item-only settings */}
+        {context === 'item' && (
+          <div className="gql-script-settings">
+            <label className="gql-script-setting-row">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                data-testid="gql-script-enabled"
+              />
+              <span>Scripts enabled</span>
+            </label>
+            <label className="gql-script-setting-row">
+              <span>Timeout (ms)</span>
+              <input
+                type="number"
+                className="gql-script-timeout-input"
+                value={timeout}
+                min={1000}
+                max={120000}
+                step={1000}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (!Number.isNaN(n) && n >= 1000) setTimeout_(Math.min(120000, n));
+                }}
+                data-testid="gql-script-timeout"
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Dry-run console */}
+        {(dryRunLogs.length > 0 || dryRunning) && (
+          <div className="gql-script-dryrun-console" data-testid="gql-script-dryrun-console">
+            <div className="gql-script-dryrun-header">
+              <span>Test output</span>
+              {dryRunTests.length > 0 && (
+                <span className="gql-script-dryrun-summary">
+                  {dryRunTests.filter((t) => t.passed).length}/{dryRunTests.length} passed
+                </span>
+              )}
+              <button
+                type="button"
+                className="gql-runner-console-clear-btn"
+                onClick={() => { setDryRunLogs([]); setDryRunTests([]); }}
+                title="Clear test output"
+              >
+                Clear
+              </button>
+            </div>
+            {dryRunning ? (
+              <div className="gql-script-dryrun-running">Running…</div>
+            ) : (
+              dryRunLogs.map((log, i) => (
+                <div key={i} className={`gql-runner-console-line gql-runner-console-line--${log.level}`}>
+                  <span className="gql-runner-console-msg">{log.message}</span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="gql-script-modal-footer">
+          <button
+            type="button"
+            className="gql-script-btn gql-script-btn--secondary"
+            onClick={onClose}
+            data-testid="gql-script-cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="gql-script-btn gql-script-btn--test"
+            onClick={() => { handleTestScript().catch(() => {}); }}
+            disabled={dryRunning || (activePhase === 'post' && !testResponse)}
+            title={
+              activePhase === 'post' && !testResponse
+                ? 'Execute a request first to populate rf.response for post-script testing'
+                : activePhase === 'post'
+                ? 'Run against most recent response'
+                : 'Dry-run the pre-request script'
+            }
+            data-testid="gql-script-test"
+          >
+            {dryRunning ? 'Running…' : 'Test Script'}
+          </button>
+          <button
+            type="button"
+            className="gql-script-btn gql-script-btn--primary"
+            onClick={handleSave}
+            data-testid="gql-script-save"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

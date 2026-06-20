@@ -75,7 +75,8 @@ const TLS_TOPIC = 'redfireforge.workflow.test'; // pre-created by init container
 async function saveCluster(page: Page): Promise<void> {
   await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
   await page.waitForTimeout(800);
-  await expect(page.locator(`text=${TLS_CLUSTER_NAME}`)).toBeVisible({ timeout: 6000 });
+  // Use .kafka-cluster-card to avoid matching the name field in the still-open editor
+  await expect(page.locator('.kafka-cluster-card').filter({ hasText: TLS_CLUSTER_NAME }).first()).toBeVisible({ timeout: 6000 });
 }
 
 // ── Helper: navigate to Kafka Settings ────────────────────────────────────────
@@ -235,7 +236,7 @@ test.describe('Kafka TLS-Encrypted Cluster — TLS + SASL/SCRAM-256 (Live Docker
     await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
     await page.waitForTimeout(800);
 
-    await expect(page.locator(`text=${TLS_CLUSTER_NAME}`)).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('.kafka-cluster-card').filter({ hasText: TLS_CLUSTER_NAME }).first()).toBeVisible({ timeout: 6000 });
   });
 
   // ── 7. Connect → status badge shows connected ───────────────────────────────

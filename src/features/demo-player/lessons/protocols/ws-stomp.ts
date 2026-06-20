@@ -301,7 +301,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       highlight: WS.STOMP_COMPOSE_FIELDS,
       pauseAfter: true,
       // preAction ensures WS+STOMP session is active (connection guard), then
-      // navigates to Compose and pre-populates SUBSCRIBE + destination so the
+      // navigates to Send and pre-populates SUBSCRIBE + destination so the
       // user reads the description while already seeing the correct compose state.
       preAction: async (ctx: DemoActionContext) => {
         await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
@@ -326,7 +326,7 @@ When testing a STOMP API (RabbitMQ, ActiveMQ, etc.), you need to verify the full
       highlight: WS.SEND_BTN,
       pauseAfter: true,
       // preAction ensures WS+STOMP session is active (connection guard), then
-      // navigates to Compose and selects SEND command before the spotlight.
+      // navigates to Send and selects SEND command before the spotlight.
       preAction: async (ctx: DemoActionContext) => {
         await ensureStompSession(ctx); // Rule 4: guard for skip-to-step
         await ctx.click(WS.LEFT_TAB_SEND);

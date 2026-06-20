@@ -355,16 +355,67 @@ describe('WebSocketMessageDetail — additional coverage', () => {
     expect(writeText).toHaveBeenCalled();
   });
 
+  it('handles clipboard write failure gracefully', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<WebSocketMessageDetail {...defaultProps()} />);
+    fireEvent.click(screen.getByTestId('detail-copy'));
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalled();
+  });
+
+  it('does not call onPrev when hasPrev is false', () => {
+    const onPrev = vi.fn();
+    render(<WebSocketMessageDetail {...defaultProps({ hasPrev: false, onPrev })} />);
+    fireEvent.keyDown(screen.getByTestId('detail-panel'), { key: 'ArrowUp' });
+    expect(onPrev).not.toHaveBeenCalled();
+  });
+
+  it('does not call onNext when hasNext is false', () => {
+    const onNext = vi.fn();
+    render(<WebSocketMessageDetail {...defaultProps({ hasNext: false, onNext })} />);
+    fireEvent.keyDown(screen.getByTestId('detail-panel'), { key: 'ArrowDown' });
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('shows plural validation error count', () => {
+    const validationResults = [
+      {
+        schemaId: 's1',
+        schemaName: 'Schema',
+        valid: false,
+        errors: [
+          { path: '/a', keyword: 'type', message: 'bad' },
+          { path: '/b', keyword: 'type', message: 'bad' },
+        ],
+      },
+    ];
+    render(<WebSocketMessageDetail {...defaultProps({ validationResults })} />);
+    fireEvent.click(screen.getByTestId('tab-validation'));
+    expect(screen.getByText('2 errors')).toBeTruthy();
+  });
+
+  it('falls back to hex tab for binary when validation tab becomes unavailable', () => {
+    const frame = makeFrame({ type: 'binary', data: 'deadbeef' });
+    const validationResults = [
+      { schemaId: 's1', schemaName: 'Schema', valid: true, errors: [] },
+    ];
+    const { rerender } = render(
+      <WebSocketMessageDetail {...defaultProps({ frame, validationResults })} />,
+    );
+    fireEvent.click(screen.getByTestId('tab-validation'));
+    rerender(<WebSocketMessageDetail {...defaultProps({ frame, validationResults: null })} />);
+    expect(screen.getByTestId('tab-hex').className).toContain('active');
+  });
+
   it('resize handle triggers resize on mousedown + mousemove', () => {
     render(<WebSocketMessageDetail {...defaultProps()} />);
     const handle = screen.getByTestId('detail-resize');
     fireEvent.mouseDown(handle, { clientY: 500 });
-    // Simulate mousemove
     const moveEvent = new MouseEvent('mousemove', { clientY: 400 });
     document.dispatchEvent(moveEvent);
     const upEvent = new MouseEvent('mouseup');
     document.dispatchEvent(upEvent);
-    // Panel should still be rendered (no crash)
     expect(screen.getByTestId('detail-panel')).toBeTruthy();
   });
 });

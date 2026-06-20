@@ -12,6 +12,11 @@ import {
   defaultWsSendNodeData,
   defaultWsReceiveNodeData,
   defaultWsTriggerNodeData,
+  defaultGraphqlQueryNodeData,
+  defaultGraphqlMutationNodeData,
+  defaultGraphqlSubscriptionNodeData,
+  defaultGraphqlIntrospectNodeData,
+  defaultGraphqlAssertNodeData,
   type WorkflowRFNode,
 } from './workflowNodeFactory';
 import type {
@@ -42,6 +47,10 @@ import type {
   WsSendNodeData,
   WsReceiveNodeData,
   WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
   WorkflowNodeType,
   WorkflowNodeData,
 } from '../types/workflow';
@@ -78,6 +87,11 @@ describe('workflowNodeFactory', () => {
       expect(nodeTypes.correlationWait).toBeDefined();
       expect(nodeTypes.kafkaTrigger).toBeDefined();
       expect(nodeTypes.kafkaWait).toBeDefined();
+      expect(nodeTypes.graphqlQuery).toBeDefined();
+      expect(nodeTypes.graphqlMutation).toBeDefined();
+      expect(nodeTypes.graphqlSubscription).toBeDefined();
+      expect(nodeTypes.graphqlIntrospect).toBeDefined();
+      expect(nodeTypes.graphqlAssert).toBeDefined();
     });
   });
 
@@ -96,6 +110,68 @@ describe('workflowNodeFactory', () => {
 
       expect((produceData as KafkaProduceNodeData).label).toBe('Kafka Produce');
       expect((consumeData as KafkaConsumeNodeData).label).toBe('Kafka Consume');
+    });
+  });
+
+  describe('GraphQL node contracts', () => {
+    it('includes all 5 graphql types in the WorkflowNodeType union', () => {
+      const q: WorkflowNodeType = 'graphqlQuery';
+      const m: WorkflowNodeType = 'graphqlMutation';
+      const s: WorkflowNodeType = 'graphqlSubscription';
+      const i: WorkflowNodeType = 'graphqlIntrospect';
+      const a: WorkflowNodeType = 'graphqlAssert';
+      expect(q).toBe('graphqlQuery');
+      expect(m).toBe('graphqlMutation');
+      expect(s).toBe('graphqlSubscription');
+      expect(i).toBe('graphqlIntrospect');
+      expect(a).toBe('graphqlAssert');
+    });
+
+    it('defaultNodeData returns correct labels for all 5 graphql types', () => {
+      expect((defaultNodeData('graphqlQuery') as GraphqlQueryNodeData).label).toBe('GraphQL Query');
+      expect((defaultNodeData('graphqlMutation') as GraphqlQueryNodeData).label).toBe('GraphQL Mutation');
+      expect((defaultNodeData('graphqlSubscription') as GraphqlSubscriptionNodeData).label).toBe('GraphQL Subscription');
+      expect((defaultNodeData('graphqlIntrospect') as GraphqlIntrospectNodeData).label).toBe('GraphQL Introspect');
+      expect((defaultNodeData('graphqlAssert') as GraphqlAssertNodeData).label).toBe('GraphQL Assert');
+    });
+
+    it('defaultGraphqlQueryNodeData has correct shape', () => {
+      const d = defaultGraphqlQueryNodeData();
+      expect(d.label).toBe('GraphQL Query');
+      expect(d.query).toContain('query');
+      expect(d.variables).toBe('{}');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.extractionRules).toEqual([]);
+      expect(d.outputBindings).toEqual([]);
+    });
+
+    it('defaultGraphqlMutationNodeData has correct shape', () => {
+      const d = defaultGraphqlMutationNodeData();
+      expect(d.label).toBe('GraphQL Mutation');
+      expect(d.query).toContain('mutation');
+    });
+
+    it('defaultGraphqlSubscriptionNodeData has correct shape', () => {
+      const d = defaultGraphqlSubscriptionNodeData();
+      expect(d.label).toBe('GraphQL Subscription');
+      expect(d.subscriptionQuery).toContain('subscription');
+      expect(d.subscriptionTransport).toBe('auto');
+      expect(d.stopAfterMessages).toBe(10);
+    });
+
+    it('defaultGraphqlIntrospectNodeData has correct shape', () => {
+      const d = defaultGraphqlIntrospectNodeData();
+      expect(d.label).toBe('GraphQL Introspect');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.outputBindings).toEqual([]);
+    });
+
+    it('defaultGraphqlAssertNodeData has correct shape', () => {
+      const d = defaultGraphqlAssertNodeData();
+      expect(d.label).toBe('GraphQL Assert');
+      expect(d.sourceVariable).toBe('');
+      expect(d.assertions).toEqual([]);
+      expect(d.failBehavior).toBe('error');
     });
   });
 

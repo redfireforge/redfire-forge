@@ -125,46 +125,62 @@ export function KafkaPublishStudio({
       </div>
 
       <div className="kafka-ms-body">
-        {/* Topic + Acks */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-topic">Topic</label>
-            <input
-              id="kms-pub-topic"
-              type="text"
-              placeholder="e.g. orders.events"
-              value={publishDraft.topic}
-              onChange={(e) => setPublishDraft({ topic: e.target.value })}
-              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
-            />
-            {touched.topic && topicEmpty && (
-              <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
-            )}
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-acks">Acks</label>
-            <select
-              id="kms-pub-acks"
-              value={String(publishDraft.acks)}
-              onChange={(e) =>
-                setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })
-              }
-            >
-              <option value="-1">all (–1)</option>
-              <option value="1">leader (1)</option>
-              <option value="0">none (0)</option>
-            </select>
-          </div>
-        </div>
+        {/* ── Form: single-row label-left layout ── */}
+        <div className="kafka-ms-form">
 
-        {/* Key + Partition */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <div className="kafka-ms-field-label-row">
-              <label htmlFor="kms-pub-key">Key</label>
+          {/* Topic */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-topic">
+              Topic<span className="kafka-ms-required-dot" aria-hidden="true">*</span>
+            </label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-pub-topic"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="e.g. orders.events"
+                value={publishDraft.topic}
+                onChange={(e) => setPublishDraft({ topic: e.target.value })}
+                onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
+                data-testid="pub-topic-input"
+              />
+              {touched.topic && topicEmpty && (
+                <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
+              )}
+            </div>
+          </div>
+
+          {/* Acks */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-acks">Acks</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-pub-acks"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={String(publishDraft.acks)}
+                onChange={(e) => setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })}
+              >
+                <option value="-1">all (–1)</option>
+                <option value="1">leader (1)</option>
+                <option value="0">none (0)</option>
+              </select>
+              <span className="kafka-ms-form-hint">
+                {publishDraft.acks === -1 && 'Wait for all in-sync replicas — strongest durability'}
+                {publishDraft.acks === 1  && 'Wait for leader only — balanced'}
+                {publishDraft.acks === 0  && 'No acknowledgement — fire and forget'}
+              </span>
+            </div>
+          </div>
+
+          {/* Key */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-key">
+              Key<span className="kafka-ms-optional-tag">opt</span>
+            </label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
               <select
                 aria-label="Key format"
-                className="kafka-ms-serde-select"
+                className="kafka-ms-form-select kafka-ms-form-select--fmt"
                 value={publishDraft.keyFormat ?? 'string'}
                 onChange={(e) => setPublishDraft({ keyFormat: e.target.value as KafkaSerdeFormat })}
                 data-testid="pub-key-format"
@@ -173,40 +189,52 @@ export function KafkaPublishStudio({
                 <option value="base64">Base64</option>
                 <option value="hex">Hex</option>
               </select>
+              <input
+                id="kms-pub-key"
+                className="kafka-ms-form-input kafka-ms-form-input--mono kafka-ms-form-input--grow"
+                type="text"
+                placeholder="Enter message key (optional)"
+                value={publishDraft.key}
+                onChange={(e) => setPublishDraft({ key: e.target.value })}
+                data-testid="pub-key-input"
+              />
             </div>
-            <input
-              id="kms-pub-key"
-              type="text"
-              placeholder="(optional)"
-              value={publishDraft.key}
-              onChange={(e) => setPublishDraft({ key: e.target.value })}
-            />
           </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-partition">Partition</label>
-            <input
-              id="kms-pub-partition"
-              type="text"
-              placeholder="auto"
-              value={publishDraft.partition}
-              onChange={(e) => setPublishDraft({ partition: e.target.value })}
-            />
+
+          {/* Partition */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-partition">Partition</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-pub-partition"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                placeholder="auto"
+                value={publishDraft.partition}
+                onChange={(e) => setPublishDraft({ partition: e.target.value })}
+              />
+              <span className="kafka-ms-form-hint">Leave empty to auto-assign</span>
+            </div>
           </div>
+
+          {/* Timeout */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-timeout">Timeout (ms)</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-pub-timeout"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                placeholder="30 000"
+                value={publishDraft.timeoutMs}
+                onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
+              />
+            </div>
+          </div>
+
         </div>
 
-        {/* Timeout */}
-        <div className="kafka-ms-field">
-          <label htmlFor="kms-pub-timeout">Timeout (ms)</label>
-          <input
-            id="kms-pub-timeout"
-            type="text"
-            placeholder="default"
-            value={publishDraft.timeoutMs}
-            onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
-          />
-        </div>
-
-        {/* Headers */}
+        {/* ── Headers ── */}
         <div className="kafka-ms-section">
           <div className="kafka-ms-section-header">
             <span className="kafka-ms-section-title">Headers</span>
@@ -219,7 +247,7 @@ export function KafkaPublishStudio({
             </button>
           </div>
           {publishDraft.headers.length === 0 ? (
-            <p className="kafka-ms-empty-state">No headers</p>
+            <p className="kafka-ms-empty-state">No headers — click Add to include custom Kafka headers</p>
           ) : (
             <div className="kafka-ms-kv-list">
               {publishDraft.headers.map((row, idx) => (
@@ -232,7 +260,7 @@ export function KafkaPublishStudio({
                   />
                   <input
                     type="text"
-                    placeholder="key"
+                    placeholder="header-key"
                     value={row.key}
                     onChange={(e) => updateHeader(idx, { ...row, key: e.target.value })}
                   />

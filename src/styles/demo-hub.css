@@ -91,8 +91,18 @@
 .demo-hub-body {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 24px;
+  /* No padding-top — the lesson list's sticky tab bar must be flush
+   * with the top of the scroll container. The domain selector view
+   * adds its own padding-top via .demo-domain-selector. */
+  padding: 0 24px 32px;
   min-height: 0;
+}
+
+/* ─── Domain Selector ─────────────────────────────────────────── */
+/* Restore the breathing room above domain cards that the body
+ * no longer provides, while keeping lesson-list flush to top. */
+.demo-domain-selector {
+  padding-top: 32px;
 }
 
 .demo-hub-subtitle {
@@ -102,7 +112,6 @@
   line-height: 1.5;
 }
 
-/* ─── Domain Selector ────────────────────────────────────────── */
 .demo-domain-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -168,10 +177,16 @@
 
 /* ─── Category Tabs ──────────────────────────────────────────── */
 .demo-category-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   gap: 6px;
-  margin-bottom: 12px;
-  max-width: 700px;
+  margin: 0 -24px 16px;
+  padding: 8px 24px 10px;
+  background: var(--bg, #0f172a);
+  border-bottom: 1px solid var(--border, #3b4a60);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .demo-category-tab {
@@ -391,8 +406,148 @@
   color: var(--text-muted, #a8b8cc);
 }
 
+/* ─── In-progress lesson state ───────────────────────────────── */
+.demo-lesson-status.in-progress {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.demo-lesson-status.in-progress .demo-lesson-number {
+  color: #fbbf24;
+}
+
+.demo-lesson-progress-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 700;
+  color: #fff;
+  background: #f59e0b;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg, #0f172a);
+  line-height: 1;
+}
+
+/* ─── Category count — all-done state ───────────────────────── */
+.demo-category-count.all-done {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.demo-category-tab.active .demo-category-count.all-done {
+  background: rgba(34, 197, 94, 0.25);
+  color: #22c55e;
+}
+
+/* ─── Lesson row wrapper (item + reset zone side-by-side) ──────── */
+.demo-lesson-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  position: relative;
+}
+.demo-lesson-row:last-child {
+  border-bottom: none;
+}
+/* Lesson item inside the row takes remaining space */
+.demo-lesson-row .demo-lesson-item {
+  flex: 1 1 0%;
+  width: auto;    /* override standalone width: 100% so the reset zone isn't clipped */
+  min-width: 0;   /* allow shrinking below content size */
+  border-bottom: none; /* row wrapper owns the border */
+}
+
+/* ─── Per-lesson reset zone ──────────────────────────────────────── */
+.demo-lesson-reset-zone {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+  min-width: 36px; /* always reserve space for the ↺ button */
+}
+
+/* ↺ icon button — subtle but always visible for completed lessons */
+.demo-lesson-reset-btn {
+  opacity: 0.35;
+  background: none;
+  border: none;
+  color: var(--text-muted, #a8b8cc);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  font-family: inherit;
+  line-height: 1;
+}
+.demo-lesson-row:hover .demo-lesson-reset-btn,
+.demo-lesson-reset-btn:focus-visible {
+  opacity: 1;
+}
+.demo-lesson-reset-btn:hover {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+}
+
+/* Inline confirm (Reset progress? Yes / ✕) */
+.demo-lesson-reset-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.demo-lesson-reset-confirm-label {
+  font-size: 11px;
+  color: var(--text-muted, #a8b8cc);
+}
+.demo-lesson-reset-yes {
+  background: rgba(239,68,68,0.18);
+  border: 1px solid rgba(239,68,68,0.35);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-lesson-reset-yes:hover {
+  background: rgba(239,68,68,0.3);
+}
+.demo-lesson-reset-no {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted, #a8b8cc);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-lesson-reset-no:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text, #f1f5f9);
+}
+
+/* ─── Footer: global reset + back button ─────────────────────────── */
+.demo-lesson-list-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
 .demo-back-btn {
-  margin-top: 20px;
   background: none;
   border: none;
   color: var(--text-muted, #a8b8cc);
@@ -403,9 +558,70 @@
   transition: all 0.15s ease;
   font-family: inherit;
 }
-
 .demo-back-btn:hover {
   background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #f1f5f9);
+}
+
+/* "Reset all progress" subtle button */
+.demo-reset-all-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #a8b8cc);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.demo-reset-all-btn:hover {
+  opacity: 1;
+  background: rgba(239,68,68,0.1);
+  color: #f87171;
+}
+
+/* Inline "reset all" confirm */
+.demo-reset-all-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+}
+.demo-reset-all-confirm-label {
+  font-size: 12px;
+  color: var(--text-muted, #a8b8cc);
+}
+.demo-reset-all-yes {
+  background: rgba(239,68,68,0.2);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #f87171;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-reset-all-yes:hover { background: rgba(239,68,68,0.35); }
+.demo-reset-all-no {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted, #a8b8cc);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 9px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.demo-reset-all-no:hover {
+  background: rgba(255,255,255,0.06);
   color: var(--text, #f1f5f9);
 }
 
@@ -448,6 +664,175 @@
   font-weight: 500;
 }
 
+/* ─── Lesson Player sidebar nav buttons (replaces old expand-accordion) ── */
+.demo-sidebar-steps-label {
+  padding: 10px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(168, 184, 204, 0.45);
+  user-select: none;
+}
+
+.demo-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text-muted, #a8b8cc);
+  font-size: 12.5px;
+  font-family: inherit;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  overflow: hidden;
+}
+.demo-sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text, #f1f5f9);
+}
+.demo-sidebar-nav-item.active {
+  color: var(--text, #f1f5f9);
+  border-left-color: var(--primary, #3b82f6);
+  background: rgba(59, 130, 246, 0.08);
+  font-weight: 500;
+}
+
+.demo-sidebar-nav-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.demo-sidebar-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Step number badge (reused from old styles, kept for nav items) */
+.demo-sidebar-nav-item .demo-sidebar-step-num {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  color: var(--text-muted, #a8b8cc);
+  line-height: 1;
+}
+.demo-sidebar-nav-item.active .demo-sidebar-step-num {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--primary, #3b82f6);
+}
+
+/* ─── Step Detail Panel (right side when a step is selected) ──── */
+.demo-step-detail {
+  flex: 1;
+  animation: demo-fade-in 0.15s ease;
+}
+
+.demo-step-detail-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.demo-step-detail-num {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--primary, #3b82f6);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.demo-step-detail-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text, #f1f5f9);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.demo-step-detail-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(241, 245, 249, 0.82);
+}
+.demo-step-detail-body p { margin: 0 0 12px; }
+.demo-step-detail-body p:last-child { margin-bottom: 0; }
+.demo-step-detail-body strong { color: var(--text, #f1f5f9); }
+.demo-step-detail-body code {
+  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.demo-step-detail-body ul,
+.demo-step-detail-body ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.demo-step-detail-body li { margin-bottom: 4px; }
+.demo-step-detail-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  margin: 8px 0 12px;
+}
+.demo-step-detail-body th,
+.demo-step-detail-body td {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+}
+.demo-step-detail-body th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+  color: var(--text, #f1f5f9);
+}
+
+/* Prev / Next nav in footer when viewing a step */
+.demo-step-detail-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.demo-step-nav-btn {
+  padding: 9px 22px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted, #a8b8cc);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.demo-step-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--text, #f1f5f9);
+}
+
 .demo-lesson-player-content {
   flex: 1;
   display: flex;
@@ -460,10 +845,11 @@
 .demo-lesson-player-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-top: 24px;
+  justify-content: space-between;
+  padding-top: 20px;
+  padding-bottom: 2px;
   margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 /* ─── Concept Slide ──────────────────────────────────────────── */
@@ -595,6 +981,15 @@
 
 .demo-concept-diagram {
   margin-top: 24px;
+  padding: 0;
+  background: transparent;
+  border-radius: 8px;
+  border: none;
+  overflow: hidden;
+}
+
+/* Legacy pre/text diagrams (pre tag still gets the old box style) */
+.demo-concept-diagram pre {
   padding: 16px 20px;
   background: var(--surface-3, #131c28);
   border-radius: 8px;
@@ -605,15 +1000,17 @@
   color: var(--text-muted, #a8b8cc);
   white-space: pre;
   overflow-x: auto;
+  margin: 0;
 }
 
 .demo-concept-diagram svg {
   width: 100%;
   height: auto;
+  display: block;
 }
 
 .demo-start-btn {
-  padding: 10px 24px;
+  padding: 10px 28px;
   border: none;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--primary, #3b82f6), var(--accent, #8b5cf6));
@@ -623,11 +1020,20 @@
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .demo-start-btn:hover {
   filter: brightness(1.1);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.38);
+}
+
+.demo-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
 }
 
 /* ─── Live Demo Panel (floating, bottom-right) ───────────────── */
@@ -817,6 +1223,25 @@
 .demo-live-restart-btn:hover {
   color: var(--primary, #3b82f6);
   background: rgba(59, 130, 246, 0.1);
+}
+
+.demo-live-complete-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.demo-live-complete-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.28);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
 }
 
 .demo-live-exit-btn {
@@ -1158,89 +1583,7 @@
 }
 
 /* ─── LessonPlayer sidebar — expandable steps ────────────────── */
-.demo-sidebar-item--expandable {
-  padding: 0;
-  cursor: default;
-}
-.demo-sidebar-item--expandable:hover {
-  background: none;
-  color: inherit;
-}
-
-.demo-sidebar-step-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  color: var(--text-muted, #a8b8cc);
-  font-size: 13px;
-  font-weight: 400;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  border-radius: 6px;
-  transition: background 0.12s, color 0.12s;
-}
-.demo-sidebar-step-header:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text, #f1f5f9);
-}
-.demo-sidebar-item--expandable.expanded .demo-sidebar-step-header {
-  color: var(--text, #f1f5f9);
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.demo-sidebar-step-num {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--text-muted, #a8b8cc);
-  opacity: 0.7;
-  flex-shrink: 0;
-  min-width: 14px;
-}
-
-.demo-sidebar-step-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12.5px;
-}
-
-.demo-sidebar-step-chevron {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-  opacity: 0.45;
-  transition: transform 0.2s ease;
-}
-.demo-sidebar-item--expandable.expanded .demo-sidebar-step-chevron {
-  transform: rotate(180deg);
-  opacity: 0.7;
-}
-
-.demo-sidebar-step-desc {
-  padding: 6px 12px 10px 34px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: rgba(168, 184, 204, 0.75);
-  border-left: 2px solid rgba(99, 102, 241, 0.25);
-  margin: 0 8px 4px 20px;
-  border-radius: 0 0 0 4px;
-  animation: demo-fade-in 0.15s ease;
-}
-.demo-sidebar-step-desc p { margin: 0 0 4px; }
-.demo-sidebar-step-desc p:last-child { margin-bottom: 0; }
-.demo-sidebar-step-desc code {
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.07);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
+/* Old .demo-sidebar-step-* accordion classes removed — replaced by .demo-sidebar-nav-item above */
 
 /* ─── Prerequisite Gate ─────────────────────────────────────── */
 .prereq-gate {

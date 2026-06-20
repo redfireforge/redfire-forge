@@ -465,6 +465,11 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
           await ctx.click(WS.CONN_TAB_ADD);
           await ctx.delay(400);
         }
+        // Reset left pane to Connect so the action visibly switches to Auth
+        await ctx.click(WS.CONN_TAB_FIRST);
+        await ctx.delay(200);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
       },
       action: async (ctx: DemoActionContext) => {
         // Switch to Auth tab in current connection tab
@@ -498,26 +503,39 @@ The split pane width is shared across all tabs (resizing affects all). Shell tab
           await ctx.click(WS.CONN_TAB_ADD);
           await ctx.delay(400);
         }
-        // Set tab 1's right pane to Console (preload state for the demonstration)
+        // Pre-load independent state on both tabs so the viewer sees distinct
+        // left+right panes during the reading phase, matching the description.
+        // Last tab: Auth (left) + Events (right)
+        const allTabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
+        const lastTab = allTabs[allTabs.length - 1] as HTMLElement | null;
+        if (lastTab) {
+          lastTab.click();
+          await ctx.delay(300);
+          await ctx.click(WS.LEFT_TAB_AUTH);
+          await ctx.delay(200);
+          await ctx.click(WS.RIGHT_TAB_EVENTS);
+          await ctx.delay(200);
+        }
+        // First tab: Connect (left) + Console (right) — shown during reading
         await ctx.click(WS.CONN_TAB_FIRST);
         await ctx.delay(300);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
         await ctx.click(WS.RIGHT_TAB_CONSOLE);
         await ctx.delay(300);
       },
       action: async (ctx: DemoActionContext) => {
-        // Switch to last tab and set Events
+        // Switch to last tab — Auth (left) + Events (right) prove per-tab memory
         const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabs.length >= 2) {
           const lastTab = tabs[tabs.length - 1] as HTMLElement;
           lastTab.click();
-          await ctx.delay(800);
+          await ctx.delay(1000);
         }
-        await ctx.click(WS.RIGHT_TAB_EVENTS);
-        await ctx.delay(800);
-        // Switch back to first tab — Console should still be active
+        // Switch back to first tab — Connect (left) + Console (right) are restored
         await ctx.click(WS.CONN_TAB_FIRST);
-        await ctx.delay(800);
-        // Switch to last tab again — Events should still be active
+        await ctx.delay(1000);
+        // One final switch to last tab — Events is still active, proving persistence
         const tabsAgain = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
         if (tabsAgain.length >= 2) {
           const lastTab = tabsAgain[tabsAgain.length - 1] as HTMLElement;

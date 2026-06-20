@@ -234,6 +234,15 @@ All 12 implementation phases (P0–P9.3) of the validation operator feature are 
 
 The UI must be **professional, clean, and user-friendly** — matching the dark theme tokens in `src/styles/data-mapper.css`. Avoid emoji-first labels; use symbols and structured typography. Every interactive element must have hover states, focus indicators, and appropriate `aria-label` attributes.
 
+## Key Style Files
+
+| File | Purpose |
+|---|---|
+| `src/styles/settings.css` | Kafka Studio, form rows (`.kafka-ms-form*`), settings panels |
+| `src/styles/index.css` | Root CSS design tokens (`:root` — `--bg`, `--surface`, `--border`, `--text`, `--primary`) |
+
+**See `.cursor/rules/ui-design-system.mdc`** for the mandatory design token usage rules, form layout patterns, and visual validation process. Every agent working on UI **must** follow that rule.
+
 ## Modal Design Rules
 
 - **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.) or `backdrop-filter: blur()`.

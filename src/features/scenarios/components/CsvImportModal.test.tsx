@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 import CsvImportModal from './CsvImportModal';
 import type { FeatureGroup, Scenario } from '../../../shared/types';
 import type { CsvParseResult, ParsedRow } from '../utils/csvTemplateTypes';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 const parseCsvMock = vi.fn();
 const parseExcelMock = vi.fn();
@@ -37,19 +38,14 @@ vi.mock('../../../shared/components/PopupModal', () => ({
   ),
 }));
 
-function makeScenario(over: Partial<Scenario> = {}): Scenario {
-  return {
+const makeScenario = (over: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     id: 's1',
     name: 'Get Items',
     url: 'https://api.example.com/v1/items',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
     validation: { mode: 'status' } as Scenario['validation'],
     ...over,
-  };
-}
+  });
 
 function makeResult(over: Partial<CsvParseResult> = {}): CsvParseResult {
   const rows: ParsedRow[] = over.rows ?? [
@@ -440,5 +436,207 @@ describe('CsvImportModal', () => {
   it('renders with no feature groups (empty selectedFgId)', () => {
     render(<CsvImportModal {...makeProps({ featureGroups: [] })} />);
     expect(screen.getByText('Step 1 — Get a template')).toBeInTheDocument();
+  });
+
+  it('shows unexpected parse error from synchronous processFile failure', async () => {
+    const RealFileReader = window.FileReader;
+    class ThrowingReader {
+      readAsText() { throw new Error('sync boom'); }
+      readAsArrayBuffer() { throw new Error('sync boom'); }
+    }
+    // @ts-expect-error -- test stub
+    window.FileReader = ThrowingReader;
+    try {
+      const { container } = render(<CsvImportModal {...makeProps()} />);
+      fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+      await waitFor(() => expect(screen.getByText(/Unexpected error: sync boom/)).toBeInTheDocument());
+    } finally {
+      window.FileReader = RealFileReader;
+    }
+  });
+
+  it('uses validation contract and array mode from parse result metadata', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      columns: ['validate:offers[0].code'],
+      validationContract: ['offers[*].code'],
+      arrayValidationMode: 'subset',
+      rows: [{
+        rowIndex: 1,
+        scenario: makeScenario({ name: 'Order - X1' }),
+        errors: [],
+        raw: { 'validate:offers[0].code': 'C1', name: 'Order - X1', method: 'POST', url: 'https://x' },
+      }],
+      meta: {
+        version: 1, method: 'POST', urlPattern: 'https://x', headers: [], body: '',
+        auth: { type: 'none' }, validationMode: 'selective', pathVariables: [],
+      },
+    }));
+    const onImport = vi.fn();
+    const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
+    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
+    const modeSelect = selects.find(s => within(s).queryByText(/Parameterized Test/)) as HTMLSelectElement;
+    fireEvent.change(modeSelect, { target: { value: 'parameterized' } });
+    const scenSelect = selects.find(s => within(s).queryByText(/Scenario A/)) as HTMLSelectElement;
+    fireEvent.change(scenSelect, { target: { value: 'sc1' } });
+    fireEvent.click(screen.getByText(/Import as Parameterized Test/));
+    expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
+      dataSource: expect.objectContaining({
+        validationContract: ['offers[*].code'],
+        arrayValidationMode: 'subset',
+      }),
+    })]);
+  });
+
+  it('builds parameterized import without wildcard validation contract', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      columns: ['plainField'],
+      rows: [{
+        rowIndex: 1,
+        scenario: makeScenario({ name: 'Row One' }),
+        errors: [],
+        raw: { plainField: 'v1', name: 'Row One', method: 'GET', url: 'https://x' },
+      }, {
+        rowIndex: 2,
+        scenario: null,
+        errors: ['bad'],
+        raw: { plainField: 'v2', name: 'Bad', method: '', url: '' },
+      }],
+      meta: {
+        version: 1, method: 'GET', urlPattern: 'https://x?p=1', headers: [], body: '',
+        auth: { type: 'none' }, validationMode: 'selective', pathVariables: [],
+      },
+    }));
+    const onImport = vi.fn();
+    const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
+    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
+    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
+    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    fireEvent.click(screen.getByText(/Import as Parameterized Test/));
+    expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
+      dataSource: expect.objectContaining({ validationContract: undefined, rows: expect.any(Array) }),
+    })]);
+  });
+
+  it('does not import when destination ids are missing', async () => {
+    parseCsvMock.mockReturnValue(makeResult());
+    const onImport = vi.fn();
+    const { container } = render(<CsvImportModal {...makeProps({ onImport, featureGroups: [] })} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Step 3 — Preview')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Import 1 Test'));
+    expect(onImport).not.toHaveBeenCalled();
+  });
+
+  it('imports parameterized rows with header, body, and expect column prefixes', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      columns: ['header:X-Auth', 'body:payload', 'expect:status'],
+      rows: [{
+        rowIndex: 1,
+        scenario: makeScenario({ name: 'Prefixed Row' }),
+        errors: [],
+        raw: {
+          'header:X-Auth': 'tok',
+          'body:payload': '{}',
+          'expect:status': '200',
+          name: 'Prefixed Row',
+          method: 'GET',
+          url: 'https://x',
+        },
+      }],
+      meta: {
+        version: 1, method: 'GET', urlPattern: 'https://x', headers: [], body: '',
+        auth: { type: 'none' }, validationMode: 'selective', pathVariables: [],
+      },
+    }));
+    const onImport = vi.fn();
+    const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
+    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
+    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
+    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    fireEvent.click(screen.getByText(/Import as Parameterized Test/));
+    expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
+      dataSource: expect.objectContaining({
+        columns: expect.arrayContaining([
+          expect.objectContaining({ type: 'header', mapping: 'X-Auth' }),
+          expect.objectContaining({ type: 'body', mapping: 'payload' }),
+          expect.objectContaining({ type: 'validate', mapping: 'status' }),
+        ]),
+      }),
+    })]);
+  });
+
+  it('shows preview with zero validation rules when expectedFields are absent', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      rows: [{
+        rowIndex: 1,
+        scenario: makeScenario({ validation: { mode: 'status' } as Scenario['validation'] }),
+        errors: [],
+        raw: { name: 'No Rules', method: 'GET', url: 'https://x' },
+      }],
+    }));
+    const { container } = render(<CsvImportModal {...makeProps()} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('0 rules')).toBeInTheDocument());
+  });
+
+  it('maps parameterized columns by plain mapping name and strips row suffix from test name', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      columns: ['channel'],
+      rows: [{
+        rowIndex: 1,
+        scenario: makeScenario({ name: 'Checkout - ABC123', url: 'https://x?channel=web' }),
+        errors: [],
+        raw: { channel: 'web', name: 'Checkout - ABC123', method: 'GET', url: 'https://x?channel=web' },
+      }],
+      meta: {
+        version: 1, method: 'GET', urlPattern: 'https://x?channel=web', headers: [], body: '',
+        auth: { type: 'none' }, validationMode: 'selective', pathVariables: [],
+      },
+    }));
+    const onImport = vi.fn();
+    const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
+    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
+    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
+    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    fireEvent.click(screen.getByText(/Import as Parameterized Test/));
+    expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
+      name: 'Checkout',
+      url: 'https://x?channel=web',
+    })]);
+  });
+
+  it('shows template metadata for full validation without expectedJson in metadata', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      meta: {
+        version: 1, method: 'GET', urlPattern: 'https://x', headers: [], body: '',
+        auth: { type: 'none' }, validationMode: 'full', pathVariables: [],
+      },
+    }));
+    const { container } = render(<CsvImportModal {...makeProps()} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Not set (capture after first run)')).toBeInTheDocument());
+  });
+
+  it('shows plural import label for multiple valid tests', async () => {
+    parseCsvMock.mockReturnValue(makeResult({
+      rows: [
+        { rowIndex: 1, scenario: makeScenario({ id: 'a', name: 'A' }), errors: [], raw: { name: 'A', method: 'GET', url: 'u1' } },
+        { rowIndex: 2, scenario: makeScenario({ id: 'b', name: 'B' }), errors: [], raw: { name: 'B', method: 'GET', url: 'u2' } },
+      ],
+      totalRows: 2,
+      validRows: 2,
+      errorRows: 0,
+    }));
+    const { container } = render(<CsvImportModal {...makeProps()} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
+    await waitFor(() => expect(screen.getByText('Import 2 Tests')).toBeInTheDocument());
   });
 });

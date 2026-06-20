@@ -6,7 +6,7 @@
  */
 
 import type { Mapping } from '../types';
-import { readKey, writeKey } from '../../../utils/storage';
+import { readJsonArray, writeJson } from '../../../utils/jsonKeyStorage';
 import { normalizeMapperPath } from './pathNormalization';
 
 const STORAGE_PREFIX = 'dm-profiles-';
@@ -25,22 +25,11 @@ function storageKey(contextId: string): string {
 }
 
 export async function loadProfiles(contextId: string): Promise<MappingProfile[]> {
-  try {
-    const raw = await readKey(storageKey(contextId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readJsonArray<MappingProfile>(storageKey(contextId));
 }
 
 async function persistProfiles(contextId: string, profiles: MappingProfile[]): Promise<void> {
-  try {
-    await writeKey(storageKey(contextId), JSON.stringify(profiles));
-  } catch {
-    // Quota exceeded or private mode — silently degrade
-  }
+  await writeJson(storageKey(contextId), profiles);
 }
 
 export async function saveProfile(
