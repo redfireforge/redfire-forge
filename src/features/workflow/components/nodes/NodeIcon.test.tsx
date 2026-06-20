@@ -10,6 +10,7 @@ const ALL_TYPES = [
   'fork', 'join', 'switch', 'loop', 'setVariable',
   'aggregate', 'webhook', 'schedule', 'errorHandler',
   'logDebug', 'waitForCondition', 'subWorkflow', 'kafkaProduce', 'kafkaConsume',
+  'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
 ];
 
 describe('NodeIcon', () => {
@@ -36,6 +37,23 @@ describe('NodeIcon', () => {
   it('applies category-specific CSS class for kafka nodes', () => {
     const { container } = render(<NodeIcon type="kafkaProduce" />);
     expect(container.querySelector('.wf-node-icon-badge--integration')).toBeTruthy();
+  });
+
+  it('applies integration category for graphqlQuery/Mutation/Subscription nodes', () => {
+    for (const type of ['graphqlQuery', 'graphqlMutation', 'graphqlSubscription'] as const) {
+      const { container } = render(<NodeIcon type={type} />);
+      expect(container.querySelector('.wf-node-icon-badge--integration'), `integration badge missing for ${type}`).toBeTruthy();
+    }
+  });
+
+  it('applies action category for graphqlIntrospect node', () => {
+    const { container } = render(<NodeIcon type="graphqlIntrospect" />);
+    expect(container.querySelector('.wf-node-icon-badge--action')).toBeTruthy();
+  });
+
+  it('applies logic category for graphqlAssert node', () => {
+    const { container } = render(<NodeIcon type="graphqlAssert" />);
+    expect(container.querySelector('.wf-node-icon-badge--logic')).toBeTruthy();
   });
 
   it('applies trigger category for start node', () => {
@@ -100,6 +118,11 @@ describe('getNodeCategory', () => {
     expect(getNodeCategory('setVariable')).toBe('Data');
     expect(getNodeCategory('fork')).toBe('Flow');
     expect(getNodeCategory('end')).toBe('Terminal');
+    expect(getNodeCategory('graphqlQuery')).toBe('Integration');
+    expect(getNodeCategory('graphqlMutation')).toBe('Integration');
+    expect(getNodeCategory('graphqlSubscription')).toBe('Integration');
+    expect(getNodeCategory('graphqlIntrospect')).toBe('Action');
+    expect(getNodeCategory('graphqlAssert')).toBe('Logic');
   });
 
   it('returns empty string for unknown type', () => {

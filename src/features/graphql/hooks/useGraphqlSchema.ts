@@ -474,7 +474,11 @@ export function useGraphqlSchema(
 
   // BUG-GQL-R13-2 fix: clear mounted flag on unmount so in-flight introspection
   // handlers skip setState (prevents React warnings on navigation away).
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // React 18 StrictMode remounts in dev — reset mountedRef on mount (see useGraphqlExecution).
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   return { ...state, introspect };
 }

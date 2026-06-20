@@ -84,3 +84,6 @@ export { handleKafkaProduceNode, handleKafkaConsumeNode, classifyKafkaFailure, g
 
 // ── WebSocket nodes ───────────────────────────────────────────────────────────
 export { handleWsConnectNode, handleWsSendNode, handleWsReceiveNode, handleWsTriggerNode, classifyWsFailure } from './graphRunnerWsNodeHandlers';
+
+// ── GraphQL nodes ─────────────────────────────────────────────────────────────
+export { handleGraphqlQueryNode, handleGraphqlSubscriptionNode, handleGraphqlIntrospectNode, handleGraphqlAssertNode } from './graphRunnerGraphqlNodeHandlers';

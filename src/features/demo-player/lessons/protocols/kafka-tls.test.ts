@@ -47,6 +47,18 @@ describe('kafka-tls lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
   });
 
+  it('step tls-intro preAction removes selected class from cluster cards', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-intro')!;
+    const selectedCard = document.createElement('div');
+    selectedCard.className = 'kafka-cluster-card selected';
+    document.body.appendChild(selectedCard);
+
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(selectedCard.classList.contains('selected')).toBe(false);
+  });
+
   it('step tls-auth action selects SCRAM-SHA-256 and fills credentials', async () => {
     const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-auth')!;
     const ctx = makeCtx();
@@ -54,6 +66,25 @@ describe('kafka-tls lesson', () => {
     expect(ctx.selectOption).toHaveBeenCalledWith(expect.stringContaining('auth-mode'), 'scram-sha-256');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('username'), 'redfireforge-app');
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('password'), 'app-password');
+  });
+
+  it('step tls-broker preAction clears/fills cluster name when name input exists', async () => {
+    const step = kafkaTlsLesson.steps.find((s) => s.id === 'tls-broker')!;
+    const nameInput = document.createElement('input');
+    nameInput.id = 'kafka-cluster-name';
+    nameInput.value = 'old';
+    document.body.appendChild(nameInput);
+
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+
+    expect(nameInput.value).toBe('');
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('#kafka-cluster-name'),
+      'Local TLS',
+    );
+    expect(ctx.delay).toHaveBeenCalledWith(100);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('127.0.0.1:19092'), '127.0.0.1:19095');
   });
 
   it('step tls-enable action clicks TLS toggle when NOT already checked (aria-checked=false)', async () => {

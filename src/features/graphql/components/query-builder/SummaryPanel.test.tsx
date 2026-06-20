@@ -18,13 +18,19 @@ vi.mock('../../utils/queryBuilderGenerator', () => ({
     return parts.slice(0, -1).map((_: unknown, i: number) => parts.slice(0, i + 1).join('.'));
   }),
   getRootTypeName: vi.fn((_op: string, _schema: unknown) => 'Query'),
+  resolvePathFieldType: vi.fn(() => null),
   searchFields: vi.fn(() => []),
   stripTypeModifiers: (t: string) => t.replace(/[![\]]/g, ''),
 }));
 
-import { searchFields as mockSearchFieldsRaw, getAncestorPaths as mockGetAncestorPathsRaw } from '../../utils/queryBuilderGenerator';
+import {
+  searchFields as mockSearchFieldsRaw,
+  getAncestorPaths as mockGetAncestorPathsRaw,
+  resolvePathFieldType as mockResolvePathFieldTypeRaw,
+} from '../../utils/queryBuilderGenerator';
 const mockSearchFields = vi.mocked(mockSearchFieldsRaw);
 const mockGetAncestorPaths = vi.mocked(mockGetAncestorPathsRaw);
+const mockResolvePathFieldType = vi.mocked(mockResolvePathFieldTypeRaw);
 
 function makeState(overrides: Partial<BuilderState> = {}): BuilderState {
   return {
@@ -54,6 +60,11 @@ function defaultProps(overrides = {}) {
     onSearchExpand: vi.fn(),
     onSetAlias: vi.fn(),
     onSetDirective: vi.fn(),
+    onAddFragment: vi.fn(),
+    onUpdateFragment: vi.fn(),
+    onRemoveFragment: vi.fn(),
+    onToggleSpread: vi.fn(),
+    fragmentCount: 0,
     ...overrides,
   };
 }
@@ -769,5 +780,190 @@ describe('SummaryPanel', () => {
       />,
     );
     expect(screen.getByText('+1 more field')).toBeInTheDocument();
+  });
+
+  it('renders existing fragment item and active spread state', () => {
+    const state = makeState({
+      fragments: {
+        UserCore: { name: 'UserCore', onType: 'User', fieldPaths: ['id', 'name'] },
+      },
+      activeFragmentSpreads: ['UserCore'],
+    });
+    render(<SummaryPanel {...defaultProps({ state })} />);
+
+    expect(screen.getByTestId('gql-qb-frag-UserCore')).toHaveClass('gql-qb-frag-item--active');
+    expect(screen.getByTestId('gql-qb-frag-use-UserCore')).toHaveTextContent('✓ Spread');
+    expect(screen.getByText('2 fields')).toBeInTheDocument();
+  });
+
+  it('calls onToggleSpread when clicking fragment Use button', () => {
+    const onToggleSpread = vi.fn();
+    const state = makeState({
+      fragments: {
+        UserCore: { name: 'UserCore', onType: 'User', fieldPaths: ['id'] },
+      },
+      activeFragmentSpreads: [],
+    });
+    render(<SummaryPanel {...defaultProps({ state, onToggleSpread })} />);
+
+    fireEvent.click(screen.getByTestId('gql-qb-frag-use-UserCore'));
+    expect(onToggleSpread).toHaveBeenCalledWith('UserCore');
+  });
+
+  it('calls onUpdateFragment with current selection on update', () => {
+    const onUpdateFragment = vi.fn();
+    const state = makeState({
+      selectedFields: { 'user.id': true },
+      fragments: {
+        UserCore: { name: 'UserCore', onType: 'Query', fieldPaths: ['id'] },
+      },
+    });
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state,
+          onUpdateFragment,
+          schemaInfo: { queryType: 'Query', types: [{ name: 'Query', kind: 'OBJECT', fields: [] }] },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('gql-qb-frag-update-UserCore'));
+    expect(onUpdateFragment).toHaveBeenCalledWith('UserCore', { fieldPaths: ['user.id'] });
+  });
+
+  it('calls onRemoveFragment when clicking delete', () => {
+    const onRemoveFragment = vi.fn();
+    const state = makeState({
+      fragments: {
+        UserCore: { name: 'UserCore', onType: 'User', fieldPaths: ['id'] },
+      },
+    });
+    render(<SummaryPanel {...defaultProps({ state, onRemoveFragment })} />);
+
+    fireEvent.click(screen.getByTestId('gql-qb-frag-delete-UserCore'));
+    expect(onRemoveFragment).toHaveBeenCalledWith('UserCore');
+  });
+
+  it('shows validation error when creating fragment with empty name', () => {
+    render(<SummaryPanel {...defaultProps()} />);
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Fragment name is required.');
+  });
+
+  it('shows validation error for invalid fragment identifier', () => {
+    render(<SummaryPanel {...defaultProps()} />);
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: '1bad' } });
+    fireEvent.change(screen.getByTestId('gql-qb-frag-type-input'), { target: { value: 'User' } });
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Name must be a valid GraphQL identifier.');
+  });
+
+  it('shows duplicate fragment name error', () => {
+    const state = makeState({
+      fragments: {
+        UserCore: { name: 'UserCore', onType: 'User', fieldPaths: ['id'] },
+      },
+    });
+    render(<SummaryPanel {...defaultProps({ state })} />);
+
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserCore' } });
+    fireEvent.change(screen.getByTestId('gql-qb-frag-type-input'), { target: { value: 'User' } });
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Fragment "UserCore" already exists.');
+  });
+
+  it('shows type-required error when name is set but type missing', () => {
+    render(<SummaryPanel {...defaultProps()} />);
+
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserFrag' } });
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Type is required.');
+  });
+
+  it('creates fragment from selection and converts to relative paths', () => {
+    mockResolvePathFieldType.mockImplementation((prefix: string) => {
+      if (prefix === 'user') return 'User';
+      if (prefix === 'post') return 'Post';
+      return null;
+    });
+
+    const onAddFragment = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 2,
+          state: makeState({ selectedFields: { 'user.id': true, 'post.title': true } }),
+          schemaInfo: {
+            queryType: 'Query',
+            types: [
+              { name: 'Query', kind: 'OBJECT', fields: [] },
+              { name: 'User', kind: 'OBJECT', fields: [] },
+              { name: 'Post', kind: 'OBJECT', fields: [] },
+            ],
+          },
+          onAddFragment,
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserFrag' } });
+    fireEvent.change(screen.getByTestId('gql-qb-frag-type-select'), { target: { value: 'User' } });
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+
+    expect(onAddFragment).toHaveBeenCalledWith({
+      name: 'UserFrag',
+      onType: 'User',
+      fieldPaths: ['id'],
+    });
+    expect(screen.getByTestId('gql-qb-frag-name-input')).toHaveValue('');
+    expect(screen.getByTestId('gql-qb-frag-type-select')).toHaveValue('');
+  });
+
+  it('falls back to text type input when schema has no object types', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          schemaInfo: { queryType: 'Query', types: [{ name: 'String', kind: 'SCALAR' }] },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('gql-qb-frag-type-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('gql-qb-frag-type-select')).toBeNull();
+  });
+
+  it('keeps selected paths when schema is absent during fragment create', () => {
+    const onAddFragment = vi.fn();
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 2,
+          state: makeState({ selectedFields: { 'user.id': true, 'user.name': true } }),
+          schemaInfo: null,
+          onAddFragment,
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserFrag' } });
+    fireEvent.change(screen.getByTestId('gql-qb-frag-type-input'), { target: { value: 'User' } });
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+
+    expect(onAddFragment).toHaveBeenCalledWith({
+      name: 'UserFrag',
+      onType: 'User',
+      fieldPaths: ['user.id', 'user.name'],
+    });
+  });
+
+  it('clears fragment form error when user edits fields', () => {
+    render(<SummaryPanel {...defaultProps()} />);
+
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'FixedName' } });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

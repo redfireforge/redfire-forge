@@ -61,6 +61,13 @@ export function useGraphqlAdvancedSettings(
     dedupEnabled: true,
     complexityBlockEnabled: false,
     complexityBlockThreshold: 1000,
+    // Phase 2 Deferred — Transport + Limits defaults
+    subscriptionTransport: 'auto',
+    sseMode: 'distinct',
+    wsEndpointOverride: '',
+    historyMaxItems: 100,
+    subscriptionBufferSize: 5000,
+    maxFileSizeMb: 50,
   }));
 
   const [apqUnsupportedToast, setApqUnsupportedToast] = useState(false);

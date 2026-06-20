@@ -1606,3 +1606,162 @@
   .gql-activity-tab { padding: 10px 0; justify-content: center; width: 40px; }
 }
 .gql-activity-bar--narrow .gql-activity-tab-label { display: none; }
+
+/* ─── Workflow import-from-collections picker (Phase 4 bridge) ─────────────── */
+.gql-wf-import-col-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+.gql-wf-import-col-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.gql-wf-import-col-header {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gql-wf-import-col-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.gql-wf-import-col-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gql-wf-import-col-search-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+.gql-wf-import-col-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: none;
+}
+.gql-wf-import-col-search-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.gql-wf-import-col-body {
+  flex: 1;
+  min-height: 180px;
+  overflow: auto;
+  padding: 8px 12px;
+}
+.gql-wf-import-col-loading,
+.gql-wf-import-col-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 16px 24px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.gql-wf-import-col-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gql-wf-import-col-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.gql-wf-import-col-item:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+.gql-wf-import-col-item--selected {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+.gql-wf-import-col-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gql-wf-import-col-item-name {
+  font-size: 0.84rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gql-wf-import-col-item-collection {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gql-wf-import-col-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--border);
+}
+.gql-wf-import-col-btn {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.gql-wf-import-col-btn--cancel {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.gql-wf-import-col-btn--cancel:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.gql-wf-import-col-btn--import {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.gql-wf-import-col-btn--import:hover { opacity: 0.88; }
+.gql-wf-import-col-btn--import:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+

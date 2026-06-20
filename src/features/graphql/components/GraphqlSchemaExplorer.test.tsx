@@ -66,9 +66,10 @@ describe('GraphqlSchemaExplorer — non-loaded states', () => {
     expect(screen.getByTestId('gql-se-introspection-disabled')).toBeTruthy();
   });
 
-  it('renders nothing when status=loaded but schemaInfo is null', () => {
-    const { container } = render(<GraphqlSchemaExplorer schemaInfo={null} status="loaded" />);
-    expect(container.firstChild).toBeNull();
+  it('shows idle shell when status=loaded but schemaInfo is null', () => {
+    render(<GraphqlSchemaExplorer schemaInfo={null} status="loaded" />);
+    expect(screen.getByTestId('gql-schema-explorer')).toBeTruthy();
+    expect(screen.getByTestId('gql-se-empty-idle')).toBeTruthy();
   });
 });
 

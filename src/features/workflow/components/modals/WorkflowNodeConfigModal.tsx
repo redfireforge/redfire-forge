@@ -26,6 +26,10 @@ import type {
   WsSendNodeData,
   WsReceiveNodeData,
   WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -62,6 +66,14 @@ import WsConnectConfig from '../configs/WsConnectConfig';
 import WsSendConfig from '../configs/WsSendConfig';
 import WsReceiveConfig from '../configs/WsReceiveConfig';
 import WsTriggerConfig from '../configs/WsTriggerConfig';
+import GraphqlQueryConfigPanel from '../../../graphql/components/GraphqlQueryConfigPanel';
+import GraphqlSubscriptionConfigPanel from '../../../graphql/components/GraphqlSubscriptionConfigPanel';
+import GraphqlIntrospectConfigPanel from '../../../graphql/components/GraphqlIntrospectConfigPanel';
+import GraphqlAssertConfigPanel from '../../../graphql/components/GraphqlAssertConfigPanel';
+import {
+  hasGraphqlNodeConfigErrors,
+  isGraphqlWorkflowNodeType,
+} from '../../../graphql/utils/graphqlPanelHelpers';
 import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
@@ -78,6 +90,9 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   wsReceive: 'WS Receive', wsTrigger: 'WS Trigger',
   kafkaProduce: 'Kafka Produce', kafkaConsume: 'Kafka Consume',
   kafkaTrigger: 'Kafka Trigger', kafkaWait: 'Kafka Wait',
+  graphqlQuery: 'GraphQL Query', graphqlMutation: 'GraphQL Mutation',
+  graphqlSubscription: 'GraphQL Subscription', graphqlIntrospect: 'GraphQL Introspect',
+  graphqlAssert: 'GraphQL Assert',
   condition: 'Condition', delay: 'Delay', start: 'Start',
   webhook: 'Webhook', schedule: 'Schedule', switch: 'Switch',
   loop: 'Loop', setVariable: 'Set Variable', aggregate: 'Aggregate',
@@ -159,6 +174,14 @@ export default function WorkflowNodeConfigModal({
   }, [node.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftNode = useMemo((): WorkflowNode => ({ ...node, data: draft }), [node, draft]);
+
+  const graphqlConfigHasErrors = useMemo(() => {
+    if (!isGraphqlWorkflowNodeType(draftNode.type)) return false;
+    return hasGraphqlNodeConfigErrors(
+      draftNode.type,
+      draft as GraphqlQueryNodeData | GraphqlSubscriptionNodeData | GraphqlIntrospectNodeData | GraphqlAssertNodeData,
+    );
+  }, [draftNode.type, draft]);
 
   // Compute effective base URL from draft so it updates live when Service changes
   const draftEffectiveBaseUrl = useMemo(() => {
@@ -273,7 +296,15 @@ export default function WorkflowNodeConfigModal({
         footer={(
           <div className="wf-config-modal-footer-actions">
             <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleSave}
+              disabled={graphqlConfigHasErrors}
+              title={graphqlConfigHasErrors ? 'Fix validation errors before saving' : undefined}
+            >
+              Save
+            </button>
           </div>
         )}
       >
@@ -550,6 +581,46 @@ export default function WorkflowNodeConfigModal({
                 onChange={(data) => updateDraft(data)}
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}
+              />
+            )}
+
+            {(draftNode.type === 'graphqlQuery' || draftNode.type === 'graphqlMutation') && (
+              <GraphqlQueryConfigPanel
+                data={draftNode.data as GraphqlQueryNodeData}
+                nodeType={draftNode.type as 'graphqlQuery' | 'graphqlMutation'}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                nodeRunStatus={nodeRunStatus}
+              />
+            )}
+
+            {draftNode.type === 'graphqlSubscription' && (
+              <GraphqlSubscriptionConfigPanel
+                data={draftNode.data as GraphqlSubscriptionNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                nodeRunStatus={nodeRunStatus}
+              />
+            )}
+
+            {draftNode.type === 'graphqlIntrospect' && (
+              <GraphqlIntrospectConfigPanel
+                data={draftNode.data as GraphqlIntrospectNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'graphqlAssert' && (
+              <GraphqlAssertConfigPanel
+                data={draftNode.data as GraphqlAssertNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                runtimeVariables={runtimeVariables}
               />
             )}
 

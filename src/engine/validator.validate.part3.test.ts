@@ -437,7 +437,7 @@ describe('evaluateAssertions — date', () => {
     responseTimeMs: 0,
     responseHeaders: {},
     responseBody: {
-      d1: '2026-06-20',
+      d1: '2026-06-21',
       d2: 'not-a-date',
       ts: new Date('2026-06-10T00:00:00Z').getTime(),
     },

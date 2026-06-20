@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WebSocketTlsPanel } from './WebSocketTlsPanel';
 import type { WsTlsConfig } from '../../shared/websocket/types';
 
@@ -187,7 +187,7 @@ describe('WebSocketTlsPanel', () => {
     expect(screen.queryByTestId('tls-body')).toBeNull();
   });
 
-  it('save commits changes and disables save until next edit', () => {
+  it('save commits changes and disables save until next edit', async () => {
     const onChange = vi.fn();
     render(<WebSocketTlsPanel {...defaultProps({ onTlsChange: onChange })} />);
     fireEvent.click(screen.getByTestId('tls-toggle'));
@@ -199,7 +199,10 @@ describe('WebSocketTlsPanel', () => {
     expect(saveBtn.disabled).toBe(false);
 
     fireEvent.click(saveBtn);
-    expect(saveBtn.disabled).toBe(true);
+    // Save closes the modal; after reopening, Save is disabled again until another edit.
+    await waitFor(() => expect(screen.queryByTestId('tls-body')).toBeNull());
+    fireEvent.click(screen.getByTestId('tls-toggle'));
+    expect((screen.getByTestId('tls-save') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('close button closes modal without reverting', () => {

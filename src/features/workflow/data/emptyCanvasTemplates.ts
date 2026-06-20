@@ -20,6 +20,7 @@ const FEATURED_TEMPLATE_IDS = [
   'sample-workflow-parallel',      // Parallel API Calls (fork/join)
   'sample-workflow-branching',     // Conditional Branching
   'perf-workflow-simple',          // Perf: Simple POST → GET (minimal)
+  'sample-graphql-health-check',   // GraphQL: Health Check (introspect + query + assert)
 ];
 
 export const emptyCanvasTemplates: EmptyCanvasTemplate[] = FEATURED_TEMPLATE_IDS

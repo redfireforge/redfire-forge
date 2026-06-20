@@ -9,6 +9,7 @@ import { WorkflowNode, HttpNodeData } from '../../types/workflow';
 import { Scenario } from '../../../../shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
+import { defaultGraphqlQueryNodeData } from '../../utils/workflowNodeFactory';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({
@@ -821,5 +822,21 @@ describe('WorkflowNodeConfigModal', () => {
       expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);
       unmount();
     }
+  });
+
+  it('disables Save for graphql query node with validation errors', () => {
+    const node = makeNode('graphqlQuery', defaultGraphqlQueryNodeData());
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).toBeDisabled();
+  });
+
+  it('enables Save for graphql query node when config is valid', () => {
+    const node = makeNode('graphqlQuery', {
+      ...defaultGraphqlQueryNodeData(),
+      endpoint: 'http://api.example.com/graphql',
+      query: 'query { user { id } }',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).not.toBeDisabled();
   });
 });
