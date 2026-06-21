@@ -136,6 +136,25 @@ describe('SettingsExportImportTab — export pane', () => {
     expect((data.microservices as unknown[]).length).toBe(1);
   });
 
+  it('includes protocolEndpoints on exported microservices', async () => {
+    const svcWithProtocols: Microservice = {
+      id: 's1',
+      name: 'Orders',
+      baseUrls: { e1: 'https://api.dev' },
+      protocolEndpoints: {
+        websocket: { e1: { baseUrl: 'wss://ws.dev' } },
+        graphql: { e1: { baseUrl: 'https://gql.dev', path: '/v1/query' } },
+      },
+    };
+    renderTab({ microservices: [svcWithProtocols] });
+    fireEvent.click(screen.getByText(/Export \(/).closest('button')!);
+    await waitFor(() => expect(mSave).toHaveBeenCalled());
+    const [payload] = mSave.mock.calls[0];
+    const exported = (payload as { microservices: Microservice[] }).microservices[0];
+    expect(exported.protocolEndpoints?.websocket?.e1?.baseUrl).toBe('wss://ws.dev');
+    expect(exported.protocolEndpoints?.graphql?.e1?.path).toBe('/v1/query');
+  });
+
   it('strips versions on export when version toggles are off', async () => {
     mockHasVersionData = true;
     mCountVersions.mockReturnValue({

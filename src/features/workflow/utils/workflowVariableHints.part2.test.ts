@@ -1015,3 +1015,112 @@ describe('collectConditionVariableHints — WebSocket upstream nodes', () => {
     expect(hints.find(h => h.ref === 'eventType')?.description).toContain('JSONPath');
   });
 });
+
+describe('collectConditionVariableHints — GraphQL upstream nodes', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+  });
+
+  it('includes graphqlQuery outputs and extraction rules', () => {
+    const gqlQuery: WorkflowNode = {
+      id: 'gq1',
+      type: 'graphqlQuery',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Fetch User',
+        endpoint: 'http://api.example.com/graphql',
+        query: '{ user { id } }',
+        extractionRules: [{ jsonPath: '$.data.user.id', variableName: 'userId' }],
+      },
+    };
+    const nodes = [gqlQuery, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'gq1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map((h) => h.ref);
+    expect(refs).toContain('data');
+    expect(refs).toContain('userId');
+    expect(refs).toContain('latencyMs');
+  });
+
+  it('uses default label for graphqlMutation without label', () => {
+    const gqlMutation: WorkflowNode = {
+      id: 'gm1',
+      type: 'graphqlMutation',
+      position: { x: 0, y: 0 },
+      data: {
+        label: '',
+        endpoint: 'http://api.example.com/graphql',
+        query: 'mutation { updateUser { id } }',
+      },
+    };
+    const nodes = [gqlMutation, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'gm1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.some((h) => h.label.includes('GraphQL Mutation'))).toBe(true);
+  });
+
+  it('includes graphqlSubscription and graphqlIntrospect integration variables', () => {
+    const gqlSub: WorkflowNode = {
+      id: 'gs1',
+      type: 'graphqlSubscription',
+      position: { x: 0, y: 0 },
+      data: { label: 'Live', endpoint: 'ws://api.example.com/graphql', query: 'subscription { x }' },
+    };
+    const gqlIntro: WorkflowNode = {
+      id: 'gi1',
+      type: 'graphqlIntrospect',
+      position: { x: 0, y: 0 },
+      data: { label: '', endpoint: 'http://api.example.com/graphql' },
+    };
+    const nodes = [gqlSub, gqlIntro, cond('c')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'gs1', target: 'gi1' },
+      { id: 'e2', source: 'gi1', target: 'c' },
+    ];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map((h) => h.ref);
+    expect(refs).toContain('messages');
+    expect(refs).toContain('sdl');
+    expect(refs).toContain('queryTypeName');
+    expect(hints.some((h) => h.label.includes('GraphQL Introspect'))).toBe(true);
+  });
+});
+
+describe('collectWaitForConditionVariableHints — poll body initial variables', () => {
+  it('includes poll-body initial variables from HTTP nodes in the body subgraph', () => {
+    const waitNode: WorkflowNode = {
+      id: 'w1',
+      type: 'waitForCondition',
+      position: { x: 0, y: 0 },
+      data: { label: 'Wait', timeoutMs: 1000, pollIntervalMs: 100, condition: '{{ready}}' },
+    };
+    const pollHttp: WorkflowNode = {
+      id: 'h1',
+      type: 'http',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Poll',
+        initialVariables: { token: 'abc' },
+        scenario: {
+          id: 's1',
+          name: 'Poll',
+          url: 'https://example.com/status',
+          method: 'GET',
+          headers: [],
+          body: '',
+          auth: { type: 'none' },
+          validation: { mode: 'none' },
+          extractions: [{ name: 'status', source: 'body', expression: '$.ready' }],
+        },
+      },
+    };
+    const nodes = [waitNode, pollHttp];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'w1', target: 'h1', sourceHandle: 'body' }];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    expect(hints.some((h) => h.ref === 'token' && h.label.includes('poll body'))).toBe(true);
+    expect(hints.some((h) => h.ref === 'status' && h.label.includes('poll body'))).toBe(true);
+  });
+});

@@ -131,6 +131,10 @@ export interface DemoProgress {
   /** Last navigation view the user was on — used to restore position after a hard refresh.
    *  Never stored as 'live' since live mode requires setup to have run. */
   lastView?: 'domains' | 'lessons' | 'concept';
+  /** Last active category tab inside LessonList — takes priority over the
+   *  selectedLesson.category hint so the correct protocol tab is restored
+   *  even when the user browsed a tab without opening a specific lesson. */
+  lastCategory?: string;
   speed: SpeedMultiplier;
 }
 

@@ -19,39 +19,15 @@
  *   Works regardless of whether Docker is running or not.
  */
 import { test, expect, type Page } from '@playwright/test';
+import {
+  openDemoHub,
+  selectProtocolsDomain as selectDomain,
+  selectCategory,
+  openLesson,
+} from './demo-player-helpers';
 
-const BASE = 'http://localhost:5173';
-const DEMO_HUB_TIMEOUT = 10_000;
 const STEP_TIMEOUT = 20_000;
-
-// ─── navigation helpers ───────────────────────────────────────────
-
-async function openDemoHub(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.locator('[title="Demo Hub"]').click();
-  await page.waitForSelector('.demo-domain-card', { timeout: DEMO_HUB_TIMEOUT });
-}
-
-async function selectDomain(page: Page) {
-  const card = page.locator('.demo-domain-card').filter({ hasNot: page.locator('.coming-soon') }).first();
-  await card.click();
-  await page.waitForSelector('.demo-lesson-list', { timeout: DEMO_HUB_TIMEOUT });
-}
-
-async function selectCategory(page: Page, category: 'Kafka' | 'WebSocket' | 'SSE') {
-  const tab = page.locator('.demo-category-tab').filter({ hasText: new RegExp(category, 'i') });
-  if (await tab.count() > 0) {
-    await tab.click();
-    await page.waitForTimeout(300);
-  }
-}
-
-async function openLesson(page: Page, lessonNameFragment: string) {
-  const item = page.locator('.demo-lesson-item').filter({ hasText: lessonNameFragment }).first();
-  await expect(item).toBeVisible({ timeout: DEMO_HUB_TIMEOUT });
-  await item.click();
-  await page.waitForSelector('.demo-lesson-player', { timeout: DEMO_HUB_TIMEOUT });
-}
+const DEMO_HUB_TIMEOUT = 10_000;
 
 async function validateConceptSlide(page: Page) {
   const title = page.locator('.demo-concept-title');
@@ -185,11 +161,12 @@ test.describe('Demo Hub — Top-level Navigation', () => {
   test('Protocols domain opens and shows category tabs', async ({ page }) => {
     await openDemoHub(page);
     await selectDomain(page);
-    await expect(page.locator('.demo-category-tab')).toHaveCount(3);
+    await expect(page.locator('.demo-category-tab')).toHaveCount(4);
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'Kafka' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'WebSocket' })).toBeVisible();
     await expect(page.locator('.demo-category-tab').filter({ hasText: 'SSE' })).toBeVisible();
-    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE visible');
+    await expect(page.locator('.demo-category-tab').filter({ hasText: 'GraphQL' })).toBeVisible();
+    console.log('[PASS] Category tabs: Kafka, WebSocket, SSE, GraphQL visible');
   });
 
   test('Kafka category shows 13 lessons', async ({ page }) => {

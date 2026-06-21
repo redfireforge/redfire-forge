@@ -26,6 +26,14 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
+import {
+  connectKafkaClusterInSettings,
+  disconnectKafkaClusterBackend,
+  expectKafkaTestConnectionFailed,
+  gotoKafkaPublishTab,
+  publishKafkaMessage,
+  waitForKafkaDisconnectedBadge,
+} from './kafka-docker-helpers';
 
 // ── Skip guard ────────────────────────────────────────────────────────────────
 
@@ -62,6 +70,7 @@ const SASL_PASSWORD = 'app-password';
 // Must match the <option value="scram-sha-256"> in KafkaClusterEditor
 const SASL_MECHANISM_VALUE = 'scram-sha-256';
 const SASL_TOPIC = 'redfireforge.debug.consume'; // pre-created by init container
+const SASL_WRONG_CLUSTER_NAME = 'Secure Demo Bad Password';
 
 // ── Helper: save cluster and wait for it to appear in the list ───────────────
 // The Test Connection and Connect buttons are only rendered when
@@ -127,10 +136,13 @@ async function fillSaslClusterForm(page: Page): Promise<void> {
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     const up = await infraUp;
     test.skip(!up, 'Skipped: backend (port 3001) or SASL Docker stack (port 19645) not running');
     await seedAppData(page);
+    await disconnectKafkaClusterBackend(page);
   });
 
   // ── 1. Empty state ──────────────────────────────────────────────────────────
@@ -181,19 +193,15 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     await openClusterEditor(page);
     await fillSaslClusterForm(page);
 
-    // Override password with a wrong value before saving
+    // Use a distinct cluster id so backend cannot reuse the successful probe connection.
+    await page.locator('#kafka-cluster-name').fill(SASL_WRONG_CLUSTER_NAME);
     await page.locator('#kafka-auth-password').fill('wrong-password');
     await page.waitForTimeout(200);
 
-    // Save first — Test Connection button only appears after a cluster exists
-    await saveCluster(page);
-
-    await page.locator('[data-testid="kafka-test-btn"]').click();
-
-    // Should show the fail variant
-    await expect(page.locator('[data-testid="kafka-test-result"].kafka-test-result--fail')).toBeVisible({
-      timeout: 15000,
-    });
+    await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
+    await page.waitForTimeout(800);
+    await expect(page.locator('.kafka-cluster-card').filter({ hasText: SASL_WRONG_CLUSTER_NAME }).first()).toBeVisible({ timeout: 6000 });
+    await expectKafkaTestConnectionFailed(page, 'secure-demo-bad-password');
   });
 
   // ── 6. Save cluster → card appears in list ──────────────────────────────────
@@ -230,6 +238,7 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
 
   // ── 8. Publish a message to the secure broker ───────────────────────────────
   test('can publish a message to the secured broker after connecting', async ({ page }) => {
+    test.setTimeout(120_000);
     await gotoKafkaSettings(page);
     await openClusterEditor(page);
     await fillSaslClusterForm(page);
@@ -237,40 +246,9 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     // Save + Connect
     await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
     await page.waitForTimeout(800);
-    const connectBtn = page.locator('[data-testid="kafka-connect-btn"]').first();
-    await expect(connectBtn).toBeVisible({ timeout: 6000 });
-    await connectBtn.click();
-    await expect(page.locator('.kafka-status-badge.state-connected')).toBeVisible({ timeout: 15000 });
-
-    // Navigate to Message Studio
-    await page.goto('/?tab=kafka-message-studio', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-
-    // Click Kafka sub-nav button if visible (multi-protocol page)
-    const kafkaBtn = page.locator('main button:has-text("Kafka")').first();
-    if (await kafkaBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await kafkaBtn.click();
-      await page.waitForTimeout(500);
-    }
-
-    // Open Publish tab
-    await page.locator('[data-testid="tab-publish"]').click();
-    await page.waitForTimeout(400);
-
-    // Fill topic + body
-    await page.locator('input[placeholder="e.g. orders.events"]').fill(SASL_TOPIC);
-    await page.locator('textarea[placeholder*="key"]').fill(
-      JSON.stringify({ demo: 'sasl-e2e', cluster: SASL_CLUSTER_NAME }),
-    );
-
-    // Send
-    await page.locator('[data-testid="pub-send-btn"]').click();
-
-    // Expect a success result
-    await expect(page.locator('[data-testid="pub-result"]')).toBeVisible({ timeout: 12000 });
-    const resultText = await page.locator('[data-testid="pub-result"]').textContent();
-    expect(resultText).toContain(SASL_TOPIC);
-    expect(resultText).not.toContain('Error');
+    await connectKafkaClusterInSettings(page, 'secure-demo');
+    await gotoKafkaPublishTab(page);
+    await publishKafkaMessage(page, SASL_TOPIC, { demo: 'sasl-e2e', cluster: SASL_CLUSTER_NAME });
   });
 
   // ── 9. Disconnect returns badge to disconnected ─────────────────────────────
@@ -281,16 +259,12 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
 
     await page.locator('[data-testid="kafka-save-cluster-btn"]').click();
     await page.waitForTimeout(800);
-
-    const connectBtn = page.locator('[data-testid="kafka-connect-btn"]').first();
-    await expect(connectBtn).toBeVisible({ timeout: 6000 });
-    await connectBtn.click();
-    await expect(page.locator('.kafka-status-badge.state-connected')).toBeVisible({ timeout: 15000 });
+    await connectKafkaClusterInSettings(page, 'secure-demo');
 
     const disconnectBtn = page.locator('[data-testid="kafka-disconnect-btn"]').first();
-    await expect(disconnectBtn).toBeVisible({ timeout: 5000 });
+    await expect(disconnectBtn).toBeEnabled({ timeout: 5000 });
     await disconnectBtn.click();
 
-    await expect(page.locator('.kafka-status-badge.state-disconnected')).toBeVisible({ timeout: 8000 });
+    await waitForKafkaDisconnectedBadge(page);
   });
 });

@@ -62,8 +62,17 @@
 
 .sse-url-row {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.sse-url-controls {
+  display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .sse-state-dot {
@@ -88,6 +97,7 @@
 
 .sse-url-input {
   flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   background: var(--input-bg, #1e1e2e);
   border: 1px solid var(--border-color, #333);

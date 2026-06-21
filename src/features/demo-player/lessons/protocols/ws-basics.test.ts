@@ -53,6 +53,7 @@ describe('ws-basics lesson', () => {
     expect(ids).toEqual([
       'ws-nav', 'ws-mock', 'ws-url', 'ws-connect',
       'ws-compose', 'ws-send', 'ws-events', 'ws-tabs', 'ws-disconnect',
+      'ws-env-intro',
     ]);
   });
 
@@ -465,6 +466,62 @@ describe('ws-basics lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('disconnect-btn'));
+  });
+
+  // ── Step: ws-env-intro ─────────────────────────────────────────
+
+  it('step ws-env-intro exists with correct structure', () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+    expect(step).toBeDefined();
+    expect(step.title).toContain('Environment Manager');
+    expect(step.highlight).toContain('microservice-protocol-panel');
+    expect(step.pauseAfter).toBe(true);
+    expect(typeof step.preAction).toBe('function');
+    expect(typeof step.action).toBe('function');
+  });
+
+  it('step ws-env-intro preAction navigates to WS studio when neither EM nor studio is open', async () => {
+    document.body.innerHTML = '';
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('nav-tab-websocket-studio'));
+  });
+
+  it('step ws-env-intro preAction is no-op when EM is already open', async () => {
+    document.body.innerHTML = '<div class="env-manager"></div>';
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step ws-env-intro preAction is no-op when WS studio is already open', async () => {
+    document.body.innerHTML = '<div data-testid="ws-studio"></div>';
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('step ws-env-intro action calls ensureDemoEnvironment and ensureDemoMicroservice', async () => {
+    document.body.innerHTML = '<div class="env-manager"></div>';
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    // Should fill the env name and click Add
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('em-new-env-input'),
+      'WebSocket Demo',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-add-env-btn'));
+    // Should fill the svc name and click Add
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('em-new-svc-input'),
+      'ws-demo',
+    );
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-add-svc-btn'));
   });
 });
 

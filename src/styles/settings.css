@@ -180,7 +180,12 @@
   overflow: hidden;
   transition: opacity .15s, box-shadow .15s, transform .15s;
 }
-.settings-svc-card.expanded { border-color: var(--primary); }
+.settings-svc-card.expanded {
+  border-color: var(--primary);
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
 .settings-svc-card.dragging {
   opacity: 0.4;
   box-shadow: 0 0 0 2px var(--primary);

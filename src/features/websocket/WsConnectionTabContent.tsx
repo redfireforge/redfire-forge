@@ -24,6 +24,7 @@ import { WebSocketTlsPanel } from './WebSocketTlsPanel';
 import { KeyValueEditor } from './KeyValueEditor';
 import WebSocketAuthPanel from './WebSocketAuthPanel';
 import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type { WsConnectionDraft, WsKeyValueEntry, WsLeftTab, WsRightTab, WsStudioMode } from '../../shared/websocket/types';
 import {
   createDefaultTlsConfig,
@@ -65,6 +66,7 @@ export interface WsConnectionTabContentHandle {
 export interface WsConnectionTabContentProps {
   tabId: string;
   envVarMap: Record<string, string>;
+  endpointProtocolStatus?: EndpointRowStatus;
   /** Phase 8 — global auth profiles available for the Auth tab inherit selector. */
   globalAuthProfiles?: GlobalAuthProfile[];
   profilesHook: UseWebSocketProfilesReturn;
@@ -105,7 +107,7 @@ export const WsConnectionTabContent = forwardRef<
   WsConnectionTabContentProps
 >(function WsConnectionTabContent(
   {
-    tabId, envVarMap, globalAuthProfiles = [], profilesHook, templatesHook,
+    tabId, envVarMap, endpointProtocolStatus, globalAuthProfiles = [], profilesHook, templatesHook,
     mockPort,
     onMockPortChange,
     onConnectionStateChange, onUrlChange,
@@ -561,6 +563,7 @@ export const WsConnectionTabContent = forwardRef<
         sioServerParams={studio.sioServerParams}
         transportMode={studio.transportMode}
         envVarMap={envVarMap}
+        endpointProtocolStatus={endpointProtocolStatus}
         history={history}
         onHistorySelect={handleLocalHistorySelect}
         onClearHistory={onClearHistory}

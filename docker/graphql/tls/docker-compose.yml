@@ -1,0 +1,70 @@
+# GraphQL HTTPS + WSS Test Stack — TLS Phases 1 & 2
+#
+# Starts an nginx TLS-terminating proxy in front of the Apollo GraphQL test
+# server. Both HTTPS (HTTP POST) and WSS (WebSocket subscriptions) are served
+# over the same TLS port.
+#
+# Endpoints after startup:
+#   HTTPS  https://localhost:4443/graphql  ← use in GraphQL Studio endpoint field
+#   WSS    wss://localhost:4443/graphql    ← used automatically for subscriptions
+#   Health http://localhost:4444/health    ← PrerequisiteGate health probe
+#
+# Setup (one-time, before first use):
+#   cd docker/graphql/tls
+#   ./generate-cert.sh
+#
+# Start:
+#   docker compose -f docker/graphql/tls/docker-compose.yml up -d
+#
+# Stop:
+#   docker compose -f docker/graphql/tls/docker-compose.yml down
+#
+# TLS lesson phases:
+#   Phase 1 — Enable "Skip certificate validation" in the TLS panel.
+#             The proxy's self-signed cert is accepted without verification.
+#   Phase 2 — Paste certs/ca.crt into "CA Certificate (PEM)".
+#             The full certificate chain is validated — no bypass.
+#
+# Note: this stack runs an independent copy of the GraphQL server internally
+# (gql-test-server-tls) so it does not conflict with the plain-HTTP server
+# started by docker/graphql/docker-compose.yml (which uses port 4010).
+services:
+  gql-test-server-tls:
+    build: ../                           # docker/graphql/Dockerfile + server.js
+    container_name: gql-test-server-tls
+    ports:
+      # Health probe: http://localhost:4444/health
+      # Exposes the plain-HTTP Apollo health endpoint so the PrerequisiteGate
+      # can verify the stack is running before the demo lesson starts.
+      # Does NOT expose port 4010 directly — TLS clients must go through nginx.
+      - "4444:4010"
+    environment:
+      - PORT=4010
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4010/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - gql-tls-net
+
+  gql-tls-proxy:
+    image: nginx:alpine
+    container_name: gql-tls-proxy
+    depends_on:
+      gql-test-server-tls:
+        condition: service_healthy
+    ports:
+      - "4443:4443"
+    volumes:
+      - ./nginx-gql-tls.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+    networks:
+      - gql-tls-net
+
+networks:
+  gql-tls-net:
+    driver: bridge

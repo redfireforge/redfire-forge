@@ -23,6 +23,7 @@ interface CollectionRunArgs {
   collectionTrees: CollectionTree[];
   endpoint: string;
   activeEnvironment: GraphqlEnvironment | null | undefined;
+  globalEnvMap?: Record<string, string>;
   activeTabHeaders: Record<string, string>;
   auth: GraphqlAuth | null;
   runner: UseGraphqlCollectionRunnerResult;
@@ -36,6 +37,7 @@ export function useGraphqlCollectionRun({
   collectionTrees,
   endpoint,
   activeEnvironment,
+  globalEnvMap,
   activeTabHeaders,
   auth,
   runner,
@@ -54,7 +56,7 @@ export function useGraphqlCollectionRun({
     onSetRunnerCollectionId(collectionId);
     onSetBottomTab('runner');
 
-    const envVarsSnapshot: Record<string, string> = {};
+    const envVarsSnapshot: Record<string, string> = { ...(globalEnvMap ?? {}) };
     for (const v of (activeEnvironment?.variables ?? [])) {
       if (v.enabled && v.key.trim()) envVarsSnapshot[v.key.trim()] = v.value;
     }
@@ -62,7 +64,7 @@ export function useGraphqlCollectionRun({
     const authH = buildAuthHeaders(auth);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
-      resolvedHeaders[k] = resolveVars(v, activeEnvironment);
+      resolvedHeaders[k] = resolveVars(v, activeEnvironment, globalEnvMap);
     }
 
     const sortItems = (its: GraphqlCollectionItem[]) =>
@@ -95,7 +97,7 @@ export function useGraphqlCollectionRun({
     runner.run({
       items,
       collection: tree.collection,
-      endpoint: resolveVars(endpoint, activeEnvironment),
+      endpoint: resolveVars(endpoint, activeEnvironment, globalEnvMap),
       headers: resolvedHeaders,
       envVars: envVarsSnapshot,
       onEnvUpdate: (key, value) => {
@@ -109,7 +111,7 @@ export function useGraphqlCollectionRun({
       },
       onItemExecuted,
     }).catch(() => {});
-  }, [collectionTrees, endpoint, activeEnvironment, activeTabHeaders, auth, runner, updateVariables,
+  }, [collectionTrees, endpoint, activeEnvironment, globalEnvMap, activeTabHeaders, auth, runner, updateVariables,
       onSetRunnerCollectionId, onSetBottomTab, onItemExecuted]);
 
   return { handleRunCollection };

@@ -451,6 +451,15 @@ vi.mock('./components/GraphqlHistoryPanel', () => ({
       >
         SaveToColNoName
       </button>
+      <button
+        type="button"
+        data-testid="gql-save-to-col-unnamed"
+        onClick={() => (props.onSaveToCollection as (item: unknown) => void)({
+          operation: { query: 'query { h }', variables: '{}' },
+        })}
+      >
+        SaveToColUnnamed
+      </button>
     </>
   )),
 }));
@@ -680,7 +689,7 @@ import { GraphqlStudioPage } from './GraphqlStudioPage';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function renderPage(props: { resolvedBaseUrl?: string } = {}) {
+function renderPage(props: Partial<React.ComponentProps<typeof GraphqlStudioPage>> = {}) {
   return render(<GraphqlStudioPage {...props} />);
 }
 
@@ -888,6 +897,58 @@ describe('GraphqlStudioPage', () => {
       expect(mocks.useGraphqlSchema).toHaveBeenCalled();
       expect(mocks.resolveVars).toHaveBeenCalled();
     });
+
+    it('builds global env map from selected service/env when provided', () => {
+      setupConnection({ endpoint: '{{graphqlUrl}}' });
+      mocks.resolveVars.mockImplementation((value: string, _env: unknown, globalMap?: Record<string, string>) =>
+        value.replace('{{graphqlUrl}}', globalMap?.graphqlUrl ?? '{{graphqlUrl}}'));
+
+      renderPage({
+        envName: 'Dev',
+        selectedEnvId: 'e1',
+        selectedSvc: {
+          id: 'svc-1',
+          name: 'Orders',
+          baseUrls: { e1: 'https://http.dev' },
+          protocolEndpoints: {
+            graphql: {
+              e1: { baseUrl: 'https://gql.dev', path: '/v1/query' },
+            },
+          },
+        },
+      });
+
+      expect(mocks.resolveVars).toHaveBeenCalledWith(
+        '{{graphqlUrl}}',
+        expect.any(Object),
+        expect.objectContaining({ graphqlUrl: 'https://gql.dev/v1/query' }),
+      );
+      expect(mocks.useGraphqlSchema).toHaveBeenCalledWith(
+        'https://gql.dev/v1/query',
+        expect.any(Object),
+        expect.any(Object),
+      );
+    });
+
+    it('passes explicit endpoint protocol status to connection bar', () => {
+      renderPage({
+        selectedEnvId: 'e1',
+        selectedSvc: {
+          id: 'svc-1',
+          name: 'Orders',
+          baseUrls: { e1: 'https://http.dev' },
+          protocolEndpoints: {
+            graphql: { e1: { baseUrl: 'https://gql.dev', path: '/v1' } },
+          },
+        },
+      });
+      expect(mocks.captured.connectionBar?.endpointProtocolStatus).toBe('explicit');
+    });
+
+    it('omits endpoint protocol status without service selection', () => {
+      renderPage({ resolvedBaseUrl: 'https://legacy.example.com' });
+      expect(mocks.captured.connectionBar?.endpointProtocolStatus).toBeUndefined();
+    });
   });
 
   describe('historyMaxItems initializer (L121-127)', () => {
@@ -1010,7 +1071,7 @@ describe('GraphqlStudioPage', () => {
       setupTabs({ headers: [{ key: 'X-Tab', value: '{{API_KEY}}', enabled: true }] });
       renderPage();
       expect(mocks.buildAuthHeaders).toHaveBeenCalled();
-      expect(mocks.resolveVars).toHaveBeenCalledWith('{{API_KEY}}', expect.any(Object));
+      expect(mocks.resolveVars).toHaveBeenCalledWith('{{API_KEY}}', expect.any(Object), expect.any(Object));
     });
   });
 
@@ -2275,6 +2336,45 @@ describe('GraphqlStudioPage', () => {
       renderPage();
       fireEvent.click(screen.getByTestId('gql-save-to-col-no-name'));
       expect(mocks.captured.saveToCollection?.defaultName).toBe('mutation');
+    });
+
+    it('uses Unnamed operation when save item has no name or operationType', () => {
+      mocks.loadPersistedActivityTab.mockReturnValue('history');
+      renderPage();
+      fireEvent.click(screen.getByTestId('gql-save-to-col-unnamed'));
+      expect(mocks.captured.saveToCollection?.defaultName).toBe('Unnamed operation');
+    });
+
+    it('executes when complexity gate skip ref is set without opening gate modal', () => {
+      mocks.computeQueryComplexity.mockReturnValue({
+        score: 2000,
+        level: 'danger',
+        shouldBlock: false,
+        threshold: 1000,
+        fieldBreakdown: [],
+      });
+      setupSchema({ status: 'loaded', schemaInfo: { types: [{}] } });
+      setupAdvSettings({ complexityBlockEnabled: true, complexityBlockThreshold: 1000 });
+      setupBatch({ complexityGatePending: false });
+      mocks.skipComplexityGateRef.current = true;
+      const execute = vi.fn();
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
+      expect(execute).toHaveBeenCalled();
+      expect(mocks.skipComplexityGateRef.current).toBe(false);
+    });
+
+    it('passes default variables when active tab variables are undefined', () => {
+      setupTabs({ variables: undefined });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.defaultVarsValue).toBe('{\n  \n}');
+    });
+
+    it('passes null activeOperationType when tab operationType is undefined', () => {
+      setupTabs({ operationType: undefined });
+      renderPage();
+      expect(mocks.captured.rightPane?.activeOperationType).toBeNull();
     });
 
     it('returns early from invalidItemIds when collection has no items', () => {

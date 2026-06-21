@@ -73,6 +73,17 @@ describe('resolveVars', () => {
     };
     expect(resolveVars('{{}}', env)).toBe('{{}}');
   });
+
+  it('resolves global header vars when local env is null', () => {
+    expect(resolveVars('{{graphqlUrl}}', null, { graphqlUrl: 'https://api.example.com/graphql' }))
+      .toBe('https://api.example.com/graphql');
+  });
+
+  it('lets local GraphQL tab vars override global header vars', () => {
+    const env = makeEnv({ host: 'local.example.com' });
+    expect(resolveVars('{{host}}', env, { host: 'global.example.com' }))
+      .toBe('local.example.com');
+  });
 });
 
 // ─── findUnresolvedVars ───────────────────────────────────────────────────────

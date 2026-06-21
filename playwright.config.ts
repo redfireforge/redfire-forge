@@ -76,6 +76,11 @@ const DEMO_STEPTHROUGH_SPECS = [
   // '**/demo-sse-advanced.spec.ts',
 ];
 
+/** Docker-gated demo hub validation — requires live Kafka/WS/SSE stacks; run via E2E_WITH_DOCKER=1. */
+const DOCKER_DEMO_SPECS = [
+  '**/demo-hub-docker-validate.spec.ts',
+];
+
 const withDocker = process.env.E2E_WITH_DOCKER === '1';
 const withGraphqlServer = process.env.E2E_GRAPHQL_SERVER === '1';
 
@@ -106,16 +111,15 @@ export default defineConfig({
       name: 'chromium',
       // Exclude the dedicated ws-mock-server spec (has its own project below)
       // and all Docker-dependent specs.
-      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DEMO_STEPTHROUGH_SPECS],
+      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...DEMO_STEPTHROUGH_SPECS],
       use: { browserName: 'chromium' },
     },
 
-    // ── ws-mock-server: isolated because it depends on the chromium baseline ─
+    // ── ws-mock-server: runs after chromium; cleans mock state via beforeAll API ─
     {
       name: 'ws-mock-server',
       testMatch: '**/ws-mock-server.spec.ts',
       use: { browserName: 'chromium' },
-      dependencies: ['chromium'],
     },
 
     // ── Docker project: active when E2E_WITH_DOCKER=1 or E2E_GRAPHQL_SERVER=1 ─
@@ -125,7 +129,7 @@ export default defineConfig({
       ? [
           {
             name: 'docker',
-            testMatch: withDocker ? ALL_DOCKER_SPECS : ['**/graphql-test-server.spec.ts', ...GRAPHQL_LIVE_SPECS],
+            testMatch: withDocker ? [...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS] : ['**/graphql-test-server.spec.ts', ...GRAPHQL_LIVE_SPECS],
             use: { browserName: 'chromium' as const },
           },
         ]

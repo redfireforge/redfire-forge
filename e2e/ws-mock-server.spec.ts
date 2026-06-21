@@ -11,6 +11,7 @@ import {
   switchWsRightTab,
   startWsMockFromUI,
   stopWsMockFromUI,
+  ensureWsMockStopped,
 } from './ws-helpers';
 
 /* ── local aliases ───────────────────────────────────── */
@@ -20,10 +21,18 @@ const _switchRightTab = (page: Page, tab: string) => switchWsRightTab(page, tab)
 const startMockServer = (page: Page) => startWsMockFromUI(page);
 const stopMockServer = (page: Page) => stopWsMockFromUI(page);
 
+test.beforeAll(async ({ request }) => {
+  for (const port of [9876, 9877, 9878]) {
+    await request.post('http://localhost:3001/api/ws/mock/stop', { data: { port } }).catch(() => {});
+  }
+});
+
 async function gotoMockMode(page: Page) {
   await gotoWsStudio(page);
   await switchMode(page, 'mock');
   await page.waitForTimeout(300);
+  await ensureWsMockStopped(page);
+  await expect(page.locator('[data-testid="mock-start-btn"]')).toBeVisible({ timeout: 8000 });
 }
 
 /* ── WM-01–07: Mock Server Core ──────────────────────── */

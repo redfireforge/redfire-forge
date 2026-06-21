@@ -3,7 +3,32 @@ Don't ignore any existing bug for unit tests and E2E tests with 30 seconds timeo
 Please always run E2E with report so that I can see progress. Keep in mind. 
 
 --------------------------------------------------------------------------
+Only Unit Tests and Monorithic Class Definition Review
 
+Consider all of files for unit test including this branch. 
+Please thoroughly review this feature branch and if there is any monorithic class which is above 900 lines or it requires refactoring, make module for common codes. And also fix any existing bug or issues even though you didn't touch. Please remove any redundant codes and make module. And add unit tests. Test code quality is very important and also code coverage should be above 90 %. Repeat several rounds of these processes until there is no issue found. Make sure you should not break any existing logic. And alwasy show max lines for 10 classes and lowest 10 code coverage codes. Also fix eslint issues. 
+Keep in mind that we should not have any monorithic class which is above 900 lines. All of classes should have above 90 % code coverages. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel.
+
+--------------------------------------------------------------------------
+E2E Tests Review
+Consider all of files for E2E test including this branch. 
+Please full E2E tests and if there is any issue or bug, please fix them. 
+You should do consider entire codes for E2E tests. And any existing bug or issue should be fixed. 
+And if E2E tests need any docker environment, please use existing or create new docker environment and run E2E tests.
+And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel.
+--------------------------------------------------------------------------
+
+Plan Re-Summarization
+
+I think graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+--------------------------------------------------------------------------
+
+
+Please thoroughly re-evaluate all of your implementations and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+--------------------------------------------------------------------------
 
 Thoroughly re-evaluate what are missing or if there are any bugs in any phase , update or fix all of them.  Then let's implement 3F
 
@@ -40,10 +65,6 @@ Please thoroughly re-evaluate Phase 4 implementations and if you find missing st
 
 
 
-
-websocket-phase2a-saved-connections.html
-websocket-phase2b-templates-format.html
-websocket-phase2c-reconnect-close.html
 
 We hava mockup files for each phase. Please compare what we have and what is in the mockup files. If there are any differences or gaps, please update your implementation to match the mockup files. And update md file.
 
@@ -115,3 +136,128 @@ Demo lessons — add new ones organically as features ship, not retroactively fo
 
 
 Please thoroughly re-evaluate the Lession 6 implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider the demo speed from End User perspective, not machine. 
+
+1 - 
+2 - done
+3 - done
+
+
+
+
+
+
+
+
+
+
+Please thoroughly re-evaluate the Lession 18 implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider the demo speed from End User perspective, not machine. 
+
+
+
+You got all contents. I want to completely replace Lesson 20 with this one. Can you do thoroughly re-plan it and start implementing it? 
+
+
+
+
+
+
+
+
+GraphQL
+
+
+Please thoroughly re-evaluate Phase 3 plan and have very detail plans and update plan md file. 
+
+Please thoroughly re-evaluate Phase 1 and detail plan and if there is anything missing or issue, please fix them. 
+
+
+Pleaes thoroughly re-evaluate Phase 1D and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too.
+Go ahead. 
+
+
+
+Pleaes thoroughly re-evaluate Sprint 8 and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too.
+Go ahead. 
+
+
+Please thoroughly re-evaluate the previous implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too. Finally update plan md file. 
+Whereever possible, UI/UX should be professional and polished.
+
+
+--- WIthout visual validation
+
+Based on graphql-studio-plan.md file, Please thoroughly re-evaluate the Phase 2 Sprint 1 implementations and if you find any issue or bug, please fix them. Repeat this process until there is no issue.
+
+
+Pleaes thoroughly re-evaluate Sprint 8 plan and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+
+
+
+
+I realized that graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+
+
+
+A practical sprint sequence would be: 3A (history + collections) → 3B (scripts) → 3D (schema diff) → 3E (mock server) → 3F (APQ/batch/dedup).
+
+
+
+--- Previous Commit report
+
+
+The E2E failures that remain are all pre-existing, environmental (require WS mock server on port 9876, Docker for Kafka, external TLS endpoints) — none are caused by our changes.
+
+The E2E suite finished: 971 passed, 3 skipped, 51 did not run, exit code 1.
+
+The failures are all pre-existing environmental issues — not caused by our changes:
+
+WS tests (WC-04, WC-06, WC-07, WT-02, WT-10, etc.) — require the mock WebSocket server on port 9876
+Kafka tests (K06, K08, K09) — require Docker
+Workflow/results/demo tests — timeouts due to UI timing under load
+TLS tests — require external TLS setup
+
+
+Pleaes thoroughly re-evaluate Phase 3F and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Repeat this re-evaluation process until no more issue or bug. 
+
+
+
+Please thoroughly re-evaluate the previous implementation and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+One more round re-evaluation. 
+
+
+
+Please thoroughly re-evaluate the Phase 3A implementation and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+
+I think graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+
+
+
+Profiles, Templates & Env Vars has the same issues for environment configurations. 
+
+
+Based on graphql-studio-plan.md file, Please thoroughly re-evaluate all of Phase 3 implementations and if you find any issue or bug, please fix them. Repeat this re-evaulation process until there is no issue find. You should always do deep and through evaluations. 
+
+
+
+Phase 4
+
+Step 1 — Types first (zero risk, unblocks everything)
+Step 2 — Engine handler file (core value)
+Step 3 — Factory + variable hints (canvas integration)
+Step 4 — Config panels (UI, parallelizable)
+
+
+Step 5 — Lessons (can start in parallel with step 4)
+Step 6 — Gallery templates + E2E (last)
+
+
+
+please thoroughly re-evaluate Phase 4 - Step 1 plan and if you find any missing or issue, please update the plan. Then implmenet it. Then thoroughly re-evaluate the implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 

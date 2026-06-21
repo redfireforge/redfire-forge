@@ -85,12 +85,11 @@ export default function LiveDemo({
   // Auto-close the overview whenever the user advances to a new step
   useEffect(() => { setOverviewOpen(false); }, [stepIndex]);
 
-  // Retry-based spotlight: poll every 100ms for up to 2s
+  // Continuous spotlight poll: runs for the full lifetime of each step so the ring
+  // can appear even when the action navigates to a different page mid-step.
+  // The cleanup function fires on step/highlight change, preventing stale polls.
   useEffect(() => {
     if (!step?.highlight) { setTargetFound(false); return; }
-
-    let attempts = 0;
-    const maxAttempts = 20; // 20 × 100ms = 2s
 
     const poll = () => {
       // When multiple tabs render the same testid, find the first VISIBLE match
@@ -102,14 +101,12 @@ export default function LiveDemo({
       if (el) {
         setTargetFound(true);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      } else if (++attempts >= maxAttempts) {
+      } else {
         setTargetFound(false);
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       }
     };
 
-    // Reset and start polling
+    // Reset and poll continuously — the interval is cancelled when the step changes.
     setTargetFound(false);
     pollRef.current = setInterval(poll, 100);
     poll(); // immediate first check

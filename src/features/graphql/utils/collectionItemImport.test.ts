@@ -95,6 +95,13 @@ describe('collectionItemImport', () => {
       expect(patch.variables).toBe('{"id": "1"}');
     });
 
+    it('omits variables when item has empty variables string', () => {
+      const item = makeItem({});
+      item.operation.variables = '   ';
+      const patch = buildWorkflowImportPatch(item);
+      expect(patch.variables).toBeUndefined();
+    });
+
     it('applies endpoint and auth from connection profile', () => {
       const profile: ConnectionProfile = {
         id: 'prof-1',
@@ -131,6 +138,14 @@ describe('collectionItemImport', () => {
         profiles,
       );
       expect(patch.endpoint).toBe('http://localhost:4010/graphql');
+    });
+
+    it('falls back to null profile when connectionId is not found', async () => {
+      const patch = await resolveImportPatchForItem(
+        makeItem({ connectionId: 'missing' }),
+        [{ id: 'other', name: 'X', endpoint: 'http://x', auth: null, createdAt: 1 }],
+      );
+      expect(patch.endpoint).toBeUndefined();
     });
   });
 });

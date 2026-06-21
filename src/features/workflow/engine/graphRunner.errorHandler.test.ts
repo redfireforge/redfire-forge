@@ -423,5 +423,24 @@ describe('runGraph - Error Handler Node', () => {
       expect(statesFor('fail1')).toContain('fail');
       expect(statesFor('handler1')).toContain('pass');
     });
+
+    it('logs handler node id when handlerEntryNodeId is missing from workflow', async () => {
+      mockFetch.mockResolvedValueOnce(failResponse());
+      const failHttp = failHttpNode('fail1', 'FailStep');
+      const nodes = [workflowStartNode, failHttp, workflowEndNode];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'fail1' },
+        { id: 'e2', source: 'fail1', target: 'end1' },
+      ];
+
+      const { callbacks } = makeCallbacks();
+      await runGraph(
+        nodes, edges, {}, callbacks, new AbortController().signal, {},
+        undefined, undefined, undefined,
+        { mode: 'run-handler', handlerEntryNodeId: 'missing-handler-node' },
+      );
+
+      expect(callbacks.onComplete).toHaveBeenCalled();
+    });
   });
 });

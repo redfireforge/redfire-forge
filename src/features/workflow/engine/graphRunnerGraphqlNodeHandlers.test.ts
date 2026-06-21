@@ -12,6 +12,7 @@ import {
   handleGraphqlIntrospectNode,
   handleGraphqlAssertNode,
 } from './graphRunnerGraphqlNodeHandlers';
+import { runGraph } from './graphRunner';
 import type {
   GraphqlQueryNodeData,
   GraphqlSubscriptionNodeData,
@@ -23,6 +24,8 @@ import {
   makeCallbacks,
   makeHandlerContext,
   makePassedFlag,
+  startNode,
+  endNode,
 } from './graphRunnerNodeHandlers.test-utils';
 
 // ── Mock external modules ──────────────────────────────────────────────────────
@@ -1915,5 +1918,25 @@ describe('handleGraphqlAssertNode — additional branches', () => {
     await handleGraphqlAssertNode('a_noexpv', node, hCtx, passed);
     // 1 !== '' → fails
     expect(passed.value).toBe(false);
+  });
+});
+
+describe('runGraph — graphqlAssert dispatcher branch', () => {
+  it('executes graphqlAssert node through runGraph node-type dispatch', async () => {
+    const assertNodeInstance = assertNode('gql-a', {
+      sourceVariable: 'payload',
+      failBehavior: 'error',
+      assertions: [{ id: '1', jsonPath: '$.ok', operator: 'exists' }],
+    });
+    const nodes = [startNode('s1'), assertNodeInstance, endNode('e1')];
+    const edges = [
+      { id: 'e1', source: 's1', target: 'gql-a' },
+      { id: 'e2', source: 'gql-a', target: 'e1' },
+    ];
+    const { callbacks, states } = makeCallbacks();
+
+    await runGraph(nodes, edges, { payload: '{"ok":true}' }, callbacks);
+
+    expect(states['gql-a']?.state).toBe('pass');
   });
 });

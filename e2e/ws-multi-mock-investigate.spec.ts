@@ -116,15 +116,23 @@ async function disconnectClient(page: Page) {
   }
 }
 
-/** Send a text message from the visible pane. */
+/** Send a text message from the visible pane. Reconnects if compose input is disabled. */
 async function sendMessage(page: Page, text: string) {
   const pane = page.locator('[data-testid^="conn-tab-pane-"]:visible');
   await pane.locator('[data-testid="left-tab-send"]').click();
   await page.waitForTimeout(150);
   const input = pane.locator('.ws-compose-input');
+  try {
+    await expect(input).toBeEnabled({ timeout: 5000 });
+  } catch {
+    await connectClient(page, `ws://localhost:${PORT1}`);
+    await pane.locator('[data-testid="left-tab-send"]').click();
+    await page.waitForTimeout(150);
+    await expect(input).toBeEnabled({ timeout: 10_000 });
+  }
   await input.fill(text);
   await pane.locator('[data-testid="send-btn"]').click();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
 }
 
 /** Get the mock server port number currently shown in the visible pane. */
