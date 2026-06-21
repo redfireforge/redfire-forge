@@ -25,6 +25,7 @@ interface UseGraphqlBatchExecutionParams {
   endpoint: string;
   auth: GraphqlAuth | null;
   activeEnvironment: GraphqlEnvironment | null;
+  globalEnvMap?: Record<string, string>;
   skipTlsVerify: boolean;
   advSettingsRef: React.RefObject<AdvancedSettingsValues>;
   connectionIdRef: React.RefObject<string | null>;
@@ -58,6 +59,7 @@ export function useGraphqlBatchExecution({
   endpoint,
   auth,
   activeEnvironment,
+  globalEnvMap,
   skipTlsVerify,
   advSettingsRef,
   connectionIdRef,
@@ -99,7 +101,7 @@ export function useGraphqlBatchExecution({
   const handleSendBatch = useCallback(() => {
     if (effectiveBatchedTabs.length < 2 || batchExecuting || batchExecutingRef.current) return;
     if (!endpoint.trim()) return;
-    if (findUnresolvedVars(endpoint, activeEnvironment).length > 0) return;
+    if (findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap).length > 0) return;
     if (effectiveBatchedTabs.some((t) => !t.query.trim())) return;
 
     batchExecutingRef.current = true;
@@ -107,7 +109,7 @@ export function useGraphqlBatchExecution({
     setBatchResult(null);
 
     const batchConnId = connectionIdRef.current;
-    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment);
+    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment, globalEnvMap);
     const authH = buildAuthHeaders(auth);
 
     const buildTabHeaders = (tab: GqlStudioTab): Record<string, string> => {
@@ -117,7 +119,7 @@ export function useGraphqlBatchExecution({
       }
       const merged: Record<string, string> = {};
       for (const [k, v] of Object.entries({ ...authH, ...tabHeaderMap })) {
-        merged[k] = resolveVars(v, activeEnvironment);
+        merged[k] = resolveVars(v, activeEnvironment, globalEnvMap);
       }
       return merged;
     };
@@ -128,7 +130,7 @@ export function useGraphqlBatchExecution({
       query: t.query,
       variables: (() => {
         try {
-          const trimmed = resolveVars(t.variables, activeEnvironment).trim();
+          const trimmed = resolveVars(t.variables, activeEnvironment, globalEnvMap).trim();
           if (trimmed && trimmed !== '{}') return JSON.parse(trimmed) as unknown;
           return undefined;
         } catch { return undefined; }
@@ -252,7 +254,7 @@ export function useGraphqlBatchExecution({
         setBatchExecuting(false);
       }
     })();
-  }, [effectiveBatchedTabs, batchExecuting, endpoint, activeEnvironment, auth,
+  }, [effectiveBatchedTabs, batchExecuting, endpoint, activeEnvironment, globalEnvMap, auth,
     skipTlsVerify, setRightView, advSettingsRef, connectionIdRef, setAdvSettings,
     setBatchUnsupportedToast, gqlProxyBase]);
 

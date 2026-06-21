@@ -114,6 +114,18 @@ describe('GraphqlHeadersPanel', () => {
     expect(screen.queryByTestId('gql-header-unresolved-h1')).toBeNull();
   });
 
+  it('does not show unresolved warning when var is in globalEnvMap', () => {
+    const headers = [makeHeader('h1', { value: 'Bearer {{envName}}', enabled: true })];
+    render(
+      <GraphqlHeadersPanel
+        headers={headers}
+        onChange={onChange}
+        globalEnvMap={{ envName: 'staging' }}
+      />,
+    );
+    expect(screen.queryByTestId('gql-header-unresolved-h1')).toBeNull();
+  });
+
   it('disables all controls when disabled prop is true', () => {
     const headers = [makeHeader('h1')];
     render(<GraphqlHeadersPanel headers={headers} onChange={onChange} disabled />);

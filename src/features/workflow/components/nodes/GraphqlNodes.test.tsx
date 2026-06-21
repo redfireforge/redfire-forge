@@ -127,6 +127,31 @@ describe('Graphql workflow nodes', () => {
     expect(container.querySelector('.wf-node-selected')).toBeTruthy();
   });
 
+  it('GraphqlMutationNode uses raw endpoint when URL host is empty and omits extraction meta when rules absent', () => {
+    render(
+      <GraphqlMutationNode
+        {...baseProps({ label: 'Mut3', endpoint: 'mailto:test@example.com' })}
+      />,
+    );
+
+    expect(screen.getByText('mailto:test@example.com')).toBeTruthy();
+    expect(screen.queryByText(/extraction/)).toBeNull();
+  });
+
+  it('GraphqlMutationNode shows plural extraction label', () => {
+    render(
+      <GraphqlMutationNode
+        {...baseProps({
+          label: 'Mut4',
+          endpoint: 'https://mut.example.com/graphql',
+          extractionRules: [{ id: 'a' }, { id: 'b' }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('2 extractions')).toBeTruthy();
+  });
+
   it('GraphqlSubscriptionNode renders stop condition variants', () => {
     const { rerender } = render(
       <GraphqlSubscriptionNode
@@ -254,6 +279,64 @@ describe('Graphql workflow nodes', () => {
     expect(screen.getByText('No source variable')).toBeTruthy();
     expect(screen.getByText(/0 assertions/)).toBeTruthy();
     expect(screen.getByText(/halt on fail/)).toBeTruthy();
+  });
+
+  it('GraphqlQueryNode shows plural extractions when count is not 1', () => {
+    render(
+      <GraphqlQueryNode
+        {...baseProps({
+          label: 'Q3',
+          endpoint: 'https://api.example.com/graphql',
+          extractionRules: [{ jsonPath: '$.a' }, { jsonPath: '$.b' }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('2 extractions')).toBeTruthy();
+  });
+
+  it('GraphqlMutationNode renders host from valid endpoint URL', () => {
+    render(
+      <GraphqlMutationNode
+        {...baseProps({
+          label: 'Mut2',
+          endpoint: 'https://mut.example.com/graphql',
+          extractionRules: [],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('mut.example.com')).toBeTruthy();
+  });
+
+  it('GraphqlAssertNode uses singular assertion text and selected class', () => {
+    const { container } = render(
+      <GraphqlAssertNode
+        {...baseProps({
+          label: 'Assert2',
+          sourceVariable: 'payload',
+          assertions: [{ jsonPath: '$.ok' }],
+          failBehavior: 'warn',
+        }, true)}
+      />,
+    );
+
+    expect(screen.getByText(/1 assertion/)).toBeTruthy();
+    expect(container.querySelector('.wf-node-selected')).toBeTruthy();
+  });
+
+  it('GraphqlAssertNode treats undefined assertions as zero count', () => {
+    render(
+      <GraphqlAssertNode
+        {...baseProps({
+          label: 'Assert3',
+          sourceVariable: 'payload',
+          failBehavior: 'error',
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/0 assertions/)).toBeTruthy();
   });
 
   it('renders handles/status/overlay and configure callback', () => {

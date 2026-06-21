@@ -12,7 +12,9 @@ import {
   type WsConnectionTabContentHandle,
 } from './WsConnectionTabContent';
 import { buildWsEnvVarMap } from './wsMessageUtils';
-import type { GlobalAuthProfile } from '../../shared/types';
+import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
+import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
+import type { GlobalAuthProfile, Microservice } from '../../shared/types';
 import type {
   WsConnectionDraft,
   WsPersistedTabState,
@@ -49,10 +51,19 @@ interface WebSocketStudioPageProps {
   resolvedBaseUrl?: string;
   envName?: string;
   svcName?: string;
+  selectedSvc?: Microservice;
+  selectedEnvId?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthProfiles = [] }: WebSocketStudioPageProps) {
+export function WebSocketStudioPage({
+  resolvedBaseUrl,
+  envName,
+  svcName,
+  selectedSvc,
+  selectedEnvId,
+  globalAuthProfiles = [],
+}: WebSocketStudioPageProps) {
   const [tabs, setTabs] = useState<WsConnectionTabInfo[]>([]);
   const [activeTabId, setActiveTabId] = useState('');
   const [connectionStates, setConnectionStates] = useState<Record<string, ConnectionStateHint>>({});
@@ -73,10 +84,19 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
   const tabRefs = useRef<Map<string, React.RefObject<WsConnectionTabContentHandle | null>>>(new Map());
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const envVarMap = useMemo(
-    () => buildWsEnvVarMap(resolvedBaseUrl, envName, svcName),
-    [resolvedBaseUrl, envName, svcName],
-  );
+  const envVarMap = useMemo(() => {
+    if (selectedSvc && selectedEnvId) {
+      return buildEnvVarMap(selectedSvc, selectedEnvId, 'websocket', envName);
+    }
+    return buildWsEnvVarMap(resolvedBaseUrl, envName, svcName);
+  }, [selectedSvc, selectedEnvId, resolvedBaseUrl, envName, svcName]);
+
+  const endpointProtocolStatus = useMemo(() => {
+    if (selectedSvc && selectedEnvId) {
+      return getRowStatus(selectedSvc, 'websocket', selectedEnvId);
+    }
+    return undefined;
+  }, [selectedSvc, selectedEnvId]);
 
   const profilesHook = useWebSocketProfiles();
   const templatesHook = useWebSocketTemplates();
@@ -498,7 +518,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
   if (!loaded) return null;
 
   return (
-    <div className="ws-studio-page">
+    <div className="ws-studio-page" data-testid="ws-studio">
       <WsConnectionTabBar
         tabs={tabs}
         activeTabId={activeTabId}
@@ -525,6 +545,7 @@ export function WebSocketStudioPage({ resolvedBaseUrl, envName, svcName, globalA
               ref={getTabRef(tab.id)}
               tabId={tab.id}
               envVarMap={envVarMap}
+              endpointProtocolStatus={endpointProtocolStatus}
               globalAuthProfiles={globalAuthProfiles}
               profilesHook={profilesHook}
               templatesHook={templatesHook}

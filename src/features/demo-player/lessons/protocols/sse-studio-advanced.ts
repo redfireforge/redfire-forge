@@ -12,8 +12,12 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { SSE } from '../../../../shared/selectors';
+import {
+  ensureSseDemoHeaderContext,
+  navigateToSseStudio,
+} from '../env-manager-lesson-helpers';
 
-const SSE_TEST_URL = 'http://localhost:3001/api/sse-test';
+const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
 
 // ── Guard helpers ──────────────────────────────────────────────────
 
@@ -31,7 +35,9 @@ async function ensureConnectedWithEvents(ctx: DemoActionContext): Promise<void> 
   const isConnected = connectBtn?.textContent?.includes('Disconnect');
 
   if (!isConnected) {
-    await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+    await ensureSseDemoHeaderContext(ctx);
+    await navigateToSseStudio(ctx);
+    await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
     await ctx.delay(300);
     await ctx.click(SSE.CONNECT_BTN);
     await ctx.delay(3000); // Wait for events to accumulate
@@ -72,6 +78,10 @@ async function sseAdvancedSetup(ctx: DemoActionContext): Promise<void> {
     connectTab.click();
     await ctx.delay(200);
   }
+
+  // Basic SSE lesson cleanup removes SSE Demo / sse-demo — recreate and select them.
+  await ensureSseDemoHeaderContext(ctx);
+  await navigateToSseStudio(ctx);
 }
 
 async function sseAdvancedCleanup(ctx: DemoActionContext): Promise<void> {
@@ -175,7 +185,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
         });
         const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
         if (!connectBtn?.textContent?.includes('Disconnect')) {
-          await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+          await ensureSseDemoHeaderContext(ctx);
+          await navigateToSseStudio(ctx);
+          await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
           await ctx.delay(300);
           await ctx.click(SSE.CONNECT_BTN);
           await ctx.delay(3000);

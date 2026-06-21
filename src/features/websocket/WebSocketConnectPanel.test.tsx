@@ -731,10 +731,19 @@ describe('WebSocketConnectPanel', () => {
     it('shows env preview when env vars are resolved', () => {
       render(<WebSocketConnectPanel {...defaultProps({
         draft: { url: 'wss://{{host}}/ws' },
-      })} resolvedUrl="wss://api.example.com/ws" envVarMap={{ host: 'api.example.com' }} />);
+      })} resolvedUrl="wss://api.example.com/ws" envVarMap={{ host: 'api.example.com' }} endpointProtocolStatus="explicit" />);
       expect(screen.getByTestId('env-preview')).toBeTruthy();
       expect(screen.getByTestId('env-preview').textContent).toContain('wss://api.example.com/ws');
+      expect(screen.getByTestId('env-preview').textContent).toContain('✓');
       expect(screen.queryByTestId('env-unresolved-warning')).toBeNull();
+    });
+
+    it('shows fallback status chip when websocket endpoint uses HTTP derivation', () => {
+      render(<WebSocketConnectPanel {...defaultProps({
+        draft: { url: '{{wsBaseUrl}}/ws' },
+      })} resolvedUrl="wss://api.example.com/ws" envVarMap={{ wsBaseUrl: 'wss://api.example.com' }} endpointProtocolStatus="fallback" />);
+      expect(screen.getByTestId('env-preview').getAttribute('data-status')).toBe('fallback');
+      expect(screen.getByTestId('env-preview').textContent).toContain('⚠');
     });
 
     it('enables Connect for {{wsBaseUrl}}/ws when resolved URL is valid', () => {

@@ -1,11 +1,38 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup } from '../../shared/types';
+import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup, ProtocolKey } from '../../shared/types';
 import {
   logEnvironmentCreated, logEnvironmentDeleted,
   logMicroserviceCreated, logMicroserviceDeleted, logMicroserviceUpdated,
 } from '../audit/utils/auditLog';
 import type { AuditChange } from '../audit/utils/auditLog';
+import {
+  MicroserviceProtocolPanel,
+  ProtocolHeaderBadges,
+} from './components/MicroserviceProtocolPanel';
+import {
+  envDisplayName,
+  getEffectiveEnabledProtocols,
+  stripEnvFromProtocolEndpoints,
+} from './utils/protocolEndpointUtils';
+import {
+  mergeEditValue,
+  runSaveEdit,
+  shouldClearEditingOnProtocolChange,
+  type ActiveEdit,
+} from './utils/environmentManagerEditHandlers';
+import {
+  applyAddAdditionalEnv,
+  applyDeleteAdditionalEnv,
+  applyToggleDeploy,
+  isDuplicateAdditionalEnvName,
+} from './utils/environmentManagerDeployUtils';
+import {
+  applyAuthProfile,
+  applySaveGraphqlPath,
+  applySaveProtocolEndpoint,
+  applyToggleGrpcTls,
+} from './utils/environmentManagerSaveHandlers';
 
 export interface EnvironmentManagerProps {
   environments: Environment[];
@@ -36,13 +63,19 @@ export default function EnvironmentManager({
 }: EnvironmentManagerProps) {
   const [newEnvName, setNewEnvName] = useState('');
   const [newSvcName, setNewSvcName] = useState('');
-  const [editingBaseUrls, setEditingBaseUrls] = useState<string | null>(null);
-  const [editingUrl, setEditingUrl] = useState<{ svcId: string; envId: string; value: string } | null>(null);
-  const [newAdditionalEnvName, setNewAdditionalEnvName] = useState('');
+  const [expandedSvcId, setExpandedSvcId] = useState<string | null>(null);
+  const [activeProtocolBySvc, setActiveProtocolBySvc] = useState<Record<string, ProtocolKey>>({});
+  const [editing, setEditing] = useState<ActiveEdit | null>(null);
+  const [newAdditionalEnvBySvc, setNewAdditionalEnvBySvc] = useState<Record<string, string>>({});
   const [draggingEnvIdx, setDraggingEnvIdx] = useState<number | null>(null);
   const [draggingSvcIdx, setDraggingSvcIdx] = useState<number | null>(null);
 
-  // ── Audit-wrapped CRUD helpers ──
+  const getActiveProtocol = useCallback((svc: Microservice): ProtocolKey => {
+    const enabled = getEffectiveEnabledProtocols(svc);
+    const current = activeProtocolBySvc[svc.id];
+    if (current && enabled.includes(current)) return current;
+    return enabled[0] ?? 'http';
+  }, [activeProtocolBySvc]);
 
   const addEnv = useCallback((name: string) => {
     const id = uuidv4();
@@ -55,7 +88,11 @@ export default function EnvironmentManager({
     setMicroservices((prev) => prev.map((s) => {
       const next = { ...s.baseUrls };
       delete next[env.id];
-      return { ...s, baseUrls: next };
+      return {
+        ...s,
+        baseUrls: next,
+        protocolEndpoints: stripEnvFromProtocolEndpoints(s, env.id),
+      };
     }));
     if (selectedEnvId === env.id) setSelectedEnvId('');
     void logEnvironmentDeleted(env.name, env.id);
@@ -70,36 +107,127 @@ export default function EnvironmentManager({
   const deleteSvc = useCallback((svc: Microservice) => {
     setMicroservices((prev) => prev.filter((s) => s.id !== svc.id));
     if (selectedSvcId === svc.id) setSelectedSvcId('');
+    if (expandedSvcId === svc.id) setExpandedSvcId(null);
     void logMicroserviceDeleted(svc.name, svc.id);
-  }, [setMicroservices, selectedSvcId, setSelectedSvcId]);
+  }, [setMicroservices, selectedSvcId, setSelectedSvcId, expandedSvcId]);
+
+  const auditEnvName = useCallback((svc: Microservice, envId: string) =>
+    envDisplayName(envId, environments, svc),
+  [environments]);
 
   const saveBaseUrl = useCallback((svc: Microservice, envId: string, url: string) => {
     const oldUrl = svc.baseUrls[envId] ?? '';
     setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [envId]: url } } : s));
-    setEditingUrl(null);
+    setEditing(null);
     if (oldUrl !== url) {
-      const envName = environments.find((e) => e.id === envId)?.name ?? svc.customEnvs?.find((e) => e.id === envId)?.name ?? envId;
-      const changes: AuditChange[] = [{ field: `baseUrl[${envName}]`, oldValue: oldUrl, newValue: url }];
+      const changes: AuditChange[] = [{ field: `baseUrl[${auditEnvName(svc, envId)}]`, oldValue: oldUrl, newValue: url }];
       void logMicroserviceUpdated(svc.name, svc.id, changes);
     }
-  }, [setMicroservices, environments]);
+  }, [setMicroservices, auditEnvName]);
+
+  const saveProtocolEndpoint = useCallback((
+    svc: Microservice,
+    protocol: ProtocolKey,
+    envId: string,
+    baseUrl: string,
+  ) => {
+    setMicroservices((prev) => {
+      const { microservices, changed, newUrl, oldUrl } = applySaveProtocolEndpoint(prev, svc, protocol, envId, baseUrl);
+      if (changed) {
+        const changes: AuditChange[] = [{
+          field: `${protocol}[${auditEnvName(svc, envId)}]`,
+          oldValue: oldUrl,
+          newValue: newUrl,
+        }];
+        void logMicroserviceUpdated(svc.name, svc.id, changes);
+      }
+      return microservices;
+    });
+    setEditing(null);
+  }, [setMicroservices, auditEnvName]);
+
+  const saveGraphqlPath = useCallback((svc: Microservice, envId: string, path: string) => {
+    setMicroservices((prev) => {
+      const { microservices, changed, normalized, oldPath } = applySaveGraphqlPath(prev, svc, envId, path);
+      if (changed) {
+        const changes: AuditChange[] = [{
+          field: `graphql.path[${auditEnvName(svc, envId)}]`,
+          oldValue: oldPath,
+          newValue: normalized,
+        }];
+        void logMicroserviceUpdated(svc.name, svc.id, changes);
+      }
+      return microservices;
+    });
+  }, [setMicroservices, auditEnvName]);
+
+  const toggleGrpcTls = useCallback((svc: Microservice, envId: string, tls: boolean) => {
+    setMicroservices((prev) => {
+      const { microservices, changed, oldTls } = applyToggleGrpcTls(prev, svc, envId, tls);
+      if (changed) {
+        const changes: AuditChange[] = [{
+          field: `grpc.tls[${auditEnvName(svc, envId)}]`,
+          oldValue: String(oldTls),
+          newValue: String(tls),
+        }];
+        void logMicroserviceUpdated(svc.name, svc.id, changes);
+      }
+      return microservices;
+    });
+  }, [setMicroservices, auditEnvName]);
 
   const setAuthProfile = useCallback((svc: Microservice, envId: string, profileId: string | undefined) => {
-    const oldProfileId = svc.authProfileIds?.[envId] ?? '';
+    setMicroservices((prev) => {
+      const { microservices, changed, oldProfileId } = applyAuthProfile(prev, svc, envId, profileId);
+      if (changed) {
+        const oldName = (appGlobalAuthProfiles.find((p) => p.id === oldProfileId)?.name ?? oldProfileId) || '(none)';
+        const newName = (appGlobalAuthProfiles.find((p) => p.id === profileId)?.name ?? profileId) || '(none)';
+        const changes: AuditChange[] = [{ field: `authProfile[${auditEnvName(svc, envId)}]`, oldValue: oldName, newValue: newName }];
+        void logMicroserviceUpdated(svc.name, svc.id, changes);
+      }
+      return microservices;
+    });
+  }, [setMicroservices, appGlobalAuthProfiles, auditEnvName]);
+
+  const toggleDeploy = useCallback((svc: Microservice, envId: string) => {
+    setMicroservices((prev) => applyToggleDeploy(prev, svc.id, envId));
+  }, [setMicroservices]);
+
+  const addAdditionalEnv = useCallback((svc: Microservice) => {
+    const name = (newAdditionalEnvBySvc[svc.id] ?? '').trim();
+    if (!name) return;
+    if (isDuplicateAdditionalEnvName(name, environments, svc)) return;
+    const id = `custom-${Date.now()}`;
+    setMicroservices((prev) => applyAddAdditionalEnv(prev, svc.id, id, name));
+    setNewAdditionalEnvBySvc((prev) => ({ ...prev, [svc.id]: '' }));
+  }, [environments, newAdditionalEnvBySvc, setMicroservices]);
+
+  const deleteAdditionalEnv = useCallback((svc: Microservice, envId: string) => {
+    setMicroservices((prev) => applyDeleteAdditionalEnv(prev, svc.id, envId));
+  }, [setMicroservices]);
+
+  const addProtocol = useCallback((svc: Microservice, protocol: ProtocolKey) => {
     setMicroservices((prev) => prev.map((s) => {
       if (s.id !== svc.id) return s;
-      const next = { ...(s.authProfileIds ?? {}) };
-      if (profileId) next[envId] = profileId; else delete next[envId];
-      return { ...s, authProfileIds: next };
+      const current = getEffectiveEnabledProtocols(s);
+      if (current.includes(protocol)) return s;
+      return { ...s, enabledProtocols: [...current, protocol] };
     }));
-    if (oldProfileId !== (profileId ?? '')) {
-      const envName = environments.find((e) => e.id === envId)?.name ?? svc.customEnvs?.find((e) => e.id === envId)?.name ?? envId;
-      const oldName = (appGlobalAuthProfiles.find((p) => p.id === oldProfileId)?.name ?? oldProfileId) || '(none)';
-      const newName = (appGlobalAuthProfiles.find((p) => p.id === profileId)?.name ?? profileId) || '(none)';
-      const changes: AuditChange[] = [{ field: `authProfile[${envName}]`, oldValue: oldName, newValue: newName }];
-      void logMicroserviceUpdated(svc.name, svc.id, changes);
-    }
-  }, [setMicroservices, environments, appGlobalAuthProfiles]);
+    setActiveProtocolBySvc((prev) => ({ ...prev, [svc.id]: protocol }));
+  }, [setMicroservices]);
+
+  const removeProtocol = useCallback((svc: Microservice, protocol: ProtocolKey) => {
+    setMicroservices((prev) => prev.map((s) => {
+      if (s.id !== svc.id) return s;
+      const current = getEffectiveEnabledProtocols(s);
+      return { ...s, enabledProtocols: current.filter((p) => p !== protocol) };
+    }));
+    setActiveProtocolBySvc((prev) => {
+      if (prev[svc.id] !== protocol) return prev;
+      const remaining = getEffectiveEnabledProtocols(svc).filter((p) => p !== protocol);
+      return { ...prev, [svc.id]: remaining[0] ?? 'http' };
+    });
+  }, [setMicroservices]);
 
   return (
     <div className="env-manager">
@@ -108,11 +236,11 @@ export default function EnvironmentManager({
       </div>
 
       <div className="env-manager-body">
-        {/* ── Environments ── */}
         <div className="env-section">
           <h4>Environments</h4>
           <div className="settings-add-row">
             <input
+              data-testid="em-new-env-input"
               placeholder="e.g. t01, p01, staging"
               value={newEnvName}
               onChange={(e) => setNewEnvName(e.target.value)}
@@ -123,8 +251,7 @@ export default function EnvironmentManager({
                 }
               }}
             />
-            <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-              if (!newEnvName.trim()) return;
+            <button data-testid="em-add-env-btn" type="button" className="btn btn-primary btn-xs" onClick={() => {
               addEnv(newEnvName.trim());
               setNewEnvName('');
             }} disabled={!newEnvName.trim()}>Add</button>
@@ -134,6 +261,7 @@ export default function EnvironmentManager({
             {environments.map((env, idx) => (
               <div
                 key={env.id}
+                data-env-name={env.name}
                 className={`settings-chip ${draggingEnvIdx === idx ? 'dragging' : ''}`}
                 draggable
                 onDragStart={() => setDraggingEnvIdx(idx)}
@@ -172,11 +300,11 @@ export default function EnvironmentManager({
           </div>
         </div>
 
-        {/* ── Microservices ── */}
         <div className="env-section">
           <h4>Microservices</h4>
           <div className="settings-add-row">
             <input
+              data-testid="em-new-svc-input"
               placeholder="e.g. sales-product-autoassign"
               value={newSvcName}
               onChange={(e) => setNewSvcName(e.target.value)}
@@ -187,8 +315,7 @@ export default function EnvironmentManager({
                 }
               }}
             />
-            <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-              if (!newSvcName.trim()) return;
+            <button data-testid="em-add-svc-btn" type="button" className="btn btn-primary btn-xs" onClick={() => {
               addSvc(newSvcName.trim());
               setNewSvcName('');
             }} disabled={!newSvcName.trim()}>Add</button>
@@ -196,11 +323,18 @@ export default function EnvironmentManager({
           {microservices.length === 0 && <div className="empty-hint">No microservices defined.</div>}
           <div className="settings-svc-list">
             {microservices.map((svc, svcIdx) => {
-              const isSvcExpanded = editingBaseUrls === svc.id;
+              const isSvcExpanded = expandedSvcId === svc.id;
               const deployedCount = environments.filter((env) => env.id in svc.baseUrls).length;
+              const panelEditing = editing?.svcId === svc.id
+                ? (editing.kind === 'http'
+                  ? { kind: 'http' as const, envId: editing.envId, value: editing.value }
+                  : { kind: 'protocol' as const, protocol: editing.protocol, envId: editing.envId, value: editing.value })
+                : null;
+
               return (
                 <div
                   key={svc.id}
+                  data-svc-name={svc.name}
                   className={`settings-svc-card ${isSvcExpanded ? 'expanded' : ''} ${draggingSvcIdx === svcIdx ? 'dragging' : ''}`}
                   draggable={!isSvcExpanded}
                   onDragStart={() => setDraggingSvcIdx(svcIdx)}
@@ -220,8 +354,17 @@ export default function EnvironmentManager({
                   <div className="settings-svc-header">
                     <span className="svc-drag-grip" title="Drag to reorder">⠿</span>
                     <span className="settings-svc-name">{svc.name}</span>
+                    <ProtocolHeaderBadges svc={svc} environments={environments} enabledProtocols={getEffectiveEnabledProtocols(svc)} />
                     <span className="settings-svc-count">{deployedCount}/{environments.length} envs</span>
-                    <button type="button" className="btn btn-xs" onClick={() => setEditingBaseUrls(isSvcExpanded ? null : svc.id)}>{isSvcExpanded ? 'Collapse' : 'Configure'}</button>
+                    <button
+                      type="button"
+                      className="btn btn-xs"
+                      data-testid={`em-svc-configure-${svc.id}`}
+                      onClick={() => {
+                        setExpandedSvcId(isSvcExpanded ? null : svc.id);
+                        setEditing(null);
+                      }}
+                    >{isSvcExpanded ? 'Collapse' : 'Configure'}</button>
                     <button type="button" className="btn btn-xs btn-danger" onClick={() => {
                       const affectedGroups = featureGroups.filter(g => g.microserviceId === svc.id);
                       const affectedScenarios = affectedGroups.reduce((n, g) => n + g.scenarios.length, 0);
@@ -239,205 +382,36 @@ export default function EnvironmentManager({
                       {environments.length === 0 ? (
                         <div className="empty-hint" style={{ padding: '8px 12px' }}>Add environments first.</div>
                       ) : (
-                        <table className="svc-env-table">
-                          <thead>
-                            <tr>
-                              <th className="svc-env-th-check"></th>
-                              <th className="svc-env-th-env">Env</th>
-                              <th className="svc-env-th-url">Base URL</th>
-                              <th className="svc-env-th-auth">Auth Profile</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {environments.map((env) => {
-                              const deployed = env.id in svc.baseUrls;
-                              const isEditingThis = editingUrl?.svcId === svc.id && editingUrl?.envId === env.id;
-                              const currentUrl = svc.baseUrls[env.id] ?? '';
-                              return (
-                                <tr key={env.id} className={deployed ? '' : 'svc-env-row-disabled'}>
-                                  <td className="svc-env-td-check">
-                                    <input type="checkbox" checked={deployed} onChange={() => {
-                                      setMicroservices((prev) => prev.map((s) => {
-                                        if (s.id !== svc.id) return s;
-                                        const next = { ...s.baseUrls };
-                                        if (env.id in next) delete next[env.id]; else next[env.id] = '';
-                                        return { ...s, baseUrls: next };
-                                      }));
-                                    }} />
-                                  </td>
-                                  <td className="svc-env-td-env">
-                                    <span className="svc-env-name">{env.name}</span>
-                                  </td>
-                                  <td className="svc-env-td-url">
-                                    {deployed && (
-                                      isEditingThis && editingUrl ? (
-                                        <div className="svc-env-url-edit">
-                                          <input autoFocus value={editingUrl.value}
-                                            onChange={(e) => setEditingUrl({ ...editingUrl, value: e.target.value })}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') {
-                                                saveBaseUrl(svc, env.id, editingUrl.value);
-                                              }
-                                              if (e.key === 'Escape') setEditingUrl(null);
-                                            }}
-                                            placeholder={`https://${svc.name}.${env.name}.example.com`} />
-                                          <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-                                            saveBaseUrl(svc, env.id, editingUrl.value);
-                                          }}>Save</button>
-                                          <button type="button" className="btn btn-xs" onClick={() => setEditingUrl(null)}>Cancel</button>
-                                        </div>
-                                      ) : (
-                                        <div className="svc-env-url-show">
-                                          {currentUrl ? <code>{currentUrl}</code> : <span className="svc-env-url-empty">No URL configured</span>}
-                                          <button type="button" className="btn btn-xs" onClick={() => setEditingUrl({ svcId: svc.id, envId: env.id, value: currentUrl })}>Edit</button>
-                                        </div>
-                                      )
-                                    )}
-                                  </td>
-                                  <td className="svc-env-td-auth">
-                                    {deployed && (
-                                      <select
-                                        className="env-auth-select"
-                                        value={svc.authProfileIds?.[env.id] ?? ''}
-                                        onChange={(e) => {
-                                          const profileId = e.target.value || undefined;
-                                          setAuthProfile(svc, env.id, profileId);
-                                        }}
-                                      >
-                                        <option value="">No Auth</option>
-                                        {appGlobalAuthProfiles.map((p) => (
-                                          <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                                        ))}
-                                      </select>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                            {(svc.customEnvs ?? []).length > 0 && (
-                              <tr className="svc-env-separator-row">
-                                <td colSpan={4} className="svc-env-separator-td">Additional Environments</td>
-                              </tr>
-                            )}
-                            {(svc.customEnvs ?? []).map((cEnv) => {
-                              const deployed = cEnv.id in svc.baseUrls;
-                              const isEditingThis = editingUrl?.svcId === svc.id && editingUrl?.envId === cEnv.id;
-                              const currentUrl = svc.baseUrls[cEnv.id] ?? '';
-                              return (
-                                <tr key={cEnv.id} className={deployed ? '' : 'svc-env-row-disabled'}>
-                                  <td className="svc-env-td-check">
-                                    <input type="checkbox" checked={deployed} onChange={() => {
-                                      setMicroservices((prev) => prev.map((s) => {
-                                        if (s.id !== svc.id) return s;
-                                        const next = { ...s.baseUrls };
-                                        if (cEnv.id in next) delete next[cEnv.id]; else next[cEnv.id] = '';
-                                        return { ...s, baseUrls: next };
-                                      }));
-                                    }} />
-                                  </td>
-                                  <td className="svc-env-td-env">
-                                    <span className="svc-env-name svc-env-additional-tag">{cEnv.name}</span>
-                                  </td>
-                                  <td className="svc-env-td-url">
-                                    {deployed && (
-                                      isEditingThis && editingUrl ? (
-                                        <div className="svc-env-url-edit">
-                                          <input autoFocus value={editingUrl.value}
-                                            onChange={(e) => setEditingUrl({ ...editingUrl, value: e.target.value })}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') {
-                                                saveBaseUrl(svc, cEnv.id, editingUrl.value);
-                                              }
-                                              if (e.key === 'Escape') setEditingUrl(null);
-                                            }}
-                                            placeholder={`https://${svc.name}.${cEnv.name}.example.com`} />
-                                          <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-                                            saveBaseUrl(svc, cEnv.id, editingUrl.value);
-                                          }}>Save</button>
-                                          <button type="button" className="btn btn-xs" onClick={() => setEditingUrl(null)}>Cancel</button>
-                                        </div>
-                                      ) : (
-                                        <div className="svc-env-url-show">
-                                          {currentUrl ? <code>{currentUrl}</code> : <span className="svc-env-url-empty">No URL configured</span>}
-                                          <button type="button" className="btn btn-xs" onClick={() => setEditingUrl({ svcId: svc.id, envId: cEnv.id, value: currentUrl })}>Edit</button>
-                                        </div>
-                                      )
-                                    )}
-                                  </td>
-                                  <td className="svc-env-td-auth">
-                                    <div className="svc-env-additional-auth-cell">
-                                      {deployed && (
-                                        <select
-                                          className="env-auth-select"
-                                          value={svc.authProfileIds?.[cEnv.id] ?? ''}
-                                          onChange={(e) => {
-                                            const profileId = e.target.value || undefined;
-                                            setAuthProfile(svc, cEnv.id, profileId);
-                                          }}
-                                        >
-                                          <option value="">No Auth</option>
-                                          {appGlobalAuthProfiles.map((p) => (
-                                            <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                                          ))}
-                                        </select>
-                                      )}
-                                      <button type="button" className="btn btn-xs btn-danger svc-env-additional-del"
-                                        title="Remove additional environment"
-                                        onClick={() => {
-                                          setMicroservices((prev) => prev.map((s) => {
-                                            if (s.id !== svc.id) return s;
-                                            const nextUrls = { ...s.baseUrls };
-                                            delete nextUrls[cEnv.id];
-                                            const nextAuth = { ...(s.authProfileIds ?? {}) };
-                                            delete nextAuth[cEnv.id];
-                                            return {
-                                              ...s,
-                                              baseUrls: nextUrls,
-                                              authProfileIds: nextAuth,
-                                              customEnvs: (s.customEnvs ?? []).filter((ce) => ce.id !== cEnv.id),
-                                            };
-                                          }));
-                                        }}>×</button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="svc-env-add-row">
-                              <td colSpan={4}>
-                                <form className="svc-env-add-form" onSubmit={(e) => {
-                                  e.preventDefault();
-                                  const name = newAdditionalEnvName.trim();
-                                  if (!name) return;
-                                  const allEnvNames = [
-                                    ...environments.map((e) => e.name.toLowerCase()),
-                                    ...(svc.customEnvs ?? []).map((e) => e.name.toLowerCase()),
-                                  ];
-                                  if (allEnvNames.includes(name.toLowerCase())) return;
-                                  const id = `custom-${Date.now()}`;
-                                  setMicroservices((prev) => prev.map((s) => {
-                                    if (s.id !== svc.id) return s;
-                                    return {
-                                      ...s,
-                                      customEnvs: [...(s.customEnvs ?? []), { id, name }],
-                                      baseUrls: { ...s.baseUrls, [id]: '' },
-                                    };
-                                  }));
-                                  setNewAdditionalEnvName('');
-                                }}>
-                                  <input
-                                    className="svc-env-add-input"
-                                    value={newAdditionalEnvName}
-                                    onChange={(e) => setNewAdditionalEnvName(e.target.value)}
-                                    placeholder="+ Add additional environment (e.g. staging-2)"
-                                  />
-                                </form>
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                        <MicroserviceProtocolPanel
+                          svc={svc}
+                          environments={environments}
+                          appGlobalAuthProfiles={appGlobalAuthProfiles}
+                          selectedEnvId={selectedEnvId}
+                          activeProtocol={getActiveProtocol(svc)}
+                          enabledProtocols={getEffectiveEnabledProtocols(svc)}
+                          onProtocolChange={(protocol) => {
+                            setActiveProtocolBySvc((prev) => ({ ...prev, [svc.id]: protocol }));
+                            if (shouldClearEditingOnProtocolChange(editing, svc.id)) setEditing(null);
+                          }}
+                          onAddProtocol={(protocol) => addProtocol(svc, protocol)}
+                          onRemoveProtocol={(protocol) => removeProtocol(svc, protocol)}
+                          editing={panelEditing}
+                          onStartEdit={(target) => setEditing({ svcId: svc.id, ...target })}
+                          onEditValueChange={(value) => setEditing((prev) => mergeEditValue(prev, svc.id, value))}
+                          onCancelEdit={() => setEditing(null)}
+                          onSaveEdit={() => runSaveEdit(editing, svc.id, {
+                            saveHttp: (envId, value) => saveBaseUrl(svc, envId, value),
+                            saveProtocol: (protocol, envId, value) => saveProtocolEndpoint(svc, protocol, envId, value),
+                          })}
+                          onToggleDeploy={(envId) => toggleDeploy(svc, envId)}
+                          onSetAuthProfile={(envId, profileId) => setAuthProfile(svc, envId, profileId)}
+                          onGraphqlPathChange={(envId, path) => saveGraphqlPath(svc, envId, path)}
+                          onToggleGrpcTls={(envId, tls) => toggleGrpcTls(svc, envId, tls)}
+                          newAdditionalEnvName={newAdditionalEnvBySvc[svc.id] ?? ''}
+                          onNewAdditionalEnvNameChange={(value) => setNewAdditionalEnvBySvc((prev) => ({ ...prev, [svc.id]: value }))}
+                          onAddAdditionalEnv={() => addAdditionalEnv(svc)}
+                          onDeleteAdditionalEnv={(envId) => deleteAdditionalEnv(svc, envId)}
+                        />
                       )}
                     </div>
                   )}
@@ -446,7 +420,6 @@ export default function EnvironmentManager({
             })}
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { GQL } from '../../../../shared/selectors';
 import {
   LESSON12_BASELINE_LABEL,
   LESSON12_BASELINE_SDL,
+  GQL_DEMO_HTTP,
   resetGqlLesson12SessionFlags,
   resetGqlLessonSessionFlags,
   ensureLesson12SnapshotSaved,
@@ -15,6 +16,10 @@ import {
   ensureLesson12DiffOpen,
   ensureLesson12DiffFilters,
   ensureLesson12DiffExported,
+  ensureLesson12TypesTab,
+  ensureLesson12BaselineSnapshot,
+  gqlSchemaDiffLessonSetup,
+  gqlSchemaDiffLessonCleanup,
 } from './graphql-lesson-helpers';
 import { computeSchemaDiff } from '../../../graphql/utils/schemaDiff';
 
@@ -202,6 +207,67 @@ describe('gql-schema-diff lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.DIFF_EXPORT_JSON);
   });
 
+  it('gql12-breaking action highlights breaking count badge', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('gql12-diff-modal re-opens diff modal when already saved', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(document.querySelector(GQL.DIFF_MODAL)).toBeTruthy();
+  });
+
+  it('ensureLesson12TypesTab clicks types tab when inactive', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    document.querySelector('[data-testid="gql-se-tab-types"]')!.classList.remove('gql-se-main-tab--active');
+    await ensureLesson12TypesTab(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="gql-se-tab-types"]');
+  });
+
+  it('ensureLesson12DiffOpen uses fallback diff button when baseline row missing', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    document.querySelectorAll(GQL.CHANGELOG_ROW).forEach((r) => r.remove());
+    await ensureLesson12ChangelogOpen(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson12DiffOpen(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.CHANGELOG_DIFF_BTN);
+  });
+
+  it('ensureLesson12BaselineSnapshot loads existing baseline from storage', async () => {
+    const loadSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+      .mockResolvedValue([{ id: 'existing-baseline', label: LESSON12_BASELINE_LABEL } as never]);
+    await ensureLesson12BaselineSnapshot();
+    expect(loadSpy).toHaveBeenCalledWith(GQL_DEMO_HTTP);
+    loadSpy.mockRestore();
+  });
+
+  it('gqlSchemaDiffLessonSetup introspects and seeds baseline', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+      .mockResolvedValue([]);
+    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
+      .mockResolvedValue(undefined);
+    await gqlSchemaDiffLessonSetup(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+  });
+
+  it('gqlSchemaDiffLessonCleanup resets session flags', async () => {
+    const ctx = makeCtx();
+    await gqlSchemaDiffLessonCleanup(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
   it('ensureLesson12SnapshotSaved guard skips save button on repeat', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
@@ -260,5 +326,70 @@ describe('gql-schema-diff lesson', () => {
   it('gql12-diff-modal verify selector is diff row', () => {
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
     expect(step.verify).toBe(GQL.DIFF_ROW);
+  });
+
+  it('ensureLesson12TypesTab skips click when types tab already active', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    await ensureLesson12TypesTab(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson12TypesTab(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="gql-se-tab-types"]');
+  });
+
+  it('findBaselineChangelogRow falls back to first row when label missing', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    document.querySelectorAll(GQL.CHANGELOG_ROW).forEach((row) => {
+      const label = row.querySelector('.gql-changelog-row-label');
+      if (label?.textContent?.includes(LESSON12_BASELINE_LABEL)) {
+        label.textContent = 'Other snapshot';
+      }
+    });
+    await ensureLesson12ChangelogOpen(ctx);
+    await ensureLesson12DiffOpen(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(
+      '[data-lesson-target="baseline"] [data-testid="gql-changelog-diff-btn"]',
+    );
+  });
+
+  it('ensureLesson12BaselineSnapshot saves new baseline when not in storage', async () => {
+    const saveSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
+      .mockResolvedValue(undefined);
+    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+      .mockResolvedValue([]);
+    resetGqlLesson12SessionFlags();
+    await ensureLesson12BaselineSnapshot();
+    expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({
+      label: LESSON12_BASELINE_LABEL,
+      connectionId: GQL_DEMO_HTTP,
+    }));
+    saveSpy.mockRestore();
+  });
+
+  it('gqlSchemaDiffLessonCleanup deletes lesson-captured snapshots', async () => {
+    const ctx = makeCtx();
+    const deleteSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'deleteSnapshot')
+      .mockResolvedValue(undefined);
+    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+      .mockResolvedValue([
+        { id: 'snap-new', label: 'Current', capturedAt: Date.now() + 1000 } as never,
+        { id: 'baseline', label: LESSON12_BASELINE_LABEL, capturedAt: Date.now() - 1000 } as never,
+      ]);
+    await gqlSchemaDiffLessonSetup(ctx);
+    await gqlSchemaDiffLessonCleanup(ctx);
+    expect(deleteSpy).toHaveBeenCalled();
+    deleteSpy.mockRestore();
+  });
+
+  it('ensureLesson12SnapshotSaved runs when changelog rows empty after flag set', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom();
+    await ensureLesson12SnapshotSaved(ctx);
+    document.querySelectorAll(GQL.CHANGELOG_ROW).forEach((r) => r.remove());
+    vi.mocked(ctx.click).mockClear();
+    resetGqlLesson12SessionFlags();
+    await ensureLesson12SnapshotSaved(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SAVE_SNAPSHOT_BTN);
   });
 });

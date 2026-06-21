@@ -64,6 +64,13 @@ export async function connectWsTo(
   await page.waitForTimeout(300);
 }
 
+/** Wait until the connect tab status bar shows a connected state. */
+export async function waitForWsConnected(page: Page, opts?: { timeout?: number }): Promise<void> {
+  await expect(page.locator('[data-testid="status-badge"]')).toContainText(/connected/i, {
+    timeout: opts?.timeout ?? 10_000,
+  });
+}
+
 /** Disconnect from the current WebSocket connection. */
 export async function disconnectWs(page: Page): Promise<void> {
   const disconnectBtn = page.locator('[data-testid="disconnect-btn"]');
@@ -133,6 +140,18 @@ export async function stopWsMockFromUI(page: Page): Promise<void> {
     await stopBtn.click();
     await page.waitForTimeout(500);
   }
+}
+
+/**
+ * Reset mock server to a stopped state (UI + backend API).
+ * Stops common mock ports used across WS E2E specs.
+ */
+export async function ensureWsMockStopped(page: Page, ports: number[] = [WS_DEFAULT_MOCK_PORT, 9877, 9878]): Promise<void> {
+  for (const port of ports) {
+    await page.request.post('http://localhost:3001/api/ws/mock/stop', { data: { port } }).catch(() => {});
+  }
+  await stopWsMockFromUI(page);
+  await page.waitForTimeout(400);
 }
 
 /**

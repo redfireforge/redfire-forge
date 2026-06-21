@@ -5,6 +5,8 @@
 
 // Re-export shared JSON helpers so existing imports from wsMessageUtils don't break
 export { isValidJson, prettyJson } from '../../shared/utils/helpers';
+import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
+import type { Microservice } from '../../shared/types';
 
 /** Decode a base64 string to Uint8Array. Falls back to UTF-8 encoding on decode error. */
 export function decodeBase64ToBytes(data: string): Uint8Array {
@@ -46,45 +48,27 @@ export function hasUnresolvedVars(text: string): boolean {
   return /\{\{[^}]+\}\}/.test(text);
 }
 
-/** Convert an HTTP base URL to a WebSocket URL (https→wss, http→ws) */
-function httpToWsUrl(baseUrl: string): string {
-  if (baseUrl.startsWith('https://')) return 'wss://' + baseUrl.slice(8);
-  if (baseUrl.startsWith('http://')) return 'ws://' + baseUrl.slice(7);
-  return baseUrl;
-}
-
-/** Extract hostname + port from a URL string; returns empty string on failure */
-function extractHost(baseUrl: string): string {
-  try {
-    const u = new URL(baseUrl);
-    return u.host;
-  } catch {
-    const noProto = baseUrl.replace(/^https?:\/\//, '');
-    const slashIdx = noProto.indexOf('/');
-    return slashIdx >= 0 ? noProto.slice(0, slashIdx) : noProto;
-  }
-}
-
 /**
  * Build an env var map from the app's selected environment/microservice context.
  * Empty values are omitted so unresolved placeholders remain visible in the URL.
+ *
+ * @deprecated Prefer `buildEnvVarMap` from `shared/utils/envVarUtils` when microservice
+ * and environment id are available. Kept for backward-compatible call sites.
  */
 export function buildWsEnvVarMap(
   resolvedBaseUrl?: string,
   envName?: string,
   svcName?: string,
 ): Record<string, string> {
-  const map: Record<string, string> = {};
-  const base = resolvedBaseUrl?.trim();
-  if (base) {
-    map.baseUrl = base;
-    map.wsBaseUrl = httpToWsUrl(base);
-    const host = extractHost(base);
-    if (host) map.host = host;
-  }
-  if (envName?.trim()) map.envName = envName.trim();
-  if (svcName?.trim()) map.svcName = svcName.trim();
-  return map;
+  const envId = '__legacy__';
+  const svc: Microservice = {
+    id: '',
+    name: svcName?.trim() ?? '',
+    baseUrls: resolvedBaseUrl?.trim()
+      ? { [envId]: resolvedBaseUrl.trim() }
+      : {},
+  };
+  return buildEnvVarMap(svc, envId, 'websocket', envName ?? '');
 }
 
 /**

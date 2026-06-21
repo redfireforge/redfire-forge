@@ -23,6 +23,7 @@ interface GqlBottomPanelProps {
   headers: GraphqlHeaderRow[];
   onHeadersChange: (headers: GraphqlHeaderRow[]) => void;
   activeEnvironment?: GraphqlEnvironment | null;
+  globalEnvMap?: Record<string, string>;
   fileEntries: FileEntry[];
   onFileEntriesChange: (entries: FileEntry[]) => void;
   maxFileSizeMb?: number;
@@ -40,6 +41,7 @@ export function GqlBottomPanel({
   headers,
   onHeadersChange,
   activeEnvironment,
+  globalEnvMap,
   fileEntries,
   onFileEntriesChange,
   maxFileSizeMb,
@@ -136,6 +138,7 @@ export function GqlBottomPanel({
             headers={headers}
             onChange={onHeadersChange}
             activeEnvironment={activeEnvironment}
+            globalEnvMap={globalEnvMap}
           />
         )}
         {activeTab === 'files' && (

@@ -14,7 +14,7 @@ describe('sse-studio lesson', () => {
     expect(sseStudioLesson.id).toBe('sse-studio');
     expect(sseStudioLesson.domainId).toBe('protocols');
     expect(sseStudioLesson.name).toBe('SSE Studio');
-    expect(sseStudioLesson.steps.length).toBe(8);
+    expect(sseStudioLesson.steps.length).toBe(11);
     expect(sseStudioLesson.concept.title).toBeTruthy();
     expect(sseStudioLesson.concept.body).toBeTruthy();
     expect(sseStudioLesson.initialTab).toBe('sse-studio');
@@ -59,18 +59,19 @@ describe('sse-studio lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = sseStudioLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'sse-nav', 'sse-env-vars',
+      'sse-nav', 'sse-add-protocol', 'sse-env-config', 'sse-header-select', 'sse-env-vars',
       'sse-connect', 'sse-events', 'sse-detail',
       'sse-filter', 'sse-console', 'sse-disconnect',
     ]);
   });
 
-  it('estimated time is 3 minutes', () => {
-    expect(sseStudioLesson.estimatedMinutes).toBe(3);
+  it('estimated time is 6 minutes', () => {
+    expect(sseStudioLesson.estimatedMinutes).toBe(6);
   });
 
-  it('does not have allowedTabs (no external navigation needed)', () => {
-    expect(sseStudioLesson.allowedTabs).toBeUndefined();
+  it('declares allowedTabs for environments and sse-studio', () => {
+    expect(sseStudioLesson.allowedTabs).toContain('environments');
+    expect(sseStudioLesson.allowedTabs).toContain('sse-studio');
   });
 
   it('step sse-nav has no action', () => {
@@ -79,32 +80,124 @@ describe('sse-studio lesson', () => {
     expect(step.highlight).toBeTruthy();
   });
 
-  it('step sse-env-vars action fills URL with env var placeholder then resets to test URL', async () => {
+  // ── sse-add-protocol ───────────────────────────────────────────────────────
+
+  it('step sse-add-protocol has highlight on the Add Protocol button', () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-add-protocol')!;
+    expect(step.highlight).toContain('em-add-protocol-btn');
+  });
+
+  it('step sse-add-protocol action adds SSE only (no HTTP) and deploys SSE Demo env', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-add-protocol')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-add-protocol-btn"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-sse"]');
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
+  });
+
+  it('step sse-add-protocol preAction navigates to SSE Studio when URL input is absent', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-add-protocol')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
+  });
+
+  it('step sse-add-protocol preAction skips navigation when already on SSE Studio', async () => {
+    document.body.innerHTML = '<input data-testid="sse-url-input" />';
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-add-protocol')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+  });
+
+  // ── sse-env-config ─────────────────────────────────────────────────────────
+
+  it('step sse-env-config has highlight on the SSE protocol tab', () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-config')!;
+    expect(step.highlight).toContain('em-protocol-tab-sse');
+  });
+
+  it('step sse-env-config action selects SSE tab and saves endpoint', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-config')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-sse"]');
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('em-endpoint-edit-btn'),
+    );
+    expect(ctx.click).toHaveBeenCalledWith(
+      expect.stringContaining('em-endpoint-save-btn'),
+    );
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('sse-studio');
+  });
+
+  it('step sse-env-config preAction navigates to environments, ensures SSE tab, selects SSE tab', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-config')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-sse"]');
+  });
+
+  // ── sse-header-select ──────────────────────────────────────────────────────
+
+  it('step sse-header-select highlights the header environment and service selectors', () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-header-select')!;
+    expect(step.highlight).toContain('header-selectors');
+  });
+
+  it('step sse-header-select action selects demo env and svc in header', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">SSE Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">sse-demo</option>
+      </select>`;
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-header-select')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+  });
+
+  it('step sse-header-select preAction navigates to SSE Studio', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-header-select')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
+  });
+
+  // ── sse-env-vars ───────────────────────────────────────────────────────────
+
+  it('step sse-env-vars action fills URL with env var placeholder', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
-    expect(fillCalls[0]).toEqual(['[data-testid="sse-url-input"]', '{{baseUrl}}/api/sse-test']);
-    expect(fillCalls[1]).toEqual(['[data-testid="sse-url-input"]', 'http://localhost:3001/api/sse-test']);
+    expect(ctx.fill).toHaveBeenCalledWith('[data-testid="sse-url-input"]', '{{sseUrl}}/api/sse-test');
+    expect(ctx.fill).toHaveBeenCalledTimes(1);
   });
 
   it('step sse-env-vars preAction navigates to SSE Studio when URL input is absent', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
     const ctx = makeCtx();
-    // No URL input in DOM → guard should navigate
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="ab-protocols"]');
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="nav-tab-sse-studio"]');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
   });
 
   it('step sse-env-vars preAction skips navigation when already on SSE Studio', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
     const ctx = makeCtx();
+    const studio = document.createElement('div');
+    studio.setAttribute('data-testid', 'sse-studio');
     const urlInput = document.createElement('input');
     urlInput.setAttribute('data-testid', 'sse-url-input');
-    document.body.appendChild(urlInput);
+    studio.appendChild(urlInput);
+    document.body.appendChild(studio);
     await step.preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="ab-protocols"]');
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
   it('step sse-env-vars highlights the URL input', () => {
@@ -112,11 +205,18 @@ describe('sse-studio lesson', () => {
     expect(step.highlight).toContain('sse-url-input');
   });
 
-  it('step sse-connect action fills URL and clicks connect with waitFor (Rule 5)', async () => {
+  it('step sse-connect preAction navigates to SSE Studio and selects header env/svc', async () => {
+    const step = sseStudioLesson.steps.find(s => s.id === 'sse-connect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
+  });
+
+  it('step sse-connect action fills env var URL and clicks connect with waitFor (Rule 5)', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'http://localhost:3001/api/sse-test');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{{sseUrl}}/api/sse-test');
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
     // Must use waitFor rather than a fixed delay (Rule 5)
     expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
@@ -135,11 +235,12 @@ describe('sse-studio lesson', () => {
     expect(connectBtnCalls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('step sse-events preAction ensures connection and navigates to events tab (Rule 4)', async () => {
+  it('step sse-events preAction ensures connection with env var URL (Rule 4)', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-events')!;
     const ctx = makeCtx();
     // No connected dot in DOM → ensureSseConnected should run
     await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith('[data-testid="sse-url-input"]', '{{sseUrl}}/api/sse-test');
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-connect-btn"]');
     expect(ctx.waitFor).toHaveBeenCalledWith('.sse-state-dot.sse-state-connected');
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="sse-right-tab-events"]');

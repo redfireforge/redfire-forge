@@ -18,6 +18,7 @@ interface OrchestrationParams {
   endpoint: string;
   auth: GraphqlAuth | null;
   activeEnvironment: GraphqlEnvironment | null | undefined;
+  globalEnvMap?: Record<string, string>;
   activeTabHeaders: Record<string, string>;
   selectedOperation: string | undefined;
   skipTlsVerify: boolean;
@@ -41,6 +42,7 @@ export function useSubscriptionOrchestration({
   endpoint,
   auth,
   activeEnvironment,
+  globalEnvMap,
   activeTabHeaders,
   selectedOperation,
   skipTlsVerify,
@@ -48,14 +50,14 @@ export function useSubscriptionOrchestration({
 }: OrchestrationParams): SubscriptionOrchestration {
   const handleSubscribe = useCallback(() => {
     if (!activeTab || !endpoint.trim() || !activeTab.query.trim()) return;
-    if (findUnresolvedVars(endpoint, activeEnvironment).length > 0) return;
-    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment);
+    if (findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap).length > 0) return;
+    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment, globalEnvMap);
     const authH = buildAuthHeaders(auth);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
-      resolvedHeaders[k] = resolveVars(v, activeEnvironment);
+      resolvedHeaders[k] = resolveVars(v, activeEnvironment, globalEnvMap);
     }
-    const resolvedVariables = resolveVars(activeTab.variables, activeEnvironment);
+    const resolvedVariables = resolveVars(activeTab.variables, activeEnvironment, globalEnvMap);
     let parsedVariables: Record<string, unknown> = {};
     try {
       const t = resolvedVariables.trim();
@@ -77,7 +79,7 @@ export function useSubscriptionOrchestration({
       skipTlsVerify,
       subscriptionTransport: activeTab.subscriptionTransport,
     });
-  }, [activeTab, endpoint, auth, activeEnvironment, activeTabHeaders, selectedOperation, skipTlsVerify, subscription]);
+  }, [activeTab, endpoint, auth, activeEnvironment, globalEnvMap, activeTabHeaders, selectedOperation, skipTlsVerify, subscription]);
 
   const handleStopSubscription = useCallback(() => {
     subscription.disconnect();

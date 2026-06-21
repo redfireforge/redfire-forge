@@ -12,9 +12,12 @@ interface LessonListProps {
   /** When navigating back from a lesson, pre-select this category so the
    *  user lands on the tab that contains the lesson they came from. */
   initialCategory?: string;
+  /** Called whenever the user clicks a category tab — used to persist the
+   *  active tab so a hard refresh restores the correct protocol tab. */
+  onCategoryChange?: (categoryId: string) => void;
 }
 
-export default function LessonList({ domain, progress, onSelect, onBack, onResetLesson, onResetAll, initialCategory }: LessonListProps) {
+export default function LessonList({ domain, progress, onSelect, onBack, onResetLesson, onResetAll, initialCategory, onCategoryChange }: LessonListProps) {
   const hasCategories = domain.categories && domain.categories.length > 0;
   const [activeCategory, setActiveCategory] = useState<string | null>(() => {
     if (!hasCategories) return null;
@@ -85,7 +88,10 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
               <button
                 key={cat.id}
                 className={`demo-category-tab ${isActive ? 'active' : ''} ${isEmpty ? 'empty' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  onCategoryChange?.(cat.id);
+                }}
                 disabled={isEmpty}
                 title={isEmpty ? `${cat.label} — coming soon` : undefined}
               >

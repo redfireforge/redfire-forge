@@ -69,7 +69,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')

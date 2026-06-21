@@ -12,6 +12,11 @@ import {
   gqlWorkflowIntegrationLessonSetup,
   ensureLesson11QueryNodeAdded,
   ensureLesson11QueryConfigured,
+  ensureLesson11AssertNodeAdded,
+  ensureLesson11AssertRuleConfigured,
+  ensureLesson11WorkflowPassRun,
+  ensureLesson11WorkflowCreated,
+  GQL_DEMO_HTTP,
 } from './graphql-lesson-helpers';
 
 describe('gql-workflow-integration lesson', () => {
@@ -115,6 +120,130 @@ describe('gql-workflow-integration lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_OUTPUT_VARNAME, LESSON11_LATENCY_VAR);
   });
 
+  it('gql11-config-query action fills endpoint and output binding', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom();
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-config-query')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_ENDPOINT, expect.stringContaining('4010'));
+  });
+
+  it('gql11-assert-node adds assert block from palette', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-palette-block-graphqlAssert"></button>
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-node')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_ASSERT);
+  });
+
+  it('gql11-run-pass runs quick test expecting pass', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-quick-test-btn"></button>
+      <div data-testid="wf-run-result-pass"></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('gql11-run-fail runs quick test with tightened threshold', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-quick-test-btn"></button>
+      <div data-testid="wf-run-result-fail"></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-fail')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('gql11-assert-source configures assert source variable', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-palette-block-graphqlAssert"></button>
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-assert-panel">
+          <button class="wf-config-tab">Source</button>
+          <input data-testid="gql-wf-assert-source-var" />
+        </div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-source')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_ASSERT_SOURCE, LESSON11_LATENCY_VAR);
+  });
+
+  it('gql11-assert-rule adds less_than assertion', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-assert-panel">
+          <button class="wf-config-tab">Assertions</button>
+          <button data-testid="gql-wf-assert-add-btn"></button>
+          <div data-testid="gql-wf-assert-row">
+            <input data-testid="gql-wf-assert-jsonpath" />
+            <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
+            <input data-testid="gql-wf-assert-expected" />
+          </div>
+        </div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '500');
+  });
+
+  it('ensureLesson11WorkflowCreated guard skips when canvas exists', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+      <div class="wf-canvas-area"></div>
+    `;
+    await ensureLesson11WorkflowCreated(ctx);
+    vi.mocked(ctx.fill).mockClear();
+    await ensureLesson11WorkflowCreated(ctx);
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
   it('setup deletes stale workflow when bridge available', async () => {
     const ctx = makeCtx();
     const deleteSpy = vi.fn();
@@ -122,6 +251,183 @@ describe('gql-workflow-integration lesson', () => {
     await gqlWorkflowIntegrationLessonSetup(ctx);
     expect(deleteSpy).toHaveBeenCalledWith(LESSON11_WF_NAME);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+  });
+
+  it('ensureLesson11QueryNodeAdded guard skips when query node exists', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom();
+    await ensureLesson11WorkflowCreated(ctx);
+    await ensureLesson11QueryNodeAdded(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson11QueryNodeAdded(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.PAL_GQL_QUERY);
+  });
+
+  it('openWfNodeConfig falls back to dblclick when bridge missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="react-flow__node-graphqlQuery" data-id="q1">
+        <div data-testid="gql-canvas-query-node"></div>
+      </div>
+    `;
+    const node = document.querySelector<HTMLElement>(GQL.WF_CANVAS_QUERY_NODE)!;
+    const dblSpy = vi.spyOn(node, 'dispatchEvent');
+    await ensureLesson11QueryConfigured(ctx);
+    expect(dblSpy).toHaveBeenCalled();
+  });
+
+  it('connectWfNodes returns false when nodes missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom().replace('data-id="q1"', '');
+    delete (window as unknown as Record<string, unknown>).__wfConnect;
+    await ensureLesson11QueryNodeAdded(ctx);
+    expect(document.querySelector(GQL.WF_CANVAS_QUERY_NODE)).toBeTruthy();
+  });
+
+  it('ensureLesson11QueryConfigured guard skips when already configured', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom();
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11QueryConfigured(ctx);
+    vi.mocked(ctx.fill).mockClear();
+    await ensureLesson11QueryConfigured(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(WF.WF_GQL_ENDPOINT, GQL_DEMO_HTTP);
+  });
+
+  it('ensureLesson11AssertRuleConfigured resets pass/fail flags for non-500 threshold', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-assert-panel">
+          <button class="wf-config-tab">Assertions</button>
+          <button data-testid="gql-wf-assert-add-btn"></button>
+          <div data-testid="gql-wf-assert-row">
+            <input data-testid="gql-wf-assert-jsonpath" />
+            <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
+            <input data-testid="gql-wf-assert-expected" />
+            <input data-testid="gql-wf-assert-description" />
+          </div>
+        </div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11AssertRuleConfigured(ctx, '1');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '1');
+  });
+
+  it('dismissWorkflowOnboarding clicks skip when tooltip visible', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+      <div class="wf-canvas-area"></div>
+      <button class="onboarding-tooltip-skip"></button>
+    `;
+    const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip')!;
+    const clickSpy = vi.spyOn(skipBtn, 'click');
+    await ensureLesson11WorkflowCreated(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('ensureLesson11WorkflowPassRun guard skips when query node already passed', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-palette-block-graphqlAssert"></button>
+      <div class="react-flow__node-graphqlAssert wf-node-pass" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+      <div class="react-flow__node-graphqlQuery" data-id="q1">
+        <div data-testid="gql-canvas-query-node" class="wf-node-pass"></div>
+      </div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-assert-panel">
+          <button class="wf-config-tab">Source</button>
+          <button class="wf-config-tab">Assertions</button>
+          <div data-testid="gql-wf-assert-row">
+            <input data-testid="gql-wf-assert-jsonpath" />
+            <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
+            <input data-testid="gql-wf-assert-expected" />
+            <input data-testid="gql-wf-assert-description" />
+          </div>
+        </div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      </div>
+      <button title="Fit view"></button>
+      <button class="wf-toolbar-save-wrap"><button></button></button>
+      <button data-testid="wf-quick-test-btn"></button>
+      <div data-testid="wf-exec-summary"></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11WorkflowPassRun(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson11WorkflowPassRun(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('ensureLesson11AssertNodeAdded guard skips when assert node already added', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11AssertNodeAdded(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson11AssertNodeAdded(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.PAL_GQL_ASSERT);
+  });
+
+  it('ensureLesson11AssertRuleConfigured guard skips when threshold unchanged', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <div class="react-flow__node-graphqlAssert" data-id="a1">
+        <div data-testid="gql-canvas-assert-node"></div>
+      </div>
+      <div class="wf-config-modal">
+        <div data-testid="gql-wf-assert-panel">
+          <button class="wf-config-tab">Source</button>
+          <button class="wf-config-tab">Assertions</button>
+          <div data-testid="gql-wf-assert-row">
+            <input data-testid="gql-wf-assert-jsonpath" />
+            <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
+            <input data-testid="gql-wf-assert-expected" />
+            <input data-testid="gql-wf-assert-description" />
+          </div>
+        </div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11AssertRuleConfigured(ctx, '500');
+    vi.mocked(ctx.fill).mockClear();
+    await ensureLesson11AssertRuleConfigured(ctx, '500');
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '500');
+  });
+
+  it('ensureLesson11QueryConfigured skips add output when row already exists', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom().replace(
+      '<button data-testid="gql-wf-output-add-btn"></button>',
+      '<select data-testid="gql-wf-output-field-select"><option value="latencyMs">latencyMs</option></select>',
+    );
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    await ensureLesson11QueryConfigured(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.WF_OUTPUT_ADD_BTN);
   });
 });
 

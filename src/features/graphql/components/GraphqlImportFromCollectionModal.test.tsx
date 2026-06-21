@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import GraphqlImportFromCollectionModal from './GraphqlImportFromCollectionModal';
 import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import * as collectionItemImport from '../utils/collectionItemImport';
 
 vi.mock('../hooks/useGraphqlCollections', () => ({
   useGraphqlCollections: vi.fn(),
@@ -347,6 +348,38 @@ describe('GraphqlImportFromCollectionModal', () => {
     await waitFor(() => {
       expect(screen.getByTestId('gql-wf-import-col-import')).toBeDisabled();
     });
+  });
+
+  it('shows subscription badge letter S for subscription operations', () => {
+    mockUseGraphqlCollections.mockReturnValue({
+      trees: [{
+        collection: {
+          id: 'col-1',
+          name: 'Realtime',
+          variables: {},
+          preRequestScript: '',
+          postResponseScript: '',
+          createdAt: 1,
+        },
+        folders: [],
+        items: [],
+      }],
+      loading: false,
+    } as ReturnType<typeof useGraphqlCollections>);
+    vi.spyOn(collectionItemImport, 'flattenCollectionImportEntries').mockReturnValue([
+      { item: makeItem('sub-1', 'Live Feed', 'subscription'), collectionName: 'Realtime' },
+    ]);
+
+    render(
+      <GraphqlImportFromCollectionModal
+        nodeType="graphqlQuery"
+        onImport={onImport}
+        onCancel={onCancel}
+      />,
+    );
+
+    expect(screen.getByText('S')).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 
 });

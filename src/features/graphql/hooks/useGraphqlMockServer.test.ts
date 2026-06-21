@@ -32,6 +32,7 @@ vi.stubGlobal('fetch', mockFetch);
 
 import { useGraphqlMockServer } from './useGraphqlMockServer';
 import type { MockResolver, MockScenario } from '../../../shared/types/graphql';
+import { isTauri } from '../../../shared/utils/platform';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -304,6 +305,32 @@ describe('useGraphqlMockServer', () => {
       await act(async () => { await Promise.resolve(); });
       expect(result.current.config.enabled).toBe(false);
       expect(result.current.syncError).toContain('Failed to contact mock server');
+    });
+
+    it('uses Unknown sync error when error response JSON has no message field', async () => {
+      const { result } = await renderMockHook('conn-1', 'type Query { hello: String }');
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Bad Gateway',
+        json: async () => ({}),
+      } as Response);
+      await act(async () => {
+        result.current.setEnabled(true);
+        await Promise.resolve();
+      });
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.syncError).toBe('Unknown sync error');
+    });
+  });
+
+  describe('connection load error handling', () => {
+    it('falls back to default config when storage read fails on mount', async () => {
+      const { readKey } = await import('../../../shared/utils/storage');
+      vi.mocked(readKey).mockRejectedValue(new Error('disk error'));
+      const { result } = renderHook(() => useGraphqlMockServer('conn-x', null));
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(result.current.config.connectionId).toBe('conn-x');
+      vi.mocked(readKey).mockResolvedValue(null);
     });
   });
 
@@ -778,6 +805,76 @@ describe('useGraphqlMockServer', () => {
         (call) => typeof call[0] === 'string' && (call[0] as string).includes('/api/graphql/mock/config'),
       );
       expect(configCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('connection switch and import cleanup', () => {
+    it('handles fetch failure when disabling mock on connection switch', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network down'));
+      const { rerender } = renderHook(
+        ({ id }: { id: string }) => useGraphqlMockServer(id, null),
+        { initialProps: { id: 'conn-a' } },
+      );
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      await act(async () => {
+        rerender({ id: 'conn-b' });
+        await Promise.resolve();
+      });
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it('uses statusText fallback when sync error response is not JSON', async () => {
+      const { result } = await renderMockHook();
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Bad Request',
+        json: async () => { throw new Error('not json'); },
+      } as Response);
+      await act(async () => {
+        result.current.setEnabled(true);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.syncError).toBeTruthy();
+      expect(result.current.config.enabled).toBe(false);
+    });
+
+    it('handles importConfig proxy disable fetch failure', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('proxy offline'));
+      const { result } = await renderMockHook();
+      await act(async () => {
+        result.current.importConfig({ enabled: false, resolvers: {}, scenarios: [] });
+        await Promise.resolve();
+      });
+      expect(result.current.config.enabled).toBe(false);
+    });
+
+    it('skips proxy disable fetch on connection switch when not in Tauri', async () => {
+      vi.mocked(isTauri).mockReturnValue(false);
+      const { rerender } = renderHook(
+        ({ id }: { id: string }) => useGraphqlMockServer(id, null),
+        { initialProps: { id: 'conn-a' } },
+      );
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      const callsBefore = mockFetch.mock.calls.length;
+      await act(async () => {
+        rerender({ id: 'conn-b' });
+        await Promise.resolve();
+      });
+      expect(mockFetch.mock.calls.length).toBe(callsBefore);
+      vi.mocked(isTauri).mockReturnValue(true);
+    });
+
+    it('skips proxy disable fetch during importConfig when not in Tauri', async () => {
+      vi.mocked(isTauri).mockReturnValue(false);
+      const { result } = await renderMockHook();
+      const callsBefore = mockFetch.mock.calls.length;
+      await act(async () => {
+        result.current.importConfig({ enabled: false, resolvers: {}, scenarios: [] });
+        await Promise.resolve();
+      });
+      expect(mockFetch.mock.calls.length).toBe(callsBefore);
+      vi.mocked(isTauri).mockReturnValue(true);
     });
   });
 });

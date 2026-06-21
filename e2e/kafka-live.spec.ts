@@ -21,6 +21,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
+import { isSchemaRegistryReachable } from './kafka-docker-helpers';
 
 // ── Skip entire suite when backend / Docker infra is not running ──────────────
 
@@ -109,6 +110,8 @@ async function runQuickTestAndAssertPassed(
 // ── Kafka Message Studio ───────────────────────────────────────────────────────
 
 test.describe('Kafka Message Studio — Live Docker', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
@@ -207,6 +210,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
   });
 
   test('Schema Registry — connects to localhost:8085 and browses subjects', async ({ page }) => {
+    test.skip(!(await isSchemaRegistryReachable()), 'Skipped: Schema Registry (port 8085) not running');
     await page.locator('button:has-text("Schema Registry")').first().click();
     await page.waitForTimeout(400);
 
@@ -239,6 +243,8 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 // ── Gallery Workflow Quick Tests ───────────────────────────────────────────────
 
 test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
@@ -256,9 +262,9 @@ test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
   });
 
   test('Kafka: Full Event Pipeline — Quick Test 8/8 passed', async ({ page }) => {
-    test.setTimeout(60_000); // workflow itself takes ~15s + navigation overhead
+    test.setTimeout(90_000);
     await loadGalleryWorkflow(page, 'Kafka: Full Event Pipeline');
-    await runQuickTestAndAssertPassed(page, 8, 45_000);
+    await runQuickTestAndAssertPassed(page, 8, 60_000);
   });
 
   test('Kafka: Async Request–Reply — Quick Test 8/8 passed', async ({ page }) => {

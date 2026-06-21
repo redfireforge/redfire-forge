@@ -70,14 +70,10 @@ import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import '../styles/demo-player.css';
 import '../styles/demo-hub.css';
-import { lazy } from 'react';
 import DemoHub from '../features/demo-player/DemoHub';
 import { useDemoHub } from '../features/demo-player/useDemoHub';
 import LiveDemo from '../features/demo-player/LiveDemo';
-
-const RustExecutorTestPanel = import.meta.env.DEV
-  ? lazy(() => import('../features/test-runner/components/RustExecutorTestPanel'))
-  : null;
+import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 export default function App() {
   const {
@@ -351,6 +347,7 @@ export default function App() {
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <AppHeader
         headerRef={headerRef}
+        activeTab={activeTab}
         environments={environments}
         microservices={microservices}
         selectedEnvId={selectedEnvId}
@@ -657,6 +654,8 @@ export default function App() {
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
                 globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>
@@ -668,6 +667,8 @@ export default function App() {
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
                 globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>
@@ -679,6 +680,8 @@ export default function App() {
                 resolvedBaseUrl={resolvedBaseUrl}
                 envName={selectedEnv?.name}
                 svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
                 globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>

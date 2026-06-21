@@ -26,6 +26,7 @@ interface GqlKeyboardShortcutsArgs {
   execStatus: string;
   endpoint: string;
   activeEnvironment: GraphqlEnvironment | null | undefined;
+  globalEnvMap?: Record<string, string>;
   profileModalOpen: boolean;
   envModalOpen: boolean;
 }
@@ -45,6 +46,7 @@ export function useGqlKeyboardShortcuts({
   execStatus,
   endpoint,
   activeEnvironment,
+  globalEnvMap,
   profileModalOpen,
   envModalOpen,
 }: GqlKeyboardShortcutsArgs): void {
@@ -77,6 +79,8 @@ export function useGqlKeyboardShortcuts({
   endpointRef.current           = endpoint;
   const activeEnvironmentRef    = useRef(activeEnvironment);
   activeEnvironmentRef.current  = activeEnvironment;
+  const globalEnvMapRef         = useRef(globalEnvMap);
+  globalEnvMapRef.current       = globalEnvMap;
   const profileModalOpenRef     = useRef(profileModalOpen);
   profileModalOpenRef.current   = profileModalOpen;
   const envModalOpenRef         = useRef(envModalOpen);
@@ -119,7 +123,7 @@ export function useGqlKeyboardShortcuts({
       if (isCmd && e.shiftKey && e.key === 'I') {
         e.preventDefault();
         if (introspectingRef.current) return;
-        if (findUnresolvedVars(endpointRef.current, activeEnvironmentRef.current).length > 0) return;
+        if (findUnresolvedVars(endpointRef.current, activeEnvironmentRef.current, globalEnvMapRef.current).length > 0) return;
         introspectRef.current();
         return;
       }

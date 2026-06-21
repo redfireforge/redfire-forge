@@ -6,6 +6,7 @@ import type { RefObject } from 'react';
 import AppHeader from './AppHeader';
 import type { Environment, Microservice } from '../../shared/types';
 import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { Tab } from '../utils/appTabUtils';
 import { persistSavedThemes, type SavedCustomTheme } from '../themeCustomizerUtils';
 
 // Mock the Kafka indicator child so the header renders in isolation.
@@ -33,6 +34,7 @@ const THEME_ICONS: Record<string, string> = { dark: '🌙', light: '☀️' };
 const kafkaConnection: KafkaConnectionSnapshot = { state: 'disconnected' };
 
 interface Overrides {
+  activeTab?: Tab;
   environments?: Environment[];
   microservices?: Microservice[];
   selectedEnvId?: string;
@@ -55,6 +57,7 @@ function setup(over: Overrides = {}) {
   const utils = render(
     <AppHeader
       headerRef={headerRef}
+      activeTab={over.activeTab ?? 'requests'}
       environments={over.environments ?? [{ id: 'e1', name: 'Dev' }]}
       microservices={over.microservices ?? [{ id: 's1', name: 'Orders', baseUrls: {} }]}
       selectedEnvId={over.selectedEnvId ?? ''}
@@ -132,6 +135,7 @@ describe('AppHeader', () => {
     rerender(
       <AppHeader
         headerRef={createRef<HTMLElement>() as RefObject<HTMLElement | null>}
+        activeTab={'requests' as Tab}
         environments={[]}
         microservices={[]}
         selectedEnvId=""
@@ -218,5 +222,60 @@ describe('AppHeader', () => {
     fireEvent.click(btn);
     expect(setThemePickerOpen).toHaveBeenCalledWith(false);
     expect(setShowCustomizer).toHaveBeenCalledWith(true);
+  });
+
+  it('shows protocol indicator on websocket studio with explicit endpoint (AC-EM-14)', () => {
+    setup({
+      activeTab: 'websocket-studio',
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+      microservices: [{
+        id: 's1',
+        name: 'Orders',
+        baseUrls: { e1: 'https://api.example.com' },
+        protocolEndpoints: { websocket: { e1: { baseUrl: 'wss://ws.example.com' } } },
+      }],
+    });
+    const badge = screen.getByTestId('header-protocol-indicator');
+    expect(badge.getAttribute('data-status')).toBe('explicit');
+    expect(badge.textContent).toContain('wss://ws.example.com');
+    expect(badge.textContent).toContain('✓');
+    expect(badge.getAttribute('title')).toContain('Resolved: wss://ws.example.com');
+  });
+
+  it('shows fallback indicator when websocket derives from HTTP (AC-EM-15)', () => {
+    setup({
+      activeTab: 'websocket-studio',
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+      microservices: [{ id: 's1', name: 'Orders', baseUrls: { e1: 'https://api.example.com' } }],
+    });
+    const badge = screen.getByTestId('header-protocol-indicator');
+    expect(badge.getAttribute('data-status')).toBe('fallback');
+    expect(badge.textContent).toContain('⚠');
+    expect(badge.getAttribute('title')).toContain('HTTP');
+  });
+
+  it('hides protocol indicator on settings tabs', () => {
+    setup({ activeTab: 'environments' });
+    expect(screen.queryByTestId('header-protocol-indicator')).toBeNull();
+  });
+
+  it.each([
+    'workflow',
+    'gallery',
+    'demo-hub',
+    'kafka-message-studio',
+  ] as const)('hides protocol indicator on %s tab', (activeTab) => {
+    setup({ activeTab });
+    expect(screen.queryByTestId('header-protocol-indicator')).toBeNull();
+  });
+
+  it('shows unresolved indicator when env/service not selected on protocol studio', () => {
+    setup({ activeTab: 'sse-studio', selectedEnvId: '', selectedSvcId: '' });
+    const badge = screen.getByTestId('header-protocol-indicator');
+    expect(badge.getAttribute('data-status')).toBe('unresolved');
+    expect(badge.textContent).toContain('✗');
+    expect(badge.getAttribute('title')).toContain('Select an environment');
   });
 });

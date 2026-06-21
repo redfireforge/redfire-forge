@@ -10,7 +10,10 @@ import SseAuthPanel from './SseAuthPanel';
 import { loadSseConfig, saveSseConfig } from './sseStorage';
 import { KeyValueEditor } from '../websocket/KeyValueEditor';
 import type { WsKeyValueEntry } from '../../shared/websocket/types';
-import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile, Microservice } from '../../shared/types';
+import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
+import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
+import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type { SseLeftTab, SseRightTab } from './sseTypes';
 import '../../styles/sse-studio.css';
 
@@ -18,17 +21,47 @@ interface SseStudioPageProps {
   resolvedBaseUrl?: string;
   envName?: string;
   svcName?: string;
+  selectedSvc?: Microservice;
+  selectedEnvId?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthProfiles = [] }: SseStudioPageProps) {
+function buildLegacySseEnvVarMap(
+  resolvedBaseUrl?: string,
+  envName?: string,
+  svcName?: string,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (resolvedBaseUrl) {
+    map.baseUrl = resolvedBaseUrl;
+    map.sseUrl = resolvedBaseUrl;
+  }
+  if (envName) map.envName = envName;
+  if (svcName) map.svcName = svcName;
+  return map;
+}
+
+export function SseStudioPage({
+  resolvedBaseUrl,
+  envName,
+  svcName,
+  selectedSvc,
+  selectedEnvId,
+  globalAuthProfiles = [],
+}: SseStudioPageProps) {
   const envVarMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    if (resolvedBaseUrl) map.baseUrl = resolvedBaseUrl;
-    if (envName) map.envName = envName;
-    if (svcName) map.svcName = svcName;
-    return map;
-  }, [resolvedBaseUrl, envName, svcName]);
+    if (selectedSvc && selectedEnvId) {
+      return buildEnvVarMap(selectedSvc, selectedEnvId, 'sse', envName);
+    }
+    return buildLegacySseEnvVarMap(resolvedBaseUrl, envName, svcName);
+  }, [selectedSvc, selectedEnvId, resolvedBaseUrl, envName, svcName]);
+
+  const endpointProtocolStatus = useMemo(() => {
+    if (selectedSvc && selectedEnvId) {
+      return getRowStatus(selectedSvc, 'sse', selectedEnvId);
+    }
+    return undefined;
+  }, [selectedSvc, selectedEnvId]);
 
   const sse = useSseConnection(envVarMap, globalAuthProfiles);
   const { config, setConfig, connection, events, stats, connect, disconnect } = sse;
@@ -153,12 +186,12 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
 
   // Connection URL + state dot + connect/disconnect, shown in the shell's top bar.
   const urlControls = (
-    <>
+    <div className="sse-url-controls">
       <span className={`sse-state-dot ${stateClass}`} title={stateLabel} />
       <input
         className="sse-url-input"
         type="text"
-        placeholder="https://api.example.com/events"
+        placeholder="https://api.example.com/events or {{sseUrl}}/events"
         value={config.url}
         onChange={(e) => setConfig({ url: e.target.value })}
         disabled={isBusy}
@@ -172,7 +205,7 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
       >
         {isBusy ? 'Disconnect' : 'Connect'}
       </button>
-    </>
+    </div>
   );
 
   const headersSection = (
@@ -249,7 +282,17 @@ export function SseStudioPage({ resolvedBaseUrl, envName, svcName, globalAuthPro
   return (
     <div className="sse-studio" data-testid="sse-studio">
       <SseStudioShell
-        topBar={<div className="sse-url-row">{urlControls}</div>}
+        topBar={
+          <div className="sse-url-row">
+            {urlControls}
+            <ProtocolEndpointPreview
+              draftUrl={config.url}
+              envVarMap={envVarMap}
+              protocolRowStatus={endpointProtocolStatus}
+              testId="sse-endpoint-preview"
+            />
+          </div>
+        }
         statusStrip={
           <div className="sse-state-label" data-testid="sse-state-label">
             <span className={stateClass}>{stateLabel}</span>

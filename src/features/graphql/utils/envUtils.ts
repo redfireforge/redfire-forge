@@ -15,7 +15,7 @@ import type { GraphqlEnvironment } from '../../../shared/types/graphql';
 /**
  * Builds a lookup map from an environment's enabled variables.
  */
-function buildVarMap(env: GraphqlEnvironment | null | undefined): Record<string, string> {
+function buildLocalVarMap(env: GraphqlEnvironment | null | undefined): Record<string, string> {
   if (!env) return {};
   const map: Record<string, string> = {};
   for (const v of env.variables) {
@@ -26,6 +26,14 @@ function buildVarMap(env: GraphqlEnvironment | null | undefined): Record<string,
   return map;
 }
 
+/** Merge global header-context vars with local GraphQL tab vars (local overrides global). */
+function mergeVarMaps(
+  globalMap: Record<string, string> | undefined,
+  env: GraphqlEnvironment | null | undefined,
+): Record<string, string> {
+  return { ...(globalMap ?? {}), ...buildLocalVarMap(env) };
+}
+
 /**
  * Replaces `{{key}}` placeholders in `str` with values from the active environment.
  * Keys are trimmed before lookup. Unresolved references remain unchanged.
@@ -34,9 +42,14 @@ function buildVarMap(env: GraphqlEnvironment | null | undefined): Record<string,
  *   resolveVars('https://{{host}}/graphql', env)
  *   // → 'https://api.staging.example.com/graphql'
  */
-export function resolveVars(str: string, env: GraphqlEnvironment | null | undefined): string {
-  if (!env || !str) return str;
-  const vars = buildVarMap(env);
+export function resolveVars(
+  str: string,
+  env: GraphqlEnvironment | null | undefined,
+  globalMap?: Record<string, string>,
+): string {
+  if (!str) return str;
+  const vars = mergeVarMaps(globalMap, env);
+  if (Object.keys(vars).length === 0) return str;
   return str.replace(/\{\{([^}]+)\}\}/g, (match, key: string) => vars[key.trim()] ?? match);
 }
 
@@ -49,9 +62,10 @@ export function resolveVars(str: string, env: GraphqlEnvironment | null | undefi
 export function findUnresolvedVars(
   str: string,
   env: GraphqlEnvironment | null | undefined,
+  globalMap?: Record<string, string>,
 ): string[] {
   if (!str) return [];
-  const vars = buildVarMap(env);
+  const vars = mergeVarMaps(globalMap, env);
   const unresolved = new Set<string>();
   str.replace(/\{\{([^}]+)\}\}/g, (_, key: string) => {
     const trimmed = key.trim();
@@ -68,6 +82,7 @@ export function findUnresolvedVars(
 export function hasUnresolvedVars(
   str: string,
   env: GraphqlEnvironment | null | undefined,
+  globalMap?: Record<string, string>,
 ): boolean {
-  return findUnresolvedVars(str, env).length > 0;
+  return findUnresolvedVars(str, env, globalMap).length > 0;
 }

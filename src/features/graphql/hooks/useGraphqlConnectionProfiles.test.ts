@@ -13,9 +13,20 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn(),
 }));
 
+vi.mock('../utils/connectionProfileStorage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/connectionProfileStorage')>();
+  return {
+    ...actual,
+    readConnectionProfiles: vi.fn(actual.readConnectionProfiles),
+  };
+});
+
 import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readConnectionProfiles, parseConnectionProfiles } from '../utils/connectionProfileStorage';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import type { ConnectionProfile } from './useGraphqlConnectionProfiles';
+
+const mockReadConnectionProfiles = vi.mocked(readConnectionProfiles);
 
 const mockReadKey = vi.mocked(readKey);
 const mockWriteKey = vi.mocked(writeKey);
@@ -39,6 +50,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockReadKey.mockResolvedValue(null);
   mockWriteKey.mockResolvedValue(undefined);
+  mockReadConnectionProfiles.mockImplementation(async () => {
+    const raw = await mockReadKey('gql_profiles_v1');
+    return parseConnectionProfiles(raw);
+  });
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -88,6 +103,13 @@ describe('useGraphqlConnectionProfiles — initialization', () => {
 
   it('handles storage error gracefully', async () => {
     mockReadKey.mockRejectedValue(new Error('quota'));
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await act(async () => {});
+    expect(result.current.profiles).toEqual([]);
+  });
+
+  it('handles readConnectionProfiles rejection on mount', async () => {
+    mockReadConnectionProfiles.mockRejectedValueOnce(new Error('storage unavailable'));
     const { result } = renderHook(() => useGraphqlConnectionProfiles());
     await act(async () => {});
     expect(result.current.profiles).toEqual([]);
@@ -146,6 +168,16 @@ describe('useGraphqlConnectionProfiles — saveProfile', () => {
     act(() => { result.current.saveProfile('API', 'https://x.com', null); });
 
     expect(mockWriteKey).toHaveBeenCalledWith('gql_profiles_v1', expect.any(String));
+  });
+
+  it('handles writeKey failure silently on save', async () => {
+    mockWriteKey.mockRejectedValue(new Error('quota exceeded'));
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await act(async () => {});
+
+    act(() => { result.current.saveProfile('API', 'https://x.com', null); });
+
+    expect(result.current.profiles).toHaveLength(1);
   });
 
   it('accumulates multiple saved profiles', async () => {

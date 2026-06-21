@@ -1,9 +1,10 @@
 /** Lesson GQL-1: Your First GraphQL Query — endpoint, introspect, execute, history */
 import type { DemoLesson } from '../../types';
-import { GQL } from '../../../../shared/selectors';
+import { EM, GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_DEMO_VAR,
   GQL_HEALTH_QUERY,
   ensureDemoEndpoint,
   ensureExecuted,
@@ -13,6 +14,10 @@ import {
   gqlFirstQueryCleanup,
   gqlFirstQuerySetup,
 } from './graphql-lesson-helpers';
+import {
+  configureProtocolEndpointInEnvManager,
+  navigateToGraphqlStudio,
+} from '../env-manager-lesson-helpers';
 
 export const gqlFirstQueryLesson: DemoLesson = {
   id: 'gql-first-query',
@@ -21,9 +26,9 @@ export const gqlFirstQueryLesson: DemoLesson = {
   name: 'Your First GraphQL Query',
   description:
     'Connect to a GraphQL endpoint, introspect the schema, write a query, execute it, and find the result in History.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: ['environments', 'graphql-studio'],
 
   dockerEndpoint: GQL_DEMO_HEALTH,
   dockerCommand: 'cd docker/graphql && docker compose up -d',
@@ -37,7 +42,7 @@ export const gqlFirstQueryLesson: DemoLesson = {
     body: `**GraphQL Studio** is RedfireForge's dedicated workspace for exploring GraphQL APIs. Unlike REST, you ask for exactly the fields you need in a single round-trip.
 
 **The typical flow:**
-1. **Endpoint** — point at your GraphQL HTTP URL (e.g. \`${GQL_DEMO_HTTP}\`)
+1. **Endpoint** — point at your GraphQL HTTP URL (e.g. \`${GQL_DEMO_HTTP}\`) or use \`{{graphqlUrl}}\` from the Environment Manager
 2. **Introspect** — download the server's schema so autocomplete and the Schema Explorer work
 3. **Write** — compose a query in the Monaco editor (or use the visual Builder)
 4. **Execute** — send the request and read the JSON response
@@ -102,17 +107,39 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
     },
 
     {
+      id: 'gql1-env-config',
+      title: 'Configure GraphQL Endpoint',
+      description:
+        `Open **Settings → Environments**, expand a microservice, and click the **GraphQL** tab. Set the GraphQL endpoint to \`http://localhost:4010\` with default path \`/graphql\`. The derived-variables panel shows \`{{graphqlUrl}}\` resolving to \`${GQL_DEMO_HTTP}\` for the selected environment.`,
+      highlight: EM.PROTOCOL_PANEL,
+      pauseAfter: true,
+      preAction: async (ctx) => {
+        if (!document.querySelector(GQL.ENDPOINT_INPUT)) {
+          await navigateToGraphqlStudio(ctx);
+        }
+      },
+      action: async (ctx) => {
+        await configureProtocolEndpointInEnvManager(ctx, 'graphql', 'http://localhost:4010', {
+          httpFallbackBase: 'http://localhost:4010',
+          graphqlPath: '/graphql',
+        });
+        await ctx.delay(1500);
+      },
+    },
+
+    {
       id: 'gql1-endpoint',
       title: 'Set the Endpoint',
       description:
-        `Paste the test server URL into the endpoint field: \`${GQL_DEMO_HTTP}\`. This is the HTTP entry point for queries — the same server Playwright E2E tests use on port **4010**.`,
+        `Use the global variable \`${GQL_DEMO_VAR}\` in the endpoint field — it resolves from the GraphQL tab you just configured. Watch the **→ Resolved:** preview show \`${GQL_DEMO_HTTP}\` with ✓ before clicking **Introspect**. You can also paste the literal URL directly.`,
       highlight: GQL.ENDPOINT_INPUT,
       preAction: async (ctx) => {
+        await navigateToGraphqlStudio(ctx);
         await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
       },
       action: async (ctx) => {
-        await ctx.fill(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
-        await ctx.delay(400);
+        await ctx.fill(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+        await ctx.delay(1500);
       },
       pauseAfter: true,
     },

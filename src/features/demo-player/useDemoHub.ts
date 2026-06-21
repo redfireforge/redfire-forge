@@ -604,6 +604,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     confirmLessonComplete,
     resetLesson,
     resetProgress,
+    setLastCategory: progress.setLastCategory,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
   };
 }
