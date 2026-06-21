@@ -7,14 +7,20 @@ import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
+  GQL_DEMO_VAR,
   GQL_USER_QUERY,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
   seedDemoUsers,
   getDemoUserAId,
   getDemoUserBId,
+  ensureParamUserQuery,
+  ensureDemoEndpoint,
+  ensureVariablesPanelOpen,
+  getGqlEditorQuery,
   gqlVariablesLessonSetup,
 } from './graphql-lesson-helpers';
+import { stubGqlStudioShell, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
 describe('gql-variables lesson', () => {
   beforeEach(() => {
@@ -101,6 +107,96 @@ describe('gql-variables lesson', () => {
   });
 
   // ─── Step actions ────────────────────────────────────────────
+
+  it('step gql2-endpoint preAction waits for endpoint input', async () => {
+    stubGqlStudioShell();
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+  });
+
+  it('step gql2-introspect skips introspect when badge present', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-introspect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+  });
+
+  it('step gql2-write-query preAction ensures introspected schema', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
+    }));
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-write-query')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+  });
+
+  it('step gql2-execute-alice preAction ensures parameterized query', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
+    }));
+    await seedDemoUsers();
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor(GQL_USER_QUERY);
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-execute-alice')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(getGqlEditorQuery()).toContain('$id');
+  });
+
+  it('step gql2-compare preAction ensures Bob execution completed', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ json: async () => ({ data: { createUser: { id: 'usr-1' } } }) })
+      .mockResolvedValueOnce({ json: async () => ({ data: { createUser: { id: 'usr-2' } } }) }));
+    await seedDemoUsers();
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-response-viewer"><div data-testid="gql-response-body">Bob</div></div>
+    `);
+    stubMonacoEditor(GQL_USER_QUERY);
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-compare')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('ensureVariablesPanelOpen skips click when tab already selected', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-bottom-tab-variables" aria-selected="true"></button>
+      <div data-testid="gql-variables-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await ensureVariablesPanelOpen(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
+  it('ensureDemoEndpoint uses GQL_DEMO_VAR template when filling endpoint', async () => {
+    stubGqlStudioShell();
+    const ctx = makeCtx();
+    await ensureDemoEndpoint(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+  });
+
+  it('ensureParamUserQuery guard skips when query already written', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
+    }));
+    await seedDemoUsers();
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor(GQL_USER_QUERY);
+    const ctx = makeCtx();
+    await ensureParamUserQuery(ctx);
+    const { setQuery } = stubMonacoEditor(GQL_USER_QUERY);
+    vi.mocked(setQuery).mockClear();
+    await ensureParamUserQuery(ctx);
+    expect(setQuery).not.toHaveBeenCalled();
+  });
 
   it('step gql2-endpoint fills the demo HTTP endpoint', async () => {
     const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-endpoint')!;
@@ -241,6 +337,50 @@ describe('gql-variables lesson', () => {
     await gqlVariablesLessonSetup(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
     expect(querySetValue).toHaveBeenCalledWith('query { }');
+  });
+
+  it('step gql2-write-query preAction skips editor click when already active', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    document.querySelector(GQL.MODE_EDITOR)!.classList.add('gql-mode-btn--active');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
+    }));
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-write-query')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const editorClicks = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: string[]) => c[0] === GQL.MODE_EDITOR);
+    expect(editorClicks.length).toBe(0);
+  });
+
+  it('step gql2-write-query preAction clicks editor when not active', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    document.querySelector(GQL.MODE_EDITOR)!.classList.remove('gql-mode-btn--active');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
+    }));
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-write-query')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_EDITOR);
+  });
+
+  it('step gql2-introspect action clicks introspect when badge absent', async () => {
+    stubGqlStudioShell();
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-introspect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+  });
+
+  it('step gql2-introspect action skips introspect when badge present', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    const step = gqlVariablesLesson.steps.find((s) => s.id === 'gql2-introspect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 });
 

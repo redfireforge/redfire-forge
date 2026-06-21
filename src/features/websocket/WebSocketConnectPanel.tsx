@@ -17,6 +17,8 @@ import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes'
 import { isValidWsUrl, byteLength, hasUnresolvedVars, resolveEnvVars } from './wsMessageUtils';
 import { useDropdownClose } from './useDropdownClose';
 import { KeyValueEditor } from './KeyValueEditor';
+import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
+import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
 
 const MAX_REASON_BYTES = 123;
 
@@ -50,6 +52,7 @@ interface WebSocketConnectPanelProps {
   sioServerParams?: SioServerParams | null;
   transportMode?: 'direct' | 'proxy' | 'native';
   envVarMap?: Record<string, string>;
+  endpointProtocolStatus?: EndpointRowStatus;
   history?: WsConnectionHistoryEntry[];
   onHistorySelect?: (url: string, protocol: string) => void;
   onClearHistory?: () => void;
@@ -122,6 +125,7 @@ export function WebSocketConnectPanel({
   sioServerParams = null,
   transportMode = 'direct',
   envVarMap,
+  endpointProtocolStatus,
   history,
   onHistorySelect,
   onClearHistory,
@@ -155,7 +159,6 @@ export function WebSocketConnectPanel({
   const urlError = draft.url.trim().length > 0 && !urlIsValid;
   const canSaveAsProfile = draft.url.trim().length > 0 && rawUrlValid;
   const countdownSec = useReconnectCountdown(isReconnecting ? reconnectState?.nextRetryAt : null);
-  const showEnvPreview = resolvedUrl && resolvedUrl !== draft.url.trim();
   const hasEnvVars = Object.keys(envVarMap ?? {}).length > 0;
   const urlHasUnresolved = resolvedUrl ? hasUnresolvedVars(resolvedUrl) : false;
   const evm = envVarMap ?? {};
@@ -324,11 +327,13 @@ export function WebSocketConnectPanel({
             </div>
           )}
         </div>
-        {showEnvPreview && (
-          <div className="ws-connect-env-preview" data-testid="env-preview">
-            → Resolved: {resolvedUrl}
-          </div>
-        )}
+        <ProtocolEndpointPreview
+          draftUrl={draft.url}
+          envVarMap={envVarMap}
+          protocolRowStatus={endpointProtocolStatus}
+          testId="env-preview"
+          className="ws-connect-env-preview"
+        />
         {anyUnresolved && hasEnvVars && (
           <div className="ws-connect-env-warning" data-testid="env-unresolved-warning">
             ⚠ Unresolved variables — check variable names match your environment

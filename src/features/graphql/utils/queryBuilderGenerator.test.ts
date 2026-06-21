@@ -665,3 +665,119 @@ describe('searchFields — edge cases', () => {
     expect(results.some((r) => r.fieldName === 'self')).toBe(true);
   });
 });
+
+// ─── Fragment spreads, directive literals, and remaining branches ───────────────
+
+describe('generateQuery — fragments and directive literals', () => {
+  it('includes active fragment spreads and emits fragment definitions', () => {
+    const state = {
+      operationType: 'query' as const,
+      operationName: 'WithFrags',
+      selectedFields: {},
+      argValues: {},
+      fieldAliases: {},
+      fieldDirectives: {},
+      activeFragmentSpreads: ['UserFields'],
+      fragments: {
+        UserFields: { name: 'UserFields', onType: 'User', fieldPaths: ['id', 'name'] },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('...UserFields');
+    expect(sdl).toContain('fragment UserFields on User');
+    expect(sdl).toContain('id');
+    expect(sdl).toContain('name');
+  });
+
+  it('skips fragment spread when fragment definition is missing', () => {
+    const state = {
+      operationType: 'query' as const,
+      operationName: 'Q',
+      selectedFields: {},
+      argValues: {},
+      activeFragmentSpreads: ['MissingFrag'],
+      fragments: {},
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).not.toContain('...MissingFrag');
+  });
+
+  it('uses bare true/false literals in @include/@skip directives', () => {
+    const state = {
+      operationType: 'query' as const,
+      operationName: 'Q',
+      selectedFields: { 'user.id': true },
+      argValues: {},
+      fieldAliases: {},
+      fieldDirectives: {
+        user: {
+          include: { enabled: true, ifVar: 'false' },
+          skip: { enabled: true, ifVar: 'true' },
+        },
+      },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain('@include(if: false)');
+    expect(sdl).toContain('@skip(if: true)');
+  });
+
+  it('formats Boolean arg as true when value is true or 1', () => {
+    const boolTypes: GraphqlTypeNode[] = [
+      {
+        name: 'Query',
+        kind: 'OBJECT',
+        fields: [
+          { name: 'search', type: 'String', args: [{ name: 'active', type: 'Boolean', description: undefined }] },
+        ],
+      },
+    ];
+    const schemaInfo = { sdl: '', types: boolTypes, queryType: 'Query', fetchedAt: 0 };
+    const stateTrue = {
+      operationType: 'query' as const,
+      operationName: 'Q',
+      selectedFields: { search: true },
+      argValues: { search: { active: 'true' } },
+    };
+    const stateOne = {
+      ...stateTrue,
+      argValues: { search: { active: '1' } },
+    };
+    expect(generateQuery(stateTrue, schemaInfo).sdl).toContain('search(active: true)');
+    expect(generateQuery(stateOne, schemaInfo).sdl).toContain('search(active: true)');
+  });
+
+  it('escapes quotes and backslashes in string literal args', () => {
+    const state = {
+      operationType: 'query' as const,
+      operationName: 'Q',
+      selectedFields: { 'user.id': true },
+      argValues: { user: { id: 'say "hi"' } },
+    };
+    const { sdl } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl).toContain(String.raw`say \"hi\"`);
+  });
+
+  it('reuses existing Boolean variable when directive var was already declared', () => {
+    const state = {
+      operationType: 'query' as const,
+      operationName: 'Q',
+      selectedFields: { 'user.id': true, 'users.id': true },
+      argValues: {},
+      fieldAliases: {},
+      fieldDirectives: {
+        user: { include: { enabled: true, ifVar: '{{showUser}}' } },
+        users: { skip: { enabled: true, ifVar: '{{showUser}}' } },
+      },
+    };
+    const { sdl, variableDeclarations } = generateQuery(state, SCHEMA_INFO);
+    expect(sdl.match(/\$showUser: Boolean!/g)?.length).toBe(1);
+    expect(variableDeclarations.filter((v) => v.name === 'showUser')).toHaveLength(1);
+  });
+});
+
+describe('isLeafType — custom SCALAR', () => {
+  it('recognises custom SCALAR types as leaf', () => {
+    const types = [...TYPES, { name: 'DateTime', kind: 'SCALAR' as const }];
+    expect(isLeafType('DateTime!', types)).toBe(true);
+  });
+});

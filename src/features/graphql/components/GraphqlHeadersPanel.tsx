@@ -9,6 +9,8 @@ interface GraphqlHeadersPanelProps {
   disabled?: boolean;
   /** Phase 1E: active environment for {{var}} resolution warnings */
   activeEnvironment?: GraphqlEnvironment | null;
+  /** Phase 4: global env map from header env/service selection ({{graphqlUrl}}, etc.) */
+  globalEnvMap?: Record<string, string>;
 }
 
 export function GraphqlHeadersPanel({
@@ -16,6 +18,7 @@ export function GraphqlHeadersPanel({
   onChange,
   disabled = false,
   activeEnvironment,
+  globalEnvMap,
 }: GraphqlHeadersPanelProps) {
   const addHeader = useCallback(() => {
     onChange([...headers, { id: makeHeaderId(), key: '', value: '', enabled: true }]);
@@ -67,7 +70,7 @@ export function GraphqlHeadersPanel({
             // Phase 1E: check for unresolved {{var}} refs in the header value
             const unresolvedVars =
               header.enabled && header.value
-                ? findUnresolvedVars(header.value, activeEnvironment)
+                ? findUnresolvedVars(header.value, activeEnvironment, globalEnvMap)
                 : [];
             const hasWarning = unresolvedVars.length > 0;
             const warningTooltip = hasWarning

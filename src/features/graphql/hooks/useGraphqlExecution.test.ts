@@ -1866,3 +1866,152 @@ describe('useGraphqlExecution — multipart final chunk with errors and null dat
     await waitFor(() => expect(result.current.status).toBe('success'));
   });
 });
+
+// ─── HTTP 4xx synthetic error + cancel while waiting on dedup ─────────────────
+
+describe('useGraphqlExecution — HTTP error body normalization', () => {
+  it('adds synthetic GraphQL error for 4xx HTTP with empty errors array', async () => {
+    vi.mocked(gqlFetch).mockResolvedValueOnce({
+      status: 502,
+      statusText: 'Bad Gateway',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ data: null, errors: [] }),
+      error: undefined,
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      await result.current.execute(baseParams());
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.response?.errors?.[0]?.message).toContain('HTTP 502');
+  });
+
+  it('uses body slice when synthesizing 4xx error from non-GraphQL JSON payload', async () => {
+    vi.mocked(gqlFetch).mockResolvedValueOnce({
+      status: 404,
+      statusText: 'Not Found',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ error: 'missing route' }),
+      error: undefined,
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      await result.current.execute(baseParams());
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.response?.errors?.[0]?.message).toContain('HTTP 404');
+    expect(result.current.response?.errors?.[0]?.message).toContain('missing route');
+  });
+
+  it('marks non-JSON 4xx responses as errors via parseHttpBody catch path', async () => {
+    vi.mocked(gqlFetch).mockResolvedValueOnce({
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: { 'content-type': 'text/html' },
+      body: '<html>error</html>',
+      error: undefined,
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      await result.current.execute(baseParams());
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.response?.errors?.[0]?.message).toContain('non-JSON');
+  });
+});
+
+describe('useGraphqlExecution — cancel during dedup wait subscription', () => {
+  it('restores prior idle state when cancel() is called after choosing wait', async () => {
+    let resolveShared!: (v: GraphqlResponse) => void;
+    const sharedPromise = new Promise<GraphqlResponse>((r) => { resolveShared = r; });
+
+    vi.mocked(getInFlight)
+      .mockReturnValueOnce({ promise: sharedPromise, abort: vi.fn() });
+    vi.mocked(handleDedupGuard).mockImplementation((_key, _promise, _setDup, _setPending) => {
+      _setDup(true);
+      _setPending({ promise: sharedPromise, abort: vi.fn() });
+      return true;
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+
+    act(() => { result.current.resolveDedupChoice('wait'); });
+
+    await waitFor(() => expect(result.current.status).toBe('loading'));
+
+    act(() => { result.current.cancel(); });
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.isDuplicate).toBe(false);
+
+    await act(async () => {
+      resolveShared(makeSuccessResponse());
+    });
+  });
+
+  it('restores prior state when shared dedup promise rejects during wait', async () => {
+    let rejectShared!: (reason?: unknown) => void;
+    const sharedPromise = new Promise<GraphqlResponse>((_, reject) => { rejectShared = reject; });
+
+    vi.mocked(getInFlight)
+      .mockReturnValueOnce({ promise: sharedPromise, abort: vi.fn() });
+    vi.mocked(handleDedupGuard).mockImplementation((_key, _promise, _setDup, _setPending) => {
+      _setDup(true);
+      _setPending({ promise: sharedPromise, abort: vi.fn() });
+      return true;
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+
+    act(() => { result.current.resolveDedupChoice('wait'); });
+
+    await waitFor(() => expect(result.current.status).toBe('loading'));
+
+    await act(async () => {
+      rejectShared(new Error('shared failed'));
+      await new Promise<void>((r) => setTimeout(r, 10));
+    });
+
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('cancel() after unmount during pending dedup is a no-op for state updates', async () => {
+    vi.mocked(getInFlight).mockReturnValueOnce({
+      promise: new Promise<GraphqlResponse>(() => {}),
+      abort: vi.fn(),
+    });
+    vi.mocked(handleDedupGuard).mockImplementation((_key, _promise, setDup, setPending) => {
+      setDup(true);
+      setPending({ promise: new Promise<GraphqlResponse>(() => {}), abort: vi.fn() });
+      return true;
+    });
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+    expect(result.current.isDuplicate).toBe(true);
+
+    const cancelFn = result.current.cancel;
+    unmount();
+    expect(() => act(() => { cancelFn(); })).not.toThrow();
+  });
+});

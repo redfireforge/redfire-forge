@@ -11,27 +11,34 @@ import {
   resetGqlLesson10SessionFlags,
   resetGqlLessonSessionFlags,
   gqlPerformanceTracingLessonSetup,
+  ensureTracingHealthQuery,
+  ensureTracingUserQuery,
+  getGqlEditorQuery,
+  ensureTracingExecuted,
+  ensureTracingViewOpen,
+  ensureTracingResolverHovered,
+  ensureTracingSortedByDuration,
+  ensureLatencyHistogramVisible,
+  gqlPerformanceTracingLessonCleanup,
 } from './graphql-lesson-helpers';
+import { stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
-function stubMonacoEditor(query = 'query { health }'): void {
-  const w = window as unknown as {
-    monaco?: {
-      editor: {
-        getModels: () => Array<{ getValue: () => string; setValue: (v: string) => void; uri: { toString: () => string } }>;
-        getEditors: () => Array<{ getModel: () => null; setValue: (v: string) => void }>;
-      };
-    };
-  };
-  w.monaco = {
-    editor: {
-      getModels: () => [{
-        getValue: () => query,
-        setValue: (v: string) => { query = v; },
-        uri: { toString: () => 'inmemory://graphql/1' },
-      }],
-      getEditors: () => [{ getModel: () => null, setValue: (v: string) => { query = v; } }],
-    },
-  };
+function stubTracingDom(extra = ''): string {
+  return `
+    <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+    <span data-testid="gql-schema-badge-ok"></span>
+    <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    <button data-testid="gql-execute-btn"></button>
+    <span data-testid="gql-complexity-badge">~1</span>
+    <div data-testid="gql-response-viewer"></div>
+    <button data-testid="gql-rv-tracing-badge"></button>
+    <div data-testid="gql-trace-view">
+      <button data-testid="gql-trace-sort-duration">Slowest first</button>
+      <div data-testid="gql-trace-resolver-row"><div class="gql-trace-bar"></div></div>
+    </div>
+    ${extra}
+  `;
 }
 
 describe('gql-performance-tracing lesson', () => {
@@ -182,6 +189,116 @@ describe('gql-performance-tracing lesson', () => {
     expect(document.querySelector(GQL.HISTOGRAM_STRIP)).toBeTruthy();
   });
 
+  it('gql10-expand re-runs user query when complexity does not increase', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom('<span data-testid="gql-complexity-badge">~5</span>');
+    stubMonacoEditor('query { health }');
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+  });
+
+  it('gql10-expand skips re-run when complexity already increased', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
+    badge.textContent = '~10';
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
+    badge.textContent = '~10';
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql10-waterfall opens tracing view', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-waterfall')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TRACING_BADGE);
+  });
+
+  it('gql10-hover dispatches mouseover on resolver bar', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    const bar = document.querySelector<HTMLElement>(`${GQL.TRACE_RESOLVER_ROW} .gql-trace-bar`)!;
+    const spy = vi.spyOn(bar, 'dispatchEvent');
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-hover')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('ensureTracingHealthQuery guard skips when health query loaded', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    await ensureTracingHealthQuery(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureTracingHealthQuery(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('ensureTracingExecuted guard skips when tracing badge visible', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingExecuted(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureTracingExecuted(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('ensureTracingViewOpen guard skips when trace view visible', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingViewOpen(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureTracingViewOpen(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RV_TRACING_BADGE);
+  });
+
+  it('ensureTracingSortedByDuration guard skips when sort active', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom(
+      '<button data-testid="gql-trace-sort-duration" class="gql-trace-sort-btn--active"></button>',
+    );
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingSortedByDuration(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureTracingSortedByDuration(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.TRACE_SORT_DURATION);
+  });
+
+  it('getComplexityBadgeScore returns 0 when badge missing', () => {
+    document.body.innerHTML = '';
+    expect(getComplexityBadgeScore()).toBe(0);
+  });
+
+  it('gql10-expand does not re-run user query when complexity increases', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
+    let score = 1;
+    Object.defineProperty(badge, 'textContent', {
+      get: () => `~${score}`,
+    });
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    await step.preAction!(ctx);
+    score = 10;
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
   it('setup clears endpoint', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
@@ -196,5 +313,221 @@ describe('gql-performance-tracing lesson', () => {
     }));
     await gqlPerformanceTracingLessonSetup(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+  });
+
+  it('ensureTracingViewOpen uses tracing tab when badge missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom().replace(
+      '<button data-testid="gql-rv-tracing-badge"></button>',
+      '<button data-testid="gql-rv-tab-tracing"></button>',
+    );
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingViewOpen(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_TRACING);
+  });
+
+  it('ensureTracingHealthQuery guard skips when health query loaded', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    const { setQuery } = stubMonacoEditor('query { health }');
+    await ensureTracingHealthQuery(ctx);
+    vi.mocked(setQuery).mockClear();
+    await ensureTracingHealthQuery(ctx);
+    expect(setQuery).not.toHaveBeenCalled();
+  });
+
+  it('ensureTracingUserQuery uses demo user id from session', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    const { resetGqlLesson2SessionFlags, seedDemoUsers } = await import('./graphql-lesson-helpers');
+    resetGqlLesson2SessionFlags();
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ json: async () => ({ data: { createUser: { id: 'usr-tracing' } } }) })
+      .mockResolvedValueOnce({ json: async () => ({ data: { createUser: { id: 'usr-b' } } }) }));
+    await seedDemoUsers();
+    stubMonacoEditor('query { health }');
+    await ensureTracingUserQuery(ctx);
+    expect(getGqlEditorQuery()).toContain('usr-tracing');
+  });
+
+  it('ensureTracingResolverHovered guard skips on second call', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    const row = document.querySelector(GQL.TRACE_RESOLVER_ROW)!;
+    const bar = row.querySelector('.gql-trace-bar')!;
+    const mouseSpy = vi.spyOn(bar, 'dispatchEvent');
+    await ensureTracingResolverHovered(ctx);
+    mouseSpy.mockClear();
+    await ensureTracingResolverHovered(ctx);
+    expect(mouseSpy).not.toHaveBeenCalled();
+  });
+
+  it('ensureLatencyHistogramVisible guard skips when histogram present', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom(
+      '<div data-testid="gql-histogram-strip"></div>',
+    );
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureLatencyHistogramVisible(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLatencyHistogramVisible(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('getComplexityBadgeScore returns 0 when text has no digits', () => {
+    document.body.innerHTML = '<span data-testid="gql-complexity-badge">n/a</span>';
+    expect(getComplexityBadgeScore()).toBe(0);
+  });
+
+  it('gql10-expand re-runs user query when complexity does not increase', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
+    Object.defineProperty(badge, 'textContent', { get: () => '~5' });
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+  });
+
+  it('gql10-expand re-runs user query when complexity score unchanged', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
+    Object.defineProperty(badge, 'textContent', { get: () => '~5' });
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    const userSpy = vi.spyOn(
+      await import('./graphql-lesson-helpers'),
+      'ensureTracingUserQuery',
+    );
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(userSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+    userSpy.mockRestore();
+  });
+
+  it('gqlPerformanceTracingLessonCleanup resets flags', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `<button data-testid="gql-mode-editor"></button>`;
+    await gqlPerformanceTracingLessonCleanup(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('ensureTracingResolverHovered completes when resolver bar missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom().replace(
+      '<div data-testid="gql-trace-resolver-row"><div class="gql-trace-bar"></div></div>',
+      '<div data-testid="gql-trace-resolver-row"></div>',
+    );
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingResolverHovered(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('gql10-expand does not re-run when before score is zero', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom().replace(
+      '<span data-testid="gql-complexity-badge">~5</span>',
+      '<span data-testid="gql-complexity-badge">n/a</span>',
+    );
+    stubMonacoEditor('query { health }');
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql10-complexity action calls ensureTracingHealthQuery', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.COMPLEXITY_BADGE, 5000);
+  });
+
+  it('ensureTracingSortedByDuration guard skips when already sorted', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingSortedByDuration(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureTracingSortedByDuration(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.TRACE_SORT_DURATION);
+  });
+
+  it('ensureTracingHealthQuery guard skips when health query unchanged', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    await ensureTracingHealthQuery(ctx);
+    const { setQuery } = stubMonacoEditor('query { health }');
+    vi.mocked(setQuery).mockClear();
+    await ensureTracingHealthQuery(ctx);
+    expect(setQuery).not.toHaveBeenCalled();
+  });
+
+  it('ensureTracingViewOpen clicks tracing tab when badge missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom().replace(
+      '<button data-testid="gql-rv-tracing-badge"></button>',
+      '<button data-testid="gql-rv-tab-tracing"></button>',
+    );
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureTracingViewOpen(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_TRACING);
+  });
+
+  it('getComplexityBadgeScore returns 0 when badge element missing', () => {
+    document.body.innerHTML = '';
+    expect(getComplexityBadgeScore()).toBe(0);
+  });
+
+  it('gqlPerformanceTracingLessonSetup closes history and collections panels', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+      <input data-testid="gql-endpoint-input" value="http://old" />
+      <div data-testid="gql-history-panel"></div>
+      <div data-testid="gql-collections-panel"></div>
+      <div data-testid="gql-editor"></div>
+    `;
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    await gqlPerformanceTracingLessonSetup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_COLLECTIONS);
+  });
+
+  it('ensureLatencyHistogramVisible executes until histogram appears', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    await ensureLatencyHistogramVisible(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql10-expand skips re-run when complexity increases', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor('query { health }');
+    const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
+    let score = 1;
+    Object.defineProperty(badge, 'textContent', { get: () => `~${score}` });
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    const userSpy = vi.spyOn(
+      await import('./graphql-lesson-helpers'),
+      'ensureTracingUserQuery',
+    ).mockImplementation(async () => {
+      score = 10;
+    });
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(userSpy).toHaveBeenCalledTimes(1);
+    userSpy.mockRestore();
   });
 });

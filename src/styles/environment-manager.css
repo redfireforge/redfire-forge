@@ -4,6 +4,14 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  --em-http-color: var(--primary);
+  --em-ws-color: #8b5cf6;
+  --em-sse-color: #06b6d4;
+  --em-gql-color: #f43f5e;
+  --em-grpc-color: #f59e0b;
+  --em-success: #22c55e;
+  --em-warning: #f59e0b;
+  --em-danger: #ef4444;
 }
 .env-manager-header {
   flex-shrink: 0;
@@ -96,14 +104,17 @@
 /* ── Microservice env table ── */
 .svc-env-table-wrap {
   border-top: 1px solid var(--border);
+  overflow: visible;
 }
 .svc-env-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  /* Fixed layout so column widths are respected consistently across all protocol tabs */
+  table-layout: fixed;
 }
 .svc-env-table thead th {
-  text-align: center;
+  text-align: left;
   padding: 6px 10px;
   font-size: 0.72rem;
   font-weight: 600;
@@ -112,13 +123,20 @@
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  overflow: hidden;
 }
-.svc-env-th-check { width: 32px; }
+/* Column widths — pinned so every protocol tab renders identical column positions */
+.svc-env-th-check {
+  width: 36px;
+  text-align: center !important;
+}
 .svc-env-td-check { text-align: center; }
 .svc-env-td-check input[type="checkbox"] { cursor: pointer; }
-.svc-env-th-env { width: 80px; }
-.svc-env-th-url { width: 50%; }
-.svc-env-th-auth { min-width: 280px; }
+.svc-env-th-env  { width: 120px; }
+.svc-env-th-url  { /* auto — takes all remaining space */ }
+.svc-env-th-auth { width: 240px; }
+.svc-env-th-path { width: 130px; }
+.svc-env-th-tls  { width: 80px; }
 .svc-env-table tbody tr {
   border-bottom: 1px solid var(--border);
 }
@@ -128,12 +146,13 @@
   padding: 6px 10px;
   vertical-align: middle;
   border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 .svc-env-table td:last-child { border-right: none; }
 .svc-env-table thead th:not(:last-child) {
   border-right: 1px solid var(--border);
 }
-.svc-env-td-env { white-space: nowrap; text-align: center; font-weight: 500; }
+.svc-env-td-env { white-space: nowrap; text-align: left; font-weight: 500; padding-left: 10px !important; }
 .svc-env-check-label {
   display: inline-flex;
   align-items: center;
@@ -276,4 +295,434 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--text-muted);
+}
+
+/* ── Phase 2: Protocol tabs & endpoint panels ── */
+.em-svc-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.em-svc-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.em-svc-badge--ok {
+  background: color-mix(in srgb, var(--em-success) 12%, var(--surface));
+  color: var(--em-success);
+  border-color: color-mix(in srgb, var(--em-success) 25%, var(--border));
+}
+.em-svc-badge--warn {
+  background: color-mix(in srgb, var(--em-warning) 12%, var(--surface));
+  color: var(--em-warning);
+  border-color: color-mix(in srgb, var(--em-warning) 25%, var(--border));
+}
+.em-svc-badge--err {
+  background: color-mix(in srgb, var(--em-danger) 12%, var(--surface));
+  color: var(--em-danger);
+  border-color: color-mix(in srgb, var(--em-danger) 25%, var(--border));
+}
+/* Protocol-specific badge accent colors (override tone when explicitly set) */
+.em-svc-badge--http.em-svc-badge--ok { color: var(--em-http-color); border-color: color-mix(in srgb, var(--em-http-color) 30%, var(--border)); background: color-mix(in srgb, var(--em-http-color) 10%, var(--surface)); }
+.em-svc-badge--ws.em-svc-badge--ok  { color: var(--em-ws-color);   border-color: color-mix(in srgb, var(--em-ws-color) 30%, var(--border));   background: color-mix(in srgb, var(--em-ws-color) 10%, var(--surface)); }
+.em-svc-badge--sse.em-svc-badge--ok { color: var(--em-sse-color);  border-color: color-mix(in srgb, var(--em-sse-color) 30%, var(--border));  background: color-mix(in srgb, var(--em-sse-color) 10%, var(--surface)); }
+.em-svc-badge--graphql.em-svc-badge--ok { color: var(--em-gql-color); border-color: color-mix(in srgb, var(--em-gql-color) 30%, var(--border)); background: color-mix(in srgb, var(--em-gql-color) 10%, var(--surface)); }
+.em-svc-badge--grpc.em-svc-badge--ok { color: var(--em-grpc-color); border-color: color-mix(in srgb, var(--em-grpc-color) 30%, var(--border)); background: color-mix(in srgb, var(--em-grpc-color) 10%, var(--surface)); }
+
+.em-protocol-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Outer row: tabs (scrollable) + Add Protocol button (pinned, never clipped) */
+.em-proto-tabs-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  padding-right: 12px;
+  overflow: visible;
+}
+.em-proto-tabs-row--empty {
+  align-items: center;
+  min-height: 48px;
+  border-bottom: none;
+}
+.em-proto-empty-hint {
+  flex: 1;
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.em-proto-tabs {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  /* No border-bottom here — it's on the parent .em-proto-tabs-row */
+  padding: 0 4px 0 12px;
+}
+
+/* Tab wrapper — holds the tab button + remove × side by side */
+.em-proto-tab-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.em-proto-tab-wrap .em-proto-tab-remove {
+  display: none;
+}
+.em-proto-tab-wrap:hover .em-proto-tab-remove,
+.em-proto-tab-wrap--active .em-proto-tab-remove {
+  display: flex;
+}
+
+/* Remove button on tab */
+.em-proto-tab-remove {
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: -4px;
+  margin-right: 4px;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.em-proto-tab-remove:hover {
+  background: color-mix(in srgb, var(--em-danger) 18%, var(--surface));
+  color: var(--em-danger);
+}
+
+.em-proto-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  background: none;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.em-proto-tab:hover { color: var(--text); }
+.em-proto-tab--active.em-proto-tab--http { color: var(--em-http-color); border-bottom-color: var(--em-http-color); }
+.em-proto-tab--active.em-proto-tab--ws { color: var(--em-ws-color); border-bottom-color: var(--em-ws-color); }
+.em-proto-tab--active.em-proto-tab--sse { color: var(--em-sse-color); border-bottom-color: var(--em-sse-color); }
+.em-proto-tab--active.em-proto-tab--graphql { color: var(--em-gql-color); border-bottom-color: var(--em-gql-color); }
+.em-proto-tab--active.em-proto-tab--grpc { color: var(--em-grpc-color); border-bottom-color: var(--em-grpc-color); }
+
+/* ── Add Protocol button + dropdown menu ── */
+.em-add-protocol-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  margin-left: 4px;
+}
+.em-add-protocol-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.em-add-protocol-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.em-add-protocol-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  z-index: 50;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+.em-add-protocol-menu-title {
+  padding: 8px 12px 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.em-add-protocol-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.em-add-protocol-item:hover {
+  background: var(--surface-hover);
+}
+.em-add-protocol-label {
+  flex: 1;
+  font-weight: 600;
+}
+.em-add-protocol-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.em-proto-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.em-proto-tab-dot--http { background: var(--em-http-color); }
+.em-proto-tab-dot--ws { background: var(--em-ws-color); }
+.em-proto-tab-dot--sse { background: var(--em-sse-color); }
+.em-proto-tab-dot--graphql { background: var(--em-gql-color); }
+.em-proto-tab-dot--grpc { background: var(--em-grpc-color); }
+.em-proto-tab-dot--none { background: var(--border); }
+
+.em-proto-tab-count {
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text-muted) 10%, var(--surface));
+  color: var(--text-muted);
+}
+.em-proto-tab-count--ok { background: color-mix(in srgb, var(--em-success) 15%, var(--surface)); color: var(--em-success); }
+.em-proto-tab-count--warn { background: color-mix(in srgb, var(--em-warning) 15%, var(--surface)); color: var(--em-warning); }
+.em-proto-tab-count--err { background: color-mix(in srgb, var(--em-danger) 15%, var(--surface)); color: var(--em-danger); }
+
+.em-endpoint-panel {
+  padding: 12px 14px 14px;
+}
+.em-tab-meta {
+  margin-bottom: 8px;
+}
+.em-tab-completeness {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.em-tab-completeness--ok { color: var(--em-success); }
+.em-tab-completeness--warn { color: var(--em-warning); }
+.em-tab-completeness--err { color: var(--em-danger); }
+
+.em-fallback-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.em-fallback-notice--warn {
+  background: color-mix(in srgb, var(--em-warning) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--em-warning) 25%, var(--border));
+  color: var(--em-warning);
+}
+.em-fallback-notice--danger {
+  background: color-mix(in srgb, var(--em-danger) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--em-danger) 25%, var(--border));
+  color: var(--em-danger);
+}
+.em-fallback-notice code {
+  font-size: 0.68rem;
+  color: inherit;
+}
+
+.em-endpoint-table thead th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-align: left;
+}
+.em-col-hint {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.75;
+  margin-top: 2px;
+}
+.em-env-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.em-empty-deployed {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 16px 10px !important;
+}
+
+.em-url-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.em-url-text {
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+.em-url-status {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.em-url-status--ok {
+  background: color-mix(in srgb, var(--em-success) 12%, var(--surface));
+  color: var(--em-success);
+}
+.em-url-status--fallback {
+  background: color-mix(in srgb, var(--em-warning) 12%, var(--surface));
+  color: var(--em-warning);
+}
+.em-url-status--unresolved {
+  background: color-mix(in srgb, var(--em-danger) 12%, var(--surface));
+  color: var(--em-danger);
+}
+.em-url-status--empty {
+  background: color-mix(in srgb, var(--text-muted) 8%, var(--surface));
+  color: var(--text-muted);
+}
+
+.em-validation-hint {
+  font-size: 0.65rem;
+  color: var(--em-danger);
+  white-space: nowrap;
+}
+
+.em-path-input {
+  width: 100%;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+}
+.em-path-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.em-tls-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.em-tls-toggle input { cursor: pointer; }
+
+.svc-env-th-path { min-width: 120px; }
+.svc-env-th-tls { width: 72px; }
+.svc-env-td-path,
+.svc-env-td-tls { vertical-align: middle; }
+
+.em-derived-vars {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.em-derived-vars-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.em-derived-var-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.em-derived-var-row:last-child { margin-bottom: 0; }
+.em-derived-var-name {
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--em-ws-color) 80%, var(--text));
+  min-width: 100px;
+}
+.em-derived-var-val {
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+  color: var(--em-success);
+  flex: 1;
+  word-break: break-all;
+}
+.em-derived-var-from {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-style: italic;
 }

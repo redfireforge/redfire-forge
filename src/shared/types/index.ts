@@ -21,12 +21,23 @@ export interface Environment {
   name: string;
 }
 
+export type ProtocolKey = 'http' | 'websocket' | 'sse' | 'graphql' | 'grpc';
+
+export interface ProtocolEndpoint {
+  baseUrl: string;               // protocol-specific base URL / address
+  path?: string;                 // optional default path (e.g. /graphql, /subscriptions)
+  tls?: boolean;                 // override TLS for this protocol
+}
+
 export interface Microservice {
   id: string;
   name: string;
   baseUrls: Record<string, string>;        // environmentId -> base URL
   authProfileIds?: Record<string, string>; // environmentId -> GlobalAuthProfile id
   customEnvs?: Environment[];              // additional (service-specific) environments
+  protocolEndpoints?: Partial<Record<ProtocolKey, Record<string, ProtocolEndpoint>>>;
+  /** Protocols explicitly added by the user. Omitted = derive from baseUrls / protocolEndpoints for backward compat. */
+  enabledProtocols?: ProtocolKey[];
 }
 
 export interface KeyValue {

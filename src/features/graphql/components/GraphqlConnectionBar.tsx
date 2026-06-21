@@ -14,7 +14,7 @@
  *   connection-bar/GqlSubscriptionControls — transport selector + status + subscribe/stop
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import type React from 'react';
 import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
@@ -24,6 +24,8 @@ import { findUnresolvedVars } from '../utils/envUtils';
 import { GraphqlAuthPopover } from './GraphqlAuthPopover';
 import { GqlPollingPopoverContent } from './connection-bar/GqlPollingPopoverContent';
 import { GqlSubscriptionControls } from './connection-bar/GqlSubscriptionControls';
+import type { EndpointRowStatus } from '../../environments/utils/protocolEndpointUtils';
+import { ProtocolEndpointPreview } from '../../../shared/components/ProtocolEndpointPreview';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,8 @@ interface GraphqlConnectionBarProps {
   pollingIntervalSeconds?: number;
   onPollingChange?: (enabled: boolean, intervalSeconds: number) => void;
   activeEnvironment?: GraphqlEnvironment | null;
+  globalEnvMap?: Record<string, string>;
+  endpointProtocolStatus?: EndpointRowStatus;
   pollErrorMessage?: string | null;
   activeOperationType?: 'query' | 'mutation' | 'subscription' | null;
   subscriptionState?: SubscriptionState;
@@ -121,6 +125,8 @@ export function GraphqlConnectionBar({
   pollingIntervalSeconds = 30,
   onPollingChange,
   activeEnvironment,
+  globalEnvMap,
+  endpointProtocolStatus,
   pollErrorMessage,
   activeOperationType,
   subscriptionState = 'idle',
@@ -151,7 +157,7 @@ export function GraphqlConnectionBar({
     subscriptionTransport === 'sse' || autoDetectsSSE;
 
   // BUG-GQL-R7-6: detect unresolved {{var}} in endpoint URL
-  const unresolvedEndpointVars = findUnresolvedVars(endpoint, activeEnvironment);
+  const unresolvedEndpointVars = findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap);
   const endpointHasUnresolved = unresolvedEndpointVars.length > 0;
   const endpointUnresolvedTooltip = endpointHasUnresolved
     ? unresolvedEndpointVars.map((k) => `'{{${k}}}' not found in active environment`).join('\n')
@@ -182,6 +188,14 @@ export function GraphqlConnectionBar({
 
   const showRecent = endpointFocused && recentEndpoints.length > 0;
 
+  const previewEnvMap = useMemo(() => {
+    const local: Record<string, string> = {};
+    for (const v of activeEnvironment?.variables ?? []) {
+      if (v.enabled && v.key.trim()) local[v.key.trim()] = v.value;
+    }
+    return { ...(globalEnvMap ?? {}), ...local };
+  }, [globalEnvMap, activeEnvironment]);
+
   // ── Shared polling popover props ─────────────────────────────────────────
   const pollingPopoverSharedProps = {
     pollingEnabled,
@@ -197,6 +211,7 @@ export function GraphqlConnectionBar({
   };
 
   return (
+    <>
     <div className="gql-connection-bar" data-testid="gql-connection-bar">
       {/* GQL method badge */}
       <span className="gql-method-badge" aria-hidden="true">GQL</span>
@@ -704,5 +719,13 @@ export function GraphqlConnectionBar({
         </button>
       )}
     </div>
+    <ProtocolEndpointPreview
+      draftUrl={endpoint}
+      envVarMap={previewEnvMap}
+      protocolRowStatus={endpointProtocolStatus}
+      testId="gql-endpoint-preview"
+      className="gql-endpoint-preview-row"
+    />
+    </>
   );
 }

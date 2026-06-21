@@ -1,7 +1,17 @@
 /** Lesson: WebSocket Basics — connect, send, receive */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { wsCleanup } from '../setup-helpers';
-import { WS } from '../../../../shared/selectors';
+import { EM, WS } from '../../../../shared/selectors';
+import {
+  ensureDemoEnvironment,
+  ensureDemoMicroservice,
+  configureProtocolEndpointInEnvManager,
+  navigateToWebSocketStudio,
+} from '../env-manager-lesson-helpers';
+
+const DEMO_ENV_NAME = 'WebSocket Demo';
+const DEMO_SVC_NAME = 'ws-demo';
+const DEMO_WS_BASE = 'ws://localhost:9876';
 
 /**
  * Tracks whether the built-in mock echo server has been started in the current
@@ -59,8 +69,9 @@ export const wsBasicsLesson: DemoLesson = {
   category: 'websocket',
   name: 'WebSocket Basics',
   description: 'Connect to a WebSocket server, send messages, and see live responses.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  allowedTabs: ['websocket-studio', 'environments'],
 
   setup: async (ctx) => {
     _mockRunning = false;
@@ -279,6 +290,33 @@ export const wsBasicsLesson: DemoLesson = {
       },
       action: async (ctx) => {
         await ctx.click(WS.DISCONNECT_BTN);
+      },
+    },
+
+    // ── 10. Environment Manager — save endpoint ──────────────────
+    {
+      id: 'ws-env-intro',
+      title: 'Save Your Endpoint to the Environment Manager',
+      description:
+        'You\'ve been typing `ws://localhost:9876` by hand. The **Environment Manager** lets you save that address once — then reference it everywhere with `{{wsBaseUrl}}`. Open **Settings → Environments**, create a **"WebSocket Demo"** environment and a **"ws-demo"** microservice, then set the WebSocket endpoint. From now on, any URL field that uses `{{wsBaseUrl}}/ws` will resolve automatically.',
+      highlight: EM.PROTOCOL_PANEL,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        // Guard: if not already on EM or WS studio, navigate to WS studio first.
+        if (!document.querySelector(EM.MANAGER)) {
+          if (!document.querySelector('[data-testid="ws-studio"]')) {
+            await navigateToWebSocketStudio(ctx);
+          }
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
+        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
+        await configureProtocolEndpointInEnvManager(ctx, 'websocket', DEMO_WS_BASE, {
+          httpFallbackBase: 'http://localhost:9876',
+          svcName: DEMO_SVC_NAME,
+        });
+        await ctx.delay(1500);
       },
     },
   ],

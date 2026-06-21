@@ -23,7 +23,7 @@ describe('ws-workspace lesson', () => {
     expect(wsWorkspaceLesson.id).toBe('ws-workspace');
     expect(wsWorkspaceLesson.domainId).toBe('protocols');
     expect(wsWorkspaceLesson.name).toBe('Profiles, Templates & Env Vars');
-    expect(wsWorkspaceLesson.steps.length).toBe(7);
+    expect(wsWorkspaceLesson.steps.length).toBe(9);
     expect(wsWorkspaceLesson.concept.title).toBeTruthy();
     expect(wsWorkspaceLesson.concept.body).toBeTruthy();
     expect(wsWorkspaceLesson.initialTab).toBe('websocket-studio');
@@ -31,13 +31,18 @@ describe('ws-workspace lesson', () => {
 
   it('has correct metadata', () => {
     expect(wsWorkspaceLesson.category).toBe('websocket');
-    expect(wsWorkspaceLesson.estimatedMinutes).toBe(3);
+    expect(wsWorkspaceLesson.estimatedMinutes).toBe(4);
     expect(wsWorkspaceLesson.tag).toBeUndefined();
     expect(wsWorkspaceLesson.dockerEndpoint).toBeUndefined();
   });
 
-  it('does not have allowedTabs (no external navigation needed)', () => {
-    expect(wsWorkspaceLesson.allowedTabs).toBeUndefined();
+  it('declares allowedTabs for environments and websocket-studio', () => {
+    expect(wsWorkspaceLesson.allowedTabs).toContain('environments');
+    expect(wsWorkspaceLesson.allowedTabs).toContain('websocket-studio');
+  });
+
+  it('does not have allowedTabs undefined', () => {
+    expect(wsWorkspaceLesson.allowedTabs).toBeDefined();
   });
 
   it('has setup and cleanup functions', () => {
@@ -77,6 +82,8 @@ describe('ws-workspace lesson', () => {
       'ws-template-intro',
       'ws-template-save',
       'ws-template-load',
+      'ws-env-config',
+      'ws-env-resolve',
       'ws-env-warn',
     ]);
   });
@@ -258,6 +265,34 @@ describe('ws-workspace lesson', () => {
     );
   });
 
+  it('step ws-env-config preAction navigates to ws studio when env manager and URL input are both absent', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-config')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('websocket-studio');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+  });
+
+  it('step ws-env-config preAction skips navigation when env manager is already visible', async () => {
+    document.body.innerHTML = '<div class="env-manager"></div>';
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-config')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    const wsNavCalls = (ctx.click as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: string[]) => c[0])
+      .filter((sel: string) => sel.includes('nav-tab-websocket-studio'));
+    expect(wsNavCalls.length).toBe(0);
+  });
+
+  it('step ws-env-resolve preAction returns to connect tab in websocket studio', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-resolve')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('websocket-studio');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
+  });
+
   it('step ws-template-load preAction closes modal when it was left open from step 5', async () => {
     document.body.innerHTML = `
       <div data-testid="template-dropdown"></div>
@@ -293,8 +328,27 @@ describe('ws-workspace lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ws-template-item-load'));
   });
 
+  // ─── Step: ws-env-config ───────────────────────────────────────
+
+  it('step ws-env-config action configures websocket endpoint in env manager', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-config')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-protocol-tab-websocket'));
+  });
+
+  it('step ws-env-resolve action fills {{wsBaseUrl}}/ws template', async () => {
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-resolve')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(
+      expect.stringContaining('WebSocket URL'),
+      '{{wsBaseUrl}}/ws',
+    );
+  });
+
   // ─── Step: ws-env-warn ───────────────────────────────────────
-  // (ws-env-intro was removed — {{wsBaseUrl}} not yet supported by Environment Manager)
 
   it('step ws-env-warn preAction is a no-op when URL input already visible', async () => {
     // Coming from ws-template-load: URL input present → preAction skips all navigation.
@@ -305,7 +359,7 @@ describe('ws-workspace lesson', () => {
     await step.preAction!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
   it('step ws-env-warn preAction navigates to WS Studio when URL input missing', async () => {
@@ -313,8 +367,7 @@ describe('ws-workspace lesson', () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-warn')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('nav-tab-websocket-studio'));
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('websocket-studio');
     // When navigating from scratch, also switches to Client mode and Connect tab
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));

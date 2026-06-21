@@ -10,14 +10,24 @@
  * No Docker required — uses the built-in mock server.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { APP, WS } from '../../../../shared/selectors';
+import { EM, WS } from '../../../../shared/selectors';
 import { wsSetup, wsCleanup } from '../setup-helpers';
+import {
+  configureProtocolEndpointInEnvManager,
+  ensureDemoEnvironment,
+  ensureDemoMicroservice,
+  navigateToWebSocketStudio,
+} from '../env-manager-lesson-helpers';
 
 // ── Constants ──────────────────────────────────────────────────
 const DEMO_URL = 'ws://localhost:9876';
+const DEMO_WS_BASE = 'ws://localhost:9876';
+const DEMO_ENV_NAME = 'WebSocket Demo';
+const DEMO_SVC_NAME = 'ws-demo';
 const DEMO_PROFILE_NAME = 'Demo Echo Server';
 const DEMO_TEMPLATE_NAME = 'greeting';
 const DEMO_TEMPLATE_BODY = '{"action":"greet","name":"RedfireForge"}';
+const RESOLVED_WS_URL = '{{wsBaseUrl}}/ws';
 const UNRESOLVED_URL = '{{unknownHost}}/ws';
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -108,8 +118,9 @@ export const wsWorkspaceLesson: DemoLesson = {
   category: 'websocket',
   name: 'Profiles, Templates & Env Vars',
   description: 'Save connection profiles, reuse message templates, and use environment variables in URLs.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'websocket-studio',
+  allowedTabs: ['environments', 'websocket-studio'],
 
   setup: workspaceSetup,
   cleanup: workspaceCleanup,
@@ -128,7 +139,7 @@ In the **Send** panel, the **Templates** button opens a modal where you can save
 
 **Environment Variables**
 
-Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from the **Base URL** you configured per microservice × environment in the Environment Manager. The app derives \`wsBaseUrl\` by converting \`http://\` → \`ws://\` (or \`https://\` → \`wss://\`). A resolved-URL preview appears below the input. If a variable can't be resolved, a warning badge appears immediately — you'll know before you click Connect.
+Type \`{{wsBaseUrl}}/ws\` in the URL field and RedfireForge resolves it from the **WebSocket** tab you configured per microservice × environment in the Environment Manager. Each protocol has its own endpoint table — WebSocket addresses are explicit \`ws://\` or \`wss://\` URLs, not derived from HTTP unless you leave them blank (fallback). A **→ Resolved:** preview appears below the input with ✓ (explicit), ⚠ (HTTP fallback), or ✗ (unresolved). If a variable can't be resolved, a warning badge appears immediately — you'll know before you click Connect.
 
 | Feature | Access | What it saves |
 |---|---|---|
@@ -504,7 +515,59 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from the **
       },
     },
 
-    // ── 7. Variable Placeholders & Warning ─────────────────────
+    // ── 7. Environment Manager — WebSocket tab ─────────────────
+    {
+      id: 'ws-env-config',
+      title: 'Configure WebSocket Endpoint',
+      description:
+        'Open **Settings → Environments** and create a dedicated **"WebSocket Demo"** environment and **"ws-demo"** microservice. Expand the `ws-demo` card, click the **WebSocket** protocol tab, then click **Edit** on the `WebSocket Demo` row and type `ws://localhost:9876`. After **Save**, the **Derived variables** panel shows `{{wsBaseUrl}}` resolved — the same value any environment-var URL template will use.',
+      highlight: EM.PROTOCOL_PANEL,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        // Ensure we are not stuck on a disconnected WS state before navigating to EM.
+        if (!document.querySelector(EM.MANAGER)) {
+          if (document.querySelector(WS.URL_INPUT)) {
+            // already in WS Studio — nothing to do; action will navigate to EM
+          } else {
+            await navigateToWebSocketStudio(ctx);
+            await ctx.click(WS.MODE_CLIENT);
+            await ctx.delay(200);
+          }
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
+        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
+        await configureProtocolEndpointInEnvManager(ctx, 'websocket', DEMO_WS_BASE, {
+          httpFallbackBase: 'http://localhost:9876',
+          svcName: DEMO_SVC_NAME,
+        });
+        await ctx.delay(1500);
+      },
+    },
+
+    // ── 8. Resolved {{wsBaseUrl}} preview ────────────────────────
+    {
+      id: 'ws-env-resolve',
+      title: 'Resolved WebSocket URL',
+      description:
+        'Back in WebSocket Studio, type `{{wsBaseUrl}}/ws` in the URL field. Watch the **→ Resolved:** preview update to `ws://localhost:9876/ws` with a green ✓ — the endpoint you just saved in the Environment Manager. Switching env or service in the header re-resolves instantly without editing the URL template.',
+      highlight: WS.URL_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await navigateToWebSocketStudio(ctx);
+        await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(300);
+        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ctx.fill(WS.URL_INPUT, RESOLVED_WS_URL);
+        await ctx.delay(1500);
+      },
+    },
+
+    // ── 9. Variable Placeholders & Warning ─────────────────────
     {
       id: 'ws-env-warn',
       title: 'Variable Placeholders in URLs',
@@ -517,10 +580,8 @@ Type \`{{wsBaseUrl}}\` in the URL field and RedfireForge resolves it from the **
         // Do NOT click MODE_CLIENT or LEFT_TAB_CONNECT when already on Connect tab —
         // those clicks trigger React re-renders that interfere with the fill in the action.
         if (!document.querySelector(WS.URL_INPUT)) {
-          await ctx.click(APP.AB_PROTOCOLS);
-          await ctx.delay(300);
-          await ctx.click(APP.NAV_TAB_WS);
-          await ctx.delay(400);
+          ctx.navigateToTab('websocket-studio');
+          await ctx.delay(500);
           await ctx.click(WS.MODE_CLIENT);
           await ctx.delay(200);
           await ctx.click(WS.LEFT_TAB_CONNECT);

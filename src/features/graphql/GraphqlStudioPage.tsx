@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { isTauri } from '../../shared/utils/platform';
 import { getProxyBase } from './utils/graphqlProxyTransports';
-import type { GlobalAuthProfile } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '../../shared/types';
 import type { GraphqlHistoryItem, RfResponseContext } from '../../shared/types/graphql';
 import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
 import { GraphqlEditor } from './components/GraphqlEditor';
@@ -60,13 +60,18 @@ import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettin
 import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
 import { useGqlKeyboardShortcuts } from './hooks/useGqlKeyboardShortcuts';
 import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
+import { useGraphqlStudioEnvMap } from './hooks/useGraphqlStudioEnvMap';
+import { useGraphqlHistoryMaxItems } from './hooks/useGraphqlHistoryMaxItems';
 import { useMonacoExecutionMarkers } from './hooks/useMonacoExecutionMarkers';
-import { buildAuthHeaders } from './utils/authUtils';
 import { findUnresolvedVars, resolveVars } from './utils/envUtils';
 import type { FileEntry } from './utils/multipartBuilder';
 import { buildMultipartFormData } from './utils/multipartBuilder';
-import { buildClientSchema, validate, parse as gqlParseDoc } from 'graphql';
-import type { IntrospectionQuery } from 'graphql';
+import { computeInvalidCollectionItemIds } from './utils/graphqlCollectionValidation';
+import { resolveSaveToCollectionDefaultName } from './utils/graphqlStudioUiUtils';
+import {
+  buildActiveTabHeaderMap,
+  buildGraphqlSchemaHeaders,
+} from './utils/graphqlStudioEnvUtils';
 import { computeQueryComplexity } from './utils/complexityEstimator';
 import { buildAssertionResultMap } from './utils/subscriptionAssertions';
 import { useGraphqlMockServer } from './hooks/useGraphqlMockServer';
@@ -94,6 +99,8 @@ interface GraphqlStudioPageProps {
   resolvedBaseUrl?: string;
   envName?: string;
   svcName?: string;
+  selectedSvc?: Microservice;
+  selectedEnvId?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
@@ -106,6 +113,10 @@ const GQL_PROXY_BASE = getProxyBase();
 
 export function GraphqlStudioPage({
   resolvedBaseUrl,
+  envName,
+  svcName,
+  selectedSvc,
+  selectedEnvId,
 }: GraphqlStudioPageProps) {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [bottomTab, setBottomTab]   = useState<BottomPanelTabExtended>('variables');
@@ -118,17 +129,7 @@ export function GraphqlStudioPage({
   const [activityTab, setActivityTab] = useState(() => loadPersistedActivityTab());
   const [runnerCollectionId, setRunnerCollectionId] = useState<string | null>(null);
   const [saveToColItem, setSaveToColItem] = useState<GraphqlHistoryItem | null>(null);
-  const [historyMaxItems, setHistoryMaxItems] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem('gql_history_max_items');
-      if (raw) { const n = parseInt(raw, 10); if (!Number.isNaN(n)) return Math.max(10, Math.min(500, n)); }
-    } catch { /* silent */ }
-    return 100;
-  });
-  const handleHistoryMaxItemsChange = useCallback((n: number) => {
-    setHistoryMaxItems(n);
-    try { localStorage.setItem('gql_history_max_items', String(n)); } catch { /* silent */ }
-  }, []);
+  const { historyMaxItems, handleHistoryMaxItemsChange } = useGraphqlHistoryMaxItems();
 
   // ── Connection settings (endpoint, TLS, polling, auth, profiles, env) ─────
   const {
@@ -143,6 +144,14 @@ export function GraphqlStudioPage({
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
     envModalOpen, setEnvModalOpen,
   } = useGraphqlConnectionSettings(resolvedBaseUrl);
+
+  const { globalEnvMap, endpointProtocolStatus } = useGraphqlStudioEnvMap({
+    selectedSvc,
+    selectedEnvId,
+    resolvedBaseUrl,
+    envName,
+    svcName,
+  });
 
   const history     = useGraphqlHistory(historyConnectionId, historyMaxItems);
   const collections = useGraphqlCollections();
@@ -218,28 +227,20 @@ export function GraphqlStudioPage({
   } = useGqlStudioEditorActions({ activeQuery: activeTab?.query ?? '', onQueryChange: handleQueryChange });
 
   const activeTabForHeaders = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
-  const activeTabHeaders = useMemo<Record<string, string>>(() => {
-    if (!activeTabForHeaders) return {};
-    const map: Record<string, string> = {};
-    for (const h of activeTabForHeaders.headers) {
-      if (h.enabled && h.key.trim()) map[h.key.trim()] = h.value;
-    }
-    return map;
-  }, [activeTabForHeaders]);
+  const activeTabHeaders = useMemo(
+    () => buildActiveTabHeaderMap(activeTabForHeaders?.headers),
+    [activeTabForHeaders],
+  );
 
-  const schemaHeaders = useMemo<Record<string, string>>(() => {
-    const authH = buildAuthHeaders(auth);
-    const resolved: Record<string, string> = {};
-    for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
-      resolved[k] = resolveVars(v, activeEnvironment);
-    }
-    return resolved;
-  }, [auth, activeTabHeaders, activeEnvironment]);
+  const schemaHeaders = useMemo(
+    () => buildGraphqlSchemaHeaders(auth, activeTabHeaders, activeEnvironment, globalEnvMap),
+    [auth, activeTabHeaders, activeEnvironment, globalEnvMap],
+  );
 
   const {
     status: schemaStatus, schemaInfo, rawIntrospection, errorMessage: schemaErrorMessage,
     introspecting, introspect, pollErrorMessage,
-  } = useGraphqlSchema(resolveVars(endpoint, activeEnvironment), schemaHeaders, { pollingIntervalMs, skipTlsVerify });
+  } = useGraphqlSchema(resolveVars(endpoint, activeEnvironment, globalEnvMap), schemaHeaders, { pollingIntervalMs, skipTlsVerify });
 
   const mockServer = useGraphqlMockServer(historyConnectionId, schemaInfo?.sdl ?? null);
   useEffect(() => {
@@ -248,21 +249,8 @@ export function GraphqlStudioPage({
   }, [rawIntrospection]);
 
   const invalidItemIds = useMemo<Set<string>>(() => {
-    if (!rawIntrospection) return new Set();
     const allItems = collections.trees.flatMap((t) => t.items);
-    if (allItems.length === 0) return new Set();
-    let schema: ReturnType<typeof buildClientSchema>;
-    try { schema = buildClientSchema(rawIntrospection as unknown as IntrospectionQuery); }
-    catch { return new Set(); }
-    const invalid = new Set<string>();
-    for (const item of allItems) {
-      if (!item.operation.query.trim()) continue;
-      try {
-        const errors = validate(schema, gqlParseDoc(item.operation.query));
-        if (errors.length > 0) invalid.add(item.id);
-      } catch { invalid.add(item.id); }
-    }
-    return invalid;
+    return computeInvalidCollectionItemIds(rawIntrospection, allItems);
   }, [rawIntrospection, collections.trees]);
 
   const {
@@ -275,12 +263,12 @@ export function GraphqlStudioPage({
   const prevIntrospectingRef = useRef(introspecting);
   const introspectStartResolvedRef = useRef('');
   useEffect(() => {
-    const resolved = resolveVars(endpoint, activeEnvironment);
+    const resolved = resolveVars(endpoint, activeEnvironment, globalEnvMap);
     if (introspecting && !prevIntrospectingRef.current) introspectStartResolvedRef.current = resolved;
     if (prevIntrospectingRef.current && !introspecting && schemaStatus === 'loaded'
         && resolved === introspectStartResolvedRef.current) setRightView('schema');
     prevIntrospectingRef.current = introspecting;
-  }, [introspecting, schemaStatus, endpoint, activeEnvironment]);
+  }, [introspecting, schemaStatus, endpoint, activeEnvironment, globalEnvMap]);
 
   const connectionBarSchemaStatus: 'loaded' | 'error' | 'none' =
     schemaStatus === 'loaded' ? 'loaded' : (schemaStatus === 'error' || schemaStatus === 'introspection-disabled') ? 'error' : 'none';
@@ -343,7 +331,7 @@ export function GraphqlStudioPage({
     effectiveBatchedTabs, batchedTabIdsSet,
     handleToggleBatch, handleSendBatch,
   } = useGraphqlBatchExecution({
-    tabs, endpoint, auth, activeEnvironment, skipTlsVerify,
+    tabs, endpoint, auth, activeEnvironment, globalEnvMap, skipTlsVerify,
     advSettingsRef, connectionIdRef, setAdvSettings, setBatchUnsupportedToast,
     setRightView, gqlProxyBase: GQL_PROXY_BASE,
   });
@@ -354,7 +342,7 @@ export function GraphqlStudioPage({
 
   const handleExecute = useCallback(() => {
     if (!activeTab || !endpoint.trim() || !activeTab.query.trim()) return;
-    if (findUnresolvedVars(endpoint, activeEnvironment).length > 0) return;
+    if (findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap).length > 0) return;
     const trimmedVars = activeTab.variables.trim();
     if (trimmedVars && trimmedVars !== '{}') {
       try {
@@ -388,14 +376,10 @@ export function GraphqlStudioPage({
     executionLockRef.current = true;
     responseModelUriRef.current = activeTab.modelUri;
     setRightView('response');
-    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment);
+    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment, globalEnvMap);
     pushRecentEndpoint(resolvedEndpoint);
-    const authH = buildAuthHeaders(auth);
-    const resolvedHeaders: Record<string, string> = {};
-    for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
-      resolvedHeaders[k] = resolveVars(v, activeEnvironment);
-    }
-    const resolvedVariables = resolveVars(activeTab.variables, activeEnvironment);
+    const resolvedHeaders = buildGraphqlSchemaHeaders(auth, activeTabHeaders, activeEnvironment, globalEnvMap);
+    const resolvedVariables = resolveVars(activeTab.variables, activeEnvironment, globalEnvMap);
     const validFiles = fileEntries.filter((e) => e.error === null && e.varPath.trim() !== '');
 
     if (validFiles.length > 0) {
@@ -431,13 +415,13 @@ export function GraphqlStudioPage({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (pendingExecuteAfterGateRef, skipComplexityGateRef, sessionBypassComplexityGateRef) and stable setters (setComplexityGatePending) are intentionally omitted; self-referencing handleExecute via ref avoids circular dep
   }, [activeTab, endpoint, execute, executing, selectedOperation, activeTabHeaders, auth,
-      pushRecentEndpoint, activeEnvironment, skipTlsVerify, fileEntries, complexityResult,
+      pushRecentEndpoint, activeEnvironment, globalEnvMap, skipTlsVerify, fileEntries, complexityResult,
       complexityWarningPending, complexityGatePending, advSettings, executingRef]);
 
   // ── Phase 3A+3B: collection runner ────────────────────────────────────────
   const { handleRunCollection } = useGraphqlCollectionRun({
     collectionTrees: collections.trees,
-    endpoint, activeEnvironment, activeTabHeaders, auth, runner, updateVariables,
+    endpoint, activeEnvironment, globalEnvMap, activeTabHeaders, auth, runner, updateVariables,
     onSetRunnerCollectionId: setRunnerCollectionId,
     onSetBottomTab: (tab) => setBottomTab(tab as BottomPanelTabExtended),
     onItemExecuted: (id) => collections.markItemExecuted(id).catch(() => {}),
@@ -466,7 +450,7 @@ export function GraphqlStudioPage({
 
   // ── Subscription orchestration ─────────────────────────────────────────────
   const { handleSubscribe: _handleSubscribe, handleStopSubscription, handleExportSubscription } = useSubscriptionOrchestration({
-    activeTab, endpoint, auth, activeEnvironment, activeTabHeaders,
+    activeTab, endpoint, auth, activeEnvironment, globalEnvMap, activeTabHeaders,
     selectedOperation, skipTlsVerify, subscription,
   });
 
@@ -502,6 +486,7 @@ export function GraphqlStudioPage({
     execStatus,
     endpoint,
     activeEnvironment,
+    globalEnvMap,
     profileModalOpen,
     envModalOpen,
   });
@@ -537,6 +522,8 @@ export function GraphqlStudioPage({
         onRemoveRecentEndpoint={removeRecentEndpoint}
         activeEnvName={activeEnvironment?.name ?? null}
         activeEnvironment={activeEnvironment}
+        globalEnvMap={globalEnvMap}
+        endpointProtocolStatus={endpointProtocolStatus}
         onEnvBadgeClick={() => setEnvModalOpen(true)}
         profiles={profiles}
         onProfileBadgeClick={() => setProfileModalOpen(true)}
@@ -797,6 +784,7 @@ export function GraphqlStudioPage({
                   headers={activeTab.headers}
                   onHeadersChange={handleHeadersChange}
                   activeEnvironment={activeEnvironment}
+                  globalEnvMap={globalEnvMap}
                   fileEntries={fileEntries}
                   onFileEntriesChange={setFileEntries}
                   uploadProgress={uploadProgress}
@@ -883,7 +871,7 @@ export function GraphqlStudioPage({
 
       {saveToColItem && (
         <SaveToCollectionModal
-          defaultName={saveToColItem.operation.name ?? saveToColItem.operation.operationType ?? 'Unnamed operation'}
+          defaultName={resolveSaveToCollectionDefaultName(saveToColItem.operation)}
           trees={collections.trees}
           operationVariables={saveToColItem.operation.variables}
           onSave={(collectionId, folderId, name) => {

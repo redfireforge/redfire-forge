@@ -66,6 +66,10 @@ export function useDemoProgress() {
     update(prev => ({ ...prev, lastView: view }));
   }, [update]);
 
+  const setLastCategory = useCallback((categoryId: string) => {
+    update(prev => ({ ...prev, lastCategory: categoryId }));
+  }, [update]);
+
   const setSpeed = useCallback((speed: SpeedMultiplier) => {
     update(prev => ({ ...prev, speed }));
   }, [update]);
@@ -107,6 +111,7 @@ export function useDemoProgress() {
     setLastDomain,
     setLastLesson,
     setLastView,
+    setLastCategory,
     setSpeed,
     isLessonComplete,
     getLessonStep,

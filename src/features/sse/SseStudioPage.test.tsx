@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactNode } from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { SseStudioPage } from './SseStudioPage';
 import type { UseSseConnectionReturn } from './useSseConnection';
@@ -23,7 +24,10 @@ vi.mock('../../shared/utils/fileSaver', () => ({
 // flush never writes to shared storage between tests. Hoisted spies let
 // individual tests override the load result and observe saves.
 const { mockLoadSseConfig, mockSaveSseConfig } = vi.hoisted(() => ({
-  mockLoadSseConfig: vi.fn(() => Promise.resolve(null)),
+  // Keep the default load pending so tests that do a plain render() don't
+  // trigger unawaited async state updates from the mount-time load effect.
+  // Individual persistence tests override this with resolved/rejected promises.
+  mockLoadSseConfig: vi.fn(() => new Promise<null>(() => {})),
   mockSaveSseConfig: vi.fn(),
 }));
 
@@ -51,14 +55,103 @@ vi.mock('./useSseConnection', () => ({
   useSseConnection: () => mockSseReturn,
 }));
 
+// Keep page tests focused on SseStudioPage wiring/behavior rather than the
+// shell's internal async layout effects.
+vi.mock('./SseStudioShell', () => ({
+  SseStudioShell: ({
+    topBar,
+    statusStrip,
+    left,
+    right,
+    onLeftTabChange,
+    onRightTabChange,
+  }: {
+    topBar: unknown;
+    statusStrip: unknown;
+    left: unknown;
+    right: unknown;
+    onLeftTabChange: (tab: 'connect' | 'auth') => void;
+    onRightTabChange: (tab: 'events' | 'console') => void;
+  }) => (
+    <div data-testid="sse-studio-shell">
+      <div data-testid="sse-studio-topbar">{topBar as ReactNode}</div>
+      <div data-testid="sse-studio-status">{statusStrip as ReactNode}</div>
+      <div data-testid="sse-studio-split">
+        <div data-testid="sse-shell-tabs-left">
+          <button data-testid="sse-left-tab-connect" onClick={() => onLeftTabChange('connect')} type="button">
+            Connect
+          </button>
+          <button data-testid="sse-left-tab-auth" onClick={() => onLeftTabChange('auth')} type="button">
+            Auth
+          </button>
+        </div>
+        <div data-testid="sse-shell-tabs-right">
+          <button data-testid="sse-right-tab-events" onClick={() => onRightTabChange('events')} type="button">
+            Events
+          </button>
+          <button data-testid="sse-right-tab-console" onClick={() => onRightTabChange('console')} type="button">
+            Console
+          </button>
+        </div>
+        <div data-testid="sse-studio-divider" />
+        <div data-testid="sse-shell-left">{left as ReactNode}</div>
+        <div data-testid="sse-shell-right">{right as ReactNode}</div>
+      </div>
+    </div>
+  ),
+}));
+
+const mockSseConsole = {
+  entries: [] as unknown[],
+  settings: {},
+  setSettings: vi.fn(),
+  clear: vi.fn(),
+  append: vi.fn(),
+};
+
+vi.mock('./useSseConsole', () => ({
+  useSseConsole: () => mockSseConsole,
+}));
+
+vi.mock('./SseMessageLog', () => ({
+  SseMessageLog: () => (
+    <div data-testid="sse-message-log">
+      <input data-testid="sse-search" />
+      <select data-testid="sse-type-filter" />
+      <div data-testid="sse-status-bar" />
+      <button data-testid="sse-export-btn" type="button">Export</button>
+      <button data-testid="sse-clear-btn" type="button">Clear</button>
+    </div>
+  ),
+}));
+
+vi.mock('../websocket/ConsolePanel', () => ({
+  ConsolePanel: ({ onCommand }: { onCommand?: (input: string) => void }) => (
+    <div data-testid="sse-console">
+      <input
+        data-testid="sse-console-cmd-input"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onCommand?.((e.currentTarget as HTMLInputElement).value);
+          }
+        }}
+      />
+    </div>
+  ),
+}));
+
 function configBody() {
   return screen.getByTestId('sse-config-body');
 }
 
 beforeEach(() => {
   mockLoadSseConfig.mockReset();
-  mockLoadSseConfig.mockResolvedValue(null);
+  mockLoadSseConfig.mockImplementation(() => new Promise<null>(() => {}));
   mockSaveSseConfig.mockReset();
+  mockSseConsole.entries = [];
+  mockSseConsole.setSettings.mockReset();
+  mockSseConsole.clear.mockReset();
+  mockSseConsole.append.mockReset();
   mockSseReturn = {
     config: makeDefaultConfig(),
     setConfig: vi.fn((patch) => {
@@ -435,6 +528,25 @@ describe('SseStudioPage', () => {
   it('passes resolvedBaseUrl/envName/svcName as envVarMap', () => {
     render(<SseStudioPage resolvedBaseUrl="https://api.test" envName="prod" svcName="orders" />);
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
+  });
+
+  it('shows resolved endpoint preview with status for {{sseUrl}} templates', () => {
+    mockSseReturn.config = { ...makeDefaultConfig(), url: '{{sseUrl}}/events' };
+    render(
+      <SseStudioPage
+        selectedSvc={{
+          id: 'svc-1',
+          name: 'orders',
+          baseUrls: { e1: 'https://api.example.com' },
+        }}
+        selectedEnvId="e1"
+        envName="local"
+      />,
+    );
+    const preview = screen.getByTestId('sse-endpoint-preview');
+    expect(preview.textContent).toContain('https://api.example.com/events');
+    expect(preview.getAttribute('data-status')).toBe('fallback');
+    expect(preview.textContent).toContain('⚠');
   });
 
   it('renders without any props', () => {

@@ -754,4 +754,10 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
     expect(screen.getByTestId('gql-changelog-row')).toBeTruthy();
   });
+
+  it('shows changelog tab on idle status without loaded schema', () => {
+    render(<GraphqlSchemaExplorer schemaInfo={null} status="idle" />);
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    expect(screen.getByTestId('gql-schema-explorer')).toBeTruthy();
+  });
 });

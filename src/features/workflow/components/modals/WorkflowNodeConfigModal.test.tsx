@@ -9,7 +9,12 @@ import { WorkflowNode, HttpNodeData } from '../../types/workflow';
 import { Scenario } from '../../../../shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
-import { defaultGraphqlQueryNodeData } from '../../utils/workflowNodeFactory';
+import {
+  defaultGraphqlQueryNodeData,
+  defaultGraphqlSubscriptionNodeData,
+  defaultGraphqlIntrospectNodeData,
+  defaultGraphqlAssertNodeData,
+} from '../../utils/workflowNodeFactory';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({
@@ -838,5 +843,82 @@ describe('WorkflowNodeConfigModal', () => {
     });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
     expect(screen.getByText('Save')).not.toBeDisabled();
+  });
+
+  it('renders GraphQL workflow config panels and applies onChange callbacks', () => {
+    const onUpdateNode = vi.fn();
+    const graphqlCases: Array<{ type: WorkflowNode['type']; data: Record<string, unknown>; display: string }> = [
+      {
+        type: 'graphqlMutation',
+        data: { ...defaultGraphqlQueryNodeData(), label: 'Mut', endpoint: 'http://api.example.com/graphql', query: 'mutation { x }' },
+        display: 'Mut',
+      },
+      {
+        type: 'graphqlSubscription',
+        data: { ...defaultGraphqlSubscriptionNodeData(), endpoint: 'ws://api.example.com/graphql', query: 'subscription { x }' },
+        display: 'GraphQL Subscription',
+      },
+      {
+        type: 'graphqlIntrospect',
+        data: { ...defaultGraphqlIntrospectNodeData(), endpoint: 'http://api.example.com/graphql' },
+        display: 'GraphQL Introspect',
+      },
+      {
+        type: 'graphqlAssert',
+        data: { ...defaultGraphqlAssertNodeData(), sourceVariable: 'payload' },
+        display: 'GraphQL Assert',
+      },
+    ];
+
+    for (const { type, data, display } of graphqlCases) {
+      const node = makeNode(type, data);
+      const { unmount } = render(
+        <WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />,
+      );
+      expect(screen.getByDisplayValue(display)).toBeTruthy();
+      fireEvent.change(screen.getByDisplayValue(display), { target: { value: `${display} v2` } });
+      fireEvent.click(screen.getByText('Save'));
+      expect(onUpdateNode).toHaveBeenCalled();
+      onUpdateNode.mockClear();
+      unmount();
+    }
+  });
+
+  it('collects wsConnectionIds from wsConnect nodes for wsSend config', () => {
+    const wsConnect = makeNode('wsConnect', { url: 'wss://example.com', connectionId: 'conn-42' });
+    const wsSend = makeNode('wsSend', { connectionId: '', message: 'hi' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={wsSend}
+        allNodes={[wsConnect, wsSend]}
+      />,
+    );
+    expect(screen.getByTestId('ws-send-config')).toBeInTheDocument();
+  });
+
+  it('fires onChange when kafkaTrigger and kafkaWait configs edit label', () => {
+    const onUpdateNode = vi.fn();
+    const trigger = makeNode('kafkaTrigger', { clusterId: 'c1', topic: 'orders', label: 'Trigger' });
+    const { unmount: unmountTrigger } = render(
+      <WorkflowNodeConfigModal {...defaultProps} node={trigger} onUpdateNode={onUpdateNode} />,
+    );
+    fireEvent.change(screen.getByDisplayValue('Trigger'), { target: { value: 'Trigger v2' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalled();
+    unmountTrigger();
+
+    const wait = makeNode('kafkaWait', {
+      clusterId: 'c1',
+      topic: 'orders',
+      correlationIdExpression: '{{id}}',
+      correlationSource: 'body',
+      timeoutMs: 5000,
+      label: 'Wait',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={wait} onUpdateNode={onUpdateNode} />);
+    fireEvent.change(screen.getByDisplayValue('Wait'), { target: { value: 'Wait v2' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledTimes(2);
   });
 });

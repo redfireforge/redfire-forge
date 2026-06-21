@@ -1,11 +1,31 @@
 /** Lesson 9: SSE Studio — connect to an SSE endpoint, monitor events, and explore the console */
 import type { DemoActionContext, DemoLesson } from '../../types';
-import { APP, SSE } from '../../../../shared/selectors';
+import { APP, EM, SSE } from '../../../../shared/selectors';
+import {
+  cleanupDemoEnvironment,
+  cleanupDemoMicroservice,
+  ensureDemoEnvironment,
+  ensureDemoMicroservice,
+  ensureNamedEnvDeployedOnProtocol,
+  ensureProtocolEnabled,
+  editNamedProtocolEndpoint,
+  expandNamedMicroservice,
+  navigateToEnvironmentManager,
+  navigateToSseStudio,
+  selectEnvInHeader,
+  selectProtocolTab,
+  selectSvcInHeader,
+  ensureSseDemoHeaderContext,
+} from '../env-manager-lesson-helpers';
 
 
 // ── Constants ──────────────────────────────────────────────────────
-const SSE_TEST_URL = 'http://localhost:3001/api/sse-test';
-const SSE_ENV_VAR_URL = '{{baseUrl}}/api/sse-test';
+const SSE_BASE_URL = 'http://localhost:3001';
+const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
+
+/** Dedicated environment and microservice used only by this demo lesson. */
+const DEMO_ENV_NAME = 'SSE Demo';
+const DEMO_SVC_NAME = 'sse-demo';
 
 /** CSS selector for the connected-state indicator. Used by waitFor and replay guards. */
 const SSE_CONNECTED_DOT = '.sse-state-dot.sse-state-connected';
@@ -13,14 +33,17 @@ const SSE_CONNECTED_DOT = '.sse-state-dot.sse-state-connected';
 // ── Helpers ────────────────────────────────────────────────────────
 
 /**
- * Guard used by preActions of steps 3+ to ensure the SSE connection is
+ * Guard used by preActions of steps 5+ to ensure the SSE connection is
  * established before the spotlight tries to read elements that only render
  * when connected/events-tab is active.
+ * Uses {{sseUrl}} so the demo stays consistent with the env-var step.
  * Idempotent — returns immediately if already connected.
  */
 async function ensureSseConnected(ctx: DemoActionContext): Promise<void> {
   if (document.querySelector(SSE_CONNECTED_DOT)) return;
-  await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+  await navigateToSseStudio(ctx);
+  await ensureSseDemoHeaderContext(ctx);
+  await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
   await ctx.delay(200);
   await ctx.click(SSE.CONNECT_BTN);
   await ctx.waitFor(SSE_CONNECTED_DOT);
@@ -58,20 +81,26 @@ async function sseSetup(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-/** Cleanup: disconnect, clear events. */
+/** Cleanup: disconnect, clear events, then remove the demo environment and microservice. */
 async function sseCleanup(ctx: DemoActionContext): Promise<void> {
-  // Disconnect
+  // Disconnect any live SSE connection first so the studio is in a clean state.
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   if (connectBtn?.textContent?.includes('Disconnect')) {
     connectBtn.click();
     await ctx.delay(500);
   }
-  // Clear events
+  // Clear events panel.
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.click();
     await ctx.delay(200);
   }
+  // Remove the demo microservice and environment created during the lesson.
+  // The microservice must be deleted first (otherwise EM counts it as "associated").
+  await cleanupDemoMicroservice(ctx, DEMO_SVC_NAME);
+  await cleanupDemoEnvironment(ctx, DEMO_ENV_NAME);
+  // Navigate back to SSE Studio so the lesson page is clean for replay.
+  await navigateToSseStudio(ctx);
 }
 
 export const sseStudioLesson: DemoLesson = {
@@ -80,8 +109,9 @@ export const sseStudioLesson: DemoLesson = {
   category: 'sse',
   name: 'SSE Studio',
   description: 'Connect to a Server-Sent Events endpoint and monitor real-time event streams.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 6,
   initialTab: 'sse-studio',
+  allowedTabs: ['environments', 'sse-studio'],
 
   setup: sseSetup,
   cleanup: sseCleanup,
@@ -168,43 +198,127 @@ export const sseStudioLesson: DemoLesson = {
       },
     },
 
-    // ── 2. Environment Variables in URLs ────────────────────────
+    // ── 2. Add SSE Protocol in Environment Manager ──────────────
+    {
+      id: 'sse-add-protocol',
+      title: 'Add SSE Protocol',
+      description:
+        'Open **Settings → Environments**, add an environment called **"SSE Demo"** and a microservice ' +
+        'called **"sse-demo"**. Expand the microservice — it starts with **no protocol tabs**. ' +
+        'Click **+ Add protocol** and choose **SSE**. Only the **SSE** tab appears (HTTP is not added ' +
+        'by default). Check the deploy box for **SSE Demo** so the environment is active on this service.',
+      highlight: EM.ADD_PROTOCOL_BTN,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        if (!document.querySelector(SSE.URL_INPUT)) {
+          await navigateToSseStudio(ctx);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
+        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
+        await navigateToEnvironmentManager(ctx);
+        await ctx.delay(400);
+        await expandNamedMicroservice(ctx, DEMO_SVC_NAME);
+        // Add SSE only — no HTTP tab (matches new default microservice behavior).
+        await ensureProtocolEnabled(ctx, 'sse');
+        // Deploy the SSE Demo environment on the SSE tab (checkbox only — URL comes in step 3).
+        await ensureNamedEnvDeployedOnProtocol(ctx, 'sse', DEMO_ENV_NAME);
+        await selectProtocolTab(ctx, 'sse');
+        await ctx.delay(800);
+      },
+    },
+
+    // ── 3. Configure SSE Endpoint ────────────────────────────────
+    {
+      id: 'sse-env-config',
+      title: 'Configure SSE Endpoint',
+      description:
+        'On the **SSE** tab, click **Edit** on the **SSE Demo** row and enter `http://localhost:3001`. ' +
+        'Click **Save** — the status changes to **✓ set** and the derived-variables panel shows ' +
+        '`{{sseUrl}}` resolved to your endpoint for this microservice.',
+      highlight: EM.PROTOCOL_TAB_SSE,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
+        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
+        await navigateToEnvironmentManager(ctx);
+        await expandNamedMicroservice(ctx, DEMO_SVC_NAME);
+        await ensureProtocolEnabled(ctx, 'sse');
+        await ensureNamedEnvDeployedOnProtocol(ctx, 'sse', DEMO_ENV_NAME);
+        await selectProtocolTab(ctx, 'sse');
+      },
+      action: async (ctx: DemoActionContext) => {
+        // Select SSE tab (spotlight is on PROTOCOL_TAB_SSE) and configure the endpoint URL.
+        await selectProtocolTab(ctx, 'sse');
+        await ctx.delay(600);
+        // Edit and save the SSE endpoint URL for the demo environment.
+        await editNamedProtocolEndpoint(ctx, DEMO_ENV_NAME, SSE_BASE_URL);
+        await ctx.delay(1000);
+      },
+    },
+
+    // ── 4. Select Environment & Service in Header ───────────────
+    {
+      id: 'sse-header-select',
+      title: 'Select Environment & Service',
+      description:
+        'Endpoints live on a microservice, but **SSE Studio** resolves `{{sseUrl}}` from the **Environment** ' +
+        'and **Service** dropdowns in the app header. Choose **"SSE Demo"** for Environment and **"sse-demo"** ' +
+        'for Service — the protocol indicator beside them confirms the resolved base URL.',
+      highlight: APP.HEADER_SELECTORS,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
+        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
+        await navigateToSseStudio(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await selectEnvInHeader(ctx, DEMO_ENV_NAME);
+        await ctx.delay(800);
+        await selectSvcInHeader(ctx, DEMO_SVC_NAME);
+        await ctx.delay(1500); // pause so the resolved URL indicator updates visibly
+      },
+    },
+
+    // ── 5. Environment Variables in URLs ────────────────────────
     {
       id: 'sse-env-vars',
       title: 'Environment Variables in URLs',
       description:
-        'Instead of hardcoding `http://localhost:3001/api/sse-test`, use `{{baseUrl}}/api/sse-test`. ' +
-        'RedfireForge resolves `{{baseUrl}}` from the **Environment** and **Microservice** selected in the ' +
-        'header dropdowns (top-right). Each microservice stores a Base URL per environment — switching from ' +
-        '"local" to "staging" in the header instantly re-resolves the URL without touching the SSE config. ' +
-        'A **↳ Resolved:** preview appears below the input so you always see the final URL before connecting.',
+        'Instead of hardcoding `http://localhost:3001/api/sse-test`, type `{{sseUrl}}/api/sse-test`. ' +
+        'Watch **→ Resolved:** appear below the input — RedfireForge resolves `{{sseUrl}}` from the ' +
+        '**SSE tab** endpoint using the **SSE Demo** environment and **sse-demo** service you selected. ' +
+        'Change the **Environment** dropdown in the header and the URL instantly re-resolves.',
       highlight: SSE.URL_INPUT,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {
-        // Guard: navigate to SSE Studio if we landed here via skip-to-step
-        if (!document.querySelector(SSE.URL_INPUT)) {
-          await ctx.click(APP.AB_PROTOCOLS);
-          await ctx.delay(300);
-          await ctx.click(APP.NAV_TAB_SSE);
-          await ctx.delay(400);
-        }
+        await navigateToSseStudio(ctx);
+        // Re-select the demo env/svc in the header in case user navigated away.
+        await selectEnvInHeader(ctx, DEMO_ENV_NAME);
+        await selectSvcInHeader(ctx, DEMO_SVC_NAME);
       },
       action: async (ctx: DemoActionContext) => {
+        // Type the env-var URL — keep it for all subsequent connect steps.
         await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
-        await ctx.delay(1000);
-        // Reset to the real test URL so the connect step that follows works
-        await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
-        await ctx.delay(400);
+        await ctx.delay(2000); // let the resolved preview render and be visible
       },
     },
 
-    // ── 3. Connect to SSE Endpoint ──────────────────────────────
+    // ── 5. Connect to SSE Endpoint ──────────────────────────────
     {
       id: 'sse-connect',
       title: 'Connect to an Endpoint',
       description:
-        'Enter the SSE endpoint URL and click Connect. The backend includes a built-in test SSE server that sends events every second — perfect for learning.',
+        'The URL field still shows `{{sseUrl}}/api/sse-test` — RedfireForge resolves it using the ' +
+        '**SSE Demo** environment and **sse-demo** service before connecting. Click **Connect**. ' +
+        'The built-in test server sends events every second — perfect for learning.',
       highlight: SSE.URL_INPUT,
+      preAction: async (ctx: DemoActionContext) => {
+        await navigateToSseStudio(ctx);
+        await selectEnvInHeader(ctx, DEMO_ENV_NAME);
+        await selectSvcInHeader(ctx, DEMO_SVC_NAME);
+      },
       action: async (ctx) => {
         // Replay guard: if already connected, disconnect first so the user
         // sees the full connect flow again from the beginning.
@@ -212,7 +326,7 @@ export const sseStudioLesson: DemoLesson = {
           await ctx.click(SSE.CONNECT_BTN); // disconnect
           await ctx.delay(400);
         }
-        await ctx.fill(SSE.URL_INPUT, SSE_TEST_URL);
+        await ctx.fill(SSE.URL_INPUT, SSE_ENV_VAR_URL);
         await ctx.delay(300);
         await ctx.click(SSE.CONNECT_BTN);
         await ctx.waitFor(SSE_CONNECTED_DOT); // wait for green dot (Rule 5)
@@ -221,7 +335,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 4. Live Event Stream ─────────────────────────────────────
+    // ── 6. Live Event Stream ─────────────────────────────────────
     {
       id: 'sse-events',
       title: 'Live Event Stream',
@@ -238,7 +352,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 5. Event Detail ──────────────────────────────────────────
+    // ── 7. Event Detail ──────────────────────────────────────────
     {
       id: 'sse-detail',
       title: 'Event Detail',
@@ -260,7 +374,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 6. Search & Filter ───────────────────────────────────────
+    // ── 8. Search & Filter ───────────────────────────────────────
     {
       id: 'sse-filter',
       title: 'Search & Type Filter',
@@ -281,7 +395,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 7. Console ───────────────────────────────────────────────
+    // ── 9. Console ───────────────────────────────────────────────
     {
       id: 'sse-console',
       title: 'SSE Console',
@@ -303,7 +417,7 @@ export const sseStudioLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── 8. Disconnect ────────────────────────────────────────────
+    // ── 10. Disconnect ───────────────────────────────────────────
     {
       id: 'sse-disconnect',
       title: 'Disconnect',

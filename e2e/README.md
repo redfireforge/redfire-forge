@@ -61,6 +61,8 @@ Quick reference:
 | `ws-protocols-stomp.spec.ts` | `docker/websocket/stomp/docker-compose.yml` | 15674 |
 | `ws-tls-local-demo.spec.ts` | `docker/websocket/tls/docker-compose.yml` | — |
 | `graphql-test-server.spec.ts` | `docker/graphql/docker-compose.yml` | 4010 |
+| `environment-manager.spec.ts` | None (seeded localStorage) | 5173 |
+| `demo-hub-docker-validate.spec.ts` | Kafka + WebSocket Docker stacks | various |
 
 ## GraphQL test server (port 4010)
 

@@ -596,6 +596,18 @@ describe('GraphqlConnectionBar — unresolved variable warnings', () => {
     })} />);
     expect(screen.queryByTestId('gql-endpoint-unresolved-icon')).toBeNull();
   });
+
+  it('resolves global env vars from globalEnvMap and shows endpoint preview', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: '{{graphqlUrl}}',
+      globalEnvMap: { graphqlUrl: 'https://api.example.com/graphql' },
+      endpointProtocolStatus: 'fallback',
+    })} />);
+    expect(screen.queryByTestId('gql-endpoint-unresolved-icon')).toBeNull();
+    const preview = screen.getByTestId('gql-endpoint-preview');
+    expect(preview.textContent).toContain('https://api.example.com/graphql');
+    expect(preview.getAttribute('data-status')).toBe('fallback');
+  });
 });
 
 // ─── Polling config button and popover ───────────────────────────────────────
