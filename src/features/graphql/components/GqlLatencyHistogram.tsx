@@ -97,6 +97,11 @@ export function GqlLatencyHistogram({ latencyHistory }: GqlLatencyHistogramProps
               title={`${bucket.label}: ${count} request${count !== 1 ? 's' : ''}`}
             >
               <div className="gql-hist-bar-wrap">
+                {count > 0 && (
+                  <span className="gql-hist-count" aria-hidden="true">
+                    {count}
+                  </span>
+                )}
                 <div
                   className={`gql-hist-bar ${barColorClass(i)}`}
                   style={{ height: `${heightPct}%` }}

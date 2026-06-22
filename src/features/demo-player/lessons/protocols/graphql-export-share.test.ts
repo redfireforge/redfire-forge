@@ -2,13 +2,21 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql10'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
 import { gqlExportShareLesson } from './graphql-export-share';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
   resetGqlLesson9SessionFlags,
   resetGqlLessonSessionFlags,
   gqlExportShareLessonSetup,
+  gqlExportShareLessonCleanup,
   getBuilderCodeText,
   ensureBuilderHealthAndUserSelected,
   ensureBuilderSdlCopied,
@@ -34,6 +42,155 @@ describe('gql-export-share lesson', () => {
     expect(gqlExportShareLesson.name).toBe('Export & Share Queries');
     expect(gqlExportShareLesson.steps.length).toBe(5);
     expect(gqlExportShareLesson.estimatedMinutes).toBe(3);
+    expect(gqlExportShareLesson.tabBudget).toBe(1);
+  });
+
+  // ── Concept content ───────────────────────────────────────────────────────
+
+  it('concept title mentions Export and Share', () => {
+    expect(gqlExportShareLesson.concept.title).toContain('Export');
+    expect(gqlExportShareLesson.concept.title).toContain('Share');
+  });
+
+  it('concept body explains WHY no heavy code gen panel', () => {
+    expect(gqlExportShareLesson.concept.body).toContain('code-generation');
+  });
+
+  it('concept body explains two export surfaces', () => {
+    expect(gqlExportShareLesson.concept.body).toContain('Surface 1');
+    expect(gqlExportShareLesson.concept.body).toContain('Surface 2');
+  });
+
+  it('concept body explains WHY cURL is the universal sharing format', () => {
+    expect(gqlExportShareLesson.concept.body).toContain('cURL');
+    expect(gqlExportShareLesson.concept.body).toContain('curl -X POST');
+  });
+
+  it('concept body explains WHY sync is one-way', () => {
+    expect(gqlExportShareLesson.concept.body).toContain('one-way');
+  });
+
+  it('has 5 key terms', () => {
+    expect(gqlExportShareLesson.concept.keyTerms).toHaveLength(5);
+  });
+
+  it('key terms include One-way sync', () => {
+    const terms = gqlExportShareLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('One-way sync');
+  });
+
+  it('key terms include Copy as cURL', () => {
+    const terms = gqlExportShareLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('Copy as cURL');
+  });
+
+  // ── Diagram ───────────────────────────────────────────────────────────────
+
+  it('diagram is a 700x430 SVG', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('viewBox="0 0 700 430"');
+    expect(gqlExportShareLesson.concept.diagram).toContain('xmlns="http://www.w3.org/2000/svg"');
+  });
+
+  it('diagram contains window chrome traffic lights', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('#ff5f57');
+    expect(gqlExportShareLesson.concept.diagram).toContain('#febc2e');
+    expect(gqlExportShareLesson.concept.diagram).toContain('#28c840');
+  });
+
+  it('diagram shows Builder field tree with health and user fields', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('Field Tree');
+    expect(gqlExportShareLesson.concept.diagram).toContain('health');
+    expect(gqlExportShareLesson.concept.diagram).toContain('user');
+  });
+
+  it('diagram shows SDL preview panel with Copy and Edit in Editor buttons', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('SDL Preview');
+    expect(gqlExportShareLesson.concept.diagram).toContain('Copy');
+    expect(gqlExportShareLesson.concept.diagram).toContain('Edit in Editor');
+  });
+
+  it('diagram shows History context menu with Copy as cURL highlighted', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('Copy as cURL');
+    expect(gqlExportShareLesson.concept.diagram).toContain('History');
+  });
+
+  it('diagram shows cURL output preview', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('curl -X POST');
+  });
+
+  it('diagram uses CSS design tokens', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('var(--bg)');
+    expect(gqlExportShareLesson.concept.diagram).toContain('var(--surface)');
+    expect(gqlExportShareLesson.concept.diagram).toContain('var(--border)');
+    expect(gqlExportShareLesson.concept.diagram).toContain('var(--primary)');
+  });
+
+  it('diagram shows lifecycle legend from Builder to cURL', () => {
+    expect(gqlExportShareLesson.concept.diagram).toContain('Execute');
+    expect(gqlExportShareLesson.concept.diagram).toContain('terminal / CI / team');
+  });
+
+  // ── Step spotlights match their panel/element ─────────────────────────────
+
+  it('gql9-builder highlights field tree', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-builder')!;
+    expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
+    expect(step.verify).toBe(GQL.QB_CODE);
+  });
+
+  it('gql9-preview highlights SDL preview code', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-preview')!;
+    expect(step.highlight).toBe(GQL.QB_CODE);
+    expect(step.verify).toBe(GQL.QB_CODE);
+  });
+
+  it('gql9-copy highlights copy button', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-copy')!;
+    expect(step.highlight).toBe(GQL.QB_COPY);
+    expect(step.verify).toBe(GQL.QB_COPY);
+  });
+
+  it('gql9-edit highlights edit-in-editor button and verifies editor mode', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-edit')!;
+    expect(step.highlight).toBe(GQL.QB_EDIT);
+    expect(step.verify).toBe(GQL.MODE_EDITOR);
+  });
+
+  it('gql9-curl highlights history context menu and verifies history entry', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
+    expect(step.highlight).toBe(GQL.HISTORY_CONTEXT_MENU);
+    expect(step.verify).toBe(GQL.HISTORY_ENTRY);
+  });
+
+  // ── Step description WHY content ──────────────────────────────────────────
+
+  it('gql9-builder description explains WHY Builder is schema-guided', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-builder')!;
+    expect(step.description).toContain('schema-guided');
+  });
+
+  it('gql9-preview description explains WHY live preview eliminates round-trip', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-preview')!;
+    expect(step.description).toContain('live');
+    expect(step.description).toContain('canonical export surface');
+  });
+
+  it('gql9-copy description lists use cases for clipboard sharing', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-copy')!;
+    expect(step.description).toContain('clipboard');
+    expect(step.description).toContain('development workflow');
+  });
+
+  it('gql9-edit description explains WHY transfer is one-way', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-edit')!;
+    expect(step.description).toContain('one-way');
+    expect(step.description).toContain('checkbox');
+  });
+
+  it('gql9-curl description explains WHY cURL is the universal sharing format', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
+    expect(step.description).toContain('curl -X POST');
+    expect(step.description).toContain('Reproducibility');
   });
 
   it('has docker prerequisite fields', () => {
@@ -281,7 +438,7 @@ describe('gql-export-share lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('setup clears endpoint', async () => {
+  it('setup creates demo tab', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://old" />
@@ -294,7 +451,18 @@ describe('gql-export-share lesson', () => {
       json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
     }));
     await gqlExportShareLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(
+      ctx,
+      'gql-export-share',
+      'Export & Share Queries',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+  });
+
+  it('gqlExportShareLessonCleanup closes demo tab', async () => {
+    const ctx = makeCtx();
+    await gqlExportShareLessonCleanup(ctx);
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-export-share');
   });
 
   it('gqlExportShareLessonSetup closes history and collections panels', async () => {

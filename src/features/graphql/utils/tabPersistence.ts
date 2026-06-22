@@ -9,14 +9,25 @@ import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab, GraphqlSubscri
 import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
 import { makeHeaderId } from './headerUtils';
 import { buildModelUri, buildVarsModelUri } from './monacoGraphqlSetup';
+import { clampPollingIntervalSeconds } from './pollingIntervalUtils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const MAX_TABS = 8;
+/** Demo Hub reserves the last slot — users may open at most MAX_USER_TABS tabs. */
+export const MAX_USER_TABS = MAX_TABS - 1;
 export const STORAGE_KEY = 'gql_tabs_v1';
 export const AUTH_STORAGE_KEY = 'gql_auth_v1';
 export const POLLING_STORAGE_KEY = 'gql_polling_v1';
 export const TLS_STORAGE_KEY = 'gql_tls_skip_v1';
+/** Page-level CA / mTLS PEM fields (mirrors skipTlsVerify page storage). */
+export const TLS_CERTS_STORAGE_KEY = 'gql_tls_certs_v1';
+
+export interface GqlTlsCertsStorage {
+  caCert?: string;
+  clientCert?: string;
+  clientKey?: string;
+}
 export const ENDPOINT_STORAGE_KEY = 'gql_endpoint_v1';
 export const ENDPOINT_BASE_STORAGE_KEY = 'gql_endpoint_base_v1';
 export const DEFAULT_QUERY = 'query {\n  \n}';
@@ -34,6 +45,23 @@ export interface GqlStudioTab extends GraphqlOperationTab {
   subscriptionAssertions?: GraphqlSubscriptionAssertion[];
   /** Phase 3F: true when this tab is selected for batch execution */
   isBatched?: boolean;
+  /** When true, tab label is user-defined and not overwritten by query auto-naming */
+  labelManual?: boolean;
+  /** Per-tab endpoint override; undefined = inherit page/env default (Phase 6) */
+  endpoint?: string;
+  /** Per-tab TLS skip override; undefined = inherit page default (Phase 6) */
+  skipTlsVerify?: boolean;
+  /** Per-tab custom CA PEM (Lesson GQL-5 Phase 2) */
+  tlsCaCert?: string;
+  /** Per-tab mTLS client certificate PEM (Lesson GQL-5 Phase 3) */
+  tlsClientCert?: string;
+  /** Per-tab mTLS client private key PEM (Lesson GQL-5 Phase 3) */
+  tlsClientKey?: string;
+  /** Per-tab polling override; undefined = inherit page default (Phase 6F — wired in slice 2) */
+  pollingEnabled?: boolean;
+  pollingIntervalSeconds?: number;
+  /** Set when Demo Hub created this tab — stripped on lesson cleanup. */
+  demoLessonId?: string;
 }
 
 // ─── Tab ID sequence ──────────────────────────────────────────────────────────
@@ -68,7 +96,31 @@ export function makeBlankTab(): GqlStudioTab {
     operationType: 'query',
     unsavedChanges: false,
     connectionId: undefined,
+    endpoint: undefined,
+    skipTlsVerify: undefined,
   };
+}
+
+/** Factory for Demo Hub scratch tabs (§11.0). */
+export function makeDemoTab(lessonId: string, label: string): GqlStudioTab {
+  const tab = makeBlankTab();
+  return {
+    ...tab,
+    label,
+    labelManual: true,
+    demoLessonId: lessonId,
+    unsavedChanges: false,
+    endpoint: undefined,
+    connectionId: undefined,
+  };
+}
+
+export function isDemoTab(tab: GqlStudioTab): boolean {
+  return Boolean(tab.demoLessonId?.trim());
+}
+
+export function countUserTabs(tabs: GqlStudioTab[]): number {
+  return tabs.filter((t) => !isDemoTab(t)).length;
 }
 
 // ─── Tab normalizer ───────────────────────────────────────────────────────────
@@ -124,6 +176,22 @@ export function normalizeTab(raw: unknown): GqlStudioTab | null {
             description: typeof a.description === 'string' ? a.description : '',
           }))
       : undefined,
+    labelManual: t.labelManual === true,
+    endpoint: typeof t.endpoint === 'string' && t.endpoint.trim() ? t.endpoint.trim() : undefined,
+    skipTlsVerify: typeof t.skipTlsVerify === 'boolean' ? t.skipTlsVerify : undefined,
+    tlsCaCert: typeof t.tlsCaCert === 'string' && t.tlsCaCert.trim() ? t.tlsCaCert : undefined,
+    tlsClientCert: typeof t.tlsClientCert === 'string' && t.tlsClientCert.trim() ? t.tlsClientCert : undefined,
+    tlsClientKey: typeof t.tlsClientKey === 'string' && t.tlsClientKey.trim() ? t.tlsClientKey : undefined,
+    pollingEnabled: typeof t.pollingEnabled === 'boolean' ? t.pollingEnabled : undefined,
+    pollingIntervalSeconds: (() => {
+      const s = t.pollingIntervalSeconds;
+      if (typeof s !== 'number' || !Number.isFinite(s)) return undefined;
+      return clampPollingIntervalSeconds(s);
+    })(),
+    demoLessonId:
+      typeof t.demoLessonId === 'string' && t.demoLessonId.trim()
+        ? t.demoLessonId.trim()
+        : undefined,
   };
 }
 
@@ -181,6 +249,46 @@ export async function saveAuth(auth: GraphqlAuth | null): Promise<void> {
       await writeKey(AUTH_STORAGE_KEY, JSON.stringify(auth));
     } else {
       await removeKey(AUTH_STORAGE_KEY);
+    }
+  } catch { /* no-op */ }
+}
+
+// ─── Page-level TLS certificate persistence ───────────────────────────────────
+
+function trimTlsPemField(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function normalizeTlsCertsStorage(raw: unknown): GqlTlsCertsStorage {
+  if (!raw || typeof raw !== 'object') return {};
+  const o = raw as Record<string, unknown>;
+  return {
+    caCert: trimTlsPemField(o.caCert),
+    clientCert: trimTlsPemField(o.clientCert),
+    clientKey: trimTlsPemField(o.clientKey),
+  };
+}
+
+export async function loadTlsCerts(): Promise<GqlTlsCertsStorage> {
+  try {
+    const raw = await readKey(TLS_CERTS_STORAGE_KEY);
+    if (!raw) return {};
+    return normalizeTlsCertsStorage(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+export async function saveTlsCerts(certs: GqlTlsCertsStorage): Promise<void> {
+  const normalized = normalizeTlsCertsStorage(certs);
+  const hasAny = !!(normalized.caCert || normalized.clientCert || normalized.clientKey);
+  try {
+    if (hasAny) {
+      await writeKey(TLS_CERTS_STORAGE_KEY, JSON.stringify(normalized));
+    } else {
+      await removeKey(TLS_CERTS_STORAGE_KEY);
     }
   } catch { /* no-op */ }
 }

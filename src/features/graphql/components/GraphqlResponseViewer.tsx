@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
+import { getResponseDataCreateUser, getResponseDataUser } from '../utils/graphqlResponseDataExtractors';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -325,6 +326,32 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
   );
 }
 
+function ResponseDataSummaryCard({
+  path,
+  data,
+  testId,
+}: {
+  path: string;
+  data: Record<string, unknown>;
+  testId: string;
+}) {
+  return (
+    <div className="gql-rv-data-user" data-testid={testId} aria-label={`GraphQL ${path} fields`}>
+      <div className="gql-rv-data-user-head">
+        <span className="gql-rv-data-user-path">{path}</span>
+      </div>
+      <dl className="gql-rv-data-user-fields">
+        {Object.entries(data).map(([key, value]) => (
+          <div key={key} className="gql-rv-data-user-row">
+            <dt>{key}</dt>
+            <dd>{typeof value === 'string' ? `"${value}"` : String(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function GraphqlResponseViewer({ response, loading = false, latencyHistory = [] }: GraphqlResponseViewerProps) {
@@ -380,6 +407,9 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
       isLargeResponse: size > LARGE_RESPONSE_THRESHOLD,
     };
   }, [response]);
+
+  const dataUser = useMemo(() => getResponseDataUser(response), [response]);
+  const dataCreateUser = useMemo(() => getResponseDataCreateUser(response), [response]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(prettyJson).then(() => {
@@ -521,8 +551,8 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
               {chunkCount} chunk{chunkCount !== 1 ? 's' : ''}
             </span>
           )}
-          {/* Sprint 7 (2G-1): tracing indicator — click to switch to Tracing tab */}
-          {tracingData && (
+          {/* Sprint 7 (2G-1): tracing indicator — click to switch to Tracing tab (hidden when already there) */}
+          {tracingData && activeTab !== 'tracing' && (
             <button
               type="button"
               className="gql-rv-tracing-badge"
@@ -565,6 +595,22 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
           )}
         </button>
       </div>
+
+      {/* Compact data.* summaries — pinned above sub-tabs so demo spotlight stays narrow */}
+      {dataUser && (
+        <ResponseDataSummaryCard
+          path="data.user"
+          data={dataUser}
+          testId="gql-response-data-user"
+        />
+      )}
+      {dataCreateUser && (
+        <ResponseDataSummaryCard
+          path="data.createUser"
+          data={dataCreateUser}
+          testId="gql-response-data-create-user"
+        />
+      )}
 
       {/* Tab bar */}
       <div className="gql-rv-tab-bar" role="tablist" aria-label="Response view">

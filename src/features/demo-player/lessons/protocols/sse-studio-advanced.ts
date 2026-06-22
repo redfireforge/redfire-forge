@@ -13,8 +13,12 @@
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { SSE } from '../../../../shared/selectors';
 import {
+  cleanupDemoEnvironment,
+  cleanupDemoMicroservice,
   ensureSseDemoHeaderContext,
   navigateToSseStudio,
+  SSE_DEMO_ENV_NAME,
+  SSE_DEMO_SVC_NAME,
 } from '../env-manager-lesson-helpers';
 
 const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
@@ -85,19 +89,22 @@ async function sseAdvancedSetup(ctx: DemoActionContext): Promise<void> {
 }
 
 async function sseAdvancedCleanup(ctx: DemoActionContext): Promise<void> {
-  // Disconnect
   const connectBtn = document.querySelector(SSE.CONNECT_BTN) as HTMLButtonElement | null;
   if (connectBtn?.textContent?.includes('Disconnect')) {
     connectBtn.click();
     await ctx.delay(500);
   }
 
-  // Clear events
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.click();
     await ctx.delay(200);
   }
+
+  // Remove demo data created during setup so the basic SSE Studio lesson starts fresh.
+  await cleanupDemoMicroservice(ctx, SSE_DEMO_SVC_NAME);
+  await cleanupDemoEnvironment(ctx, SSE_DEMO_ENV_NAME);
+  await navigateToSseStudio(ctx);
 }
 
 // ── Lesson Definition ──────────────────────────────────────────────
@@ -110,6 +117,7 @@ export const sseStudioAdvancedLesson: DemoLesson = {
   description: 'Master bookmarks, stats, auto-reconnect, Last-Event-ID, and export in SSE Studio.',
   estimatedMinutes: 5,
   initialTab: 'sse-studio',
+  allowedTabs: ['environments', 'sse-studio'],
 
   setup: sseAdvancedSetup,
   cleanup: sseAdvancedCleanup,

@@ -20,6 +20,22 @@ export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
 
+export const PROTOCOLS_DEFAULT_TAB: Tab = 'kafka-message-studio';
+export const LAST_PROTOCOLS_TAB_STORAGE_KEY = 'app-last-protocols-tab';
+
+let lastProtocolsTabCache: Tab = PROTOCOLS_DEFAULT_TAB;
+
+/** Last Protocols sub-tab visited (GraphQL, Kafka, etc.) — used when re-entering from another domain. */
+export function getLastProtocolsTab(): Tab {
+  return lastProtocolsTabCache;
+}
+
+export function setLastProtocolsTab(tab: Tab): void {
+  if (isProtocolsTab(tab)) {
+    lastProtocolsTabCache = tab;
+  }
+}
+
 const DEMO_TABS = new Set<Tab>(['demo-hub']);
 export const isDemoTab = (t: Tab) => DEMO_TABS.has(t);
 

@@ -65,7 +65,9 @@ export interface GraphqlHeaderRow {
 }
 
 export interface GraphqlAuth {
-  type: 'bearer' | 'basic' | 'apiKey' | 'oauth2' | 'custom';
+  type: 'inherit' | 'bearer' | 'basic' | 'apiKey' | 'oauth2' | 'custom';
+  /** When type is 'inherit', references a GlobalAuthProfile id from Environment Manager. */
+  globalProfileId?: string;
   token?: string;             // bearer token value
   username?: string;          // basic auth
   password?: string;          // basic auth
@@ -189,7 +191,7 @@ export interface GraphqlEnvironmentVariable {
   key: string;
   value: string;
   enabled: boolean;
-  masked?: boolean;            // true = display as ••••• in the UI (for secrets/tokens)
+  masked?: boolean;            // false = show value in plain text; omitted/true = hide with •••• (UI only; still editable)
 }
 
 export interface GraphqlEnvironment {

@@ -761,6 +761,35 @@ describe('EnvironmentManager', () => {
     expect(screen.getByText('service-beta')).toBeInTheDocument();
   });
 
+  it('removes a protocol tab via the × remove button', () => {
+    expandConfiguredSvc();
+    fireEvent.click(screen.getByTestId('em-remove-protocol-websocket'));
+    expect(screen.queryByRole('tab', { name: /WebSocket/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /HTTP/i })).toBeInTheDocument();
+  });
+
+  it('switches active protocol when removing the currently selected tab', () => {
+    expandConfiguredSvc();
+    fireEvent.click(screen.getByRole('tab', { name: /WebSocket/i }));
+    expect(screen.getByRole('tab', { name: /WebSocket/i })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByTestId('em-remove-protocol-websocket'));
+    expect(screen.getByRole('tab', { name: /HTTP/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('add protocol menu hides protocols that are already enabled', () => {
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({ baseUrls: { e1: 'https://api' }, enabledProtocols: ['http', 'websocket'] })]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByTestId('em-add-protocol-btn'));
+    expect(screen.queryByTestId('em-add-protocol-item-http')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('em-add-protocol-item-websocket')).not.toBeInTheDocument();
+    expect(screen.getByTestId('em-add-protocol-item-sse')).toBeInTheDocument();
+  });
+
   it('new microservice has no protocol tabs until added via + Add protocol menu', () => {
     render(
       <Harness

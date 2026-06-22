@@ -158,9 +158,34 @@ export async function closeExtraConnectionTabs(ctx: DemoActionContext, maxIterat
   }
 }
 
+type ValueTrackedInput = HTMLInputElement & {
+  _valueTracker?: { getValue: () => string; setValue: (v: string) => void };
+};
+
+/** Set a React-controlled checkbox by updating the native checked property. */
+export function setControlledCheckbox(el: HTMLInputElement, checked: boolean): void {
+  if (el.checked === checked) return;
+  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+  const tracker = (el as ValueTrackedInput)._valueTracker;
+  if (tracker) {
+    tracker.setValue(String(el.checked));
+  }
+  nativeSet?.call(el, checked);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 /** Fill a React-controlled input by setting the native value property. */
-export function fillControlledInput(el: HTMLInputElement, value: string) {
-  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+export function fillControlledInput(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+  // React 18+ tracks the DOM value — reset the tracker so onChange fires.
+  const tracker = (el as ValueTrackedInput)._valueTracker;
+  if (tracker) {
+    tracker.setValue(el.value);
+  }
   nativeSet?.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));

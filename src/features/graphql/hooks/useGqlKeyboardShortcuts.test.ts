@@ -124,6 +124,14 @@ describe('useGqlKeyboardShortcuts', () => {
     unmount();
   });
 
+  it('Phase 6F: Cmd+Shift+I does not introspect when endpointLinkPending', () => {
+    const args = { ...defaults(), endpointLinkPending: true };
+    const { unmount } = renderHook(() => useGqlKeyboardShortcuts(args));
+    fireKey('I', { metaKey: true, shiftKey: true });
+    expect(args.introspect).not.toHaveBeenCalled();
+    unmount();
+  });
+
   it('Escape cancels execution when execStatus is loading', () => {
     const args = { ...defaults(), execStatus: 'loading' };
     const { unmount } = renderHook(() => useGqlKeyboardShortcuts(args));

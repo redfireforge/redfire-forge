@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
+import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 import { isTauri } from '../../../shared/utils/platform';
 import type {
   GraphqlMockConfig,
@@ -80,6 +81,8 @@ export interface UseGraphqlMockServerResult {
   resetAll:             () => void;
   refreshLog:           () => void;
   syncCustomSdlNow:     () => void;
+  /** Align UI toggle with proxy status when the server was enabled out-of-band (e.g. demo bootstrap). */
+  syncFromServerStatus: () => Promise<void>;
 }
 
 // ─── Default config ───────────────────────────────────────────────────────────
@@ -101,6 +104,23 @@ function defaultConfig(connectionId: string): GraphqlMockConfig {
 function safeParseJson<T>(value: string | null, fallback: T): T {
   if (!value) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+/** Resolve SDL for mock sync — hook prop first, then persisted introspection cache. */
+export function resolveMockSyncSdl(
+  connectionId: string,
+  schemaSource: MockSchemaSource,
+  introspectedSdl: string | null,
+  customSdl: string,
+): string {
+  if (schemaSource === 'custom') return customSdl.trim();
+  const direct = (introspectedSdl ?? '').trim();
+  if (direct) return direct;
+  if (connectionId) {
+    const cached = loadCachedGraphqlSchemaSdl(connectionId);
+    if (cached?.trim()) return cached;
+  }
+  return '';
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -130,6 +150,29 @@ export function useGraphqlMockServer(
   schemaSourceRef.current     = schemaSource;
   const introspectedSdlRef    = useRef<string | null>(introspectedSdl);
   introspectedSdlRef.current  = introspectedSdl;
+
+  const syncFromServerStatus = useCallback(async () => {
+    if (!isTauri() || isLoadingRef.current) return;
+    try {
+      const resp = await fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/status`);
+      if (!resp.ok) return;
+      const data = await resp.json() as MockServerStatus;
+      setStatus(data);
+      if (data.enabled && data.configured && !configRef.current.enabled) {
+        const next = { ...configRef.current, enabled: true };
+        configRef.current = next;
+        setConfig(next);
+        setSyncError(null);
+      } else if (data.enabled === false && configRef.current.enabled) {
+        const next = { ...configRef.current, enabled: false };
+        configRef.current = next;
+        setConfig(next);
+        setSyncError(null);
+      }
+    } catch {
+      setStatus(null);
+    }
+  }, []);
 
   // ── Load persisted config on connectionId change ──────────────────────────
   useEffect(() => {
@@ -192,10 +235,13 @@ export function useGraphqlMockServer(
       } finally {
         // Always unblock persist effects, even on error.
         isLoadingRef.current = false;
+        if (!cancelled) {
+          void syncFromServerStatus();
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, [connectionId]);
+  }, [connectionId, syncFromServerStatus]);
 
   // ── Persist config whenever it changes ───────────────────────────────────
   // All three persist effects guard against `isLoadingRef.current` so they don't write
@@ -302,9 +348,12 @@ export function useGraphqlMockServer(
   // Read introspectedSdl from a ref so the debounce closure always sees the latest value.
   const scheduleSync = useCallback((immediate = false) => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    const getSdl = () => schemaSourceRef.current === 'introspected'
-      ? (introspectedSdlRef.current ?? '')
-      : customSdlRef.current;
+    const getSdl = () => resolveMockSyncSdl(
+      configRef.current.connectionId,
+      schemaSourceRef.current,
+      introspectedSdlRef.current,
+      customSdlRef.current,
+    );
 
     if (immediate) {
       void syncToServer(configRef.current, getSdl(), true);
@@ -328,17 +377,8 @@ export function useGraphqlMockServer(
   }, []);
 
   const fetchStatus = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const resp = await fetch(`${MOCK_PROXY_BASE}/api/graphql/mock/status`);
-      if (resp.ok) {
-        const data = await resp.json() as MockServerStatus;
-        setStatus(data);
-      }
-    } catch {
-      setStatus(null);
-    }
-  }, []);
+    await syncFromServerStatus();
+  }, [syncFromServerStatus]);
 
   useEffect(() => {
     if (config.enabled) {
@@ -384,9 +424,12 @@ export function useGraphqlMockServer(
     const next = { ...configRef.current, enabled };
     configRef.current = next;
     setConfig(next);
-    const sdl = schemaSourceRef.current === 'introspected'
-      ? (introspectedSdlRef.current ?? '')
-      : customSdlRef.current;
+    const sdl = resolveMockSyncSdl(
+      next.connectionId,
+      schemaSourceRef.current,
+      introspectedSdlRef.current,
+      customSdlRef.current,
+    );
     void syncToServer(next, sdl, true);
   }, [syncToServer]);
 
@@ -394,9 +437,12 @@ export function useGraphqlMockServer(
     setSchemaSourceState(source);
     schemaSourceRef.current = source;
     if (configRef.current.enabled) {
-      const sdl = source === 'introspected'
-        ? (introspectedSdlRef.current ?? '')
-        : customSdlRef.current;
+      const sdl = resolveMockSyncSdl(
+        configRef.current.connectionId,
+        source,
+        introspectedSdlRef.current,
+        customSdlRef.current,
+      );
       void syncToServer(configRef.current, sdl, true);
     }
   }, [syncToServer]);
@@ -429,8 +475,15 @@ export function useGraphqlMockServer(
       configRef.current = next;
       return next;
     });
-    scheduleSync(false);
-  }, [scheduleSync]);
+    const sdl = resolveMockSyncSdl(
+      configRef.current.connectionId,
+      schemaSourceRef.current,
+      introspectedSdlRef.current,
+      customSdlRef.current,
+    );
+    // Sync resolver overrides immediately; don't disable mock on transient SDL gaps.
+    void syncToServer(configRef.current, sdl, true, false);
+  }, [syncToServer]);
 
   const clearFieldResolver = useCallback((typeName: string, fieldName: string) => {
     setConfig((prev) => {
@@ -526,9 +579,12 @@ export function useGraphqlMockServer(
     const next = { ...configRef.current, activeScenarioId: id };
     configRef.current = next;
     setConfig(next);
-    const sdl = schemaSourceRef.current === 'introspected'
-      ? (introspectedSdlRef.current ?? '')
-      : customSdlRef.current;
+    const sdl = resolveMockSyncSdl(
+      next.connectionId,
+      schemaSourceRef.current,
+      introspectedSdlRef.current,
+      customSdlRef.current,
+    );
     void syncToServer(next, sdl, true);
   }, [syncToServer]);
 
@@ -631,5 +687,6 @@ export function useGraphqlMockServer(
     resetAll,
     refreshLog: () => { void fetchLog(); },
     syncCustomSdlNow,
+    syncFromServerStatus,
   };
 }

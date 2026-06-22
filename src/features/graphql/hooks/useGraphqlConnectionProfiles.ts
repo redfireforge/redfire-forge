@@ -31,6 +31,8 @@ function generateId(): string {
 
 export interface UseGraphqlConnectionProfilesResult {
   profiles: ConnectionProfile[];
+  /** False until the initial profile catalog load completes. */
+  profilesReady: boolean;
   /** Creates a new profile for the given name/endpoint/auth and persists it. */
   saveProfile: (name: string, endpoint: string, auth: GraphqlAuth | null) => ConnectionProfile;
   /** Renames an existing profile in-place. */
@@ -41,12 +43,14 @@ export interface UseGraphqlConnectionProfilesResult {
 
 export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResult {
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
+  const [profilesReady, setProfilesReady] = useState(false);
 
   // Load from storage on mount
   useEffect(() => {
     readConnectionProfiles()
       .then(setProfiles)
-      .catch(() => { /* storage unavailable */ });
+      .catch(() => { /* storage unavailable */ })
+      .finally(() => setProfilesReady(true));
   }, []);
 
   const saveProfile = useCallback((
@@ -87,5 +91,5 @@ export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResu
     });
   }, []);
 
-  return { profiles, saveProfile, renameProfile, deleteProfile };
+  return { profiles, profilesReady, saveProfile, renameProfile, deleteProfile };
 }

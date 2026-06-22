@@ -23,7 +23,8 @@
  *   test('node is not selected when config modal opens', async ({ page }) => {
  *     await launchLesson(page, 'WebSocket', 'Workflow Builder');
  *     await advanceSteps(page, 3);                   // steps 1-3
- *     await page.locator('[aria-label="Next step"]').click();
+ *     await skipReadingPause(page);                  // start step 4 action
+ *     await waitForActionPhase(page);
  *     await page.waitForSelector('.wf-config-modal');
  *     await assertNodeNotSelected(page, '.react-flow__node-wsConnect');
  *   });
@@ -33,8 +34,9 @@
  *   READING  — Next button enabled  (user reads the description)
  *   ACTION   — Next button disabled (the step's action() is running)
  *
- * waitForReadingPhase() is the canonical gate — always use it instead of
- * arbitrary page.waitForTimeout() calls.
+ * waitForReadingPhase() is the canonical gate for when the Next button is
+ * enabled. To run a step's action(), use completeCurrentStepAction() or
+ * runNextStep() — never click Next during reading (that aborts the action).
  */
 
 import { type Page, expect } from '@playwright/test';
@@ -94,12 +96,14 @@ export async function openLesson(
   await page.waitForSelector('.demo-lesson-player', { timeout: HUB_TIMEOUT });
 }
 
-/** Click "Start Demo" and wait for the live panel to appear. */
+/** Click "Start Demo" and wait for the live panel + first step reading phase. */
 export async function startLesson(page: Page): Promise<void> {
   const startBtn = page.locator('.demo-start-btn');
   await expect(startBtn).toBeEnabled({ timeout: HUB_TIMEOUT });
   await startBtn.click();
   await page.waitForSelector('.demo-live-panel', { timeout: HUB_TIMEOUT });
+  // startLiveDemo kicks off step 0 asynchronously — wait until it reaches reading.
+  await waitForReadingPhase(page, RESTART_TIMEOUT);
 }
 
 /**
@@ -108,13 +112,45 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
   await selectProtocolsDomain(page);
   await selectCategory(page, category);
   await openLesson(page, lessonNameFragment);
+  await startLesson(page);
+}
+
+/** Wait for a Docker PrerequisiteGate to report the server is up (enables Start Demo). */
+export async function waitForPrerequisiteGateUp(
+  page: Page,
+  timeout = 20_000,
+): Promise<void> {
+  const gate = page.locator('[data-testid="prereq-gate"]');
+  if ((await gate.count()) === 0) return;
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-testid="prereq-status"]')
+        ?.classList.contains('prereq-status--up') === true,
+    { timeout },
+  );
+}
+
+/**
+ * Demo Hub → Protocols → GraphQL → lesson → prerequisite gate → Start.
+ * Use for Docker-gated GraphQL demo lessons (e.g. gql-first-query on port 4010).
+ */
+export async function launchGqlLesson(
+  page: Page,
+  lessonNameFragment: string,
+): Promise<void> {
+  await openDemoHub(page);
+  await selectProtocolsDomain(page);
+  await selectCategory(page, 'GraphQL');
+  await openLesson(page, lessonNameFragment);
+  await waitForPrerequisiteGateUp(page);
   await startLesson(page);
 }
 
@@ -138,27 +174,60 @@ export async function waitForReadingPhase(
   );
 }
 
-/**
- * Click Next and wait for the full action → reading cycle to complete.
- * After this call the step's action has run and the player is ready for the
- * next step.
- */
-export async function runNextStep(
-  page: Page,
-  actionTimeoutMs = STEP_TIMEOUT,
-): Promise<void> {
-  await waitForReadingPhase(page);
-  await page.locator('[aria-label="Next step"]').click();
-  // Wait for action phase to start (Next becomes disabled); some zero-action
-  // steps skip this so we tolerate failure.
+/** Click the skippable reading badge when the step is still in reading phase. */
+export async function skipReadingPause(page: Page): Promise<void> {
+  const badge = page.locator('.demo-live-phase-badge.skippable');
+  if (await badge.isVisible({ timeout: 500 }).catch(() => false)) {
+    await badge.click();
+  }
+}
+
+/** Wait until the step action pipeline disables the Next button. */
+export async function waitForActionPhase(page: Page, timeout = 5_000): Promise<void> {
   await page.waitForFunction(
     () => {
       const btn = document.querySelector('[aria-label="Next step"]') as HTMLButtonElement | null;
       return btn !== null && btn.disabled;
     },
-    { timeout: 3_000 },
-  ).catch(() => { /* zero-action observation step — already in reading */ });
-  // Wait for the action to finish and reading phase to begin.
+    { timeout },
+  ).catch(() => { /* zero-action observation step */ });
+}
+
+/**
+ * Skip the reading pause (if skippable) and wait for the current step's action
+ * to finish. Does not advance the step index — use runNextStep for that.
+ *
+ * IMPORTANT: Clicking the Next button during reading aborts the step before its
+ * action runs. Always call this (or runNextStep) instead of clicking Next directly.
+ */
+export async function completeCurrentStepAction(
+  page: Page,
+  actionTimeoutMs = STEP_TIMEOUT,
+): Promise<void> {
+  await waitForReadingPhase(page, actionTimeoutMs);
+  const phase = await page
+    .locator('[data-testid="demo-live-panel"]')
+    .getAttribute('data-step-phase');
+  if (phase === 'reading') {
+    await skipReadingPause(page);
+  }
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') === 'done',
+    { timeout: actionTimeoutMs },
+  );
+}
+
+/**
+ * Complete the current step (reading + action), click Next, and wait for the
+ * following step to reach its reading phase.
+ */
+export async function runNextStep(
+  page: Page,
+  actionTimeoutMs = STEP_TIMEOUT,
+): Promise<void> {
+  await completeCurrentStepAction(page, actionTimeoutMs);
+  await page.locator('[aria-label="Next step"]').click();
   await waitForReadingPhase(page, actionTimeoutMs);
 }
 
@@ -167,10 +236,69 @@ export async function runNextStep(
  * Use this to reach a specific step quickly without caring about intermediate
  * state (e.g. advance to step 4 to test the config modal fix).
  */
-export async function advanceSteps(page: Page, count: number): Promise<void> {
+export async function advanceSteps(
+  page: Page,
+  count: number,
+  actionTimeoutMs = STEP_TIMEOUT,
+): Promise<void> {
   for (let i = 0; i < count; i++) {
-    await runNextStep(page);
+    await runNextStep(page, actionTimeoutMs);
   }
+}
+
+/**
+ * Finish the current demo step (skip reading → wait for action/verify → done).
+ * Safe on the last step where Next stays disabled after done.
+ *
+ * Demo E2E: on step N/N, Next is NEVER enabled — use this instead of runNextStep.
+ * See e2e/DEMO-LESSON-E2E-MEMO.md §1.
+ */
+export async function finishDemoStep(
+  page: Page,
+  actionTimeoutMs = STEP_TIMEOUT,
+): Promise<void> {
+  const panelSel = '[data-testid="demo-live-panel"]';
+  const readPhase = async () =>
+    page.locator(panelSel).getAttribute('data-step-phase');
+
+  let phase = await readPhase();
+  if (phase === 'done') return;
+
+  if (phase !== 'reading') {
+    await page.waitForFunction(
+      (sel) => {
+        const p = document.querySelector(sel)?.getAttribute('data-step-phase');
+        return p === 'reading' || p === 'done';
+      },
+      panelSel,
+      { timeout: actionTimeoutMs },
+    );
+    phase = await readPhase();
+    if (phase === 'done') return;
+  }
+
+  await skipReadingPause(page);
+  await page.waitForFunction(
+    (sel) => document.querySelector(sel)?.getAttribute('data-step-phase') === 'done',
+    panelSel,
+    { timeout: actionTimeoutMs },
+  );
+}
+
+/** Advance through every step of a live demo lesson (reading skipped via badge). */
+export async function playThroughLesson(
+  page: Page,
+  totalSteps: number,
+  actionTimeoutMs = STEP_TIMEOUT,
+): Promise<void> {
+  // runNextStep ends with waitForReadingPhase, but Next is always disabled on the
+  // last step (isLast). Advance through penultimate step, then finish the final one.
+  for (let i = 0; i < totalSteps - 2; i++) {
+    await runNextStep(page, actionTimeoutMs);
+  }
+  await completeCurrentStepAction(page, actionTimeoutMs);
+  await page.locator('[aria-label="Next step"]').click();
+  await finishDemoStep(page, actionTimeoutMs);
 }
 
 /** Click the restart button and wait for setup + reading phase. */
@@ -241,7 +369,7 @@ export async function assertConfigModalClosed(page: Page): Promise<void> {
  * Screenshots are gitignored; they exist only for local debugging.
  */
 export async function takeNamedScreenshot(page: Page, name: string): Promise<void> {
-  const dir = path.resolve(__dirname, 'screenshots');
+  const dir = path.resolve(process.cwd(), 'e2e/screenshots');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const safe = name.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
   const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);

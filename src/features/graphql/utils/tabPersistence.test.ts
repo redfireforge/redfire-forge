@@ -20,12 +20,19 @@ import {
   generateTabId,
   advanceSeqPastRestoredIds,
   makeBlankTab,
+  makeDemoTab,
+  countUserTabs,
+  isDemoTab,
   normalizeTab,
   loadTabs,
   saveTabs,
   loadActiveTabId,
   loadAuth,
   saveAuth,
+  loadTlsCerts,
+  saveTlsCerts,
+  normalizeTlsCertsStorage,
+  TLS_CERTS_STORAGE_KEY,
   MAX_TABS,
   STORAGE_KEY,
   AUTH_STORAGE_KEY,
@@ -102,6 +109,8 @@ describe('makeBlankTab', () => {
     expect(tab.headers).toEqual([]);
     expect(tab.operationType).toBe('query');
     expect(tab.unsavedChanges).toBe(false);
+    expect(tab.endpoint).toBeUndefined();
+    expect(tab.skipTlsVerify).toBeUndefined();
   });
 
   it('returns unique IDs on each call', () => {
@@ -188,6 +197,91 @@ describe('normalizeTab', () => {
   it('always resets unsavedChanges to false', () => {
     const result = normalizeTab({ id: 't', unsavedChanges: true });
     expect(result!.unsavedChanges).toBe(false);
+  });
+
+  // ── Phase 6: per-tab endpoint + TLS ─────────────────────────────────────────
+  it('normalizes missing endpoint and skipTlsVerify to undefined (legacy tabs)', () => {
+    const result = normalizeTab({ id: 'legacy-tab' });
+    expect(result!.endpoint).toBeUndefined();
+    expect(result!.skipTlsVerify).toBeUndefined();
+  });
+
+  it('preserves per-tab TLS PEM certificate fields', () => {
+    const result = normalizeTab({
+      id: 't',
+      endpoint: 'https://localhost:4443/graphql',
+      skipTlsVerify: true,
+      tlsCaCert: '-----BEGIN CERTIFICATE-----\nabc',
+      tlsClientCert: 'client-pem',
+      tlsClientKey: 'client-key',
+    });
+    expect(result!.endpoint).toBe('https://localhost:4443/graphql');
+    expect(result!.skipTlsVerify).toBe(true);
+    expect(result!.tlsCaCert).toBe('-----BEGIN CERTIFICATE-----\nabc');
+    expect(result!.tlsClientCert).toBe('client-pem');
+    expect(result!.tlsClientKey).toBe('client-key');
+  });
+
+  it('strips blank TLS PEM fields on normalize', () => {
+    const result = normalizeTab({ id: 't', tlsCaCert: '   ', tlsClientCert: '', tlsClientKey: '  ' });
+    expect(result!.tlsCaCert).toBeUndefined();
+    expect(result!.tlsClientCert).toBeUndefined();
+    expect(result!.tlsClientKey).toBeUndefined();
+  });
+
+  it('preserves valid endpoint and skipTlsVerify overrides', () => {
+    const result = normalizeTab({
+      id: 't',
+      endpoint: '  https://api.example.com/graphql  ',
+      skipTlsVerify: true,
+    });
+    expect(result!.endpoint).toBe('https://api.example.com/graphql');
+    expect(result!.skipTlsVerify).toBe(true);
+  });
+
+  it('preserves skipTlsVerify=false as an explicit override', () => {
+    const result = normalizeTab({ id: 't', skipTlsVerify: false });
+    expect(result!.skipTlsVerify).toBe(false);
+  });
+
+  it('normalizes blank endpoint string to undefined', () => {
+    expect(normalizeTab({ id: 't', endpoint: '' })!.endpoint).toBeUndefined();
+    expect(normalizeTab({ id: 't', endpoint: '   ' })!.endpoint).toBeUndefined();
+  });
+
+  it('ignores invalid endpoint and skipTlsVerify types', () => {
+    const result = normalizeTab({
+      id: 't',
+      endpoint: 42,
+      skipTlsVerify: 'true',
+    });
+    expect(result!.endpoint).toBeUndefined();
+    expect(result!.skipTlsVerify).toBeUndefined();
+  });
+
+  it('normalizes polling overrides (Phase 6F)', () => {
+    const result = normalizeTab({
+      id: 't',
+      pollingEnabled: true,
+      pollingIntervalSeconds: 45,
+    });
+    expect(result!.pollingEnabled).toBe(true);
+    expect(result!.pollingIntervalSeconds).toBe(45);
+  });
+
+  it('clamps pollingIntervalSeconds to 10–3600 on load (Phase 6F)', () => {
+    expect(normalizeTab({ id: 't', pollingIntervalSeconds: 5 })!.pollingIntervalSeconds).toBe(10);
+    expect(normalizeTab({ id: 't', pollingIntervalSeconds: 9999 })!.pollingIntervalSeconds).toBe(3600);
+  });
+
+  it('ignores invalid polling field types (Phase 6F)', () => {
+    const result = normalizeTab({
+      id: 't',
+      pollingEnabled: 'true',
+      pollingIntervalSeconds: '30',
+    });
+    expect(result!.pollingEnabled).toBeUndefined();
+    expect(result!.pollingIntervalSeconds).toBeUndefined();
   });
 
   // ── subscriptionAssertions normalization ──────────────────────────────────
@@ -284,6 +378,24 @@ describe('loadTabs / saveTabs', () => {
     const loaded = await loadTabs();
     expect(loaded).toHaveLength(1);
     expect(loaded[0].id).toBe('tab-1');
+  });
+
+  it('round-trips Phase 6 endpoint and skipTlsVerify fields through save/load', async () => {
+    const tab = makeTab('tab-1', {
+      endpoint: 'https://staging.example.com/graphql',
+      skipTlsVerify: true,
+    });
+    await saveTabs([tab], 'tab-1');
+    const loaded = await loadTabs();
+    expect(loaded[0].endpoint).toBe('https://staging.example.com/graphql');
+    expect(loaded[0].skipTlsVerify).toBe(true);
+  });
+
+  it('legacy tabs without endpoint fields load with undefined overrides', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([{ id: 'legacy-1', label: 'Old' }]));
+    const loaded = await loadTabs();
+    expect(loaded[0].endpoint).toBeUndefined();
+    expect(loaded[0].skipTlsVerify).toBeUndefined();
   });
 
   it('caps to MAX_TABS on load', async () => {
@@ -408,5 +520,72 @@ describe('disposeTabModels', () => {
       editor: { getModel: vi.fn() },
     } as unknown as Parameters<typeof disposeTabModels>[0];
     expect(() => disposeTabModels(mc, makeTab('tab-z'))).not.toThrow();
+  });
+});
+
+// ─── Demo tab helpers (§11.0) ─────────────────────────────────────────────────
+
+describe('makeDemoTab', () => {
+  it('creates a tab tagged with demoLessonId and manual label', () => {
+    const tab = makeDemoTab('gql-first-query', 'Demo: First Query');
+    expect(tab.demoLessonId).toBe('gql-first-query');
+    expect(tab.label).toBe('Demo: First Query');
+    expect(tab.labelManual).toBe(true);
+    expect(tab.unsavedChanges).toBe(false);
+  });
+});
+
+describe('countUserTabs / isDemoTab', () => {
+  it('counts only non-demo tabs', () => {
+    const user = makeTab('u1');
+    const demo = makeTab('d1', { demoLessonId: 'lesson-a' });
+    expect(isDemoTab(demo)).toBe(true);
+    expect(isDemoTab(user)).toBe(false);
+    expect(countUserTabs([user, demo])).toBe(1);
+  });
+});
+
+describe('normalizeTab demoLessonId', () => {
+  it('preserves demoLessonId when valid', () => {
+    const tab = normalizeTab({ ...makeTab('x'), demoLessonId: 'gql-first-query' });
+    expect(tab.demoLessonId).toBe('gql-first-query');
+  });
+
+  it('drops empty demoLessonId', () => {
+    const tab = normalizeTab({ ...makeTab('x'), demoLessonId: '  ' });
+    expect(tab.demoLessonId).toBeUndefined();
+  });
+});
+
+describe('page-level TLS cert persistence', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('normalizeTlsCertsStorage trims PEM fields', () => {
+    expect(normalizeTlsCertsStorage({
+      caCert: '  pem  ',
+      clientCert: '',
+      clientKey: '   ',
+    })).toEqual({ caCert: 'pem' });
+  });
+
+  it('round-trips CA and mTLS PEM via saveTlsCerts/loadTlsCerts', async () => {
+    await saveTlsCerts({
+      caCert: '-----BEGIN CERTIFICATE-----\nca',
+      clientCert: '-----BEGIN CERTIFICATE-----\nclient',
+      clientKey: '-----BEGIN PRIVATE KEY-----\nkey',
+    });
+    const loaded = await loadTlsCerts();
+    expect(loaded.caCert).toContain('BEGIN CERTIFICATE');
+    expect(loaded.clientCert).toContain('BEGIN CERTIFICATE');
+    expect(loaded.clientKey).toContain('BEGIN PRIVATE KEY');
+    expect(localStorage.getItem(TLS_CERTS_STORAGE_KEY)).toBeTruthy();
+  });
+
+  it('saveTlsCerts removes storage key when all fields cleared', async () => {
+    await saveTlsCerts({ caCert: 'pem' });
+    await saveTlsCerts({});
+    expect(localStorage.getItem(TLS_CERTS_STORAGE_KEY)).toBeNull();
   });
 });

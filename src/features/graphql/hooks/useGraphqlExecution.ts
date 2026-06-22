@@ -21,8 +21,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '../../../shared/types/graphql';
+import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy, serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { gqlFetch, gqlUpload } from '../utils/gqlFetch';
+import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
 import { hasIncrementalDirective } from '../utils/graphqlClient';
 import { parseMultipartMixed } from '../utils/multipartParser';
 import { executeWithAPQ } from '../utils/apqClient';
@@ -35,6 +38,12 @@ import {
   handleDedupGuard,
 } from '../utils/dedupExecution';
 import type { DedupChoice } from '../utils/dedupExecution';
+import {
+  apqInfoFromResponse,
+  parseHttpBody,
+  stampRequestHeaders,
+} from '../utils/graphqlExecutionResponseParsing';
+import { notifyExecutionCompleted } from '../utils/graphqlExecutionNotify';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +60,8 @@ export interface ExecuteParams {
   headers: Record<string, string>;
   /** Skip TLS certificate validation — for self-signed/dev endpoints (web mode: proxied via /__proxy) */
   skipTlsVerify?: boolean;
+  /** Full TLS settings (CA + mTLS). When omitted, derived from skipTlsVerify. */
+  tls?: GqlTlsSettings;
   /**
    * When present, sends the request as multipart/form-data via the upload proxy
    * instead of a standard JSON body. Used by the Files tab (2E-1/2E-2).
@@ -77,12 +88,25 @@ export interface ExecuteParams {
   _skipDedupCheck?: boolean;
   /** When true, skip only the dedup check but still register (Cancel original — replacement tracks as new dedup entry) */
   _skipDedupCheckOnly?: boolean;
+  /** Owning studio tab — attributes in-flight state per tab (Phase 6A). */
+  sourceTabId?: string;
+  /** Invoked when execution actually starts loading (after dedup guard passes). */
+  onExecutionStarted?: (tabId: string) => void;
+  /** Invoked when a dedup waiter receives the shared result (Phase 6A — per-tab cache). */
+  onExecutionCompleted?: (
+    tabId: string,
+    status: ExecutionStatus,
+    response: GraphqlResponse | null,
+    apqInfo?: ApqInfo | null,
+  ) => void;
 }
 
 export interface ApqInfo {
   hash: string;
   cacheHit: boolean;
   unsupported: boolean;
+  /** Endpoint/connection id that produced this APQ result (Phase 6 multi-tab). */
+  connectionId?: string;
 }
 
 export interface UseGraphqlExecution {
@@ -92,61 +116,12 @@ export interface UseGraphqlExecution {
   cancel: () => void;
   /** true when a dedup situation is pending user choice */
   isDuplicate: boolean;
+  /** Studio tab that triggered the pending dedup prompt (Phase 6A multi-tab). */
+  duplicateSourceTabId: string | null;
   /** APQ metadata from the last completed APQ request */
   apqInfo: ApqInfo | null;
   /** Resolve a pending dedup situation */
   resolveDedupChoice: (choice: DedupChoice) => void;
-}
-
-// ─── Helper: parse an HttpResponse into a GraphqlResponse ────────────────────
-
-function parseHttpBody(
-  status: number,
-  headers: Record<string, string>,
-  body: string,
-  latencyMs: number,
-  error?: string,
-): GraphqlResponse {
-  const base: GraphqlResponse = {
-    httpStatus: status,
-    httpHeaders: headers,
-    latencyMs,
-    timestamp: Date.now(),
-  };
-  if (status === 0 && error) {
-    base.data = null;
-    base.errors = [{ message: error }];
-    return base;
-  }
-  try {
-    const parsed = JSON.parse(body) as Record<string, unknown>;
-    base.data = parsed.data ?? null;
-    if (Array.isArray(parsed.errors)) base.errors = parsed.errors as GraphqlError[];
-    if (parsed.extensions && typeof parsed.extensions === 'object') {
-      base.extensions = parsed.extensions as Record<string, unknown>;
-    }
-  } catch {
-    const preview = body.length > 200 ? `${body.slice(0, 200)}…` : body;
-    base.data = null;
-    base.errors = [{ message: `Server returned a non-JSON response (HTTP ${status})`, extensions: { rawPreview: preview } }];
-  }
-
-  // BUG-GQL-EXEC-1: Ensure 4xx/5xx HTTP responses always have at least one error
-  // so they are marked as failed execution. If the server returned a non-GraphQL
-  // error response (e.g., { error: 'message' }) or no errors field, add one.
-  if (status >= 400 && (!base.errors || base.errors.length === 0)) {
-    base.data = null;
-    base.errors = [{ message: `HTTP ${status}: ${body ? body.slice(0, 100) : 'Server error'}` }];
-  }
-
-  return base;
-}
-
-function stampRequestHeaders(
-  response: GraphqlResponse,
-  requestHeaders: Record<string, string>,
-): GraphqlResponse {
-  return { ...response, requestHeaders: { ...requestHeaders } };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -155,6 +130,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   const [status, setStatus] = useState<ExecutionStatus>('idle');
   const [response, setResponse] = useState<GraphqlResponse | null>(null);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [duplicateSourceTabId, setDuplicateSourceTabId] = useState<string | null>(null);
   const [apqInfo, setApqInfo] = useState<ApqInfo | null>(null);
   const abortCtrlRef = useRef<AbortController | null>(null);
 
@@ -168,13 +144,40 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   statusRef.current = status;
   const responseRef = useRef(response);
   responseRef.current = response;
+  const apqInfoRef = useRef(apqInfo);
+  apqInfoRef.current = apqInfo;
 
   // BUG-GQL-R8-3 fix: preserve the last completed response so Cancel/Escape restores
   // it rather than showing an empty "No response yet" panel.
-  const lastCompletedResponseRef = useRef<{ status: ExecutionStatus; response: GraphqlResponse | null }>({
+  // Phase 6D: include apqInfo so cancel also restores the connection-bar APQ badge.
+  const lastCompletedResponseRef = useRef<{
+    status: ExecutionStatus;
+    response: GraphqlResponse | null;
+    apqInfo: ApqInfo | null;
+  }>({
     status: 'idle',
     response: null,
+    apqInfo: null,
   });
+
+  const rememberCompletedSnapshot = (
+    status: ExecutionStatus,
+    snapshotResponse: GraphqlResponse | null,
+    snapshotApqInfo?: ApqInfo | null,
+  ) => {
+    lastCompletedResponseRef.current = {
+      status,
+      response: snapshotResponse,
+      apqInfo: snapshotApqInfo !== undefined ? snapshotApqInfo : apqInfoRef.current,
+    };
+  };
+
+  const restoreCompletedSnapshot = () => {
+    const snap = lastCompletedResponseRef.current;
+    setStatus(snap.status);
+    setResponse(snap.response);
+    setApqInfo(snap.apqInfo);
+  };
 
   // Phase 3F: pending dedup state
   const pendingDedupRef = useRef<{
@@ -192,6 +195,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   // while waiting, can cleanly discard the stale wait handler without updating state.
   const waitCancelRef = useRef<(() => void) | null>(null);
 
+  const clearDuplicateState = () => {
+    setIsDuplicate(false);
+    setDuplicateSourceTabId(null);
+  };
+
   // ── Cancel ────────────────────────────────────────────────────────────────
   // BUG-GQL-R14-5 fix: guard with mountedRef for consistency with async paths.
   // Phase 3F fix: when isDuplicate=true (either undecided or waiting for a shared promise),
@@ -202,10 +210,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
     if (pendingDedupRef.current) {
       // Undecided dedup state — dismiss without aborting the shared request
       pendingDedupRef.current = null;
-      setIsDuplicate(false);
+      clearDuplicateState();
       if (!mountedRef.current) return;
-      setStatus(lastCompletedResponseRef.current.status);
-      setResponse(lastCompletedResponseRef.current.response);
+      restoreCompletedSnapshot();
       return;
     }
     if (waitCancelRef.current) {
@@ -214,16 +221,14 @@ export function useGraphqlExecution(): UseGraphqlExecution {
       waitCancelRef.current();
       waitCancelRef.current = null;
       if (!mountedRef.current) return;
-      setStatus(lastCompletedResponseRef.current.status);
-      setResponse(lastCompletedResponseRef.current.response);
+      restoreCompletedSnapshot();
       return;
     }
     if (abortCtrlRef.current) {
       abortCtrlRef.current.abort();
       abortCtrlRef.current = null;
       if (!mountedRef.current) return;
-      setStatus(lastCompletedResponseRef.current.status);
-      setResponse(lastCompletedResponseRef.current.response);
+      restoreCompletedSnapshot();
     }
   }, []);
 
@@ -231,12 +236,13 @@ export function useGraphqlExecution(): UseGraphqlExecution {
   const execute = useCallback(
     (params: ExecuteParams) => {
       const {
-        endpoint,
+        endpoint: endpointRaw,
         query,
         variables,
         operationName,
         headers,
         skipTlsVerify,
+        tls: tlsInput,
         formData,
         onUploadProgress,
         connectionId,
@@ -246,9 +252,13 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         operationType = 'query',
         _skipDedupCheck = false,
         _skipDedupCheckOnly = false,
+        sourceTabId,
+        onExecutionStarted,
       } = params;
 
-      if (!endpoint.trim() || !query.trim()) return;
+      const tls: GqlTlsSettings = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
+      const endpoint = normalizeGraphqlEndpoint(endpointRaw);
+      if (!endpoint || !query.trim()) return;
 
       // ── 2D-6: @defer / @stream + file upload mutual exclusion ──────────────
       if (formData && hasIncrementalDirective(query)) {
@@ -263,9 +273,10 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           httpHeaders: {},
           timestamp: Date.now(),
         };
-        lastCompletedResponseRef.current = { status: 'error', response: errorResp };
+        rememberCompletedSnapshot('error', errorResp, null);
         setStatus('error');
         setResponse(errorResp);
+        notifyExecutionCompleted(params, 'error', errorResp, null);
         return;
       }
 
@@ -295,6 +306,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         if (existing) {
           // Duplicate detected — pause and wait for user's choice
           setIsDuplicate(true);
+          setDuplicateSourceTabId(sourceTabId ?? null);
           pendingDedupRef.current = { params, key: dedupKey, promise: existing.promise };
           return;
         }
@@ -325,11 +337,14 @@ export function useGraphqlExecution(): UseGraphqlExecution {
       const prevStatus = statusRef.current;
       const prevResponse = responseRef.current;
       if (prevStatus !== 'loading') {
-        lastCompletedResponseRef.current = { status: prevStatus, response: prevResponse };
+        rememberCompletedSnapshot(prevStatus, prevResponse, apqInfoRef.current);
+      }
+      if (sourceTabId && onExecutionStarted && !_skipDedupCheck) {
+        onExecutionStarted(sourceTabId);
       }
       setResponse(null);
       setStatus('loading');
-      setIsDuplicate(false);
+      clearDuplicateState();
       setApqInfo(null); // Reset APQ badge so a non-APQ run clears the previous hit/miss indicator
 
       const startTime = performance.now();
@@ -388,14 +403,13 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         try {
           if (formData) {
             // ── File upload path ───────────────────────────────────────────
-            const result = await gqlUpload(endpoint, formData, headers, ctrl.signal, onUploadProgress);
+            const result = await gqlUpload(endpoint, formData, headers, ctrl.signal, onUploadProgress, tls);
 
             if (ctrl.signal.aborted) { rejectExecPromise(new Error('Aborted')); return; }
             if (result.error === 'Aborted') {
               rejectExecPromise(new Error('Aborted'));
               if (!mountedRef.current) return;
-              setStatus(lastCompletedResponseRef.current.status);
-              setResponse(lastCompletedResponseRef.current.response);
+              restoreCompletedSnapshot();
               return;
             }
 
@@ -406,8 +420,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             );
             const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
             const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
-            lastCompletedResponseRef.current = { status: finalStatus, response: gqlResponse };
+            rememberCompletedSnapshot(finalStatus, gqlResponse);
             resolveExecPromise(gqlResponse);
+            notifyExecutionCompleted(params, finalStatus, gqlResponse, null);
             if (!mountedRef.current) return;
             setStatus(finalStatus);
             setResponse(gqlResponse);
@@ -421,15 +436,15 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             let fetchBody: string;
             let fetchHeaders: Record<string, string>;
 
-            if (skipTlsVerify) {
-              fetchUrl  = '/api/graphql/query';
+            if (gqlRequiresTlsProxy(tls)) {
+              fetchUrl  = `${getProxyBase()}/api/graphql/query`;
               fetchBody = JSON.stringify({
                 endpoint,
                 query,
                 variables:     requestBody.variables,
                 operationName: requestBody.operationName,
                 headers,
-                skipTlsVerify: true,
+                ...serializeGqlTlsForProxy(tls),
               });
               fetchHeaders = {
                 'Content-Type': 'application/json',
@@ -453,8 +468,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               if (ctrl.signal.aborted) {
                 rejectExecPromise(new Error('Aborted'));
                 if (!mountedRef.current) return;
-                setStatus(lastCompletedResponseRef.current.status);
-                setResponse(lastCompletedResponseRef.current.response);
+                restoreCompletedSnapshot();
                 return;
               }
               const message = err instanceof Error ? err.message : 'Network error';
@@ -462,8 +476,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 httpStatus: 0, httpHeaders: {}, latencyMs: Math.round(performance.now() - startTime),
                 timestamp: Date.now(), data: null, errors: [{ message }],
               };
-              lastCompletedResponseRef.current = { status: 'error', response: errorResp };
+              rememberCompletedSnapshot('error', errorResp, null);
               rejectExecPromise(new Error(message));
+              notifyExecutionCompleted(params, 'error', errorResp, null);
               if (!mountedRef.current) return;
               setStatus('error');
               setResponse(errorResp);
@@ -477,7 +492,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
             if (contentType.includes('multipart/mixed')) {
               let chunkIdx = 0;
-              let lastChunkResp: GraphqlResponse | null = null;
+              // Object holder — TS cannot track `let` assignments inside the parse callback.
+              const lastChunk: { resp: GraphqlResponse | null } = { resp: null };
               await parseMultipartMixed(resp, (chunk) => {
                 if (!mountedRef.current || ctrl.signal.aborted) return;
                 chunkIdx++;
@@ -498,8 +514,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   ? (!hasErrors || gqlResp.data !== null ? 'success' : 'error')
                   : 'loading';
                 if (isLast) {
-                  lastCompletedResponseRef.current = { status: finalStatus, response: gqlResp };
-                  lastChunkResp = gqlResp;
+                  rememberCompletedSnapshot(finalStatus, gqlResp);
+                  lastChunk.resp = gqlResp;
                 }
                 setStatus(finalStatus);
                 setResponse(gqlResp);
@@ -511,12 +527,19 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   latencyMs: Math.round(performance.now() - startTime), timestamp: Date.now(),
                   data: null, errors: [{ message: `Server returned multipart/mixed but no incremental chunks were received (HTTP ${resp.status})` }],
                 };
-                lastCompletedResponseRef.current = { status: 'error', response: emptyResp };
+                rememberCompletedSnapshot('error', emptyResp, null);
                 rejectExecPromise(new Error('No incremental chunks'));
+                notifyExecutionCompleted(params, 'error', emptyResp, null);
                 setStatus('error');
                 setResponse(emptyResp);
-              } else if (lastChunkResp) {
-                resolveExecPromise(lastChunkResp);
+              } else {
+                const finalChunk: GraphqlResponse | null = lastChunk.resp;
+                if (finalChunk) {
+                  resolveExecPromise(finalChunk);
+                  const lastStatus: ExecutionStatus =
+                    !(finalChunk.errors?.length ?? 0) || finalChunk.data !== null ? 'success' : 'error';
+                  notifyExecutionCompleted(params, lastStatus, finalChunk, null);
+                }
               }
               if (abortCtrlRef.current === ctrl) abortCtrlRef.current = null;
               return;
@@ -531,8 +554,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             );
             const hasErr2 = (gqlResponse.errors?.length ?? 0) > 0;
             const fs2: ExecutionStatus = !hasErr2 || gqlResponse.data !== null ? 'success' : 'error';
-            lastCompletedResponseRef.current = { status: fs2, response: gqlResponse };
+            rememberCompletedSnapshot(fs2, gqlResponse);
             resolveExecPromise(gqlResponse);
+            notifyExecutionCompleted(params, fs2, gqlResponse, null);
             if (!mountedRef.current) return;
             setStatus(fs2);
             setResponse(gqlResponse);
@@ -543,6 +567,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           // ── Standard HTTP path (queries / mutations without @defer/@stream) ──
 
           let gqlResponse: GraphqlResponse;
+          let completedApqInfo: ApqInfo | null = null;
 
           if (isApq) {
             // ── APQ two-step flow ──────────────────────────────────────────
@@ -552,8 +577,33 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 const getHeaders: Record<string, string> = { Accept: 'application/json', ...headers };
                 delete getHeaders['Content-Type'];
 
-                if (skipTlsVerify) {
-                  // TLS skip requires routing through Node.js proxy (browser can't bypass TLS)
+                if (gqlRequiresTlsProxy(tls)) {
+                  if (tlsApqGetNeedsPostProxy(tls)) {
+                    const postBody: Record<string, unknown> = { ...bodyFields };
+                    if (requestBody.operationName != null) {
+                      postBody.operationName = requestBody.operationName;
+                    }
+                    const result = await fetch(`${getProxyBase()}/api/graphql/query`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...getHeaders },
+                      body: JSON.stringify({
+                        endpoint,
+                        query: postBody.query,
+                        ...(postBody.extensions !== undefined ? { extensions: postBody.extensions } : {}),
+                        ...(postBody.variables !== undefined ? { variables: postBody.variables } : {}),
+                        ...(postBody.operationName !== undefined ? { operationName: postBody.operationName } : {}),
+                        headers,
+                        ...serializeGqlTlsForProxy(tls),
+                      }),
+                      signal: ctrl.signal,
+                    });
+                    const text = await result.text();
+                    const resHeaders: Record<string, string> = {};
+                    result.headers.forEach((v, k) => { resHeaders[k] = v; });
+                    return parseHttpBody(result.status, resHeaders, text, Math.round(performance.now() - startTime));
+                  }
+
+                  // skipTlsVerify-only APQ GET — query-string proxy (no PEM blobs).
                   const proxyParams = new URLSearchParams();
                   proxyParams.set('endpoint', endpoint);
                   for (const [k, v] of Object.entries(bodyFields)) {
@@ -563,9 +613,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   if (requestBody.operationName != null) {
                     proxyParams.set('operationName', String(requestBody.operationName));
                   }
-                  proxyParams.set('skipTlsVerify', 'true');
+                  if (tls.skipTlsVerify) proxyParams.set('skipTlsVerify', 'true');
                   const result = await gqlFetch(
-                    `/api/graphql/query?${proxyParams.toString()}`,
+                    `${getProxyBase()}/api/graphql/query?${proxyParams.toString()}`,
                     'GET',
                     getHeaders,
                     undefined,
@@ -617,7 +667,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   requestHeaders,
                   JSON.stringify(fullBody),
                   ctrl.signal,
-                  skipTlsVerify,
+                  tls,
                 );
                 return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
               }
@@ -644,13 +694,18 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               // then restore prior UI state (mirrors the other abort paths).
               rejectExecPromise(new Error('Aborted'));
               if (mountedRef.current) {
-                setStatus(lastCompletedResponseRef.current.status);
-                setResponse(lastCompletedResponseRef.current.response);
+                restoreCompletedSnapshot();
               }
               return;
             }
             if (!mountedRef.current) return;
-            setApqInfo({ hash: apqResult.hash, cacheHit: apqResult.cacheHit, unsupported: apqResult.unsupported });
+            completedApqInfo = {
+              hash: apqResult.hash,
+              cacheHit: apqResult.cacheHit,
+              unsupported: apqResult.unsupported,
+              connectionId: connectionId ?? endpoint,
+            };
+            setApqInfo(completedApqInfo);
           } else {
             // ── Standard POST (no APQ) ─────────────────────────────────────
             const result = await gqlFetch(
@@ -659,7 +714,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               requestHeaders,
               JSON.stringify(requestBody),
               ctrl.signal,
-              skipTlsVerify,
+              tls,
             );
 
             if (ctrl.signal.aborted) {
@@ -671,8 +726,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             if (result.error === 'Aborted') {
               rejectExecPromise(new Error('Aborted'));
               if (!mountedRef.current) return;
-              setStatus(lastCompletedResponseRef.current.status);
-              setResponse(lastCompletedResponseRef.current.response);
+              restoreCompletedSnapshot();
               return;
             }
 
@@ -696,8 +750,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
           const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
           const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
-          lastCompletedResponseRef.current = { status: finalStatus, response: gqlResponse };
+          rememberCompletedSnapshot(finalStatus, gqlResponse, completedApqInfo);
           resolveExecPromise(gqlResponse);
+          notifyExecutionCompleted(params, finalStatus, gqlResponse, completedApqInfo);
           if (!mountedRef.current) return;
           setStatus(finalStatus);
           setResponse(gqlResponse);
@@ -707,8 +762,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             // Reject so dedup "wait" waiters are not stuck in loading state
             rejectExecPromise(new Error('Aborted'));
             if (!mountedRef.current) return;
-            setStatus(lastCompletedResponseRef.current.status);
-            setResponse(lastCompletedResponseRef.current.response);
+            restoreCompletedSnapshot();
             return;
           }
           const latencyMs = Math.round(performance.now() - startTime);
@@ -721,8 +775,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             data: null,
             errors: [{ message }],
           };
-          lastCompletedResponseRef.current = { status: 'error', response: errorResponse };
+          rememberCompletedSnapshot('error', errorResponse, null);
           rejectExecPromise(err);
+          notifyExecutionCompleted(params, 'error', errorResponse, null);
           if (!mountedRef.current) return;
           setStatus('error');
           setResponse(errorResponse);
@@ -760,9 +815,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         // Subscribe to the shared promise — zero extra network calls.
         // AbortController isolation: aborting this "waiter" does NOT abort
         // the shared underlying request (other waiters remain unaffected).
+        const waitParams = pending.params;
         pendingDedupRef.current = null;
-        setIsDuplicate(false);
+        clearDuplicateState();
         setStatus('loading');
+        setApqInfo(null);
         // Detach abortCtrlRef so the user pressing Cancel/Escape does not abort
         // the shared in-flight request.
         abortCtrlRef.current = null;
@@ -779,16 +836,21 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             if (!mountedRef.current || cancelled) return;
             const hasErrors = (resp.errors?.length ?? 0) > 0;
             const fs: ExecutionStatus = !hasErrors || resp.data !== null ? 'success' : 'error';
-            lastCompletedResponseRef.current = { status: fs, response: resp };
+            const respApqInfo = apqInfoFromResponse(
+              resp,
+              waitParams.connectionId ?? waitParams.endpoint,
+            );
+            rememberCompletedSnapshot(fs, resp, respApqInfo);
+            setApqInfo(respApqInfo);
             setStatus(fs);
             setResponse(resp);
+            notifyExecutionCompleted(waitParams, fs, resp, respApqInfo);
           })
           .catch(() => {
             // Original was cancelled or errored — restore prior state
             waitCancelRef.current = null;
             if (!mountedRef.current || cancelled) return;
-            setStatus(lastCompletedResponseRef.current.status);
-            setResponse(lastCompletedResponseRef.current.response);
+            restoreCompletedSnapshot();
           });
         return;
       }
@@ -798,7 +860,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         handleDedupGuard(pending.key, 'cancel');
         const savedParams = pending.params;
         pendingDedupRef.current = null;
-        setIsDuplicate(false);
+        clearDuplicateState();
         // _skipDedupCheckOnly: skip detection (no duplicate in map now that original was removed)
         // but still register the new request so future identical sends are dedup-detected.
         execute({ ...savedParams, _skipDedupCheckOnly: true });
@@ -807,7 +869,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
       // sendAnyway: run alongside the original — skip detection AND registration
       const savedParams = pending.params;
       pendingDedupRef.current = null;
-      setIsDuplicate(false);
+      clearDuplicateState();
       execute({ ...savedParams, _skipDedupCheck: true });
     },
     [execute],
@@ -834,5 +896,5 @@ export function useGraphqlExecution(): UseGraphqlExecution {
     };
   }, []);
 
-  return { status, response, execute, cancel, isDuplicate, apqInfo, resolveDedupChoice };
+  return { status, response, execute, cancel, isDuplicate, duplicateSourceTabId, apqInfo, resolveDedupChoice };
 }

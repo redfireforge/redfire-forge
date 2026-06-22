@@ -41,3 +41,51 @@ A file is considered **monolithic** when it has **≥ 900 lines**. When found:
 2. Remove redundant code
 3. Ensure unit tests cover all extracted modules at > 90%
 4. Add E2E tests for any new user-facing behaviour
+
+---
+
+## Demo Hub Lesson E2E — Mandatory Pitfalls
+
+**Full memo:** `e2e/DEMO-LESSON-E2E-MEMO.md` — read before any new `e2e/demo-*.spec.ts`.
+
+### Last step: never `runNextStep` on step N/N
+
+`LiveDemo` disables Next on the final step (`isLast`). `runNextStep()` ends with `waitForReadingPhase()` → **600s timeout hang**.
+
+```typescript
+// ✅ Full walk — use walkFullGql*Lesson or this pattern:
+for (let i = 0; i < totalSteps - 2; i++) await runNextStep(page, timeout);
+await completeCurrentStepAction(page, timeout);
+await page.locator('[aria-label="Next step"]').click();
+await finishDemoStep(page, timeout);
+
+// ❌ NEVER advanceToStep(totalSteps) or runNextStep on the final step
+```
+
+GQL-1: Next disabled on last step even during reading — use `waitForGql1StepReady`, not `waitForReadingPhase` after entering step 13/13.
+
+### Step index
+
+`advanceToStep(N)` = step **N reading** (action not run). To verify step N outcome: `advanceToStep(N)` + `completeCurrentStepAction`.
+
+### Locators
+
+Scope to `data-testid` panels. Lesson narration duplicates UI text (`user.name`, `Alice`, etc.) → Playwright strict-mode violations with bare `getByText()`.
+
+### GraphQL Docker endpoint
+
+- GQL-2: `ensureGql2StudioEndpoint` → `{{graphqlUrl}}`
+- GQL-3: `ensureGql3StudioEndpoint` → **`http://localhost:4010/graphql`** (exact; bare `4010` → POST `/` → 404)
+- Always: `setupLiveProxy` + `seedGqlDemoEnvironmentForE2e` where applicable
+
+Shared walk/prepare: `e2e/graphql-lesson-smoke-helpers.ts` — do not duplicate.
+
+### Per-lesson runs
+
+GraphQL lessons use isolated projects (`demo-gql1`, `demo-gql2`, `demo-gql3`). During dev run **only** that lesson:
+
+```bash
+npm run test:e2e:demo:gql3
+```
+
+Heavy Docker steps: **300s** action timeout. Project: `workers: 1`, `retries: 0`.

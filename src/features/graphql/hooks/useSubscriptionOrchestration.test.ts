@@ -53,6 +53,7 @@ function makeSub(overrides: Partial<UseGraphqlSubscriptionResult> = {}): UseGrap
 function renderOrchestration(overrides: {
   activeTab?: GqlStudioTab | undefined | null;
   endpoint?: string;
+  endpointLinkPending?: boolean;
   sub?: Partial<UseGraphqlSubscriptionResult>;
 } = {}) {
   const subscription = makeSub(overrides.sub);
@@ -66,6 +67,7 @@ function renderOrchestration(overrides: {
       selectedOperation: 'TestSub',
       skipTlsVerify: false,
       subscription,
+      endpointLinkPending: overrides.endpointLinkPending,
     }),
   );
   return { result, subscription };
@@ -82,6 +84,12 @@ describe('handleSubscribe', () => {
     expect(call.query).toContain('subscription');
     expect(call.endpoint).toBe('http://localhost:4000/graphql');
     expect(call.operationName).toBe('TestSub');
+  });
+
+  it('Phase 6F: does not subscribe when endpointLinkPending', () => {
+    const { result, subscription } = renderOrchestration({ endpointLinkPending: true });
+    act(() => result.current.handleSubscribe());
+    expect(subscription.subscribe).not.toHaveBeenCalled();
   });
 
   it('passes subscriptionTransport from active tab to subscribe params', () => {

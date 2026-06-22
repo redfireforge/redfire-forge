@@ -118,7 +118,7 @@ describe('executeGraphqlOperation', () => {
     });
     const args = mockGqlFetch.mock.calls[0];
     expect(args[4]).toBe(ctrl.signal);
-    expect(args[5]).toBe(true);
+    expect(args[5]).toEqual({ skipTlsVerify: true });
   });
 
   it('measures latencyMs > 0', async () => {

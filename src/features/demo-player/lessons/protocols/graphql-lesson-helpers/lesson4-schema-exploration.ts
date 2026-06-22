@@ -6,26 +6,24 @@ import {
   ensureEditorMode,
   ensureIntrospected,
   fillGqlEditor,
-  getEndpointInput,
   getGqlEditorQuery,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 /** Minimal query template for Try → field insert demos. */
 export const GQL_INSERT_TEMPLATE_QUERY = `query {
   
 }`;
 
-let _schemaExplorerOpen = false;
 let _queryTypeSelected = false;
 let _userTypeSelected = false;
 let _tryInsertDone = false;
 
 /** Reset Lesson 4 session flags. */
 export function resetGqlLesson4SessionFlags(): void {
-  _schemaExplorerOpen = false;
   _queryTypeSelected = false;
   _userTypeSelected = false;
   _tryInsertDone = false;
@@ -43,16 +41,27 @@ export function gqlTryFieldSelector(fieldName: string): string {
 
 /** Open the Schema right tab and wait for the explorer. */
 export async function ensureSchemaExplorerOpen(ctx: DemoActionContext): Promise<void> {
+  const schemaTabSelected = () =>
+    document.querySelector(GQL.RIGHT_TAB_SCHEMA)?.getAttribute('aria-selected') === 'true';
+  const hasBadgeOk = () => !!document.querySelector(GQL.SCHEMA_BADGE_OK);
+  const hasTypeList = () => !!document.querySelector(GQL.SCHEMA_TYPE_LIST);
+
+  // Fast path: schema already introspected, tab already open, type list already rendered.
+  // Skipping ensureIntrospected avoids the internal schema-tab click in waitForQueryType().
+  if (hasBadgeOk() && schemaTabSelected() && hasTypeList()) {
+  await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
+  return;
+  }
+
   await ensureIntrospected(ctx);
-  const schemaTabSelected = document.querySelector(GQL.RIGHT_TAB_SCHEMA)?.getAttribute('aria-selected') === 'true';
-  if (_schemaExplorerOpen && schemaTabSelected && document.querySelector(GQL.SCHEMA_TYPE_LIST)) return;
-  if (!schemaTabSelected) {
+
+  // After ensureIntrospected, re-check whether the tab was clicked open internally.
+  if (!schemaTabSelected()) {
     await ctx.click(GQL.RIGHT_TAB_SCHEMA);
     await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);
     await ctx.delay(400);
   }
   await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
-  _schemaExplorerOpen = true;
 }
 
 /** Select a type in the schema explorer type list. */
@@ -123,7 +132,7 @@ export async function ensureTryInsertDone(ctx: DemoActionContext): Promise<void>
   _tryInsertDone = true;
 }
 
-/** Setup for Lesson 4 — clean state with empty query template. */
+/** Setup for Lesson 4 (GQL-3) — demo tab with insert template query. */
 export async function gqlSchemaLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -138,18 +147,19 @@ export async function gqlSchemaLessonSetup(ctx: DemoActionContext): Promise<void
     responseTab.click();
   }
   await ctx.delay(200);
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
+  const historyBtn = document.querySelector<HTMLElement>(GQL.ACTIVITY_HISTORY);
+  if (historyBtn?.classList.contains('gql-activity-tab--active')) {
+    historyBtn.click();
     await ctx.delay(200);
   }
+  await ensureGqlDemoTab(ctx, 'gql-schema-exploration', 'Schema Exploration');
   await fillGqlEditor(ctx, GQL_INSERT_TEMPLATE_QUERY, { focus: false });
 }
 
-/** Cleanup for Lesson 4. */
+/** Cleanup for Lesson 4 (GQL-3) — close demo tab and reset session flags. */
 export async function gqlSchemaLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson4SessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-schema-exploration');
 }
 

@@ -71,6 +71,11 @@ describe('sse-studio-advanced lesson', () => {
     expect(sseStudioAdvancedLesson.estimatedMinutes).toBe(5);
   });
 
+  it('declares allowedTabs for environments and sse-studio so EM setup does not auto-exit demo', () => {
+    expect(sseStudioAdvancedLesson.allowedTabs).toContain('environments');
+    expect(sseStudioAdvancedLesson.allowedTabs).toContain('sse-studio');
+  });
+
   // ─── Step: sse-adv-intro ──────────────────────────────────
 
   it('step sse-adv-intro highlights SSE studio', () => {
@@ -639,7 +644,14 @@ describe('sse-studio-advanced lesson', () => {
     expect(step.description).toContain('Auto-reconnect');
   });
 
-  it('cleanup disconnects and clears', async () => {
+  it('cleanup disconnects, clears, and removes SSE demo env/svc', async () => {
+    document.body.innerHTML = `
+      <div data-svc-name="sse-demo">
+        <button class="btn-danger">Delete</button>
+      </div>
+      <div data-env-name="SSE Demo" class="settings-chip">
+        <button class="settings-chip-delete">×</button>
+      </div>`;
     const connectBtn = document.createElement('button');
     connectBtn.setAttribute('data-testid', 'sse-connect-btn');
     connectBtn.textContent = 'Disconnect';
@@ -656,6 +668,8 @@ describe('sse-studio-advanced lesson', () => {
 
     expect(connectBtn.onclick).toHaveBeenCalled();
     expect(clearBtn.onclick).toHaveBeenCalled();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
   });
 });
 

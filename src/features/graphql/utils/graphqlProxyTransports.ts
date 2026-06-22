@@ -13,6 +13,7 @@
  */
 import { buildAuthHeaders, buildConnectionParams } from './authUtils';
 import { isTauri } from '../../../shared/utils/platform';
+import { serializeGqlTlsForProxy, tlsApqGetNeedsPostProxy } from '../../../shared/types/gqlTls';
 import type { GraphqlTransport, GraphqlSubscribeCallbacks } from './graphqlTransportTypes';
 import type { GraphqlAuth, GraphqlResponse } from '../../../shared/types/graphql';
 
@@ -192,7 +193,7 @@ export function createWsProxyTransport(
       });
     },
 
-    subscribe(query, variables, operationName, { endpoint, headers, skipTlsVerify, signal }, callbacks) {
+    subscribe(query, variables, operationName, { endpoint, headers, skipTlsVerify, tlsCaCert, tlsClientCert, tlsClientKey, signal }, callbacks) {
       if (signal?.aborted) {
         callbacks.onError('Aborted before proxy WebSocket connection was opened');
         return () => { /* noop */ };
@@ -210,7 +211,12 @@ export function createWsProxyTransport(
         ...(Object.keys(mergedHeaders).length > 0 ? { headers: mergedHeaders } : {}),
         ...(Object.keys(connectionParams).length > 0 ? { connectionParams } : {}),
         subprotocol,
-        skipTlsVerify: !!skipTlsVerify,
+        ...serializeGqlTlsForProxy({
+          skipTlsVerify: skipTlsVerify || undefined,
+          caCert: tlsCaCert,
+          clientCert: tlsClientCert,
+          clientKey: tlsClientKey,
+        }),
       });
 
       return subscribeThroughSseProxy(
@@ -253,7 +259,7 @@ export function createSseProxyTransport(
       });
     },
 
-    subscribe(query, variables, operationName, { endpoint, headers, skipTlsVerify, signal }, callbacks) {
+    subscribe(query, variables, operationName, { endpoint, headers, skipTlsVerify, tlsCaCert, tlsClientCert, tlsClientKey, signal }, callbacks) {
       if (signal?.aborted) {
         callbacks.onError('Aborted before proxy SSE connection was opened');
         return () => { /* noop */ };
@@ -261,6 +267,38 @@ export function createSseProxyTransport(
 
       const authHeaders = buildAuthHeaders(auth);
       const mergedHeaders = { ...authHeaders, ...headers };
+      const tlsSettings = {
+        skipTlsVerify: skipTlsVerify || undefined,
+        caCert: tlsCaCert,
+        clientCert: tlsClientCert,
+        clientKey: tlsClientKey,
+      };
+
+      if (tlsApqGetNeedsPostProxy(tlsSettings)) {
+        const body = JSON.stringify({
+          endpoint,
+          query,
+          variables,
+          ...(operationName ? { operationName } : {}),
+          ...(Object.keys(mergedHeaders).length > 0 ? { headers: mergedHeaders } : {}),
+          ...serializeGqlTlsForProxy(tlsSettings),
+        });
+        return subscribeThroughSseProxy(
+          `${getProxyBase()}/api/graphql/sse`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'text/event-stream',
+              'Cache-Control': 'no-cache',
+            },
+            body,
+          },
+          signal,
+          callbacks,
+          onStateChange,
+        );
+      }
 
       const params = new URLSearchParams();
       params.set('endpoint', endpoint);

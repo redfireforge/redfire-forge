@@ -19,6 +19,9 @@ vi.mock('../utils/tabPersistence', () => ({
   ENDPOINT_BASE_STORAGE_KEY: 'gql_endpoint_base_v1',
   POLLING_STORAGE_KEY: 'gql_polling_v1',
   TLS_STORAGE_KEY: 'gql_tls_skip_v1',
+  TLS_CERTS_STORAGE_KEY: 'gql_tls_certs_v1',
+  loadTlsCerts: vi.fn(async () => ({})),
+  saveTlsCerts: vi.fn(async () => {}),
 }));
 
 vi.mock('./useRecentEndpoints', () => ({
@@ -54,34 +57,42 @@ vi.mock('./useGraphqlEnvironments', () => ({
 
 import { useGraphqlConnectionSettings } from './useGraphqlConnectionSettings';
 import { readKey, writeKey } from '../../../shared/utils/storage';
-import { loadAuth } from '../utils/tabPersistence';
+import { loadAuth, loadTlsCerts, saveTlsCerts } from '../utils/tabPersistence';
 
 describe('useGraphqlConnectionSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('initializes endpoint from resolvedBaseUrl', () => {
+  it('initializes endpoint from resolvedBaseUrl after storage hydrate', async () => {
     const { result } = renderHook(() =>
       useGraphqlConnectionSettings('https://api.example.com/graphql'),
     );
+    expect(result.current.endpoint).toBe('');
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.endpoint).toBe('https://api.example.com/graphql');
   });
 
-  it('initializes endpoint as empty string when no resolvedBaseUrl', () => {
+  it('initializes endpoint as empty string when no resolvedBaseUrl', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    expect(result.current.endpoint).toBe('');
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.endpoint).toBe('');
   });
 
-  it('initializes historyConnectionId from resolvedBaseUrl', () => {
+  it('initializes historyConnectionId from resolvedBaseUrl after hydrate', async () => {
     const { result } = renderHook(() =>
       useGraphqlConnectionSettings('https://api.example.com'),
     );
+    expect(result.current.historyConnectionId).toBeNull();
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.historyConnectionId).toBe('https://api.example.com');
   });
 
-  it('initializes historyConnectionId as null when no resolvedBaseUrl', () => {
+  it('initializes historyConnectionId as null when no resolvedBaseUrl', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    expect(result.current.historyConnectionId).toBeNull();
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.historyConnectionId).toBeNull();
   });
 
@@ -105,6 +116,16 @@ describe('useGraphqlConnectionSettings', () => {
     );
   });
 
+  it('handlePollingChange clamps interval to 10–3600 seconds (Phase 6F)', () => {
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    act(() => result.current.handlePollingChange(true, 5));
+    expect(result.current.pollingIntervalSeconds).toBe(10);
+    expect(writeKey).toHaveBeenCalledWith(
+      'gql_polling_v1',
+      JSON.stringify({ enabled: true, intervalSeconds: 10 }),
+    );
+  });
+
   it('pollingIntervalMs returns 0 when polling disabled', () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
     expect(result.current.pollingIntervalMs).toBe(0);
@@ -123,23 +144,47 @@ describe('useGraphqlConnectionSettings', () => {
     expect(result.current.auth).toEqual({ type: 'bearer', token: 'mytoken' });
   });
 
-  it('setEndpoint updates endpoint and persists', () => {
+  it('handleTlsCertsChange updates CA, client cert, and key', () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    act(() => result.current.handleTlsCertsChange({
+      caCert: '-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----',
+      clientCert: '-----BEGIN CERTIFICATE-----\nCLIENT\n-----END CERTIFICATE-----',
+      clientKey: '-----BEGIN PRIVATE KEY-----\nKEY\n-----END PRIVATE KEY-----',
+    }));
+    expect(result.current.tlsCaCert).toContain('BEGIN CERTIFICATE');
+    expect(result.current.tlsClientCert).toContain('CLIENT');
+    expect(result.current.tlsClientKey).toContain('BEGIN PRIVATE KEY');
+    expect(saveTlsCerts).toHaveBeenCalled();
+  });
+
+  it('handleTlsCertsChange clears cert fields when empty strings passed', () => {
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    act(() => result.current.handleTlsCertsChange({ caCert: 'ca-pem' }));
+    act(() => result.current.handleTlsCertsChange({ caCert: '' }));
+    expect(result.current.tlsCaCert).toBeUndefined();
+  });
+
+  it('setEndpoint updates endpoint and persists', async () => {
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    vi.mocked(writeKey).mockClear();
     act(() => result.current.setEndpoint('https://new-endpoint.com'));
     expect(result.current.endpoint).toBe('https://new-endpoint.com');
     expect(writeKey).toHaveBeenCalledWith('gql_endpoint_v1', 'https://new-endpoint.com');
   });
 
-  it('setEndpoint syncs historyConnectionId', () => {
+  it('setEndpoint syncs historyConnectionId', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => result.current.setEndpoint('https://new-endpoint.com'));
     expect(result.current.historyConnectionId).toBe('https://new-endpoint.com');
   });
 
-  it('setEndpoint sets historyConnectionId to null for empty string', () => {
+  it('setEndpoint sets historyConnectionId to null for empty string', async () => {
     const { result } = renderHook(() =>
       useGraphqlConnectionSettings('https://initial.com'),
     );
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => result.current.setEndpoint(''));
     expect(result.current.historyConnectionId).toBeNull();
   });
@@ -206,6 +251,20 @@ describe('useGraphqlConnectionSettings', () => {
       expect(result.current.endpoint).toBe('https://saved-endpoint.com');
     });
 
+    it('does not write empty endpoint to storage before hydrate completes', async () => {
+      vi.mocked(readKey).mockImplementation(async (key) => {
+        if (key === 'gql_endpoint_v1') return 'https://saved-endpoint.com';
+        return null;
+      });
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      const writesBeforeHydrate = vi.mocked(writeKey).mock.calls.filter(
+        (c) => c[0] === 'gql_endpoint_v1',
+      );
+      expect(writesBeforeHydrate).toHaveLength(0);
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(result.current.endpoint).toBe('https://saved-endpoint.com');
+    });
+
     it('uses resolvedBaseUrl instead when saved endpoint matches savedBase and rbUrl is different', async () => {
       vi.mocked(readKey).mockImplementation(async (key) => {
         if (key === 'gql_endpoint_v1') return 'https://old-base.com';
@@ -258,6 +317,26 @@ describe('useGraphqlConnectionSettings', () => {
       await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
       expect(result.current.auth).toEqual({ type: 'bearer', token: 'restored-token' });
     });
+
+    it('restores TLS certs from loadTlsCerts when saved', async () => {
+      vi.mocked(loadTlsCerts).mockResolvedValue({
+        caCert: '-----BEGIN CERTIFICATE-----\nRESTORED\n-----END CERTIFICATE-----',
+        clientCert: 'client-pem',
+        clientKey: 'key-pem',
+      });
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(result.current.tlsCaCert).toContain('RESTORED');
+      expect(result.current.tlsClientCert).toBe('client-pem');
+      expect(result.current.tlsClientKey).toBe('key-pem');
+    });
+
+    it('handles loadTlsCerts throwing silently on mount', async () => {
+      vi.mocked(loadTlsCerts).mockRejectedValue(new Error('storage error'));
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(result.current.tlsCaCert).toBeUndefined();
+    });
   });
 });
 
@@ -291,8 +370,9 @@ describe('useGraphqlConnectionSettings — writeKey rejection catch handlers', (
   });
 
   it('handles writeKey rejection in endpoint persist effect silently (L90 catch)', async () => {
-    vi.mocked(writeKey).mockImplementation(async () => { throw new Error('quota'); });
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    vi.mocked(writeKey).mockImplementation(async () => { throw new Error('quota'); });
     await act(async () => {
       result.current.setEndpoint('https://new.test');
       await new Promise((r) => setTimeout(r, 0));
@@ -307,6 +387,7 @@ describe('useGraphqlConnectionSettings — writeKey rejection catch handlers', (
       ({ url }) => useGraphqlConnectionSettings(url),
       { initialProps: { url: 'https://base-a.com' } },
     );
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     // Manually change endpoint to something different from both '' and 'base-a'
     await act(async () => {
       result.current.setEndpoint('https://custom.com');
@@ -321,7 +402,7 @@ describe('useGraphqlConnectionSettings — writeKey rejection catch handlers', (
     expect(result.current.endpoint).toBe('https://custom.com');
   });
 
-  it('L82: empty endpoint gets overwritten by resolvedBaseUrl and writeKey rejection is silenced', async () => {
+  it('L82: empty endpoint gets overwritten by resolvedBaseUrl after hydrate and writeKey rejection is silenced', async () => {
     // To trigger line 82's writeKey, cur must be '' at the time the effect fires.
     // Start with no resolvedBaseUrl so endpoint initialises to ''.
     vi.mocked(writeKey).mockRejectedValue(new Error('quota'));
@@ -329,6 +410,7 @@ describe('useGraphqlConnectionSettings — writeKey rejection catch handlers', (
       ({ url }: { url?: string }) => useGraphqlConnectionSettings(url),
       { initialProps: { url: undefined } },
     );
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.endpoint).toBe('');
     // Now set resolvedBaseUrl → effect fires, cur==='' → L82 writeKey called and rejects → catch fires
     await act(async () => {

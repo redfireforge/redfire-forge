@@ -8,6 +8,7 @@ import { render, fireEvent, screen } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';
 import { GraphqlAuthPopover } from './GraphqlAuthPopover';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import React from 'react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -19,7 +20,14 @@ function makeAnchorRef() {
   return ref;
 }
 
-function renderPopover(auth: GraphqlAuth | null, onChange = vi.fn(), onClose = vi.fn()) {
+function renderPopover(
+  auth: GraphqlAuth | null,
+  onChange = vi.fn(),
+  onClose = vi.fn(),
+  linkedProfileName?: string | null,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+  defaultAuthProfileId?: string | null,
+) {
   const anchorRef = makeAnchorRef();
   const result = render(
     <GraphqlAuthPopover
@@ -27,6 +35,9 @@ function renderPopover(auth: GraphqlAuth | null, onChange = vi.fn(), onClose = v
       onChange={onChange}
       onClose={onClose}
       anchorRef={anchorRef}
+      linkedProfileName={linkedProfileName}
+      globalAuthProfiles={globalAuthProfiles}
+      defaultAuthProfileId={defaultAuthProfileId}
     />,
   );
   return { ...result, onChange, onClose, anchorRef };
@@ -75,16 +86,67 @@ describe('GraphqlAuthPopover — rendering', () => {
     expect(select.value).toBe('apiKey');
   });
 
-  it('renders all auth type options', () => {
+  it('renders all auth type options without profiles', () => {
     renderPopover(null);
     const select = screen.getByTestId('gql-auth-type-select') as HTMLSelectElement;
     const values = Array.from(select.options).map((o) => o.value);
     expect(values).toEqual(['none', 'bearer', 'basic', 'apiKey', 'oauth2', 'custom']);
   });
 
+  it('includes inherit option when global auth profiles exist', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderPopover(null, vi.fn(), vi.fn(), null, profiles);
+    const select = screen.getByTestId('gql-auth-type-select') as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values[0]).toBe('inherit');
+    expect(values).toContain('none');
+  });
+
+  it('shows profile selector when inherit type is selected', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderPopover({ type: 'inherit', globalProfileId: 'p1' }, vi.fn(), vi.fn(), null, profiles);
+    expect(screen.getByTestId('gql-auth-profile-select')).toBeTruthy();
+    expect(screen.getByText('Staging')).toBeTruthy();
+  });
+
+  it('calls onChange with inherit auth and default profile id when switching to inherit', () => {
+    const onChange = vi.fn();
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderPopover(null, onChange, vi.fn(), null, profiles, 'p1');
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'inherit' } });
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'p1' });
+  });
+
+  it('shows inherit preview when no profile selected', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderPopover({ type: 'inherit' }, vi.fn(), vi.fn(), null, profiles);
+    expect(screen.getByText(/Inherit — no profile selected/)).toBeTruthy();
+  });
+
   it('shows no-auth hint when type is none', () => {
     renderPopover(null);
     expect(screen.getByText(/No authentication headers will be sent/)).toBeTruthy();
+  });
+
+  it('shows linked profile hint when linkedProfileName is provided', () => {
+    renderPopover({ type: 'bearer', token: 'tok' }, vi.fn(), vi.fn(), 'Staging');
+    const hint = screen.getByTestId('gql-auth-profile-hint');
+    expect(hint.textContent).toContain('Auth from profile');
+    expect(hint.textContent).toContain('Staging');
+    expect(hint.textContent).toContain('edit to unlink');
+  });
+
+  it('hides linked profile hint when linkedProfileName is absent', () => {
+    renderPopover({ type: 'bearer', token: 'tok' });
+    expect(screen.queryByTestId('gql-auth-profile-hint')).toBeNull();
   });
 });
 

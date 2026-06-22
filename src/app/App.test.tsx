@@ -297,6 +297,8 @@ vi.mock('./hooks/useGalleryImport', () => ({
 vi.mock('../shared/utils/storage', () => ({
   onStorageFull: vi.fn((cb: (key: string) => void) => { h.storageFullCb = cb; return h.storageFullCleanup; }),
   cleanupStaleStorageKeys: () => h.cleanupStale(),
+  readKey: vi.fn(async () => null),
+  writeKey: vi.fn(async () => undefined),
 }));
 
 /* ── Component stubs ───────────────────────────────────────────────────── */

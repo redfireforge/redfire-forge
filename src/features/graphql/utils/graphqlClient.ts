@@ -28,6 +28,7 @@ import { createClient } from 'graphql-ws';
 import { createClient as createSseClient } from 'graphql-sse';
 import { parse, visit } from 'graphql';
 import { gqlFetch } from './gqlFetch';
+import { gqlRequiresTlsProxy, buildTabTlsSettings, type GqlTlsSettings } from '../../../shared/types/gqlTls';
 import { buildAuthHeaders, buildConnectionParams } from './authUtils';
 import type { GraphqlResponse, GraphqlAuth, GraphqlError } from '../../../shared/types/graphql';
 import {
@@ -60,7 +61,13 @@ export function createHttpTransport(): GraphqlTransport {
   return {
     type: 'http',
 
-    async execute(query, variables, operationName, { endpoint, headers, skipTlsVerify, signal }) {
+    async execute(query, variables, operationName, { endpoint, headers, skipTlsVerify, tls: tlsInput, tlsCaCert, tlsClientCert, tlsClientKey, signal }) {
+      const tls: GqlTlsSettings = tlsInput ?? buildTabTlsSettings({
+        skipTlsVerify: !!skipTlsVerify,
+        tlsCaCert,
+        tlsClientCert,
+        tlsClientKey,
+      });
       const bodyObj: Record<string, unknown> = { query, variables };
       if (operationName) bodyObj.operationName = operationName;
 
@@ -75,7 +82,7 @@ export function createHttpTransport(): GraphqlTransport {
         },
         JSON.stringify(bodyObj),
         signal,
-        skipTlsVerify,
+        tls,
       );
       const latencyMs = Date.now() - startMs;
 
@@ -662,16 +669,18 @@ export { createWsProxyTransport, createSseProxyTransport } from './graphqlProxyT
 /**
  * Returns true when the connection config requires proxying for WS/SSE subscriptions.
  *
- * The only condition that requires the proxy is `skipTlsVerify=true`:
- * browsers (and Tauri's webview) cannot bypass TLS certificate errors on
- * WebSocket or fetch connections. The Node.js proxy server can use
- * `rejectUnauthorized: false` on its server-side undici/https.Agent.
- *
- * Note: Tauri's WKWebView (macOS) supports WebSocket natively for valid certs,
- * so we only route through the proxy when TLS skip is explicitly requested.
+ * The only condition that requires the proxy is custom TLS configuration
+ * (skipTlsVerify, custom CA, or mTLS client credentials): browsers cannot
+ * apply those options on WebSocket or fetch connections. The Node.js proxy
+ * applies them via https.Agent on server-side connections.
  */
 export function requiresWsProxy(selector: GraphqlTransportSelector): boolean {
-  return !!selector.skipTlsVerify;
+  return gqlRequiresTlsProxy({
+    skipTlsVerify: selector.skipTlsVerify,
+    caCert: selector.tlsCaCert,
+    clientCert: selector.tlsClientCert,
+    clientKey: selector.tlsClientKey,
+  });
 }
 
 /**

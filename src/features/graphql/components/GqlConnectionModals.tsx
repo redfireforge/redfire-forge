@@ -18,8 +18,7 @@ interface GqlConnectionModalsProps {
   auth: GraphqlAuth | null;
   onSaveProfile: (name: string) => unknown;
   onDeleteProfile: (id: string) => void;
-  onSetEndpoint: (ep: string) => void;
-  onAuthChange: (newAuth: GraphqlAuth | null) => void;
+  onApplyProfileToActiveTab: (profile: ConnectionProfile) => void;
   prevBaseUrlRef: React.MutableRefObject<string | undefined>;
 
   // Env modal
@@ -44,8 +43,7 @@ export function GqlConnectionModals({
   auth,
   onSaveProfile,
   onDeleteProfile,
-  onSetEndpoint,
-  onAuthChange,
+  onApplyProfileToActiveTab,
   prevBaseUrlRef,
   envModalOpen,
   onEnvModalClose,
@@ -74,8 +72,7 @@ export function GqlConnectionModals({
           }}
           onSave={onSaveProfile}
           onLoad={(profile) => {
-            onSetEndpoint(profile.endpoint);
-            onAuthChange(profile.auth);
+            onApplyProfileToActiveTab(profile);
             onProfileModalClose();
             prevBaseUrlRef.current = '\0profile-pinned';
             removeKey(ENDPOINT_BASE_STORAGE_KEY).catch(() => { /* silent */ });

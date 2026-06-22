@@ -34,9 +34,7 @@ import { kafkaWorkflowConsumeWaitLesson } from './protocols/kafka-workflow-consu
 import { kafkaSecureLesson } from './protocols/kafka-secure';
 import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
-import { gqlFirstQueryLesson, gqlVariablesLesson, gqlMutationsLesson, gqlSchemaLesson, gqlSubscriptionsLesson, gqlAuthHeadersLesson, gqlQueryBuilderLesson, gqlCollectionsHistoryLesson, gqlExportShareLesson, gqlPerformanceTracingLesson, gqlWorkflowIntegrationLesson, gqlSchemaDiffLesson, gqlMockServerLesson } from './protocols/graphql-lessons';
-
-const graphqlLessons = [gqlFirstQueryLesson, gqlVariablesLesson, gqlMutationsLesson, gqlSchemaLesson, gqlSubscriptionsLesson, gqlAuthHeadersLesson, gqlQueryBuilderLesson, gqlCollectionsHistoryLesson, gqlExportShareLesson, gqlPerformanceTracingLesson, gqlWorkflowIntegrationLesson, gqlSchemaDiffLesson, gqlMockServerLesson];
+import { graphqlLessons } from './protocols/graphql-lessons';
 
 // ─── Domains ─────────────────────────────────────────────────────
 

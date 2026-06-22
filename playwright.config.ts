@@ -71,10 +71,51 @@ const ALL_DOCKER_SPECS = DOCKER_SPECS;
  */
 const DEMO_STEPTHROUGH_SPECS = [
   '**/demo-ws-workflow-builder.spec.ts',
+  '**/ws-basics-em.spec.ts',
+  // GQL-1 has its own isolated project — see demo-gql1 below.
   // Future per-lesson step-through specs follow the same naming pattern:
   // '**/demo-kafka-consume.spec.ts',
   // '**/demo-sse-advanced.spec.ts',
 ];
+
+/** GQL-1 only — never bundled with other demo step-through specs. */
+const DEMO_GQL1_SPEC = '**/demo-gql-first-query.spec.ts';
+/** GQL-2 only — Variables & Arguments lesson validation. */
+const DEMO_GQL2_SPEC = '**/demo-gql-variables.spec.ts';
+/** GQL-3 only — Schema Exploration lesson validation. */
+const DEMO_GQL3_SPEC = '**/demo-gql-schema-exploration.spec.ts';
+/** GQL-4 only — Authentication & Headers lesson validation. */
+const DEMO_GQL4_SPEC = '**/demo-gql-auth-headers.spec.ts';
+/** GQL-5 only — HTTPS, TLS & Certificates lesson validation. */
+const DEMO_GQL5_SPEC = '**/demo-gql-https-tls.spec.ts';
+/** GQL-6 only — Mutations lesson validation. */
+const DEMO_GQL6_SPEC = '**/demo-gql-mutations.spec.ts';
+/** GQL-7 only — Subscriptions lesson validation. */
+const DEMO_GQL7_SPEC = '**/demo-gql-subscriptions.spec.ts';
+/** GQL-8 only — Query Builder lesson validation. */
+const DEMO_GQL8_SPEC = '**/demo-gql-query-builder.spec.ts';
+/** GQL-9 only — Collections & History lesson validation. */
+const DEMO_GQL9_SPEC = '**/demo-gql-collections-history.spec.ts';
+/** GQL-10 only — Export & Share Queries lesson validation. */
+const DEMO_GQL10_SPEC = '**/demo-gql-export-share.spec.ts';
+/** GQL-11 only — Performance Tracing lesson validation. */
+const DEMO_GQL11_SPEC = '**/demo-gql-performance-tracing.spec.ts';
+/** GQL-12 only — Schema Diff & Breaking Changes lesson validation. */
+const DEMO_GQL12_SPEC = '**/demo-gql-schema-diff.spec.ts';
+/** GQL-13 only — Mock Server lesson validation. */
+const DEMO_GQL13_SPEC = '**/demo-gql-mock-server.spec.ts';
+/** GQL-14 only — Multi-Tab Workspaces lesson validation. */
+const DEMO_GQL14_SPEC = '**/demo-gql-multi-tab.spec.ts';
+/** GQL-15 only — Batch Execution lesson validation. */
+const DEMO_GQL15_SPEC = '**/demo-gql-batch-execution.spec.ts';
+/** GQL-16 only — Workflow Integration lesson validation. */
+const DEMO_GQL16_SPEC = '**/demo-gql-workflow-integration.spec.ts';
+/** GQL-17 only — Workflow Runner & Results lesson validation. */
+const DEMO_GQL17_SPEC = '**/demo-gql-workflow-runner.spec.ts';
+/** GQL-18 only — Mutation Node in Workflow lesson validation. */
+const DEMO_GQL18_SPEC = '**/demo-gql-workflow-mutation.spec.ts';
+/** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
+const DEMO_GQL_LESSONS_SPEC = '**/graphql-lessons.spec.ts';
 
 /** Docker-gated demo hub validation — requires live Kafka/WS/SSE stacks; run via E2E_WITH_DOCKER=1. */
 const DOCKER_DEMO_SPECS = [
@@ -111,7 +152,7 @@ export default defineConfig({
       name: 'chromium',
       // Exclude the dedicated ws-mock-server spec (has its own project below)
       // and all Docker-dependent specs.
-      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...DEMO_STEPTHROUGH_SPECS],
+      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...DEMO_STEPTHROUGH_SPECS, DEMO_GQL1_SPEC, DEMO_GQL2_SPEC, DEMO_GQL3_SPEC, DEMO_GQL4_SPEC, DEMO_GQL5_SPEC, DEMO_GQL6_SPEC, DEMO_GQL7_SPEC, DEMO_GQL8_SPEC, DEMO_GQL9_SPEC, DEMO_GQL10_SPEC, DEMO_GQL11_SPEC, DEMO_GQL12_SPEC, DEMO_GQL13_SPEC, DEMO_GQL14_SPEC, DEMO_GQL15_SPEC, DEMO_GQL16_SPEC, DEMO_GQL17_SPEC, DEMO_GQL_LESSONS_SPEC],
       use: { browserName: 'chromium' },
     },
 
@@ -119,6 +160,185 @@ export default defineConfig({
     {
       name: 'ws-mock-server',
       testMatch: '**/ws-mock-server.spec.ts',
+      use: { browserName: 'chromium' },
+    },
+
+    // ── Demo step-through: slow per-lesson validation (EM setup, config modals, etc.) ─
+    {
+      name: 'demo-stepthrough',
+      testMatch: DEMO_STEPTHROUGH_SPECS,
+      timeout: 180_000,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-1 only: Your First GraphQL Query (isolated from WS/SSE demo specs) ─
+    {
+      name: 'demo-gql1',
+      testMatch: DEMO_GQL1_SPEC,
+      timeout: 720_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-2 only: Variables & Arguments ─
+    {
+      name: 'demo-gql2',
+      testMatch: DEMO_GQL2_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-3 only: Schema Exploration ─
+    {
+      name: 'demo-gql3',
+      testMatch: DEMO_GQL3_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-4 only: Authentication & Headers ─
+    {
+      name: 'demo-gql4',
+      testMatch: DEMO_GQL4_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-5 only: HTTPS, TLS & Certificates ─
+    {
+      name: 'demo-gql5',
+      testMatch: DEMO_GQL5_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-6 only: Mutations — Create, Update, Delete ─
+    {
+      name: 'demo-gql6',
+      testMatch: DEMO_GQL6_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-7 only: Subscriptions — Real-Time Data ─
+    {
+      name: 'demo-gql7',
+      testMatch: DEMO_GQL7_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-8 only: Query Builder — Visual Operations ─
+    {
+      name: 'demo-gql8',
+      testMatch: DEMO_GQL8_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-9 only: Collections & History ─
+    {
+      name: 'demo-gql9',
+      testMatch: DEMO_GQL9_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-10 only: Export & Share Queries ─
+    {
+      name: 'demo-gql10',
+      testMatch: DEMO_GQL10_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-11 only: Performance Tracing ─
+    {
+      name: 'demo-gql11',
+      testMatch: DEMO_GQL11_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-12 only: Schema Diff & Breaking Changes ─
+    {
+      name: 'demo-gql12',
+      testMatch: DEMO_GQL12_SPEC,
+      timeout: 600_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-13 only: Mock Server ─
+    {
+      name: 'demo-gql13',
+      testMatch: DEMO_GQL13_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-14 only: Multi-Tab Workspaces ─
+    {
+      name: 'demo-gql14',
+      testMatch: DEMO_GQL14_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-15 only: Batch Execution ─
+    {
+      name: 'demo-gql15',
+      testMatch: DEMO_GQL15_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-16 only: Workflow Integration ─
+    {
+      name: 'demo-gql16',
+      testMatch: DEMO_GQL16_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-17 only: Workflow Runner & Results ─
+    {
+      name: 'demo-gql17',
+      testMatch: DEMO_GQL17_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-18 only: Mutation Node in Workflow ─
+    {
+      name: 'demo-gql18',
+      testMatch: DEMO_GQL18_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── GQL-1..3 smoke: auto-play first three GraphQL lessons (4F-7) ─
+    {
+      name: 'demo-gql-lessons',
+      testMatch: DEMO_GQL_LESSONS_SPEC,
+      timeout: 900_000,
+      retries: 0,
       use: { browserName: 'chromium' },
     },
 

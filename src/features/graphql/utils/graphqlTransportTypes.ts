@@ -18,6 +18,12 @@ export interface GraphqlOperationParams {
   headers: Record<string, string>;
   /** Whether to skip TLS certificate validation for self-signed/dev endpoints. */
   skipTlsVerify?: boolean;
+  /** Full TLS settings (CA + mTLS). When omitted, derived from skipTlsVerify. */
+  tls?: import('../../../shared/types/gqlTls').GqlTlsSettings;
+  /** Per-tab CA PEM for mTLS / internal CA validation. */
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
   /** AbortSignal for cancellation. */
   signal?: AbortSignal;
 }
@@ -61,6 +67,9 @@ export interface GraphqlTransport {
 export interface GraphqlTransportSelector {
   auth?: GraphqlAuth | null;
   skipTlsVerify?: boolean;
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
   endpoint?: string;
   subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
 }

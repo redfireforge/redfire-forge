@@ -107,12 +107,14 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [onClose]);
 
-  // Close on click-outside the modal
+  // Close on click-outside the modal (but keep open when interacting with the live demo panel)
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (modalRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest('.demo-live-panel')) return;
+      onClose();
     };
     // Use pointerdown with a short delay so the toggle-button click that opened
     // the modal doesn't immediately close it.

@@ -5,29 +5,38 @@
  * No React dependency — safe to call from any context.
  */
 
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import { resolveEffectiveGqlAuth, inheritAuthProfileLabel } from './gqlAuthResolve';
 
 /**
  * Converts a GraphqlAuth config into a headers object suitable for merging
  * into the HTTP request headers before execution.
  *
+ * When `globalAuthProfiles` is supplied, `type: 'inherit'` auth is resolved
+ * from the bound GlobalAuthProfile before building headers.
+ *
  * User-defined per-tab headers take precedence over auth headers — callers must
  * spread auth headers FIRST then spread user headers on top.
  *
  * @example
- *   const finalHeaders = { ...buildAuthHeaders(auth), ...userHeaders };
+ *   const finalHeaders = { ...buildAuthHeaders(auth, profiles), ...userHeaders };
  */
-export function buildAuthHeaders(auth: GraphqlAuth | null | undefined): Record<string, string> {
-  if (!auth) return {};
-  switch (auth.type) {
+export function buildAuthHeaders(
+  auth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): Record<string, string> {
+  const effective = resolveEffectiveGqlAuth(auth, globalAuthProfiles);
+  if (!effective) return {};
+  switch (effective.type) {
     case 'bearer':
-      return auth.token?.trim()
-        ? { Authorization: `Bearer ${auth.token.trim()}` }
+      return effective.token?.trim()
+        ? { Authorization: `Bearer ${effective.token.trim()}` }
         : {};
 
     case 'basic': {
-      const user = auth.username?.trim() ?? '';
-      const pass = auth.password ?? '';
+      const user = effective.username?.trim() ?? '';
+      const pass = effective.password ?? '';
       if (!user) return {};
       // BUG-GQL-R7-4 fix: btoa() throws InvalidCharacterError for non-ASCII characters
       // (e.g. accented letters, CJK, Cyrillic in usernames/passwords).
@@ -38,8 +47,8 @@ export function buildAuthHeaders(auth: GraphqlAuth | null | undefined): Record<s
     }
 
     case 'apiKey': {
-      const name = auth.headerName?.trim();
-      const val  = auth.headerValue ?? '';
+      const name = effective.headerName?.trim();
+      const val  = effective.headerValue ?? '';
       if (!name) return {};
       return { [name]: val };
     }
@@ -54,11 +63,39 @@ export function buildAuthHeaders(auth: GraphqlAuth | null | undefined): Record<s
 }
 
 /**
+ * Phase 6F — overwrite auth header keys with profile-scoped auth for a tab's execution layer.
+ * Preserves non-auth custom headers already in the map.
+ */
+export function stampAuthHeaders(
+  headers: Record<string, string> | undefined,
+  auth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): Record<string, string> {
+  const authHeaders = buildAuthHeaders(auth, globalAuthProfiles);
+  if (Object.keys(authHeaders).length === 0) {
+    return { ...(headers ?? {}) };
+  }
+  const merged = { ...(headers ?? {}) };
+  delete merged.Authorization;
+  for (const [k, v] of Object.entries(authHeaders)) {
+    merged[k] = v;
+  }
+  return merged;
+}
+
+/**
  * Returns a short display label for the given auth type.
  * Used in the auth badge in the connection bar.
  */
-export function authBadgeLabel(auth: GraphqlAuth | null | undefined): string {
+export function authBadgeLabel(
+  auth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): string {
   if (!auth) return 'No Auth';
+  if (auth.type === 'inherit') {
+    const name = inheritAuthProfileLabel(auth, globalAuthProfiles);
+    return name ? `Inherit (${name})` : 'Inherit';
+  }
   switch (auth.type) {
     case 'bearer':  return 'Bearer';
     case 'basic':   return 'Basic';
@@ -79,8 +116,14 @@ export function authBadgeLabel(auth: GraphqlAuth | null | undefined): string {
  * because their selection appeared to have no effect on the badge. Now both types show
  * the blue "configured" accent to confirm the selection was registered.
  */
-export function isAuthConfigured(auth: GraphqlAuth | null | undefined): boolean {
+export function isAuthConfigured(
+  auth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): boolean {
   if (!auth) return false;
+  if (auth.type === 'inherit') {
+    return Boolean(auth.globalProfileId) || globalAuthProfiles.length > 0;
+  }
   switch (auth.type) {
     case 'bearer':  return Boolean(auth.token?.trim());
     case 'basic':   return Boolean(auth.username?.trim());
@@ -110,17 +153,21 @@ export function isAuthConfigured(auth: GraphqlAuth | null | undefined): boolean 
  * The `oauth2` case is intentionally left as empty since token acquisition
  * is handled separately by the execution context (Phase 3+ feature).
  */
-export function buildConnectionParams(auth: GraphqlAuth | null | undefined): Record<string, unknown> {
-  if (!auth) return {};
-  switch (auth.type) {
+export function buildConnectionParams(
+  auth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): Record<string, unknown> {
+  const effective = resolveEffectiveGqlAuth(auth, globalAuthProfiles);
+  if (!effective) return {};
+  switch (effective.type) {
     case 'bearer':
-      return auth.token?.trim()
-        ? { Authorization: `Bearer ${auth.token.trim()}` }
+      return effective.token?.trim()
+        ? { Authorization: `Bearer ${effective.token.trim()}` }
         : {};
 
     case 'basic': {
-      const user = auth.username?.trim() ?? '';
-      const pass = auth.password ?? '';
+      const user = effective.username?.trim() ?? '';
+      const pass = effective.password ?? '';
       if (!user) return {};
       const credentials = `${user}:${pass}`;
       const encoded = btoa(unescape(encodeURIComponent(credentials)));
@@ -128,8 +175,8 @@ export function buildConnectionParams(auth: GraphqlAuth | null | undefined): Rec
     }
 
     case 'apiKey': {
-      const name = auth.headerName?.trim();
-      const val  = auth.headerValue ?? '';
+      const name = effective.headerName?.trim();
+      const val  = effective.headerValue ?? '';
       if (!name) return {};
       return { [name]: val };
     }

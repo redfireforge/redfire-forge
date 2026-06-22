@@ -8,7 +8,6 @@ import {
   ensureIntrospected,
   fillGqlEditor,
   fillGqlVariables,
-  getEndpointInput,
   getGqlEditorQuery,
   responseBodyText,
   resetGqlLesson2SessionFlags,
@@ -20,6 +19,7 @@ import {
   resetGqlLesson3SessionFlags,
 } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 /** orderStatus subscription — requires `$orderId` from a prior createOrder. */
 export const GQL_ORDER_STATUS_SUBSCRIPTION = `subscription OrderUpdates($orderId: ID!) {
@@ -284,7 +284,7 @@ export async function ensureAssertionAdded(ctx: DemoActionContext): Promise<void
   _lesson5AssertionAdded = true;
 }
 
-/** Setup for Lesson 5 — clean editor; seed order quietly when Docker is up. */
+/** Setup for Lesson 5 (GQL-7) — demo tab; seed order quietly when Docker is up. */
 export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -308,12 +308,7 @@ export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promi
     await ctx.delay(200);
   }
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-subscriptions', 'Subscriptions — Real-Time Data');
   await fillGqlEditor(ctx, 'subscription { }', { focus: false });
   await fillGqlVariables(ctx, '{\n  \n}', { focus: false, openPanel: false });
 
@@ -324,10 +319,10 @@ export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promi
   }
 }
 
-/** Cleanup for Lesson 5. */
+/** Cleanup for Lesson 5 (GQL-7) — close demo tab and reset session flags. */
 export async function gqlSubscriptionsLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson5SessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-subscriptions');
 }
 

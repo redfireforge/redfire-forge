@@ -12,7 +12,10 @@ import { readKey, writeKey } from '../../../shared/utils/storage';
 import { useRecentEndpoints } from './useRecentEndpoints';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import { useGraphqlEnvironments } from './useGraphqlEnvironments';
-import { loadAuth, saveAuth, ENDPOINT_BASE_STORAGE_KEY, ENDPOINT_STORAGE_KEY, POLLING_STORAGE_KEY, TLS_STORAGE_KEY } from '../utils/tabPersistence';
+import { loadAuth, saveAuth, loadTlsCerts, saveTlsCerts, ENDPOINT_BASE_STORAGE_KEY, ENDPOINT_STORAGE_KEY, POLLING_STORAGE_KEY, TLS_STORAGE_KEY, type GqlTlsCertsStorage } from '../utils/tabPersistence';
+import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
+import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
+import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 
 export interface GraphqlConnectionSettingsResult {
   // Endpoint
@@ -25,6 +28,10 @@ export interface GraphqlConnectionSettingsResult {
   // TLS / Polling
   skipTlsVerify: boolean;
   handleSkipTlsVerifyChange: (skip: boolean) => void;
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
+  handleTlsCertsChange: (patch: Partial<GqlTlsSettings>) => void;
   pollingEnabled: boolean;
   pollingIntervalSeconds: number;
   pollingIntervalMs: number;
@@ -41,6 +48,7 @@ export interface GraphqlConnectionSettingsResult {
 
   // Connection profiles
   profiles: ReturnType<typeof useGraphqlConnectionProfiles>['profiles'];
+  profilesReady: ReturnType<typeof useGraphqlConnectionProfiles>['profilesReady'];
   saveProfile: ReturnType<typeof useGraphqlConnectionProfiles>['saveProfile'];
   deleteProfile: ReturnType<typeof useGraphqlConnectionProfiles>['deleteProfile'];
   profileModalOpen: boolean;
@@ -64,16 +72,17 @@ export function useGraphqlConnectionSettings(
   resolvedBaseUrl?: string,
 ): GraphqlConnectionSettingsResult {
   // ── Endpoint ───────────────────────────────────────────────────────────────
-  const [endpoint, setEndpoint] = useState(resolvedBaseUrl ?? '');
+  // Start empty — restore from storage before persisting (avoids wiping saved URL on remount).
+  const [endpoint, setEndpoint] = useState('');
+  const [endpointHydrated, setEndpointHydrated] = useState(false);
   const initialResolvedBaseUrl  = useRef(resolvedBaseUrl);
   const prevBaseUrlRef          = useRef<string | undefined>(resolvedBaseUrl);
 
   // Keep historyConnectionId in sync with endpoint (also used by history / adv-settings hooks)
-  const [historyConnectionId, setHistoryConnectionId] = useState<string | null>(
-    () => resolvedBaseUrl || null,
-  );
+  const [historyConnectionId, setHistoryConnectionId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!endpointHydrated) return;
     if (resolvedBaseUrl === undefined) return;
     const prev = prevBaseUrlRef.current;
     prevBaseUrlRef.current = resolvedBaseUrl;
@@ -84,15 +93,17 @@ export function useGraphqlConnectionSettings(
       }
       return cur;
     });
-  }, [resolvedBaseUrl]);
+  }, [resolvedBaseUrl, endpointHydrated]);
 
   useEffect(() => {
-    writeKey(ENDPOINT_STORAGE_KEY, endpoint).catch(() => { /* quota / unavailable — silent */ });
+    if (!endpointHydrated) return;
+    writeKey(ENDPOINT_STORAGE_KEY, normalizeGraphqlEndpoint(endpoint)).catch(() => { /* quota / unavailable — silent */ });
     setHistoryConnectionId(endpoint || null);
-  }, [endpoint]);
+  }, [endpoint, endpointHydrated]);
 
   // ── TLS + polling ──────────────────────────────────────────────────────────
   const [skipTlsVerify, setSkipTlsVerify]               = useState(false);
+  const [tlsCerts, setTlsCerts]                         = useState<GqlTlsCertsStorage>({});
   const [pollingEnabled, setPollingEnabled]             = useState(false);
   const [pollingIntervalSeconds, setPollingIntervalSeconds] = useState(30);
   const pollingIntervalMs = pollingEnabled ? pollingIntervalSeconds * 1000 : 0;
@@ -102,10 +113,22 @@ export function useGraphqlConnectionSettings(
     writeKey(TLS_STORAGE_KEY, String(skip)).catch(() => { /* no-op */ });
   }, []);
 
+  const handleTlsCertsChange = useCallback((patch: Partial<GqlTlsSettings>) => {
+    setTlsCerts((prev) => {
+      const next: GqlTlsCertsStorage = { ...prev };
+      if ('caCert' in patch) next.caCert = patch.caCert || undefined;
+      if ('clientCert' in patch) next.clientCert = patch.clientCert || undefined;
+      if ('clientKey' in patch) next.clientKey = patch.clientKey || undefined;
+      void saveTlsCerts(next);
+      return next;
+    });
+  }, []);
+
   const handlePollingChange = useCallback((enabled: boolean, intervalSeconds: number) => {
+    const clamped = clampPollingIntervalSeconds(intervalSeconds);
     setPollingEnabled(enabled);
-    setPollingIntervalSeconds(intervalSeconds);
-    writeKey(POLLING_STORAGE_KEY, JSON.stringify({ enabled, intervalSeconds })).catch(() => { /* no-op */ });
+    setPollingIntervalSeconds(clamped);
+    writeKey(POLLING_STORAGE_KEY, JSON.stringify({ enabled, intervalSeconds: clamped })).catch(() => { /* no-op */ });
   }, []);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -119,7 +142,7 @@ export function useGraphqlConnectionSettings(
   const { endpoints: recentEndpoints, push: pushRecentEndpoint, remove: removeRecentEndpoint } = useRecentEndpoints();
 
   // ── Connection profiles ────────────────────────────────────────────────────
-  const { profiles, saveProfile, deleteProfile } = useGraphqlConnectionProfiles();
+  const { profiles, profilesReady, saveProfile, deleteProfile } = useGraphqlConnectionProfiles();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   // ── Environments ───────────────────────────────────────────────────────────
@@ -139,16 +162,26 @@ export function useGraphqlConnectionSettings(
           const savedBase = await readKey(ENDPOINT_BASE_STORAGE_KEY);
           const rbUrl = initialResolvedBaseUrl.current;
           if (saved === savedBase && rbUrl && rbUrl !== savedBase) {
-            setEndpoint(rbUrl);
+            setEndpoint(normalizeGraphqlEndpoint(rbUrl));
           } else {
-            setEndpoint(saved);
+            setEndpoint(normalizeGraphqlEndpoint(saved));
           }
+        } else {
+          const rbUrl = initialResolvedBaseUrl.current;
+          if (rbUrl) setEndpoint(normalizeGraphqlEndpoint(rbUrl));
         }
       } catch { /* fall through */ }
 
       try {
         const tlsRaw = await readKey(TLS_STORAGE_KEY);
         if (tlsRaw !== null) setSkipTlsVerify(tlsRaw === 'true');
+      } catch { /* ignore */ }
+
+      try {
+        const savedCerts = await loadTlsCerts();
+        if (savedCerts.caCert || savedCerts.clientCert || savedCerts.clientKey) {
+          setTlsCerts(savedCerts);
+        }
       } catch { /* ignore */ }
 
       try {
@@ -163,16 +196,22 @@ export function useGraphqlConnectionSettings(
 
       const savedAuth = await loadAuth();
       if (savedAuth) setAuth(savedAuth);
+
+      setEndpointHydrated(true);
     })();
   }, []);
 
   return {
     endpoint, setEndpoint, historyConnectionId, setHistoryConnectionId, prevBaseUrlRef,
     skipTlsVerify, handleSkipTlsVerifyChange,
+    tlsCaCert: tlsCerts.caCert,
+    tlsClientCert: tlsCerts.clientCert,
+    tlsClientKey: tlsCerts.clientKey,
+    handleTlsCertsChange,
     pollingEnabled, pollingIntervalSeconds, pollingIntervalMs, handlePollingChange,
     auth, handleAuthChange,
     recentEndpoints, pushRecentEndpoint, removeRecentEndpoint,
-    profiles, saveProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
+    profiles, profilesReady, saveProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,

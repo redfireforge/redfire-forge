@@ -105,7 +105,10 @@ describe('WebSocketStudioShell', () => {
 
   it('updates the left width when dragging the divider', () => {
     render(<WebSocketStudioShell {...makeProps()} />);
-    const left = screen.getByTestId('ws-studio-split').firstChild as HTMLElement;
+    const split = screen.getByTestId('ws-studio-split');
+    Object.defineProperty(split, 'clientWidth', { value: 1200, configurable: true });
+    fireEvent(window, new Event('resize'));
+    const left = split.firstChild as HTMLElement;
     const initialWidth = left.style.width;
     fireEvent.mouseDown(screen.getByTestId('ws-studio-divider'), { clientX: 560 });
     fireEvent.mouseMove(window, { clientX: 700 });

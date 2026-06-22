@@ -17,6 +17,7 @@
 import { useRef, useState, useMemo } from 'react';
 import type React from 'react';
 import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { useGqlPollingPopover } from '../hooks/useGqlPollingPopover';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
@@ -24,6 +25,7 @@ import { findUnresolvedVars } from '../utils/envUtils';
 import { GraphqlAuthPopover } from './GraphqlAuthPopover';
 import { GqlPollingPopoverContent } from './connection-bar/GqlPollingPopoverContent';
 import { GqlSubscriptionControls } from './connection-bar/GqlSubscriptionControls';
+import { GraphqlTlsPanel } from './GraphqlTlsPanel';
 import type { EndpointRowStatus } from '../../environments/utils/protocolEndpointUtils';
 import { ProtocolEndpointPreview } from '../../../shared/components/ProtocolEndpointPreview';
 
@@ -36,6 +38,10 @@ const MAX_ENV_NAME_LEN = 18;
 interface GraphqlConnectionBarProps {
   endpoint: string;
   onEndpointChange: (url: string) => void;
+  /** Phase 6 PT-5: active tab has a custom endpoint override (not inheriting page default). */
+  hasEndpointOverride?: boolean;
+  /** Phase 6 PT-5: clear per-tab endpoint override and inherit page default. */
+  onClearEndpoint?: () => void;
   onExecute?: () => void;
   onCancel?: () => void;
   onIntrospect?: () => void;
@@ -53,6 +59,12 @@ interface GraphqlConnectionBarProps {
   fileErrors?: boolean;
   auth?: GraphqlAuth | null;
   onAuthChange?: (auth: GraphqlAuth | null) => void;
+  /** Phase 6F: profile name when active tab auth is linked via connectionId */
+  linkedProfileName?: string | null;
+  /** Global auth profiles — enables inherit-from-profile in auth popover. */
+  globalAuthProfiles?: GlobalAuthProfile[];
+  /** Env-bound auth profile id — pre-selected when user picks inherit. */
+  defaultAuthProfileId?: string | null;
   recentEndpoints?: string[];
   onRemoveRecentEndpoint?: (url: string) => void;
   activeEnvName?: string | null;
@@ -62,9 +74,22 @@ interface GraphqlConnectionBarProps {
   onProfileBadgeClick?: () => void;
   skipTlsVerify?: boolean;
   onSkipTlsVerifyChange?: (skip: boolean) => void;
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
+  onTlsSettingsChange?: (patch: Partial<{
+    skipTlsVerify: boolean;
+    caCert?: string;
+    clientCert?: string;
+    clientKey?: string;
+  }>) => void;
   pollingEnabled?: boolean;
   pollingIntervalSeconds?: number;
   onPollingChange?: (enabled: boolean, intervalSeconds: number) => void;
+  /** Phase 6F: active tab has per-tab polling override (not inheriting page default). */
+  hasPollingOverride?: boolean;
+  /** Phase 6F: clear per-tab polling override and inherit page default. */
+  onClearPolling?: () => void;
   activeEnvironment?: GraphqlEnvironment | null;
   globalEnvMap?: Record<string, string>;
   endpointProtocolStatus?: EndpointRowStatus;
@@ -84,10 +109,20 @@ interface GraphqlConnectionBarProps {
   batchEnabled?: boolean;
   batchedTabCount?: number;
   batchExecuting?: boolean;
+  /** Phase 6A-8 — checked tabs span different endpoints */
+  batchEndpointMismatch?: boolean;
+  /** Phase 6A-8 — batched tabs share a usable resolved endpoint */
+  batchEndpointReady?: boolean;
+  /** Phase 6F — checked batch tab(s) reference profile not yet in catalog */
+  batchProfileLinkPending?: boolean;
+  /** Phase 6G — summary of configured batch (from Advanced Settings). */
+  batchSummaryLabel?: string | null;
   onSendBatch?: () => void;
   apqCacheHit?: boolean;
   apqHash?: string;
   apqUnsupported?: boolean;
+  /** Phase 6F: profile link pending — block execute/introspect until catalog resolves. */
+  endpointLinkPending?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -95,6 +130,8 @@ interface GraphqlConnectionBarProps {
 export function GraphqlConnectionBar({
   endpoint,
   onEndpointChange,
+  hasEndpointOverride = false,
+  onClearEndpoint,
   onExecute,
   onCancel,
   onIntrospect,
@@ -112,6 +149,9 @@ export function GraphqlConnectionBar({
   fileErrors = false,
   auth,
   onAuthChange,
+  linkedProfileName = null,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
   recentEndpoints = [],
   onRemoveRecentEndpoint,
   activeEnvName,
@@ -121,9 +161,15 @@ export function GraphqlConnectionBar({
   onProfileBadgeClick,
   skipTlsVerify = false,
   onSkipTlsVerifyChange,
+  tlsCaCert,
+  tlsClientCert,
+  tlsClientKey,
+  onTlsSettingsChange,
   pollingEnabled = false,
   pollingIntervalSeconds = 30,
   onPollingChange,
+  hasPollingOverride = false,
+  onClearPolling,
   activeEnvironment,
   globalEnvMap,
   endpointProtocolStatus,
@@ -142,10 +188,15 @@ export function GraphqlConnectionBar({
   batchEnabled = false,
   batchedTabCount = 0,
   batchExecuting = false,
+  batchEndpointMismatch = false,
+  batchEndpointReady = false,
+  batchProfileLinkPending = false,
+  batchSummaryLabel = null,
   onSendBatch,
   apqCacheHit,
   apqHash,
   apqUnsupported = false,
+  endpointLinkPending = false,
 }: GraphqlConnectionBarProps) {
   const noEndpoint = !endpoint.trim();
 
@@ -163,8 +214,8 @@ export function GraphqlConnectionBar({
     ? unresolvedEndpointVars.map((k) => `'{{${k}}}' not found in active environment`).join('\n')
     : '';
 
-  const executeDisabled = disabled || executing || varsInvalid || queryEmpty || noEndpoint || endpointHasUnresolved || fileErrors || !onExecute;
-  const introspectDisabled = disabled || introspecting || noEndpoint || endpointHasUnresolved || !onIntrospect;
+  const executeDisabled = disabled || executing || varsInvalid || queryEmpty || noEndpoint || endpointHasUnresolved || endpointLinkPending || fileErrors || !onExecute;
+  const introspectDisabled = disabled || introspecting || noEndpoint || endpointHasUnresolved || endpointLinkPending || !onIntrospect;
 
   const isHttps = endpoint.toLowerCase().startsWith('https://');
 
@@ -179,8 +230,8 @@ export function GraphqlConnectionBar({
   const [authOpen, setAuthOpen] = useState(false);
   const authBadgeRef = useRef<HTMLButtonElement>(null);
 
-  const authLabel     = authBadgeLabel(auth);
-  const authConfigured = isAuthConfigured(auth);
+  const authLabel     = authBadgeLabel(auth, globalAuthProfiles);
+  const authConfigured = isAuthConfigured(auth, globalAuthProfiles);
 
   // ── Recent endpoints dropdown ────────────────────────────────────────────
   const [endpointFocused, setEndpointFocused] = useState(false);
@@ -205,6 +256,8 @@ export function GraphqlConnectionBar({
     onPollingChange:         onPollingChange!,
     onClose:                 () => polling.closePollingPopoverViaRef.current(),
     commitPollingInterval:   polling.commitPollingInterval,
+    hasPollingOverride,
+    onClearPolling,
     pollingSwitchRef:        polling.pollingSwitchRef,
     popoverRef:              polling.pollingPopoverRef,
     popoverPos:              polling.pollingPopoverPos,
@@ -267,6 +320,25 @@ export function GraphqlConnectionBar({
           aria-autocomplete="list"
           aria-expanded={showRecent}
         />
+
+        {hasEndpointOverride && onClearEndpoint && (
+          <button
+            type="button"
+            className="gql-endpoint-reset-btn"
+            onClick={onClearEndpoint}
+            disabled={disabled}
+            data-testid="gql-endpoint-reset-btn"
+            title="Reset endpoint to page default for this tab"
+            aria-label="Reset endpoint to page default for this tab"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M3 21v-5h5" />
+            </svg>
+          </button>
+        )}
 
         {endpointHasUnresolved && (
           <span
@@ -363,6 +435,17 @@ export function GraphqlConnectionBar({
         </button>
       )}
 
+      {isHttps && onTlsSettingsChange && (
+        <GraphqlTlsPanel
+          skipTlsVerify={skipTlsVerify}
+          caCert={tlsCaCert}
+          clientCert={tlsClientCert}
+          clientKey={tlsClientKey}
+          onTlsChange={onTlsSettingsChange}
+          disabled={disabled}
+        />
+      )}
+
       {/* Operation selector — multiple named operations only */}
       {operations.length > 1 && (
         <div className="gql-op-selector-wrap">
@@ -447,6 +530,9 @@ export function GraphqlConnectionBar({
             onChange={onAuthChange}
             onClose={() => setAuthOpen(false)}
             anchorRef={authBadgeRef}
+            linkedProfileName={linkedProfileName}
+            globalAuthProfiles={globalAuthProfiles}
+            defaultAuthProfileId={defaultAuthProfileId}
           />
         )}
       </div>
@@ -460,12 +546,14 @@ export function GraphqlConnectionBar({
         type="button"
         aria-label={
           introspecting          ? 'Introspecting schema…'
+          : endpointLinkPending  ? 'Waiting for connection profile to load'
           : noEndpoint           ? 'Enter an endpoint URL to introspect'
           : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL to introspect'
           : 'Introspect schema (⌘⇧I)'
         }
         title={
           introspecting          ? 'Introspecting schema…'
+          : endpointLinkPending  ? 'Waiting for connection profile to load'
           : noEndpoint           ? 'Enter an endpoint URL first'
           : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL first'
           : 'Fetch and load the GraphQL schema (⌘⇧I)'
@@ -506,7 +594,7 @@ export function GraphqlConnectionBar({
           endpointHasUnresolved={endpointHasUnresolved}
           queryEmpty={queryEmpty}
           varsInvalid={varsInvalid}
-          disabled={disabled}
+          disabled={disabled || endpointLinkPending}
           onSubscribe={onSubscribe}
           onStop={onStop}
         />
@@ -520,7 +608,7 @@ export function GraphqlConnectionBar({
               title={`Estimated query complexity: ${complexityScore}${complexityLevel === 'danger' ? ' — very expensive query, consider simplifying' : complexityLevel === 'warn' ? ' — moderately complex query' : ''}`}
               aria-label={`Query complexity: ${complexityScore}`}
             >
-              ~{complexityScore}
+              ≈{complexityScore}
             </span>
           )}
 
@@ -546,7 +634,8 @@ export function GraphqlConnectionBar({
               data-testid="gql-execute-btn"
               type="button"
               aria-label={
-                noEndpoint              ? 'Enter an endpoint URL to execute'
+                endpointLinkPending   ? 'Waiting for connection profile to load'
+                : noEndpoint              ? 'Enter an endpoint URL to execute'
                 : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL to execute'
                 : queryEmpty            ? 'Enter a query to execute'
                 : varsInvalid           ? 'Fix invalid JSON in Variables to execute'
@@ -554,7 +643,8 @@ export function GraphqlConnectionBar({
                 : 'Execute operation (⌘ Enter)'
               }
               title={
-                noEndpoint              ? 'Enter an endpoint URL first'
+                endpointLinkPending   ? 'Waiting for connection profile to load'
+                : noEndpoint              ? 'Enter an endpoint URL first'
                 : endpointHasUnresolved ? 'Resolve environment variables in endpoint URL first'
                 : queryEmpty            ? 'Enter a query first'
                 : varsInvalid           ? 'Fix invalid JSON in Variables first'
@@ -684,16 +774,39 @@ export function GraphqlConnectionBar({
         </span>
       )}
 
+      {/* Phase 6G: batch summary from Advanced Settings configuration */}
+      {batchEnabled && batchSummaryLabel && (
+        <span
+          className="gql-batch-summary-chip"
+          data-testid="gql-batch-summary-chip"
+          title="Configured in Advanced Settings → Batch"
+        >
+          {batchSummaryLabel}
+        </span>
+      )}
+
       {/* Phase 3F: Send Batch button */}
       {batchEnabled && batchedTabCount >= 2 && (
         <button
           type="button"
-          className="gql-btn gql-btn--batch"
-          disabled={batchExecuting || noEndpoint}
+          className={`gql-btn gql-btn--batch${batchEndpointMismatch ? ' gql-btn--batch-mismatch' : ''}`}
+          disabled={batchExecuting || batchEndpointMismatch || !batchEndpointReady}
           onClick={onSendBatch}
           data-testid="gql-send-batch-btn"
-          aria-label={`Send batch of ${batchedTabCount} operations`}
-          title={`Send ${batchedTabCount} operations in one batch request`}
+          aria-label={
+            batchProfileLinkPending
+              ? 'Send batch disabled: waiting for connection profile to load'
+              : batchEndpointMismatch
+              ? 'Send batch disabled: checked tabs span different endpoints'
+              : `Send batch of ${batchedTabCount} operations`
+          }
+          title={
+            batchProfileLinkPending
+              ? 'Waiting for connection profile to load on a checked tab'
+              : batchEndpointMismatch
+              ? 'Checked tabs use different endpoints — batch requires endpoint parity'
+              : `Send ${batchedTabCount} operations in one batch request`
+          }
         >
           {batchExecuting ? 'Batching…' : `Send Batch (${batchedTabCount})`}
         </button>

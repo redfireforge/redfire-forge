@@ -1,6 +1,7 @@
 /** Lesson List — shows lessons within a domain with optional category tabs */
 import { useState, useEffect } from 'react';
 import type { DemoDomain, DemoLesson, DemoProgress } from './types';
+import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
 
 interface LessonListProps {
   domain: DemoDomain;
@@ -123,20 +124,22 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
           const lastStep = progress.lessonSteps[lesson.id];
           const isInProgress = lastStep !== undefined && !isComplete;
           const isPendingReset = pendingResetId === lesson.id;
+          const desktopBlocked = isLessonDesktopOnlyBlocked(lesson);
 
           const statusClass = isComplete ? 'completed' : isInProgress ? 'in-progress' : '';
 
           return (
             <div
               key={lesson.id}
-              className={`demo-lesson-row ${statusClass}`}
+              className={`demo-lesson-row ${statusClass}${desktopBlocked ? ' demo-lesson-row--desktop-blocked' : ''}`}
             >
               <button
-                className={`demo-lesson-item ${statusClass}`}
+                className={`demo-lesson-item ${statusClass}${desktopBlocked ? ' demo-lesson-item--desktop-blocked' : ''}`}
                 onClick={() => {
                   if (isPendingReset) return;
                   onSelect(lesson);
                 }}
+                title={desktopBlocked ? 'Desktop app required — open RedfireForge on desktop to run this demo' : undefined}
               >
                 <span className={`demo-lesson-status ${statusClass}`}>
                   <span className="demo-lesson-number">{idx + 1}</span>
@@ -154,15 +157,17 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 </div>
                 <div className="demo-lesson-meta">
                   <span className="demo-lesson-time">~{lesson.estimatedMinutes} min</span>
-                  {isInProgress && (
+                  {desktopBlocked ? (
+                    <span className="demo-lesson-desktop-badge" aria-label="Desktop app required">
+                      Desktop only
+                    </span>
+                  ) : isInProgress ? (
                     <span className="demo-lesson-resume-badge">Resume</span>
-                  )}
-                  {!isInProgress && !isComplete && (
+                  ) : !isComplete ? (
                     <span className="demo-lesson-start-badge">Start</span>
-                  )}
-                  {isComplete && !isPendingReset && (
+                  ) : !isPendingReset ? (
                     <span className="demo-lesson-restart-badge">Restart</span>
-                  )}
+                  ) : null}
                 </div>
               </button>
 

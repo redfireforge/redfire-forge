@@ -73,6 +73,23 @@ function classifyError(
       message: 'Access denied — token valid but lacks introspection permission',
     };
   }
+  if (status === 503) {
+    try {
+      const parsed503 = JSON.parse(body) as { error?: { code?: string; message?: string } };
+      if (parsed503.error?.code === 'MOCK_NOT_ENABLED') {
+        return {
+          status: 'error',
+          message:
+            'Mock server is not enabled — turn on Mock mode in the Mock panel, then introspect again.',
+        };
+      }
+      if (parsed503.error?.message) {
+        return { status: 'error', message: parsed503.error.message };
+      }
+    } catch {
+      /* fall through to generic 5xx message */
+    }
+  }
   if (status >= 500) {
     return {
       status: 'error',
@@ -207,6 +224,8 @@ export interface UseGraphqlSchemaOptions {
   onSchemaChanged?: (info: GraphqlSchemaInfo) => void;
   /** Skip TLS certificate validation — for self-signed/dev endpoints */
   skipTlsVerify?: boolean;
+  /** Full TLS settings (CA + mTLS). When omitted, derived from skipTlsVerify. */
+  tls?: import('../../../shared/types/gqlTls').GqlTlsSettings;
 }
 
 export interface UseGraphqlSchemaResult extends GraphqlSchemaState {
@@ -221,7 +240,8 @@ export function useGraphqlSchema(
   headers: Record<string, string> = {},
   options: UseGraphqlSchemaOptions = {},
 ): UseGraphqlSchemaResult {
-  const { pollingIntervalMs = 0, onSchemaChanged, skipTlsVerify = false } = options;
+  const { pollingIntervalMs = 0, onSchemaChanged, skipTlsVerify = false, tls: tlsInput } = options;
+  const tls = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
 
   const [state, setState] = useState<GraphqlSchemaState>(() => {
     // Pre-populate from cache on first render
@@ -253,10 +273,12 @@ export function useGraphqlSchema(
   const headersRef = useRef(headers);
   const onSchemaChangedRef = useRef(onSchemaChanged);
   const skipTlsVerifyRef = useRef(skipTlsVerify);
+  const tlsRef = useRef(tls);
   endpointRef.current = endpoint;
   headersRef.current = headers;
   onSchemaChangedRef.current = onSchemaChanged;
   skipTlsVerifyRef.current = skipTlsVerify;
+  tlsRef.current = tls;
 
   // BUG-GQL-R13-2 fix: track mount state so async introspection handlers don't
   // call setState after the component unmounts (prevents React warnings).
@@ -294,7 +316,7 @@ export function useGraphqlSchema(
           },
           JSON.stringify({ query: INTROSPECTION_QUERY }),
           undefined, // no AbortSignal for introspection
-          skipTlsVerifyRef.current,
+          tlsRef.current,
         );
 
         // BUG-GQL-R8-2 fix: if a newer request started while we were awaiting, discard

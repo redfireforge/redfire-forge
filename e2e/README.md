@@ -62,7 +62,78 @@ Quick reference:
 | `ws-tls-local-demo.spec.ts` | `docker/websocket/tls/docker-compose.yml` | — |
 | `graphql-test-server.spec.ts` | `docker/graphql/docker-compose.yml` | 4010 |
 | `environment-manager.spec.ts` | None (seeded localStorage) | 5173 |
-| `demo-hub-docker-validate.spec.ts` | Kafka + WebSocket Docker stacks | various |
+| `graphql-multi-tab.spec.ts` | None (`/__proxy` mocks, Phase 6B-4 + 6F-13) | 5173 |
+| `ws-basics-em.spec.ts` | None (Demo Hub live lesson) | 5173 |
+| `demo-ws-workflow-builder.spec.ts` | None (Demo Hub live lesson) | 5173 |
+| `demo-gql-first-query.spec.ts` | `docker/graphql` for full lesson (4010) | 5173 |
+| `demo-gql-variables.spec.ts` | `docker/graphql` for full lesson (4010) | 5173 |
+| `demo-gql-mutations.spec.ts` | `docker/graphql` for full lesson (4010) | 5173 |
+| `graphql-lessons.spec.ts` | `docker/graphql` for GQL-1..3 smoke (4010) | 5173 |
+
+Run **only** GQL-1 (not other demo lessons):
+
+```bash
+npm run test:e2e:demo:gql1
+# or
+npx playwright test --project=demo-gql1 e2e/demo-gql-first-query.spec.ts --reporter=html --workers=1
+```
+
+Run **only** GQL-2 (Variables & Arguments — not other demo lessons):
+
+```bash
+npm run test:e2e:demo:gql2
+# or
+npx playwright test --project=demo-gql2 e2e/demo-gql-variables.spec.ts --reporter=html --workers=1
+```
+
+Run **only** GQL-3 (Mutations — not other demo lessons):
+
+```bash
+npm run test:e2e:demo:gql3
+# or
+npx playwright test --project=demo-gql3 e2e/demo-gql-mutations.spec.ts --reporter=html --workers=1
+```
+
+### Demo step-through (slow — run on demand)
+
+These specs walk through live demo lessons step-by-step (~30–90 s each). They live in the
+`demo-stepthrough` Playwright project (excluded from the default `chromium` run):
+
+```bash
+# WebSocket Basics EM + {{wsBaseUrl}} validation, WS Workflow Builder modal regression
+npm run test:e2e:demo
+
+# GQL-1 only (Your First GraphQL Query)
+npm run test:e2e:demo:gql1
+
+# GQL-2 only (Variables & Arguments — not other demo lessons)
+npm run test:e2e:demo:gql2
+
+# GQL-3 only (Mutations — not other demo lessons)
+npm run test:e2e:demo:gql3
+
+# GQL-1..3 smoke auto-play (4F-7 — requires docker/graphql on 4010; lesson-stage / on demand, not default CI)
+npm run test:e2e:demo:gql-smoke
+
+# Single WS demo spec
+npx playwright test --project=demo-stepthrough e2e/ws-basics-em.spec.ts --reporter=list
+```
+
+**Synchronisation rule:** never click **Next** during the reading phase — that aborts the
+step before its `action()` runs. Use `completeCurrentStepAction()` or `runNextStep()` from
+`e2e/demo-player-helpers.ts` instead.
+
+**Demo lesson E2E memo (required reading for new specs):** [`e2e/DEMO-LESSON-E2E-MEMO.md`](./DEMO-LESSON-E2E-MEMO.md)
+
+Key pitfalls from GQL-1..3:
+
+| Pitfall | Fix |
+|---------|-----|
+| Hang on final step | Use `finishDemoStep`, not `runNextStep` / `advanceToStep(N)` when N = total steps |
+| Strict-mode `getByText` | Scope to `data-testid` panels (narration duplicates UI text) |
+| GraphQL 404 `Cannot POST /` | Endpoint must be `http://localhost:4010/graphql`, not bare `4010` |
+| History steps flicker Response | History guards must not re-execute queries (GQL-2 `skipResponseFocus`) |
+| Slow Docker executes | 300s action timeout; test timeout 600–900s; `workers: 1` |
 
 ## GraphQL test server (port 4010)
 

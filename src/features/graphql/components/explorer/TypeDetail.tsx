@@ -155,6 +155,7 @@ export function TypeDetail({
           aria-labelledby={`gql-se-dtab-${type.name}-fields`}
         >
           {type.fields && type.fields.length > 0 && (
+            <div className="gql-se-fields-scroll">
             <table className="gql-se-fields-table">
               <thead>
                 <tr>
@@ -177,6 +178,7 @@ export function TypeDetail({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {type.enumValues && type.enumValues.length > 0 && (

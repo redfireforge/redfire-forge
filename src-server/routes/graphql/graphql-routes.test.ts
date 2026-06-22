@@ -1392,6 +1392,19 @@ describe('GET /api/graphql/query (APQ GET proxy)', () => {
     expect(res.body.error.code).toBe('GQL_INVALID_REQUEST');
   });
 
+  it('returns 400 when PEM TLS fields are sent on GET query string', async () => {
+    const res = await request(buildApp())
+      .get('/api/graphql/query')
+      .query({
+        endpoint: 'https://localhost:4443/graphql',
+        extensions: '{}',
+        caCert: '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('GQL_INVALID_REQUEST');
+    expect(res.body.error.message).toContain('PEM TLS fields');
+  });
+
   it('relays GET to upstream with extensions and variables query params', async () => {
     let capturedUrl = '';
     mockUpstreamHandler = (req, res) => {
@@ -1984,7 +1997,9 @@ describe('graphql-routes — https upstream branches', () => {
         connectionParams: { token: 'abc' },
       });
       const events = parseSseBody(resp.text);
-      expect(agentSpy).toHaveBeenCalledWith({ rejectUnauthorized: false });
+      expect(agentSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ rejectUnauthorized: false }),
+      );
       expect(events.some((e) => e.event === 'connected' || e.event === 'complete' || e.event === 'error')).toBe(true);
     } finally {
       agentSpy.mockRestore();

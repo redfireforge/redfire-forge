@@ -25,6 +25,8 @@ interface ApqInfo {
   unsupported?: boolean;
   cacheHit?: boolean;
   hash?: string;
+  /** Endpoint/connection that produced this APQ result (Phase 6 multi-tab) */
+  connectionId?: string;
 }
 
 export interface UseGraphqlAdvancedSettingsResult {
@@ -148,7 +150,7 @@ export function useGraphqlAdvancedSettings(
     if (apqInfo?.unsupported && advSettingsRef.current.apqEnabled) {
       setAdvSettings((prev) => ({ ...prev, apqEnabled: false, apqUnsupportedDetected: true }));
       setApqUnsupportedToast(true);
-      const connId = connectionIdRef.current;
+      const connId = apqInfo.connectionId ?? connectionIdRef.current;
       if (connId) {
         void readKey(`gql_conn_detection_${connId}`)
           .then((raw) => {

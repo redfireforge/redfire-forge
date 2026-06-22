@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi } from 'vitest';
-import { log, HOP_BY_HOP_HEADERS, escapeQuotedString } from './routeUtils.js';
+import { log, HOP_BY_HOP_HEADERS, escapeQuotedString, parseGqlTlsFromBase64Header } from './routeUtils.js';
 
 // ─── log() ────────────────────────────────────────────────────────────────────
 
@@ -93,5 +93,24 @@ describe('escapeQuotedString', () => {
 
   it('handles string with only a backslash', () => {
     expect(escapeQuotedString('\\')).toBe('\\\\');
+  });
+});
+
+// ─── parseGqlTlsFromBase64Header() ────────────────────────────────────────────
+
+describe('parseGqlTlsFromBase64Header', () => {
+  it('returns empty object when header is missing or blank', () => {
+    expect(parseGqlTlsFromBase64Header(undefined)).toEqual({});
+    expect(parseGqlTlsFromBase64Header('   ')).toEqual({});
+  });
+
+  it('decodes valid base64 JSON TLS settings', () => {
+    const payload = Buffer.from(JSON.stringify({ skipTlsVerify: true }), 'utf8').toString('base64');
+    expect(parseGqlTlsFromBase64Header(payload)).toEqual({ skipTlsVerify: true });
+  });
+
+  it('returns empty object when base64 payload is invalid JSON', () => {
+    const bad = Buffer.from('not-json', 'utf8').toString('base64');
+    expect(parseGqlTlsFromBase64Header(bad)).toEqual({});
   });
 });
