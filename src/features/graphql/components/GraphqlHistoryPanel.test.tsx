@@ -199,17 +199,14 @@ describe('GraphqlHistoryPanel', () => {
     expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
   });
 
-  it('calls onLoadIntoEditor on double-click (simulated as rapid second click)', () => {
+  it('calls onLoadIntoEditor on double-click', () => {
     const onLoadIntoEditor = vi.fn();
     const items = [makeHistoryItem({ id: 'item-dbl' })];
     const history = makeHistory(items);
     render(<GraphqlHistoryPanel {...makeProps({ history, onLoadIntoEditor })} />);
-    const entry = screen.getByTestId('gql-history-entry');
-    // First click — selects item
-    fireEvent.click(entry);
-    // Second rapid click (within 400ms) — triggers load
-    fireEvent.click(entry);
+    fireEvent.doubleClick(screen.getByTestId('gql-history-entry'));
     expect(onLoadIntoEditor).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
   });
 
   // ── Preview panel ─────────────────────────────────────────────────────────────
@@ -220,7 +217,28 @@ describe('GraphqlHistoryPanel', () => {
     render(<GraphqlHistoryPanel {...makeProps({ history })} />);
     fireEvent.click(screen.getByTestId('gql-history-entry'));
     expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Close preview'));
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('returns to history list when back button is clicked', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    fireEvent.click(screen.getByTestId('gql-history-preview-back'));
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('closes preview panel on Escape', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
   });
 
@@ -303,6 +321,70 @@ describe('GraphqlHistoryPanel', () => {
     render(<GraphqlHistoryPanel {...makeProps({ history })} />);
     fireEvent.click(screen.getByTestId('gql-history-entry'));
     expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
+  });
+
+  it('preview shows Request and Response tabs with metadata chips', () => {
+    const items = [makeHistoryItem({
+      response: JSON.stringify({
+        data: { health: 'ok' },
+        httpStatus: 200,
+        httpHeaders: { 'content-type': 'application/json' },
+        latencyMs: 15,
+        timestamp: Date.now(),
+      }),
+      latencyMs: 15,
+    })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history, onRunInEditor: vi.fn() })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByTestId('gql-history-preview-tab-request')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-preview-tab-response')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-preview-response')).toBeInTheDocument();
+    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText('HTTP 200')).toBeInTheDocument();
+    expect(screen.getByText('15 ms')).toBeInTheDocument();
+    expect(screen.getByText(/"health": "ok"/)).toBeInTheDocument();
+    expect(screen.queryByText(/httpHeaders/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-history-preview-tab-request'));
+    expect(screen.getByTestId('gql-history-preview-request')).toBeInTheDocument();
+  });
+
+  it('switches between Request, Variables, and Response tabs', () => {
+    const items = [makeHistoryItem({
+      operation: {
+        query: 'query { health }',
+        variables: '{"id":"usr-7"}',
+        name: 'Health',
+        operationType: 'query',
+        headers: [],
+      },
+    })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+
+    fireEvent.click(screen.getByTestId('gql-history-preview-tab-request'));
+    expect(screen.getByTestId('gql-history-preview-request')).toBeInTheDocument();
+    expect(screen.queryByTestId('gql-history-preview-response')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('gql-history-preview-tab-variables'));
+    expect(screen.getByTestId('gql-history-preview-variables')).toBeInTheDocument();
+    expect(screen.getByText(/"id": "usr-7"/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('gql-history-preview-tab-response'));
+    expect(screen.getByTestId('gql-history-preview-response')).toBeInTheDocument();
+  });
+
+  it('preview copy query button copies operation text to clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const items = [makeHistoryItem({ operation: { query: 'query { health }', variables: '{}', name: 'Health', operationType: 'query', headers: [] } })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    fireEvent.click(screen.getByTestId('gql-history-preview-tab-request'));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy query' }));
+    expect(writeText).toHaveBeenCalledWith('query { health }');
   });
 
   // ── Clear history ─────────────────────────────────────────────────────────────
@@ -422,17 +504,16 @@ describe('GraphqlHistoryPanel', () => {
     expect(history.deleteItem).toHaveBeenCalledWith('del-item');
   });
 
-  it('clears selected item when deleting the currently selected item', () => {
+  it('clears preview when deleting the open item closes detail view', () => {
     const item = makeHistoryItem({ id: 'sel-del' });
     const history = makeHistory([item]);
     render(<GraphqlHistoryPanel {...makeProps({ history })} />);
-    // First click to select
     fireEvent.click(screen.getByTestId('gql-history-entry'));
     expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
-    // Context menu delete
+    fireEvent.click(screen.getByTestId('gql-history-preview-back'));
     fireEvent.contextMenu(screen.getByTestId('gql-history-entry'));
     fireEvent.click(screen.getByRole('menuitem', { name: /Delete/i }));
-    // Preview should disappear
+    expect(history.deleteItem).toHaveBeenCalledWith('sel-del');
     expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
   });
 
@@ -445,5 +526,320 @@ describe('GraphqlHistoryPanel', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining('<endpoint>'),
     );
+  });
+
+  // ── Compare mode ────────────────────────────────────────────────────────────
+
+  it('renders compare toggle button', () => {
+    render(<GraphqlHistoryPanel {...makeProps()} />);
+    expect(screen.getByTestId('gql-history-compare-toggle')).toBeInTheDocument();
+  });
+
+  it('shows compare bar when compare mode is enabled', () => {
+    const items = [makeHistoryItem()];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    expect(screen.getByTestId('gql-history-compare-bar')).toBeInTheDocument();
+    expect(screen.getAllByTestId('gql-history-compare-mark').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('gql-history-compare-slot-a')).toHaveAttribute('data-filled', 'false');
+    expect(screen.getByTestId('gql-history-compare-slot-b')).toHaveAttribute('data-filled', 'false');
+  });
+
+  it('updates compare bar slot data-filled when entries are marked', () => {
+    const items = [makeHistoryItem({ id: 'a' }), makeHistoryItem({ id: 'b' })];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    expect(screen.getByTestId('gql-history-compare-slot-a')).toHaveAttribute('data-filled', 'true');
+    expect(screen.getByTestId('gql-history-compare-slot-b')).toHaveAttribute('data-filled', 'false');
+    fireEvent.click(marks[1]);
+    expect(screen.getByTestId('gql-history-compare-slot-b')).toHaveAttribute('data-filled', 'true');
+  });
+
+  it('marks two entries and opens compare panel', () => {
+    const alice = makeHistoryItem({
+      id: 'alice',
+      operation: {
+        query: 'query GetUser { user { name } }',
+        variables: '{"id":"a"}',
+        name: 'GetUser',
+        operationType: 'query',
+        headers: [],
+      },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const bob = makeHistoryItem({
+      id: 'bob',
+      operation: {
+        query: 'query GetUser { user { name } }',
+        variables: '{"id":"b"}',
+        name: 'GetUser',
+        operationType: 'query',
+        headers: [],
+      },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    const history = makeHistory([alice, bob], { recentItems: [alice, bob] });
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
+    expect(screen.getByTestId('gql-history-compare-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-compare-table')).toBeInTheDocument();
+  });
+
+  it('closes context menu when opening compare view', () => {
+    const a = makeHistoryItem({
+      id: 'a',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"1"}' },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const b = makeHistoryItem({
+      id: 'b',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"2"}' },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory([a, b]) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.contextMenu(screen.getAllByTestId('gql-history-entry')[0]);
+    expect(screen.getByTestId('gql-history-context-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
+    expect(screen.queryByTestId('gql-history-context-menu')).not.toBeInTheDocument();
+  });
+
+  it('closes context menu when compare toggle is clicked', () => {
+    const items = [makeHistoryItem()];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.contextMenu(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByTestId('gql-history-context-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    expect(screen.queryByTestId('gql-history-context-menu')).not.toBeInTheDocument();
+  });
+
+  it('does not open preview when clicking entry in compare mode', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
+  });
+
+  it('does not load into editor on double-click in compare mode', () => {
+    const onLoad = vi.fn();
+    const items = [makeHistoryItem()];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items), onLoadIntoEditor: onLoad })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    fireEvent.doubleClick(screen.getByTestId('gql-history-entry'));
+    expect(onLoad).not.toHaveBeenCalled();
+  });
+
+  it('unmarks a slot when its compare mark button is clicked again', () => {
+    const items = [makeHistoryItem({ id: 'only' })];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const mark = screen.getByTestId('gql-history-compare-mark');
+    fireEvent.click(mark);
+    expect(screen.getByTestId('gql-history-entry')).toHaveAttribute('data-compare-slot', 'A');
+    fireEvent.click(mark);
+    expect(screen.getByTestId('gql-history-entry')).not.toHaveAttribute('data-compare-slot');
+  });
+
+  it('clears compare slots when history is cleared', () => {
+    const items = [makeHistoryItem({ id: 'a' }), makeHistoryItem({ id: 'b' })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(screen.getByTestId('gql-history-clear'));
+    fireEvent.click(screen.getByTestId('gql-history-clear-yes'));
+    expect(history.clearAll).toHaveBeenCalled();
+    expect(screen.queryByTestId('gql-history-compare-bar')).not.toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-compare-toggle')).not.toHaveClass('gql-history-compare-toggle--active');
+  });
+
+  it('closes context menu when history is cleared', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.contextMenu(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByTestId('gql-history-context-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-history-clear'));
+    fireEvent.click(screen.getByTestId('gql-history-clear-yes'));
+    expect(screen.queryByTestId('gql-history-context-menu')).not.toBeInTheDocument();
+  });
+
+  it('closes preview and clears search when history is cleared', () => {
+    const items = [makeHistoryItem({ id: 'preview-me' })];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.change(screen.getByTestId('gql-history-search'), { target: { value: 'GetUser' } });
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-search')).toHaveValue('GetUser');
+    fireEvent.click(screen.getByTestId('gql-history-clear'));
+    fireEvent.click(screen.getByTestId('gql-history-clear-yes'));
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-search')).toHaveValue('');
+  });
+
+  it('clears stale compare slot when item is removed from history', () => {
+    const a = makeHistoryItem({ id: 'slot-a' });
+    const b = makeHistoryItem({ id: 'slot-b' });
+    const { rerender } = render(
+      <GraphqlHistoryPanel {...makeProps({ history: makeHistory([a, b]) })} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    expect(document.querySelector('[data-compare-slot="A"]')).toBeInTheDocument();
+    rerender(<GraphqlHistoryPanel {...makeProps({ history: makeHistory([b]) })} />);
+    expect(document.querySelector('[data-compare-slot="A"]')).not.toBeInTheDocument();
+  });
+
+  it('unmarks compare slot B when its mark button is clicked again', () => {
+    const items = [makeHistoryItem({ id: 'a' }), makeHistoryItem({ id: 'b' })];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    expect(document.querySelector('[data-compare-slot="B"]')).toBeInTheDocument();
+    fireEvent.click(marks[1]);
+    expect(document.querySelector('[data-compare-slot="B"]')).not.toBeInTheDocument();
+  });
+
+  it('disables compare mode and clears slots when toggle is clicked again', () => {
+    const items = [makeHistoryItem({ id: 'a' }), makeHistoryItem({ id: 'b' })];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    expect(screen.queryByTestId('gql-history-compare-bar')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-compare-slot="A"]')).not.toBeInTheDocument();
+  });
+
+  it('exits compare mode when compare panel close button is clicked', () => {
+    const a = makeHistoryItem({
+      id: 'a',
+      operation: { ...makeHistoryItem().operation, name: 'GetUser', variables: '{"id":"1"}' },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const b = makeHistoryItem({
+      id: 'b',
+      operation: { ...makeHistoryItem().operation, name: 'GetUser', variables: '{"id":"2"}' },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory([a, b]) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
+    fireEvent.click(screen.getByTestId('gql-history-compare-close'));
+    expect(screen.queryByTestId('gql-history-compare-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-compare-toggle')).not.toHaveClass('gql-history-compare-toggle--active');
+  });
+
+  it('clears compare slot when a marked entry is deleted from context menu', () => {
+    const a = makeHistoryItem({
+      id: 'del-a',
+      operation: { ...makeHistoryItem().operation, name: 'GetUser', variables: '{"id":"1"}' },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const b = makeHistoryItem({
+      id: 'del-b',
+      operation: { ...makeHistoryItem().operation, name: 'GetUser', variables: '{"id":"2"}' },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    const history = makeHistory([a, b]);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.contextMenu(screen.getAllByTestId('gql-history-entry')[0]);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Delete/i }));
+    expect(history.deleteItem).toHaveBeenCalledWith('del-a');
+    expect(document.querySelector('[data-compare-slot="A"]')).not.toBeInTheDocument();
+  });
+
+  it('replaces compare slot B when a third entry is marked', () => {
+    const items = [
+      makeHistoryItem({ id: 'one' }),
+      makeHistoryItem({ id: 'two' }),
+      makeHistoryItem({ id: 'three' }),
+    ];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(marks[2]);
+    expect(document.querySelector('[data-compare-slot="B"]')).toBeInTheDocument();
+  });
+
+  it('clears preview when compare mode is enabled', () => {
+    const items = [makeHistoryItem({ id: 'preview-item' })];
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory(items) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-entry'));
+    expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
+  });
+
+  it('returns to list from compare view via back button without exiting compare mode', () => {
+    const a = makeHistoryItem({
+      id: 'a',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"1"}' },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const b = makeHistoryItem({
+      id: 'b',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"2"}' },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    render(<GraphqlHistoryPanel {...makeProps({ history: makeHistory([a, b]) })} />);
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
+    fireEvent.click(screen.getByTestId('gql-history-compare-back'));
+    expect(screen.queryByTestId('gql-history-compare-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('gql-history-compare-toggle')).toHaveClass('gql-history-compare-toggle--active');
+  });
+
+  it('closes compare view when a marked item disappears from history', () => {
+    const a = makeHistoryItem({
+      id: 'evict-a',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"1"}' },
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+    });
+    const b = makeHistoryItem({
+      id: 'evict-b',
+      operation: { ...makeHistoryItem().operation, variables: '{"id":"2"}' },
+      response: JSON.stringify({ data: { user: { name: 'Bob' } } }),
+    });
+    const { rerender } = render(
+      <GraphqlHistoryPanel {...makeProps({ history: makeHistory([a, b]) })} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-history-compare-toggle'));
+    const marks = screen.getAllByTestId('gql-history-compare-mark');
+    fireEvent.click(marks[0]);
+    fireEvent.click(marks[1]);
+    fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
+    expect(screen.getByTestId('gql-history-compare-panel')).toBeInTheDocument();
+    rerender(<GraphqlHistoryPanel {...makeProps({ history: makeHistory([b]) })} />);
+    expect(screen.queryByTestId('gql-history-compare-panel')).not.toBeInTheDocument();
   });
 });

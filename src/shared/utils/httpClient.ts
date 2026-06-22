@@ -1,4 +1,5 @@
 import { isTauri, isNode } from './platform';
+import { isLoopbackUrl, resolveLoopbackUrl } from './loopbackUrl';
 import type { TimingBreakdown } from '../types';
 
 /** Walk the error `.cause` chain to build a detailed message string. */
@@ -350,16 +351,18 @@ async function nodeFetch(
   signal?: AbortSignal,
 ): Promise<HttpResponse> {
   try {
+    const targetUrl = resolveLoopbackUrl(url);
     const { dispatcher, isProxy } = await getNodeDispatcher();
     const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
-    if (dispatcher) opts.dispatcher = dispatcher;
+    const useProxyDispatcher = Boolean(dispatcher) && !isLoopbackUrl(targetUrl);
+    if (useProxyDispatcher) opts.dispatcher = dispatcher;
     if (signal) opts.signal = signal;
 
     const doFetch = async (fetchOpts: Record<string, unknown>) => {
       const t0 = performance.now();
-      const response = await fetch(url, fetchOpts as RequestInit);
+      const response = await fetch(targetUrl, fetchOpts as RequestInit);
       const tFirstByte = performance.now();
       const responseBody = await response.text();
       const tDone = performance.now();
@@ -382,7 +385,7 @@ async function nodeFetch(
     try {
       return await doFetch(opts);
     } catch (proxyErr) {
-      if (isProxy && isProxyError(proxyErr)) {
+      if (useProxyDispatcher && isProxy && isProxyError(proxyErr)) {
         const directOpts = { ...opts };
         delete directOpts.dispatcher;
         return await doFetch(directOpts);

@@ -13,7 +13,8 @@ import type { Request, Response } from 'express';
 import http from 'node:http';
 import https from 'node:https';
 import type { LogLine } from '../../../src/shared/types/server-api.js';
-import { log, HOP_BY_HOP_HEADERS, escapeQuotedString } from './routeUtils.js';
+import { log, HOP_BY_HOP_HEADERS, escapeQuotedString, parseGqlTlsFromBase64Header } from './routeUtils.js';
+import { buildGraphqlTlsAgent } from './tlsAgent.js';
 
 export function registerUploadRoute(
   router: { post: (path: string, handler: (req: Request, res: Response) => void) => void },
@@ -61,6 +62,11 @@ export function registerUploadRoute(
     }
 
     log(onLog, 'info', 'File upload proxy: relaying multipart to upstream', { targetEndpoint });
+
+    const uploadTls = parseGqlTlsFromBase64Header(
+      typeof req.headers['x-gql-tls-config'] === 'string' ? req.headers['x-gql-tls-config'] : undefined,
+    );
+    const tlsAgent = buildGraphqlTlsAgent(uploadTls, targetEndpoint);
 
     // Parse the incoming multipart using busboy, collect fields and file parts,
     // then reconstruct a multipart/form-data request to the upstream server.
@@ -136,6 +142,7 @@ export function registerUploadRoute(
           port:     targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
           path:     targetUrl.pathname + targetUrl.search,
           headers:  forwardHeaders,
+          ...(tlsAgent ? { agent: tlsAgent } : {}),
         },
         (upstreamRes) => {
           res.status(upstreamRes.statusCode ?? 200);

@@ -21,6 +21,7 @@ import type {
   RfResponseContext,
 } from '../../../shared/types/graphql';
 import { executeGraphqlOperation } from '../utils/executeGraphqlOperation';
+import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import {
   createRfContext,
   runPhaseScript,
@@ -48,6 +49,9 @@ export interface RunParams {
   items: GraphqlCollectionItem[];
   endpoint: string;
   headers?: Record<string, string>;
+  /** Phase 6 — inherit active tab TLS override when running from GraphQL Studio */
+  skipTlsVerify?: boolean;
+  tls?: GqlTlsSettings;
   /** The full collection object — needed for collection-level pre/post scripts */
   collection?: GraphqlCollection;
   /** Active environment variable snapshot (key → resolved value) */
@@ -84,12 +88,15 @@ export function useGraphqlCollectionRunner(): UseGraphqlCollectionRunnerResult {
     items,
     endpoint,
     headers = {},
+    skipTlsVerify = false,
+    tls: tlsInput,
     collection,
     envVars = {},
     onEnvUpdate,
     onItemComplete,
     onItemExecuted,
   }: RunParams) => {
+    const tls = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
     // Guard against concurrent runs — calling run() while a run is in progress would
     // reset all state and corrupt the in-flight run's events. Callers should abort first.
     if (runningRef.current) return;
@@ -283,6 +290,8 @@ export function useGraphqlCollectionRunner(): UseGraphqlCollectionRunnerResult {
           variables: parsedVars,
           operationName: item.operation.name,
           headers: mutableHeaders,
+          skipTlsVerify,
+          tls,
         });
       } catch (e) {
         const errEvent: CollectionRunEvent = {

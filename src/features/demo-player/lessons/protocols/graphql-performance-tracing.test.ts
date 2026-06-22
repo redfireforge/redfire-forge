@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql11'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
 import { gqlPerformanceTracingLesson } from './graphql-performance-tracing';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
@@ -30,7 +37,7 @@ function stubTracingDom(extra = ''): string {
     <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     <button data-testid="gql-execute-btn"></button>
-    <span data-testid="gql-complexity-badge">~1</span>
+    <span data-testid="gql-complexity-badge">≈1</span>
     <div data-testid="gql-response-viewer"></div>
     <button data-testid="gql-rv-tracing-badge"></button>
     <div data-testid="gql-trace-view">
@@ -56,8 +63,9 @@ describe('gql-performance-tracing lesson', () => {
     expect(gqlPerformanceTracingLesson.id).toBe('gql-performance-tracing');
     expect(gqlPerformanceTracingLesson.category).toBe('graphql');
     expect(gqlPerformanceTracingLesson.name).toBe('Performance Tracing');
-    expect(gqlPerformanceTracingLesson.steps.length).toBe(7);
+    expect(gqlPerformanceTracingLesson.steps.length).toBe(8);
     expect(gqlPerformanceTracingLesson.estimatedMinutes).toBe(4);
+    expect(gqlPerformanceTracingLesson.tabBudget).toBe(1);
   });
 
   it('has docker prerequisite fields', () => {
@@ -70,6 +78,7 @@ describe('gql-performance-tracing lesson', () => {
       'gql10-complexity',
       'gql10-expand',
       'gql10-execute',
+      'gql10-tracing-badge',
       'gql10-waterfall',
       'gql10-hover',
       'gql10-sort',
@@ -77,10 +86,210 @@ describe('gql-performance-tracing lesson', () => {
     ]);
   });
 
-  it('all 7 steps have pauseAfter: true', () => {
+  it('all 8 steps have pauseAfter: true', () => {
     gqlPerformanceTracingLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
+  });
+
+  // ── Concept content ───────────────────────────────────────────────────────
+
+  it('concept title mentions Performance Tracing', () => {
+    expect(gqlPerformanceTracingLesson.concept.title).toContain('Performance');
+    expect(gqlPerformanceTracingLesson.concept.title).toContain('Tracing');
+  });
+
+  it('concept body describes three performance layers', () => {
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('Layer 1');
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('Layer 2');
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('Layer 3');
+  });
+
+  it('concept body explains WHY complexity estimation matters', () => {
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('authoring time');
+  });
+
+  it('concept body explains WHY waterfall is more useful than total latency', () => {
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('waterfall');
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('bottleneck');
+  });
+
+  it('concept body explains WHY distribution matters (p95)', () => {
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('p95');
+    expect(gqlPerformanceTracingLesson.concept.body).toContain('distribution');
+  });
+
+  it('has 5 key terms', () => {
+    expect(gqlPerformanceTracingLesson.concept.keyTerms).toHaveLength(5);
+  });
+
+  it('key terms include Resolver row', () => {
+    const terms = gqlPerformanceTracingLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('Resolver row');
+  });
+
+  it('key terms include Latency histogram', () => {
+    const terms = gqlPerformanceTracingLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('Latency histogram');
+  });
+
+  // ── Diagram ───────────────────────────────────────────────────────────────
+
+  it('diagram is a 700x430 SVG', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('viewBox="0 0 700 430"');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('xmlns="http://www.w3.org/2000/svg"');
+  });
+
+  it('diagram contains window chrome traffic lights', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('#ff5f57');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('#febc2e');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('#28c840');
+  });
+
+  it('diagram shows complexity badge', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('Complexity');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('≈5');
+  });
+
+  it('diagram shows Tracing tab active', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('Tracing');
+  });
+
+  it('diagram shows waterfall resolver rows', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('Query.user');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('Query.health');
+  });
+
+  it('diagram shows color legend for resolver durations', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('50ms');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('200ms');
+  });
+
+  it('diagram shows histogram strip with p95 marker', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('Latency Histogram');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('p95');
+  });
+
+  it('diagram uses CSS design tokens', () => {
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('var(--bg)');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('var(--surface)');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('var(--border)');
+    expect(gqlPerformanceTracingLesson.concept.diagram).toContain('var(--primary)');
+  });
+
+  // ── Step spotlights match their panel/element ─────────────────────────────
+
+  it('gql10-complexity highlights complexity badge', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
+    expect(step.highlight).toBe(GQL.COMPLEXITY_BADGE);
+    expect(step.verify).toBe(GQL.COMPLEXITY_BADGE);
+  });
+
+  it('gql10-expand highlights complexity badge', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    expect(step.highlight).toBe(GQL.COMPLEXITY_BADGE);
+    expect(step.verify).toBe(GQL.COMPLEXITY_BADGE);
+  });
+
+  it('gql10-execute highlights execute button (not tracing badge)', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-execute')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RV_TRACING_BADGE);
+  });
+
+  it('gql10-tracing-badge highlights the tracing badge and verifies trace view', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
+    expect(step.highlight).toBe(GQL.RV_TRACING_BADGE);
+    expect(step.verify).toBe(GQL.TRACE_VIEW);
+  });
+
+  it('gql10-waterfall highlights trace view', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-waterfall')!;
+    expect(step.highlight).toBe(GQL.TRACE_VIEW);
+    expect(step.verify).toBe(GQL.TRACE_VIEW);
+  });
+
+  it('gql10-hover highlights resolver row', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-hover')!;
+    expect(step.highlight).toBe(GQL.TRACE_RESOLVER_ROW);
+    expect(step.verify).toBe(GQL.TRACE_RESOLVER_ROW);
+  });
+
+  it('gql10-sort highlights sort-by-duration button', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-sort')!;
+    expect(step.highlight).toBe(GQL.TRACE_SORT_DURATION);
+    expect(step.verify).toBe(GQL.TRACE_SORT_DURATION);
+  });
+
+  it('gql10-histogram highlights histogram strip', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-histogram')!;
+    expect(step.highlight).toBe(GQL.HISTOGRAM_STRIP);
+    expect(step.verify).toBe(GQL.HISTOGRAM_STRIP);
+  });
+
+  // ── New gql10-tracing-badge step behaviour ────────────────────────────────
+
+  it('gql10-tracing-badge step has correct preAction and uses ensureTracingExecuted', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
+    expect(step.preAction).toBe(ensureTracingExecuted);
+  });
+
+  it('gql10-tracing-badge action calls ensureTracingViewOpen', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = stubTracingDom();
+    stubMonacoEditor(buildTracingUserQuery());
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TRACING_BADGE);
+  });
+
+  // ── Step description WHY content ──────────────────────────────────────────
+
+  it('gql10-complexity description explains WHY complexity estimation matters', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
+    expect(step.description).toContain('authoring time');
+    expect(step.description).toContain('server');
+  });
+
+  it('gql10-expand description explains WHY score increases with fields', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
+    expect(step.description).toContain('resolver');
+    expect(step.description).toContain('N+1');
+  });
+
+  it('gql10-execute description explains WHY server must opt in to tracing', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-execute')!;
+    expect(step.description).toContain('extensions.tracing');
+    expect(step.description).toContain('opt in');
+  });
+
+  it('gql10-tracing-badge description explains WHY badge not auto-open', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-tracing-badge')!;
+    expect(step.description).toContain('conditional');
+  });
+
+  it('gql10-waterfall description explains parallel vs sequential resolvers', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-waterfall')!;
+    expect(step.description).toContain('parallel');
+    expect(step.description).toContain('sequential');
+  });
+
+  it('gql10-hover description explains Start offset significance', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-hover')!;
+    expect(step.description).toContain('Start');
+    expect(step.description).toContain('color');
+  });
+
+  it('gql10-sort description explains WHY sort finds bottleneck', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-sort')!;
+    expect(step.description).toContain('bottleneck');
+  });
+
+  it('gql10-histogram description explains p95 and distribution patterns', () => {
+    const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-histogram')!;
+    expect(step.description).toContain('p95');
+    expect(step.description).toContain('distribution');
   });
 
   it('stateful steps have preAction guards', () => {
@@ -95,8 +304,8 @@ describe('gql-performance-tracing lesson', () => {
     expect(q).toContain('user(id: "usr-42")');
   });
 
-  it('getComplexityBadgeScore parses ~N badge text', () => {
-    document.body.innerHTML = '<span data-testid="gql-complexity-badge">~12</span>';
+  it('getComplexityBadgeScore parses ≈N badge text', () => {
+    document.body.innerHTML = '<span data-testid="gql-complexity-badge">≈12</span>';
     expect(getComplexityBadgeScore()).toBe(12);
   });
 
@@ -107,7 +316,7 @@ describe('gql-performance-tracing lesson', () => {
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <span data-testid="gql-complexity-badge">~1</span>
+      <span data-testid="gql-complexity-badge">≈1</span>
     `;
     stubMonacoEditor();
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-complexity')!;
@@ -124,7 +333,7 @@ describe('gql-performance-tracing lesson', () => {
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <button data-testid="gql-execute-btn"></button>
-      <span data-testid="gql-complexity-badge">~5</span>
+      <span data-testid="gql-complexity-badge">≈5</span>
       <div data-testid="gql-response-viewer"></div>
       <button data-testid="gql-rv-tracing-badge"></button>
     `;
@@ -144,7 +353,7 @@ describe('gql-performance-tracing lesson', () => {
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <button data-testid="gql-execute-btn"></button>
-      <span data-testid="gql-complexity-badge">~5</span>
+      <span data-testid="gql-complexity-badge">≈5</span>
       <div data-testid="gql-response-viewer"></div>
       <button data-testid="gql-rv-tracing-badge"></button>
       <div data-testid="gql-trace-view">
@@ -167,7 +376,7 @@ describe('gql-performance-tracing lesson', () => {
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <button data-testid="gql-execute-btn"></button>
-      <span data-testid="gql-complexity-badge">~5</span>
+      <span data-testid="gql-complexity-badge">≈5</span>
       <div data-testid="gql-response-viewer"></div>
       <button data-testid="gql-rv-tracing-badge"></button>
       <div data-testid="gql-trace-view">
@@ -191,7 +400,7 @@ describe('gql-performance-tracing lesson', () => {
 
   it('gql10-expand re-runs user query when complexity does not increase', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = stubTracingDom('<span data-testid="gql-complexity-badge">~5</span>');
+    document.body.innerHTML = stubTracingDom('<span data-testid="gql-complexity-badge">≈5</span>');
     stubMonacoEditor('query { health }');
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
@@ -204,11 +413,11 @@ describe('gql-performance-tracing lesson', () => {
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor(buildTracingUserQuery());
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
-    badge.textContent = '~10';
+    badge.textContent = '≈10';
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
     vi.mocked(ctx.click).mockClear();
-    badge.textContent = '~10';
+    badge.textContent = '≈10';
     await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
@@ -289,7 +498,7 @@ describe('gql-performance-tracing lesson', () => {
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
     let score = 1;
     Object.defineProperty(badge, 'textContent', {
-      get: () => `~${score}`,
+      get: () => `≈${score}`,
     });
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
@@ -299,7 +508,7 @@ describe('gql-performance-tracing lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('setup clears endpoint', async () => {
+  it('setup creates demo tab', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://old" />
@@ -312,7 +521,12 @@ describe('gql-performance-tracing lesson', () => {
       json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
     }));
     await gqlPerformanceTracingLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(
+      ctx,
+      'gql-performance-tracing',
+      'Performance Tracing',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
   });
 
   it('ensureTracingViewOpen uses tracing tab when badge missing', async () => {
@@ -385,7 +599,7 @@ describe('gql-performance-tracing lesson', () => {
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor('query { health }');
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
-    Object.defineProperty(badge, 'textContent', { get: () => '~5' });
+    Object.defineProperty(badge, 'textContent', { get: () => '≈5' });
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
@@ -397,7 +611,7 @@ describe('gql-performance-tracing lesson', () => {
     document.body.innerHTML = stubTracingDom();
     stubMonacoEditor('query { health }');
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
-    Object.defineProperty(badge, 'textContent', { get: () => '~5' });
+    Object.defineProperty(badge, 'textContent', { get: () => '≈5' });
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     const userSpy = vi.spyOn(
       await import('./graphql-lesson-helpers'),
@@ -409,11 +623,10 @@ describe('gql-performance-tracing lesson', () => {
     userSpy.mockRestore();
   });
 
-  it('gqlPerformanceTracingLessonCleanup resets flags', async () => {
+  it('gqlPerformanceTracingLessonCleanup closes demo tab', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `<button data-testid="gql-mode-editor"></button>`;
     await gqlPerformanceTracingLessonCleanup(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-performance-tracing');
   });
 
   it('ensureTracingResolverHovered completes when resolver bar missing', async () => {
@@ -430,7 +643,7 @@ describe('gql-performance-tracing lesson', () => {
   it('gql10-expand does not re-run when before score is zero', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = stubTracingDom().replace(
-      '<span data-testid="gql-complexity-badge">~5</span>',
+      '<span data-testid="gql-complexity-badge">≈5</span>',
       '<span data-testid="gql-complexity-badge">n/a</span>',
     );
     stubMonacoEditor('query { health }');
@@ -517,7 +730,7 @@ describe('gql-performance-tracing lesson', () => {
     stubMonacoEditor('query { health }');
     const badge = document.querySelector(GQL.COMPLEXITY_BADGE)!;
     let score = 1;
-    Object.defineProperty(badge, 'textContent', { get: () => `~${score}` });
+    Object.defineProperty(badge, 'textContent', { get: () => `≈${score}` });
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-expand')!;
     const userSpy = vi.spyOn(
       await import('./graphql-lesson-helpers'),

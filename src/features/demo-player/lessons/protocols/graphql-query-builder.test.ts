@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql8'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
 import { gqlQueryBuilderLesson } from './graphql-query-builder';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
@@ -12,6 +19,7 @@ import {
   resetGqlLesson7SessionFlags,
   resetGqlLessonSessionFlags,
   gqlQueryBuilderLessonSetup,
+  gqlQueryBuilderLessonCleanup,
   ensureBuilderMode,
   ensureHealthFieldSelected,
   ensureSelectAllDemonstrated,
@@ -41,6 +49,7 @@ describe('gql-query-builder lesson', () => {
     expect(gqlQueryBuilderLesson.name).toBe('Query Builder — Visual Operations');
     expect(gqlQueryBuilderLesson.steps.length).toBe(10);
     expect(gqlQueryBuilderLesson.estimatedMinutes).toBe(4);
+    expect(gqlQueryBuilderLesson.tabBudget).toBe(1);
   });
 
   it('has docker prerequisite fields', () => {
@@ -74,6 +83,135 @@ describe('gql-query-builder lesson', () => {
       expect(step.preAction).toBeTypeOf('function');
     });
   });
+
+  // ─── Concept & diagram ───────────────────────────────────────────────────
+
+  it('concept body explains WHY builder mode exists', () => {
+    expect(gqlQueryBuilderLesson.concept.body).toContain('Builder');
+    expect(gqlQueryBuilderLesson.concept.body).toContain('One-way sync');
+  });
+
+  it('concept body explains alias and directive WHY', () => {
+    expect(gqlQueryBuilderLesson.concept.body).toContain('alias');
+    expect(gqlQueryBuilderLesson.concept.body).toContain('@include');
+  });
+
+  it('concept diagram is 700×430 studio chrome SVG', () => {
+    const diag = gqlQueryBuilderLesson.concept.diagram;
+    expect(diag).toContain('viewBox="0 0 700 430"');
+    expect(diag).toContain('GraphQL Studio — Query Builder');
+    expect(diag).toContain('Builder');
+    expect(diag).toContain('Field Tree');
+    expect(diag).toContain('SDL Preview');
+    expect(diag).toContain('Summary');
+  });
+
+  it('concept diagram shows one-way sync legend', () => {
+    expect(gqlQueryBuilderLesson.concept.diagram).toContain('Edit in Editor');
+    expect(gqlQueryBuilderLesson.concept.diagram).toContain('not synced back');
+  });
+
+  it('concept keyTerms cover Builder mode, field tree, SDL preview, summary, alias, one-way sync', () => {
+    const terms = (gqlQueryBuilderLesson.concept.keyTerms ?? []).map((t) => t.term);
+    expect(terms).toContain('Builder mode');
+    expect(terms).toContain('Field tree');
+    expect(terms).toContain('SDL preview');
+    expect(terms).toContain('Summary panel');
+    expect(terms).toContain('Field alias');
+    expect(terms).toContain('One-way sync');
+  });
+
+  // ─── Spotlight / highlight correctness ───────────────────────────────────
+
+  it('gql7-builder highlights QB_FIELD_TREE (field tree is visible after switching)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-builder')!;
+    expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
+  });
+
+  it('gql7-expand highlights QB_FIELD_TREE (expand button is in field tree)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-expand')!;
+    expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
+  });
+
+  it('gql7-health highlights QB_CODE (live SDL preview updates)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-health')!;
+    expect(step.highlight).toBe(GQL.QB_CODE);
+  });
+
+  it('gql7-select-all highlights QB_SELECT_ALL', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-select-all')!;
+    expect(step.highlight).toBe(GQL.QB_SELECT_ALL);
+  });
+
+  it('gql7-user-arg highlights QB_ARG_USER_ID (argument input)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-user-arg')!;
+    expect(step.highlight).toBe(GQL.QB_ARG_USER_ID);
+  });
+
+  it('gql7-alias highlights FO_ALIAS_USER_ID (alias input in Summary)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-alias')!;
+    expect(step.highlight).toBe(GQL.FO_ALIAS_USER_ID);
+  });
+
+  it('gql7-include highlights FO_INCLUDE_USER_ID (@include toggle)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-include')!;
+    expect(step.highlight).toBe(GQL.FO_INCLUDE_USER_ID);
+  });
+
+  it('gql7-copy highlights QB_COPY button', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-copy')!;
+    expect(step.highlight).toBe(GQL.QB_COPY);
+  });
+
+  it('gql7-edit highlights QB_EDIT button', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-edit')!;
+    expect(step.highlight).toBe(GQL.QB_EDIT);
+  });
+
+  it('gql7-one-way highlights MODE_EDITOR (demonstrating builder state not synced back)', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
+    expect(step.highlight).toBe(GQL.MODE_EDITOR);
+  });
+
+  // ─── Step description WHY content ────────────────────────────────────────
+
+  it('gql7-builder description explains why builder exists', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-builder')!;
+    expect(step.description).toContain('Builder');
+    expect(step.description).toContain('health');
+  });
+
+  it('gql7-health description explains live preview feedback loop', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-health')!;
+    expect(step.description).toContain('live');
+    expect(step.description).toContain('health');
+  });
+
+  it('gql7-user-arg description explains required arg inline surfacing', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-user-arg')!;
+    expect(step.description).toContain('required');
+    expect(step.description).toContain('id');
+  });
+
+  it('gql7-alias description explains alias WHY for response key renaming', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-alias')!;
+    expect(step.description).toContain('alias');
+    expect(step.description).toContain('userId');
+  });
+
+  it('gql7-include description explains @include directive runtime behavior', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-include')!;
+    expect(step.description).toContain('@include');
+    expect(step.description).toContain('@skip');
+  });
+
+  it('gql7-one-way description explains selection model limitation', () => {
+    const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
+    expect(step.description).toContain('one-way');
+    expect(step.description).toContain('selection model');
+  });
+
+  // ─── Existing step action tests ───────────────────────────────────────────
 
   it('gql7-builder action switches to builder mode', async () => {
     const ctx = makeCtx();
@@ -128,6 +266,8 @@ describe('gql-query-builder lesson', () => {
     `;
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-select-all')!;
     await step.preAction!(ctx);
+    // Isolate action clicks from preAction guard-chain side effects
+    vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.QB_SELECT_ALL);
     expect(ctx.click).toHaveBeenCalledTimes(2);
@@ -352,7 +492,7 @@ describe('gql-query-builder lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.QB_SELECT_ALL);
   });
 
-  it('setup clears endpoint and switches to editor mode', async () => {
+  it('setup creates demo tab and switches to editor mode', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://old" />
@@ -369,7 +509,12 @@ describe('gql-query-builder lesson', () => {
       }),
     }));
     await gqlQueryBuilderLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(
+      ctx,
+      'gql-query-builder',
+      'Query Builder — Visual Operations',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
   });
 
   it('gql7-one-way keeps preview when editor comment not synced to builder', async () => {
@@ -556,7 +701,18 @@ describe('gql-query-builder lesson', () => {
     stubMonacoEditor('');
     const ctx = makeCtx();
     await gqlQueryBuilderLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(
+      ctx,
+      'gql-query-builder',
+      'Query Builder — Visual Operations',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+  });
+
+  it('gqlQueryBuilderLessonCleanup closes demo tab', async () => {
+    const ctx = makeCtx();
+    await gqlQueryBuilderLessonCleanup(ctx);
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-query-builder');
   });
 
   it('gql7-one-way handles absent monaco model by filling comment via helper', async () => {

@@ -8,6 +8,7 @@ import {
   isSettingsTab,
   isProtocolsTab,
   isDemoTab,
+  getLastProtocolsTab,
 } from '../utils/appTabUtils';
 
 interface AppActivityBarProps {
@@ -91,7 +92,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
       </button>
       <button
         className={`ab-btn ${domainOf(activeTab) === 'protocols' ? 'active' : ''}`}
-        onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab('kafka-message-studio'); }}
+        onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab(getLastProtocolsTab()); }}
         title="Protocols"
         data-testid="ab-protocols"
       >

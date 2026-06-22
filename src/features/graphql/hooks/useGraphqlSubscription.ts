@@ -34,6 +34,9 @@ export interface SubscribeParams {
   headers: Record<string, string>;
   auth?: GraphqlAuth | null;
   skipTlsVerify?: boolean;
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
   subscriptionTransport?: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
   bufferSize?: number;
 }
@@ -173,6 +176,9 @@ export function useGraphqlSubscription(): UseGraphqlSubscriptionResult {
     const selector = {
       auth: params.auth,
       skipTlsVerify: params.skipTlsVerify,
+      tlsCaCert: params.tlsCaCert,
+      tlsClientCert: params.tlsClientCert,
+      tlsClientKey: params.tlsClientKey,
       endpoint: params.endpoint,
       subscriptionTransport: params.subscriptionTransport,
     };
@@ -205,6 +211,9 @@ export function useGraphqlSubscription(): UseGraphqlSubscriptionResult {
         endpoint: params.endpoint,
         headers: params.headers,
         skipTlsVerify: params.skipTlsVerify,
+        tlsCaCert: params.tlsCaCert,
+        tlsClientCert: params.tlsClientCert,
+        tlsClientKey: params.tlsClientKey,
         signal: newAbort.signal,
       },
       {

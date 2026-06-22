@@ -77,6 +77,21 @@ describe('useGraphqlCollectionRunner — sequential run', () => {
     expect(result.current.state.running).toBe(false);
   });
 
+  it('forwards skipTlsVerify to executeGraphqlOperation (Phase 6)', async () => {
+    mockExecute.mockResolvedValue(successResponse());
+    const { result } = renderHook(() => useGraphqlCollectionRunner());
+
+    await act(async () => {
+      await result.current.run({
+        items: [makeItem({ id: 'tls-tab' })],
+        endpoint: 'https://staging.example.com/graphql',
+        skipTlsVerify: true,
+      });
+    });
+
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ skipTlsVerify: true }));
+  });
+
   it('marks HTTP 4xx as error event (not result)', async () => {
     mockExecute.mockResolvedValue({
       data: null,

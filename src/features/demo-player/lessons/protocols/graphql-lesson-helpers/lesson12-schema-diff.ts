@@ -7,7 +7,6 @@ import {
   ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
-  getEndpointInput,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
@@ -23,6 +22,7 @@ import { resetGqlLesson8SessionFlags } from './lesson8-collections-history';
 import { resetGqlLesson9SessionFlags } from './lesson9-export-share';
 import { resetGqlLesson10SessionFlags } from './lesson10-performance-tracing';
 import { resetGqlLesson11SessionFlags } from './lesson11-workflow-integration';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 /** Label on the seeded prior-release snapshot (compare-to-current shows real diffs). */
 export const LESSON12_BASELINE_LABEL = 'Prior release (demo)';
@@ -220,7 +220,7 @@ async function cleanupLesson12Snapshots(): Promise<void> {
   }
 }
 
-/** Setup for Lesson 12 — introspect Docker server and seed prior-release baseline. */
+/** Setup for Lesson 12 (GQL-12) — demo tab; introspect Docker server and seed baseline. */
 export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -243,21 +243,16 @@ export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<
     await ctx.delay(200);
   }
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-schema-diff', 'Schema Diff & Breaking Changes');
   await ensureDemoEndpoint(ctx);
   await ensureIntrospected(ctx);
   await ensureLesson12BaselineSnapshot();
 }
 
-/** Cleanup for Lesson 12 — remove seeded and lesson-captured snapshots. */
+/** Cleanup for Lesson 12 (GQL-12) — remove snapshots, close demo tab. */
 export async function gqlSchemaDiffLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await cleanupLesson12Snapshots();
   resetGqlLesson12SessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-schema-diff');
 }
 

@@ -5,8 +5,10 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useCallback } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlCollectionItem, GraphqlEnvironment } from '../../../shared/types/graphql';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import type { UseGraphqlCollectionRunnerResult } from './useGraphqlCollectionRunner';
 import { buildAuthHeaders } from '../utils/authUtils';
 import { resolveVars } from '../utils/envUtils';
@@ -22,35 +24,45 @@ type CollectionTree = {
 interface CollectionRunArgs {
   collectionTrees: CollectionTree[];
   endpoint: string;
+  skipTlsVerify?: boolean;
+  tls?: GqlTlsSettings;
   activeEnvironment: GraphqlEnvironment | null | undefined;
   globalEnvMap?: Record<string, string>;
   activeTabHeaders: Record<string, string>;
   auth: GraphqlAuth | null;
+  globalAuthProfiles?: GlobalAuthProfile[];
   runner: UseGraphqlCollectionRunnerResult;
   updateVariables: (id: string, vars: GraphqlEnvironment['variables']) => void;
   onSetRunnerCollectionId: (id: string) => void;
   onSetBottomTab: (tab: string) => void;
   onItemExecuted: (id: string) => void;
+  /** Phase 6F — block collection run while profile link is unresolved. */
+  endpointLinkPending?: boolean;
 }
 
 export function useGraphqlCollectionRun({
   collectionTrees,
   endpoint,
+  skipTlsVerify = false,
+  tls,
   activeEnvironment,
   globalEnvMap,
   activeTabHeaders,
   auth,
+  globalAuthProfiles = [],
   runner,
   updateVariables,
   onSetRunnerCollectionId,
   onSetBottomTab,
   onItemExecuted,
+  endpointLinkPending = false,
 }: CollectionRunArgs) {
   const handleRunCollection = useCallback((
     collectionId: string,
     folderId?: string,
     itemOverride?: GraphqlCollectionItem,
   ) => {
+    if (endpointLinkPending) return;
     const tree = collectionTrees.find((t) => t.collection.id === collectionId);
     if (!tree) return;
     onSetRunnerCollectionId(collectionId);
@@ -61,7 +73,7 @@ export function useGraphqlCollectionRun({
       if (v.enabled && v.key.trim()) envVarsSnapshot[v.key.trim()] = v.value;
     }
 
-    const authH = buildAuthHeaders(auth);
+    const authH = buildAuthHeaders(auth, globalAuthProfiles);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
       resolvedHeaders[k] = resolveVars(v, activeEnvironment, globalEnvMap);
@@ -99,6 +111,8 @@ export function useGraphqlCollectionRun({
       collection: tree.collection,
       endpoint: resolveVars(endpoint, activeEnvironment, globalEnvMap),
       headers: resolvedHeaders,
+      skipTlsVerify,
+      tls,
       envVars: envVarsSnapshot,
       onEnvUpdate: (key, value) => {
         if (!activeEnvironment) return;
@@ -111,8 +125,9 @@ export function useGraphqlCollectionRun({
       },
       onItemExecuted,
     }).catch(() => {});
-  }, [collectionTrees, endpoint, activeEnvironment, globalEnvMap, activeTabHeaders, auth, runner, updateVariables,
-      onSetRunnerCollectionId, onSetBottomTab, onItemExecuted]);
+  }, [collectionTrees, endpoint, skipTlsVerify, tls, activeEnvironment, globalEnvMap, activeTabHeaders, auth,
+      globalAuthProfiles, runner, updateVariables, onSetRunnerCollectionId, onSetBottomTab, onItemExecuted,
+      endpointLinkPending]);
 
   return { handleRunCollection };
 }

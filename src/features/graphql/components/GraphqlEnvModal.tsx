@@ -7,13 +7,13 @@
  *   Left sidebar  (210px) — scrollable environment list + [+ New] + [↑ Import]
  *   Right panel   (flex 1) — selected env name (editable) + variable table
  *
- * Variable table columns: Enabled ☑ | Key | Value (masked) | Actions (👁/🗑)
+ * Variable table columns: Enabled ☑ | Key | Value (secret-masked by default) | Actions
  *
  * Design rules followed:
- *   - Modal overlay: background: transparent (per project convention)
+ *   - Modal overlay: background: transparent (per project modal rules)
  *   - Escape key closes (with stopPropagation to avoid double-fires)
  *   - Click outside panel closes
- *   - No duplicate close button — only × in header (no separate Cancel in footer)
+ *   - Footer Close button only (no × in header)
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -59,7 +59,7 @@ function MaskedInput({
     return (
       <input
         type="text"
-        className="gql-input gql-env-var-input"
+        className="gql-env-var-input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -107,7 +107,9 @@ function MaskedInput({
   );
 }
 
-// ─── Variable row ─────────────────────────────────────────────────────────────
+function isVariableMasked(variable: GraphqlEnvironmentVariable): boolean {
+  return variable.masked !== false;
+}
 
 function VarRow({
   variable,
@@ -120,64 +122,70 @@ function VarRow({
 }) {
   return (
     <div className={`gql-env-var-row${variable.enabled ? '' : ' gql-env-var-row--disabled'}`} data-testid="gql-env-var-row">
-      {/* Enable checkbox */}
-      <label className="gql-env-var-toggle" title={variable.enabled ? 'Enabled' : 'Disabled'}>
+      <label className="gql-env-var-enable" title={variable.enabled ? 'Enabled — included in {{KEY}} resolution' : 'Disabled — skipped at runtime'}>
         <input
           type="checkbox"
+          className="gql-env-var-enable__input"
           checked={variable.enabled}
           onChange={(e) => onChange({ enabled: e.target.checked })}
           aria-label={`Enable variable ${variable.key || 'row'}`}
         />
+        <span className="gql-env-var-enable__box" aria-hidden="true" />
       </label>
 
-      {/* Key */}
       <input
         type="text"
-        className="gql-input gql-env-var-key"
+        className="gql-env-var-key"
         value={variable.key}
         onChange={(e) => onChange({ key: e.target.value })}
-        placeholder="KEY"
+        placeholder="variableName"
         spellCheck={false}
         autoComplete="off"
         aria-label="Variable key"
         data-testid="gql-env-var-key"
       />
 
-      {/* Value (masked-aware) */}
-      <MaskedInput
-        value={variable.value}
-        onChange={(v) => onChange({ value: v })}
-        placeholder="value"
-        masked={variable.masked ?? false}
-      />
+      <div className="gql-env-var-value-cell">
+        <MaskedInput
+          value={variable.value}
+          onChange={(v) => onChange({ value: v })}
+          placeholder="Enter value"
+          masked={isVariableMasked(variable)}
+        />
+      </div>
 
-      {/* Secret toggle (mask/unmask) */}
-      <button
-        type="button"
-        className={`gql-env-var-secret-toggle${variable.masked ? ' gql-env-var-secret-toggle--active' : ''}`}
-        onClick={() => onChange({ masked: !variable.masked })}
-        aria-label={variable.masked ? 'Unmark as secret' : 'Mark as secret (masks the value)'}
-        title={variable.masked ? 'Secret (click to unmark)' : 'Mark as secret'}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-      </button>
+      <div className="gql-env-var-row-actions">
+        <button
+          type="button"
+          className={`gql-env-var-secret-toggle${isVariableMasked(variable) ? ' gql-env-var-secret-toggle--active' : ''}`}
+          onClick={() => onChange({ masked: !isVariableMasked(variable) })}
+          aria-label={
+            isVariableMasked(variable)
+              ? 'Show value in plain text (still editable)'
+              : 'Hide value as secret (mask with dots)'
+          }
+          title={
+            isVariableMasked(variable)
+              ? 'Secret — value hidden in UI (click to show plain text; field stays editable)'
+              : 'Mark as secret — hide value with •••• in the UI'
+          }
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </button>
 
-      {/* Delete */}
-      <button
-        type="button"
-        className="gql-env-var-remove"
-        onClick={onRemove}
-        aria-label={`Remove variable ${variable.key || 'row'}`}
-        title="Remove variable"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
+        <button
+          type="button"
+          className="gql-env-var-remove"
+          onClick={onRemove}
+          aria-label={`Remove variable ${variable.key || 'row'}`}
+          title="Remove variable"
+        >
+          Remove
+        </button>
+      </div>
     </div>
   );
 }
@@ -423,7 +431,11 @@ export function GraphqlEnvModal({
   useEffect(() => {
     skipFlushForEnvSwitchRef.current = true;
     setLocalVars(
-      (selectedEnv?.variables ?? []).map((v) => ({ ...v, _id: generateVarId() })),
+      (selectedEnv?.variables ?? []).map((v) => ({
+        ...v,
+        _id: generateVarId(),
+        masked: v.masked !== false,
+      })),
     );
   // Only re-sync when the selected env's ID changes; content changes originate from here
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -455,7 +467,10 @@ export function GraphqlEnvModal({
     const id = selectedIdRef.current;
     if (!id) return;
     // Strip internal _id fields before saving
-    const clean = localVars.map(({ _id: _, ...rest }) => rest);
+    const clean = localVars.map(({ _id: _, ...rest }) => ({
+      ...rest,
+      masked: rest.masked !== false,
+    }));
     onUpdateVariables(id, clean);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localVars]); // intentionally excludes selectedId — uses ref
@@ -463,7 +478,7 @@ export function GraphqlEnvModal({
   const addVariable = useCallback(() => {
     setLocalVars((prev) => [
       ...prev,
-      { _id: generateVarId(), key: '', value: '', enabled: true, masked: false },
+      { _id: generateVarId(), key: '', value: '', enabled: true, masked: true },
     ]);
   }, []);
 
@@ -480,6 +495,14 @@ export function GraphqlEnvModal({
     setLocalVars((prev) => prev.filter((v) => v._id !== varId));
   }, []);
 
+  const enabledVarCount = localVars.filter((v) => v.enabled).length;
+  const envCountLabel =
+    environments.length === 0
+      ? 'No environments'
+      : environments.length === 1
+        ? '1 environment'
+        : `${environments.length} environments`;
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
@@ -488,32 +511,26 @@ export function GraphqlEnvModal({
         ref={panelRef}
         className="gql-env-modal"
         role="dialog"
-        aria-label="Environment Variables"
+        aria-label="Environment variables"
         aria-modal="true"
         data-testid="gql-env-modal"
         tabIndex={-1}
       >
-        {/* Modal header */}
         <div className="gql-env-modal-header">
-          <div className="gql-env-modal-header-left">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
-            </svg>
-            <span className="gql-env-modal-title">Environment Variables</span>
+          <div className="gql-env-modal-header__text">
+            <div className="gql-env-modal-title-row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+              </svg>
+              <span className="gql-env-modal-title">Environment variables</span>
+            </div>
+            <p className="gql-env-modal-subtitle">
+              Define named sets of values for{' '}
+              <code className="gql-env-inline-code">{'{{KEY}}'}</code>{' '}
+              placeholders in URLs, headers, and variables JSON.
+            </p>
           </div>
-          {/* BUG-1E-R4-15 fix: restore focus to trigger on explicit close */}
-          <button
-            type="button"
-            className="gql-env-modal-close"
-            onClick={() => { restoreFocusToTrigger(); onClose(); }}
-            aria-label="Close environment manager"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
         </div>
 
         {/* Modal body: sidebar + main */}
@@ -521,7 +538,10 @@ export function GraphqlEnvModal({
           {/* ── Left sidebar: environment list ── */}
           <div className="gql-env-sidebar">
             <div className="gql-env-sidebar-header">
-              <span className="gql-env-sidebar-title">Environments</span>
+              <div className="gql-env-sidebar-heading">
+                <span className="gql-env-sidebar-title">Environments</span>
+                <span className="gql-env-sidebar-count">{envCountLabel}</span>
+              </div>
               <button
                 type="button"
                 className="gql-env-sidebar-new"
@@ -654,7 +674,7 @@ export function GraphqlEnvModal({
                       <input
                         ref={nameInputRef}
                         type="text"
-                        className="gql-input gql-env-name-input"
+                        className="gql-env-name-input"
                         value={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
                         onBlur={commitName}
@@ -669,8 +689,6 @@ export function GraphqlEnvModal({
                         data-testid="gql-env-name-input"
                       />
                     ) : (
-                      // BUG-P1-R3-2 fix: aria-label communicates both the name and the
-                      // rename affordance so screen readers announce: "Rename Staging, button"
                       <button
                         type="button"
                         className="gql-env-name-display"
@@ -685,6 +703,11 @@ export function GraphqlEnvModal({
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
+                    )}
+                    {localVars.length > 0 && (
+                      <span className="gql-env-var-summary" data-testid="gql-env-var-summary">
+                        {enabledVarCount} of {localVars.length} variable{localVars.length === 1 ? '' : 's'} enabled
+                      </span>
                     )}
                   </div>
 
@@ -749,17 +772,17 @@ export function GraphqlEnvModal({
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
-                        Add Variable
+                        Add variable
                       </button>
                     </div>
                   ) : (
-                    <>
+                    <div className="gql-env-var-card">
                       <div className="gql-env-var-table" role="list" data-testid="gql-env-var-table">
-                        <div className="gql-env-var-head" role="listitem" aria-hidden>
-                          <span className="gql-env-var-col-toggle" />
+                        <div className="gql-env-var-head" role="listitem" aria-hidden="true">
+                          <span className="gql-env-var-col-enable">On</span>
                           <span className="gql-env-var-col-key">Key</span>
                           <span className="gql-env-var-col-value">Value</span>
-                          <span className="gql-env-var-col-actions" />
+                          <span className="gql-env-var-col-actions">Actions</span>
                         </div>
                         {localVars.map((v) => (
                           <VarRow
@@ -770,24 +793,37 @@ export function GraphqlEnvModal({
                           />
                         ))}
                       </div>
-                      <button
-                        type="button"
-                        className="gql-env-var-add"
-                        onClick={addVariable}
-                        data-testid="gql-env-var-add-btn"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <line x1="12" y1="5" x2="12" y2="19" />
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Add Variable
-                      </button>
-                    </>
+                      <div className="gql-env-var-card-footer">
+                        <button
+                          type="button"
+                          className="gql-env-var-add"
+                          onClick={addVariable}
+                          data-testid="gql-env-var-add-btn"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                          Add variable
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </>
             )}
           </div>
+        </div>
+
+        <div className="gql-env-modal-footer">
+          <button
+            type="button"
+            className="gql-btn gql-btn--secondary gql-env-modal-close-btn"
+            onClick={() => { restoreFocusToTrigger(); onClose(); }}
+            data-testid="gql-env-close-btn"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

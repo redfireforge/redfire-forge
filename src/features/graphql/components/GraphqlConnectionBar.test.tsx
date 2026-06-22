@@ -81,6 +81,32 @@ describe('GraphqlConnectionBar — basic rendering', () => {
     expect(onEndpointChange).toHaveBeenCalledWith('https://new.example.com/graphql');
   });
 
+  it('shows endpoint reset button when tab has override (Phase 6 PT-5)', () => {
+    const onClearEndpoint = vi.fn();
+    render(
+      <GraphqlConnectionBar
+        {...defaultProps({ hasEndpointOverride: true, onClearEndpoint })}
+      />,
+    );
+    expect(screen.getByTestId('gql-endpoint-reset-btn')).toBeTruthy();
+  });
+
+  it('hides endpoint reset button when tab inherits page default (Phase 6 PT-5)', () => {
+    render(<GraphqlConnectionBar {...defaultProps()} />);
+    expect(screen.queryByTestId('gql-endpoint-reset-btn')).toBeNull();
+  });
+
+  it('calls onClearEndpoint when reset button is clicked (Phase 6 PT-5)', () => {
+    const onClearEndpoint = vi.fn();
+    render(
+      <GraphqlConnectionBar
+        {...defaultProps({ hasEndpointOverride: true, onClearEndpoint })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-endpoint-reset-btn'));
+    expect(onClearEndpoint).toHaveBeenCalledTimes(1);
+  });
+
   it('renders Execute button for query operations', () => {
     render(<GraphqlConnectionBar {...defaultProps()} />);
     expect(screen.getByTestId('gql-execute-btn')).toBeTruthy();
@@ -181,6 +207,22 @@ describe('GraphqlConnectionBar — auth badge', () => {
     // Close by pressing Escape
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByTestId('gql-auth-popover')).toBeNull();
+  });
+
+  it('shows linked profile hint in auth popover when linkedProfileName is set', () => {
+    render(
+      <GraphqlConnectionBar
+        {...defaultProps({
+          onAuthChange: vi.fn(),
+          auth: { type: 'bearer', token: 'tok' },
+          linkedProfileName: 'Staging',
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-auth-badge-btn'));
+    const hint = screen.getByTestId('gql-auth-profile-hint');
+    expect(hint.textContent).toContain('Staging');
+    expect(hint.textContent).toContain('edit to unlink');
   });
 });
 
@@ -1140,10 +1182,21 @@ describe('GraphqlConnectionBar — APQ badge', () => {
 // ─── Batch send button tests ──────────────────────────────────────────────────
 
 describe('GraphqlConnectionBar — batch button', () => {
+  it('shows batch summary chip when batchSummaryLabel is set', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: true,
+      batchSummaryLabel: 'a.com · 2 selected',
+    })} />);
+    expect(screen.getByTestId('gql-batch-summary-chip')).toHaveTextContent('a.com · 2 selected');
+  });
+
   it('renders Send Batch button when batchEnabled and batchedTabCount >= 2', () => {
     render(<GraphqlConnectionBar {...defaultProps({
       batchEnabled: true,
       batchedTabCount: 3,
+      batchEndpointReady: true,
       onSendBatch: vi.fn(),
     })} />);
     expect(screen.getByTestId('gql-send-batch-btn')).toBeInTheDocument();
@@ -1170,6 +1223,7 @@ describe('GraphqlConnectionBar — batch button', () => {
     render(<GraphqlConnectionBar {...defaultProps({
       batchEnabled: true,
       batchedTabCount: 2,
+      batchEndpointReady: true,
       batchExecuting: true,
       onSendBatch: vi.fn(),
     })} />);
@@ -1181,10 +1235,52 @@ describe('GraphqlConnectionBar — batch button', () => {
     render(<GraphqlConnectionBar {...defaultProps({
       batchEnabled: true,
       batchedTabCount: 2,
+      batchEndpointReady: true,
       onSendBatch,
     })} />);
     fireEvent.click(screen.getByTestId('gql-send-batch-btn'));
     expect(onSendBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('Phase 6A-8: disables batch button when checked tabs span different endpoints', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: true,
+      batchEndpointMismatch: true,
+      onSendBatch: vi.fn(),
+    })} />);
+    const btn = screen.getByTestId('gql-send-batch-btn');
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute(
+      'title',
+      'Checked tabs use different endpoints — batch requires endpoint parity',
+    );
+    expect(btn).toHaveAttribute(
+      'aria-label',
+      'Send batch disabled: checked tabs span different endpoints',
+    );
+  });
+
+  it('Phase 6A-8: enables batch when batchEndpointReady even if active tab endpoint is empty', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: '',
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: true,
+      onSendBatch: vi.fn(),
+    })} />);
+    expect(screen.getByTestId('gql-send-batch-btn')).not.toBeDisabled();
+  });
+
+  it('Phase 6A-8: disables batch when batchEndpointReady is false', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: false,
+      onSendBatch: vi.fn(),
+    })} />);
+    expect(screen.getByTestId('gql-send-batch-btn')).toBeDisabled();
   });
 });
 
@@ -1268,6 +1364,14 @@ describe('GraphqlConnectionBar — complexity badge levels', () => {
     expect(title).not.toContain('very expensive');
     expect(title).not.toContain('moderately complex');
   });
+
+  it('renders complexity badge with ≈ prefix', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      complexityScore: 1,
+      complexityLevel: 'ok',
+    })} />);
+    expect(screen.getByTestId('gql-complexity-badge')).toHaveTextContent('≈1');
+  });
 });
 
 // ─── Introspect button edge cases ─────────────────────────────────────────────
@@ -1286,6 +1390,40 @@ describe('GraphqlConnectionBar — introspect button', () => {
   it('shows spinner when introspecting', () => {
     render(<GraphqlConnectionBar {...defaultProps({ introspecting: true })} />);
     expect(document.querySelector('.gql-btn-spinner')).toBeInTheDocument();
+  });
+
+  it('Phase 6F: disables introspect and execute while endpointLinkPending', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: 'https://api.example.com/graphql',
+      endpointLinkPending: true,
+    })} />);
+    expect(screen.getByTestId('gql-introspect-btn')).toBeDisabled();
+    expect(screen.getByTestId('gql-execute-btn')).toBeDisabled();
+    expect(screen.getByTestId('gql-introspect-btn').getAttribute('title')).toContain('Waiting for connection profile');
+  });
+
+  it('Phase 6F: batch send stays enabled when active tab pending but batchEndpointReady (checked tabs resolved)', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: 'https://api.example.com/graphql',
+      endpointLinkPending: true,
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: true,
+    })} />);
+    expect(screen.getByTestId('gql-send-batch-btn')).not.toBeDisabled();
+    expect(screen.getByTestId('gql-execute-btn')).toBeDisabled();
+  });
+
+  it('Phase 6F: disables batch send when batchProfileLinkPending on checked tab', () => {
+    render(<GraphqlConnectionBar {...defaultProps({
+      endpoint: 'https://api.example.com/graphql',
+      batchEnabled: true,
+      batchedTabCount: 2,
+      batchEndpointReady: false,
+      batchProfileLinkPending: true,
+    })} />);
+    expect(screen.getByTestId('gql-send-batch-btn')).toBeDisabled();
+    expect(screen.getByTestId('gql-send-batch-btn').getAttribute('title')).toContain('Waiting for connection profile');
   });
 });
 

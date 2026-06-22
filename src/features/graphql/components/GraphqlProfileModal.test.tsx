@@ -47,9 +47,15 @@ describe('GraphqlProfileModal', () => {
     expect(screen.getByText('Connection Profiles')).toBeInTheDocument();
   });
 
-  it('renders close button', () => {
+  it('renders footer Close button (no header ×)', () => {
     render(<GraphqlProfileModal {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /close connection profiles/i })).toBeInTheDocument();
+    expect(screen.getByTestId('gql-profile-close-btn')).toHaveTextContent('Close');
+    expect(screen.queryByRole('button', { name: /^×$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows profile count in saved section', () => {
+    render(<GraphqlProfileModal {...defaultProps} profiles={[makeProfile(), makeProfile({ id: 'p2' })]} />);
+    expect(screen.getByText('2 saved profiles')).toBeInTheDocument();
   });
 
   it('shows empty state when no profiles', () => {
@@ -97,9 +103,9 @@ describe('GraphqlProfileModal', () => {
 
   // ─── Close behavior ───────────────────────────────────────────────────────
 
-  it('calls onClose when × close button clicked', () => {
+  it('calls onClose when Close footer button clicked', () => {
     render(<GraphqlProfileModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /close connection profiles/i }));
+    fireEvent.click(screen.getByTestId('gql-profile-close-btn'));
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -219,11 +225,11 @@ describe('GraphqlProfileModal', () => {
 
   // ─── Delete behavior ──────────────────────────────────────────────────────
 
-  it('shows × delete button initially', () => {
+  it('shows Remove delete button initially', () => {
     const profiles = [makeProfile()];
     render(<GraphqlProfileModal {...defaultProps} profiles={profiles} />);
     const deleteBtn = screen.getByTestId('gql-profile-delete-p1');
-    expect(deleteBtn).toHaveTextContent('×');
+    expect(deleteBtn).toHaveTextContent('Remove');
   });
 
   it('changes to Delete? on first click (confirm mode)', () => {
@@ -247,18 +253,16 @@ describe('GraphqlProfileModal', () => {
     fireEvent.click(screen.getByTestId('gql-profile-delete-p1'));
     expect(screen.getByTestId('gql-profile-delete-p1')).toHaveTextContent('Delete?');
     act(() => vi.advanceTimersByTime(2501));
-    expect(screen.getByTestId('gql-profile-delete-p1')).toHaveTextContent('×');
+    expect(screen.getByTestId('gql-profile-delete-p1')).toHaveTextContent('Remove');
   });
 
   it('resets timer on double first-click (same profile)', () => {
     const profiles = [makeProfile({ id: 'p1' }), makeProfile({ id: 'p2', name: 'Second' })];
     render(<GraphqlProfileModal {...defaultProps} profiles={profiles} />);
     fireEvent.click(screen.getByTestId('gql-profile-delete-p1'));
-    // Click on a different profile's delete
     fireEvent.click(screen.getByTestId('gql-profile-delete-p2'));
     expect(screen.getByTestId('gql-profile-delete-p2')).toHaveTextContent('Delete?');
-    // p1 should revert to × since a new profile is being confirmed
-    expect(screen.getByTestId('gql-profile-delete-p1')).toHaveTextContent('×');
+    expect(screen.getByTestId('gql-profile-delete-p1')).toHaveTextContent('Remove');
   });
 
   // ─── Load behavior ────────────────────────────────────────────────────────
@@ -272,7 +276,7 @@ describe('GraphqlProfileModal', () => {
 
   // ─── No-endpoint display in save preview ─────────────────────────────────
 
-  it('shows em "No endpoint configured" when currentEndpoint is empty in save form', () => {
+  it('shows "No endpoint configured" when currentEndpoint is empty in save preview', () => {
     render(<GraphqlProfileModal {...defaultProps} currentEndpoint="" />);
     expect(screen.getByText('No endpoint configured')).toBeInTheDocument();
   });

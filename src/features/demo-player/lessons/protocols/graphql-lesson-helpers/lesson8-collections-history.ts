@@ -6,7 +6,6 @@ import {
   GQL_HEALTH_QUERY,
   ensureExecuted,
   fillGqlEditor,
-  getEndpointInput,
   getGqlEditorQuery,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
@@ -16,6 +15,7 @@ import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
 import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import { resetGqlLesson7SessionFlags } from './lesson7-query-builder';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 export const LESSON8_ITEM_NAME = 'Health Check';
 export const LESSON8_ITEM_RENAME = 'Lesson 8 Health';
@@ -277,7 +277,7 @@ export async function ensureCollectionRestoredViaImport(ctx: DemoActionContext):
   _lesson8Restored = true;
 }
 
-/** Setup for Lesson 8 — clean editor, close activity panels. */
+/** Setup for Lesson 8 (GQL-9) — demo tab; close activity panels. */
 export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -307,18 +307,13 @@ export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): 
     await ctx.delay(200);
   }
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-collections-history', 'Collections & History');
   await fillGqlEditor(ctx, '', { focus: false });
 }
 
-/** Cleanup for Lesson 8. */
+/** Cleanup for Lesson 8 (GQL-9) — close demo tab and reset session flags. */
 export async function gqlCollectionsHistoryLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson8SessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-collections-history');
 }
 

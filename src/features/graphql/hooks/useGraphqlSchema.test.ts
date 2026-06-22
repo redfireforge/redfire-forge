@@ -233,6 +233,51 @@ describe('useGraphqlSchema — error classification', () => {
     expect(result.current.errorMessage).toContain('Server error');
   });
 
+  it('shows mock-not-enabled message on 503 MOCK_NOT_ENABLED', async () => {
+    mockGqlFetch.mockResolvedValue(makeGqlFetchError(
+      503,
+      JSON.stringify({ error: { code: 'MOCK_NOT_ENABLED', message: 'Mock off' } }),
+    ));
+
+    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.errorMessage).toContain('Mock server is not enabled');
+  });
+
+  it('shows custom 503 error message when provided', async () => {
+    mockGqlFetch.mockResolvedValue(makeGqlFetchError(
+      503,
+      JSON.stringify({ error: { message: 'Service warming up' } }),
+    ));
+
+    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.errorMessage).toBe('Service warming up');
+  });
+
+  it('sets parse error when introspection body fails second JSON parse', async () => {
+    mockGqlFetch.mockResolvedValue(makeGqlFetchSuccess());
+    const originalParse = JSON.parse;
+    let parseCount = 0;
+    vi.spyOn(JSON, 'parse').mockImplementation((text: string) => {
+      parseCount += 1;
+      if (parseCount >= 2) {
+        throw new SyntaxError('forced parse failure');
+      }
+      return originalParse(text);
+    });
+
+    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.errorMessage).toContain('Failed to parse introspection response'));
+    vi.mocked(JSON.parse).mockRestore();
+  });
+
   it('shows network error on status=0', async () => {
     mockGqlFetch.mockResolvedValue({ status: 0, headers: {}, body: '', error: 'Network failure' });
 
@@ -357,6 +402,44 @@ describe('useGraphqlSchema — endpoint change', () => {
 
     expect(result.current.status).toBe('loaded');
     expect(result.current.schemaInfo?.sdl).toContain('cached');
+  });
+});
+
+describe('useGraphqlSchema — Phase 6 per-tab endpoint cache isolation', () => {
+  it('uses distinct localStorage cache keys per endpoint URL', () => {
+    const staging = 'https://staging.example.com/graphql';
+    const prod = 'https://prod.example.com/graphql';
+    expect(makeCacheKey(staging)).not.toBe(makeCacheKey(prod));
+  });
+
+  it('preserves per-endpoint cache entries when switching active endpoint (tab switch)', async () => {
+    const staging = 'https://staging.example.com/graphql';
+    const prod = 'https://prod.example.com/graphql';
+
+    const { result, rerender } = renderHook(
+      ({ ep }: { ep: string }) => useGraphqlSchema(ep),
+      { initialProps: { ep: staging } },
+    );
+
+    act(() => { result.current.introspect(); });
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+    expect(localStorage.getItem(makeCacheKey(staging))).toBeTruthy();
+
+    localStorage.setItem(
+      makeCacheKey(prod),
+      JSON.stringify({
+        schemaInfo: makeSchemaInfo({ sdl: 'type Query { prodField: String }' }),
+        sdlHash: 4242,
+        rawIntrospection: null,
+      }),
+    );
+
+    rerender({ ep: prod });
+
+    expect(result.current.status).toBe('loaded');
+    expect(result.current.schemaInfo?.sdl).toContain('prodField');
+    expect(localStorage.getItem(makeCacheKey(staging))).toBeTruthy();
+    expect(localStorage.getItem(makeCacheKey(prod))).toBeTruthy();
   });
 });
 
@@ -581,6 +664,57 @@ describe('useGraphqlSchema — polling', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('clears pollErrorMessage when unchanged poll succeeds after prior failure', async () => {
+    const schema = makeSchemaInfo({ sdl: 'type Query { stable: String }' });
+    mockGqlFetch.mockResolvedValueOnce(makeGqlFetchSuccess());
+    mockParseIntrospection.mockReturnValue(schema);
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    try {
+      const { result } = renderHook(() =>
+        useGraphqlSchema(ENDPOINT, {}, { pollingIntervalMs: 500 }),
+      );
+
+      act(() => { result.current.introspect(); });
+      await waitFor(() => expect(result.current.status).toBe('loaded'));
+
+      mockGqlFetch.mockResolvedValueOnce(makeGqlFetchError(500));
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await waitFor(() => expect(result.current.pollErrorMessage).not.toBeNull());
+
+      mockGqlFetch.mockResolvedValueOnce(makeGqlFetchSuccess());
+      mockParseIntrospection.mockReturnValue(schema);
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await waitFor(() => expect(result.current.pollErrorMessage).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('discards stale introspection response when a newer request started', async () => {
+    let resolveFirst!: (v: ReturnType<typeof makeGqlFetchSuccess>) => void;
+    mockGqlFetch
+      .mockReturnValueOnce(new Promise<ReturnType<typeof makeGqlFetchSuccess>>((r) => { resolveFirst = r; }))
+      .mockResolvedValueOnce(makeGqlFetchSuccess());
+
+    const schemaA = makeSchemaInfo({ sdl: 'type Query { first: String }' });
+    const schemaB = makeSchemaInfo({ sdl: 'type Query { second: String }' });
+    mockParseIntrospection.mockReturnValueOnce(schemaA).mockReturnValueOnce(schemaB);
+
+    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
+
+    act(() => { result.current.introspect(); });
+    act(() => { result.current.introspect(); });
+
+    await act(async () => {
+      resolveFirst(makeGqlFetchSuccess());
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.schemaInfo?.sdl).toContain('second'));
   });
 });
 

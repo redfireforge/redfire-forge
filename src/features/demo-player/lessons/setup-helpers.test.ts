@@ -23,6 +23,7 @@ import {
   clearCustomHeaders,
   closeExtraConnectionTabs,
   fillControlledInput,
+  setControlledCheckbox,
   connectToMockServer,
   wsSetup,
   wsCleanup,
@@ -532,6 +533,43 @@ describe('setup-helpers', () => {
 
     stopBtn.remove();
     startBtn.remove();
+  });
+
+  // ─── setControlledCheckbox ──────────────────────────────────────
+
+  it('setControlledCheckbox is a no-op when checked already matches', () => {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = true;
+    const dispatchSpy = vi.spyOn(input, 'dispatchEvent');
+    setControlledCheckbox(input, true);
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it('setControlledCheckbox updates React tracker and dispatches events', () => {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = false;
+    const tracker = { getValue: () => 'false', setValue: vi.fn() };
+    (input as HTMLInputElement & { _valueTracker?: typeof tracker })._valueTracker = tracker;
+    const changeSpy = vi.spyOn(input, 'dispatchEvent');
+
+    setControlledCheckbox(input, true);
+
+    expect(input.checked).toBe(true);
+    expect(tracker.setValue).toHaveBeenCalledWith('false');
+    expect(changeSpy).toHaveBeenCalledTimes(2);
+    input.remove();
+  });
+
+  it('setControlledCheckbox works without a React value tracker', () => {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = true;
+    setControlledCheckbox(input, false);
+    expect(input.checked).toBe(false);
+    input.remove();
   });
 
   // ─── closeExtraConnectionTabs — no-closeBtn branch ──────────────

@@ -4,8 +4,11 @@
  * "schema not loaded but polling active" sections of GraphqlConnectionBar.
  */
 
-const MIN_POLL_SECONDS = 10;
-const MAX_POLL_SECONDS = 3600;
+import {
+  clampPollingIntervalSeconds,
+  MIN_POLL_SECONDS,
+  MAX_POLL_SECONDS,
+} from '../../utils/pollingIntervalUtils';
 
 export interface GqlPollingPopoverContentProps {
   pollingEnabled:         boolean;
@@ -16,6 +19,9 @@ export interface GqlPollingPopoverContentProps {
   onPollingChange:       (enabled: boolean, intervalSeconds: number) => void;
   onClose:               () => void;
   commitPollingInterval: () => number;
+  /** Phase 6F: show reset link when tab has polling override. */
+  hasPollingOverride?:   boolean;
+  onClearPolling?:       () => void;
   intervalInputId:       string;
   pollingSwitchRef:      React.RefObject<HTMLButtonElement>;
   popoverRef:            React.RefObject<HTMLDivElement>;
@@ -31,6 +37,8 @@ export function GqlPollingPopoverContent({
   onPollingChange,
   onClose,
   commitPollingInterval,
+  hasPollingOverride = false,
+  onClearPolling,
   intervalInputId,
   pollingSwitchRef,
   popoverRef,
@@ -61,7 +69,7 @@ export function GqlPollingPopoverContent({
         <div
           className="gql-polling-toggle-row"
           onClick={() => {
-            const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSeconds || 30));
+            const clamped = clampPollingIntervalSeconds(localIntervalSeconds || 30);
             setLocalIntervalSeconds(clamped);
             onPollingChange(!pollingEnabled, clamped);
           }}
@@ -76,7 +84,7 @@ export function GqlPollingPopoverContent({
             className={`gql-polling-switch${pollingEnabled ? ' gql-polling-switch--on' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
-              const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSeconds || 30));
+              const clamped = clampPollingIntervalSeconds(localIntervalSeconds || 30);
               setLocalIntervalSeconds(clamped);
               onPollingChange(!pollingEnabled, clamped);
             }}
@@ -116,6 +124,20 @@ export function GqlPollingPopoverContent({
             ? `Schema re-introspected every ${Math.max(MIN_POLL_SECONDS, localIntervalSeconds)}s. Only updated when SDL changes.`
             : 'Automatically re-introspect the schema on a timer.'}
         </p>
+
+        {hasPollingOverride && onClearPolling && (
+          <button
+            type="button"
+            className="gql-polling-reset-link"
+            onClick={() => {
+              onClearPolling();
+              onClose();
+            }}
+            data-testid="gql-polling-reset-btn"
+          >
+            Reset to page default
+          </button>
+        )}
       </div>
     </div>
   );

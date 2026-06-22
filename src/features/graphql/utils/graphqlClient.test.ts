@@ -178,11 +178,11 @@ describe('createHttpTransport', () => {
       expect(body).not.toHaveProperty('operationName');
     });
 
-    it('forwards skipTlsVerify to gqlFetch', async () => {
+    it('forwards skipTlsVerify to gqlFetch as TLS settings object', async () => {
       mockGqlFetch.mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"data":{}}' });
       const transport = createHttpTransport();
       await transport.execute('{ q }', {}, undefined, baseParams({ skipTlsVerify: true }));
-      expect(mockGqlFetch.mock.calls[0][5]).toBe(true);
+      expect(mockGqlFetch.mock.calls[0][5]).toEqual({ skipTlsVerify: true });
     });
 
     it('forwards AbortSignal to gqlFetch', async () => {
@@ -814,6 +814,14 @@ describe('requiresWsProxy', () => {
     mockIsTauri.mockReturnValue(true);
     expect(requiresWsProxy({ skipTlsVerify: true })).toBe(true);
   });
+
+  it('returns true when custom CA certificate is configured', () => {
+    expect(requiresWsProxy({ tlsCaCert: '-----BEGIN CERTIFICATE-----\n' })).toBe(true);
+  });
+
+  it('returns true when mTLS client credentials are configured', () => {
+    expect(requiresWsProxy({ tlsClientCert: 'cert', tlsClientKey: 'key' })).toBe(true);
+  });
 });
 
 // ─── selectTransport ──────────────────────────────────────────────────────────
@@ -1191,6 +1199,39 @@ describe('createSseProxyTransport', () => {
     expect(url).toContain('operationName=OnVal');
     expect(init.method).toBe('GET');
     expect((init.headers as Record<string, string>)['Accept']).toBe('text/event-stream');
+  });
+
+  it('subscribe() POSTs to /api/graphql/sse when CA/mTLS PEM fields are set', async () => {
+    const readable = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('event: complete\ndata: {}\n\n'));
+        ctrl.close();
+      },
+    });
+    mockFetch.mockResolvedValue({ ok: true, body: readable });
+
+    const callbacks = { onMessage: vi.fn(), onError: vi.fn(), onComplete: vi.fn() };
+    createSseProxyTransport().subscribe(
+      'subscription OnVal { value }',
+      {},
+      undefined,
+      {
+        endpoint: 'https://api.example.com/stream',
+        headers: {},
+        tlsCaCert: '-----BEGIN CERTIFICATE-----\nabc',
+      },
+      callbacks,
+    );
+
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/graphql/sse');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.caCert).toContain('BEGIN CERTIFICATE');
+    expect(url).not.toContain('caCert=');
   });
 
   it('subscribe() calls onComplete for complete event', async () => {

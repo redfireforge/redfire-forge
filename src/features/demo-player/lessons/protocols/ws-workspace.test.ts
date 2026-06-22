@@ -23,7 +23,7 @@ describe('ws-workspace lesson', () => {
     expect(wsWorkspaceLesson.id).toBe('ws-workspace');
     expect(wsWorkspaceLesson.domainId).toBe('protocols');
     expect(wsWorkspaceLesson.name).toBe('Profiles, Templates & Env Vars');
-    expect(wsWorkspaceLesson.steps.length).toBe(9);
+    expect(wsWorkspaceLesson.steps.length).toBe(10);
     expect(wsWorkspaceLesson.concept.title).toBeTruthy();
     expect(wsWorkspaceLesson.concept.body).toBeTruthy();
     expect(wsWorkspaceLesson.initialTab).toBe('websocket-studio');
@@ -31,7 +31,7 @@ describe('ws-workspace lesson', () => {
 
   it('has correct metadata', () => {
     expect(wsWorkspaceLesson.category).toBe('websocket');
-    expect(wsWorkspaceLesson.estimatedMinutes).toBe(4);
+    expect(wsWorkspaceLesson.estimatedMinutes).toBe(5);
     expect(wsWorkspaceLesson.tag).toBeUndefined();
     expect(wsWorkspaceLesson.dockerEndpoint).toBeUndefined();
   });
@@ -83,6 +83,7 @@ describe('ws-workspace lesson', () => {
       'ws-template-save',
       'ws-template-load',
       'ws-env-config',
+      'ws-header-select',
       'ws-env-resolve',
       'ws-env-warn',
     ]);
@@ -330,12 +331,44 @@ describe('ws-workspace lesson', () => {
 
   // ─── Step: ws-env-config ───────────────────────────────────────
 
-  it('step ws-env-config action configures websocket endpoint in env manager', async () => {
+  it('step ws-env-config action configures websocket endpoint without HTTP tab', async () => {
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-config')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-protocol-tab-websocket'));
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
+  });
+
+  it('step ws-header-select highlights header selectors and selects demo env/svc', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">WebSocket Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">ws-demo</option>
+      </select>`;
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-header-select')!;
+    expect(step.highlight).toContain('header-selectors');
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+  });
+
+  it('step ws-env-resolve preAction ensures header context before filling URL', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">WebSocket Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">ws-demo</option>
+      </select>`;
+    const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-resolve')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('websocket-studio');
+    expect(ctx.selectOption).toHaveBeenCalledTimes(2);
   });
 
   it('step ws-env-resolve action fills {{wsBaseUrl}}/ws template', async () => {

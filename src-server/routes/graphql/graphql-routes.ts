@@ -17,6 +17,7 @@
  *   POST /api/graphql/batch      — Batch query proxy: executes N operations, returns ExecutionResult[] (Phase 3F)
  *   POST /api/graphql/subscribe  — WS subscription proxy via SSE relay (Phase 2A — REAL)
  *   GET  /api/graphql/sse        — SSE subscription relay proxy (Phase 2B — REAL)
+ *   POST /api/graphql/sse        — SSE relay with CA/mTLS in JSON body
  *   POST /api/graphql/upload     — File upload multipart proxy (Sprint 4 — REAL)
  */
 import { Router, type Request, type Response } from 'express';
@@ -38,6 +39,10 @@ import {
 } from './subscriptionProtocolHandlers.js';
 import { log, HOP_BY_HOP_HEADERS } from './routeUtils.js';
 import { registerUploadRoute } from './uploadRouteHandler.js';
+import { registerSseRoutes } from './sseRouteHandler.js';
+import { tlsAgentForEndpoint } from './tlsAgent.js';
+import { rejectPemTlsInQueryParams } from './routeTlsQueryGuards.js';
+import { parseGqlTlsFromBody } from '../../../src/shared/types/gqlTls.js';
 
 export interface CreateGraphqlRouterOptions {
   onLog?: (line: LogLine) => void;
@@ -72,6 +77,10 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
       return;
     }
 
+    if (rejectPemTlsInQueryParams(req.query as Record<string, unknown>, res)) {
+      return;
+    }
+
     let targetUrl: URL;
     try {
       targetUrl = new URL(endpoint);
@@ -98,10 +107,9 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
     const upstreamPath = targetUrl.pathname + (combinedSearch ? `?${combinedSearch}` : '');
 
     const skipTlsVerify = req.query['skipTlsVerify'] === 'true';
+    const tls = parseGqlTlsFromBody({ skipTlsVerify });
     const transport = targetUrl.protocol === 'https:' ? https : http;
-    const tlsAgent = skipTlsVerify && targetUrl.protocol === 'https:'
-      ? new https.Agent({ rejectUnauthorized: false })
-      : undefined;
+    const tlsAgent = tlsAgentForEndpoint(tls, endpoint);
 
     // Forward custom headers except connection-level hop-by-hop ones
     const forwardHeaders: Record<string, string> = { 'accept': 'application/json' };
@@ -193,17 +201,14 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
     const extraHeaders = (body?.headers && typeof body.headers === 'object' && !Array.isArray(body.headers))
       ? (body.headers as Record<string, string>)
       : {};
-    const skipTlsVerify = body?.skipTlsVerify === true;
+    const tls = parseGqlTlsFromBody(body as Record<string, unknown>);
     const tryArrayBatch = body?.tryArrayBatch !== false; // default true
     // Sanitize: 0, NaN, and negatives are not valid timeouts — fall back to 30 s
     const rawTimeoutMs = typeof body?.batchTimeoutMs === 'number' ? body.batchTimeoutMs : 30000;
     const batchTimeoutMs = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 30000;
 
     const transport = targetUrl.protocol === 'https:' ? https : http;
-    const tlsAgent = skipTlsVerify && targetUrl.protocol === 'https:'
-      ? new https.Agent({ rejectUnauthorized: false })
-      : undefined;
-
+    const tlsAgent = tlsAgentForEndpoint(tls, endpoint);
     const baseHeaders: Record<string, string> = {
       'content-type': 'application/json',
       'accept': 'application/json',
@@ -376,6 +381,7 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
     }
 
     const skipTlsVerify = body?.skipTlsVerify === true;
+    const tls = parseGqlTlsFromBody(body);
     const variables     = body?.variables;
     const operationName = typeof body?.operationName === 'string' ? body.operationName : undefined;
     const extraHeaders  = (body?.headers && typeof body.headers === 'object' && !Array.isArray(body.headers))
@@ -405,15 +411,14 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
 
     const transport = targetUrl.protocol === 'https:' ? https : http;
 
-    // Only create a TLS agent for HTTPS endpoints — plain HTTP connections don't use TLS.
-    const tlsAgent = skipTlsVerify && targetUrl.protocol === 'https:'
-      ? new https.Agent({ rejectUnauthorized: false })
-      : undefined;
+    const tlsAgent = tlsAgentForEndpoint(tls, endpoint);
 
     log(onLog, 'info', 'Query proxy: relaying to upstream', {
       endpoint,
       acceptMultipart: acceptHeader.includes('multipart'),
       skipTlsVerify,
+      hasCaCert: !!tls.caCert,
+      hasMtls: !!(tls.clientCert || tls.clientKey),
     });
 
     const requestOptions: http.RequestOptions = {
@@ -506,7 +511,7 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
 
     const subprotocol: string =
       req.body?.subprotocol === 'graphql-ws' ? 'graphql-ws' : 'graphql-transport-ws';
-    const skipTlsVerify: boolean = req.body?.skipTlsVerify === true;
+    const subscribeTls = parseGqlTlsFromBody(req.body as Record<string, unknown>);
     const variables: Record<string, unknown> =
       req.body?.variables && typeof req.body.variables === 'object' && !Array.isArray(req.body.variables)
         ? (req.body.variables as Record<string, unknown>)
@@ -544,8 +549,9 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
     if (Object.keys(upstreamHeaders).length > 0) {
       wsOptions.headers = upstreamHeaders;
     }
-    if (skipTlsVerify && wsUrl.startsWith('wss://')) {
-      wsOptions.agent = new https.Agent({ rejectUnauthorized: false });
+    if (wsUrl.startsWith('wss://')) {
+      const agent = tlsAgentForEndpoint(subscribeTls, wsUrl);
+      if (agent) wsOptions.agent = agent;
     }
 
     const ws = new WebSocket(wsUrl, subprotocol, wsOptions);
@@ -615,154 +621,7 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
     });
   });
 
-  // ── GET /api/graphql/sse ────────────────────────────────────────────────────
-  // Phase 2B: SSE subscription relay proxy.
-  //
-  // Used when the client cannot fetch the upstream SSE endpoint directly
-  // (typically when skipTlsVerify=true — browsers cannot bypass TLS on fetch).
-  // The proxy opens an HTTP connection to the upstream SSE endpoint (with optional
-  // TLS skip) and pipes the response back to the browser as an SSE stream.
-  //
-  // Query params:
-  //   endpoint:        string  (required) — http(s):// or ws(s):// URL
-  //   query:           string  (required) — GraphQL subscription document
-  //   variables?:      JSON string
-  //   operationName?:  string
-  //   skipTlsVerify?:  'true' to disable TLS certificate verification
-  //
-  // Auth and custom headers from the client request are forwarded to the upstream.
-  router.get('/api/graphql/sse', (req: Request, res: Response) => {
-    const endpointParam: unknown = req.query.endpoint;
-    if (typeof endpointParam !== 'string' || !endpointParam) {
-      res.status(400).json({
-        ok: false,
-        error: { code: 'GQL_INVALID_REQUEST', message: '`endpoint` query param (string) is required' },
-      });
-      return;
-    }
-
-    const queryParam: unknown = req.query.query;
-    if (typeof queryParam !== 'string' || !queryParam) {
-      res.status(400).json({
-        ok: false,
-        error: { code: 'GQL_INVALID_REQUEST', message: '`query` query param (string) is required' },
-      });
-      return;
-    }
-
-    // Normalise endpoint: wss:// → https://, ws:// → http://
-    let targetUrl: URL;
-    try {
-      const normalised =
-        endpointParam.startsWith('wss://') ? `https://${endpointParam.slice(6)}` :
-        endpointParam.startsWith('ws://')  ? `http://${endpointParam.slice(5)}`  :
-        endpointParam;
-      targetUrl = new URL(normalised);
-    } catch {
-      res.status(400).json({
-        ok: false,
-        error: { code: 'GQL_INVALID_REQUEST', message: `Invalid endpoint URL: ${endpointParam}` },
-      });
-      return;
-    }
-
-    const skipTlsVerify = req.query.skipTlsVerify === 'true';
-
-    // Build upstream URL — add GraphQL operation as query params (distinct-connections mode)
-    targetUrl.searchParams.set('query', queryParam);
-    if (typeof req.query.variables === 'string') {
-      targetUrl.searchParams.set('variables', req.query.variables);
-    }
-    if (typeof req.query.operationName === 'string') {
-      targetUrl.searchParams.set('operationName', req.query.operationName);
-    }
-
-    // Forward auth and custom headers from the client request.
-    // Apply forced SSE headers AFTER the copy loop so they cannot be
-    // overridden by whatever the client sent in its own request headers.
-    const forwardHeaders: Record<string, string> = {};
-    for (const [h, v] of Object.entries(req.headers)) {
-      if (!HOP_BY_HOP_HEADERS.has(h.toLowerCase()) && typeof v === 'string') {
-        forwardHeaders[h] = v;
-      }
-    }
-    forwardHeaders['accept'] = 'text/event-stream';
-    forwardHeaders['cache-control'] = 'no-cache';
-
-    log(onLog, 'info', 'SSE subscription proxy: connecting to upstream', { endpoint: targetUrl.toString() });
-
-    const transport = targetUrl.protocol === 'https:' ? https : http;
-    const tlsAgent = skipTlsVerify && targetUrl.protocol === 'https:'
-      ? new https.Agent({ rejectUnauthorized: false })
-      : undefined;
-
-    const upstreamReq = transport.request(
-      {
-        method: 'GET',
-        hostname: targetUrl.hostname,
-        port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
-        path: targetUrl.pathname + targetUrl.search,
-        headers: forwardHeaders,
-        ...(tlsAgent ? { agent: tlsAgent } : {}),
-      },
-      (upstreamRes) => {
-        const status = upstreamRes.statusCode ?? 200;
-
-        if (status !== 200) {
-          log(onLog, 'warn', 'SSE subscription proxy: upstream returned non-200', { status });
-          // Drain the upstream body so the socket can be reused / GC'd.
-          upstreamRes.resume();
-          res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          });
-          res.write(`event: error\ndata: ${JSON.stringify([{ message: `Upstream SSE returned HTTP ${status}` }])}\n\n`);
-          res.end();
-          return;
-        }
-
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'X-Accel-Buffering': 'no',
-        });
-        res.flushHeaders();
-
-        upstreamRes.on('error', (err: Error) => {
-          log(onLog, 'error', 'SSE subscription proxy: upstream response error', { error: err.message });
-          if (!res.writableEnded) {
-            res.write(`event: error\ndata: ${JSON.stringify([{ message: err.message }])}\n\n`);
-            res.end();
-          }
-        });
-
-        upstreamRes.pipe(res, { end: true });
-      },
-    );
-
-    upstreamReq.on('error', (err: Error) => {
-      log(onLog, 'error', 'SSE subscription proxy: upstream error', { error: err.message });
-      if (!res.headersSent) {
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        });
-      }
-      if (!res.writableEnded) {
-        res.write(`event: error\ndata: ${JSON.stringify([{ message: err.message }])}\n\n`);
-        res.end();
-      }
-    });
-
-    req.on('close', () => {
-      upstreamReq.destroy();
-    });
-
-    upstreamReq.end();
-  });
+  registerSseRoutes(router, onLog);
 
   // ── POST /api/graphql/upload ────────────────────────────────────────────────
   // Sprint 4: File upload multipart proxy (graphql-multipart-request-spec).

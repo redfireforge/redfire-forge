@@ -125,7 +125,10 @@ describe('useGqlStudioEditorActions', () => {
     const applyEdits  = vi.fn();
     const setPosition = vi.fn();
     const focus       = vi.fn();
-    const fakeModel   = { applyEdits } as never;
+    const fakeModel   = {
+      applyEdits,
+      getValue: () => 'query {\n  \n}',
+    } as never;
     const fakeEditor  = {
       getModel:    () => fakeModel,
       getPosition: () => ({ lineNumber: 1, column: 1 }),
@@ -141,8 +144,12 @@ describe('useGqlStudioEditorActions', () => {
     act(() => { result.current.handleInsertField('name', 'String', false); });
 
     expect(applyEdits).toHaveBeenCalledWith([
-      expect.objectContaining({ text: 'name' }),
+      expect.objectContaining({
+        text: 'name',
+        range: expect.objectContaining({ startLineNumber: 2, startColumn: 3 }),
+      }),
     ]);
+    expect(onQueryChange).toHaveBeenCalledWith('query {\n  \n}');
     expect(result.current.insertToast).toBe('Inserted: name');
     expect(focus).toHaveBeenCalled();
 
@@ -154,7 +161,10 @@ describe('useGqlStudioEditorActions', () => {
   it('handleInsertField clears previous timer when called twice with working editor (line 85)', () => {
     vi.useFakeTimers();
     const applyEdits  = vi.fn();
-    const fakeModel   = { applyEdits } as never;
+    const fakeModel   = {
+      applyEdits,
+      getValue: () => 'query {\n  \n}',
+    } as never;
     const fakeEditor  = {
       getModel:    () => fakeModel,
       getPosition: () => ({ lineNumber: 1, column: 1 }),
@@ -178,10 +188,13 @@ describe('useGqlStudioEditorActions', () => {
 
   it('handleInsertField appends () for fields with args', () => {
     const applyEdits  = vi.fn();
-    const fakeModel   = { applyEdits } as never;
+    const fakeModel   = {
+      applyEdits,
+      getValue: () => 'query {\n  \n}',
+    } as never;
     const fakeEditor  = {
       getModel:    () => fakeModel,
-      getPosition: () => ({ lineNumber: 1, column: 5 }),
+      getPosition: () => ({ lineNumber: 1, column: 1 }),
       setPosition: vi.fn(),
       focus:       vi.fn(),
     } as never;

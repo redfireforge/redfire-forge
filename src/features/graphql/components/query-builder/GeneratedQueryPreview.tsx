@@ -23,12 +23,15 @@ export const GeneratedQueryPreview = memo(function GeneratedQueryPreview({
   return (
     <div className="gql-qb-preview" data-testid="gql-qb-preview">
       <div className="gql-qb-preview-header">
-        <span className="gql-qb-preview-title">Generated Query</span>
-        <span className="gql-qb-preview-hint">Updates live as you select fields</span>
+        <div className="gql-qb-preview-header-text">
+          <span className="gql-qb-preview-title">Generated query</span>
+          <span className="gql-qb-preview-hint">Updates live as you select fields</span>
+        </div>
       </div>
 
       <div className="gql-qb-code-area">
-        <pre className="gql-qb-code" aria-label="Generated GraphQL query" data-testid="gql-qb-code">
+        <div className="gql-qb-code-card">
+          <pre className="gql-qb-code" aria-label="Generated GraphQL query" data-testid="gql-qb-code">
           {tokenizedLines.map((lineTokens, i) => (
             <div key={i} className="gql-qb-code-line">
               <span className="gql-qb-ln" aria-hidden="true">{i + 1}</span>
@@ -39,7 +42,8 @@ export const GeneratedQueryPreview = memo(function GeneratedQueryPreview({
               ))}
             </div>
           ))}
-        </pre>
+          </pre>
+        </div>
       </div>
 
       {hasVars && (

@@ -1273,4 +1273,178 @@ describe('useDemoHub (branch coverage)', () => {
     visible.remove();
     document.querySelectorAll('.demo-click-ripple').forEach(el => el.remove());
   });
+
+  // ─── closeHub / goBack / goToDomains branches ─────────────────
+
+  it('closeHub runs live lesson cleanup when hub closed during live demo', async () => {
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({ cleanup });
+    act(() => {
+      result.current.openHub();
+      result.current.selectLesson(lesson);
+    });
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(cleanup).toHaveBeenCalled();
+    expect(result.current.hubOpen).toBe(false);
+  });
+
+  it('closeHub closes graphql demo workspace when concept view has graphql lesson', async () => {
+    const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
+    const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({
+      id: 'gql-first-query',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+    });
+    act(() => result.current.selectLesson(lesson));
+    act(() => result.current.openHub());
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(closeSpy).toHaveBeenCalledWith('gql-first-query');
+    closeSpy.mockRestore();
+  });
+
+  it('goBack from domains is a no-op on view state', () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => result.current.goBack());
+    expect(result.current.state.view).toBe('domains');
+  });
+
+  it('goToDomains resets to domain list and clears selected domain', () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => result.current.selectDomain({
+      id: 'protocols',
+      name: 'Protocols',
+      icon: '🔌',
+      description: 'Protocols',
+      available: true,
+      lessons: [],
+    }));
+    act(() => result.current.goToDomains());
+    expect(result.current.state.view).toBe('domains');
+    expect(result.current.state.selectedDomain).toBeNull();
+    expect(result.current.state.isPlaying).toBe(false);
+  });
+
+  it('startLiveDemo returns early when lesson is desktop-only blocked on web', async () => {
+    const lessonPlatform = await import('./utils/lessonPlatform');
+    const blockSpy = vi.spyOn(lessonPlatform, 'isLessonDesktopOnlyBlocked').mockReturnValue(true);
+
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({ desktopOnly: true });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      await result.current.startLiveDemo();
+    });
+    expect(result.current.state.view).not.toBe('live');
+    blockSpy.mockRestore();
+  });
+
+  it('runLiveLessonCleanup uses graphql workspace cleanup when lesson has no cleanup fn', async () => {
+    const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
+    const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({
+      id: 'gql-vars',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+      cleanup: undefined,
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.goBack());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(closeSpy).toHaveBeenCalledWith('gql-vars');
+    closeSpy.mockRestore();
+  });
+
+  it('goBack from live runs cleanup for graphql lesson without custom cleanup', async () => {
+    const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
+    const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockRejectedValue(new Error('gql cleanup fail'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({
+      id: 'gql-sub',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.goBack());
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] GQL demo workspace cleanup failed:', expect.any(Error));
+    warnSpy.mockRestore();
+    closeSpy.mockRestore();
+  });
+
+  it('confirmLessonComplete is safe when no lesson selected', () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => result.current.confirmLessonComplete());
+    expect(result.current.progress.completedLessons).toEqual([]);
+  });
+
+  it('buildContext selectOption no-ops when native setter missing', async () => {
+    const select = document.createElement('select');
+    select.className = 'no-setter-select';
+    makeVisible(select);
+    document.body.appendChild(select);
+
+    const original = Object.getOwnPropertyDescriptor;
+    vi.spyOn(Object, 'getOwnPropertyDescriptor').mockImplementation((proto, prop) => {
+      if (proto === HTMLSelectElement.prototype && prop === 'value') {
+        return { get: original(HTMLSelectElement.prototype, 'value')!.get };
+      }
+      return original(proto as object, prop as PropertyKey);
+    });
+
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({
+      steps: [{
+        id: 's1', title: 'SelNoSet', description: 'No setter', pauseAfter: 0,
+        action: async (ctx) => { await ctx.selectOption('.no-setter-select', 'x'); },
+      }],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    vi.restoreAllMocks();
+    select.remove();
+  });
+
+  it('waitForElement returns false when aborted before element appears', async () => {
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const lesson = makeLesson({
+      steps: [{
+        id: 's1', title: 'AbortWait', description: 'Abort wait', pauseAfter: 0,
+        verify: '.never-appears-abort',
+      }],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(300);
+      result.current.goToStep(0);
+      await vi.advanceTimersByTimeAsync(8000);
+    });
+    expect(result.current.stepPhase).toBe('done');
+  });
 });

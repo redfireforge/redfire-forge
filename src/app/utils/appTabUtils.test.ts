@@ -8,6 +8,9 @@ import {
   domainOf,
   readTabFromUrl,
   writeTabToUrl,
+  getLastProtocolsTab,
+  setLastProtocolsTab,
+  PROTOCOLS_DEFAULT_TAB,
 } from './appTabUtils';
 
 describe('appTabUtils', () => {
@@ -108,6 +111,32 @@ describe('appTabUtils', () => {
       expect(domainOf('environments')).toBe('settings');
       expect(domainOf('preferences')).toBe('settings');
       expect(domainOf('kafka-settings')).toBe('settings');
+    });
+
+    it('returns "protocols" for protocol studio tabs', () => {
+      expect(domainOf('kafka-message-studio')).toBe('protocols');
+      expect(domainOf('graphql-studio')).toBe('protocols');
+    });
+  });
+
+  describe('last protocols tab memory', () => {
+    beforeEach(() => {
+      setLastProtocolsTab(PROTOCOLS_DEFAULT_TAB);
+    });
+
+    it('defaults to kafka-message-studio', () => {
+      expect(getLastProtocolsTab()).toBe('kafka-message-studio');
+    });
+
+    it('remembers the last protocols sub-tab', () => {
+      setLastProtocolsTab('graphql-studio');
+      expect(getLastProtocolsTab()).toBe('graphql-studio');
+    });
+
+    it('ignores non-protocols tabs', () => {
+      setLastProtocolsTab('graphql-studio');
+      setLastProtocolsTab('demo-hub');
+      expect(getLastProtocolsTab()).toBe('graphql-studio');
     });
   });
 

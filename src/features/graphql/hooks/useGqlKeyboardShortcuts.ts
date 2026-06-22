@@ -29,6 +29,8 @@ interface GqlKeyboardShortcutsArgs {
   globalEnvMap?: Record<string, string>;
   profileModalOpen: boolean;
   envModalOpen: boolean;
+  /** Phase 6F — block introspect shortcut while profile endpoint is resolving. */
+  endpointLinkPending?: boolean;
 }
 
 export function useGqlKeyboardShortcuts({
@@ -49,6 +51,7 @@ export function useGqlKeyboardShortcuts({
   globalEnvMap,
   profileModalOpen,
   envModalOpen,
+  endpointLinkPending = false,
 }: GqlKeyboardShortcutsArgs): void {
   // Stable refs so the listener closure captures current values without re-binding
   const handleExecuteRef        = useRef(handleExecute);
@@ -85,6 +88,8 @@ export function useGqlKeyboardShortcuts({
   profileModalOpenRef.current   = profileModalOpen;
   const envModalOpenRef         = useRef(envModalOpen);
   envModalOpenRef.current       = envModalOpen;
+  const endpointLinkPendingRef  = useRef(endpointLinkPending);
+  endpointLinkPendingRef.current = endpointLinkPending;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -122,6 +127,7 @@ export function useGqlKeyboardShortcuts({
       }
       if (isCmd && e.shiftKey && e.key === 'I') {
         e.preventDefault();
+        if (endpointLinkPendingRef.current) return;
         if (introspectingRef.current) return;
         if (findUnresolvedVars(endpointRef.current, activeEnvironmentRef.current, globalEnvMapRef.current).length > 0) return;
         introspectRef.current();

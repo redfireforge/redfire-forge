@@ -11,8 +11,17 @@ vi.mock('../utils/checkEndpoint', () => ({
   checkEndpoint: vi.fn(),
 }));
 
+vi.mock('../../graphql/utils/gqlDemoWorkspace', () => ({
+  MAX_TABS: 8,
+  countUserTabsInStorage: vi.fn(async () => 0),
+  userTabsToCloseForLesson: (userCount: number, budget = 1) =>
+    Math.max(0, userCount - (8 - budget)),
+}));
+
 import { checkEndpoint } from '../utils/checkEndpoint';
+import { countUserTabsInStorage } from '../../graphql/utils/gqlDemoWorkspace';
 const mockCheck = checkEndpoint as ReturnType<typeof vi.fn>;
+const mockCountUserTabs = vi.mocked(countUserTabsInStorage);
 
 const DEFAULT_PROPS = {
   endpoint: 'ws://localhost:3100/socket.io/?EIO=4',
@@ -24,6 +33,7 @@ describe('PrerequisiteGate', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockCheck.mockResolvedValue(false);
+    mockCountUserTabs.mockResolvedValue(0);
     DEFAULT_PROPS.onServerReady = vi.fn();
   });
 
@@ -90,6 +100,62 @@ describe('PrerequisiteGate', () => {
     expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
   });
 
+  it('requires every endpoint in endpoints[] to be up before unlocking', async () => {
+    mockCheck.mockImplementation(async (url: string) => url.includes('4444'));
+    const onServerReady = vi.fn();
+    render(
+      <PrerequisiteGate
+        endpoints={['http://127.0.0.1:4444/health', 'http://127.0.0.1:4446/health']}
+        dockerCommand="docker compose up"
+        onServerReady={onServerReady}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(onServerReady).not.toHaveBeenCalled();
+    expect(screen.getByTestId('prereq-status').className).toContain('prereq-status--down');
+
+    mockCheck.mockResolvedValue(true);
+    await act(() => vi.advanceTimersByTimeAsync(3100));
+    expect(onServerReady).toHaveBeenCalledOnce();
+  });
+
+  it('shows tab capacity warning when user has too many tabs for tabBudget 2', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(7);
+    const onTabCapacityReady = vi.fn();
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={onTabCapacityReady}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('prereq-tab-capacity').textContent).toContain('Close at least');
+    expect(onTabCapacityReady).not.toHaveBeenCalled();
+  });
+
+  it('calls onTabCapacityReady when enough tab slots are free', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(6);
+    const onTabCapacityReady = vi.fn();
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={onTabCapacityReady}
+      />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.resolve();
+    });
+    expect(onTabCapacityReady).toHaveBeenCalledOnce();
+  });
+
   // ─── Branch-coverage: lines 30, 33 ─────────────────────────────
   // Line 30: `if (!mountedRef.current) return` — TRUE when probe runs after unmount.
   // Line 33: `if (!mountedRef.current) return` — TRUE when unmount happens during checkEndpoint.
@@ -114,6 +180,120 @@ describe('PrerequisiteGate', () => {
 
     // onServerReady MUST NOT have been called (probe bailed out at line 33)
     expect(DEFAULT_PROPS.onServerReady).not.toHaveBeenCalled();
+  });
+
+  it('shows tab capacity ok banner when budget > 1 and enough slots are free', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(4);
+    const onTabCapacityReady = vi.fn();
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={onTabCapacityReady}
+      />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('prereq-tab-capacity-ok').textContent).toContain(
+      'Enough tab slots available',
+    );
+    expect(onTabCapacityReady).toHaveBeenCalledOnce();
+  });
+
+  it('uses singular tab wording when exactly one tab must be closed', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(7);
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const text = screen.getByTestId('prereq-tab-capacity').textContent ?? '';
+    expect(text).toContain('2 workspace tab slots');
+    expect(text).toContain('Close at least');
+    expect(text).toContain('1');
+    expect(text).not.toMatch(/Close at least 1 tabs/);
+  });
+
+  it('uses plural tabs wording when multiple tabs must be closed', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(8);
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const text = screen.getByTestId('prereq-tab-capacity').textContent ?? '';
+    expect(text).toContain('2 workspace tab slots');
+    expect(text).toMatch(/Close at least[\s\S]*2[\s\S]*tabs/);
+  });
+
+  it('does not call onTabCapacityReady repeatedly on subsequent polls', async () => {
+    mockCheck.mockResolvedValue(true);
+    mockCountUserTabs.mockResolvedValue(4);
+    const onTabCapacityReady = vi.fn();
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={onTabCapacityReady}
+      />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.resolve();
+    });
+    await act(() => vi.advanceTimersByTimeAsync(9000));
+    expect(onTabCapacityReady).toHaveBeenCalledOnce();
+  });
+
+  it('checkTabCapacity exits early when component unmounts during count', async () => {
+    let resolveCount: (value: number) => void;
+    mockCountUserTabs.mockImplementation(
+      () => new Promise<number>((resolve) => { resolveCount = resolve; }),
+    );
+    const onTabCapacityReady = vi.fn();
+    const { unmount } = render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        tabBudget={2}
+        onTabCapacityReady={onTabCapacityReady}
+      />,
+    );
+    act(() => unmount());
+    await act(async () => {
+      resolveCount(4);
+      await Promise.resolve();
+    });
+    expect(onTabCapacityReady).not.toHaveBeenCalled();
+  });
+
+  it('shows checking spinner while probe is in checking state', async () => {
+    let resolveCheck: (v: boolean) => void;
+    mockCheck.mockImplementation(
+      () => new Promise<boolean>((resolve) => { resolveCheck = resolve; }),
+    );
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    expect(screen.getByLabelText('Checking server…')).toBeInTheDocument();
+    await act(async () => {
+      resolveCheck(false);
+      await Promise.resolve();
+    });
   });
 
   it('interval probe exits early via line 30 guard when component is already unmounted', async () => {

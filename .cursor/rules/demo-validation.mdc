@@ -139,9 +139,13 @@ Every step has two phases. NEVER use `waitForTimeout`; always synchronise on
 button state:
 
 ```
-READING phase  →  [aria-label="Next step"] is ENABLED
+READING phase  →  [aria-label="Next step"] is ENABLED  (except last step — see below)
 ACTION phase   →  [aria-label="Next step"] is DISABLED
 ```
+
+**Last step exception:** On step N/N, Next is **always** disabled. Use `finishDemoStep()`
+instead of waiting for Next after entering the final step. Full details:
+[`e2e/DEMO-LESSON-E2E-MEMO.md`](../e2e/DEMO-LESSON-E2E-MEMO.md).
 
 ```typescript
 // ✅ Correct

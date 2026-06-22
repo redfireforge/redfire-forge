@@ -41,9 +41,65 @@ const mocks = vi.hoisted(() => {
   const advSettingsRef = { current: defaultAdvSettings };
   const connectionIdRef = { current: null as string | null };
   const executingRef = { current: false };
+  type TabExecutionStateMock = {
+    status: 'idle' | 'loading' | 'success' | 'error';
+    response: unknown;
+    apqInfo?: { hash: string; cacheHit: boolean; unsupported: boolean; connectionId?: string } | null;
+    isDuplicate?: boolean;
+    duplicateSourceTabId?: string | null;
+  };
+  const tabExecutionStates = new Map<string, TabExecutionStateMock>();
+  const responseCache = new Map<string, {
+    status: 'idle' | 'loading' | 'success' | 'error';
+    response: unknown;
+    apqInfo?: { hash: string; cacheHit: boolean; unsupported: boolean; connectionId?: string } | null;
+    uploadProgress?: number | null;
+  }>();
+  const setTabUploadProgress = vi.fn((tabId: string, progress: number | null) => {
+    const existing = responseCache.get(tabId);
+    responseCache.set(tabId, {
+      status: existing?.status ?? 'loading',
+      response: existing?.response ?? null,
+      apqInfo: existing?.apqInfo,
+      uploadProgress: progress === null ? undefined : progress,
+    });
+  });
+  const cacheExecutionResult = vi.fn((
+    tabId: string,
+    status: 'idle' | 'loading' | 'success' | 'error',
+    resp: unknown,
+    apqInfo?: { hash: string; cacheHit: boolean; unsupported: boolean; connectionId?: string } | null,
+  ) => {
+    const existing = tabExecutionStates.get(tabId);
+    tabExecutionStates.set(tabId, {
+      status,
+      response: resp,
+      apqInfo: apqInfo !== undefined ? apqInfo : existing?.apqInfo,
+      isDuplicate: existing?.isDuplicate ?? false,
+      duplicateSourceTabId: existing?.duplicateSourceTabId ?? null,
+    });
+    const cached = responseCache.get(tabId);
+    responseCache.set(tabId, {
+      status,
+      response: resp,
+      apqInfo: apqInfo !== undefined ? apqInfo : cached?.apqInfo,
+      uploadProgress: undefined,
+    });
+  });
+  const removeTabFromCache = vi.fn((tabId: string) => {
+    tabExecutionStates.delete(tabId);
+    responseCache.delete(tabId);
+  });
   const toastBaselineSnapshotIdRef = { current: 'snap-1' };
+  let pageEndpoint = 'https://api.example.com/graphql';
+  let pageSkipTlsVerify = false;
 
   return {
+    pageEndpoint,
+    getPageEndpoint: () => pageEndpoint,
+    setPageEndpoint: (ep: string) => { pageEndpoint = ep; },
+    getPageSkipTlsVerify: () => pageSkipTlsVerify,
+    setPageSkipTlsVerify: (skip: boolean) => { pageSkipTlsVerify = skip; },
     makeActiveTab,
     defaultAdvSettings,
     pendingExecuteAfterGateRef,
@@ -52,6 +108,11 @@ const mocks = vi.hoisted(() => {
     advSettingsRef,
     connectionIdRef,
     executingRef,
+    tabExecutionStates,
+    responseCache,
+    setTabUploadProgress,
+    cacheExecutionResult,
+    removeTabFromCache,
     toastBaselineSnapshotIdRef,
     isTauri: vi.fn(() => false),
     loadPersistedActivityTab: vi.fn(() => null as 'history' | 'collections' | 'mock' | null),
@@ -85,10 +146,13 @@ const mocks = vi.hoisted(() => {
       saveToCollection: null as Record<string, unknown> | null,
       batchResults: null as Record<string, unknown> | null,
       rightPane: null as Record<string, unknown> | null,
+      tabBar: null as Record<string, unknown> | null,
       runnerPanel: null as Record<string, unknown> | null,
       gqlStudioTabsArgs: [] as unknown[],
       collectionRunParams: null as Record<string, unknown> | null,
       gqlItemLoadersParams: null as Record<string, unknown> | null,
+      tabExecutionArgs: null as Record<string, unknown> | null,
+      batchExecutionArgs: null as Record<string, unknown> | null,
     },
     useGraphqlConnectionSettings: vi.fn(() => ({
       endpoint: 'https://api.example.com/graphql',
@@ -107,6 +171,7 @@ const mocks = vi.hoisted(() => {
       pushRecentEndpoint: vi.fn(),
       removeRecentEndpoint: vi.fn(),
       profiles: [],
+      profilesReady: true,
       saveProfile: vi.fn(),
       deleteProfile: vi.fn(),
       profileModalOpen: false,
@@ -149,8 +214,70 @@ const mocks = vi.hoisted(() => {
       execute: vi.fn(),
       cancel: vi.fn(),
       isDuplicate: false,
+      duplicateSourceTabId: null,
       apqInfo: null,
       resolveDedupChoice: vi.fn(),
+    })),
+    cancelTabMock: vi.fn(),
+    tabExecuteBridgeMock: vi.fn(),
+    useGraphqlStudioTabExecution: vi.fn((args: {
+      activeTabId: string;
+      onExecutionCompleted?: (
+        tabId: string,
+        status: 'idle' | 'loading' | 'success' | 'error',
+        response: unknown,
+        apqInfo?: unknown,
+      ) => void;
+      profiles?: unknown[];
+      pageDefaults?: Record<string, unknown>;
+    }) => {
+      mocks.captured.tabExecutionArgs = args as Record<string, unknown>;
+      const activeTabId = args.activeTabId;
+      const onExecutionCompleted = args.onExecutionCompleted;
+      const exec = mocks.useGraphqlExecution();
+      const fromMap = mocks.tabExecutionStates.get(activeTabId);
+
+      const execute = (params: Record<string, unknown>) => {
+        mocks.tabExecuteBridgeMock(params);
+        return (exec.execute as ReturnType<typeof vi.fn>)({
+          ...params,
+          sourceTabId: activeTabId,
+          onExecutionCompleted,
+        });
+      };
+
+      const activeState = fromMap
+        ? {
+            status: fromMap.status,
+            response: fromMap.response,
+            apqInfo: fromMap.apqInfo ?? null,
+            isDuplicate: fromMap.isDuplicate ?? false,
+            duplicateSourceTabId: fromMap.duplicateSourceTabId ?? null,
+          }
+        : {
+            status: exec.status,
+            response: exec.response,
+            apqInfo: exec.apqInfo,
+            isDuplicate: exec.isDuplicate,
+            duplicateSourceTabId: exec.duplicateSourceTabId,
+          };
+
+      return {
+        activeState,
+        execute,
+        cancel: exec.cancel,
+        cancelTab: mocks.cancelTabMock,
+        resolveDedupChoice: exec.resolveDedupChoice,
+        isTabExecuting: (tabId: string) =>
+          (mocks.tabExecutionStates.get(tabId)?.status ?? (tabId === activeTabId ? exec.status : 'idle')) === 'loading',
+        executionLayers: null,
+      };
+    }),
+    useGqlTabResponseCache: vi.fn(() => ({
+      cacheExecutionResult,
+      removeTabFromCache,
+      responseCache,
+      setTabUploadProgress,
     })),
     useGraphqlSubscription: vi.fn(() => ({
       state: 'idle' as 'idle' | 'connecting' | 'active',
@@ -184,6 +311,7 @@ const mocks = vi.hoisted(() => {
     })),
     useGqlStudioTabs: vi.fn(() => {
       const activeTab = makeActiveTab();
+      const tabEndpointOverride = typeof activeTab.endpoint === 'string' ? activeTab.endpoint : undefined;
       return {
         tabs: [activeTab],
         activeTabId: 'tab-1',
@@ -196,12 +324,30 @@ const mocks = vi.hoisted(() => {
         addTab: vi.fn(),
         handleTabClick: vi.fn(),
         closeTab: vi.fn(),
+        renameTab: vi.fn(),
+        resolvedTabEndpoint: tabEndpointOverride ?? pageEndpoint,
+        hasActiveTabEndpointOverride: tabEndpointOverride !== undefined,
+        hasActiveTabProfileLink: Boolean(activeTab.connectionId),
+        hasResolvedProfileLink: false,
+        hasPendingProfileEndpoint: Boolean(activeTab.connectionId),
+        applyProfileToActiveTab: vi.fn(),
+        clearConnectionIdsForProfile: vi.fn(),
+        clearActiveTabProfileLink: vi.fn(),
         handleSelectOperation: vi.fn(),
         handleQueryChange: vi.fn(),
         handleVariablesChange: vi.fn(),
         handleHeadersChange: vi.fn(),
         handleAssertionsChange: vi.fn(),
         handleSubscriptionTransportChange: vi.fn(),
+        updateActiveTabEndpoint: vi.fn(),
+        clearActiveTabEndpoint: vi.fn(),
+        updateActiveTabSkipTlsVerify: vi.fn(),
+        hasActiveTabSkipTlsOverride: activeTab.skipTlsVerify !== undefined,
+        hasActiveTabTlsCertOverride: false,
+        updateActiveTabPolling: vi.fn(),
+        clearActiveTabPolling: vi.fn(),
+        hasActiveTabPollingOverride: activeTab.pollingEnabled !== undefined
+          || activeTab.pollingIntervalSeconds !== undefined,
       };
     }),
     useGqlStudioEditorActions: vi.fn(() => ({
@@ -259,6 +405,12 @@ const mocks = vi.hoisted(() => {
       sessionBypassComplexityGateRef,
       effectiveBatchedTabs: [] as unknown[],
       batchedTabIdsSet: new Set<string>(),
+      batchTabOverrides: new Map<string, unknown>(),
+      setBatchTabOverrides: vi.fn(),
+      batchGroups: [] as unknown[],
+      activeBatchGroupKey: null as string | null,
+      activeBatchGroup: null as unknown,
+      handleSetActiveBatchGroup: vi.fn(),
       handleToggleBatch: vi.fn(),
       handleSendBatch: vi.fn(),
     })),
@@ -350,6 +502,7 @@ vi.mock('./components/GraphqlConnectionBar', () => ({
   GraphqlConnectionBar: captureProps('gql-connection-bar-mock', 'connectionBar', (props) => (
     <>
       <button type="button" data-testid="gql-mock-execute" onClick={props.onExecute as () => void}>Execute</button>
+      <button type="button" data-testid="gql-mock-cancel" onClick={props.onCancel as () => void}>Cancel</button>
       <button type="button" data-testid="gql-mock-subscribe" onClick={props.onSubscribe as () => void}>Subscribe</button>
       <button type="button" data-testid="gql-mock-adv-settings" onClick={props.onAdvancedSettingsClick as () => void}>AdvSettings</button>
       <button type="button" data-testid="gql-mock-env-badge" onClick={props.onEnvBadgeClick as () => void}>EnvBadge</button>
@@ -365,7 +518,7 @@ vi.mock('./components/GraphqlEditor', () => ({
 }));
 
 vi.mock('./components/GqlTabBar', () => ({
-  GqlTabBar: () => <div data-testid="gql-tab-bar-mock" />,
+  GqlTabBar: captureProps('gql-tab-bar-mock', 'tabBar'),
 }));
 
 vi.mock('./components/GqlBottomPanel', () => ({
@@ -567,8 +720,7 @@ vi.mock('./components/GqlConnectionModals', () => ({
     onProfileModalClose,
     onSaveProfile,
     onDeleteProfile,
-    onSetEndpoint,
-    onAuthChange,
+    onApplyProfileToActiveTab,
     onEnvModalClose,
     onCreateEnvironment,
     onDeleteEnvironment,
@@ -582,8 +734,7 @@ vi.mock('./components/GqlConnectionModals', () => ({
       <button type="button" data-testid="modal-profile-close" onClick={onProfileModalClose}>ProfileClose</button>
       <button type="button" data-testid="modal-save-profile" onClick={() => onSaveProfile('P')}>SaveProfile</button>
       <button type="button" data-testid="modal-delete-profile" onClick={() => onDeleteProfile('p1')}>DeleteProfile</button>
-      <button type="button" data-testid="modal-set-endpoint" onClick={() => onSetEndpoint('https://new.test/gql')}>SetEndpoint</button>
-      <button type="button" data-testid="modal-auth-change" onClick={() => onAuthChange(null)}>AuthChange</button>
+      <button type="button" data-testid="modal-apply-profile" onClick={() => onApplyProfileToActiveTab({ id: 'p1', name: 'P', endpoint: 'https://new.test/gql', auth: null, createdAt: 1 })}>ApplyProfile</button>
       <button type="button" data-testid="modal-env-close" onClick={onEnvModalClose}>EnvClose</button>
       <button type="button" data-testid="modal-create-env" onClick={() => onCreateEnvironment('E')}>CreateEnv</button>
       <button type="button" data-testid="modal-delete-env" onClick={() => onDeleteEnvironment('e1')}>DeleteEnv</button>
@@ -614,9 +765,21 @@ vi.mock('./hooks/useGraphqlCollectionRunner', () => ({
   useGraphqlCollectionRunner: (...args: unknown[]) => mocks.useGraphqlCollectionRunner(...args),
 }));
 
+vi.mock('./hooks/useGraphqlStudioTabExecution', () => ({
+  useGraphqlStudioTabExecution: (...args: unknown[]) => mocks.useGraphqlStudioTabExecution(...args),
+}));
+
 vi.mock('./hooks/useGraphqlExecution', () => ({
   useGraphqlExecution: (...args: unknown[]) => mocks.useGraphqlExecution(...args),
 }));
+
+vi.mock('./hooks/useGqlTabResponseCache', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./hooks/useGqlTabResponseCache')>();
+  return {
+    ...actual,
+    useGqlTabResponseCache: (...args: unknown[]) => mocks.useGqlTabResponseCache(...args),
+  };
+});
 
 vi.mock('./hooks/useGraphqlSubscription', () => ({
   useGraphqlSubscription: (...args: unknown[]) => mocks.useGraphqlSubscription(...args),
@@ -658,7 +821,10 @@ vi.mock('./hooks/useMonacoExecutionMarkers', () => ({
 }));
 
 vi.mock('./hooks/useGraphqlBatchExecution', () => ({
-  useGraphqlBatchExecution: (...args: unknown[]) => mocks.useGraphqlBatchExecution(...args),
+  useGraphqlBatchExecution: (...args: unknown[]) => {
+    mocks.captured.batchExecutionArgs = (args[0] ?? null) as Record<string, unknown>;
+    return mocks.useGraphqlBatchExecution(...args);
+  },
 }));
 
 vi.mock('./hooks/useGraphqlCollectionRun', () => ({
@@ -702,36 +868,90 @@ function clickExecute() {
 }
 
 function setupTabs(overrides: Record<string, unknown> = {}) {
-  const activeTab = mocks.makeActiveTab(overrides);
-  mocks.useGqlStudioTabs.mockReturnValue({
-    tabs: [activeTab],
-    activeTabId: activeTab.id as string,
-    activeTab,
-    operations: ['MyQuery'],
-    selectedOperation: 'MyQuery',
-    confirmingCloseTabId: null,
-    closeActiveTabRef: { current: vi.fn() },
-    executingRef: mocks.executingRef,
-    addTab: vi.fn(),
-    handleTabClick: vi.fn(),
-    closeTab: vi.fn(),
-    handleSelectOperation: vi.fn(),
-    handleQueryChange: vi.fn(),
-    handleVariablesChange: vi.fn(),
-    handleHeadersChange: vi.fn(),
-    handleAssertionsChange: vi.fn(),
-    handleSubscriptionTransportChange: vi.fn(),
+  mocks.useGqlStudioTabs.mockImplementation(() => {
+    const activeTab = mocks.makeActiveTab(overrides);
+    const tabEndpointOverride = typeof activeTab.endpoint === 'string' ? activeTab.endpoint : undefined;
+    const resolvedTabEndpoint = tabEndpointOverride ?? mocks.getPageEndpoint();
+    const resolvedProfileLink = overrides.hasResolvedProfileLink === true;
+    const profilesReady = overrides.profilesReady !== undefined ? Boolean(overrides.profilesReady) : true;
+    const connectionId = activeTab.connectionId as string | undefined;
+    const profileLinkPending = Boolean(connectionId) && profilesReady && !resolvedProfileLink;
+    return {
+      tabs: [activeTab],
+      activeTabId: activeTab.id as string,
+      activeTab,
+      operations: ['MyQuery'],
+      selectedOperation: 'MyQuery',
+      confirmingCloseTabId: null,
+      closeActiveTabRef: { current: vi.fn() },
+      executingRef: mocks.executingRef,
+      addTab: vi.fn(),
+      handleTabClick: vi.fn(),
+      closeTab: vi.fn(),
+      renameTab: vi.fn(),
+      updateActiveTab: vi.fn(),
+      updateActiveTabEndpoint: vi.fn(),
+      clearActiveTabEndpoint: vi.fn(),
+      updateActiveTabSkipTlsVerify: vi.fn(),
+      resolvedTabEndpoint,
+      hasActiveTabEndpointOverride: tabEndpointOverride !== undefined,
+      hasActiveTabProfileLink: Boolean(connectionId)
+        && (!profilesReady || resolvedProfileLink || profileLinkPending),
+      hasResolvedProfileLink: resolvedProfileLink,
+      hasPendingProfileEndpoint: Boolean(activeTab.connectionId)
+        && (!profilesReady || !resolvedProfileLink),
+      applyProfileToActiveTab: vi.fn(),
+      clearConnectionIdsForProfile: vi.fn(),
+      clearActiveTabProfileLink: vi.fn(),
+      hasActiveTabSkipTlsOverride: activeTab.skipTlsVerify !== undefined,
+      hasActiveTabTlsCertOverride: activeTab.tlsCaCert !== undefined
+        || activeTab.tlsClientCert !== undefined
+        || activeTab.tlsClientKey !== undefined,
+      updateActiveTabPolling: vi.fn(),
+      clearActiveTabPolling: vi.fn(),
+      hasActiveTabPollingOverride: activeTab.pollingEnabled !== undefined
+        || activeTab.pollingIntervalSeconds !== undefined,
+      handleSelectOperation: vi.fn(),
+      handleQueryChange: vi.fn(),
+      handleVariablesChange: vi.fn(),
+      handleHeadersChange: vi.fn(),
+      handleAssertionsChange: vi.fn(),
+      handleSubscriptionTransportChange: vi.fn(),
+    };
   });
-  return activeTab;
+  return mocks.makeActiveTab(overrides);
 }
 
 function setupExecution(overrides: Partial<ReturnType<typeof mocks.useGraphqlExecution>> = {}) {
+  const executeFn = vi.fn((params: {
+    sourceTabId?: string;
+    onExecutionStarted?: (id: string) => void;
+    onExecutionCompleted?: (
+      tabId: string,
+      status: 'idle' | 'loading' | 'success' | 'error',
+      response: unknown,
+      apqInfo?: unknown,
+    ) => void;
+  }) => {
+    if (params.sourceTabId && params.onExecutionStarted) {
+      params.onExecutionStarted(params.sourceTabId);
+    }
+    if (params.sourceTabId && params.onExecutionCompleted) {
+      params.onExecutionCompleted(
+        params.sourceTabId,
+        'success',
+        { data: { ok: true }, latencyMs: 10, timestamp: 1, httpStatus: 200 },
+        null,
+      );
+    }
+  });
   mocks.useGraphqlExecution.mockReturnValue({
     status: 'idle',
     response: null,
-    execute: vi.fn(),
+    execute: executeFn,
     cancel: vi.fn(),
     isDuplicate: false,
+    duplicateSourceTabId: null,
     apqInfo: null,
     resolveDedupChoice: vi.fn(),
     ...overrides,
@@ -739,12 +959,19 @@ function setupExecution(overrides: Partial<ReturnType<typeof mocks.useGraphqlExe
 }
 
 function setupConnection(overrides: Record<string, unknown> = {}) {
+  const endpoint = Object.prototype.hasOwnProperty.call(overrides, 'endpoint')
+    ? (overrides.endpoint as string)
+    : 'https://api.example.com/graphql';
+  mocks.setPageEndpoint(endpoint);
+  if (Object.prototype.hasOwnProperty.call(overrides, 'skipTlsVerify')) {
+    mocks.setPageSkipTlsVerify(Boolean(overrides.skipTlsVerify));
+  }
   mocks.useGraphqlConnectionSettings.mockReturnValue({
-    endpoint: 'https://api.example.com/graphql',
+    endpoint,
     setEndpoint: vi.fn(),
     historyConnectionId: 'conn-1',
     prevBaseUrlRef: { current: undefined },
-    skipTlsVerify: false,
+    skipTlsVerify: mocks.getPageSkipTlsVerify(),
     handleSkipTlsVerifyChange: vi.fn(),
     pollingEnabled: false,
     pollingIntervalSeconds: 30,
@@ -800,8 +1027,16 @@ function setupBatch(overrides: Record<string, unknown> = {}) {
     sessionBypassComplexityGateRef: mocks.sessionBypassComplexityGateRef,
     effectiveBatchedTabs: [],
     batchedTabIdsSet: new Set<string>(),
+    batchTabOverrides: new Map<string, unknown>(),
+    setBatchTabOverrides: vi.fn(),
+    batchGroups: [],
+    activeBatchGroupKey: null,
+    activeBatchGroup: null,
+    handleSetActiveBatchGroup: vi.fn(),
     handleToggleBatch: vi.fn(),
     handleSendBatch: vi.fn(),
+    batchEndpointMismatch: false,
+    batchEndpointReady: false,
     ...overrides,
   });
 }
@@ -835,12 +1070,19 @@ describe('GraphqlStudioPage', () => {
     mocks.captured.historyPanel = null;
     mocks.captured.bottomPanel = null;
     mocks.captured.gqlStudioTabsArgs = [];
+    mocks.captured.tabBar = null;
     mocks.captured.collectionRunParams = null;
     mocks.captured.gqlItemLoadersParams = null;
+    mocks.captured.tabExecutionArgs = null;
+    mocks.captured.batchExecutionArgs = null;
     mocks.pendingExecuteAfterGateRef.current = null;
     mocks.skipComplexityGateRef.current = false;
     mocks.sessionBypassComplexityGateRef.current = false;
     mocks.executingRef.current = false;
+    mocks.tabExecutionStates.clear();
+    mocks.responseCache.clear();
+    mocks.setPageEndpoint('https://api.example.com/graphql');
+    mocks.setPageSkipTlsVerify(false);
     mocks.isTauri.mockReturnValue(false);
     mocks.loadPersistedActivityTab.mockReturnValue(null);
     mocks.findUnresolvedVars.mockReturnValue([]);
@@ -930,6 +1172,398 @@ describe('GraphqlStudioPage', () => {
       );
     });
 
+    it('passes per-tab resolved endpoint to useGraphqlSchema when tab has override (Phase 6)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql' });
+      renderPage();
+      expect(mocks.useGraphqlSchema).toHaveBeenCalledWith(
+        'https://staging.example.com/graphql',
+        expect.any(Object),
+        expect.objectContaining({ skipTlsVerify: false }),
+      );
+    });
+
+    it('passes per-tab skipTlsVerify to useGraphqlSchema when tab override is set (Phase 6)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql', skipTlsVerify: true });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', skipTlsVerify: false });
+      renderPage();
+      expect(mocks.useGraphqlSchema).toHaveBeenCalledWith(
+        'https://staging.example.com/graphql',
+        expect.any(Object),
+        expect.objectContaining({ skipTlsVerify: true }),
+      );
+    });
+
+    it('passes per-tab resolved pollingIntervalMs to useGraphqlSchema (Phase 6F)', () => {
+      setupTabs({ pollingEnabled: true, pollingIntervalSeconds: 45 });
+      setupConnection({ pollingEnabled: false, pollingIntervalSeconds: 30 });
+      renderPage();
+      expect(mocks.useGraphqlSchema).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ pollingIntervalMs: 45000 }),
+      );
+      expect(mocks.captured.connectionBar?.pollingEnabled).toBe(true);
+      expect(mocks.captured.connectionBar?.pollingIntervalSeconds).toBe(45);
+      expect(mocks.captured.connectionBar?.hasPollingOverride).toBe(true);
+    });
+
+    it('passes clearActiveTabPolling as onClearPolling when tab has polling override (Phase 6F)', () => {
+      setupTabs({ pollingEnabled: true, pollingIntervalSeconds: 45 });
+      setupConnection({ pollingEnabled: false, pollingIntervalSeconds: 30 });
+      renderPage();
+      const hookReturn = mocks.useGqlStudioTabs.mock.results.at(-1)?.value as {
+        clearActiveTabPolling: unknown;
+      };
+      expect(mocks.captured.connectionBar?.onClearPolling).toBe(hookReturn.clearActiveTabPolling);
+    });
+
+    it('passes endpointLinkPending to connection bar when profile link is unresolved (Phase 6F)', () => {
+      setupTabs({ connectionId: 'prof-staging' });
+      setupConnection();
+      renderPage();
+      expect(mocks.captured.connectionBar?.endpointLinkPending).toBe(true);
+    });
+
+    it('Phase 6F Slice 3: profile-linked tab shows profile auth on connection bar', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+      });
+      setupConnection({
+        auth: { type: 'bearer', token: 'page-token' },
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+      });
+      renderPage();
+      expect(mocks.captured.connectionBar?.auth).toEqual({ type: 'bearer', token: 'staging-token' });
+      expect(mocks.captured.connectionBar?.linkedProfileName).toBe('Staging');
+    });
+
+    it('Phase 6F: linkedProfileName is null when connectionId is orphaned (profile missing)', () => {
+      setupTabs({ connectionId: 'prof-deleted' });
+      setupConnection({ profiles: [] });
+      renderPage();
+      expect(mocks.captured.connectionBar?.linkedProfileName).toBeNull();
+    });
+
+    it('Phase 6F Slice 3: passes profiles + pageDefaults to tab execution hook', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+      });
+      setupConnection({
+        auth: { type: 'bearer', token: 'page-token' },
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+      });
+      renderPage();
+      expect(mocks.captured.tabExecutionArgs?.profiles).toHaveLength(1);
+      expect(mocks.captured.tabExecutionArgs?.pageDefaults).toEqual(expect.objectContaining({
+        auth: { type: 'bearer', token: 'page-token' },
+        endpoint: 'https://api.example.com/graphql',
+      }));
+    });
+
+    it('Phase 6F Slice 3: batch execution uses page-default auth, not active-tab profile auth', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+      });
+      setupConnection({
+        auth: { type: 'bearer', token: 'page-token' },
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+      });
+      renderPage();
+      expect(mocks.captured.batchExecutionArgs?.pageDefaultAuth).toEqual({ type: 'bearer', token: 'page-token' });
+    });
+
+    it('Phase 6F: pending profile link blocks actions even when tab endpoint is persisted', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+        profilesReady: false,
+      });
+      setupConnection({
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+        profilesReady: false,
+      });
+      renderPage();
+      expect(mocks.captured.connectionBar?.endpointLinkPending).toBe(true);
+    });
+
+    it('loads history by per-tab resolved endpoint, not page historyConnectionId (Phase 6)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', historyConnectionId: 'conn-1' });
+      renderPage();
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith(
+        'https://staging.example.com/graphql',
+        100,
+      );
+    });
+
+    it('loads advanced settings detection by per-tab connection id (Phase 6)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', historyConnectionId: 'conn-1' });
+      renderPage();
+      expect(mocks.useGraphqlAdvancedSettings).toHaveBeenCalledWith(
+        'https://staging.example.com/graphql',
+        null,
+      );
+    });
+
+    it('passes tab schema connection id to snapshots and mock server when tab has override (Phase 6)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      renderPage();
+      expect(mocks.useGraphqlSchemaSnapshots.mock.calls[0]?.[0]).toBe('https://staging.example.com/graphql');
+      expect(mocks.useGraphqlMockServer.mock.calls[0]?.[0]).toBe('https://staging.example.com/graphql');
+    });
+
+    it('passes per-tab skipTlsVerify to collection run hook (Phase 6)', () => {
+      setupTabs({ skipTlsVerify: true });
+      setupConnection({ skipTlsVerify: false });
+      renderPage();
+      expect(mocks.captured.collectionRunParams?.skipTlsVerify).toBe(true);
+    });
+
+    it('passes per-tab cached response to right pane when switching tabs (Phase 6 PT-4 / 6E)', () => {
+      setupTabs({ id: 'tab-1' });
+      const tab1Response = { data: { tab: 1 }, latencyMs: 10, timestamp: 1, httpStatus: 200 };
+      mocks.tabExecutionStates.set('tab-1', {
+        status: 'success',
+        response: tab1Response,
+        apqInfo: null,
+      });
+      mocks.useGraphqlExecution.mockReturnValue({
+        status: 'success',
+        response: { data: { tab: 2 }, latencyMs: 12, timestamp: 2, httpStatus: 200 },
+        execute: vi.fn(),
+        cancel: vi.fn(),
+        isDuplicate: false,
+        apqInfo: null,
+        resolveDedupChoice: vi.fn(),
+      });
+
+      renderPage();
+      expect(mocks.captured.rightPane?.response).toEqual(tab1Response);
+      expect(mocks.captured.rightPane?.execStatus).toBe('success');
+      expect(mocks.captured.rightPane?.executing).toBe(false);
+    });
+
+    it('restores per-tab APQ badge from active tab hook state (Phase 6D / 6E)', () => {
+      setupTabs({ id: 'tab-1' });
+      const tab1Apq = { hash: 'tab1hash', cacheHit: true, unsupported: false };
+      mocks.tabExecutionStates.set('tab-1', {
+        status: 'success',
+        response: { data: {}, latencyMs: 1, timestamp: 1, httpStatus: 200 },
+        apqInfo: tab1Apq,
+      });
+      mocks.useGraphqlExecution.mockReturnValue({
+        status: 'success',
+        response: null,
+        execute: vi.fn(),
+        cancel: vi.fn(),
+        isDuplicate: false,
+        apqInfo: { hash: 'tab2hash', cacheHit: false, unsupported: false },
+        resolveDedupChoice: vi.fn(),
+      });
+
+      renderPage();
+      expect(mocks.captured.connectionBar?.apqCacheHit).toBe(true);
+      expect(mocks.captured.connectionBar?.apqHash).toBe('tab1hash');
+      expect(mocks.useGraphqlAdvancedSettings).toHaveBeenCalledWith(
+        expect.any(String),
+        tab1Apq,
+      );
+    });
+
+    it('hides APQ badge when active tab has no apqInfo (Phase 6D / 6E)', () => {
+      setupTabs({ id: 'tab-1' });
+      mocks.tabExecutionStates.set('tab-1', {
+        status: 'success',
+        response: null,
+        apqInfo: null,
+      });
+      mocks.useGraphqlExecution.mockReturnValue({
+        status: 'success',
+        response: null,
+        execute: vi.fn(),
+        cancel: vi.fn(),
+        isDuplicate: false,
+        apqInfo: { hash: 'tab2hash', cacheHit: true, unsupported: false },
+        resolveDedupChoice: vi.fn(),
+      });
+
+      renderPage();
+      expect(mocks.captured.connectionBar?.apqCacheHit).toBeUndefined();
+      expect(mocks.captured.connectionBar?.apqHash).toBeUndefined();
+      expect(mocks.useGraphqlAdvancedSettings).toHaveBeenCalledWith(expect.any(String), null);
+    });
+
+    it('uses live APQ info when active tab owns execution (Phase 6D / 6E)', () => {
+      setupTabs({ id: 'tab-1' });
+      const liveApq = { hash: 'live', cacheHit: false, unsupported: false };
+      mocks.useGraphqlExecution.mockReturnValue({
+        status: 'loading',
+        response: null,
+        execute: vi.fn(),
+        cancel: vi.fn(),
+        isDuplicate: false,
+        apqInfo: liveApq,
+        resolveDedupChoice: vi.fn(),
+      });
+
+      renderPage();
+      expect(mocks.captured.connectionBar?.apqHash).toBe('live');
+      expect(mocks.captured.connectionBar?.apqCacheHit).toBe(false);
+      expect(mocks.useGraphqlAdvancedSettings).toHaveBeenCalledWith(expect.any(String), liveApq);
+    });
+
+    it('calls execute via tab execution bridge when Send is clicked (Phase 6E)', () => {
+      setupTabs();
+      renderPage();
+      clickExecute();
+      expect(mocks.tabExecuteBridgeMock).toHaveBeenCalled();
+      expect(mocks.useGraphqlExecution().execute).toHaveBeenCalledWith(expect.objectContaining({
+        sourceTabId: 'tab-1',
+        onExecutionCompleted: expect.any(Function),
+      }));
+    });
+
+    it('passes removeTabFromCache as onTabClosed to useGqlStudioTabs (Phase 6 PT-4)', () => {
+      renderPage();
+      const args = mocks.captured.gqlStudioTabsArgs[0]?.[0] as { onTabClosed: (id: string) => void };
+      expect(args.onTabClosed).toBe(mocks.removeTabFromCache);
+    });
+
+    it('passes closeTab to tab bar onTabClose (Phase 6 PT-4)', () => {
+      setupTabs();
+      renderPage();
+      const hookReturn = mocks.useGqlStudioTabs.mock.results.at(-1)?.value as { closeTab: unknown };
+      expect(mocks.captured.tabBar?.onTabClose).toBe(hookReturn.closeTab);
+    });
+
+    it('passes per-tab resolved endpoint to connection bar (Phase 6 PT-5)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql' });
+      renderPage();
+      const hookReturn = mocks.useGqlStudioTabs.mock.results.at(-1)?.value as {
+        updateActiveTabEndpoint: unknown;
+        clearActiveTabEndpoint: unknown;
+      };
+      expect(mocks.captured.connectionBar?.endpoint).toBe('https://staging.example.com/graphql');
+      expect(mocks.captured.connectionBar?.hasEndpointOverride).toBe(true);
+      expect(mocks.captured.connectionBar?.onClearEndpoint).toBe(hookReturn.clearActiveTabEndpoint);
+      expect(typeof mocks.captured.connectionBar?.onEndpointChange).toBe('function');
+    });
+
+    it('connection bar inherits page default when tab has no endpoint override (Phase 6 PT-5)', () => {
+      setupTabs();
+      setupConnection({ endpoint: 'https://api.example.com/graphql' });
+      renderPage();
+      expect(mocks.captured.connectionBar?.endpoint).toBe('https://api.example.com/graphql');
+      expect(mocks.captured.connectionBar?.hasEndpointOverride).toBe(false);
+    });
+
+    it('executes against per-tab resolved endpoint (Phase 6 PT-5)', () => {
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql' });
+      setupExecution();
+      renderPage();
+      clickExecute();
+      const executeFn = mocks.useGraphqlExecution().execute as ReturnType<typeof vi.fn>;
+      expect(executeFn).toHaveBeenCalledWith(expect.objectContaining({
+        endpoint: 'https://staging.example.com/graphql',
+        connectionId: 'https://staging.example.com/graphql',
+      }));
+    });
+
+    it('legacy single tab edits page default endpoint, not tab override (Phase 6 PT-6)', () => {
+      setupTabs();
+      const setEndpoint = vi.fn();
+      const updateActiveTabEndpoint = vi.fn();
+      mocks.useGqlStudioTabs.mockReturnValue({
+        ...mocks.useGqlStudioTabs(),
+        tabs: [mocks.makeActiveTab()],
+        activeTabId: 'tab-1',
+        activeTab: mocks.makeActiveTab(),
+        resolvedTabEndpoint: 'https://api.example.com/graphql',
+        hasActiveTabEndpointOverride: false,
+        updateActiveTabEndpoint,
+        clearActiveTabEndpoint: vi.fn(),
+      });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', setEndpoint });
+      renderPage();
+      const onChange = mocks.captured.connectionBar?.onEndpointChange as (url: string) => void;
+      onChange('https://new.example.com/graphql');
+      expect(setEndpoint).toHaveBeenCalledWith('https://new.example.com/graphql');
+      expect(updateActiveTabEndpoint).not.toHaveBeenCalled();
+    });
+
+    it('multi-tab session edits active tab endpoint override (Phase 6 PT-6)', () => {
+      const tab1 = mocks.makeActiveTab({ id: 'tab-1' });
+      const tab2 = mocks.makeActiveTab({ id: 'tab-2' });
+      const setEndpoint = vi.fn();
+      const updateActiveTabEndpoint = vi.fn();
+      mocks.useGqlStudioTabs.mockReturnValue({
+        tabs: [tab1, tab2],
+        activeTabId: 'tab-1',
+        activeTab: tab1,
+        operations: ['MyQuery'],
+        selectedOperation: 'MyQuery',
+        confirmingCloseTabId: null,
+        closeActiveTabRef: { current: vi.fn() },
+        executingRef: mocks.executingRef,
+        addTab: vi.fn(),
+        handleTabClick: vi.fn(),
+        closeTab: vi.fn(),
+        renameTab: vi.fn(),
+        updateActiveTab: vi.fn(),
+        updateActiveTabEndpoint,
+        clearActiveTabEndpoint: vi.fn(),
+        resolvedTabEndpoint: 'https://api.example.com/graphql',
+        hasActiveTabEndpointOverride: false,
+        handleSelectOperation: vi.fn(),
+        handleQueryChange: vi.fn(),
+        handleVariablesChange: vi.fn(),
+        handleHeadersChange: vi.fn(),
+        handleAssertionsChange: vi.fn(),
+        handleSubscriptionTransportChange: vi.fn(),
+      });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', setEndpoint });
+      renderPage();
+      const onChange = mocks.captured.connectionBar?.onEndpointChange as (url: string) => void;
+      onChange('https://staging.example.com/graphql');
+      expect(updateActiveTabEndpoint).toHaveBeenCalledWith('https://staging.example.com/graphql');
+      expect(setEndpoint).not.toHaveBeenCalled();
+    });
+
     it('passes explicit endpoint protocol status to connection bar', () => {
       renderPage({
         selectedEnvId: 'e1',
@@ -955,24 +1589,24 @@ describe('GraphqlStudioPage', () => {
     it('uses valid localStorage integer clamped to 10-500', () => {
       localStorage.setItem('gql_history_max_items', '250');
       renderPage();
-      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('conn-1', 250);
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('https://api.example.com/graphql', 250);
     });
 
     it('falls back to 100 for invalid localStorage value', () => {
       localStorage.setItem('gql_history_max_items', 'not-a-number');
       renderPage();
-      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('conn-1', 100);
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('https://api.example.com/graphql', 100);
     });
 
     it('falls back to 100 when localStorage is null', () => {
       renderPage();
-      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('conn-1', 100);
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('https://api.example.com/graphql', 100);
     });
 
     it('clamps values below 10 up to 10', () => {
       localStorage.setItem('gql_history_max_items', '3');
       renderPage();
-      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('conn-1', 10);
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('https://api.example.com/graphql', 10);
     });
   });
 
@@ -987,22 +1621,48 @@ describe('GraphqlStudioPage', () => {
     });
   });
 
-  describe('uploadProgress effect (L163)', () => {
-    it('clears upload progress when execution stops', () => {
-      setupExecution({ status: 'loading' });
-      const { rerender } = renderPage();
+  describe('Phase 6D-6 upload progress', () => {
+    it('clears upload progress when execution completes', () => {
+      setupExecution({ status: 'idle' });
+      renderPage();
       fireEvent.click(screen.getByTestId('gql-mock-set-files'));
       clickExecute();
+      expect(mocks.setTabUploadProgress).toHaveBeenCalledWith('tab-1', 0);
+      mocks.cacheExecutionResult('tab-1', 'success', {
+        data: { ok: true },
+        latencyMs: 10,
+        timestamp: 1,
+        httpStatus: 200,
+      });
+      expect(mocks.responseCache.get('tab-1')?.uploadProgress).toBeUndefined();
+    });
+
+    it('restores cached upload progress for the active tab after tab switch', () => {
+      mocks.responseCache.set('tab-1', {
+        status: 'loading',
+        response: null,
+        uploadProgress: 55,
+      });
+      setupExecution({ status: 'idle' });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.uploadProgress).toBe(55);
+    });
+
+    it('clears upload progress when user cancels execution', () => {
       setupExecution({ status: 'loading' });
-      rerender(<GraphqlStudioPage />);
-      setupExecution({ status: 'success' });
-      rerender(<GraphqlStudioPage />);
-      expect(mocks.captured.bottomPanel?.uploadProgress).toBeNull();
+      renderPage();
+      mocks.responseCache.set('tab-1', {
+        status: 'loading',
+        response: null,
+        uploadProgress: 60,
+      });
+      fireEvent.click(screen.getByTestId('gql-mock-cancel'));
+      expect(mocks.setTabUploadProgress).toHaveBeenCalledWith('tab-1', null);
     });
   });
 
-  describe('history auto-save effect (L167-184)', () => {
-    it('saves history when execStatus transitions loading → success', async () => {
+  describe('history auto-save on execution completed (Phase 6)', () => {
+    it('saves history when execute invokes onExecutionCompleted', async () => {
       const saveHistory = vi.fn().mockResolvedValue(undefined);
       mocks.useGraphqlHistory.mockReturnValue({
         items: [],
@@ -1014,25 +1674,56 @@ describe('GraphqlStudioPage', () => {
         loading: false,
       });
       setupTabs({ label: 'MyLabel', query: 'query { x }' });
-      setupExecution({
-        status: 'loading',
-        response: { data: { x: 1 }, errors: [], httpStatus: 200, latencyMs: 10 },
+      const response = { data: { x: 1 }, errors: [], httpStatus: 200, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        sourceTabId?: string;
+        onExecutionStarted?: (id: string) => void;
+        onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionStarted?.('tab-1');
+        params.onExecutionCompleted?.('tab-1', 'success', response, null);
       });
-      const { rerender } = renderPage();
-      setupExecution({
-        status: 'success',
-        response: { data: { x: 1 }, errors: [], httpStatus: 200, latencyMs: 10 },
-      });
-      rerender(<GraphqlStudioPage />);
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
       await waitFor(() => {
         expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
-          connectionId: 'conn-1',
+          connectionId: 'https://api.example.com/graphql',
           operation: expect.objectContaining({ query: 'query { x }' }),
         }));
       });
     });
 
-    it('does not save when transition is not from loading', () => {
+    it('saves history with per-tab resolved endpoint (Phase 6)', async () => {
+      const saveHistory = vi.fn().mockResolvedValue(undefined);
+      mocks.useGraphqlHistory.mockReturnValue({
+        items: [],
+        recentItems: [],
+        saveHistory,
+        deleteItem: vi.fn(),
+        clearAll: vi.fn(),
+        search: vi.fn(() => []),
+        loading: false,
+      });
+      setupTabs({ endpoint: 'https://staging.example.com/graphql' });
+      setupConnection({ endpoint: 'https://api.example.com/graphql', historyConnectionId: 'conn-1' });
+      const response = { data: { x: 1 }, httpStatus: 200, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionCompleted?.('tab-1', 'success', response, null);
+      });
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
+      await waitFor(() => {
+        expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
+          connectionId: 'https://staging.example.com/graphql',
+        }));
+      });
+    });
+
+    it('does not save history until execution completion callback runs', () => {
       const saveHistory = vi.fn();
       mocks.useGraphqlHistory.mockReturnValue({
         items: [],
@@ -1481,19 +2172,22 @@ describe('GraphqlStudioPage', () => {
         onUploadProgress: expect.any(Function),
       }));
       const call = execute.mock.calls[0]?.[0] as { onUploadProgress?: (l: number, t: number) => void };
-      mocks.executingRef.current = true;
+      mocks.tabExecutionStates.set('tab-1', { status: 'loading', response: null });
+      setupExecution({ status: 'loading' });
       act(() => { call.onUploadProgress?.(50, 100); });
+      expect(mocks.setTabUploadProgress).toHaveBeenCalledWith('tab-1', 50);
     });
 
-    it('skips upload progress update when not executing', () => {
+    it('skips upload progress update when upload tab is not executing', () => {
       const execute = vi.fn();
-      setupExecution({ execute });
+      setupExecution({ execute, status: 'idle' });
       renderPage();
       fireEvent.click(screen.getByTestId('gql-mock-set-files'));
       clickExecute();
       const call = execute.mock.calls[0]?.[0] as { onUploadProgress?: (l: number, t: number) => void };
-      mocks.executingRef.current = false;
+      mocks.setTabUploadProgress.mockClear();
       act(() => { call.onUploadProgress?.(50, 100); });
+      expect(mocks.setTabUploadProgress).not.toHaveBeenCalled();
     });
   });
 
@@ -1570,6 +2264,15 @@ describe('GraphqlStudioPage', () => {
       expect(screen.getByTestId('gql-history-panel-mock')).toBeInTheDocument();
     });
 
+    it('shows resizable divider between activity sidebar and workspace', () => {
+      mocks.loadPersistedActivityTab.mockReturnValue('history');
+      renderPage();
+      const divider = screen.getByTestId('gql-activity-pane-divider');
+      expect(divider).toBeInTheDocument();
+      expect(divider).toHaveAttribute('role', 'separator');
+      expect(divider).toHaveAttribute('aria-orientation', 'vertical');
+    });
+
     it('shows mock panel when activity tab is mock', () => {
       mocks.loadPersistedActivityTab.mockReturnValue('mock');
       renderPage();
@@ -1639,13 +2342,20 @@ describe('GraphqlStudioPage', () => {
       expect(screen.getByTestId('gql-prettify-btn')).toHaveClass('gql-prettify-btn--error');
     });
 
-    it('shows dedup banner and resolves choices', () => {
-      setupExecution({ isDuplicate: true, resolveDedupChoice: vi.fn() });
+    it('shows dedup banner on the tab that triggered duplicate detection (Phase 6A)', () => {
+      setupExecution({ isDuplicate: true, duplicateSourceTabId: 'tab-1', resolveDedupChoice: vi.fn() });
       renderPage();
+      expect(screen.getByTestId('gql-dedup-banner-mock')).toBeInTheDocument();
       fireEvent.click(screen.getByTestId('dedup-wait'));
       fireEvent.click(screen.getByTestId('dedup-cancel'));
       fireEvent.click(screen.getByTestId('dedup-send'));
       expect(mocks.useGraphqlExecution().resolveDedupChoice).toHaveBeenCalled();
+    });
+
+    it('hides dedup banner when duplicate was triggered on another tab (Phase 6A)', () => {
+      setupExecution({ isDuplicate: true, duplicateSourceTabId: 'tab-other', resolveDedupChoice: vi.fn() });
+      renderPage();
+      expect(screen.queryByTestId('gql-dedup-banner-mock')).not.toBeInTheDocument();
     });
 
     it('shows batch results overlay and dismisses', () => {
@@ -1726,10 +2436,14 @@ describe('GraphqlStudioPage', () => {
       expect(setBatchUnsupportedToast).toHaveBeenCalledWith(false);
     });
 
-    it('hides skip TLS handler on Tauri', () => {
+    it('passes skip TLS handler on Tauri (routes through Node proxy)', async () => {
+      const storage = await import('../../shared/utils/storage');
+      const readKeySpy = vi.spyOn(storage, 'readKey').mockResolvedValue(null);
       mocks.isTauri.mockReturnValue(true);
       renderPage();
-      expect(mocks.captured.connectionBar?.onSkipTlsVerifyChange).toBeUndefined();
+      expect(mocks.captured.connectionBar?.onSkipTlsVerifyChange).toBeTypeOf('function');
+      readKeySpy.mockRestore();
+      mocks.isTauri.mockReturnValue(false);
     });
 
     it('passes subscription log to right pane when subscription active', () => {
@@ -1761,15 +2475,18 @@ describe('GraphqlStudioPage', () => {
     it('invokes useGqlStudioTabs lifecycle callbacks from hook options', () => {
       renderPage();
       const args = mocks.captured.gqlStudioTabsArgs[0]?.[0] as {
-        onCancelExecution: () => void;
+        onCancelExecution: (tabId: string) => void;
         onClearFileEntries: () => void;
         onResetSubscription: () => void;
+        pageDefaultEndpoint: string;
       };
       expect(args).toBeTruthy();
-      args.onCancelExecution();
+      expect(args.pageDefaultEndpoint).toBe('https://api.example.com/graphql');
+      args.onCancelExecution('tab-1');
       args.onClearFileEntries();
       args.onResetSubscription();
-      expect(mocks.useGraphqlExecution().cancel).toHaveBeenCalled();
+      expect(mocks.setTabUploadProgress).toHaveBeenCalledWith('tab-1', null);
+      expect(mocks.cancelTabMock).toHaveBeenCalledWith('tab-1');
       expect(mocks.useGraphqlSubscription().reset).toHaveBeenCalled();
     });
 
@@ -1844,24 +2561,27 @@ describe('GraphqlStudioPage', () => {
       const setEnvModalOpen = vi.fn();
       const saveProfile = vi.fn();
       const deleteProfile = vi.fn();
-      const setEndpoint = vi.fn();
-      const handleAuthChange = vi.fn();
+      const applyProfileToActiveTab = vi.fn();
+      const clearConnectionIdsForProfile = vi.fn();
       setupConnection({
         setProfileModalOpen,
         setEnvModalOpen,
         saveProfile,
         deleteProfile,
-        setEndpoint,
-        handleAuthChange,
         endpoint: 'https://api.example.com/graphql',
         auth: { type: 'none' },
+      });
+      setupTabs();
+      mocks.useGqlStudioTabs.mockReturnValue({
+        ...mocks.useGqlStudioTabs(),
+        applyProfileToActiveTab,
+        clearConnectionIdsForProfile,
       });
       renderPage();
       fireEvent.click(screen.getByTestId('modal-profile-close'));
       fireEvent.click(screen.getByTestId('modal-save-profile'));
       fireEvent.click(screen.getByTestId('modal-delete-profile'));
-      fireEvent.click(screen.getByTestId('modal-set-endpoint'));
-      fireEvent.click(screen.getByTestId('modal-auth-change'));
+      fireEvent.click(screen.getByTestId('modal-apply-profile'));
       fireEvent.click(screen.getByTestId('modal-env-close'));
       fireEvent.click(screen.getByTestId('modal-create-env'));
       fireEvent.click(screen.getByTestId('modal-delete-env'));
@@ -1872,6 +2592,7 @@ describe('GraphqlStudioPage', () => {
       fireEvent.click(screen.getByTestId('modal-export-env'));
       expect(setProfileModalOpen).toHaveBeenCalledWith(false);
       expect(saveProfile).toHaveBeenCalled();
+      expect(applyProfileToActiveTab).toHaveBeenCalled();
     });
 
     it('closes advanced settings panel', () => {
@@ -2022,7 +2743,7 @@ describe('GraphqlStudioPage', () => {
       expect(execute).toHaveBeenCalledWith(expect.objectContaining({ operationType: 'mutation' }));
     });
 
-    it('saves history on loading to error transition', async () => {
+    it('saves history on error completion callback', async () => {
       const saveHistory = vi.fn().mockResolvedValue(undefined);
       mocks.useGraphqlHistory.mockReturnValue({
         items: [],
@@ -2034,16 +2755,15 @@ describe('GraphqlStudioPage', () => {
         loading: false,
       });
       setupTabs({ selectedOperation: 'NamedOp', label: 'CustomLabel' });
-      setupExecution({
-        status: 'loading',
-        response: { data: {}, httpStatus: 500 },
+      const response = { data: null, errors: [{ message: 'fail' }], httpStatus: 500, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        onExecutionCompleted?: (tabId: string, status: 'error', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionCompleted?.('tab-1', 'error', response, null);
       });
-      const { rerender } = renderPage();
-      setupExecution({
-        status: 'error',
-        response: { data: {}, httpStatus: 500 },
-      });
-      rerender(<GraphqlStudioPage />);
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
       await waitFor(() => expect(saveHistory).toHaveBeenCalled());
     });
 
@@ -2124,10 +2844,15 @@ describe('GraphqlStudioPage', () => {
         loading: false,
       });
       setupConnection({ historyConnectionId: null });
-      setupExecution({ status: 'loading', response: { data: {} } });
-      const { rerender } = renderPage();
-      setupExecution({ status: 'success', response: { data: {} } });
-      rerender(<GraphqlStudioPage />);
+      const response = { data: { ok: true }, httpStatus: 200, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionCompleted?.('tab-1', 'success', response, null);
+      });
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
       await waitFor(() => {
         expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
           connectionId: 'https://api.example.com/graphql',
@@ -2191,10 +2916,15 @@ describe('GraphqlStudioPage', () => {
         loading: false,
       });
       setupTabs({ selectedOperation: null, label: 'My Saved Tab' });
-      setupExecution({ status: 'loading', response: { data: {} } });
-      const { rerender } = renderPage();
-      setupExecution({ status: 'success', response: { data: {} } });
-      rerender(<GraphqlStudioPage />);
+      const response = { data: { ok: true }, httpStatus: 200, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionCompleted?.('tab-1', 'success', response, null);
+      });
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
       await waitFor(() => {
         expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
           operation: expect.objectContaining({ name: 'My Saved Tab' }),
@@ -2231,16 +2961,23 @@ describe('GraphqlStudioPage', () => {
     });
 
     it('handles localStorage read failure for historyMaxItems', () => {
-      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('quota'); });
+      const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
+        if (key === 'gql_history_max_items') throw new Error('quota');
+        return null;
+      });
       renderPage();
-      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('conn-1', 100);
+      expect(mocks.useGraphqlHistory).toHaveBeenCalledWith('https://api.example.com/graphql', 100);
+      getItemSpy.mockRestore();
     });
 
     it('handles localStorage write failure in handleHistoryMaxItemsChange', () => {
       mocks.loadPersistedActivityTab.mockReturnValue('history');
-      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key: string) => {
+        if (key === 'gql_history_max_items') throw new Error('quota');
+      });
       renderPage();
       fireEvent.click(screen.getByTestId('gql-mock-history-max'));
+      setItemSpy.mockRestore();
     });
 
     it('skips upload progress update when loaded is zero', () => {
@@ -2250,7 +2987,8 @@ describe('GraphqlStudioPage', () => {
       fireEvent.click(screen.getByTestId('gql-mock-set-files'));
       clickExecute();
       const call = execute.mock.calls[0]?.[0] as { onUploadProgress?: (l: number, t: number) => void };
-      mocks.executingRef.current = true;
+      mocks.tabExecutionStates.set('tab-1', { status: 'loading', response: null });
+      setupExecution({ status: 'loading' });
       act(() => { call.onUploadProgress?.(0, 100); });
     });
 
@@ -2410,10 +3148,15 @@ describe('GraphqlStudioPage', () => {
       });
       setupConnection({ endpoint: '' });
       setupTabs({ query: 'query { x }' });
-      setupExecution({ status: 'loading', response: { data: {} } });
-      const { rerender } = renderPage();
-      setupExecution({ status: 'success', response: { data: {} } });
-      rerender(<GraphqlStudioPage />);
+      const response = { data: { ok: true }, httpStatus: 200, latencyMs: 10 };
+      const execute = vi.fn((params: {
+        onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
+      }) => {
+        params.onExecutionCompleted?.('tab-1', 'success', response, null);
+      });
+      setupExecution({ execute });
+      renderPage();
+      clickExecute();
       expect(saveHistory).not.toHaveBeenCalled();
     });
 

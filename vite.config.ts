@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
+import { isLoopbackUrl, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
 
 const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
@@ -84,6 +85,9 @@ function proxyPlugin(): Plugin {
           body?: string;
           /** When true, TLS certificate validation is skipped (self-signed / dev endpoints) */
           skipTlsVerify?: boolean;
+          caCert?: string;
+          clientCert?: string;
+          clientKey?: string;
         };
         try {
           payload = JSON.parse(rawBody);
@@ -94,6 +98,7 @@ function proxyPlugin(): Plugin {
         }
 
         try {
+          payload.url = resolveLoopbackUrl(payload.url);
           payload.headers['Connection'] = 'keep-alive';
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
@@ -103,17 +108,29 @@ function proxyPlugin(): Plugin {
             fetchOpts.body = payload.body;
           }
 
-          // TLS skip: create a one-off insecure Agent instead of the pooled dispatcher.
-          // skipTlsVerify is only honoured for https:// targets where it matters.
+          // TLS: create a one-off Agent when skip-cert, CA, or mTLS client creds are set.
           let isProxy = false;
-          if (payload.skipTlsVerify && payload.url.startsWith('https://')) {
+          const loopback = isLoopbackUrl(payload.url);
+          const hasCustomTls =
+            (payload.skipTlsVerify && payload.url.startsWith('https://')) ||
+            !!payload.caCert?.trim() ||
+            !!payload.clientCert?.trim() ||
+            !!payload.clientKey?.trim();
+          if (hasCustomTls && payload.url.startsWith('https://')) {
             try {
               const { Agent } = await import('undici');
-              fetchOpts.dispatcher = new Agent({
-                connect: { rejectUnauthorized: false },
-              });
+              const connect: Record<string, unknown> = {};
+              if (payload.skipTlsVerify) {
+                connect.rejectUnauthorized = false;
+              } else if (loopback && !payload.caCert?.trim()) {
+                connect.rejectUnauthorized = false;
+              }
+              if (payload.caCert?.trim()) connect.ca = payload.caCert;
+              if (payload.clientCert?.trim()) connect.cert = payload.clientCert;
+              if (payload.clientKey?.trim()) connect.key = payload.clientKey;
+              fetchOpts.dispatcher = new Agent({ connect });
             } catch { /* undici unavailable — fall through to global default */ }
-          } else {
+          } else if (!loopback) {
             const dispatched = await getDispatcher();
             if (dispatched.dispatcher) fetchOpts.dispatcher = dispatched.dispatcher;
             isProxy = dispatched.isProxy;

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams } from './authUtils';
+import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams, stampAuthHeaders } from './authUtils';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 
 // ─── buildAuthHeaders ─────────────────────────────────────────────────────────
@@ -62,6 +62,43 @@ describe('buildAuthHeaders', () => {
     expect(buildAuthHeaders({ type: 'oauth2' })).toEqual({});
     expect(buildAuthHeaders({ type: 'custom' })).toEqual({});
   });
+
+  it('resolves inherit auth from global profile', () => {
+    const profiles = [
+      { id: 'p1', name: 'Corp', auth: { type: 'bearer' as const, token: 'from-profile' } },
+    ];
+    const headers = buildAuthHeaders({ type: 'inherit', globalProfileId: 'p1' }, profiles);
+    expect(headers).toEqual({ Authorization: 'Bearer from-profile' });
+  });
+
+  it('returns empty for inherit without profile binding', () => {
+    expect(buildAuthHeaders({ type: 'inherit' }, [])).toEqual({});
+  });
+});
+
+describe('stampAuthHeaders (Phase 6F)', () => {
+  it('overwrites stale Authorization with profile-scoped auth', () => {
+    const result = stampAuthHeaders(
+      { Authorization: 'Bearer stale', 'X-Custom': 'keep' },
+      { type: 'bearer', token: 'profile-token' },
+    );
+    expect(result).toEqual({
+      Authorization: 'Bearer profile-token',
+      'X-Custom': 'keep',
+    });
+  });
+
+  it('returns auth headers when existing map is undefined', () => {
+    expect(stampAuthHeaders(undefined, { type: 'bearer', token: 't' })).toEqual({
+      Authorization: 'Bearer t',
+    });
+  });
+
+  it('passes headers through unchanged when auth is null', () => {
+    expect(stampAuthHeaders({ Authorization: 'Bearer keep' }, null)).toEqual({
+      Authorization: 'Bearer keep',
+    });
+  });
 });
 
 // ─── authBadgeLabel ───────────────────────────────────────────────────────────
@@ -82,6 +119,17 @@ describe('authBadgeLabel', () => {
 
   it.each(cases)('returns %s label for %s auth type', (type, expected) => {
     expect(authBadgeLabel({ type })).toBe(expected);
+  });
+
+  it('returns Inherit label for inherit type', () => {
+    expect(authBadgeLabel({ type: 'inherit' })).toBe('Inherit');
+  });
+
+  it('returns Inherit (name) when profile is bound', () => {
+    const profiles = [{ id: 'p1', name: 'Staging', auth: { type: 'bearer' as const, token: 't' } }];
+    expect(authBadgeLabel({ type: 'inherit', globalProfileId: 'p1' }, profiles)).toBe(
+      'Inherit (Staging)',
+    );
   });
 });
 
@@ -124,6 +172,11 @@ describe('isAuthConfigured', () => {
   it('returns true for oauth2 and custom (user explicitly chose a type)', () => {
     expect(isAuthConfigured({ type: 'oauth2' })).toBe(true);
     expect(isAuthConfigured({ type: 'custom' })).toBe(true);
+  });
+
+  it('returns true for inherit when profiles exist or profile id is set', () => {
+    expect(isAuthConfigured({ type: 'inherit' }, [{ id: 'p1', name: 'X', auth: { type: 'none' } }])).toBe(true);
+    expect(isAuthConfigured({ type: 'inherit', globalProfileId: 'p1' })).toBe(true);
   });
 });
 

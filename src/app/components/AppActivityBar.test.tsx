@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import AppActivityBar from './AppActivityBar';
-import type { Tab } from '../utils/appTabUtils';
+import { type Tab, setLastProtocolsTab, PROTOCOLS_DEFAULT_TAB } from '../utils/appTabUtils';
 
 afterEach(() => cleanup());
+
+beforeEach(() => {
+  setLastProtocolsTab(PROTOCOLS_DEFAULT_TAB);
+});
 
 function renderBar(activeTab: Tab) {
   const setActiveTab = vi.fn();
@@ -90,5 +94,12 @@ describe('AppActivityBar', () => {
     const { setActiveTab } = renderBar('requests');
     fireEvent.click(screen.getByTitle('Demo Hub'));
     expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
+  });
+
+  it('routes to last protocols sub-tab when clicking Protocols from another domain', () => {
+    setLastProtocolsTab('graphql-studio');
+    const { setActiveTab } = renderBar('demo-hub');
+    fireEvent.click(screen.getByTitle('Protocols'));
+    expect(setActiveTab).toHaveBeenCalledWith('graphql-studio');
   });
 });

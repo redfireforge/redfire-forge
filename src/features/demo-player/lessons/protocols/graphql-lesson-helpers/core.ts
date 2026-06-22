@@ -1,6 +1,12 @@
 /** Shared helpers for GraphQL Studio demo lessons (Monaco fill, preAction guards). */
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
+import {
+  ensureGqlDemoHeaderContext,
+  navigateToGraphqlStudio,
+} from '../../env-manager-lesson-helpers';
+import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 /** HTTP GraphQL endpoint for the Docker test server (port 4010). */
 export const GQL_DEMO_HTTP = 'http://localhost:4010/graphql';
@@ -49,6 +55,7 @@ export function resetGqlLesson2SessionFlags(): void {
   _paramQueryWritten = false;
   _varAExecuted = false;
   _varBExecuted = false;
+  resetLesson2VariablesHistoryFlags();
 }
 
 export function getDemoUserAId(): string {
@@ -59,18 +66,82 @@ export function getDemoUserBId(): string {
   return _userBId;
 }
 
+/** Options for preAction execute guards — history steps must not refocus the Response pane. */
+export interface GqlExecuteGuardOpts {
+  /** When true, skip Response tab clicks and avoid re-opening Variables (for History sidebar steps). */
+  skipResponseFocus?: boolean;
+}
+
+/** True after Alice and Bob GetUser runs completed in the studio (Lesson 2). */
+export function areLesson2StudioExecutionsDone(): boolean {
+  return _varAExecuted && _varBExecuted;
+}
+
 export function getEndpointInput(): HTMLInputElement | null {
   return document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT);
 }
 
-function endpointMatchesDemo(): boolean {
-  const input = getEndpointInput();
-  const v = (input?.value ?? '').trim();
-  return v === GQL_DEMO_HTTP || v === GQL_DEMO_VAR;
+/** Fill the connection bar endpoint and blur so React persists the value on the active tab. */
+export async function fillActiveTabEndpoint(ctx: DemoActionContext, url: string): Promise<void> {
+  await ctx.fill(GQL.ENDPOINT_INPUT, url);
+  getEndpointInput()?.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  await ctx.delay(400);
+}
+
+/**
+ * Clear per-tab endpoint override on the active tab (reset → inherit page default).
+ * No-op when the reset control is absent (single-tab page-default mode).
+ */
+export async function clearActiveTabEndpointOverride(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.ENDPOINT_RESET_BTN)) return;
+  await ctx.click(GQL.ENDPOINT_RESET_BTN);
+  await ctx.delay(400);
+}
+
+/**
+ * Demo tab should use page `{{graphqlUrl}}` without storing a per-tab override
+ * (required when the user already has tabs open — §11.0).
+ */
+export async function configureDemoTabInheritPageDefault(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  const v = (getEndpointInput()?.value ?? '').trim();
+  if (v !== GQL_DEMO_VAR) {
+    await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
+  }
+  await clearActiveTabEndpointOverride(ctx);
+}
+
+/** Demo tab explicit per-tab URL override (mutations server, mock, TLS, schema literal URL). */
+export async function configureDemoTabEndpointOverride(
+  ctx: DemoActionContext,
+  url: string,
+): Promise<void> {
+  await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  const trimmed = url.trim();
+  if ((getEndpointInput()?.value ?? '').trim() !== trimmed) {
+    await fillActiveTabEndpoint(ctx, trimmed);
+  }
 }
 
 function hasSchemaBadge(): boolean {
   return !!document.querySelector(GQL.SCHEMA_BADGE_OK);
+}
+
+/** True when the schema badge shows a zero-type count — stale or failed introspection. */
+export function schemaBadgeShowsEmpty(): boolean {
+  const badge = document.querySelector(GQL.SCHEMA_BADGE_OK);
+  if (!badge) return false;
+  return /\(\s*0\s*\)/.test(badge.textContent ?? '');
+}
+
+/** True when the schema badge is present and reports a non-empty type count. */
+export function hasUsableSchemaBadge(): boolean {
+  return hasSchemaBadge() && !schemaBadgeShowsEmpty();
+}
+
+/** True when the Schema Explorer type list includes the root Query type. */
+function schemaExplorerShowsQueryType(): boolean {
+  return !!document.querySelector(GQL.SCHEMA_TYPE_QUERY);
 }
 
 type MonacoGqlModel = { uri: { toString(): string }; getValue(): string; setValue(v: string): void };
@@ -233,28 +304,114 @@ export async function ensureParamUserQuery(ctx: DemoActionContext): Promise<void
   _paramQueryWritten = true;
 }
 
-/** Ensure the query was executed with Alice's `$id` and the response shows her name. */
-export async function ensureExecutedWithAlice(ctx: DemoActionContext): Promise<void> {
-  await ensureParamUserQuery(ctx);
-  if (_varAExecuted && responseBodyText().includes('Alice')) return;
-  await fillGqlVariables(ctx, varsJsonForUser(_userAId), { focus: false });
+/** Open the Response pane and switch to the Body sub-tab. */
+export async function openResponseBodyTab(ctx: DemoActionContext): Promise<void> {
   await ctx.click(GQL.RIGHT_TAB_RESPONSE);
   await ctx.delay(200);
+  const bodyTab = document.querySelector<HTMLElement>(GQL.RV_TAB_BODY);
+  if (bodyTab && bodyTab.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(GQL.RV_TAB_BODY);
+    await ctx.delay(200);
+  }
+  scrollResponseBodyToTop();
+}
+
+/** Scroll the response Body JSON pane back to the top so `data.*` is visible. */
+export function scrollResponseBodyToTop(): void {
+  const scroll = document.querySelector<HTMLElement>('[data-testid="gql-rv-json-scroll"]');
+  if (scroll) scroll.scrollTop = 0;
+}
+
+/** Ensure the Response pane is open and the compact data.createUser card is visible. */
+export async function ensureResponseCreateUserVisible(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+  await ctx.waitFor(GQL.RESPONSE_DATA_CREATE_USER, 10000);
+}
+
+/** Ensure the Response pane is open and the compact data.user card is visible. */
+export async function ensureResponseDataUserVisible(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+  await ctx.waitFor(GQL.RESPONSE_DATA_USER, 10000);
+}
+
+/** Ensure the query was executed with Alice's `$id` and the response shows her name. */
+export async function ensureExecutedWithAlice(
+  ctx: DemoActionContext,
+  opts?: GqlExecuteGuardOpts,
+): Promise<void> {
+  await ensureParamUserQuery(ctx);
+  if (_varAExecuted && responseBodyText().includes('Alice')) {
+    if (!opts?.skipResponseFocus) {
+      await ensureResponseDataUserVisible(ctx);
+    }
+    return;
+  }
+  const varOpts = opts?.skipResponseFocus
+    ? { focus: false as const, openPanel: false as const }
+    : { focus: false as const };
+  await fillGqlVariables(ctx, varsJsonForUser(_userAId), varOpts);
+  if (!opts?.skipResponseFocus) {
+    await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+    await ctx.delay(200);
+  }
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  if (!opts?.skipResponseFocus) {
+    await ctx.waitFor(GQL.RESPONSE_DATA_USER, 8000);
+  }
   await ctx.delay(500);
   _varAExecuted = true;
 }
 
 /** Ensure the query was re-executed with Bob's `$id` and the response shows his name. */
-export async function ensureExecutedWithBob(ctx: DemoActionContext): Promise<void> {
-  await ensureExecutedWithAlice(ctx);
-  if (_varBExecuted && responseBodyText().includes('Bob')) return;
-  await fillGqlVariables(ctx, varsJsonForUser(_userBId), { focus: false });
+export async function ensureExecutedWithBob(
+  ctx: DemoActionContext,
+  opts?: GqlExecuteGuardOpts,
+): Promise<void> {
+  await ensureExecutedWithAlice(ctx, opts);
+  if (_varBExecuted && responseBodyText().includes('Bob')) {
+    if (!opts?.skipResponseFocus) {
+      await ensureResponseDataUserVisible(ctx);
+    }
+    return;
+  }
+  const varOpts = opts?.skipResponseFocus
+    ? { focus: false as const, openPanel: false as const }
+    : { focus: false as const };
+  await fillGqlVariables(ctx, varsJsonForUser(_userBId), varOpts);
+  if (!opts?.skipResponseFocus) {
+    await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+    await ctx.delay(200);
+  }
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  if (!opts?.skipResponseFocus) {
+    await ctx.waitFor(GQL.RESPONSE_DATA_USER, 8000);
+  }
   await ctx.delay(500);
   _varBExecuted = true;
+}
+
+/** Ensure the Variables panel holds Alice's `$id` JSON (Lesson 2 — set-vars step guard). */
+export async function ensureAliceVarsFilled(ctx: DemoActionContext): Promise<void> {
+  await ensureParamUserQuery(ctx);
+  await ensureVariablesPanelOpen(ctx);
+  await seedDemoUsers();
+  if (_userAId && getGqlVariablesJson().includes(_userAId)) return;
+  await fillGqlVariables(ctx, varsJsonForUser(_userAId), { focus: false, openPanel: false });
+  await ctx.delay(400);
+}
+
+/** Ensure the Variables panel holds Bob's `$id` JSON (Lesson 2 — set-vars step guard). */
+export async function ensureBobVarsFilled(ctx: DemoActionContext): Promise<void> {
+  await ensureExecutedWithAlice(ctx);
+  await ensureVariablesPanelOpen(ctx);
+  await seedDemoUsers();
+  if (_userBId && getGqlVariablesJson().includes(_userBId)) return;
+  await fillGqlVariables(ctx, varsJsonForUser(_userBId), { focus: false, openPanel: false });
+  await ctx.delay(400);
 }
 
 /** Read the active GraphQL query from the Monaco model (empty string if unavailable). */
@@ -292,27 +449,70 @@ export async function fillGqlEditor(
   }
 }
 
+/** True when the connection bar shows a usable GraphQL demo endpoint. */
+function demoEndpointLooksConfigured(): boolean {
+  const v = (getEndpointInput()?.value ?? '').trim();
+  return v.includes('graphqlUrl') || v.includes('4010');
+}
+
 /** Ensure the demo endpoint is filled in the connection bar. */
 export async function ensureDemoEndpoint(ctx: DemoActionContext): Promise<void> {
-  if (_endpointSet && endpointMatchesDemo()) return;
-  await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
-  if (!endpointMatchesDemo()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
-    await ctx.delay(300);
+  await ensureGqlDemoHeaderContext(ctx);
+  await navigateToGraphqlStudio(ctx);
+  if (_endpointSet && demoEndpointLooksConfigured()) return;
+  if (!demoEndpointLooksConfigured()) {
+    await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
   }
   _endpointSet = true;
 }
 
-/** Ensure schema introspection has completed (badge OK visible). */
+/** Open the Schema tab and wait until the Query type is listed. */
+export async function openSchemaExplorer(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+  await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);
+  if (!schemaExplorerShowsQueryType()) {
+    await ensureIntrospected(ctx);
+    await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+    await ctx.delay(400);
+  }
+  await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 15000);
+  await ctx.delay(400);
+}
+
+/** Ensure schema introspection completed and the Query type is browsable. */
 export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> {
   await ensureDemoEndpoint(ctx);
-  if (_schemaLoaded && hasSchemaBadge()) return;
-  if (!hasSchemaBadge()) {
+
+  const waitForQueryType = async (): Promise<boolean> => {
+    await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+    await ctx.delay(400);
+    await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 8000);
+    return schemaExplorerShowsQueryType();
+  };
+
+  if (_schemaLoaded && hasUsableSchemaBadge() && await waitForQueryType()) return;
+
+  _schemaLoaded = false;
+
+  if (!hasUsableSchemaBadge()) {
     await ctx.click(GQL.INTROSPECT_BTN);
     await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
-    await ctx.delay(500);
+    await ctx.delay(800);
   }
-  _schemaLoaded = true;
+
+  if (await waitForQueryType()) {
+    _schemaLoaded = true;
+    return;
+  }
+
+  // Badge looked OK but explorer is still empty — re-introspect against the demo endpoint.
+  await ctx.click(GQL.INTROSPECT_BTN);
+  await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+  await ctx.delay(800);
+  await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+  await ctx.delay(400);
+  await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 15000);
+  _schemaLoaded = hasUsableSchemaBadge() && schemaExplorerShowsQueryType();
 }
 
 /** Ensure GraphQL editor mode is active. */
@@ -361,21 +561,17 @@ export async function gqlFirstQuerySetup(ctx: DemoActionContext): Promise<void> 
     historyBtn.click();
     await ctx.delay(200);
   }
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
+  await ensureGqlDemoTab(ctx, 'gql-first-query', 'Your First GraphQL Query');
   await fillGqlEditor(ctx, 'query { }', { focus: false });
 }
 
-/** Cleanup for Lesson 1 — reset session flags only (Docker server stays running). */
+/** Cleanup for Lesson 1 — close demo tab and reset session flags. */
 export async function gqlFirstQueryCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-first-query');
 }
 
-/** Setup for Lesson 2 — reset UI and seed Alice/Bob on the test server. */
+/** Setup for Lesson 2 — demo tab, seed Alice/Bob on the test server. */
 export async function gqlVariablesLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -393,11 +589,10 @@ export async function gqlVariablesLessonSetup(ctx: DemoActionContext): Promise<v
     historyBtn.click();
     await ctx.delay(200);
   }
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
+  await ensureGqlDemoTab(ctx, 'gql-variables', 'Variables & Arguments');
+  await configureDemoTabInheritPageDefault(ctx);
+  _endpointSet = true;
+  await ctx.delay(200);
   await fillGqlEditor(ctx, 'query { }', { focus: false });
   await fillGqlVariables(ctx, '{\n  \n}', { focus: false, openPanel: false });
   try {
@@ -407,10 +602,10 @@ export async function gqlVariablesLessonSetup(ctx: DemoActionContext): Promise<v
   }
 }
 
-/** Cleanup for Lesson 2 — reset session flags. */
+/** Cleanup for Lesson 2 — close demo tab and reset session flags. */
 export async function gqlVariablesLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-variables');
 }
 

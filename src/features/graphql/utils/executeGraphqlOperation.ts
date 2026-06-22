@@ -10,6 +10,7 @@
  */
 
 import { gqlFetch } from './gqlFetch';
+import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphql';
 
 export interface ExecuteOperationParams {
@@ -20,10 +21,12 @@ export interface ExecuteOperationParams {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   skipTlsVerify?: boolean;
+  tls?: GqlTlsSettings;
 }
 
 export async function executeGraphqlOperation(params: ExecuteOperationParams): Promise<GraphqlResponse> {
-  const { endpoint, query, variables, operationName, headers = {}, signal, skipTlsVerify } = params;
+  const { endpoint, query, variables, operationName, headers = {}, signal, skipTlsVerify, tls: tlsInput } = params;
+  const tls = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
 
   const body: Record<string, unknown> = { query };
   if (variables && Object.keys(variables).length > 0) body.variables = variables;
@@ -36,7 +39,7 @@ export async function executeGraphqlOperation(params: ExecuteOperationParams): P
   };
 
   const startTime = performance.now();
-  const result = await gqlFetch(endpoint, 'POST', requestHeaders, JSON.stringify(body), signal, skipTlsVerify);
+  const result = await gqlFetch(endpoint, 'POST', requestHeaders, JSON.stringify(body), signal, tls);
   const latencyMs = Math.round(performance.now() - startTime);
 
   const response: GraphqlResponse = {

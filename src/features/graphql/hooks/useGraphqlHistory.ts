@@ -19,6 +19,7 @@ import {
   RESPONSE_CAP_BYTES,
 } from '../../../shared/utils/idbGraphqlHistory';
 import type { GraphqlHistoryItem, GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
+import { filterHistoryItems } from '../utils/historyCompare';
 
 export const DEFAULT_MAX_ITEMS = 100;
 export const RECENT_COUNT = 5;
@@ -34,7 +35,7 @@ export interface UseGraphqlHistoryResult {
   deleteItem: (id: string) => Promise<void>;
   /** Clear all history for the current connection */
   clearAll: () => Promise<void>;
-  /** Filter items by operation name or query text (client-side, case-insensitive) */
+  /** Filter items by name, query, variables JSON, or response body (client-side, case-insensitive) */
   search: (query: string) => GraphqlHistoryItem[];
   /** True while loading initial history from IDB */
   loading: boolean;
@@ -159,13 +160,7 @@ export function useGraphqlHistory(
   }, [connectionId]);
 
   const search = useCallback((query: string): GraphqlHistoryItem[] => {
-    if (!query.trim()) return items;
-    const lower = query.toLowerCase();
-    return items.filter((item) => {
-      const opName = item.operation.name?.toLowerCase() ?? '';
-      const queryText = item.operation.query.toLowerCase();
-      return opName.includes(lower) || queryText.includes(lower);
-    });
+    return filterHistoryItems(items, query);
   }, [items]);
 
   const recentItems = useMemo(() => items.slice(0, RECENT_COUNT), [items]);

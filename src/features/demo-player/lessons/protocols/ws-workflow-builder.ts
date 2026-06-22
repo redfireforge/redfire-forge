@@ -10,6 +10,31 @@ import { WF, WFR } from '../../../../shared/selectors';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
+/** Dismiss onboarding tips when present. */
+async function dismissWorkflowOnboarding(ctx: DemoActionContext): Promise<void> {
+  const skipBtn = document.querySelector('.onboarding-tooltip-skip') as HTMLElement | null;
+  if (skipBtn) { skipBtn.click(); await ctx.delay(300); }
+}
+
+/** Quietly create "WS Echo Demo" when the canvas is missing (Rule 4 skip guard). */
+async function ensureWsEchoDemoWorkflow(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(WF.CANVAS)) return;
+  ctx.navigateToTab('workflow');
+  await ctx.delay(400);
+  await dismissWorkflowOnboarding(ctx);
+  await ctx.click(WF.SIDEBAR_NEW_BTN);
+  await ctx.waitFor('.wf-new-dropdown');
+  await ctx.delay(400);
+  await ctx.click(WF.NEW_BLANK_ITEM);
+  await ctx.waitFor(WF.CREATE_INPUT);
+  await ctx.delay(400);
+  await ctx.fill(WF.CREATE_INPUT, 'WS Echo Demo');
+  await ctx.delay(200);
+  await ctx.click(WF.CREATE_OK);
+  await ctx.waitFor(WF.CANVAS, 8000);
+  await ctx.delay(800);
+}
+
 /** Start mock server via REST API (no tab navigation needed). */
 async function workflowSetup(ctx: DemoActionContext): Promise<void> {
   // Remove any existing "WS Echo Demo" workflow so each run starts with a clean canvas
@@ -101,7 +126,7 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
   description: 'Build visual WebSocket automation workflows with drag-and-drop nodes, then run them instantly.',
   estimatedMinutes: 3,
   initialTab: 'workflow',
-  allowedTabs: ['workflow-runner'],
+  allowedTabs: ['workflow', 'workflow-runner'],
 
   setup: workflowSetup,
   cleanup: workflowCleanup,
@@ -183,17 +208,19 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Click "+ New" in the sidebar to create a blank workflow. We\'ll name it "WS Echo Demo".',
       highlight: WF.SIDEBAR_NEW_BTN,
+      preAction: ensureWsEchoDemoWorkflow,
       action: async (ctx) => {
-        // Click "+ New" button
+        if (document.querySelector(WF.CANVAS)) return;
         await ctx.click(WF.SIDEBAR_NEW_BTN);
+        await ctx.waitFor('.wf-new-dropdown');
         await ctx.delay(400);
-        // Click "Blank Workflow" in the dropdown
         await ctx.click(WF.NEW_BLANK_ITEM);
+        await ctx.waitFor(WF.CREATE_INPUT);
         await ctx.delay(400);
-        // Fill the workflow name and create
         await ctx.fill(WF.CREATE_INPUT, 'WS Echo Demo');
         await ctx.delay(200);
         await ctx.click(WF.CREATE_OK);
+        await ctx.waitFor(WF.CANVAS);
         await ctx.delay(800);
       },
       verify: WF.CANVAS,
@@ -208,9 +235,8 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
         'The palette shows all available node types. Scroll down to the Actions category — you\'ll see WS Connect, WS Send, and WS Receive. Click any node to add it to the canvas.',
       highlight: WF.PALETTE,
       preAction: async (ctx) => {
-        // Dismiss onboarding tips if present
-        const skipBtn = document.querySelector('.onboarding-tooltip-skip') as HTMLElement | null;
-        if (skipBtn) { skipBtn.click(); await ctx.delay(300); }
+        await ensureWsEchoDemoWorkflow(ctx);
+        await dismissWorkflowOnboarding(ctx);
       },
       pauseAfter: true,
     },
@@ -222,7 +248,10 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Click "WS Connect" in the palette to add a connection node, then connect it to Start. This node establishes a WebSocket connection when the workflow runs.',
       highlight: WF.PAL_WS_CONNECT,
-      preAction: async () => { scrollIntoParent(WF.PAL_WS_CONNECT); },
+      preAction: async (ctx) => {
+        await ensureWsEchoDemoWorkflow(ctx);
+        scrollIntoParent(WF.PAL_WS_CONNECT);
+      },
       action: async (ctx) => {
         scrollIntoParent(WF.PAL_WS_CONNECT);
         await ctx.click(WF.PAL_WS_CONNECT);

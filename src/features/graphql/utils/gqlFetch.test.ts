@@ -4,7 +4,7 @@
  * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { gqlFetch, gqlUpload } from './gqlFetch';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -36,6 +36,12 @@ const SUCCESS_RESPONSE = {
 describe('gqlFetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsTauri.mockReturnValue(false);
+    mockHttpFetch.mockResolvedValue(SUCCESS_RESPONSE);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
     mockIsTauri.mockReturnValue(false);
     mockHttpFetch.mockResolvedValue(SUCCESS_RESPONSE);
   });
@@ -82,10 +88,108 @@ describe('gqlFetch', () => {
 
   // ── Tauri path ───────────────────────────────────────────────────────────────
 
-  it('calls httpFetch (Tauri path) even when skipTlsVerify is true in Tauri', async () => {
+  it('routes Tauri POST with skipTlsVerify through Node /api/graphql/query proxy', async () => {
     mockIsTauri.mockReturnValue(true);
-    await gqlFetch('https://api.example.com/graphql', 'POST', {}, '{}', undefined, true);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue('{"data":{"hello":"world"}}'),
+    } as unknown as Response);
+
+    await gqlFetch('https://api.example.com/graphql', 'POST', { 'X-Auth': 'tok' }, '{"query":"{ h }"}', undefined, true);
+    expect(mockHttpFetch).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toContain('/api/graphql/query');
+    const bodyParsed = JSON.parse((init as RequestInit).body as string);
+    expect(bodyParsed.endpoint).toBe('https://api.example.com/graphql');
+    expect(bodyParsed.skipTlsVerify).toBe(true);
+    expect(bodyParsed.headers).toEqual({ 'X-Auth': 'tok' });
+
+    fetchSpy.mockRestore();
+  });
+
+  it('routes Tauri loopback POST without TLS through Node /api/graphql/query proxy', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue('{"data":{"health":"ok"}}'),
+    } as unknown as Response);
+
+    await gqlFetch('http://localhost:4010/graphql', 'POST', {}, '{"query":"{ health }"}');
+    expect(mockHttpFetch).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const bodyParsed = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(bodyParsed.endpoint).toBe('http://localhost:4010/graphql');
+    expect(bodyParsed.query).toBe('{ health }');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('does not route Tauri mock endpoint POST through /api/graphql/query proxy', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch(
+      'http://localhost:3001/api/graphql/mock',
+      'POST',
+      {},
+      '{"query":"{ health }"}',
+    );
     expect(mockHttpFetch).toHaveBeenCalledOnce();
+    expect(mockHttpFetch.mock.calls[0][0]).toBe('http://localhost:3001/api/graphql/mock');
+  });
+
+  it('routes Tauri GET with skipTlsVerify through Node APQ proxy', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch('https://api.example.com/graphql', 'GET', {}, undefined, undefined, true);
+    expect(mockHttpFetch).toHaveBeenCalledOnce();
+    const [proxyUrl] = mockHttpFetch.mock.calls[0];
+    expect(String(proxyUrl)).toContain('http://localhost:3001/api/graphql/query');
+    expect(String(proxyUrl)).toContain('skipTlsVerify=true');
+    expect(String(proxyUrl)).toContain('endpoint=https%3A%2F%2Fapi.example.com%2Fgraphql');
+  });
+
+  it('forwards APQ query-string params on Tauri GET TLS proxy', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch(
+      'https://api.example.com/graphql?query=%7Bhealth%7D&variables=%7B%7D',
+      'GET',
+      {},
+      undefined,
+      undefined,
+      true,
+    );
+    const [proxyUrl] = mockHttpFetch.mock.calls[0];
+    expect(String(proxyUrl)).toContain('query=%7Bhealth%7D');
+    expect(String(proxyUrl)).toContain('variables=%7B%7D');
+  });
+
+  it('returns error for Tauri GET with CA cert (PEM cannot ride on query string)', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const result = await gqlFetch(
+      'https://api.example.com/graphql',
+      'GET',
+      {},
+      undefined,
+      undefined,
+      { caCert: '-----BEGIN CERTIFICATE-----\nabc' },
+    );
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('POST');
+    expect(mockHttpFetch).not.toHaveBeenCalled();
+  });
+
+  it('prefixes relative /api paths with Node proxy base on Tauri', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch('/api/graphql/query?endpoint=https%3A%2F%2Fex.com', 'GET', {});
+    expect(mockHttpFetch).toHaveBeenCalledOnce();
+    expect(mockHttpFetch.mock.calls[0][0]).toBe(
+      'http://localhost:3001/api/graphql/query?endpoint=https%3A%2F%2Fex.com',
+    );
   });
 
   // ── TLS skip web path ────────────────────────────────────────────────────────
@@ -190,11 +294,134 @@ describe('gqlFetch', () => {
     expect(init.signal).toBe(ctrl.signal);
     fetchSpy.mockRestore();
   });
+
+  it('returns generic proxy error when Tauri loopback POST fetch throws non-Error', async () => {
+    mockIsTauri.mockReturnValue(true);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue('proxy-down');
+
+    const result = await gqlFetch(
+      'http://localhost:4010/graphql',
+      'POST',
+      {},
+      '{"query":"{ health }"}',
+    );
+    expect(result.error).toContain('Network error');
+    expect(result.status).toBe(0);
+  });
+
+  it('Tauri without TLS resolves relative /api/ paths through proxy base', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch('/api/graphql/query?endpoint=https%3A%2F%2Fex.com', 'GET', {}, undefined, undefined, false);
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      'http://localhost:3001/api/graphql/query?endpoint=https%3A%2F%2Fex.com',
+      'GET',
+      {},
+      undefined,
+      undefined,
+    );
+  });
+
+  it('Tauri GET APQ proxy falls through to httpFetch when URL parse fails', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch('not-a-valid-url', 'GET', {}, undefined, undefined, { skipTlsVerify: true });
+    expect(mockHttpFetch).toHaveBeenCalledWith('not-a-valid-url', 'GET', {}, undefined, undefined);
+  });
+
+  it('returns error for invalid JSON in Tauri loopback proxy POST', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const result = await gqlFetch('http://localhost:4010/graphql', 'POST', {}, 'not-json');
+    expect(result.error).toContain('Invalid JSON body');
+    expect(result.status).toBe(0);
+  });
+
+  it('returns Aborted from Tauri loopback proxy when fetch throws AbortError', async () => {
+    mockIsTauri.mockReturnValue(true);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+      Object.assign(new Error('Abort'), { name: 'AbortError' }),
+    );
+    const result = await gqlFetch('http://localhost:4010/graphql', 'POST', {}, '{"query":"{ h }"}');
+    expect(result.error).toBe('Aborted');
+  });
+
+  it('forwards variables and operationName through Tauri loopback proxy POST', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue('{}'),
+    } as unknown as Response);
+
+    await gqlFetch(
+      'http://localhost:4010/graphql',
+      'POST',
+      {},
+      JSON.stringify({ query: '{ h }', variables: { id: 1 }, operationName: 'H' }),
+    );
+    const body = JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body));
+    expect(body.variables).toEqual({ id: 1 });
+    expect(body.operationName).toBe('H');
+  });
+
+  it('returns proxy hint error when Tauri loopback POST fetch throws Error', async () => {
+    mockIsTauri.mockReturnValue(true);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('connection refused'));
+
+    const result = await gqlFetch(
+      'http://localhost:4010/graphql',
+      'POST',
+      {},
+      '{"query":"{ health }"}',
+    );
+    expect(result.error).toContain('connection refused');
+    expect(result.error).toContain('Node proxy running');
+  });
+
+  it('Tauri TLS fallback resolves /api/ paths through proxy base when POST has no body', async () => {
+    mockIsTauri.mockReturnValue(true);
+    await gqlFetch('/api/graphql/query?endpoint=https%3A%2F%2Fex.com', 'POST', {}, undefined, undefined, true);
+    expect(mockHttpFetch).toHaveBeenCalledWith(
+      'http://localhost:3001/api/graphql/query?endpoint=https%3A%2F%2Fex.com',
+      'POST',
+      {},
+      undefined,
+      undefined,
+    );
+  });
+
+  it('collects response headers from Tauri loopback proxy fetch', async () => {
+    mockIsTauri.mockReturnValue(true);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        forEach: (cb: (v: string, k: string) => void) => {
+          cb('header-val', 'x-custom');
+        },
+      },
+      text: vi.fn().mockResolvedValue('{}'),
+    } as unknown as Response);
+
+    const result = await gqlFetch('http://127.0.0.1:4010/graphql', 'POST', {}, '{"query":"{ h }"}');
+    expect(result.headers['x-custom']).toBe('header-val');
+  });
 });
 
 // ─── gqlUpload ────────────────────────────────────────────────────────────────
 
 describe('gqlUpload', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockIsTauri.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    mockIsTauri.mockReturnValue(false);
+  });
+
   it('returns aborted sentinel when signal is already aborted', async () => {
     const ctrl = new AbortController();
     ctrl.abort();
@@ -222,6 +449,90 @@ describe('gqlUpload', () => {
     expect((init.headers as Record<string, string>)['x-graphql-endpoint']).toBe('https://upstream.com/graphql');
     expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer token');
     expect(init.body).toBe(form);
+    fetchSpy.mockRestore();
+  });
+
+  it('forwards TLS config header when skipTlsVerify is set', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue('{}'),
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as unknown as Response);
+
+    await gqlUpload('https://upstream.com/graphql', new FormData(), {}, undefined, undefined, { skipTlsVerify: true });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const tlsHeader = (init.headers as Record<string, string>)['x-gql-tls-config'];
+    expect(tlsHeader).toBeTruthy();
+    const parsed = JSON.parse(atob(tlsHeader));
+    expect(parsed.skipTlsVerify).toBe(true);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('forwards full mTLS PEM fields in x-gql-tls-config header', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue('{}'),
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as unknown as Response);
+
+    await gqlUpload('https://localhost:4445/graphql', new FormData(), {}, undefined, undefined, {
+      caCert: '-----BEGIN CERTIFICATE-----\nca',
+      clientCert: '-----BEGIN CERTIFICATE-----\nclient',
+      clientKey: '-----BEGIN PRIVATE KEY-----\nkey',
+    });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const tlsHeader = (init.headers as Record<string, string>)['x-gql-tls-config'];
+    const parsed = JSON.parse(atob(tlsHeader));
+    expect(parsed.caCert).toContain('BEGIN CERTIFICATE');
+    expect(parsed.clientCert).toContain('BEGIN CERTIFICATE');
+    expect(parsed.clientKey).toContain('BEGIN PRIVATE KEY');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('uses absolute upload proxy URL on Tauri', async () => {
+    mockIsTauri.mockReturnValue(true);
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue('{}'),
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as unknown as Response);
+
+    await gqlUpload('https://upstream.com/graphql', new FormData(), {}, undefined, undefined, { skipTlsVerify: true });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toBe('http://localhost:3001/api/graphql/upload');
+
+    fetchSpy.mockRestore();
+    mockIsTauri.mockReturnValue(false);
+  });
+
+  it('does not set x-gql-tls-config when TLS options are default', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue('{}'),
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as unknown as Response);
+
+    await gqlUpload('https://api.example.com/graphql', new FormData(), {});
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>)['x-gql-tls-config']).toBeUndefined();
     fetchSpy.mockRestore();
   });
 
@@ -311,6 +622,34 @@ describe('gqlUpload', () => {
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Record<string, string>)['Content-type']).toBeUndefined();
     fetchSpy.mockRestore();
+  });
+
+  it('encodeGqlTlsConfigHeader uses Buffer when btoa is unavailable', async () => {
+    const originalBtoa = globalThis.btoa;
+    try {
+      // @ts-expect-error test override
+      globalThis.btoa = undefined;
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: { forEach: vi.fn() },
+        text: vi.fn().mockResolvedValue('{}'),
+      };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as unknown as Response);
+
+      await gqlUpload('https://api.example.com/graphql', new FormData(), {}, undefined, undefined, {
+        skipTlsVerify: true,
+      });
+
+      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const tlsHeader = (init.headers as Record<string, string>)['x-gql-tls-config'];
+      expect(JSON.parse(Buffer.from(tlsHeader, 'base64').toString('utf8')).skipTlsVerify).toBe(true);
+
+      fetchSpy.mockRestore();
+    } finally {
+      globalThis.btoa = originalBtoa;
+    }
   });
 });
 
@@ -432,13 +771,44 @@ describe('gqlUpload — XHR path', () => {
     expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
   });
 
-  it('cleans up abort listener on error', async () => {
-    const ctrl = new AbortController();
-    const removeSpy = vi.spyOn(ctrl.signal, 'removeEventListener');
-    const promise = gqlUpload('https://api.example.com/graphql', new FormData(), {}, ctrl.signal, vi.fn());
-    xhrInstance.onerror!();
+  it('skips restricted headers in XHR setRequestHeader', async () => {
+    xhrInstance.setRequestHeader = vi.fn().mockImplementation((name: string) => {
+      if (name.toLowerCase() === 'restricted-header') {
+        throw new Error('Refused to set unsafe header');
+      }
+    });
+    const promise = gqlUpload(
+      'https://api.example.com/graphql',
+      new FormData(),
+      { 'Restricted-Header': 'blocked', Authorization: 'Bearer ok' },
+      undefined,
+      vi.fn(),
+    );
+    xhrInstance.onload!();
     await promise;
-    expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+    expect(xhrInstance.setRequestHeader).toHaveBeenCalledWith('Authorization', 'Bearer ok');
+  });
+
+  it('ignores malformed header lines without colon in XHR onload', async () => {
+    xhrInstance.getAllResponseHeaders = vi.fn().mockReturnValue(
+      'content-type: application/json\r\nmalformed-line\r\nx-id: 42',
+    );
+    const promise = gqlUpload('https://api.example.com/graphql', new FormData(), {}, undefined, vi.fn());
+    xhrInstance.onload!();
+    const result = await promise;
+    expect(result.headers['content-type']).toBe('application/json');
+    expect(result.headers['x-id']).toBe('42');
+    expect(result.headers['malformed-line']).toBeUndefined();
+  });
+
+  it('invokes abortHandler when AbortSignal fires during XHR upload', async () => {
+    const ctrl = new AbortController();
+    const promise = gqlUpload('https://api.example.com/graphql', new FormData(), {}, ctrl.signal, vi.fn());
+    ctrl.abort();
+    expect(xhrInstance.abort).toHaveBeenCalled();
+    xhrInstance.onabort!();
+    const result = await promise;
+    expect(result.error).toBe('Aborted');
   });
 });
 

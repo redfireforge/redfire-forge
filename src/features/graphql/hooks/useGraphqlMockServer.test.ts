@@ -24,15 +24,20 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock('../utils/graphqlSchemaCache', () => ({
+  loadCachedGraphqlSchemaSdl: vi.fn().mockReturnValue(null),
+}));
+
 // Suppress all fetch calls — we test state logic, not network behaviour.
 const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
 vi.stubGlobal('fetch', mockFetch);
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
 
-import { useGraphqlMockServer } from './useGraphqlMockServer';
+import { useGraphqlMockServer, resolveMockSyncSdl } from './useGraphqlMockServer';
 import type { MockResolver, MockScenario } from '../../../shared/types/graphql';
 import { isTauri } from '../../../shared/utils/platform';
+import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -501,24 +506,15 @@ describe('useGraphqlMockServer', () => {
   describe('debounced sync and interval (lines 308, 341-342)', () => {
     afterAll(() => { vi.useRealTimers(); });
 
-    it('fires debounced syncToServer when setFieldResolver is called (line 308)', async () => {
-      vi.useFakeTimers();
+    it('fires immediate syncToServer when setFieldResolver is called', async () => {
       const { result } = await renderMockHook('conn-1', 'type Query { hi: String }');
-      // Enable the mock so syncToServer is called from debounced path
       await act(async () => { await Promise.resolve(); });
       act(() => result.current.setEnabled(true));
       await act(async () => { await Promise.resolve(); });
       mockFetch.mockClear();
-      // Trigger a debounced sync by calling setFieldResolver
       act(() => result.current.setFieldResolver('Query', 'user', { type: 'fixed', value: 'hello' }));
-      // Advance timers past DEBOUNCE_MS (300ms)
-      await act(async () => {
-        vi.advanceTimersByTime(400);
-        await Promise.resolve();
-      });
-      // syncToServer (debounced) should have called fetch
+      await act(async () => { await Promise.resolve(); });
       expect(mockFetch).toHaveBeenCalled();
-      vi.useRealTimers();
     });
 
     it('fires setInterval callback for log + status polling (lines 341-342)', async () => {
@@ -627,6 +623,84 @@ describe('useGraphqlMockServer', () => {
       // syncToServer was called with empty SDL + revertOnFailure=true
       expect(result.current.config.enabled).toBe(false);
       expect(result.current.syncError).toContain('No SDL available');
+    });
+
+    it('enables mock when introspected SDL is missing but cache has SDL', async () => {
+      vi.mocked(loadCachedGraphqlSchemaSdl).mockReturnValueOnce('type Query { health: String }');
+      const { result } = await renderMockHook('conn-1', null);
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => {
+        result.current.setEnabled(true);
+        await Promise.resolve();
+      });
+      expect(result.current.config.enabled).toBe(true);
+      expect(result.current.syncError).toBeNull();
+    });
+  });
+
+  describe('resolveMockSyncSdl', () => {
+    it('prefers introspected SDL over cache', () => {
+      expect(resolveMockSyncSdl('conn-1', 'introspected', 'type Query { a: String }', '')).toBe(
+        'type Query { a: String }',
+      );
+    });
+
+    it('falls back to cached SDL for introspected source', () => {
+      vi.mocked(loadCachedGraphqlSchemaSdl).mockReturnValueOnce('type Query { cached: String }');
+      expect(resolveMockSyncSdl('conn-1', 'introspected', null, '')).toBe('type Query { cached: String }');
+    });
+  });
+
+  describe('syncFromServerStatus', () => {
+    it('sets UI enabled when proxy reports mock is already running', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (String(url).includes('/api/graphql/mock/status')) {
+          return {
+            ok: true,
+            json: async () => ({
+              enabled: true,
+              configured: true,
+              activeResolverCount: 0,
+              latencyMs: 0,
+              jitterMs: 0,
+              requestCount: 1,
+              activeScenarioId: null,
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ ok: true }) };
+      });
+      const { result } = await renderMockHook('conn-1', 'type Query { health: String }');
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.config.enabled).toBe(true);
+    });
+
+    it('sets UI disabled when proxy reports mock is off', async () => {
+      const { result } = await renderMockHook('conn-1', 'type Query { health: String }');
+      await act(async () => { await Promise.resolve(); });
+      act(() => result.current.setEnabled(true));
+      await act(async () => { await Promise.resolve(); });
+      mockFetch.mockImplementation(async (url: string) => {
+        if (String(url).includes('/api/graphql/mock/status')) {
+          return {
+            ok: true,
+            json: async () => ({
+              enabled: false,
+              configured: true,
+              activeResolverCount: 0,
+              latencyMs: 0,
+              jitterMs: 0,
+              requestCount: 1,
+              activeScenarioId: null,
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ ok: true }) };
+      });
+      await act(async () => {
+        await result.current.syncFromServerStatus();
+      });
+      expect(result.current.config.enabled).toBe(false);
     });
   });
 

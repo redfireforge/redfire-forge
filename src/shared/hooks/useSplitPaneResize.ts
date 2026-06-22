@@ -25,6 +25,8 @@ export interface SplitPaneResizeOptions {
   minWidth: number;
   /** Minimum width reserved for the opposite (right) pane in px. */
   minOppositeWidth: number;
+  /** Optional cap as a fraction of container width (e.g. 0.42 = 42%). */
+  maxWidthRatio?: number;
   /** Ref to the split container (used to clamp against its measured width). */
   containerRef: RefObject<HTMLElement | null>;
   /** Arrow-key step in px (default 16). */
@@ -65,6 +67,7 @@ export function useSplitPaneResize(options: SplitPaneResizeOptions): SplitPaneRe
     defaultWidth,
     minWidth,
     minOppositeWidth,
+    maxWidthRatio,
     containerRef,
     step = 16,
     pageStep = 64,
@@ -88,30 +91,45 @@ export function useSplitPaneResize(options: SplitPaneResizeOptions): SplitPaneRe
   const clampWidth = useCallback(
     (w: number): number => {
       const container = containerRef.current;
-      const max = container
-        ? Math.max(minWidth, container.clientWidth - minOppositeWidth)
-        : Number.POSITIVE_INFINITY;
+      if (!container || container.clientWidth <= 0) {
+        // Container not measured yet — never apply an unbounded persisted width.
+        return Math.max(minWidth, Math.min(w, defaultWidth));
+      }
+      let max = Math.max(minWidth, container.clientWidth - minOppositeWidth);
+      if (maxWidthRatio != null) {
+        max = Math.min(max, Math.floor(container.clientWidth * maxWidthRatio));
+      }
       return Math.max(minWidth, Math.min(max, w));
     },
-    [containerRef, minWidth, minOppositeWidth],
+    [containerRef, minWidth, minOppositeWidth, maxWidthRatio, defaultWidth],
   );
 
-  // Measure the max width for `aria-valuemax` on mount and on window resize.
-  // Also re-clamp the current width down when the container shrinks so the
-  // left pane never overflows and squeezes the right pane below its minimum.
-  useEffect(() => {
-    const measure = () => {
-      const container = containerRef.current;
-      if (container && container.clientWidth > 0) {
-        const max = Math.max(minWidth, container.clientWidth - minOppositeWidth);
-        setMaxWidth(max);
-        setWidth((w) => (w > max ? max : w));
+  const measureContainer = useCallback(() => {
+    const container = containerRef.current;
+    if (container && container.clientWidth > 0) {
+      let max = Math.max(minWidth, container.clientWidth - minOppositeWidth);
+      if (maxWidthRatio != null) {
+        max = Math.min(max, Math.floor(container.clientWidth * maxWidthRatio));
       }
+      setMaxWidth(max);
+      setWidth((w) => clampWidth(w));
+    }
+  }, [containerRef, clampWidth, minWidth, minOppositeWidth, maxWidthRatio]);
+
+  // Measure the max width on mount, window resize, and container size changes.
+  useEffect(() => {
+    measureContainer();
+    window.addEventListener('resize', measureContainer);
+    const container = containerRef.current;
+    const observer = container && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => { measureContainer(); })
+      : null;
+    if (container && observer) observer.observe(container);
+    return () => {
+      window.removeEventListener('resize', measureContainer);
+      observer?.disconnect();
     };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [containerRef, minWidth, minOppositeWidth]);
+  }, [containerRef, measureContainer]);
 
   // Load the persisted width on mount.
   useEffect(() => {

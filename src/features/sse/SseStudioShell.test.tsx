@@ -67,15 +67,16 @@ describe('SseStudioShell', () => {
 
   it('adjusts the left pane width on divider drag', () => {
     render(<SseStudioShell {...makeProps()} />);
+    const split = screen.getByTestId('sse-studio-split');
+    Object.defineProperty(split, 'clientWidth', { value: 1200, configurable: true });
+    fireEvent(window, new Event('resize'));
     const divider = screen.getByTestId('sse-studio-divider');
     const left = screen.getByText('Connection').closest('.sse-studio-left') as HTMLElement;
     expect(left.style.width).toBe('360px');
 
-    fireEvent.mouseDown(divider, { clientX: 360 });
-    fireEvent.mouseMove(window, { clientX: 500 });
+    fireEvent.mouseDown(divider, { clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 200 });
     fireEvent.mouseUp(window);
-    // Width grows toward the drag delta but is clamped by jsdom's 0 clientWidth
-    // to the minimum left width.
     expect(left.style.width).toBe('280px');
   });
 

@@ -153,6 +153,17 @@ describe('useGraphqlExecution — execute() guard conditions', () => {
     expect(result.current.status).toBe('idle');
   });
 
+  it('does not fetch when only whitespace endpoint', async () => {
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({ endpoint: '   ' }));
+    });
+
+    expect(gqlFetch).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
+  });
+
   it('does not fetch when only whitespace query', async () => {
     const { result } = renderHook(() => useGraphqlExecution());
 
@@ -162,6 +173,78 @@ describe('useGraphqlExecution — execute() guard conditions', () => {
 
     expect(gqlFetch).not.toHaveBeenCalled();
     expect(result.current.status).toBe('idle');
+  });
+
+  it('clears wait subscription when a new execute starts after choosing wait', async () => {
+    let resolveShared!: (r: import('../../../shared/types/graphql').GraphqlResponse) => void;
+    const sharedPromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>((r) => {
+      resolveShared = r;
+    });
+
+    vi.mocked(getInFlight).mockReturnValueOnce({ controller: new AbortController(), promise: sharedPromise });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+    act(() => { result.current.resolveDedupChoice('wait'); });
+    expect(result.current.status).toBe('loading');
+
+    vi.mocked(gqlFetch).mockResolvedValueOnce(makeSuccessResponse({ fresh: true }));
+    await act(async () => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT, query: 'query Fresh { x }' }));
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      resolveShared(makeSuccessResponse({ stale: true }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(result.current.response?.data).toEqual({ fresh: true });
+  });
+
+  it('continues execution when variables JSON is malformed', async () => {
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({ variables: '{not-json' }));
+      await Promise.resolve();
+    });
+
+    expect(gqlFetch).toHaveBeenCalled();
+  });
+
+  it('returns error when formData is combined with @stream directive', async () => {
+    vi.mocked(hasIncrementalDirective).mockReturnValue(true);
+
+    const { result } = renderHook(() => useGraphqlExecution());
+    const formData = new FormData();
+
+    await act(async () => {
+      result.current.execute(baseParams({ formData, query: 'subscription { x @stream { y } }' }));
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.response?.errors?.[0].message).toContain('@stream');
+  });
+
+  it('ignores array-shaped variables for dedup key parsing', async () => {
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        variables: '[]',
+        connectionId: 'conn-1',
+        dedupEnabled: true,
+      }));
+      await Promise.resolve();
+    });
+
+    expect(gqlFetch).toHaveBeenCalled();
   });
 });
 
@@ -183,6 +266,30 @@ describe('useGraphqlExecution — formData + @defer mutual exclusion', () => {
     expect(result.current.response?.errors?.[0].message).toContain('@defer');
     expect(gqlFetch).not.toHaveBeenCalled();
   });
+
+  it('notifies onExecutionCompleted for client-side defer+upload validation error (Phase 6A)', async () => {
+    vi.mocked(hasIncrementalDirective).mockReturnValue(true);
+    const onExecutionCompleted = vi.fn();
+    const { result } = renderHook(() => useGraphqlExecution());
+    const formData = new FormData();
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        formData,
+        query: 'query { x @defer { y } }',
+        sourceTabId: 'tab-err',
+        onExecutionCompleted,
+      }));
+      await Promise.resolve();
+    });
+
+    expect(onExecutionCompleted).toHaveBeenCalledWith(
+      'tab-err',
+      'error',
+      expect.objectContaining({ errors: expect.arrayContaining([expect.objectContaining({ message: expect.stringContaining('@defer') })]) }),
+      null,
+    );
+  });
 });
 
 // ─── execute() — standard HTTP path ──────────────────────────────────────────
@@ -198,6 +305,24 @@ describe('useGraphqlExecution — standard HTTP path', () => {
 
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(result.current.response?.data).toEqual({ user: { id: '1', name: 'Alice' } });
+  });
+
+  it('calls onExecutionCompleted with the request source tab on success (Phase 6A)', async () => {
+    const onExecutionCompleted = vi.fn();
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({ sourceTabId: 'tab-42', onExecutionCompleted }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(onExecutionCompleted).toHaveBeenCalledWith(
+      'tab-42',
+      'success',
+      expect.objectContaining({ data: { user: { id: '1', name: 'Alice' } } }),
+      null,
+    );
   });
 
   it('sets status to error when response has only errors and no data', async () => {
@@ -465,6 +590,47 @@ describe('useGraphqlExecution — cancel()', () => {
     // Let the slow request resolve (should be ignored since aborted)
     resolveFetch(makeSuccessResponse());
   });
+
+  it('restores last completed APQ badge when cancelling an in-flight request (Phase 6D)', async () => {
+    vi.mocked(executeWithAPQ).mockResolvedValue({
+      response: makeSuccessResponse(),
+      cacheHit: true,
+      hash: 'abc123',
+      unsupported: false,
+    });
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({ apqEnabled: true, connectionId: ENDPOINT }));
+      await new Promise<void>((r) => setTimeout(r, 0));
+    });
+    await waitFor(() => expect(result.current.apqInfo?.cacheHit).toBe(true));
+
+    let resolveApq!: (v: Awaited<ReturnType<typeof executeWithAPQ>>) => void;
+    vi.mocked(executeWithAPQ).mockReturnValue(
+      new Promise<Awaited<ReturnType<typeof executeWithAPQ>>>((r) => { resolveApq = r; }),
+    );
+
+    act(() => {
+      result.current.execute(baseParams({ apqEnabled: true, connectionId: ENDPOINT }));
+    });
+    expect(result.current.apqInfo).toBeNull();
+
+    act(() => { result.current.cancel(); });
+
+    expect(result.current.apqInfo?.cacheHit).toBe(true);
+    expect(result.current.apqInfo?.hash).toBe('abc123');
+
+    await act(async () => {
+      resolveApq({
+        response: makeSuccessResponse(),
+        cacheHit: false,
+        hash: 'ignored',
+        unsupported: false,
+      });
+      await Promise.resolve();
+    });
+  });
 });
 
 // ─── Deduplication ────────────────────────────────────────────────────────────
@@ -481,6 +647,26 @@ describe('useGraphqlExecution — deduplication', () => {
     });
 
     expect(result.current.isDuplicate).toBe(true);
+    expect(result.current.duplicateSourceTabId).toBeNull();
+    expect(gqlFetch).not.toHaveBeenCalled();
+  });
+
+  it('records duplicateSourceTabId when duplicate is detected (Phase 6A)', () => {
+    const fakePromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>(() => {});
+    vi.mocked(getInFlight).mockReturnValue({ controller: new AbortController(), promise: fakePromise });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({
+        dedupEnabled: true,
+        connectionId: ENDPOINT,
+        sourceTabId: 'tab-2',
+      }));
+    });
+
+    expect(result.current.isDuplicate).toBe(true);
+    expect(result.current.duplicateSourceTabId).toBe('tab-2');
     expect(gqlFetch).not.toHaveBeenCalled();
   });
 
@@ -599,6 +785,160 @@ describe('useGraphqlExecution — resolveDedupChoice()', () => {
 
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(result.current.response?.data).toEqual({ result: 'ok' });
+  });
+
+  it('clears APQ badge while waiting and restores from shared response (Phase 6D)', async () => {
+    vi.mocked(executeWithAPQ).mockResolvedValue({
+      response: makeSuccessResponse(),
+      cacheHit: true,
+      hash: 'prior-hash',
+      unsupported: false,
+    });
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({ apqEnabled: true, connectionId: ENDPOINT }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.apqInfo?.hash).toBe('prior-hash'));
+
+    let resolveShared!: (r: import('../../../shared/types/graphql').GraphqlResponse) => void;
+    const sharedPromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>((r) => {
+      resolveShared = r;
+    });
+
+    vi.mocked(getInFlight).mockReturnValueOnce({ controller: new AbortController(), promise: sharedPromise });
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+    expect(result.current.isDuplicate).toBe(true);
+
+    act(() => { result.current.resolveDedupChoice('wait'); });
+    expect(result.current.status).toBe('loading');
+    expect(result.current.apqInfo).toBeNull();
+
+    await act(async () => {
+      resolveShared({
+        httpStatus: 200,
+        httpHeaders: {},
+        latencyMs: 10,
+        timestamp: Date.now(),
+        data: { ok: true },
+        apqHash: 'shared-hash',
+        apqCacheHit: true,
+        apqUnsupported: false,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(result.current.apqInfo).toEqual({
+      hash: 'shared-hash',
+      cacheHit: true,
+      unsupported: false,
+      connectionId: ENDPOINT,
+    });
+  });
+
+  it('caches dedup wait result to the waiter tab via onExecutionCompleted (Phase 6A)', async () => {
+    const onExecutionCompleted = vi.fn();
+    let resolveShared!: (r: import('../../../shared/types/graphql').GraphqlResponse) => void;
+    const sharedPromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>((r) => {
+      resolveShared = r;
+    });
+
+    vi.mocked(getInFlight).mockReturnValueOnce({ controller: new AbortController(), promise: sharedPromise });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({
+        dedupEnabled: true,
+        connectionId: ENDPOINT,
+        sourceTabId: 'tab-waiter',
+        onExecutionCompleted,
+      }));
+    });
+
+    act(() => { result.current.resolveDedupChoice('wait'); });
+
+    await act(async () => {
+      resolveShared({
+        httpStatus: 200,
+        httpHeaders: {},
+        latencyMs: 10,
+        timestamp: Date.now(),
+        data: { merged: true },
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(onExecutionCompleted).toHaveBeenCalledWith(
+      'tab-waiter',
+      'success',
+      expect.objectContaining({ data: { merged: true } }),
+      null,
+    );
+  });
+
+  it('does not call onExecutionStarted when dedup duplicate pauses execution (Phase 6A)', () => {
+    const onExecutionStarted = vi.fn();
+    const fakePromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>(() => {});
+    vi.mocked(getInFlight).mockReturnValue({ controller: new AbortController(), promise: fakePromise });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({
+        dedupEnabled: true,
+        connectionId: ENDPOINT,
+        sourceTabId: 'tab-2',
+        onExecutionStarted,
+      }));
+    });
+
+    expect(result.current.isDuplicate).toBe(true);
+    expect(onExecutionStarted).not.toHaveBeenCalled();
+  });
+
+  it('calls onExecutionStarted when execution actually starts loading (Phase 6A)', async () => {
+    const onExecutionStarted = vi.fn();
+    vi.mocked(getInFlight).mockReturnValue(null);
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        sourceTabId: 'tab-1',
+        onExecutionStarted,
+      }));
+      await Promise.resolve();
+    });
+
+    expect(onExecutionStarted).toHaveBeenCalledWith('tab-1');
+  });
+
+  it('does not call onExecutionStarted for sendAnyway (_skipDedupCheck) (Phase 6A)', async () => {
+    const onExecutionStarted = vi.fn();
+    vi.mocked(getInFlight).mockReturnValue(null);
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        sourceTabId: 'tab-2',
+        onExecutionStarted,
+        dedupEnabled: true,
+        connectionId: ENDPOINT,
+        _skipDedupCheck: true,
+      }));
+      await Promise.resolve();
+    });
+
+    expect(onExecutionStarted).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.status).toBe('success'));
   });
 
   it('"wait" restores prior state when shared promise rejects', async () => {
@@ -753,6 +1093,7 @@ describe('useGraphqlExecution — APQ execution path', () => {
 
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(result.current.apqInfo?.unsupported).toBe(true);
+    expect(result.current.apqInfo?.connectionId).toBe(ENDPOINT);
   });
 
   it('exercises apqSendFn POST path via executeWithAPQ callthrough', async () => {
@@ -2013,5 +2354,209 @@ describe('useGraphqlExecution — cancel during dedup wait subscription', () => 
     const cancelFn = result.current.cancel;
     unmount();
     expect(() => act(() => { cancelFn(); })).not.toThrow();
+  });
+});
+
+describe('useGraphqlExecution — unmount guards on async completion paths', () => {
+  it('does not restore state when cancel wait runs after unmount', async () => {
+    let resolveShared!: (v: import('../../../shared/types/graphql').GraphqlResponse) => void;
+    const sharedPromise = new Promise<import('../../../shared/types/graphql').GraphqlResponse>((r) => { resolveShared = r; });
+
+    vi.mocked(getInFlight)
+      .mockReturnValueOnce({ promise: sharedPromise, abort: vi.fn() });
+    vi.mocked(handleDedupGuard).mockImplementation((_key, _promise, _setDup, _setPending) => {
+      _setDup(true);
+      _setPending({ promise: sharedPromise, abort: vi.fn() });
+      return true;
+    });
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ dedupEnabled: true, connectionId: ENDPOINT }));
+    });
+    act(() => { result.current.resolveDedupChoice('wait'); });
+    await waitFor(() => expect(result.current.status).toBe('loading'));
+
+    const cancelFn = result.current.cancel;
+    unmount();
+    expect(() => act(() => { cancelFn(); })).not.toThrow();
+
+    await act(async () => {
+      resolveShared(makeSuccessResponse());
+    });
+  });
+
+  it('does not update state when gqlUpload returns Aborted after unmount', async () => {
+    vi.mocked(gqlUpload).mockResolvedValue({
+      status: 0,
+      headers: {},
+      body: '',
+      error: 'Aborted',
+    });
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+    const formData = new FormData();
+
+    act(() => {
+      result.current.execute(baseParams({ formData }));
+    });
+    expect(result.current.status).toBe('loading');
+
+    unmount();
+    await act(async () => { await Promise.resolve(); });
+  });
+
+  it('APQ GET with client cert routes through POST TLS proxy', async () => {
+    vi.mocked(executeWithAPQ).mockImplementation(async (sendFn) => {
+      const response = await sendFn(
+        { extensions: { persistedQuery: { version: 1, sha256Hash: 'cert-hash' } } },
+        'GET',
+      );
+      return { response, cacheHit: true, hash: 'cert-hash', unsupported: false };
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue(JSON.stringify({ data: { ok: true } })),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        apqEnabled: true,
+        apqUseGet: true,
+        tls: { caCert: '-----BEGIN CERT-----\nMIIB' },
+        connectionId: ENDPOINT,
+      }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/graphql/query'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const proxyBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(proxyBody.extensions).toBeDefined();
+    vi.unstubAllGlobals();
+  });
+
+  it('APQ TLS POST proxy forwards operationName and variables from GET body', async () => {
+    vi.mocked(executeWithAPQ).mockImplementation(async (sendFn) => {
+      const response = await sendFn(
+        {
+          extensions: { persistedQuery: { version: 1, sha256Hash: 'hash-1' } },
+          variables: { id: '1' },
+        },
+        'GET',
+      );
+      return { response, cacheHit: false, hash: 'hash-1', unsupported: false };
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { forEach: vi.fn() },
+      text: vi.fn().mockResolvedValue(JSON.stringify({ data: { item: true } })),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useGraphqlExecution());
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        apqEnabled: true,
+        apqUseGet: true,
+        operationName: 'ItemQuery',
+        variables: '{"id":"1"}',
+        tls: { clientCert: '-----BEGIN CERT-----\nABC' },
+        connectionId: ENDPOINT,
+      }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    const proxyBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(proxyBody.operationName).toBe('ItemQuery');
+    expect(proxyBody.variables).toEqual({ id: '1' });
+    expect(proxyBody.extensions).toBeDefined();
+    vi.unstubAllGlobals();
+  });
+
+  it('skips setStatus after standard gqlFetch when unmounted before completion', async () => {
+    let resolveFetch!: (v: ReturnType<typeof makeSuccessResponse>) => void;
+    vi.mocked(gqlFetch).mockReturnValue(
+      new Promise<ReturnType<typeof makeSuccessResponse>>((r) => { resolveFetch = r; }),
+    );
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => { result.current.execute(baseParams()); });
+    expect(result.current.status).toBe('loading');
+    unmount();
+
+    await act(async () => {
+      resolveFetch(makeSuccessResponse());
+      await Promise.resolve();
+    });
+  });
+
+  it('skips setApqInfo when unmounted before APQ completes', async () => {
+    let resolveAPQ!: (v: Awaited<ReturnType<typeof executeWithAPQ>>) => void;
+    vi.mocked(executeWithAPQ).mockReturnValue(
+      new Promise<Awaited<ReturnType<typeof executeWithAPQ>>>((r) => { resolveAPQ = r; }),
+    );
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => {
+      result.current.execute(baseParams({ apqEnabled: true, connectionId: ENDPOINT }));
+    });
+    unmount();
+
+    await act(async () => {
+      resolveAPQ({
+        response: makeSuccessResponse() as never,
+        cacheHit: true,
+        hash: 'late-hash',
+        unsupported: false,
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.apqInfo).toBeNull();
+  });
+
+  it('skips error setStatus when unmounted before gqlFetch rejection', async () => {
+    vi.mocked(gqlFetch).mockRejectedValue(new Error('network down'));
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => { result.current.execute(baseParams()); });
+    unmount();
+
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.status).toBe('loading');
+  });
+
+  it('skips restoreCompletedSnapshot when gqlFetch Aborted after unmount', async () => {
+    vi.mocked(gqlFetch).mockResolvedValue({
+      status: 0,
+      headers: {},
+      body: '',
+      error: 'Aborted',
+    });
+
+    const { result, unmount } = renderHook(() => useGraphqlExecution());
+
+    act(() => { result.current.execute(baseParams()); });
+    unmount();
+
+    await act(async () => { await Promise.resolve(); });
   });
 });

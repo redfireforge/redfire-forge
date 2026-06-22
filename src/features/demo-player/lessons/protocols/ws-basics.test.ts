@@ -51,10 +51,19 @@ describe('ws-basics lesson', () => {
   it('has correct step IDs in order', () => {
     const ids = wsBasicsLesson.steps.map(s => s.id);
     expect(ids).toEqual([
-      'ws-nav', 'ws-mock', 'ws-url', 'ws-connect',
+      'ws-nav', 'ws-add-protocol', 'ws-env-config', 'ws-mock', 'ws-header-select',
+      'ws-env-vars', 'ws-connect',
       'ws-compose', 'ws-send', 'ws-events', 'ws-tabs', 'ws-disconnect',
-      'ws-env-intro',
     ]);
+  });
+
+  it('estimated time is 6 minutes', () => {
+    expect(wsBasicsLesson.estimatedMinutes).toBe(6);
+  });
+
+  it('declares allowedTabs for environments and websocket-studio', () => {
+    expect(wsBasicsLesson.allowedTabs).toContain('environments');
+    expect(wsBasicsLesson.allowedTabs).toContain('websocket-studio');
   });
 
   it('steps ws-mock, ws-connect, ws-send each have a verify selector', () => {
@@ -66,16 +75,12 @@ describe('ws-basics lesson', () => {
 
   // ── Setup ──────────────────────────────────────────────────────
 
-  it('setup resets flags and returns to client mode', async () => {
+  it('setup resets flags and leaves studio on mock mode (server stopped)', async () => {
     const ctx = makeCtx();
     await wsBasicsLesson.setup!(ctx);
-    // Must navigate to mock mode to potentially stop the server
+    // Navigates to mock mode to stop the server, then stays on mock for mock-first lesson flow
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
-    // Must return to client mode
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
-    // Must navigate to connect tab and events tab
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('right-tab-events'));
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-client'));
   });
 
   it('setup disconnects an active session (disconnect btn enabled)', async () => {
@@ -156,10 +161,10 @@ describe('ws-basics lesson', () => {
 
   // ── Step: ws-nav ───────────────────────────────────────────────
 
-  it('step ws-nav has no action and highlights mode-client', () => {
+  it('step ws-nav has no action and highlights mode-mock', () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-nav')!;
     expect(step.action).toBeUndefined();
-    expect(step.highlight).toContain('mode-client');
+    expect(step.highlight).toContain('mode-mock');
   });
 
   // ── Step: ws-mock ──────────────────────────────────────────────
@@ -229,21 +234,85 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  // ── Step: ws-url ───────────────────────────────────────────────
+  // ── Step: ws-add-protocol ─────────────────────────────────────
 
-  it('step ws-url preAction switches to client mode and connect tab', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
+  it('step ws-add-protocol action prepares WebSocket-only ws-demo microservice', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="ws-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy WebSocket Demo" /></td>
+            <td><span class="em-env-chip">WebSocket Demo</span></td>
+          </tr>
+        </table>
+      </div>`;
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-add-protocol')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-testid="em-protocol-tab-http"]');
+  });
+
+  it('step ws-env-config action saves endpoint via ensureWsDemoEndpointConfigured', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="ws-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+        <table>
+          <tr>
+            <td><span class="em-env-chip">WebSocket Demo</span></td>
+            <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
+            <td><code class="em-url-text"></code></td>
+          </tr>
+        </table>
+        <input data-testid="em-endpoint-edit-input" />
+        <button data-testid="em-endpoint-save-btn">Save</button>
+      </div>`;
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-config')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith('[data-testid="em-endpoint-edit-input"]', 'ws://localhost:9876');
+  });
+
+  // ── Step: ws-header-select ──────────────────────────────────────
+
+  it('step ws-header-select preAction switches to Client connect tab', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-header-select')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('mode-client'));
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-connect'));
   });
 
-  it('step ws-url action fills the WebSocket URL', async () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-url')!;
+  it('step ws-header-select action selects WebSocket Demo and ws-demo in header', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">WebSocket Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">ws-demo</option>
+      </select>`;
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-header-select')!;
     const ctx = makeCtx();
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'ws://localhost:9876');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+  });
+
+  // ── Step: ws-env-vars ───────────────────────────────────────────
+
+  it('step ws-env-vars action fills {{wsBaseUrl}} template', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-vars')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{{wsBaseUrl}}');
   });
 
   // ── Step: ws-connect ───────────────────────────────────────────
@@ -280,12 +349,12 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('mode-mock'));
   });
 
-  it('step ws-connect action clicks connect and uses waitFor (Rule 5)', async () => {
+  it('step ws-connect action fills {{wsBaseUrl}} via ensureWsUrlTemplate and uses waitFor (Rule 5)', async () => {
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), '{{wsBaseUrl}}');
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
-    // Must waitFor STATUS_CONNECTED — no fixed delay (Rule 5)
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('ws-status-dot'), expect.any(Number));
   });
 
@@ -468,61 +537,55 @@ describe('ws-basics lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('disconnect-btn'));
   });
 
-  // ── Step: ws-env-intro ─────────────────────────────────────────
-
-  it('step ws-env-intro exists with correct structure', () => {
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    expect(step).toBeDefined();
-    expect(step.title).toContain('Environment Manager');
-    expect(step.highlight).toContain('microservice-protocol-panel');
-    expect(step.pauseAfter).toBe(true);
-    expect(typeof step.preAction).toBe('function');
-    expect(typeof step.action).toBe('function');
+  it('cleanup resets flags and calls wsCleanup', async () => {
+    const ctx = makeCtx();
+    await wsBasicsLesson.cleanup!(ctx);
+    expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('step ws-env-intro preAction navigates to WS studio when neither EM nor studio is open', async () => {
-    document.body.innerHTML = '';
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+  it('ws-add-protocol preAction skips navigate when URL input already present', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-add-protocol')!;
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'WebSocket URL');
+    document.body.appendChild(input);
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('ab-protocols'));
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('nav-tab-websocket-studio'));
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('websocket-studio');
   });
 
-  it('step ws-env-intro preAction is no-op when EM is already open', async () => {
-    document.body.innerHTML = '<div class="env-manager"></div>';
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
-  });
-
-  it('step ws-env-intro preAction is no-op when WS studio is already open', async () => {
-    document.body.innerHTML = '<div data-testid="ws-studio"></div>';
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
-  });
-
-  it('step ws-env-intro action calls ensureDemoEnvironment and ensureDemoMicroservice', async () => {
-    document.body.innerHTML = '<div class="env-manager"></div>';
-    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-env-intro')!;
+  it('ws-connect action disconnects first when already connected', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-connect')!;
+    document.body.innerHTML = `
+      <button data-testid="disconnect-btn"></button>
+      <button data-testid="connect-btn"></button>
+      <input aria-label="WebSocket URL" value="" />
+      <button data-testid="mode-client"></button>
+      <button data-testid="left-tab-connect"></button>
+      <span class="ws-status-dot connected"></span>
+    `;
+    const disconnect = document.querySelector<HTMLButtonElement>('[data-testid="disconnect-btn"]')!;
+    disconnect.disabled = false;
     const ctx = makeCtx();
     await step.action!(ctx);
-    // Should fill the env name and click Add
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('em-new-env-input'),
-      'WebSocket Demo',
-    );
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-add-env-btn'));
-    // Should fill the svc name and click Add
-    expect(ctx.fill).toHaveBeenCalledWith(
-      expect.stringContaining('em-new-svc-input'),
-      'ws-demo',
-    );
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('em-add-svc-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('disconnect-btn'));
   });
+
+  it('compose preAction uses STATUS_CONNECTED in DOM without clicking connect', async () => {
+    const step = wsBasicsLesson.steps.find(s => s.id === 'ws-compose')!;
+    document.body.innerHTML = `
+      <span class="ws-status-dot connected"></span>
+      <button data-testid="mode-client"></button>
+      <button data-testid="left-tab-send"></button>
+    `;
+    const ctx = makeCtx();
+    await wsBasicsLesson.setup!(ctx);
+    ctx.click.mockClear();
+    ctx.waitFor.mockClear();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(expect.stringContaining('connect-btn'));
+    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('left-tab-send'));
+  });
+
 });
 
 // ─── ws-auth-transport ──────────────────────────────────────────
