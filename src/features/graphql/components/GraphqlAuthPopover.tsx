@@ -19,9 +19,11 @@
  *   - BUG-1D-V5: Added aria-modal="true" to the dialog
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import { describeResolvedGqlAuth } from '../utils/gqlAuthResolve';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,12 @@ interface GraphqlAuthPopoverProps {
   onClose: () => void;
   /** Anchor element — popover is positioned below this element */
   anchorRef?: React.RefObject<HTMLElement | null>;
+  /** Phase 6F: when tab auth is linked to a saved profile, show unlink hint */
+  linkedProfileName?: string | null;
+  /** Global auth profiles from Environment Manager — enables inherit mode. */
+  globalAuthProfiles?: GlobalAuthProfile[];
+  /** Env-bound profile id — pre-selected when switching to inherit. */
+  defaultAuthProfileId?: string | null;
 }
 
 // ─── Auth type sentinel + options ─────────────────────────────────────────────
@@ -40,14 +48,25 @@ interface GraphqlAuthPopoverProps {
 const AUTH_TYPE_NONE = 'none' as const;
 type SelectableAuthType = GraphqlAuth['type'] | typeof AUTH_TYPE_NONE;
 
-const AUTH_TYPES: Array<{ value: SelectableAuthType; label: string; disabled?: boolean }> = [
-  { value: AUTH_TYPE_NONE, label: 'No Auth' },
-  { value: 'bearer',       label: 'Bearer Token' },
-  { value: 'basic',        label: 'Basic Auth' },
-  { value: 'apiKey',       label: 'API Key' },
-  { value: 'oauth2',       label: 'OAuth 2.0 (Phase 3 — coming soon)', disabled: true },
-  { value: 'custom',       label: 'Custom (Headers Panel)' },
-];
+function buildAuthTypeOptions(profiles: GlobalAuthProfile[]): Array<{
+  value: SelectableAuthType;
+  label: string;
+  disabled?: boolean;
+}> {
+  const opts: Array<{ value: SelectableAuthType; label: string; disabled?: boolean }> = [];
+  if (profiles.length > 0) {
+    opts.push({ value: 'inherit', label: 'Inherit from Auth Profile' });
+  }
+  opts.push(
+    { value: AUTH_TYPE_NONE, label: 'No Auth' },
+    { value: 'bearer',       label: 'Bearer Token' },
+    { value: 'basic',        label: 'Basic Auth' },
+    { value: 'apiKey',       label: 'API Key' },
+    { value: 'oauth2',       label: 'OAuth 2.0 (Phase 3 — coming soon)', disabled: true },
+    { value: 'custom',       label: 'Custom (Headers Panel)' },
+  );
+  return opts;
+}
 
 // ─── Password visibility toggle ───────────────────────────────────────────────
 
@@ -107,7 +126,15 @@ function PasswordInput({
 
 // ─── Popover ─────────────────────────────────────────────────────────────────
 
-export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: GraphqlAuthPopoverProps) {
+export function GraphqlAuthPopover({
+  auth,
+  onChange,
+  onClose,
+  anchorRef,
+  linkedProfileName,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
+}: GraphqlAuthPopoverProps) {
   const popoverRef   = useRef<HTMLDivElement>(null);
   const typeSelectRef = useRef<HTMLSelectElement>(null);
   // Refs for first credential field in each auth type — used for auto-focus
@@ -134,6 +161,10 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
 
   // Derive selected type for the dropdown — null auth means 'none'
   const selectedType: SelectableAuthType = auth?.type ?? AUTH_TYPE_NONE;
+  const authTypeOptions = useMemo(
+    () => buildAuthTypeOptions(globalAuthProfiles),
+    [globalAuthProfiles],
+  );
 
   // BUG-R2-3 / BUG-R3-2 fix: smart auto-focus on mount.
   // If auth is already configured → focus the first credential field (saves one Tab).
@@ -197,6 +228,15 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
       onChange(null);
       return;
     }
+    if (type === 'inherit') {
+      if (auth?.type !== 'inherit') {
+        onChange({
+          type: 'inherit',
+          globalProfileId: defaultAuthProfileId ?? auth?.globalProfileId,
+        });
+      }
+      return;
+    }
     if (!auth || auth.type !== type) {
       const base = { ...auth, type } as GraphqlAuth;
       if (type === 'apiKey' && !base.headerName) {
@@ -206,35 +246,16 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
     }
   }
 
-  // BUG-R3-3 fix: cleaner preview text — no misleading base64 with "***" for Basic Auth
+  function handleProfileChange(profileId: string) {
+    if (auth?.type !== 'inherit') return;
+    onChange({
+      ...auth,
+      globalProfileId: profileId || undefined,
+    });
+  }
+
   function preview(): string {
-    if (!auth) return 'No authentication headers will be added';
-    switch (auth.type) {
-      case 'bearer': {
-        const t = auth.token?.trim() ?? '';
-        return t
-          ? `Authorization: Bearer ${t.slice(0, 24)}${t.length > 24 ? '…' : ''}`
-          : 'Token not set — no header will be added';
-      }
-      case 'basic': {
-        const u = auth.username?.trim() ?? '';
-        return u
-          ? `Authorization: Basic ••• (${u}:••••••)`
-          : 'Username not set — no header will be added';
-      }
-      case 'apiKey': {
-        const n = auth.headerName?.trim() ?? '';
-        const v = auth.headerValue ?? '';
-        if (!n) return 'Header name not set — no header will be added';
-        return `${n}: ${v ? '•••' : '(empty value)'}`;
-      }
-      case 'oauth2':
-        return 'Token injected via pre-request script (Phase 3)';
-      case 'custom':
-        return 'Custom headers added via the Headers panel';
-      default:
-        return 'No authentication headers will be added';
-    }
+    return describeResolvedGqlAuth(auth, globalAuthProfiles);
   }
 
   return (
@@ -267,6 +288,15 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
 
       {/* Type selector + credential fields */}
       <div className="gql-auth-popover-body">
+        {linkedProfileName && (
+          <p
+            className="gql-auth-profile-hint"
+            data-testid="gql-auth-profile-hint"
+            role="status"
+          >
+            Auth from profile <strong>{linkedProfileName}</strong> — edit to unlink
+          </p>
+        )}
         <div className="gql-auth-field">
           <label className="gql-auth-label" htmlFor="gql-auth-type-select">Type</label>
           <select
@@ -277,11 +307,30 @@ export function GraphqlAuthPopover({ auth, onChange, onClose, anchorRef }: Graph
             onChange={(e) => handleTypeChange(e.target.value as SelectableAuthType)}
             data-testid="gql-auth-type-select"
           >
-            {AUTH_TYPES.map((t) => (
+            {authTypeOptions.map((t) => (
               <option key={t.value} value={t.value} disabled={t.disabled}>{t.label}</option>
             ))}
           </select>
         </div>
+
+        {/* Inherit from Auth Profile */}
+        {auth?.type === 'inherit' && globalAuthProfiles.length > 0 && (
+          <div className="gql-auth-field global-profile-selector">
+            <label className="gql-auth-label" htmlFor="gql-auth-profile-select">Auth Profile</label>
+            <select
+              id="gql-auth-profile-select"
+              className="gql-select gql-auth-type-select"
+              value={auth.globalProfileId ?? ''}
+              onChange={(e) => handleProfileChange(e.target.value)}
+              data-testid="gql-auth-profile-select"
+            >
+              <option value="">— Select a profile —</option>
+              {globalAuthProfiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* BUG-R3-1 fix: "No Auth" guidance message — body was empty before */}
         {selectedType === AUTH_TYPE_NONE && (

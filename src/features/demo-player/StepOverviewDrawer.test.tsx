@@ -343,6 +343,26 @@ describe('StepOverviewDrawer', () => {
     vi.useRealTimers();
   });
 
+  it('does not close when clicking the live demo panel', async () => {
+    vi.useFakeTimers();
+    render(
+      <>
+        <StepOverviewDrawer
+          lesson={makeLesson()}
+          currentStepIndex={0}
+          onClose={onClose}
+        />
+        <div className="demo-live-panel" data-testid="demo-live-panel">
+          <button type="button">Play</button>
+        </div>
+      </>,
+    );
+    await act(async () => { vi.advanceTimersByTime(150); });
+    fireEvent.pointerDown(screen.getByTestId('demo-live-panel'));
+    expect(onClose).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it('drag clamps position within viewport bounds', () => {
     const { container } = render(
       <StepOverviewDrawer

@@ -20,7 +20,7 @@
  *   - Reset all
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '../../../shared/utils/platform';
 import type {
   GraphqlMockConfig,
@@ -34,6 +34,7 @@ import type {
   MockSchemaSource,
   UseGraphqlMockServerResult,
 } from '../hooks/useGraphqlMockServer';
+import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 import { ResolversTab } from './GraphqlMockResolversTab';
 
 // Re-export FieldResolverRow so existing tests that import it from this module continue to work.
@@ -52,6 +53,28 @@ const SCALAR_PRESETS: { value: MockScalarPreset; label: string }[] = [
 ];
 
 type MockPanelTab = 'resolvers' | 'scenarios' | 'scalars' | 'log';
+
+interface MockEmptyStateProps {
+  title: string;
+  hint: ReactNode;
+  action?: ReactNode;
+}
+
+function MockEmptyState({ title, hint, action }: MockEmptyStateProps) {
+  return (
+    <div className="gql-mock-empty" data-testid="gql-mock-empty">
+      <div className="gql-mock-empty-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M8 12h8M12 8v8" />
+        </svg>
+      </div>
+      <div className="gql-mock-empty-title">{title}</div>
+      <div className="gql-mock-empty-hint">{hint}</div>
+      {action}
+    </div>
+  );
+}
 
 interface GraphqlMockPanelProps {
   mockServer:      UseGraphqlMockServerResult;
@@ -72,11 +95,22 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
   [config.resolvers]);
   const [importError, setImportError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const reconcile = () => { void mockServer.syncFromServerStatus(); };
+    window.addEventListener('rf-gql-mock-reconcile', reconcile);
+    return () => window.removeEventListener('rf-gql-mock-reconcile', reconcile);
+  }, [mockServer]);
+
   // Desktop-only guard — placed after all hooks to avoid Rules of Hooks violation.
   if (!isTauri()) {
     return (
       <div className="gql-mock-guard" data-testid="gql-mock-guard">
-        <div className="gql-mock-guard-icon">🖥</div>
+        <div className="gql-mock-guard-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+        </div>
         <div className="gql-mock-guard-title">Desktop app required</div>
         <div className="gql-mock-guard-body">
           The GraphQL mock server runs inside the RedfireForge desktop proxy.
@@ -94,8 +128,10 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     );
   }
 
+  const hasIntrospectedSdl = !!(schemaInfo?.sdl?.trim())
+    || !!(config.connectionId && loadCachedGraphqlSchemaSdl(config.connectionId));
   const hasSdl = schemaSource === 'introspected'
-    ? !!(schemaInfo?.sdl)
+    ? hasIntrospectedSdl
     : customSdl.trim().length > 0;
 
   const handleExport = () => {
@@ -166,7 +202,22 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
     <div className="gql-mock-panel" data-testid="gql-mock-panel">
       {/* ─ Header ─ */}
       <div className="gql-mock-header">
-        <div className="gql-mock-toggle-row">
+        <div className="gql-mock-header-top">
+          <div className="gql-mock-header-copy">
+            <h2 className="gql-mock-title">Mock server</h2>
+            <p className="gql-mock-subtitle">In-process GraphQL proxy for offline testing</p>
+          </div>
+          {syncing && (
+            <span className="gql-mock-sync-badge" data-testid="gql-mock-sync-badge" aria-live="polite">
+              Syncing…
+            </span>
+          )}
+        </div>
+
+        <div
+          className={`gql-mock-toggle-card${config.enabled ? ' gql-mock-toggle-card--on' : ''}`}
+          data-testid="gql-mock-toggle-card"
+        >
           <label className="gql-mock-toggle-label">
             <input
               type="checkbox"
@@ -179,7 +230,6 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
             <span className="gql-mock-toggle-slider" />
             <span className="gql-mock-toggle-text">
               {config.enabled ? 'Mock mode ON' : 'Mock mode OFF'}
-              {syncing && <span className="gql-mock-syncing"> ⟳</span>}
             </span>
           </label>
           {!hasSdl && (
@@ -193,108 +243,136 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
           </div>
         )}
 
-        {/* Status row */}
         {config.enabled && (
           <div className="gql-mock-status-row" data-testid="gql-mock-status-row">
-            <span className="gql-mock-status-badge">MOCK</span>
-            {resolverCount > 0 && <span>{resolverCount} resolver override{resolverCount !== 1 ? 's' : ''}</span>}
+            <span className="gql-mock-status-badge">Mock active</span>
+            {resolverCount > 0 && (
+              <span className="gql-mock-status-chip">
+                {resolverCount} override{resolverCount !== 1 ? 's' : ''}
+              </span>
+            )}
             {(config.globalLatencyMs ?? 0) > 0 && (
-              <span>
-                {config.globalLatencyMs}ms latency
+              <span className="gql-mock-status-chip">
+                {config.globalLatencyMs}ms
                 {(config.jitterMs ?? 0) > 0 && ` ±${config.jitterMs}ms`}
               </span>
             )}
             {config.activeScenarioId && (
-              <span>Scenario: {config.scenarios?.find((s) => s.id === config.activeScenarioId)?.name ?? '?'}</span>
+              <span className="gql-mock-status-chip">
+                {config.scenarios?.find((s) => s.id === config.activeScenarioId)?.name ?? 'Scenario'}
+              </span>
             )}
           </div>
         )}
       </div>
 
-      {/* ─ Schema source ─ */}
-      <div className="gql-mock-section" data-testid="gql-mock-schema-source">
-        <div className="gql-mock-section-label">Schema source</div>
-        <div className="gql-mock-radio-group">
-          {(['introspected', 'custom'] as MockSchemaSource[]).map((src) => (
-            <label key={src} className="gql-mock-radio-label">
-              <input
-                type="radio"
-                name="mock-schema-source"
-                value={src}
-                checked={schemaSource === src}
-                onChange={() => mockServer.setSchemaSource(src)}
-              />
-              {src === 'introspected' ? 'Use introspected schema' : 'Custom SDL'}
-            </label>
-          ))}
+      <div className="gql-mock-settings">
+        {/* ─ Schema source ─ */}
+        <div className="gql-mock-form-card" data-testid="gql-mock-schema-source">
+          <div className="gql-mock-section-label">Schema source</div>
+          <div className="gql-mock-segment" role="radiogroup" aria-label="Schema source">
+            {([
+              { id: 'introspected' as MockSchemaSource, title: 'Introspected schema', desc: 'Reuse SDL from the last introspection' },
+              { id: 'custom' as MockSchemaSource, title: 'Custom SDL', desc: 'Paste or edit schema by hand' },
+            ]).map(({ id, title, desc }) => (
+              <label
+                key={id}
+                className={`gql-mock-segment-option${schemaSource === id ? ' gql-mock-segment-option--active' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="mock-schema-source"
+                  value={id}
+                  checked={schemaSource === id}
+                  onChange={() => mockServer.setSchemaSource(id)}
+                  className="gql-mock-segment-input"
+                />
+                <span className="gql-mock-segment-body">
+                  <span className="gql-mock-segment-title">{title}</span>
+                  <span className="gql-mock-segment-desc">{desc}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {schemaSource === 'custom' && (
+            <textarea
+              className="gql-mock-sdl-editor"
+              value={customSdl}
+              onChange={(e) => mockServer.setCustomSdl(e.target.value)}
+              onBlur={() => mockServer.syncCustomSdlNow()}
+              placeholder="type Query { ... }"
+              rows={6}
+              data-testid="gql-mock-sdl-editor"
+            />
+          )}
         </div>
-        {schemaSource === 'custom' && (
-          <textarea
-            className="gql-mock-sdl-editor"
-            value={customSdl}
-            onChange={(e) => mockServer.setCustomSdl(e.target.value)}
-            onBlur={() => mockServer.syncCustomSdlNow()}
-            placeholder="type Query { ... }"
-            rows={6}
-            data-testid="gql-mock-sdl-editor"
-          />
-        )}
-      </div>
 
-      {/* ─ Latency / Jitter / Seed ─ */}
-      <div className="gql-mock-section gql-mock-latency-section">
-        <div className="gql-mock-latency-row">
-          <label className="gql-mock-field-label">Latency (ms)</label>
-          <input
-            type="range"
-            min={0}
-            max={5000}
-            step={50}
-            value={config.globalLatencyMs ?? 0}
-            onChange={(e) => mockServer.setGlobalLatency(parseInt(e.target.value, 10))}
-            className="gql-mock-slider"
-            data-testid="gql-mock-latency-slider"
-          />
-          <span className="gql-mock-latency-value">{config.globalLatencyMs ?? 0}ms</span>
-        </div>
-        <div className="gql-mock-latency-row">
-          <label className="gql-mock-field-label">Jitter (ms)</label>
-          <input
-            type="number"
-            min={0}
-            max={2000}
-            step={10}
-            value={config.jitterMs ?? 0}
-            onChange={(e) => mockServer.setJitter(parseInt(e.target.value, 10) || 0)}
-            className="gql-mock-number-input"
-            data-testid="gql-mock-jitter-input"
-          />
-        </div>
-        <div className="gql-mock-latency-row">
-          <label className="gql-mock-field-label" title="Seed-based deterministic randomness is not yet implemented — this value is stored but has no effect on generated mock data">
-            Seed
-            <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: '0.7rem' }}>(coming soon)</span>
-          </label>
-          <input
-            type="number"
-            min={0}
-            value={config.seed ?? ''}
-            onChange={(e) => mockServer.setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-            className="gql-mock-number-input"
-            placeholder="Random"
-            data-testid="gql-mock-seed-input"
-            title="Seed-based deterministic randomness is not yet implemented"
-          />
+        {/* ─ Latency / Jitter / Seed ─ */}
+        <div className="gql-mock-form-card gql-mock-timing-card">
+          <div className="gql-mock-section-label">Response timing</div>
+          <div className="gql-mock-form-row">
+            <label className="gql-mock-form-label" htmlFor="gql-mock-latency-slider">Latency</label>
+            <div className="gql-mock-form-ctrl gql-mock-form-ctrl--slider">
+              <input
+                id="gql-mock-latency-slider"
+                type="range"
+                min={0}
+                max={5000}
+                step={50}
+                value={config.globalLatencyMs ?? 0}
+                onChange={(e) => mockServer.setGlobalLatency(parseInt(e.target.value, 10))}
+                className="gql-mock-slider"
+                data-testid="gql-mock-latency-slider"
+              />
+              <span className="gql-mock-latency-value" data-testid="gql-mock-latency-value">
+                {config.globalLatencyMs ?? 0} ms
+              </span>
+            </div>
+          </div>
+          <div className="gql-mock-form-row">
+            <label className="gql-mock-form-label" htmlFor="gql-mock-jitter-input">Jitter</label>
+            <div className="gql-mock-form-ctrl">
+              <input
+                id="gql-mock-jitter-input"
+                type="number"
+                min={0}
+                max={2000}
+                step={10}
+                value={config.jitterMs ?? 0}
+                onChange={(e) => mockServer.setJitter(parseInt(e.target.value, 10) || 0)}
+                className="gql-mock-number-input"
+                data-testid="gql-mock-jitter-input"
+              />
+              <span className="gql-mock-form-hint">± ms around latency</span>
+            </div>
+          </div>
+          <div className="gql-mock-form-row gql-mock-form-row--muted">
+            <label className="gql-mock-form-label" htmlFor="gql-mock-seed-input">Seed</label>
+            <div className="gql-mock-form-ctrl">
+              <input
+                id="gql-mock-seed-input"
+                type="number"
+                min={0}
+                value={config.seed ?? ''}
+                onChange={(e) => mockServer.setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                className="gql-mock-number-input"
+                placeholder="Random"
+                data-testid="gql-mock-seed-input"
+                title="Seed-based deterministic randomness is not yet implemented"
+              />
+              <span className="gql-mock-form-hint">Coming soon — stored but not applied yet</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ─ Panel tabs ─ */}
-      <div className="gql-mock-tabs" role="tablist">
+      <div className="gql-mock-tabs" role="tablist" aria-label="Mock server sections">
         {([
           { id: 'resolvers' as MockPanelTab, label: 'Resolvers' },
           { id: 'scenarios' as MockPanelTab, label: 'Scenarios' },
-          { id: 'scalars'   as MockPanelTab, label: 'Scalar Factories' },
-          { id: 'log'       as MockPanelTab, label: 'Request Log' },
+          { id: 'scalars'   as MockPanelTab, label: 'Scalars' },
+          { id: 'log'       as MockPanelTab, label: 'Request log' },
         ]).map(({ id, label }) => (
           <button
             key={id}
@@ -337,11 +415,11 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
           <button type="button" className="gql-mock-import-error-close" onClick={() => setImportError(null)} aria-label="Dismiss import error">✕</button>
         </div>
       )}
-      <div className="gql-mock-footer">
+      <div className="gql-mock-footer" data-testid="gql-mock-footer">
         <button type="button" className="gql-mock-footer-btn" onClick={handleExport} title="Export mock config as JSON">
           Export
         </button>
-        <label className="gql-mock-footer-btn" title="Import mock config from JSON">
+        <label className="gql-mock-footer-btn gql-mock-footer-btn--import" title="Import mock config from JSON">
           Import
           <input
             ref={importInputRef}
@@ -355,7 +433,7 @@ export function GraphqlMockPanel({ mockServer, schemaInfo }: GraphqlMockPanelPro
           Copy URL
         </button>
         <button type="button" className="gql-mock-footer-btn gql-mock-footer-btn--danger" onClick={mockServer.resetAll} title="Reset all resolvers and config">
-          Reset All
+          Reset all
         </button>
       </div>
     </div>
@@ -387,9 +465,10 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
   return (
     <div className="gql-mock-scenarios" data-testid="gql-mock-scenarios">
       {scenarios.length === 0 && !adding && (
-        <div className="gql-mock-empty">
-          No scenarios yet. Scenarios let you switch between named sets of resolver overrides with one click.
-        </div>
+        <MockEmptyState
+          title="No scenarios yet"
+          hint="Save named resolver presets and switch between them with one click."
+        />
       )}
 
       {scenarios.map((s) => (
@@ -497,10 +576,13 @@ function ScalarFactoriesTab({ config, schemaInfo, mockServer, schemaSource }: Sc
     const emptyMsg = schemaInfo
       ? 'No custom scalar types found in schema. Custom scalars like DateTime or EmailAddress appear here when the schema contains them.'
       : schemaSource === 'custom'
-        ? 'Scalar factory configuration uses the introspected schema type list. Switch to "Use introspected schema" and introspect first to configure scalar factories.'
+        ? 'Scalar factory configuration uses the introspected schema type list. Switch to "Introspected schema" and introspect first to configure scalar factories.'
         : 'Introspect a schema to configure custom scalar factories.';
     return (
-      <div className="gql-mock-empty">{emptyMsg}</div>
+      <MockEmptyState
+        title="No custom scalars"
+        hint={emptyMsg}
+      />
     );
   }
 
@@ -608,14 +690,24 @@ function RequestLogTab({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (!enabled) {
-    return <div className="gql-mock-empty">Enable mock mode to see request logs.</div>;
+    return (
+      <MockEmptyState
+        title="Mock mode is off"
+        hint="Turn on mock mode above, then execute queries against the mock endpoint to populate this log."
+      />
+    );
   }
   if (log.length === 0) {
     return (
-      <div className="gql-mock-empty">
-        No requests yet. Point your app at <code>{MOCK_ENDPOINT}</code> and run a query.
-        <button type="button" className="gql-mock-refresh-btn" onClick={onRefresh}>Refresh</button>
-      </div>
+      <MockEmptyState
+        title="No requests yet"
+        hint={<>Point your client at <code className="gql-mock-inline-code">{MOCK_ENDPOINT}</code> and run a query.</>}
+        action={(
+          <button type="button" className="gql-mock-refresh-btn" onClick={onRefresh}>
+            Refresh
+          </button>
+        )}
+      />
     );
   }
 

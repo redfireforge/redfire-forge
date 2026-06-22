@@ -1,34 +1,54 @@
 /**
  * useGraphqlBatchExecution — manages Phase 3F batch query execution.
  *
- * Handles:
- *  - Per-tab batch-checked state (batchTabOverrides)
- *  - Batch execution via `/api/graphql/batch` proxy
- *  - Batch timeout handling with partial results
- *  - Batch unsupported detection + per-connection persistence
- *  - Complexity gate modal state (complexityGatePending)
- *
- * Extracted from GraphqlStudioPage.tsx to reduce its line count.
+ * Phase 6G: tabs are grouped by resolved endpoint; checkboxes and Send Batch
+ * count are scoped to the active group. Demo lessons filter groups to demo tabs only.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphqlAuth, GraphqlBatchResult, GraphqlError, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
+import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import type { AdvancedSettingsValues } from '../components/GraphqlAdvancedSettings';
 import { buildAuthHeaders } from '../utils/authUtils';
+import {
+  buildBatchGroups,
+  evaluateBatchEndpointParity,
+  type BatchEndpointGroup,
+} from '../utils/batchEndpointUtils';
 import { findUnresolvedVars, resolveVars } from '../utils/envUtils';
 import { readKey, writeKey } from '../../../shared/utils/storage';
+import {
+  resolveTabConnection,
+  isTabProfileLinkPending,
+  tabConnectionTls,
+  type TabConnectionPageDefaults,
+} from '../utils/tabConnectionResolution';
+import { serializeGqlTlsForProxy } from '../../../shared/types/gqlTls';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UseGraphqlBatchExecutionParams {
   tabs: GqlStudioTab[];
-  endpoint: string;
-  auth: GraphqlAuth | null;
+  activeTabId: string | null;
+  /** When set, batch groups contain only demo tabs for this lesson (§11.0). */
+  activeDemoLessonId?: string | null;
+  /** Page-level default endpoint (before per-tab overrides). Phase 6A-8. */
+  pageDefaultEndpoint: string;
+  /** Saved connection profiles for endpoint resolution (Phase 6F). */
+  profiles?: ConnectionProfile[];
+  /** Page-level auth fallback for tabs without profile link (Phase 6F — not active-tab auth). */
+  pageDefaultAuth: GraphqlAuth | null;
   activeEnvironment: GraphqlEnvironment | null;
   globalEnvMap?: Record<string, string>;
-  skipTlsVerify: boolean;
+  /** Page-level TLS skip default (before per-tab overrides). */
+  pageDefaultSkipTlsVerify: boolean;
+  pageDefaultTlsCaCert?: string;
+  pageDefaultTlsClientCert?: string;
+  pageDefaultTlsClientKey?: string;
+  /** Global auth profiles for inherit resolution (Phase 6F). */
+  globalAuthProfiles?: GlobalAuthProfile[];
   advSettingsRef: React.RefObject<AdvancedSettingsValues>;
-  connectionIdRef: React.RefObject<string | null>;
   setAdvSettings: React.Dispatch<React.SetStateAction<AdvancedSettingsValues>>;
   setBatchUnsupportedToast: (v: boolean) => void;
   setRightView: (view: 'response' | 'schema') => void;
@@ -48,21 +68,39 @@ export interface UseGraphqlBatchExecutionResult {
   batchTabOverrides: Map<string, boolean>;
   effectiveBatchedTabs: GqlStudioTab[];
   batchedTabIdsSet: Set<string>;
+  batchGroups: BatchEndpointGroup[];
+  activeBatchGroupKey: string | null;
+  activeBatchGroup: BatchEndpointGroup | null;
+  batchCheckboxTabIds: Set<string>;
+  handleSetActiveBatchGroup: (groupKey: string) => void;
   handleToggleBatch: (tabId: string) => void;
   handleSendBatch: () => void;
+  setBatchTabOverrides: React.Dispatch<React.SetStateAction<Map<string, boolean>>>;
+  /** True when two or more checked tabs resolve to different endpoints (Phase 6A-8). */
+  batchEndpointMismatch: boolean;
+  /** True when batched tabs share a non-empty resolved endpoint (Phase 6A-8). */
+  batchEndpointReady: boolean;
+  /** True when any checked tab has an unresolved profile link (Phase 6F). */
+  batchProfileLinkPending: boolean;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGraphqlBatchExecution({
   tabs,
-  endpoint,
-  auth,
+  activeTabId,
+  activeDemoLessonId = null,
+  pageDefaultEndpoint,
+  profiles = [],
+  pageDefaultAuth,
   activeEnvironment,
   globalEnvMap,
-  skipTlsVerify,
+  pageDefaultSkipTlsVerify,
+  pageDefaultTlsCaCert,
+  pageDefaultTlsClientCert,
+  pageDefaultTlsClientKey,
+  globalAuthProfiles = [],
   advSettingsRef,
-  connectionIdRef,
   setAdvSettings,
   setBatchUnsupportedToast,
   setRightView,
@@ -79,18 +117,66 @@ export function useGraphqlBatchExecution({
   const sessionBypassComplexityGateRef = useRef(false);
 
   const [batchTabOverrides, setBatchTabOverrides] = useState<Map<string, boolean>>(new Map());
+  const [activeBatchGroupKey, setActiveBatchGroupKey] = useState<string | null>(null);
+
+  const batchGroups = useMemo(
+    () => buildBatchGroups(
+      tabs,
+      pageDefaultEndpoint,
+      activeEnvironment,
+      globalEnvMap,
+      profiles,
+      { demoLessonId: activeDemoLessonId },
+    ),
+    [tabs, pageDefaultEndpoint, activeEnvironment, globalEnvMap, profiles, activeDemoLessonId],
+  );
+
+  useEffect(() => {
+    if (batchGroups.length === 0) {
+      setActiveBatchGroupKey(null);
+      return;
+    }
+    setActiveBatchGroupKey((prev) => {
+      const groupForActive = activeTabId
+        ? batchGroups.find((g) => g.tabIds.includes(activeTabId))
+        : undefined;
+      if (groupForActive) return groupForActive.key;
+      if (prev && batchGroups.some((g) => g.key === prev)) return prev;
+      const preferred = batchGroups.find((g) => g.tabIds.length >= 2) ?? batchGroups[0]!;
+      return preferred.key;
+    });
+  }, [batchGroups, activeTabId]);
+
+  const activeBatchGroup = useMemo(
+    () => batchGroups.find((g) => g.key === activeBatchGroupKey) ?? null,
+    [batchGroups, activeBatchGroupKey],
+  );
+
+  const batchCheckboxTabIds = useMemo(
+    () => new Set(activeBatchGroup?.tabIds ?? []),
+    [activeBatchGroup],
+  );
+
+  const handleSetActiveBatchGroup = useCallback((groupKey: string) => {
+    if (batchGroups.some((g) => g.key === groupKey)) {
+      setActiveBatchGroupKey(groupKey);
+    }
+  }, [batchGroups]);
 
   const handleToggleBatch = useCallback((tabId: string) => {
+    if (!batchCheckboxTabIds.has(tabId)) return;
     setBatchTabOverrides((prev) => {
       const next = new Map(prev);
       next.set(tabId, !(prev.get(tabId) ?? false));
       return next;
     });
-  }, []);
+  }, [batchCheckboxTabIds]);
 
   const effectiveBatchedTabs = useMemo(
-    () => tabs.filter((t) => batchTabOverrides.get(t.id) === true && t.operationType !== 'subscription'),
-    [tabs, batchTabOverrides],
+    () => tabs.filter(
+      (t) => batchTabOverrides.get(t.id) === true && batchCheckboxTabIds.has(t.id),
+    ),
+    [tabs, batchTabOverrides, batchCheckboxTabIds],
   );
 
   const batchedTabIdsSet = useMemo(
@@ -98,21 +184,80 @@ export function useGraphqlBatchExecution({
     [effectiveBatchedTabs],
   );
 
+  const batchEndpointParity = useMemo(
+    () => evaluateBatchEndpointParity(
+      effectiveBatchedTabs,
+      pageDefaultEndpoint,
+      activeEnvironment,
+      globalEnvMap,
+      profiles,
+    ),
+    [effectiveBatchedTabs, pageDefaultEndpoint, activeEnvironment, globalEnvMap, profiles],
+  );
+
+  const batchEndpointMismatch = batchEndpointParity.mismatch;
+
+  const batchProfileLinkPending = useMemo(
+    () => effectiveBatchedTabs.some((t) => isTabProfileLinkPending(t, profiles)),
+    [effectiveBatchedTabs, profiles],
+  );
+
+  const batchEndpointReady = useMemo(
+    () => effectiveBatchedTabs.length >= 2
+      && batchEndpointParity.hasParity
+      && Boolean(batchEndpointParity.commonResolvedEndpoint?.trim())
+      && !batchProfileLinkPending,
+    [effectiveBatchedTabs.length, batchEndpointParity, batchProfileLinkPending],
+  );
+
+  const batchSkipTlsVerify = useMemo(() => {
+    const first = effectiveBatchedTabs[0];
+    return first?.skipTlsVerify ?? pageDefaultSkipTlsVerify;
+  }, [effectiveBatchedTabs, pageDefaultSkipTlsVerify]);
+
+  const batchConnectionDefaults = useMemo<TabConnectionPageDefaults>(
+    () => ({
+      endpoint: pageDefaultEndpoint,
+      auth: pageDefaultAuth,
+      skipTlsVerify: pageDefaultSkipTlsVerify,
+      tlsCaCert: pageDefaultTlsCaCert,
+      tlsClientCert: pageDefaultTlsClientCert,
+      tlsClientKey: pageDefaultTlsClientKey,
+      pollingEnabled: false,
+      pollingIntervalSeconds: 30,
+    }),
+    [
+      pageDefaultEndpoint,
+      pageDefaultAuth,
+      pageDefaultSkipTlsVerify,
+      pageDefaultTlsCaCert,
+      pageDefaultTlsClientCert,
+      pageDefaultTlsClientKey,
+    ],
+  );
+
+  const batchTls = useMemo(() => {
+    const first = effectiveBatchedTabs[0];
+    if (!first) return {};
+    return tabConnectionTls(resolveTabConnection(first, profiles, batchConnectionDefaults));
+  }, [effectiveBatchedTabs, profiles, batchConnectionDefaults]);
+
   const handleSendBatch = useCallback(() => {
     if (effectiveBatchedTabs.length < 2 || batchExecuting || batchExecutingRef.current) return;
-    if (!endpoint.trim()) return;
-    if (findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap).length > 0) return;
+    if (batchProfileLinkPending) return;
+    if (batchEndpointParity.mismatch) return;
+    const resolvedEndpoint = batchEndpointParity.commonResolvedEndpoint;
+    if (!resolvedEndpoint) return;
+    if (findUnresolvedVars(resolvedEndpoint, activeEnvironment, globalEnvMap).length > 0) return;
     if (effectiveBatchedTabs.some((t) => !t.query.trim())) return;
 
     batchExecutingRef.current = true;
     setBatchExecuting(true);
     setBatchResult(null);
 
-    const batchConnId = connectionIdRef.current;
-    const resolvedEndpoint = resolveVars(endpoint, activeEnvironment, globalEnvMap);
-    const authH = buildAuthHeaders(auth);
-
     const buildTabHeaders = (tab: GqlStudioTab): Record<string, string> => {
+      const tabAuth = resolveTabConnection(tab, profiles, batchConnectionDefaults).auth;
+      const authH = buildAuthHeaders(tabAuth, globalAuthProfiles);
       const tabHeaderMap: Record<string, string> = {};
       for (const h of tab.headers) {
         if (h.enabled && h.key.trim()) tabHeaderMap[h.key.trim()] = h.value;
@@ -148,7 +293,8 @@ export function useGraphqlBatchExecution({
             endpoint: resolvedEndpoint,
             operations: batchOperations,
             headers: resolvedHeaders,
-            skipTlsVerify,
+            skipTlsVerify: batchSkipTlsVerify,
+            ...serializeGqlTlsForProxy(batchTls),
             tryArrayBatch: !advSettingsRef.current.batchUnsupportedDetected,
             batchTimeoutMs: advSettingsRef.current.batchTimeoutMs,
           }),
@@ -222,6 +368,7 @@ export function useGraphqlBatchExecution({
         if (json.batchUnsupported && !advSettingsRef.current.batchUnsupportedDetected) {
           setAdvSettings((prev) => ({ ...prev, batchUnsupportedDetected: true }));
           setBatchUnsupportedToast(true);
+          const batchConnId = resolvedEndpoint;
           if (batchConnId) {
             void readKey(`gql_conn_detection_${batchConnId}`)
               .then((raw) => {
@@ -254,9 +401,9 @@ export function useGraphqlBatchExecution({
         setBatchExecuting(false);
       }
     })();
-  }, [effectiveBatchedTabs, batchExecuting, endpoint, activeEnvironment, globalEnvMap, auth,
-    skipTlsVerify, setRightView, advSettingsRef, connectionIdRef, setAdvSettings,
-    setBatchUnsupportedToast, gqlProxyBase]);
+  }, [effectiveBatchedTabs, batchExecuting, batchProfileLinkPending, batchEndpointParity, batchSkipTlsVerify, batchTls,
+    activeEnvironment, globalEnvMap, profiles, globalAuthProfiles, batchConnectionDefaults, setRightView, advSettingsRef,
+    setAdvSettings, setBatchUnsupportedToast, gqlProxyBase]);
 
   return {
     batchResult,
@@ -271,7 +418,16 @@ export function useGraphqlBatchExecution({
     batchTabOverrides,
     effectiveBatchedTabs,
     batchedTabIdsSet,
+    batchGroups,
+    activeBatchGroupKey,
+    activeBatchGroup,
+    batchCheckboxTabIds,
+    handleSetActiveBatchGroup,
     handleToggleBatch,
     handleSendBatch,
+    setBatchTabOverrides,
+    batchEndpointMismatch,
+    batchEndpointReady,
+    batchProfileLinkPending,
   };
 }

@@ -4,7 +4,8 @@
  * Thin wrapper around httpFetch that adds `skipTlsVerify` support.
  * In web mode the flag is forwarded to the /__proxy middleware which
  * creates an undici Agent with rejectUnauthorized:false for that request.
- * In Tauri mode, httpFetch is used as-is (Tauri handles TLS separately).
+ * In Tauri mode, loopback POST and custom TLS route through the Node proxy on
+ * port 3001; trusted remote HTTPS uses httpFetch directly.
  *
  * Phase 2.0 Sprint 4: also exports `gqlUpload` for multipart file upload via
  * the /api/graphql/upload proxy route.
@@ -13,6 +14,78 @@
 import { isTauri } from '../../../shared/utils/platform';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
+import {
+  gqlRequiresTlsProxy,
+  normalizeGqlFetchTls,
+  serializeGqlTlsForProxy,
+  tlsApqGetNeedsPostProxy,
+  type GqlTlsSettings,
+} from '../../../shared/types/gqlTls';
+import { isLoopbackUrl } from '../../../shared/utils/loopbackUrl';
+import { isGraphqlMockEndpoint } from './graphqlEndpointUtils';
+import { getProxyBase } from './graphqlProxyTransports';
+
+/** Relay POST GraphQL through Node /api/graphql/query (Tauri + custom TLS). */
+async function gqlFetchViaGraphqlQueryProxy(
+  endpoint: string,
+  headers: Record<string, string>,
+  body: string,
+  signal: AbortSignal | undefined,
+  tls: GqlTlsSettings,
+): Promise<HttpResponse> {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return {
+      status: 0,
+      statusText: '',
+      headers: {},
+      body: '',
+      error: 'Invalid JSON body for GraphQL query proxy',
+    };
+  }
+
+  const proxyBody = {
+    endpoint,
+    query: parsed.query,
+    ...(parsed.variables !== undefined ? { variables: parsed.variables } : {}),
+    ...(typeof parsed.operationName === 'string' ? { operationName: parsed.operationName } : {}),
+    headers,
+    ...serializeGqlTlsForProxy(tls),
+  };
+
+  try {
+    const resp = await fetch(`${getProxyBase()}/api/graphql/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(proxyBody),
+      signal,
+    });
+    const text = await resp.text().catch(() => '');
+    const responseHeaders: Record<string, string> = {};
+    resp.headers.forEach((v, k) => { responseHeaders[k] = v; });
+    return {
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: responseHeaders,
+      body: text,
+    };
+  } catch (err) {
+    if ((err as DOMException)?.name === 'AbortError') {
+      return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' };
+    }
+    return {
+      status: 0,
+      statusText: '',
+      headers: {},
+      body: '',
+      error: err instanceof Error
+        ? `${err.message} — is the Node proxy running? (npm run server, port 3001)`
+        : 'Network error — is the Node proxy running? (npm run server, port 3001)',
+    };
+  }
+}
 
 export async function gqlFetch(
   url: string,
@@ -20,23 +93,95 @@ export async function gqlFetch(
   headers: Record<string, string>,
   body?: string,
   signal?: AbortSignal,
-  skipTlsVerify?: boolean,
+  tlsInput?: boolean | GqlTlsSettings,
 ): Promise<HttpResponse> {
   if (signal?.aborted) {
     return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' };
   }
 
-  // For Tauri (desktop) or when TLS skip is not requested, use standard httpFetch
-  if (!skipTlsVerify || isTauri()) {
-    return httpFetch(url, method, headers, body, signal);
+  const tls = normalizeGqlFetchTls(tlsInput);
+  const proxyBase = getProxyBase();
+
+  // Tauri: loopback GraphQL POST via Node proxy — avoids corporate-proxy breakage
+  // when localhost→127.0.0.1 rewriting bypasses NO_PROXY; mock server also lives on :3001.
+  // Mock execute/introspect must hit /api/graphql/mock directly, not via /api/graphql/query.
+  if (
+    isTauri()
+    && method === 'POST'
+    && body
+    && isLoopbackUrl(url)
+    && !isGraphqlMockEndpoint(url)
+    && !url.startsWith('/api/')
+    && !url.startsWith(`${proxyBase}/api/`)
+  ) {
+    return gqlFetchViaGraphqlQueryProxy(url, headers, body, signal, tls);
   }
 
-  // Web path with TLS skip: call /__proxy directly with the skipTlsVerify flag
+  if (!gqlRequiresTlsProxy(tls)) {
+    const resolvedUrl = isTauri() && url.startsWith('/api/')
+      ? `${getProxyBase()}${url}`
+      : url;
+    return httpFetch(resolvedUrl, method, headers, body, signal);
+  }
+
+  // Tauri native HTTP cannot apply custom TLS — route through the Node proxy.
+  if (isTauri() && method === 'POST' && body) {
+    return gqlFetchViaGraphqlQueryProxy(url, headers, body, signal, tls);
+  }
+
+  if (
+    isTauri() &&
+    method === 'GET' &&
+    gqlRequiresTlsProxy(tls) &&
+    !url.startsWith('/api/') &&
+    !url.startsWith(`${proxyBase}/api/`)
+  ) {
+    if (tlsApqGetNeedsPostProxy(tls)) {
+      return {
+        status: 0,
+        statusText: '',
+        headers: {},
+        body: '',
+        error: 'Custom TLS certificates require a POST GraphQL request on desktop',
+      };
+    }
+    try {
+      const parsed = new URL(url);
+      const proxyParams = new URLSearchParams();
+      proxyParams.set('endpoint', `${parsed.origin}${parsed.pathname}`);
+      parsed.searchParams.forEach((v, k) => proxyParams.set(k, v));
+      if (tls.skipTlsVerify) proxyParams.set('skipTlsVerify', 'true');
+      return httpFetch(
+        `${proxyBase}/api/graphql/query?${proxyParams.toString()}`,
+        'GET',
+        headers,
+        undefined,
+        signal,
+      );
+    } catch {
+      /* fall through to direct httpFetch */
+    }
+  }
+
+  // Web: Vite / preview POST /__proxy with TLS options.
+  if (isTauri()) {
+    const resolvedUrl = url.startsWith('/api/')
+      ? `${proxyBase}${url}`
+      : url;
+    return httpFetch(resolvedUrl, method, headers, body, signal);
+  }
+
   try {
     const resp = await fetch('/__proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, method, headers, body, skipTlsVerify: true }),
+      body: JSON.stringify({
+        url,
+        method,
+        headers,
+        body,
+        ...serializeGqlTlsForProxy(tls),
+      }),
       signal,
     });
     if (!resp.ok) {
@@ -78,22 +223,36 @@ export async function gqlFetch(
  * `(loaded, total)` as bytes are sent to the proxy (browser → proxy transfer).
  * `total` may be 0 if the browser cannot determine the size in advance (rare).
  */
+/** Base64-encode TLS proxy JSON for the upload route header (ASCII-safe PEM). */
+function encodeGqlTlsConfigHeader(tls: GqlTlsSettings): string {
+  const json = JSON.stringify(serializeGqlTlsForProxy(tls));
+  if (typeof btoa === 'function') {
+    return btoa(json);
+  }
+  return Buffer.from(json, 'utf8').toString('base64');
+}
+
 export async function gqlUpload(
   endpoint: string,
   formData: FormData,
   headers: Record<string, string>,
   signal?: AbortSignal,
   onProgress?: (loaded: number, total: number) => void,
+  tlsInput?: boolean | GqlTlsSettings,
 ): Promise<HttpResponse> {
   if (signal?.aborted) {
     return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' };
   }
 
-  const uploadProxyUrl = '/api/graphql/upload';
+  const uploadProxyUrl = `${getProxyBase()}/api/graphql/upload`;
+  const tls = normalizeGqlFetchTls(tlsInput);
   const fetchHeaders: Record<string, string> = {
     ...headers,
     'x-graphql-endpoint': endpoint,
   };
+  if (gqlRequiresTlsProxy(tls)) {
+    fetchHeaders['x-gql-tls-config'] = encodeGqlTlsConfigHeader(tls);
+  }
   // Do NOT set Content-Type — browser sets it automatically with the boundary for FormData.
   // Case-insensitive delete: headers from user input may have any casing.
   for (const k of Object.keys(fetchHeaders)) {

@@ -24,6 +24,9 @@ import {
   selectProtocolsDomain as selectDomain,
   selectCategory,
   openLesson,
+  runNextStep,
+  restartLesson,
+  waitForReadingPhase,
 } from './demo-player-helpers';
 
 const STEP_TIMEOUT = 20_000;
@@ -380,18 +383,16 @@ test.describe('Live Demo Controls — Regression', () => {
     await page.locator('.demo-start-btn').click();
     await page.waitForSelector('.demo-live-panel', { timeout: DEMO_HUB_TIMEOUT });
 
-    const nextBtn = page.locator('[aria-label="Next step"]');
-    await expect(nextBtn).toBeEnabled({ timeout: STEP_TIMEOUT });
-    await nextBtn.click();
-    await page.waitForTimeout(500);
+    await runNextStep(page, STEP_TIMEOUT);
+    const { counter: before } = await page.locator('.demo-live-step-counter').textContent().then(
+      (t) => ({ counter: (t ?? '').trim() }),
+    );
+    expect(before).toMatch(/2\s*[/]\s*\d+/);
 
-    await page.locator('.demo-live-restart-btn').click();
-    await page.waitForTimeout(1500);
-
-    const counter = page.locator('.demo-live-step-counter');
-    const counterText = await counter.textContent();
+    await restartLesson(page);
+    const counterText = await page.locator('.demo-live-step-counter').textContent();
     expect(counterText).toMatch(/^1\s*[/]\s*\d+/);
-    console.log('[PASS] Restart: counter resets to', counterText);
+    console.log('[PASS] Restart: counter resets from', before, '→', counterText?.trim());
   });
 
   test('exit from live demo returns to concept slide', async ({ page }) => {
@@ -459,15 +460,12 @@ test.describe('Live Demo Controls — Regression', () => {
     await page.locator('.demo-start-btn').click();
     await page.waitForSelector('.demo-live-panel', { timeout: DEMO_HUB_TIMEOUT });
 
-    const nextBtn = page.locator('[aria-label="Next step"]');
-    await expect(nextBtn).toBeEnabled({ timeout: STEP_TIMEOUT });
-
+    await waitForReadingPhase(page, STEP_TIMEOUT);
     const before = await page.locator('.demo-live-step-counter').textContent();
-    await nextBtn.click();
-    await page.waitForTimeout(800);
+    await runNextStep(page, STEP_TIMEOUT);
     const after = await page.locator('.demo-live-step-counter').textContent();
     expect(before).not.toEqual(after);
-    console.log('[PASS] Counter advanced:', before, '→', after);
+    console.log('[PASS] Counter advanced:', before?.trim(), '→', after?.trim());
   });
 
   test('sidebar step list reflects current lesson steps', async ({ page }) => {

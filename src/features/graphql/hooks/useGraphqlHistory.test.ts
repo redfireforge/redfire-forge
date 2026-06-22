@@ -207,6 +207,23 @@ describe('useGraphqlHistory — search', () => {
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(result.current.search('query')).toHaveLength(1);
   });
+
+  it('filters by response body text', async () => {
+    const fakeItem = {
+      id: 'h1',
+      connectionId: 'conn-1',
+      operation: op,
+      response: JSON.stringify({ data: { user: { name: 'Alice' } } }),
+      timestamp: Date.now(),
+      latencyMs: 50,
+      status: 'success' as const,
+    };
+    vi.mocked(idbLoadHistory).mockResolvedValue([fakeItem]);
+    const { result } = renderHook(() => useGraphqlHistory('conn-1'));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.search('alice')).toHaveLength(1);
+    expect(result.current.search('bob')).toHaveLength(0);
+  });
 });
 
 describe('useGraphqlHistory — response truncation (lines 95-100)', () => {

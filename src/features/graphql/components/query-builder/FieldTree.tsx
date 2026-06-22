@@ -103,13 +103,21 @@ export function FieldTree({
 
   if (!schemaInfo) {
     return (
-      <div className="gql-qb-field-tree">
+      <div className="gql-qb-field-tree" data-testid="gql-qb-field-tree">
+        <div className="gql-qb-panel-header">
+          <span className="gql-qb-panel-header-title">Schema fields</span>
+        </div>
         <div className="gql-qb-no-schema">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <p>No schema loaded.</p>
-          <p>Use the <strong>Introspect</strong> button in the connection bar to load a schema.</p>
+          <div className="gql-qb-no-schema-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+          <p className="gql-qb-no-schema-title">No schema loaded</p>
+          <p className="gql-qb-no-schema-desc">
+            Run <strong>Introspect</strong> in the connection bar to browse types and build queries visually.
+          </p>
         </div>
       </div>
     );
@@ -128,6 +136,10 @@ export function FieldTree({
 
   return (
     <div className="gql-qb-field-tree" data-testid="gql-qb-field-tree">
+      <div className="gql-qb-panel-header">
+        <span className="gql-qb-panel-header-title">Schema fields</span>
+        <span className="gql-qb-panel-header-hint">⌘K to search</span>
+      </div>
       <div className="gql-qb-search-bar">
         <svg className="gql-qb-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>

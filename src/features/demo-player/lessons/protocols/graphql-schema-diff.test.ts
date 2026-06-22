@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql12'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
 import { gqlSchemaDiffLesson } from './graphql-schema-diff';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
@@ -114,12 +121,15 @@ describe('gql-schema-diff lesson', () => {
     vi.unstubAllGlobals();
   });
 
+  // ── Lesson structure ───────────────────────────────────────────────────────
+
   it('has valid lesson structure', () => {
     expect(gqlSchemaDiffLesson.id).toBe('gql-schema-diff');
     expect(gqlSchemaDiffLesson.category).toBe('graphql');
     expect(gqlSchemaDiffLesson.name).toBe('Schema Diff & Breaking Changes');
     expect(gqlSchemaDiffLesson.steps.length).toBe(7);
     expect(gqlSchemaDiffLesson.estimatedMinutes).toBe(3);
+    expect(gqlSchemaDiffLesson.tabBudget).toBe(1);
   });
 
   it('has docker prerequisite fields', () => {
@@ -151,12 +161,203 @@ describe('gql-schema-diff lesson', () => {
     });
   });
 
+  // ── Concept content ────────────────────────────────────────────────────────
+
+  it('concept title explains schema drift detection', () => {
+    expect(gqlSchemaDiffLesson.concept.title).toContain('Schema Diff');
+    expect(gqlSchemaDiffLesson.concept.title).toContain('Breaks');
+  });
+
+  it('concept body explains WHY schema drift is a risk', () => {
+    expect(gqlSchemaDiffLesson.concept.body).toContain('living contracts');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('silent');
+  });
+
+  it('concept body explains WHY snapshots are point-in-time', () => {
+    expect(gqlSchemaDiffLesson.concept.body).toContain('point in time');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('IndexedDB');
+  });
+
+  it('concept body explains all four severity levels', () => {
+    expect(gqlSchemaDiffLesson.concept.body).toContain('Breaking');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('Dangerous');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('Safe');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('Deprecated');
+  });
+
+  it('concept body explains WHY JSON export enables CI/CD gating', () => {
+    expect(gqlSchemaDiffLesson.concept.body).toContain('CI/CD');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('breakingCount');
+  });
+
+  it('concept body explains the seeded baseline approach', () => {
+    expect(gqlSchemaDiffLesson.concept.body).toContain('prior-release baseline');
+    expect(gqlSchemaDiffLesson.concept.body).toContain('4010');
+  });
+
+  it('has exactly 5 key terms', () => {
+    expect(gqlSchemaDiffLesson.concept.keyTerms.length).toBe(5);
+  });
+
+  it('key terms cover: Snapshot, Breaking, Safe, Compare to current, Diff export', () => {
+    const terms = gqlSchemaDiffLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('Snapshot');
+    expect(terms).toContain('Breaking change');
+    expect(terms).toContain('Safe change');
+    expect(terms).toContain('Compare to current');
+    expect(terms).toContain('Diff export (JSON)');
+  });
+
+  it('Snapshot key term explains per-endpoint persistence', () => {
+    const snapshot = gqlSchemaDiffLesson.concept.keyTerms.find((k) => k.term === 'Snapshot')!;
+    expect(snapshot.definition).toContain('endpoint URL');
+    expect(snapshot.definition).toContain('IndexedDB');
+  });
+
+  it('Breaking change key term explains client impact', () => {
+    const breaking = gqlSchemaDiffLesson.concept.keyTerms.find((k) => k.term === 'Breaking change')!;
+    expect(breaking.definition).toContain('fail');
+    expect(breaking.definition).toContain('migration');
+  });
+
+  // ── Diagram ────────────────────────────────────────────────────────────────
+
+  it('diagram has 700x430 studio chrome dimensions', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('viewBox="0 0 700 430"');
+  });
+
+  it('diagram includes window chrome traffic lights', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('#ff5f57');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('#febc2e');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('#28c840');
+  });
+
+  it('diagram shows Changelog tab as active', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Changelog');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('fill="var(--primary)"');
+  });
+
+  it('diagram shows Prior Release baseline row', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Prior Release');
+  });
+
+  it('diagram includes diff modal with Breaking and Safe count badges', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Schema Diff');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Breaking');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Safe');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('#ef4444');
+  });
+
+  it('diagram shows diff rows with field paths', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Query.users');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('User.email');
+  });
+
+  it('diagram includes Export diff as JSON footer button', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Export diff as JSON');
+  });
+
+  it('diagram includes severity filter tabs', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Deprecated');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('SDL Diff');
+  });
+
+  it('diagram includes bottom pipeline legend', () => {
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('Snapshot');
+    expect(gqlSchemaDiffLesson.concept.diagram).toContain('CI/CD gate');
+  });
+
+  // ── Step spotlights ────────────────────────────────────────────────────────
+
+  it('gql12-save-snapshot highlights SAVE_SNAPSHOT_BTN', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-save-snapshot')!;
+    expect(step.highlight).toBe(GQL.SAVE_SNAPSHOT_BTN);
+  });
+
+  it('gql12-changelog highlights CHANGELOG_TAB', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-changelog')!;
+    expect(step.highlight).toBe(GQL.CHANGELOG_TAB);
+  });
+
+  it('gql12-compare highlights CHANGELOG_DIFF_BTN', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-compare')!;
+    expect(step.highlight).toBe(GQL.CHANGELOG_DIFF_BTN);
+  });
+
+  it('gql12-diff-modal highlights DIFF_MODAL', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
+    expect(step.highlight).toBe(GQL.DIFF_MODAL);
+  });
+
+  it('gql12-breaking highlights DIFF_COUNT_BREAKING', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
+    expect(step.highlight).toBe(GQL.DIFF_COUNT_BREAKING);
+  });
+
+  it('gql12-filters highlights DIFF_FILTER_BREAKING', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-filters')!;
+    expect(step.highlight).toBe(GQL.DIFF_FILTER_BREAKING);
+  });
+
+  it('gql12-export highlights DIFF_EXPORT_JSON', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-export')!;
+    expect(step.highlight).toBe(GQL.DIFF_EXPORT_JSON);
+  });
+
+  // ── Step descriptions WHY content ─────────────────────────────────────────
+
+  it('gql12-save-snapshot description explains WHY saving establishes a reference', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-save-snapshot')!;
+    expect(step.description).toContain('reference point');
+    expect(step.description).toContain('persist');
+  });
+
+  it('gql12-changelog description explains WHY changelog provides a timeline', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-changelog')!;
+    expect(step.description).toContain('chronological');
+    expect(step.description).toContain('prior release');
+  });
+
+  it('gql12-compare description explains WHY vs. Current Schema is the primary mode', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-compare')!;
+    expect(step.description).toContain('vs. Current Schema');
+    expect(step.description).toContain('deploy');
+  });
+
+  it('gql12-diff-modal description explains WHY structured table beats raw SDL diff', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
+    expect(step.description).toContain('severity');
+    expect(step.description).toContain('SDL Diff');
+  });
+
+  it('gql12-breaking description explains WHY red count badge is prominent', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
+    expect(step.description).toContain('0 Breaking');
+    expect(step.description).toContain('migration');
+  });
+
+  it('gql12-filters description explains WHY filtering by severity is useful', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-filters')!;
+    expect(step.description).toContain('Safe');
+    expect(step.description).toContain('noise');
+  });
+
+  it('gql12-export description explains WHY JSON export enables CI/CD automation', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-export')!;
+    expect(step.description).toContain('CI/CD');
+    expect(step.description).toContain('breakingCount');
+  });
+
+  // ── Diff engine validation ─────────────────────────────────────────────────
+
   it('baseline SDL diff against current yields breaking and safe changes', () => {
     const result = computeSchemaDiff(LESSON12_BASELINE_SDL, LESSON12_CURRENT_SDL);
     expect(result.breakingCount).toBeGreaterThan(0);
     expect(result.safeCount).toBeGreaterThan(0);
     expect(result.changes.length).toBeGreaterThan(0);
   });
+
+  // ── Step actions ───────────────────────────────────────────────────────────
 
   it('gql12-save-snapshot clicks save snapshot button', async () => {
     const ctx = makeCtx();
@@ -225,6 +426,30 @@ describe('gql-schema-diff lesson', () => {
     expect(document.querySelector(GQL.DIFF_MODAL)).toBeTruthy();
   });
 
+  // ── Verify selectors ───────────────────────────────────────────────────────
+
+  it('gql12-breaking verify selector is breaking count badge', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
+    expect(step.verify).toBe(GQL.DIFF_COUNT_BREAKING);
+  });
+
+  it('gql12-diff-modal verify selector is diff row', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
+    expect(step.verify).toBe(GQL.DIFF_ROW);
+  });
+
+  it('gql12-filters verify selector is DIFF_FILTER_SAFE', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-filters')!;
+    expect(step.verify).toBe(GQL.DIFF_FILTER_SAFE);
+  });
+
+  it('gql12-compare verify selector is DIFF_MODAL', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-compare')!;
+    expect(step.verify).toBe(GQL.DIFF_MODAL);
+  });
+
+  // ── Guard helpers ──────────────────────────────────────────────────────────
+
   it('ensureLesson12TypesTab clicks types tab when inactive', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
@@ -251,7 +476,7 @@ describe('gql-schema-diff lesson', () => {
     loadSpy.mockRestore();
   });
 
-  it('gqlSchemaDiffLessonSetup introspects and seeds baseline', async () => {
+  it('gqlSchemaDiffLessonSetup creates demo tab, introspects, and seeds baseline', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
     vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
@@ -259,13 +484,19 @@ describe('gql-schema-diff lesson', () => {
     vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
       .mockResolvedValue(undefined);
     await gqlSchemaDiffLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(
+      ctx,
+      'gql-schema-diff',
+      'Schema Diff & Breaking Changes',
+    );
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 
-  it('gqlSchemaDiffLessonCleanup resets session flags', async () => {
+  it('gqlSchemaDiffLessonCleanup closes demo tab', async () => {
     const ctx = makeCtx();
     await gqlSchemaDiffLessonCleanup(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-schema-diff');
   });
 
   it('ensureLesson12SnapshotSaved guard skips save button on repeat', async () => {
@@ -316,16 +547,6 @@ describe('gql-schema-diff lesson', () => {
     vi.mocked(ctx.click).mockClear();
     await ensureLesson12DiffExported(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.DIFF_EXPORT_JSON);
-  });
-
-  it('gql12-breaking verify selector is breaking count badge', () => {
-    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
-    expect(step.verify).toBe(GQL.DIFF_COUNT_BREAKING);
-  });
-
-  it('gql12-diff-modal verify selector is diff row', () => {
-    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
-    expect(step.verify).toBe(GQL.DIFF_ROW);
   });
 
   it('ensureLesson12TypesTab skips click when types tab already active', async () => {

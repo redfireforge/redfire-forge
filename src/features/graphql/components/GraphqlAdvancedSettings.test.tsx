@@ -4,6 +4,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../utils/monacoGraphqlSetup', () => ({
+  buildModelUri: (id: string) => `inmemory://graphql/${id}`,
+  deriveTabLabel: vi.fn(() => 'Untitled'),
+}));
+
 import { GraphqlAdvancedSettings } from './GraphqlAdvancedSettings';
 import type { AdvancedSettingsValues } from './GraphqlAdvancedSettings';
 
@@ -36,7 +42,7 @@ function renderSettings(
   const anchorRef = { current: document.createElement('button') };
   const props = {
     values: makeValues(),
-    onChange: vi.fn(),
+    onSave: vi.fn(),
     anchorRef,
     open: true,
     onClose: vi.fn(),
@@ -45,19 +51,21 @@ function renderSettings(
   return { ...render(<GraphqlAdvancedSettings {...props} />), props };
 }
 
+function clickSave() {
+  fireEvent.click(screen.getByTestId('gql-adv-settings-save-btn'));
+}
+
 describe('GraphqlAdvancedSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-  // ── Visibility ───────────────────────────────────────────────────────────────
 
   it('renders nothing when open=false', () => {
     const anchorRef = { current: document.createElement('button') };
     render(
       <GraphqlAdvancedSettings
         values={makeValues()}
-        onChange={vi.fn()}
+        onSave={vi.fn()}
         anchorRef={anchorRef}
         open={false}
         onClose={vi.fn()}
@@ -71,17 +79,58 @@ describe('GraphqlAdvancedSettings', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('shows the Advanced Settings title', () => {
+  it('shows the Advanced settings title', () => {
     renderSettings();
-    expect(screen.getByText('Advanced Settings')).toBeInTheDocument();
+    expect(screen.getByText('Advanced settings')).toBeInTheDocument();
   });
 
-  // ── Close ─────────────────────────────────────────────────────────────────────
+  it('renders with enlarged default popover dimensions', () => {
+    renderSettings();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveClass('gql-advsettings-popover');
+    expect(dialog.className).not.toContain('gql-advsettings-popover--dragged');
+    const style = dialog.getAttribute('style');
+    expect(style ?? '').not.toMatch(/width:\s*\d+px/);
+  });
 
-  it('calls onClose when the × button is clicked', () => {
+  it('moves the panel when the header is dragged', () => {
+    renderSettings();
+    const dialog = screen.getByRole('dialog');
+    const header = dialog.querySelector('.gql-advsettings-header')!;
+    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+      left: 200,
+      top: 60,
+      width: 420,
+      height: 500,
+      right: 620,
+      bottom: 560,
+      x: 200,
+      y: 60,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.mouseDown(header, { clientX: 210, clientY: 70 });
+    fireEvent.mouseMove(window, { clientX: 260, clientY: 120 });
+    fireEvent.mouseUp(window);
+
+    expect(dialog).toHaveClass('gql-advsettings-popover--dragged');
+    expect(dialog).toHaveStyle({ position: 'fixed', left: '250px', top: '110px' });
+  });
+
+  // ── Save / Cancel ─────────────────────────────────────────────────────────────
+
+  it('calls onClose when Cancel is clicked', () => {
     const { props } = renderSettings();
-    fireEvent.click(screen.getByLabelText('Close advanced settings'));
+    fireEvent.click(screen.getByTestId('gql-adv-settings-cancel-btn'));
     expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onSave).not.toHaveBeenCalled();
+  });
+
+  it('calls onSave when Save is clicked', () => {
+    const { props } = renderSettings();
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledTimes(1);
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose when Escape key is pressed', () => {
@@ -90,45 +139,23 @@ describe('GraphqlAdvancedSettings', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose when clicking outside the popover (not anchor)', () => {
+  it('does not call onClose when clicking outside the popover', () => {
     const { props } = renderSettings();
-    // Click somewhere outside both the popover and anchor
     fireEvent.mouseDown(document.body);
-    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it('does not call onClose when clicking inside the popover', () => {
     const { props } = renderSettings();
-    const dialog = screen.getByRole('dialog');
-    fireEvent.mouseDown(dialog);
+    fireEvent.mouseDown(screen.getByRole('dialog'));
     expect(props.onClose).not.toHaveBeenCalled();
   });
 
-  it('removes event listeners on unmount', () => {
+  it('removes escape listener on unmount', () => {
     const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
     const { unmount } = renderSettings();
     unmount();
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function));
     expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function), { capture: true });
-  });
-
-  it('does not register mousedown listener when closed', () => {
-    const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
-    const anchorRef = { current: document.createElement('button') };
-    const onClose = vi.fn();
-    render(
-      <GraphqlAdvancedSettings
-        values={makeValues()}
-        onChange={vi.fn()}
-        anchorRef={anchorRef}
-        open={false}
-        onClose={onClose}
-      />,
-    );
-    expect(addEventListenerSpy).not.toHaveBeenCalledWith('mousedown', expect.any(Function));
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-    addEventListenerSpy.mockRestore();
   });
 
   // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -166,11 +193,11 @@ describe('GraphqlAdvancedSettings', () => {
 
   // ── APQ Tab ───────────────────────────────────────────────────────────────────
 
-  it('calls onChange with apqEnabled true when APQ checkbox toggled on', () => {
+  it('calls onSave with apqEnabled true when APQ checkbox toggled on and saved', () => {
     const { props } = renderSettings();
-    const checkbox = screen.getByLabelText('Enable Automatic Persisted Queries');
-    fireEvent.click(checkbox);
-    expect(props.onChange).toHaveBeenCalledWith({ apqEnabled: true });
+    fireEvent.click(screen.getByLabelText('Enable Automatic Persisted Queries'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ apqEnabled: true }));
   });
 
   it('shows "Use GET for queries" sub-option when apqEnabled is true', () => {
@@ -183,14 +210,14 @@ describe('GraphqlAdvancedSettings', () => {
     expect(screen.queryByLabelText('Use GET for query requests')).not.toBeInTheDocument();
   });
 
-  it('shows "APQ is inactive during batch execution" note when both APQ and batch are enabled', () => {
+  it('shows APQ inactive note when both APQ and batch are enabled', () => {
     renderSettings({ values: makeValues({ apqEnabled: true, batchEnabled: true }) });
-    expect(screen.getByText(/APQ is inactive during batch execution/)).toBeInTheDocument();
+    expect(screen.getByText(/APQ is inactive while batch execution is running/)).toBeInTheDocument();
   });
 
-  it('shows "Unsupported by server" badge when apqUnsupportedDetected', () => {
+  it('shows "Unsupported" badge when apqUnsupportedDetected', () => {
     renderSettings({ values: makeValues({ apqUnsupportedDetected: true }) });
-    expect(screen.getByText('Unsupported by server')).toBeInTheDocument();
+    expect(screen.getByText('Unsupported')).toBeInTheDocument();
   });
 
   it('disables APQ checkbox when unsupported detected', () => {
@@ -199,22 +226,23 @@ describe('GraphqlAdvancedSettings', () => {
     expect(checkbox).toBeDisabled();
   });
 
-  it('shows "Reset APQ detection" button when unsupported detected', () => {
+  it('shows "Reset detection" button when APQ unsupported detected', () => {
     renderSettings({ values: makeValues({ apqUnsupportedDetected: true }) });
-    expect(screen.getByText('Reset APQ detection')).toBeInTheDocument();
+    expect(screen.getByText('Reset detection')).toBeInTheDocument();
   });
 
-  it('calls onChange with reset APQ values when "Reset APQ detection" is clicked', () => {
+  it('calls onChange with reset APQ values when "Reset detection" is clicked', () => {
     const { props } = renderSettings({ values: makeValues({ apqUnsupportedDetected: true }) });
-    fireEvent.click(screen.getByText('Reset APQ detection'));
-    expect(props.onChange).toHaveBeenCalledWith({ apqUnsupportedDetected: false, apqEnabled: true });
+    fireEvent.click(screen.getByText('Reset detection'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ apqUnsupportedDetected: false, apqEnabled: true }));
   });
 
-  it('calls onChange with apqUseGet when "Use GET" checkbox is toggled', () => {
+  it('calls onSave with apqUseGet when "Use GET" checkbox is toggled and saved', () => {
     const { props } = renderSettings({ values: makeValues({ apqEnabled: true }) });
-    const checkbox = screen.getByLabelText('Use GET for query requests');
-    fireEvent.click(checkbox);
-    expect(props.onChange).toHaveBeenCalledWith({ apqUseGet: true });
+    fireEvent.click(screen.getByLabelText('Use GET for query requests'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ apqUseGet: true }));
   });
 
   // ── Batch Tab ─────────────────────────────────────────────────────────────────
@@ -236,7 +264,8 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     const input = screen.getByLabelText('Batch timeout in milliseconds');
     fireEvent.change(input, { target: { value: '60000' } });
-    expect(props.onChange).toHaveBeenCalledWith({ batchTimeoutMs: 60000 });
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ batchTimeoutMs: 60000 }));
   });
 
   it('falls back to 30000 for invalid batch timeout', () => {
@@ -244,7 +273,8 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     const input = screen.getByLabelText('Batch timeout in milliseconds');
     fireEvent.change(input, { target: { value: '100' } }); // below minimum 5000
-    expect(props.onChange).toHaveBeenCalledWith({ batchTimeoutMs: 30000 });
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ batchTimeoutMs: 30000 }));
   });
 
   it('shows "batch unsupported" warning when batchUnsupportedDetected', () => {
@@ -253,21 +283,38 @@ describe('GraphqlAdvancedSettings', () => {
     expect(screen.getByText(/Server does not support array batching/)).toBeInTheDocument();
   });
 
-  it('calls onChange with reset batch values on "Reset batch detection" click', () => {
+  it('shows batch settings panel when batchEnabled and batchSettings provided', () => {
+    renderSettings({
+      values: makeValues({ batchEnabled: true }),
+      batchSettings: {
+        groups: [{ key: 'k', resolvedEndpoint: 'http://a.com/gql', displayLabel: 'a.com', tabIds: ['t1'] }],
+        activeGroupKey: 'k',
+        onGroupChange: vi.fn(),
+        batchedTabIds: new Set(),
+        onToggleBatchTab: vi.fn(),
+        tabs: [],
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
+    expect(screen.getByTestId('gql-adv-batch-panel')).toBeInTheDocument();
+  });
+
+  it('calls onChange with reset batch values on "Reset detection" click', () => {
     const { props } = renderSettings({ values: makeValues({ batchUnsupportedDetected: true }) });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
-    fireEvent.click(screen.getByText('Reset batch detection'));
-    expect(props.onChange).toHaveBeenCalledWith({ batchUnsupportedDetected: false });
+    fireEvent.click(screen.getByText('Reset detection'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ batchUnsupportedDetected: false }));
   });
 
   // ── Dedup Tab ─────────────────────────────────────────────────────────────────
 
-  it('calls onChange with dedupEnabled when dedup checkbox toggled', () => {
+  it('calls onSave with dedupEnabled when dedup checkbox toggled and saved', () => {
     const { props } = renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Dedup/i }));
-    const checkbox = screen.getByLabelText('Enable request deduplication');
-    fireEvent.click(checkbox);
-    expect(props.onChange).toHaveBeenCalledWith({ dedupEnabled: true });
+    fireEvent.click(screen.getByLabelText('Enable request deduplication'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ dedupEnabled: true }));
   });
 
   // ── Performance Tab ───────────────────────────────────────────────────────────
@@ -289,7 +336,8 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Performance/i }));
     const input = screen.getByLabelText('Complexity block threshold');
     fireEvent.change(input, { target: { value: '500' } });
-    expect(props.onChange).toHaveBeenCalledWith({ complexityBlockThreshold: 500 });
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ complexityBlockThreshold: 500 }));
   });
 
   it('falls back to 1000 for invalid complexity threshold', () => {
@@ -297,15 +345,16 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Performance/i }));
     const input = screen.getByLabelText('Complexity block threshold');
     fireEvent.change(input, { target: { value: '50' } }); // below minimum 100
-    expect(props.onChange).toHaveBeenCalledWith({ complexityBlockThreshold: 1000 });
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ complexityBlockThreshold: 1000 }));
   });
 
-  it('calls onChange with complexityBlockEnabled when complexity checkbox toggled', () => {
+  it('calls onSave with complexityBlockEnabled when complexity checkbox toggled and saved', () => {
     const { props } = renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Performance/i }));
-    const checkbox = screen.getByLabelText('Enable complexity gate');
-    fireEvent.click(checkbox);
-    expect(props.onChange).toHaveBeenCalledWith({ complexityBlockEnabled: true });
+    fireEvent.click(screen.getByLabelText('Enable complexity gate'));
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ complexityBlockEnabled: true }));
   });
 
   // ── Transport Tab ───────────────────────────────────────────────────────────
@@ -320,7 +369,8 @@ describe('GraphqlAdvancedSettings', () => {
     const { props } = renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Transport/i }));
     fireEvent.change(screen.getByLabelText('Subscription transport protocol'), { target: { value: 'graphql-ws' } });
-    expect(props.onChange).toHaveBeenCalledWith({ subscriptionTransport: 'graphql-ws' });
+    clickSave();
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ subscriptionTransport: 'graphql-ws' }));
   });
 
   it('shows SSE mode radios when subscription transport is sse', () => {
@@ -336,9 +386,12 @@ describe('GraphqlAdvancedSettings', () => {
 
     fireEvent.click(screen.getByDisplayValue('single'));
     fireEvent.change(screen.getByLabelText('WebSocket endpoint override'), { target: { value: 'wss://ws.example.com/graphql' } });
+    clickSave();
 
-    expect(props.onChange).toHaveBeenCalledWith({ sseMode: 'single' });
-    expect(props.onChange).toHaveBeenCalledWith({ wsEndpointOverride: 'wss://ws.example.com/graphql' });
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({
+      sseMode: 'single',
+      wsEndpointOverride: 'wss://ws.example.com/graphql',
+    }));
   });
 
   // ── Limits Tab ──────────────────────────────────────────────────────────────
@@ -350,10 +403,13 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: '250' } });
     fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '9000' } });
     fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '80' } });
+    clickSave();
 
-    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 250 });
-    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 9000 });
-    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 80 });
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({
+      historyMaxItems: 250,
+      subscriptionBufferSize: 9000,
+      maxFileSizeMb: 80,
+    }));
   });
 
   it('applies fallback defaults for invalid limit values', () => {
@@ -363,10 +419,13 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: 'abc' } });
     fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '0' } });
     fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '0' } });
+    clickSave();
 
-    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 100 });
-    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 5000 });
-    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 50 });
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({
+      historyMaxItems: 100,
+      subscriptionBufferSize: 5000,
+      maxFileSizeMb: 50,
+    }));
   });
 
   it('clamps limits to their max bounds', () => {
@@ -376,9 +435,12 @@ describe('GraphqlAdvancedSettings', () => {
     fireEvent.change(screen.getByLabelText('History buffer size'), { target: { value: '999' } });
     fireEvent.change(screen.getByLabelText('Subscription buffer size'), { target: { value: '99999' } });
     fireEvent.change(screen.getByLabelText('Max file upload size in megabytes'), { target: { value: '999' } });
+    clickSave();
 
-    expect(props.onChange).toHaveBeenCalledWith({ historyMaxItems: 500 });
-    expect(props.onChange).toHaveBeenCalledWith({ subscriptionBufferSize: 10000 });
-    expect(props.onChange).toHaveBeenCalledWith({ maxFileSizeMb: 100 });
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({
+      historyMaxItems: 500,
+      subscriptionBufferSize: 10000,
+      maxFileSizeMb: 100,
+    }));
   });
 });

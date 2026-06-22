@@ -63,6 +63,7 @@ function makeMockServer(overrides: Partial<UseGraphqlMockServerResult> = {}): Us
     resetAll:            vi.fn(),
     refreshLog:          vi.fn(),
     syncCustomSdlNow:    vi.fn(),
+    syncFromServerStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -159,7 +160,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     expect(screen.getByTestId('gql-mock-status-row')).toBeDefined();
-    expect(screen.getByText(/100ms latency/)).toBeDefined();
+    expect(screen.getByText(/100ms ±20ms/)).toBeDefined();
   });
 
   it('shows resolver count in status row when there are overrides', () => {
@@ -171,7 +172,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       },
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    expect(screen.getByText(/1 resolver override/)).toBeDefined();
+    expect(screen.getByTestId('gql-mock-status-row')).toHaveTextContent('1 override');
   });
 
   it('shows active scenario name in status row', () => {
@@ -186,7 +187,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       },
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    expect(screen.getByText(/Scenario: Error Case/)).toBeDefined();
+    expect(screen.getByText('Error Case')).toBeDefined();
   });
 
   it('shows sync error when present', () => {
@@ -199,7 +200,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
   it('shows syncing indicator when syncing', () => {
     const server = makeMockServer({ syncing: true });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    expect(screen.getByText('⟳')).toBeDefined();
+    expect(screen.getByTestId('gql-mock-sync-badge')).toBeDefined();
   });
 
   // ─── Schema source ──────────────────────────────────────────────────────────
@@ -290,16 +291,16 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
 
   it('switches to Scalar Factories tab', () => {
     render(<GraphqlMockPanel mockServer={makeMockServer()} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     // With no custom scalars, shows empty message (not the list container)
     expect(screen.getByText(/No custom scalar types found/i)).toBeDefined();
   });
 
   it('switches to Request Log tab', () => {
     render(<GraphqlMockPanel mockServer={makeMockServer()} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     // When mock is disabled, shows "enable mock mode" message
-    expect(screen.getByText(/Enable mock mode to see request logs/i)).toBeDefined();
+    expect(screen.getByText(/Mock mode is off/i)).toBeDefined();
   });
 
   // ─── Resolvers tab content ───────────────────────────────────────────────────
@@ -482,13 +483,13 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       ],
     };
     render(<GraphqlMockPanel mockServer={makeMockServer()} schemaInfo={schemaInfoWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     expect(screen.getByTestId('gql-mock-scalar-row')).toBeDefined();
   });
 
   it('shows empty message in scalar factories when no custom scalars', () => {
     render(<GraphqlMockPanel mockServer={makeMockServer()} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     expect(screen.getByText(/No custom scalar types found/i)).toBeDefined();
   });
 
@@ -502,7 +503,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       },
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     // With empty log and mock enabled, shows "No requests yet." empty state
     const empty = document.querySelector('.gql-mock-empty');
     expect(empty?.textContent).toMatch(/No requests yet/i);
@@ -528,7 +529,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       ],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     expect(screen.getByTestId('gql-mock-log')).toBeDefined();
     expect(screen.getByTestId('gql-mock-log-row')).toBeDefined();
     expect(screen.getByText('GetUser')).toBeDefined();
@@ -554,7 +555,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       ],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     // The inner summary div has role="button" and is clickable; click on the op name to trigger expand
     fireEvent.click(screen.getByText('GetUser'));
     expect(screen.getByTestId('gql-mock-log-detail')).toBeDefined();
@@ -580,7 +581,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       ],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     fireEvent.click(screen.getByTestId('gql-mock-log-refresh'));
     expect(server.refreshLog).toHaveBeenCalled();
   });
@@ -796,7 +797,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       },
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    expect(screen.getByText(/200ms latency ±50ms/)).toBeDefined();
+    expect(screen.getByText(/200ms ±50ms/)).toBeDefined();
   });
 
   it('shows plural resolver overrides in status row', () => {
@@ -817,7 +818,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
         description: null,
       }],
     }} />);
-    expect(screen.getByText(/2 resolver overrides/)).toBeDefined();
+    expect(screen.getByTestId('gql-mock-status-row')).toHaveTextContent('2 overrides');
   });
 
   // ─── ScalarFactory preset/script modes ───────────────────────────────────────
@@ -829,7 +830,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'preset' } });
     expect(screen.getByTestId('gql-mock-scalar-preset-select')).toBeDefined();
     // Apply the preset
@@ -844,7 +845,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'script' } });
     expect(screen.getByTestId('gql-mock-scalar-script-input')).toBeDefined();
     const scriptInput = screen.getByTestId('gql-mock-scalar-script-input');
@@ -866,7 +867,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'random' } });
     expect(server.removeScalarFactory).toHaveBeenCalledWith('DateTime');
   });
@@ -995,7 +996,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     expect(screen.getByText(/1 error/i)).toBeDefined();
   });
 
@@ -1013,7 +1014,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       requestLog: [makeEntry('l1', 'GetA'), makeEntry('l2', 'GetB')],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     expect(screen.getByText(/2 requests/)).toBeDefined();
   });
 
@@ -1030,7 +1031,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     expect(screen.getByText('anonymous')).toBeDefined();
   });
 
@@ -1049,7 +1050,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     expect(screen.getByText('Error Flow')).toBeDefined();
   });
 
@@ -1066,7 +1067,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     fireEvent.click(screen.getByText('GetUser'));
     expect(screen.getByText('Variables')).toBeDefined();
   });
@@ -1084,7 +1085,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     // Expand
     fireEvent.click(screen.getByText('GetUser'));
     expect(screen.getByTestId('gql-mock-log-detail')).toBeDefined();
@@ -1106,7 +1107,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     const logSummary = document.querySelector('.gql-mock-log-row-summary') as HTMLElement;
     fireEvent.keyDown(logSummary, { key: 'Enter' });
     expect(screen.getByTestId('gql-mock-log-detail')).toBeDefined();
@@ -1115,13 +1116,13 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
   it('shows scalar introspect empty message when schemaInfo is null and schemaSource is custom', () => {
     const server = makeMockServer({ schemaSource: 'custom' });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={null} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     expect(screen.getByText(/Scalar factory configuration uses/i)).toBeDefined();
   });
 
   it('shows "Introspect" scalar empty message when schemaInfo is null and source is introspected', () => {
     render(<GraphqlMockPanel mockServer={makeMockServer()} schemaInfo={null} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     expect(screen.getByText(/Introspect a schema to configure custom scalar/i)).toBeDefined();
   });
 
@@ -1138,7 +1139,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     // The scalar row starts in 'preset' mode since factory has preset
     expect(screen.getByTestId('gql-mock-scalar-preset-select')).toBeDefined();
     fireEvent.change(screen.getByTestId('gql-mock-scalar-preset-select'), { target: { value: 'uuid' } });
@@ -1146,7 +1147,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     expect(server.setScalarFactory).toHaveBeenCalledWith({ scalarName: 'DateTime', preset: 'uuid' });
   });
 
-  it('shows ? in status row when active scenario not found', () => {
+  it('shows fallback label in status row when active scenario not found', () => {
     const server = makeMockServer({
       config: {
         connectionId: 'x', enabled: true, resolvers: {},
@@ -1155,7 +1156,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       },
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    expect(screen.getByText('Scenario: ?')).toBeDefined();
+    expect(screen.getByTestId('gql-mock-status-row')).toHaveTextContent('Scenario');
   });
 
   it('covers type with null fields (fields ?? [] fallback)', () => {
@@ -1216,7 +1217,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
     // Shows latency but not jitter (jitterMs is falsy/undefined)
-    expect(screen.getByText(/50ms latency/)).toBeDefined();
+    expect(screen.getByText(/50ms/)).toBeDefined();
   });
 
   it('works with config.scenarios undefined (uses ?? [] fallback)', () => {
@@ -1246,7 +1247,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     // Should start in script mode
     expect((screen.getByTestId('gql-mock-scalar-mode-select') as HTMLSelectElement).value).toBe('script');
     expect(screen.getByTestId('gql-mock-scalar-script-input')).toBeDefined();
@@ -1259,7 +1260,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       types: [{ name: 'DateTime', kind: 'SCALAR', fields: null, description: null }],
     };
     render(<GraphqlMockPanel mockServer={server} schemaInfo={schemaWithScalar} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Scalar Factories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Scalars' }));
     fireEvent.change(screen.getByTestId('gql-mock-scalar-mode-select'), { target: { value: 'script' } });
     // Blur with empty script
     fireEvent.blur(screen.getByTestId('gql-mock-scalar-script-input'));
@@ -1279,7 +1280,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     fireEvent.click(screen.getByText('Op'));
     expect(screen.getByText('▲')).toBeDefined();
   });
@@ -1297,7 +1298,7 @@ describe('GraphqlMockPanel — desktop (Tauri)', () => {
       }],
     });
     render(<GraphqlMockPanel mockServer={server} schemaInfo={makeSchemaInfo()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Request Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Request log' }));
     // Shows sliced id since scenario not found
     expect(screen.getByText('unknown-')).toBeDefined();
   });
@@ -1372,5 +1373,28 @@ describe('FieldResolverRow — useEffect resolver prop changes (direct render)',
       );
     });
     await waitFor(() => expect(screen.getByTestId('gql-mock-resolver-select')).toHaveValue('random'));
+  });
+
+  it('uses DOM value on fixed input blur when React state is stale', () => {
+    const server = makeMockServer({
+      config: { ...makeMockServer().config, enabled: true },
+    });
+    render(
+      <FieldResolverRow
+        typeName="Query"
+        field={{ name: 'health', type: 'String' }}
+        resolver={{ type: 'fixed', value: '' }}
+        mockServer={server}
+      />,
+    );
+    const input = screen.getByTestId('gql-mock-fixed-input') as HTMLInputElement;
+    const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    nativeSet?.call(input, '"mock-ok"');
+    fireEvent.blur(input);
+    expect(server.setFieldResolver).toHaveBeenCalledWith(
+      'Query',
+      'health',
+      { type: 'fixed', value: 'mock-ok' },
+    );
   });
 });

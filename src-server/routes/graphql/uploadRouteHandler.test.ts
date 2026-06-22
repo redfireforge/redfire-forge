@@ -335,6 +335,73 @@ describe('registerUploadRoute', () => {
     expect(requestSpy).toHaveBeenCalled();
   });
 
+  it('applies skipTlsVerify agent for https upload when x-gql-tls-config is set', async () => {
+    const tlsConfig = Buffer.from(JSON.stringify({ skipTlsVerify: true }), 'utf8').toString('base64');
+    const requestSpy = vi.spyOn(https, 'request').mockImplementation((opts, cb) => {
+      expect((opts as { agent?: { options?: { rejectUnauthorized?: boolean } } }).agent?.options?.rejectUnauthorized).toBe(false);
+      const reqStream = createMockClientRequest();
+      const incoming = {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        pipe(dest: NodeJS.WritableStream) {
+          (dest as NodeJS.WritableStream & { end: (chunk?: unknown) => void }).end('{"data":{"ok":true}}');
+          return dest;
+        },
+      };
+      process.nextTick(() => {
+        cb?.(incoming as unknown as http.IncomingMessage);
+      });
+      return reqStream;
+    });
+
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/api/graphql/upload')
+      .set('x-graphql-endpoint', 'https://localhost:4443/graphql')
+      .set('x-gql-tls-config', tlsConfig)
+      .field('operations', '{}')
+      .field('map', '{}');
+    expect(res.status).toBe(200);
+    expect(requestSpy).toHaveBeenCalled();
+  });
+
+  it('applies mTLS agent for https upload when x-gql-tls-config includes client PEM', async () => {
+    const tlsConfig = Buffer.from(JSON.stringify({
+      caCert: '-----BEGIN CERTIFICATE-----\nca',
+      clientCert: '-----BEGIN CERTIFICATE-----\nclient',
+      clientKey: '-----BEGIN PRIVATE KEY-----\nkey',
+    }), 'utf8').toString('base64');
+    const requestSpy = vi.spyOn(https, 'request').mockImplementation((opts, cb) => {
+      const agent = (opts as { agent?: { options?: { cert?: string; key?: string; ca?: string } } }).agent;
+      expect(agent?.options?.cert).toContain('BEGIN CERTIFICATE');
+      expect(agent?.options?.key).toContain('BEGIN PRIVATE KEY');
+      expect(agent?.options?.ca).toContain('BEGIN CERTIFICATE');
+      const reqStream = createMockClientRequest();
+      const incoming = {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        pipe(dest: NodeJS.WritableStream) {
+          (dest as NodeJS.WritableStream & { end: (chunk?: unknown) => void }).end('{"data":{"ok":true}}');
+          return dest;
+        },
+      };
+      process.nextTick(() => {
+        cb?.(incoming as unknown as http.IncomingMessage);
+      });
+      return reqStream;
+    });
+
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/api/graphql/upload')
+      .set('x-graphql-endpoint', 'https://localhost:4445/graphql')
+      .set('x-gql-tls-config', tlsConfig)
+      .field('operations', '{}')
+      .field('map', '{}');
+    expect(res.status).toBe(200);
+    expect(requestSpy).toHaveBeenCalled();
+  });
+
   it('uses default http port 80 when endpoint omits port', async () => {
     mockUpstreamResponse((opts) => {
       expect(opts.hostname).toBe('upload-default-port.test');

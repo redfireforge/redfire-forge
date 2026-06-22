@@ -8,7 +8,6 @@ import {
   ensureIntrospected,
   fillGqlEditor,
   getDemoUserAId,
-  getEndpointInput,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
   seedDemoUsers,
@@ -17,6 +16,7 @@ import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
 import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 export const LESSON7_USER_FIELD_PATH = 'user.id';
 export const LESSON7_USER_ALIAS = 'userId';
@@ -168,7 +168,7 @@ export async function ensureEditedToEditor(ctx: DemoActionContext): Promise<void
   _lesson7EditedToEditor = true;
 }
 
-/** Setup for Lesson 7 — clean slate, seed demo user for `id` arg. */
+/** Setup for Lesson 7 (GQL-8) — demo tab; seed demo user for `id` arg. */
 export async function gqlQueryBuilderLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -180,12 +180,7 @@ export async function gqlQueryBuilderLessonSetup(ctx: DemoActionContext): Promis
 
   await ensureEditorMode(ctx);
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-query-builder', 'Query Builder — Visual Operations');
   await fillGqlEditor(ctx, '', { focus: false });
   try {
     await seedDemoUsers();
@@ -194,10 +189,9 @@ export async function gqlQueryBuilderLessonSetup(ctx: DemoActionContext): Promis
   }
 }
 
-/** Cleanup for Lesson 7. */
+/** Cleanup for Lesson 7 (GQL-8) — close demo tab and reset session flags. */
 export async function gqlQueryBuilderLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson7SessionFlags();
-  await ensureEditorMode(ctx);
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-query-builder');
 }
 

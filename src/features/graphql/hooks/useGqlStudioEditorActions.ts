@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parse as gqlParse, print as gqlPrint } from 'graphql';
+import { resolveFieldInsertPosition } from '../utils/fieldInsertPosition';
 
 export interface UseGqlStudioEditorActionsOptions {
   activeQuery: string;
@@ -66,26 +67,28 @@ export function useGqlStudioEditorActions({
 
       const argSuffix = hasArgs ? '()' : '';
       const text = `${fieldName}${argSuffix}`;
+      const insertAt = resolveFieldInsertPosition(model.getValue(), position);
 
       model.applyEdits([{
         range: {
-          startLineNumber: position.lineNumber,
-          startColumn:     position.column,
-          endLineNumber:   position.lineNumber,
-          endColumn:       position.column,
+          startLineNumber: insertAt.lineNumber,
+          startColumn:     insertAt.column,
+          endLineNumber:   insertAt.lineNumber,
+          endColumn:       insertAt.column,
         },
         text,
       }]);
 
-      const newCol = position.column + text.length;
-      editor.setPosition({ lineNumber: position.lineNumber, column: newCol });
+      const newCol = insertAt.column + text.length;
+      editor.setPosition({ lineNumber: insertAt.lineNumber, column: newCol });
       editor.focus();
+      onQueryChange(model.getValue());
 
       setInsertToast(`Inserted: ${fieldName}`);
       if (insertToastTimerRef.current) clearTimeout(insertToastTimerRef.current);
       insertToastTimerRef.current = setTimeout(() => setInsertToast(null), 1800);
     },
-    [],
+    [onQueryChange],
   );
 
   useEffect(() => () => {

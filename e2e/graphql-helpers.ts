@@ -5,11 +5,68 @@
  * E2E_GRAPHQL_SERVER=1 or E2E_WITH_DOCKER=1 (see e2e/global-setup.ts).
  */
 
+import { buildSchema, introspectionFromSchema } from 'graphql';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 export const GQL_STUDIO_URL = '/?tab=graphql-studio';
 export const GQL_HTTP = 'http://localhost:4010/graphql';
 export const GQL_HEALTH = 'http://localhost:4010/health';
+export const GQL_DEMO_ENV_NAME = 'GraphQL Demo';
+export const GQL_DEMO_SVC_NAME = 'graphql-demo';
+
+/** Seed GraphQL Demo env/svc so GQL-2 {{graphqlUrl}} resolves without running GQL-1 first. */
+export async function seedGqlDemoEnvironmentForE2e(page: Page): Promise<void> {
+  await page.addInitScript(({ envName, svcName }) => {
+    const envId = 'env-gql-demo';
+    const svcId = 'svc-gql-demo';
+    localStorage.setItem('perf-test-v3-environments', JSON.stringify([{ id: envId, name: envName }]));
+    localStorage.setItem('perf-test-v3-microservices', JSON.stringify([{
+      id: svcId,
+      name: svcName,
+      baseUrls: { [envId]: 'http://localhost:4010' },
+      enabledProtocols: ['graphql'],
+      protocolEndpoints: {
+        graphql: { [envId]: { baseUrl: 'http://localhost:4010', path: '/graphql' } },
+      },
+    }]));
+    localStorage.setItem('perf-test-v3-feature-groups', '[]');
+    localStorage.setItem('perf-test-v3-selected-env', envId);
+    localStorage.setItem('perf-test-v3-selected-svc', svcId);
+    localStorage.setItem('perf-test-v3-migrated', 'true');
+    localStorage.setItem('perf-test-theme', 'dark');
+    localStorage.setItem('redfire-onboarding-dismissed', JSON.stringify([
+      'palette-drag', 'command-palette', 'node-config', 'connect-nodes', 'quick-test',
+    ]));
+  }, { envName: GQL_DEMO_ENV_NAME, svcName: GQL_DEMO_SVC_NAME });
+}
+
+/** Select GraphQL Demo / graphql-demo in the app header. */
+export async function ensureGqlDemoHeaderSelected(page: Page): Promise<void> {
+  await page.locator('[data-testid="header-env-select"]').selectOption({ label: GQL_DEMO_ENV_NAME });
+  await page.locator('[data-testid="header-svc-select"]').selectOption({ label: GQL_DEMO_SVC_NAME });
+}
+
+/** Ensure studio endpoint uses {{graphqlUrl}} with a resolved preview (GQL-2 E2E bootstrap). */
+export async function ensureGql2StudioEndpoint(page: Page): Promise<void> {
+  await page.waitForSelector('[data-testid="gql-endpoint-input"]', { timeout: 30_000 });
+  const input = page.getByTestId('gql-endpoint-input');
+  const val = await input.inputValue();
+  if (!val.includes('graphqlUrl')) {
+    await fillEndpoint(page, '{{graphqlUrl}}');
+  }
+  await expect(page.getByTestId('gql-endpoint-preview')).toBeVisible({ timeout: 15_000 });
+}
+
+/** Ensure studio endpoint is the literal Docker URL (GQL-3 E2E bootstrap). */
+export async function ensureGql3StudioEndpoint(page: Page): Promise<void> {
+  await page.waitForSelector('[data-testid="gql-endpoint-input"]', { timeout: 30_000 });
+  const input = page.getByTestId('gql-endpoint-input');
+  const val = await input.inputValue();
+  // Must include /graphql — bare http://localhost:4010 POSTs to / and returns 404.
+  if (val !== GQL_HTTP) {
+    await fillEndpoint(page, GQL_HTTP);
+  }
+}
 
 export async function isGraphqlServerHealthy(request: APIRequestContext): Promise<boolean> {
   try {
@@ -202,6 +259,7 @@ export async function gotoGqlStudio(page: Page, request?: APIRequestContext) {
 export async function fillEndpoint(page: Page, url: string) {
   const input = page.locator('[data-testid="gql-endpoint-input"]');
   await input.fill(url);
+  await input.press('Tab');
   await page.waitForTimeout(300);
 }
 
@@ -231,6 +289,22 @@ export async function fillMonacoEditor(page: Page, query: string, editorTestId =
 export async function introspectSchema(page: Page) {
   await page.locator('[data-testid="gql-introspect-btn"]').click();
   await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 25_000 });
+}
+
+/** Introspect via Schema tab (idle or re-introspect) — reliable with /__proxy mocks. */
+export async function introspectSchemaFromPanel(page: Page) {
+  await gotoSchemaTab(page);
+  const idleBtn = page.locator('[data-testid="gql-se-idle-introspect-btn"]');
+  const reBtn = page.locator('[data-testid="gql-se-reintrospect-btn"]');
+  if (await idleBtn.isVisible().catch(() => false)) {
+    await idleBtn.click();
+  } else if (await reBtn.isVisible().catch(() => false)) {
+    await reBtn.click();
+  } else {
+    await page.locator('[data-testid="gql-introspect-btn"]').click();
+  }
+  await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 25_000 });
+  await expect(page.locator('[data-testid="gql-se-type-list"]')).toBeVisible({ timeout: 10_000 });
 }
 
 export async function gotoSchemaTab(page: Page) {
@@ -269,4 +343,215 @@ export async function createTestOrder(request: APIRequestContext): Promise<strin
 
 export function subscriptionQuery(orderId: string): string {
   return `subscription { orderStatus(orderId: "${orderId}") { status updatedAt } }`;
+}
+
+// ── Phase 6 multi-tab E2E helpers (6B-4) ─────────────────────────────────────
+
+/** Build a full introspection payload that `buildClientSchema` can parse. */
+function buildE2eIntrospection(sdl: string): Record<string, unknown> {
+  return introspectionFromSchema(buildSchema(sdl)) as unknown as Record<string, unknown>;
+}
+
+/** Distinct staging schema — StagingWidget type visible in explorer. */
+export const GQL_E2E_INTROSPECT_STAGING = buildE2eIntrospection(`
+  type Query {
+    stagingHealth: String
+  }
+  type StagingWidget {
+    id: ID!
+  }
+`);
+
+/** Distinct prod schema — ProdGadget type visible in explorer. */
+export const GQL_E2E_INTROSPECT_PROD = buildE2eIntrospection(`
+  type Query {
+    prodHealth: String
+  }
+  type ProdGadget {
+    id: ID!
+  }
+`);
+
+/** Clear persisted tabs/endpoint so each spec starts with one blank tab. */
+export async function seedGqlStudioCleanState(page: Page) {
+  await seedGqlStudioSettings(page);
+  await page.addInitScript(() => {
+    localStorage.removeItem('gql_tabs_v1');
+    localStorage.removeItem('gql_endpoint_v1');
+    localStorage.removeItem('gql_endpoint_base_v1');
+  });
+}
+
+/** Seed named connection profiles for Phase 6F E2E (gql_profiles_v1). Call before goto. */
+export async function seedGqlConnectionProfiles(
+  page: Page,
+  profiles: Array<{ id: string; name: string; endpoint: string; auth: { type: string; token?: string } | null; createdAt: number }>,
+) {
+  await page.addInitScript((profList) => {
+    localStorage.setItem('gql_profiles_v1', JSON.stringify(profList));
+  }, profiles);
+}
+
+export async function openGqlProfileModal(page: Page) {
+  await page.locator('[data-testid="gql-profile-badge"]').click();
+  await expect(page.locator('[data-testid="gql-profile-modal"]')).toBeVisible({ timeout: 5_000 });
+}
+
+/** Load a saved profile onto the active tab (Phase 6F). */
+export async function loadGqlProfileOnActiveTab(page: Page, profileName: string) {
+  await openGqlProfileModal(page);
+  await page.getByRole('button', { name: `Load profile: ${profileName}` }).click();
+  await expect(page.locator('[data-testid="gql-profile-modal"]')).toBeHidden({ timeout: 5_000 });
+}
+
+/** Returns true when schema polling toggle is active on the connection bar. */
+export async function isGqlPollingEnabled(page: Page): Promise<boolean> {
+  const btn = page.locator('[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]').first();
+  if (!(await btn.isVisible().catch(() => false))) return false;
+  const cls = await btn.getAttribute('class') ?? '';
+  return cls.includes('gql-polling-config-btn--active');
+}
+
+/** Enable or disable schema polling on the active tab via the connection bar popover. */
+export async function setGqlPollingEnabled(page: Page, enabled: boolean) {
+  const btn = page.locator('[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]').first();
+  await btn.waitFor({ state: 'visible', timeout: 10_000 });
+  await btn.click();
+  await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeVisible({ timeout: 5_000 });
+  const toggle = page.locator('[data-testid="gql-polling-toggle"]');
+  const isOn = (await toggle.getAttribute('class') ?? '').includes('gql-polling-switch--on');
+  if (isOn !== enabled) {
+    await toggle.click();
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeHidden({ timeout: 5_000 });
+}
+
+export async function gotoGqlStudioFresh(page: Page) {
+  await seedGqlStudioCleanState(page);
+  await silenceLogStream(page);
+  await page.goto(GQL_STUDIO_URL, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('[data-testid="gql-studio-page"]')).toBeVisible({ timeout: 15_000 });
+}
+
+export async function addGqlTab(page: Page) {
+  const tabs = page.locator('[data-testid="gql-tab-bar"] [role="tab"]');
+  const before = await tabs.count();
+  await page.locator('[data-testid="gql-tab-add-btn"]').click();
+  await expect(tabs).toHaveCount(before + 1, { timeout: 5_000 });
+}
+
+export async function clickGqlTabByIndex(page: Page, index: number) {
+  const tab = page.locator('[data-testid="gql-tab-bar"] [role="tab"]').nth(index);
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+}
+
+/** Tab ids from the tab bar (e.g. `gql-tab-1`). */
+export async function getGqlTabIds(page: Page): Promise<string[]> {
+  const tabs = page.locator('[data-testid="gql-tab-bar"] [role="tab"]');
+  const count = await tabs.count();
+  const ids: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const testId = await tabs.nth(i).getAttribute('data-testid');
+    if (testId?.startsWith('gql-tab-')) {
+      ids.push(testId.slice('gql-tab-'.length));
+    }
+  }
+  return ids;
+}
+
+/** Set Monaco query text for a specific tab model. */
+export async function fillMonacoEditorForTab(page: Page, tabId: string, query: string) {
+  const modelUri = `inmemory://graphql/${tabId}`;
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as Record<string, unknown>;
+      const monaco = w['monaco'] as { editor?: { getModels?: () => unknown[] } } | undefined;
+      return (monaco?.editor?.getModels?.()?.length ?? 0) > 0;
+    },
+    { timeout: 8_000 },
+  );
+  await page.evaluate(
+    ({ uri, q }: { uri: string; q: string }) => {
+      const w = window as unknown as Record<string, unknown>;
+      const monaco = w['monaco'] as {
+        editor?: { getModels?: () => { uri: { toString: () => string }; setValue: (v: string) => void }[] };
+      };
+      const model = monaco?.editor?.getModels?.().find((m) => m.uri.toString() === uri);
+      model?.setValue(q);
+    },
+    { uri: modelUri, q: query },
+  );
+  await page.waitForTimeout(300);
+}
+
+export async function executeQueryOnTab(
+  page: Page,
+  tabId: string,
+  endpoint: string,
+  query: string,
+) {
+  await fillEndpoint(page, endpoint);
+  await fillMonacoEditorForTab(page, tabId, query);
+  await page.locator('[data-testid="gql-execute-btn"]:not([disabled])').waitFor({ timeout: 8_000 }).catch(() => {});
+  await page.locator('[data-testid="gql-execute-btn"]').click();
+  await expect(page.locator('[data-testid="gql-response-viewer"]')).toBeVisible({ timeout: 15_000 });
+}
+
+interface DualEndpointProxyOptions {
+  stagingQueryData: Record<string, unknown>;
+  prodQueryData: Record<string, unknown>;
+  stagingSchema?: Record<string, unknown>;
+  prodSchema?: Record<string, unknown>;
+  /** Artificial delay (ms) for staging query responses — Phase 6E background loading E2E. */
+  stagingQueryDelayMs?: number;
+}
+
+/**
+ * Route /__proxy responses by upstream URL — staging vs prod endpoints (Phase 6B-4).
+ */
+export async function setupDualEndpointGraphqlProxy(page: Page, opts: DualEndpointProxyOptions) {
+  const {
+    stagingQueryData,
+    prodQueryData,
+    stagingSchema = GQL_E2E_INTROSPECT_STAGING,
+    prodSchema = GQL_E2E_INTROSPECT_PROD,
+    stagingQueryDelayMs = 0,
+  } = opts;
+
+  await page.route('**/__proxy', async (route) => {
+    const bodyStr = route.request().postData() ?? '';
+    let targetUrl = '';
+    try {
+      const payload = JSON.parse(bodyStr) as { url?: string };
+      targetUrl = payload.url ?? '';
+    } catch {
+      targetUrl = '';
+    }
+
+    const isIntrospection = bodyStr.includes('__schema') || bodyStr.includes('IntrospectionQuery');
+    const isProd = targetUrl.includes('prod.example.com');
+    const isStaging = targetUrl.includes('staging.example.com');
+
+    let gqlResponse: Record<string, unknown>;
+    if (isIntrospection) {
+      gqlResponse = { data: isProd ? prodSchema : stagingSchema };
+    } else if (isProd) {
+      gqlResponse = prodQueryData;
+    } else if (isStaging) {
+      if (stagingQueryDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, stagingQueryDelayMs));
+      }
+      gqlResponse = stagingQueryData;
+    } else {
+      gqlResponse = stagingQueryData;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: makeProxyResponse(gqlResponse),
+    });
+  });
 }

@@ -38,6 +38,67 @@ describe('GraphqlResponseViewer', () => {
     expect(screen.getByTestId('gql-response-viewer')).toBeTruthy();
   });
 
+  it('renders compact data.user summary card when user data is present', () => {
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { user: { id: 'usr-1', name: 'Alice', email: 'alice@demo.local' } },
+    })} />);
+    const card = screen.getByTestId('gql-response-data-user');
+    expect(card.textContent).toContain('data.user');
+    expect(card.textContent).toContain('Alice');
+    expect(card.textContent).toContain('alice@demo.local');
+  });
+
+  it('does not render data.user summary card for non-user responses', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ data: { health: 'ok' } })} />);
+    expect(screen.queryByTestId('gql-response-data-user')).toBeNull();
+  });
+
+  it('keeps data.user summary card visible when Tracing sub-tab is active', () => {
+    const tracing = {
+      version: 1,
+      startTime: '2024-01-01T00:00:00.000Z',
+      endTime: '2024-01-01T00:00:00.010Z',
+      duration: 10_000_000,
+      execution: { resolvers: [] },
+    };
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { user: { id: 'usr-1', name: 'Bob', email: 'bob@demo.local' } },
+      extensions: { tracing },
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-tracing'));
+    const card = screen.getByTestId('gql-response-data-user');
+    expect(card.textContent).toContain('Bob');
+    expect(card.textContent).toContain('bob@demo.local');
+  });
+
+  it('renders compact data.createUser summary card when createUser data is present', () => {
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { createUser: { id: 'usr-1', name: 'Carol', email: 'carol@demo.local' } },
+    })} />);
+    const card = screen.getByTestId('gql-response-data-create-user');
+    expect(card.textContent).toContain('data.createUser');
+    expect(card.textContent).toContain('Carol');
+    expect(card.textContent).toContain('carol@demo.local');
+  });
+
+  it('keeps data.createUser summary card visible when Tracing sub-tab is active', () => {
+    const tracing = {
+      version: 1,
+      startTime: '2024-01-01T00:00:00.000Z',
+      endTime: '2024-01-01T00:00:00.010Z',
+      duration: 10_000_000,
+      execution: { resolvers: [] },
+    };
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { createUser: { id: 'usr-1', name: 'Carol', email: 'carol@demo.local' } },
+      extensions: { tracing },
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-tracing'));
+    const card = screen.getByTestId('gql-response-data-create-user');
+    expect(card.textContent).toContain('Carol');
+    expect(card.textContent).toContain('usr-1');
+  });
+
   it('shows HTTP status badge', () => {
     render(<GraphqlResponseViewer response={makeResponse({ httpStatus: 200 })} />);
     expect(screen.getByTestId('gql-response-status').textContent).toContain('200');
@@ -283,6 +344,7 @@ describe('GraphqlResponseViewer', () => {
     fireEvent.click(screen.getByTestId('gql-rv-tracing-badge'));
     // After clicking badge, tracing tab should be active
     expect(screen.getByTestId('gql-rv-tab-tracing').getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByTestId('gql-rv-tracing-badge')).toBeNull();
   });
 
   it('clicking tracing tab button switches to tracing view (line 594)', () => {

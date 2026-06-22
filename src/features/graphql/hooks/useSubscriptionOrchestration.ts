@@ -8,7 +8,9 @@
 
 import { useCallback } from 'react';
 import { buildAuthHeaders } from '../utils/authUtils';
+import { resolveEffectiveGqlAuth } from '../utils/gqlAuthResolve';
 import { findUnresolvedVars, resolveVars } from '../utils/envUtils';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth, GraphqlEnvironment } from '../../../shared/types/graphql';
 import type { UseGraphqlSubscriptionResult } from './useGraphqlSubscription';
 import type { GqlStudioTab } from '../utils/tabPersistence';
@@ -22,7 +24,14 @@ interface OrchestrationParams {
   activeTabHeaders: Record<string, string>;
   selectedOperation: string | undefined;
   skipTlsVerify: boolean;
+  tlsCaCert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
   subscription: UseGraphqlSubscriptionResult;
+  /** Phase 6F — block subscribe while a profile-linked endpoint is still resolving. */
+  endpointLinkPending?: boolean;
+  /** Global auth profiles for inherit resolution. */
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
 export interface SubscriptionOrchestration {
@@ -46,13 +55,19 @@ export function useSubscriptionOrchestration({
   activeTabHeaders,
   selectedOperation,
   skipTlsVerify,
+  tlsCaCert,
+  tlsClientCert,
+  tlsClientKey,
   subscription,
+  endpointLinkPending = false,
+  globalAuthProfiles = [],
 }: OrchestrationParams): SubscriptionOrchestration {
   const handleSubscribe = useCallback(() => {
+    if (endpointLinkPending) return;
     if (!activeTab || !endpoint.trim() || !activeTab.query.trim()) return;
     if (findUnresolvedVars(endpoint, activeEnvironment, globalEnvMap).length > 0) return;
     const resolvedEndpoint = resolveVars(endpoint, activeEnvironment, globalEnvMap);
-    const authH = buildAuthHeaders(auth);
+    const authH = buildAuthHeaders(auth, globalAuthProfiles);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
       resolvedHeaders[k] = resolveVars(v, activeEnvironment, globalEnvMap);
@@ -75,11 +90,15 @@ export function useSubscriptionOrchestration({
       operationName: selectedOperation,
       endpoint: resolvedEndpoint,
       headers: resolvedHeaders,
-      auth: auth ?? null,
+      auth: resolveEffectiveGqlAuth(auth, globalAuthProfiles),
       skipTlsVerify,
+      tlsCaCert,
+      tlsClientCert,
+      tlsClientKey,
       subscriptionTransport: activeTab.subscriptionTransport,
     });
-  }, [activeTab, endpoint, auth, activeEnvironment, globalEnvMap, activeTabHeaders, selectedOperation, skipTlsVerify, subscription]);
+  }, [activeTab, endpoint, auth, activeEnvironment, globalEnvMap, activeTabHeaders, selectedOperation,
+    skipTlsVerify, tlsCaCert, tlsClientCert, tlsClientKey, subscription, endpointLinkPending, globalAuthProfiles]);
 
   const handleStopSubscription = useCallback(() => {
     subscription.disconnect();

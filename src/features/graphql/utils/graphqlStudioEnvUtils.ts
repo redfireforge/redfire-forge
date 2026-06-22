@@ -1,4 +1,4 @@
-import type { Microservice } from '../../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '../../../shared/types';
 import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
 import { buildEnvVarMap } from '../../../shared/utils/envVarUtils';
 import {
@@ -60,8 +60,9 @@ export function buildGraphqlSchemaHeaders(
   activeTabHeaders: Record<string, string>,
   activeEnvironment: GraphqlEnvironment | null,
   globalEnvMap: Record<string, string>,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
 ): Record<string, string> {
-  const authH = buildAuthHeaders(auth);
+  const authH = buildAuthHeaders(auth, globalAuthProfiles);
   const resolved: Record<string, string> = {};
   for (const [k, v] of Object.entries({ ...authH, ...activeTabHeaders })) {
     resolved[k] = resolveVars(v, activeEnvironment, globalEnvMap);

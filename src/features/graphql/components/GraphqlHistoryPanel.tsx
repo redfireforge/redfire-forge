@@ -12,10 +12,14 @@
  *  - Truncation banner for capped responses
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
 import type { UseGraphqlHistoryResult } from '../hooks/useGraphqlHistory';
 import { DEFAULT_MAX_ITEMS } from '../hooks/useGraphqlHistory';
+import { historyEntrySummary } from '../utils/historyItemParse';
+import { GraphqlHistoryComparePanel } from './GraphqlHistoryComparePanel';
+import { HistoryGroup } from './GraphqlHistoryList';
+import { GraphqlHistoryPreviewPanel } from './GraphqlHistoryPreviewPanel';
 
 const ONE_DAY_MS = 86_400_000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
@@ -45,6 +49,10 @@ export function GraphqlHistoryPanel({
 }: GraphqlHistoryPanelProps) {
   const [searchQuery, setSearchQuery]         = useState('');
   const [selectedItem, setSelectedItem]       = useState<GraphqlHistoryItem | null>(null);
+  const [compareMode, setCompareMode]         = useState(false);
+  const [compareAId, setCompareAId]           = useState<string | null>(null);
+  const [compareBId, setCompareBId]           = useState<string | null>(null);
+  const [compareViewOpen, setCompareViewOpen] = useState(false);
   const [contextMenu, setContextMenu]         = useState<{ x: number; y: number; item: GraphqlHistoryItem } | null>(null);
   const [settingsOpen, setSettingsOpen]       = useState(false);
   const [clearConfirm, setClearConfirm]       = useState(false);
@@ -52,7 +60,6 @@ export function GraphqlHistoryPanel({
   // History groupings are relative to mount time — close enough for a history sidebar.
   const [mountTime]                           = useState<number>(() => Date.now());
   const contextMenuRef                        = useRef<HTMLDivElement>(null);
-  const lastClickRef                          = useRef<{ id: string; time: number } | null>(null);
 
   const filtered = useMemo(
     () => searchQuery.trim() ? history.search(searchQuery) : history.items,
@@ -81,17 +88,79 @@ export function GraphqlHistoryPanel({
   }, [filtered, history.recentItems, mountTime]);
 
   const handleItemClick = useCallback((item: GraphqlHistoryItem) => {
-    const prev = lastClickRef.current;
-    const now = Date.now();
-    if (prev && prev.id === item.id && now - prev.time < 400) {
-      // Double-click: load into editor
-      onLoadIntoEditor(item);
-      lastClickRef.current = null;
-    } else {
-      lastClickRef.current = { id: item.id, time: now };
-      setSelectedItem(item);
+    if (compareMode) return;
+    setSelectedItem(item);
+  }, [compareMode]);
+
+  const toggleCompareMark = useCallback((itemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (compareAId === itemId) {
+      setCompareAId(null);
+      return;
     }
-  }, [onLoadIntoEditor]);
+    if (compareBId === itemId) {
+      setCompareBId(null);
+      return;
+    }
+    if (!compareAId) {
+      setCompareAId(itemId);
+      return;
+    }
+    if (!compareBId) {
+      setCompareBId(itemId);
+      return;
+    }
+    setCompareBId(itemId);
+  }, [compareAId, compareBId]);
+
+  const compareItemA = compareAId ? history.items.find((i) => i.id === compareAId) ?? null : null;
+  const compareItemB = compareBId ? history.items.find((i) => i.id === compareBId) ?? null : null;
+  const canOpenCompare = !!(compareItemA && compareItemB);
+
+  const handleCompareToggle = useCallback(() => {
+    setContextMenu(null);
+    setCompareMode((v) => {
+      const next = !v;
+      if (!next) {
+        setCompareAId(null);
+        setCompareBId(null);
+        setCompareViewOpen(false);
+      }
+      return next;
+    });
+    setSelectedItem(null);
+  }, []);
+
+  const handleOpenCompare = useCallback(() => {
+    if (compareItemA && compareItemB) {
+      setContextMenu(null);
+      setSelectedItem(null);
+      setCompareViewOpen(true);
+    }
+  }, [compareItemA, compareItemB]);
+
+  // Close compare view if marked entries were deleted or cleared
+  useEffect(() => {
+    if (compareViewOpen && (!compareItemA || !compareItemB)) {
+      setCompareViewOpen(false);
+    }
+  }, [compareViewOpen, compareItemA, compareItemB]);
+
+  // Drop stale slot ids when the underlying history row was deleted/evicted
+  useEffect(() => {
+    if (compareAId && !history.items.some((i) => i.id === compareAId)) {
+      setCompareAId(null);
+    }
+    if (compareBId && !history.items.some((i) => i.id === compareBId)) {
+      setCompareBId(null);
+    }
+  }, [history.items, compareAId, compareBId]);
+
+  const handleItemDoubleClick = useCallback((item: GraphqlHistoryItem) => {
+    if (compareMode) return;
+    onLoadIntoEditor(item);
+    setSelectedItem(null);
+  }, [compareMode, onLoadIntoEditor]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, item: GraphqlHistoryItem) => {
     e.preventDefault();
@@ -142,6 +211,17 @@ export function GraphqlHistoryPanel({
         <span className="gql-history-title">History</span>
         <button
           type="button"
+          className={`gql-history-compare-toggle${compareMode ? ' gql-history-compare-toggle--active' : ''}`}
+          onClick={handleCompareToggle}
+          title="Mark two entries to compare variables and response data"
+          aria-label="Compare history entries"
+          aria-pressed={compareMode}
+          data-testid="gql-history-compare-toggle"
+        >
+          Compare
+        </button>
+        <button
+          type="button"
           className={`gql-history-settings-btn${settingsOpen ? ' gql-history-settings-btn--active' : ''}`}
           onClick={() => setSettingsOpen((v) => !v)}
           title="History settings"
@@ -160,7 +240,17 @@ export function GraphqlHistoryPanel({
             <button
               type="button"
               className="gql-history-clear-confirm-yes"
-              onClick={() => { history.clearAll(); setClearConfirm(false); }}
+              onClick={() => {
+                history.clearAll();
+                setClearConfirm(false);
+                setContextMenu(null);
+                setSelectedItem(null);
+                setSearchQuery('');
+                setCompareMode(false);
+                setCompareAId(null);
+                setCompareBId(null);
+                setCompareViewOpen(false);
+              }}
               aria-label="Confirm clear all history"
               data-testid="gql-history-clear-yes"
             >
@@ -217,7 +307,7 @@ export function GraphqlHistoryPanel({
         <input
           type="search"
           className="gql-history-search-input"
-          placeholder="Search by name or query…"
+          placeholder="Search name, query, variables, response…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search history"
@@ -225,47 +315,101 @@ export function GraphqlHistoryPanel({
         />
       </div>
 
-      {/* List + Preview split */}
-      <div className="gql-history-body">
-        <div className="gql-history-list" role="listbox" aria-label="History entries">
-          {history.items.length === 0 && (
-            <div className="gql-history-empty">No history yet. Execute a query to see it here.</div>
-          )}
-          {filtered.length === 0 && history.items.length > 0 && (
-            <div className="gql-history-empty">No results for "{searchQuery}"</div>
-          )}
-
-          {recent.length > 0 && (
-            <HistoryGroup label="Recent" items={recent} selected={selectedItem}
-              onItemClick={handleItemClick} onContextMenu={handleContextMenu} />
-          )}
-          {grouped.today.length > 0 && (
-            <HistoryGroup label="Today" items={grouped.today} selected={selectedItem}
-              onItemClick={handleItemClick} onContextMenu={handleContextMenu} />
-          )}
-          {grouped.yesterday.length > 0 && (
-            <HistoryGroup label="Yesterday" items={grouped.yesterday} selected={selectedItem}
-              onItemClick={handleItemClick} onContextMenu={handleContextMenu} />
-          )}
-          {grouped.week.length > 0 && (
-            <HistoryGroup label="Last 7 days" items={grouped.week} selected={selectedItem}
-              onItemClick={handleItemClick} onContextMenu={handleContextMenu} />
-          )}
-          {grouped.older.length > 0 && (
-            <HistoryGroup label="Older" items={grouped.older} selected={selectedItem}
-              onItemClick={handleItemClick} onContextMenu={handleContextMenu} />
-          )}
+      {compareMode && (
+        <div className="gql-history-compare-bar" data-testid="gql-history-compare-bar">
+          <span className="gql-history-compare-bar-hint">
+            Mark two runs with <strong>A</strong> / <strong>B</strong>, then compare.
+          </span>
+          <div className="gql-history-compare-slots">
+            <span
+              className={`gql-history-compare-slot${compareItemA ? ' gql-history-compare-slot--filled' : ''}`}
+              data-testid="gql-history-compare-slot-a"
+              data-filled={compareItemA ? 'true' : 'false'}
+            >
+              A: {compareItemA ? historyEntrySummary(compareItemA) : '—'}
+            </span>
+            <span
+              className={`gql-history-compare-slot${compareItemB ? ' gql-history-compare-slot--filled' : ''}`}
+              data-testid="gql-history-compare-slot-b"
+              data-filled={compareItemB ? 'true' : 'false'}
+            >
+              B: {compareItemB ? historyEntrySummary(compareItemB) : '—'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="gql-history-compare-btn"
+            disabled={!canOpenCompare}
+            onClick={handleOpenCompare}
+            data-testid="gql-history-compare-btn"
+          >
+            View comparison
+          </button>
         </div>
+      )}
 
-        {/* Side-panel preview */}
-        {selectedItem && (
-          <HistoryPreviewPanel
+      {/* List OR preview OR compare — keeps the main editor visible */}
+      <div className={`gql-history-body${selectedItem || compareViewOpen ? ' gql-history-body--detail' : ''}`}>
+        {compareViewOpen && compareItemA && compareItemB ? (
+          <GraphqlHistoryComparePanel
+            itemA={compareItemA}
+            itemB={compareItemB}
+            onClose={() => {
+              setCompareViewOpen(false);
+              setCompareMode(false);
+              setCompareAId(null);
+              setCompareBId(null);
+            }}
+            onBack={() => setCompareViewOpen(false)}
+          />
+        ) : selectedItem ? (
+          <GraphqlHistoryPreviewPanel
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
             onLoadIntoEditor={onLoadIntoEditor}
             onRunInEditor={onRunInEditor}
             onSaveToCollection={onSaveToCollection}
           />
+        ) : (
+          <div className="gql-history-list" role="listbox" aria-label="History entries">
+            {history.items.length === 0 && (
+              <div className="gql-history-empty">No history yet. Execute a query to see it here.</div>
+            )}
+            {filtered.length === 0 && history.items.length > 0 && (
+              <div className="gql-history-empty">No results for "{searchQuery}"</div>
+            )}
+
+            {recent.length > 0 && (
+              <HistoryGroup label="Recent" items={recent} selected={selectedItem}
+                compareMode={compareMode} compareAId={compareAId} compareBId={compareBId}
+                onCompareMark={toggleCompareMark}
+                onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick} onContextMenu={handleContextMenu} />
+            )}
+            {grouped.today.length > 0 && (
+              <HistoryGroup label="Today" items={grouped.today} selected={selectedItem}
+                compareMode={compareMode} compareAId={compareAId} compareBId={compareBId}
+                onCompareMark={toggleCompareMark}
+                onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick} onContextMenu={handleContextMenu} />
+            )}
+            {grouped.yesterday.length > 0 && (
+              <HistoryGroup label="Yesterday" items={grouped.yesterday} selected={selectedItem}
+                compareMode={compareMode} compareAId={compareAId} compareBId={compareBId}
+                onCompareMark={toggleCompareMark}
+                onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick} onContextMenu={handleContextMenu} />
+            )}
+            {grouped.week.length > 0 && (
+              <HistoryGroup label="Last 7 days" items={grouped.week} selected={selectedItem}
+                compareMode={compareMode} compareAId={compareAId} compareBId={compareBId}
+                onCompareMark={toggleCompareMark}
+                onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick} onContextMenu={handleContextMenu} />
+            )}
+            {grouped.older.length > 0 && (
+              <HistoryGroup label="Older" items={grouped.older} selected={selectedItem}
+                compareMode={compareMode} compareAId={compareAId} compareBId={compareBId}
+                onCompareMark={toggleCompareMark}
+                onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick} onContextMenu={handleContextMenu} />
+            )}
+          </div>
         )}
       </div>
 
@@ -286,144 +430,16 @@ export function GraphqlHistoryPanel({
             // Clear the preview panel if the deleted item is currently selected so
             // the side-panel doesn't keep showing a deleted entry.
             if (selectedItem?.id === contextMenu.item.id) setSelectedItem(null);
+            if (compareAId === contextMenu.item.id) setCompareAId(null);
+            if (compareBId === contextMenu.item.id) setCompareBId(null);
+            if (compareViewOpen && (compareAId === contextMenu.item.id || compareBId === contextMenu.item.id)) {
+              setCompareViewOpen(false);
+            }
             history.deleteItem(contextMenu.item.id);
             closeContextMenu();
           }}>Delete</button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── History group ──────────────────────────────────────────────────────────
-
-interface HistoryGroupProps {
-  label: string;
-  items: GraphqlHistoryItem[];
-  selected: GraphqlHistoryItem | null;
-  onItemClick: (item: GraphqlHistoryItem) => void;
-  onContextMenu: (e: React.MouseEvent, item: GraphqlHistoryItem) => void;
-}
-
-function HistoryGroup({ label, items, selected, onItemClick, onContextMenu }: HistoryGroupProps) {
-  return (
-    <div className="gql-history-group">
-      <div className="gql-history-group-label">{label}</div>
-      {items.map((item) => (
-        <HistoryEntryRow
-          key={item.id}
-          item={item}
-          selected={selected?.id === item.id}
-          onClick={() => onItemClick(item)}
-          onContextMenu={(e) => onContextMenu(e, item)}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── History entry row ──────────────────────────────────────────────────────
-
-interface HistoryEntryRowProps {
-  item: GraphqlHistoryItem;
-  selected: boolean;
-  onClick: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
-}
-
-function HistoryEntryRow({ item, selected, onClick, onContextMenu }: HistoryEntryRowProps) {
-  const opType = item.operation.operationType;
-  const badge = opType === 'query' ? 'Q' : opType === 'mutation' ? 'M' : 'S';
-  const badgeClass = `gql-history-badge gql-history-badge--${opType}`;
-  const opName = item.operation.name ?? '(anonymous)';
-  const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  return (
-    <div
-      className={`gql-history-entry${selected ? ' gql-history-entry--selected' : ''}`}
-      role="option"
-      aria-selected={selected}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      title={`${opType}: ${opName} — ${item.latencyMs}ms`}
-      data-testid="gql-history-entry"
-    >
-      <span className={badgeClass}>{badge}</span>
-      <span className="gql-history-entry-name">{opName}</span>
-      <span className={`gql-history-status${item.status === 'error' ? ' gql-history-status--error' : ''}`}>
-        {item.status === 'success' ? '✓' : '✗'}
-      </span>
-      <span className="gql-history-latency">{item.latencyMs}ms</span>
-      <span className="gql-history-time">{time}</span>
-    </div>
-  );
-}
-
-// ─── Preview panel ──────────────────────────────────────────────────────────
-
-interface HistoryPreviewPanelProps {
-  item: GraphqlHistoryItem;
-  onClose: () => void;
-  onLoadIntoEditor: (item: GraphqlHistoryItem) => void;
-  onRunInEditor?: (item: GraphqlHistoryItem) => void;
-  onSaveToCollection: (item: GraphqlHistoryItem) => void;
-}
-
-function HistoryPreviewPanel({ item, onClose, onLoadIntoEditor, onRunInEditor, onSaveToCollection }: HistoryPreviewPanelProps) {
-  const isTruncated = item.response.includes('__TRUNCATED__');
-  let prettyResponse = '';
-  try {
-    const raw = isTruncated ? item.response.replace('\n__TRUNCATED__', '') : item.response;
-    prettyResponse = JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    prettyResponse = item.response;
-  }
-
-  return (
-    <div className="gql-history-preview" data-testid="gql-history-preview">
-      <div className="gql-history-preview-header">
-        <span className="gql-history-preview-title">
-          {item.operation.name ?? 'Anonymous'} — {item.latencyMs}ms
-        </span>
-        <button type="button" className="gql-history-preview-close" onClick={onClose} aria-label="Close preview">✕</button>
-      </div>
-      <div className="gql-history-preview-query">
-        <pre className="gql-history-preview-pre">{item.operation.query}</pre>
-      </div>
-      {isTruncated && (
-        onRunInEditor
-          ? (
-            <button
-              type="button"
-              className="gql-history-truncation-banner gql-history-truncation-banner--clickable"
-              onClick={() => onRunInEditor(item)}
-              data-testid="gql-history-truncation-rerun"
-            >
-              Response truncated — click to re-execute
-            </button>
-          )
-          : (
-            <div className="gql-history-truncation-banner" role="status">
-              Response truncated — click to re-execute
-            </div>
-          )
-      )}
-      <div className="gql-history-preview-response">
-        <pre className="gql-history-preview-pre">{prettyResponse}</pre>
-      </div>
-      <div className="gql-history-preview-actions">
-        <button type="button" className="gql-history-preview-btn" onClick={() => onLoadIntoEditor(item)} data-testid="gql-history-load">
-          Load into editor
-        </button>
-        {onRunInEditor && (
-          <button type="button" className="gql-history-preview-btn gql-history-preview-btn--primary" onClick={() => onRunInEditor(item)} data-testid="gql-history-run">
-            Open &amp; Run
-          </button>
-        )}
-        <button type="button" className="gql-history-preview-btn" onClick={() => onSaveToCollection(item)} data-testid="gql-history-save-to-col">
-          Save to Collection
-        </button>
-      </div>
     </div>
   );
 }

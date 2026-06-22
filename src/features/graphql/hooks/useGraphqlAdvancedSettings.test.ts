@@ -343,6 +343,32 @@ describe('useGraphqlAdvancedSettings', () => {
       expect(written.batch).toBe(true);
     });
 
+    it('Phase 6: persists APQ detection to apqInfo.connectionId when active tab connection differs', async () => {
+      const { result, rerender } = renderHook(
+        ({ connId, apqInfo }) => useGraphqlAdvancedSettings(connId, apqInfo),
+        {
+          initialProps: {
+            connId: 'https://prod.example.com/graphql' as string | null,
+            apqInfo: null as { unsupported?: boolean; connectionId?: string } | null,
+          },
+        },
+      );
+      await flushPromises();
+      act(() => { result.current.handleAdvSettingsChange({ apqEnabled: true }); });
+      rerender({
+        connId: 'https://prod.example.com/graphql',
+        apqInfo: {
+          unsupported: true,
+          connectionId: 'https://staging.example.com/graphql',
+        },
+      });
+      await act(async () => { await flushPromises(); });
+      const calls = vi.mocked(writeKey).mock.calls.filter(
+        (c) => c[0] === 'gql_conn_detection_https://staging.example.com/graphql',
+      );
+      expect(calls.length).toBeGreaterThan(0);
+    });
+
     it('clears APQ toast timer on unmount', async () => {
       vi.useFakeTimers();
       const { result, unmount } = renderHook(() => useGraphqlAdvancedSettings(null, null));

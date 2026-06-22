@@ -67,8 +67,14 @@ export interface DemoLesson {
   /** HTTP or WS URL to probe before allowing the live demo to start.
    *  When set, LessonPlayer renders a PrerequisiteGate below the concept slide. */
   dockerEndpoint?: string;
+  /** When multiple containers must be up (e.g. TLS + mTLS), all probes must succeed. */
+  dockerEndpoints?: string[];
   /** docker compose command the user must run to start the required container. */
   dockerCommand?: string;
+  /** GraphQL Studio demo tabs this lesson needs (default 1). User cap = 8 − tabBudget. */
+  tabBudget?: number;
+  /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */
+  desktopOnly?: boolean;
 }
 
 export interface ConceptContent {
@@ -87,6 +93,8 @@ export interface DemoStep {
   id: string;
   title: string;
   description: string;
+  /** Optional inline SVG diagram rendered below the step description. */
+  diagram?: string;
   highlight?: string;
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
   /** Invisible setup before spotlight (navigate to tab, switch mode, etc.) */

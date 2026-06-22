@@ -16,6 +16,19 @@ vi.mock('./utils/checkEndpoint', () => ({
   checkEndpoint: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock('../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
+
+vi.mock('../graphql/utils/gqlDemoWorkspace', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../graphql/utils/gqlDemoWorkspace')>();
+  return {
+    ...actual,
+    countUserTabsInStorage: vi.fn().mockResolvedValue(0),
+    userTabsToCloseForLesson: vi.fn(() => 0),
+  };
+});
+
 const baseProgress: DemoProgress = {
   completedLessons: [],
   lessonSteps: {},
@@ -564,6 +577,22 @@ describe('LessonPlayer', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
+  it('disables start button for desktop-only lessons on web', () => {
+    const onStart = vi.fn();
+    render(
+      <LessonPlayer
+        lesson={makeLesson({ desktopOnly: true })}
+        onStartDemo={onStart}
+      />,
+    );
+    const startBtn = screen.getByRole('button', { name: 'Desktop app required' });
+    expect(startBtn).toBeTruthy();
+    expect((startBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(document.querySelector('[data-testid="desktop-only-gate"]')).toBeTruthy();
+    fireEvent.click(startBtn);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
   it('renders PrerequisiteGate when dockerEndpoint is set', () => {
     render(
       <LessonPlayer
@@ -614,6 +643,27 @@ describe('LessonPlayer', () => {
     fireEvent.click(navItems[0]);
     expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
     expect(document.querySelector('.demo-step-detail')).toBeNull();
+  });
+
+  it('renders step diagram when step has diagram field', () => {
+    render(
+      <LessonPlayer
+        lesson={makeLesson({
+          steps: [
+            {
+              id: 's1',
+              title: 'Anatomy',
+              description: 'See the diagram below.',
+              diagram: '<svg data-testid="step-diagram"><circle r="10"/></svg>',
+            },
+          ],
+        })}
+        onStartDemo={vi.fn()}
+      />,
+    );
+    fireEvent.click(document.querySelectorAll('.demo-sidebar-nav-item')[1]);
+    expect(document.querySelector('.demo-step-diagram')).toBeTruthy();
+    expect(document.querySelector('[data-testid="step-diagram"]')).toBeTruthy();
   });
 
   it('footer always shows Start Demo; Prev/Next appear only when viewing a step', () => {
@@ -692,6 +742,34 @@ describe('LessonPlayer', () => {
     );
     expect(document.querySelector('.prereq-gate')).toBeTruthy();
   });
+
+  it('passes tabBudget to PrerequisiteGate for GraphQL studio lessons', async () => {
+    vi.useFakeTimers();
+    const { checkEndpoint } = await import('./utils/checkEndpoint');
+    (checkEndpoint as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+    const onStart = vi.fn();
+    render(
+      <LessonPlayer
+        lesson={makeLesson({
+          category: 'graphql',
+          initialTab: 'graphql-studio',
+          tabBudget: 2,
+          dockerEndpoint: 'http://localhost:4010/graphql',
+        })}
+        onStartDemo={onStart}
+      />,
+    );
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+
+    const startBtn = screen.getByText('Start Demo →');
+    expect((startBtn as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(startBtn);
+    expect(onStart).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
 
 // ── LessonList ──────────────────────────────────────────────────
@@ -758,6 +836,25 @@ describe('LessonList', () => {
       />,
     );
     expect(screen.getByText('Resume')).toBeTruthy();
+  });
+
+  it('shows Desktop only badge instead of Start/Resume for desktop-only lessons on web', () => {
+    const domain = makeDomain({
+      lessons: [makeLesson({ id: 'desktop-lesson', desktopOnly: true })],
+    });
+    const progress: DemoProgress = { ...baseProgress, lessonSteps: { 'desktop-lesson': 1 } };
+    render(
+      <LessonList
+        domain={domain}
+        progress={progress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(screen.getByText('Desktop only')).toBeTruthy();
+    expect(screen.queryByText('Resume')).toBeNull();
+    expect(screen.queryByText('Start')).toBeNull();
   });
 
   it('calls onSelect when lesson clicked', () => {

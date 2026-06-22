@@ -14,6 +14,19 @@ import type {
 import { calcReadingTime } from './types';
 import { useDemoProgress } from './useDemoProgress';
 import { allDomains } from './lessons/index';
+import { fillControlledInput } from './lessons/setup-helpers';
+import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
+
+function isGraphqlStudioLesson(lesson: { initialTab?: string; category?: string }): boolean {
+  return lesson.initialTab === 'graphql-studio' || lesson.category === 'graphql';
+}
+
+async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<void> {
+  const { closeGqlDemoWorkspaceQuiet } = await import(
+    './lessons/protocols/graphql-lesson-helpers/gql-demo-tab'
+  );
+  await closeGqlDemoWorkspaceQuiet(lessonId);
+}
 
 /** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
 function firstVisible(selector: string): HTMLElement | null {
@@ -119,14 +132,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     progress.setLastView('domains');
   }, [progress]);
 
-  const closeHub = useCallback(() => {
-    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
-    autoPlayGenRef.current++;
-    abortRef.current?.abort();
-    setHubOpen(false);
-    setState(prev => ({ ...prev, isPlaying: false }));
-  }, []);
-
   const selectDomain = useCallback((domain: DemoDomain) => {
     if (!domain.available) return;
     // Clear selectedLesson so a fresh domain entry always starts without a category hint
@@ -139,27 +144,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     setState(prev => ({ ...prev, view: 'concept', selectedLesson: lesson, stepIndex: 0 }));
     progress.setLastLesson(lesson.id);
     progress.setLastView('concept');
-  }, [progress]);
-
-  const goBack = useCallback(() => {
-    setState(prev => {
-      // Persist the destination view so a hard refresh restores the correct page.
-      switch (prev.view) {
-        case 'lessons':
-          progress.setLastView('domains');
-          return { ...prev, view: 'domains' as HubView, selectedDomain: null };
-        case 'concept':
-          // Keep selectedLesson so LessonList can restore the correct category tab.
-          // The header breadcrumb guards against showing the stale lesson name.
-          progress.setLastView('lessons');
-          return { ...prev, view: 'lessons' as HubView };
-        case 'live':
-          progress.setLastView('concept');
-          return { ...prev, view: 'concept' as HubView, isPlaying: false };
-        default: return prev;
-      }
-    });
-    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
   }, [progress]);
 
   /** Jump directly to the domain selector from any view — used by the
@@ -202,13 +186,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, 300));
-        const proto = el instanceof HTMLTextAreaElement
-          ? HTMLTextAreaElement.prototype
-          : HTMLInputElement.prototype;
-        const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        nativeSet?.call(el, value);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+        fillControlledInput(el, value);
       }
     },
     selectOption: async (selector: string, value: string) => {
@@ -241,13 +219,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     fill: async (selector: string, value: string) => {
       const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-        const proto = el instanceof HTMLTextAreaElement
-          ? HTMLTextAreaElement.prototype
-          : HTMLInputElement.prototype;
-        const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        nativeSet?.call(el, value);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+        fillControlledInput(el, value);
       }
     },
     selectOption: async (selector: string, value: string) => {
@@ -267,6 +239,59 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     },
     delay: (ms: number) => new Promise(r => setTimeout(r, ms)),
   }), [navigateToTab]);
+
+  /** Run lesson cleanup when leaving live mode via hub chrome (close/back). */
+  const runLiveLessonCleanup = useCallback((lesson: DemoLesson | null | undefined) => {
+    if (!lesson) return Promise.resolve();
+    const ctx = buildQuietContext();
+    if (lesson.cleanup) {
+      return lesson.cleanup(ctx).catch((e) => {
+        console.warn('[DemoHub] Lesson cleanup failed:', e);
+      });
+    }
+    if (isGraphqlStudioLesson(lesson)) {
+      return closeGraphqlDemoWorkspaceQuiet(lesson.id).catch((e) => {
+        console.warn('[DemoHub] GQL demo workspace cleanup failed:', e);
+      });
+    }
+    return Promise.resolve();
+  }, [buildQuietContext]);
+
+  const closeHub = useCallback(() => {
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++;
+    abortRef.current?.abort();
+    const lesson = state.selectedLesson;
+    const liveLesson = state.view === 'live' ? lesson : null;
+    if (liveLesson) {
+      void runLiveLessonCleanup(liveLesson);
+    } else if (lesson && isGraphqlStudioLesson(lesson)) {
+      void closeGraphqlDemoWorkspaceQuiet(lesson.id);
+    }
+    setHubOpen(false);
+    setState(prev => ({ ...prev, isPlaying: false }));
+  }, [state.view, state.selectedLesson, runLiveLessonCleanup]);
+
+  const goBack = useCallback(() => {
+    const leavingLive = state.view === 'live';
+    const lesson = leavingLive ? state.selectedLesson : null;
+    setState(prev => {
+      switch (prev.view) {
+        case 'lessons':
+          progress.setLastView('domains');
+          return { ...prev, view: 'domains' as HubView, selectedDomain: null };
+        case 'concept':
+          progress.setLastView('lessons');
+          return { ...prev, view: 'lessons' as HubView };
+        case 'live':
+          progress.setLastView('concept');
+          return { ...prev, view: 'concept' as HubView, isPlaying: false };
+        default: return prev;
+      }
+    });
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    if (leavingLive) runLiveLessonCleanup(lesson);
+  }, [state.view, state.selectedLesson, progress, runLiveLessonCleanup]);
 
   // ─── Retry-based element wait ──────────────────────────────────
   const waitForElement = useCallback(async (
@@ -381,6 +406,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const startLiveDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
+    if (isLessonDesktopOnlyBlocked(lesson)) return;
 
     // Capture the generation counter so we can detect if exit/restart fires during setup.
     const gen = autoPlayGenRef.current;

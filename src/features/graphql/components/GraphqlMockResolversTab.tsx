@@ -32,10 +32,19 @@ export function ResolversTab({ config, schemaInfo, mockServer, schemaSource }: R
     const emptyMsg = schemaInfo
       ? 'No Object types found in schema.'
       : schemaSource === 'custom'
-        ? 'Field resolvers use the introspected schema type list. Switch to "Use introspected schema" and introspect first, or keep using Random (default) for all fields.'
+        ? 'Field resolvers use the introspected schema type list. Switch to "Introspected schema" and introspect first, or keep using Random (default) for all fields.'
         : 'Introspect a schema to configure field resolver overrides.';
     return (
-      <div className="gql-mock-empty">{emptyMsg}</div>
+      <div className="gql-mock-empty" data-testid="gql-mock-empty">
+        <div className="gql-mock-empty-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M8 12h8M12 8v8" />
+          </svg>
+        </div>
+        <div className="gql-mock-empty-title">No resolver types</div>
+        <div className="gql-mock-empty-hint">{emptyMsg}</div>
+      </div>
     );
   }
 
@@ -209,7 +218,7 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
           value={fixedVal}
           placeholder='Value (e.g. "hello" or 42)'
           onChange={(e) => setFixedVal(e.target.value)}
-          onBlur={() => applyResolver(mode, fixedVal, scriptCode, errorMsg)}
+          onBlur={(e) => applyResolver(mode, e.currentTarget.value, scriptCode, errorMsg)}
           data-testid="gql-mock-fixed-input"
         />
       )}
@@ -220,7 +229,7 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
           value={scriptCode}
           placeholder="return new Date().toISOString()"
           onChange={(e) => setScriptCode(e.target.value)}
-          onBlur={() => applyResolver(mode, fixedVal, scriptCode, errorMsg)}
+          onBlur={(e) => applyResolver(mode, fixedVal, e.currentTarget.value, errorMsg)}
           data-testid="gql-mock-script-input"
         />
       )}
@@ -231,7 +240,7 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
           value={errorMsg}
           placeholder="Error message"
           onChange={(e) => setErrorMsg(e.target.value)}
-          onBlur={() => applyResolver(mode, fixedVal, scriptCode, errorMsg)}
+          onBlur={(e) => applyResolver(mode, fixedVal, scriptCode, e.currentTarget.value)}
           data-testid="gql-mock-error-input"
         />
       )}

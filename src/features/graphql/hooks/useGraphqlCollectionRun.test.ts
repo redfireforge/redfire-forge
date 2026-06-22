@@ -97,6 +97,14 @@ describe('useGraphqlCollectionRun', () => {
     expect(runner.run).not.toHaveBeenCalled();
   });
 
+  it('Phase 6F: does not run collection when endpointLinkPending', () => {
+    const args = baseArgs({ endpointLinkPending: true });
+    const { result } = renderHook(() => useGraphqlCollectionRun(args));
+    result.current.handleRunCollection('col1');
+    expect(args.onSetBottomTab).not.toHaveBeenCalled();
+    expect(runner.run).not.toHaveBeenCalled();
+  });
+
   it('sets runner collection id and bottom tab', async () => {
     const args = baseArgs();
     const { result } = renderHook(() => useGraphqlCollectionRun(args));
@@ -267,6 +275,17 @@ describe('useGraphqlCollectionRun', () => {
     });
     const { endpoint } = runner.run.mock.calls[0][0] as { endpoint: string };
     expect(endpoint).toBe('https://resolved.com/gql');
+  });
+
+  it('passes skipTlsVerify to runner.run (Phase 6 per-tab TLS)', async () => {
+    const args = baseArgs({ skipTlsVerify: true });
+    const { result } = renderHook(() => useGraphqlCollectionRun(args));
+    result.current.handleRunCollection('col1');
+    await vi.waitFor(() => {
+      expect(runner.run).toHaveBeenCalledTimes(1);
+    });
+    const runArgs = runner.run.mock.calls[0][0] as { skipTlsVerify?: boolean };
+    expect(runArgs.skipTlsVerify).toBe(true);
   });
 
   it('includes nested folder items recursively', async () => {

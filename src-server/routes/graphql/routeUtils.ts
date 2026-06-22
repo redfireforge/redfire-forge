@@ -6,6 +6,7 @@
  * circular imports.
  */
 import type { LogLine } from '../../../src/shared/types/server-api.js';
+import { parseGqlTlsFromBody, type GqlTlsSettings } from '../../../src/shared/types/gqlTls.js';
 
 // ─── Logging helper ───────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ export function log(
 export const HOP_BY_HOP_HEADERS = new Set([
   'connection', 'keep-alive', 'transfer-encoding', 'te', 'trailer',
   'upgrade', 'proxy-authorization', 'proxy-authenticate',
-  'x-graphql-endpoint', 'host',
+  'x-graphql-endpoint', 'x-gql-tls-config', 'host',
   'content-type', 'content-length',
 ]);
 
@@ -43,4 +44,15 @@ export const HOP_BY_HOP_HEADERS = new Set([
  */
 export function escapeQuotedString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/** Decode TLS options from gqlUpload `x-gql-tls-config` base64 JSON header. */
+export function parseGqlTlsFromBase64Header(encoded: string | undefined): GqlTlsSettings {
+  if (!encoded?.trim()) return {};
+  try {
+    const json = Buffer.from(encoded, 'base64').toString('utf8');
+    return parseGqlTlsFromBody(JSON.parse(json) as Record<string, unknown>);
+  } catch {
+    return {};
+  }
 }

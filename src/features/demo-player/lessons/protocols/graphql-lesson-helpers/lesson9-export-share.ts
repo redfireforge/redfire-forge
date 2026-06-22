@@ -6,7 +6,6 @@ import {
   ensureEditorMode,
   fillGqlEditor,
   getDemoUserAId,
-  getEndpointInput,
   getGqlEditorQuery,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
@@ -22,6 +21,7 @@ import {
   resetGqlLesson7SessionFlags,
 } from './lesson7-query-builder';
 import { openHistoryPanel, resetGqlLesson8SessionFlags } from './lesson8-collections-history';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 function findFieldRowByName(fieldName: string): HTMLElement | null {
   const rows = document.querySelectorAll<HTMLElement>('.gql-qb-field-row');
@@ -72,9 +72,10 @@ async function clickHistoryContextMenuItem(ctx: DemoActionContext, label: string
 
 /** Select `health` and `user` fields in Builder (with required `id` arg). */
 export async function ensureBuilderHealthAndUserSelected(ctx: DemoActionContext): Promise<void> {
-  await ensureBuilderMode(ctx);
+  // Fast-path guard: if fields are already selected and the SDL confirms it, skip setup.
   const code = getBuilderCodeText();
   if (_lesson9FieldsSelected && code.includes('health') && code.includes('user')) return;
+  await ensureBuilderMode(ctx);
 
   const healthRow = findFieldRowByName('health');
   const healthCheck = healthRow?.querySelector<HTMLElement>('.gql-qb-check');
@@ -143,7 +144,7 @@ export async function ensureHistoryCopyAsCurl(ctx: DemoActionContext): Promise<v
   _lesson9CurlCopied = true;
 }
 
-/** Setup for Lesson 9 — clean slate, seed demo user for builder `id` arg. */
+/** Setup for Lesson 9 (GQL-10) — demo tab; seed demo user for builder `id` arg. */
 export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -166,12 +167,7 @@ export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise
     await ctx.delay(200);
   }
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-export-share', 'Export & Share Queries');
   await fillGqlEditor(ctx, '', { focus: false });
   try {
     await seedDemoUsers();
@@ -180,10 +176,9 @@ export async function gqlExportShareLessonSetup(ctx: DemoActionContext): Promise
   }
 }
 
-/** Cleanup for Lesson 9. */
+/** Cleanup for Lesson 9 (GQL-10) — close demo tab and reset session flags. */
 export async function gqlExportShareLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson9SessionFlags();
-  await ensureEditorMode(ctx);
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-export-share');
 }
 

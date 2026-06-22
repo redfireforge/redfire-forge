@@ -16,6 +16,9 @@
 # Start:
 #   docker compose -f docker/graphql/tls/docker-compose.yml up -d
 #
+# If you already built docker/graphql (port 4010), reuse that image without rebuilding:
+#   docker compose -f docker/graphql/tls/docker-compose.yml up -d --no-build
+#
 # Stop:
 #   docker compose -f docker/graphql/tls/docker-compose.yml down
 #
@@ -30,7 +33,9 @@
 # started by docker/graphql/docker-compose.yml (which uses port 4010).
 services:
   gql-test-server-tls:
-    build: ../                           # docker/graphql/Dockerfile + server.js
+    # Reuse image from docker/graphql when already built (avoids registry pull on corp networks).
+    image: graphql-graphql-test-server:latest
+    build: ../
     container_name: gql-test-server-tls
     ports:
       # Health probe: http://localhost:4444/health

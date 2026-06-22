@@ -1,24 +1,30 @@
 /** Lesson: WebSocket Basics — connect, send, receive */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { wsCleanup } from '../setup-helpers';
-import { EM, WS } from '../../../../shared/selectors';
+import { APP, EM, WS } from '../../../../shared/selectors';
 import {
-  ensureDemoEnvironment,
-  ensureDemoMicroservice,
-  configureProtocolEndpointInEnvManager,
+  cleanupDemoEnvironment,
+  cleanupDemoMicroservice,
+  ensureWsDemoEndpointConfigured,
+  ensureWsDemoHeaderContext,
+  ensureWsDemoProtocolReady,
   navigateToWebSocketStudio,
+  selectEnvInHeader,
+  selectSvcInHeader,
+  WS_DEMO_ENV_NAME,
+  WS_DEMO_SVC_NAME,
 } from '../env-manager-lesson-helpers';
 
-const DEMO_ENV_NAME = 'WebSocket Demo';
-const DEMO_SVC_NAME = 'ws-demo';
-const DEMO_WS_BASE = 'ws://localhost:9876';
+// ── Constants ──────────────────────────────────────────────────────
+const WS_ENV_VAR_URL = '{{wsBaseUrl}}';
+
+/** Dedicated environment and microservice used only by this demo lesson. */
+const DEMO_ENV_NAME = WS_DEMO_ENV_NAME;
+const DEMO_SVC_NAME = WS_DEMO_SVC_NAME;
 
 /**
  * Tracks whether the built-in mock echo server has been started in the current
  * demo session. Reset by setup() so repeat runs start fresh.
- *
- * Using a flag is more reliable than DOM-based checks because the Mock tab
- * panel may be unmounted when we're in Client mode.
  */
 let _mockRunning = false;
 
@@ -48,15 +54,36 @@ async function ensureMockRunning(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Ensure a WebSocket connection is open to ws://localhost:9876.
- * Also ensures the mock server is running. No-op if already connected.
+ * Ensure Client → Connect is active and the URL field shows {{wsBaseUrl}}.
+ * Idempotent — skips fill when the template is already present.
+ */
+async function ensureWsUrlTemplate(ctx: DemoActionContext): Promise<void> {
+  await navigateToWebSocketStudio(ctx);
+  await ensureWsDemoHeaderContext(ctx);
+  await ctx.click(WS.MODE_CLIENT);
+  await ctx.delay(200);
+  await ctx.click(WS.LEFT_TAB_CONNECT);
+  await ctx.delay(200);
+  const input = document.querySelector<HTMLInputElement>(WS.URL_INPUT);
+  if (input && input.value.trim() !== WS_ENV_VAR_URL) {
+    await ctx.fill(WS.URL_INPUT, WS_ENV_VAR_URL);
+    await ctx.delay(400);
+  }
+}
+
+/**
+ * Guard used by preActions of connect/send steps to ensure the WebSocket
+ * connection is open using {{wsBaseUrl}} from the Environment Manager.
+ * Idempotent — returns immediately if already connected.
  */
 async function ensureConnected(ctx: DemoActionContext): Promise<void> {
-  await ensureMockRunning(ctx);
   if (_wsConnected) return;
-  await ctx.click(WS.LEFT_TAB_CONNECT);
-  await ctx.delay(100);
-  await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+  if (document.querySelector(WS.STATUS_CONNECTED)) {
+    _wsConnected = true;
+    return;
+  }
+  await ensureMockRunning(ctx);
+  await ensureWsUrlTemplate(ctx);
   await ctx.click(WS.CONNECT_BTN);
   await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
   _wsConnected = true;
@@ -69,20 +96,25 @@ export const wsBasicsLesson: DemoLesson = {
   category: 'websocket',
   name: 'WebSocket Basics',
   description: 'Connect to a WebSocket server, send messages, and see live responses.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 6,
   initialTab: 'websocket-studio',
-  allowedTabs: ['websocket-studio', 'environments'],
+  allowedTabs: ['environments', 'websocket-studio'],
 
   setup: async (ctx) => {
     _mockRunning = false;
     _wsConnected = false;
-    // Disconnect any active session so step 4 can demo connecting from scratch
+    // Remove stale ws-demo from prior runs (HTTP tab, d01 deploy, old step order).
+    await cleanupDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
+    await cleanupDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
+    await navigateToWebSocketStudio(ctx);
+    await ctx.delay(300);
+    // Disconnect any active session so the connect step can demo from scratch
     const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
     if (disconnectBtn && !disconnectBtn.disabled) {
       disconnectBtn.click();
       await ctx.delay(400);
     }
-    // Stop mock server if running so step 2 can demo starting it
+    // Stop mock server if running so the mock step can demo starting it
     await ctx.click(WS.MODE_MOCK);
     await ctx.delay(300);
     const stopBtn = document.querySelector(WS.MOCK_STOP_BTN) as HTMLButtonElement | null;
@@ -90,17 +122,15 @@ export const wsBasicsLesson: DemoLesson = {
       stopBtn.click();
       await ctx.delay(500);
     }
-    // Return to Client mode on the Connect tab, Events right tab visible
-    await ctx.click(WS.MODE_CLIENT);
+    // Return to Mock mode with server stopped so step 1 introduces the mock-first flow
+    await ctx.click(WS.MODE_MOCK);
     await ctx.delay(200);
-    await ctx.click(WS.RIGHT_TAB_EVENTS);
-    await ctx.delay(100);
-    await ctx.click(WS.LEFT_TAB_CONNECT);
-    await ctx.delay(100);
   },
   cleanup: async (ctx) => {
     _mockRunning = false;
     _wsConnected = false;
+    await cleanupDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
+    await cleanupDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
     await wsCleanup(ctx);
   },
 
@@ -151,18 +181,68 @@ export const wsBasicsLesson: DemoLesson = {
     {
       id: 'ws-nav',
       title: 'Welcome to WebSocket Studio',
-      description: 'This is the WebSocket Studio — your workspace for real-time WebSocket testing. It has a split-pane layout: setup tabs on the left, and live event monitoring on the right.',
-      highlight: WS.MODE_CLIENT,
+      description:
+        'WebSocket Studio has two modes: **Mock Server** (built-in echo server for learning) and **Client** ' +
+        '(connect, send, and monitor live traffic). We start with the **Mock Server** tab — start the server first, ' +
+        'then switch to **Client** mode to connect and send messages.',
+      highlight: WS.MODE_MOCK,
+      pauseAfter: true,
     },
 
-    // ── 2. Start Mock Server ─────────────────────────────────────
+    // ── 2. Add WebSocket Protocol in Environment Manager ─────────
+    {
+      id: 'ws-add-protocol',
+      title: 'Add WebSocket Protocol',
+      description:
+        'Open **Settings → Environments**, add an environment called **"WebSocket Demo"** and a microservice ' +
+        'called **"ws-demo"**. Expand the microservice — it starts with **no protocol tabs**. ' +
+        'Click **+ Add protocol** and choose **WebSocket**. Only the **WebSocket** tab appears (HTTP is not added ' +
+        'by default). Check the deploy box for **WebSocket Demo** so the environment is active on this service.',
+      highlight: EM.ADD_PROTOCOL_BTN,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        if (!document.querySelector(WS.URL_INPUT)) {
+          await navigateToWebSocketStudio(ctx);
+        }
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureWsDemoProtocolReady(ctx);
+        await ctx.delay(800);
+      },
+    },
+
+    // ── 3. Configure WebSocket Endpoint ──────────────────────────
+    {
+      id: 'ws-env-config',
+      title: 'Configure WebSocket Endpoint',
+      description:
+        'On the **WebSocket** tab, click **Edit** on the **WebSocket Demo** row and enter `ws://localhost:9876`. ' +
+        'Click **Save** — the status changes to **✓ set** and the derived-variables panel shows ' +
+        '`{{wsBaseUrl}}` resolved to your endpoint. Only the **WebSocket** tab is present — no HTTP tab.',
+      highlight: EM.PROTOCOL_TAB_WS,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureWsDemoProtocolReady(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureWsDemoEndpointConfigured(ctx);
+        await ctx.delay(1000);
+      },
+    },
+
+    // ── 4. Start Mock Server ─────────────────────────────────────
     {
       id: 'ws-mock',
       title: 'Start the Mock Server',
-      description: 'Let\'s start the built-in Mock Server so we have an echo server to connect to. It mirrors back every message you send — perfect for testing.',
+      description:
+        'The built-in **Mock Server** echoes every message you send — perfect for learning. ' +
+        'Switch to the **Mock Server** tab and click **Start Server**. The listen address `ws://localhost:9876` ' +
+        'matches the endpoint you saved in the Environment Manager. After the server is running, we switch to ' +
+        '**Client** mode to connect using `{{wsBaseUrl}}` instead of typing that address by hand.',
       highlight: WS.MOCK_BTN_ANY,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Switch to Mock tab so the Start/Stop button is in the DOM
+        await navigateToWebSocketStudio(ctx);
         await ctx.click(WS.MODE_MOCK);
         await ctx.delay(200);
       },
@@ -170,62 +250,102 @@ export const wsBasicsLesson: DemoLesson = {
         const btn = document.querySelector(WS.MOCK_START_BTN) as HTMLButtonElement | null;
         if (btn && !btn.disabled) {
           await ctx.click(WS.MOCK_START_BTN);
-          // Wait for the Stop button to appear — confirms the server is running
           await ctx.waitFor(WS.MOCK_STOP_BTN, 3000);
           _mockRunning = true;
         } else {
-          // Server was already running (e.g., resume after restart)
           _mockRunning = true;
         }
       },
       verify: WS.MOCK_STOP_BTN,
     },
 
-    // ── 3. Set the URL ───────────────────────────────────────────
+    // ── 5. Select Environment & Service in Header ────────────────
     {
-      id: 'ws-url',
-      title: 'Switch to Client Mode',
-      description: 'Now switch back to Client mode. We\'ll set the URL to ws://localhost:9876 to match the Mock Server port. This is where you\'ll connect and send messages.',
-      highlight: WS.URL_INPUT,
-      preAction: async (ctx) => {
+      id: 'ws-header-select',
+      title: 'Select Environment & Service',
+      description:
+        'With the mock server running, switch to **Client** mode. Endpoints live on a microservice, but ' +
+        '**WebSocket Studio** resolves `{{wsBaseUrl}}` from the **Environment** and **Service** dropdowns in the app header. ' +
+        'Choose **"WebSocket Demo"** for Environment and **"ws-demo"** for Service — the protocol indicator beside them ' +
+        'confirms the resolved WebSocket address.',
+      highlight: APP.HEADER_SELECTORS,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await navigateToWebSocketStudio(ctx);
         await ctx.click(WS.MODE_CLIENT);
+        await ctx.delay(200);
         await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ctx.delay(200);
       },
-      action: async (ctx) => {
-        await ctx.fill(WS.URL_INPUT, 'ws://localhost:9876');
+      action: async (ctx: DemoActionContext) => {
+        await selectEnvInHeader(ctx, DEMO_ENV_NAME);
+        await ctx.delay(800);
+        await selectSvcInHeader(ctx, DEMO_SVC_NAME);
+        await ctx.delay(1500);
       },
     },
 
-    // ── 4. Connect ───────────────────────────────────────────────
+    // ── 6. Environment Variables in URLs ─────────────────────────
+    {
+      id: 'ws-env-vars',
+      title: 'Environment Variables in URLs',
+      description:
+        'On the **Connect** tab in **Client** mode, type `{{wsBaseUrl}}` instead of hardcoding `ws://localhost:9876`. ' +
+        'Watch **→ Resolved:** appear below the input — RedfireForge resolves `{{wsBaseUrl}}` from the **WebSocket** ' +
+        'tab endpoint using the **WebSocket Demo** environment and **ws-demo** service you selected.',
+      highlight: WS.URL_INPUT,
+      pauseAfter: true,
+      preAction: async (ctx: DemoActionContext) => {
+        await ensureWsUrlTemplate(ctx);
+      },
+      action: async (ctx: DemoActionContext) => {
+        await ensureWsUrlTemplate(ctx);
+        await ctx.fill(WS.URL_INPUT, WS_ENV_VAR_URL);
+        await ctx.delay(2000);
+      },
+    },
+
+    // ── 7. Connect ───────────────────────────────────────────────
     {
       id: 'ws-connect',
       title: 'Connect to the Server',
-      description: 'Click Connect to open the WebSocket connection. Watch the status indicator change from "Disconnected" (grey dot) to "Connected" (green dot). The app auto-switches to Send once connected.',
+      description:
+        'The URL field still shows `{{wsBaseUrl}}` — RedfireForge resolves it using the **WebSocket Demo** ' +
+        'environment and **ws-demo** service before connecting. Click **Connect**. Watch the status indicator change ' +
+        'from "Disconnected" (grey dot) to "Connected" (green dot). The app auto-switches to Send once connected.',
       highlight: WS.CONNECT_BTN,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure mock server is running before attempting to connect
         await ensureMockRunning(ctx);
-        await ctx.click(WS.LEFT_TAB_CONNECT);
+        await ensureWsUrlTemplate(ctx);
       },
       action: async (ctx) => {
+        const disconnectBtn = document.querySelector(WS.DISCONNECT_BTN) as HTMLButtonElement | null;
+        if (disconnectBtn && !disconnectBtn.disabled) {
+          await ctx.click(WS.DISCONNECT_BTN);
+          await ctx.delay(400);
+          _wsConnected = false;
+        }
+        await ensureWsUrlTemplate(ctx);
+        await ctx.fill(WS.URL_INPUT, WS_ENV_VAR_URL);
+        await ctx.delay(300);
         await ctx.click(WS.CONNECT_BTN);
-        // Wait for the status dot to confirm connection — more reliable than a fixed delay.
-        // STATUS_CONNECTED lives in ConnectPanel (still mounted here) and in the Events
-        // MessageLog status bar (right tab = Events by default).
         await ctx.waitFor(WS.STATUS_CONNECTED, 3000);
         _wsConnected = true;
       },
       verify: WS.STATUS_CONNECTED,
     },
 
-    // ── 5. Send ──────────────────────────────────────────────────
+    // ── 8. Compose message ───────────────────────────────────────
     {
       id: 'ws-compose',
       title: 'Send a Message',
-      description: 'Switch to the **Send** tab to write messages. You can send plain text, JSON, or binary data. The format pills let you switch between Text, JSON, and Base64 encoding.',
+      description:
+        'Switch to the **Send** tab to write messages. You can send plain text, JSON, or binary data. ' +
+        'The format pills let you switch between Text, JSON, and Base64 encoding.',
       highlight: WS.COMPOSE_INPUT,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure connected so the Send panel is in its active send-ready state
         await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_SEND);
       },
@@ -234,14 +354,16 @@ export const wsBasicsLesson: DemoLesson = {
       },
     },
 
-    // ── 6. Send ──────────────────────────────────────────────────
+    // ── 9. Send ──────────────────────────────────────────────────
     {
       id: 'ws-send',
       title: 'Send Your Message',
-      description: 'Click Send to transmit the message. The mock server echoes it right back. Look at the Events panel on the right — you\'ll see both the sent (↑) and received (↓) entries appear.',
+      description:
+        'Click Send to transmit the message. The mock server echoes it right back. Look at the Events panel on the right — ' +
+        'you\'ll see both the sent (↑) and received (↓) entries appear.',
       highlight: WS.SEND_BTN,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure connected + message pre-filled so Send is not a no-op on skip-to
         await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_SEND);
         await ctx.delay(100);
@@ -254,14 +376,16 @@ export const wsBasicsLesson: DemoLesson = {
       verify: WS.MESSAGE_ROW,
     },
 
-    // ── 7. Monitor Events ────────────────────────────────────────
+    // ── 10. Monitor Events ───────────────────────────────────────
     {
       id: 'ws-events',
       title: 'Monitor Live Events',
-      description: 'The Events tab shows all WebSocket frames in real-time. Each row has a direction indicator (↑ sent / ↓ received), timestamp, size badge, and message preview. Click any row to see the full payload.',
+      description:
+        'The Events tab shows all WebSocket frames in real-time. Each row has a direction indicator (↑ sent / ↓ received), ' +
+        'timestamp, size badge, and message preview. Click any row to see the full payload.',
       highlight: WS.RIGHT_TAB_EVENTS,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure connected so the Events tab has message rows to show
         await ensureConnected(ctx);
       },
       action: async (ctx) => {
@@ -269,54 +393,33 @@ export const wsBasicsLesson: DemoLesson = {
       },
     },
 
-    // ── 8. Multiple Connections ──────────────────────────────────
+    // ── 11. Multiple Connections ─────────────────────────────────
     {
       id: 'ws-tabs',
       title: 'Multiple Connections',
-      description: 'You can open up to 8 connection tabs, each with its own URL, state, and message history. Click the [+] button to add a new connection. Each tab operates independently.',
+      description:
+        'You can open up to 8 connection tabs, each with its own URL, state, and message history. ' +
+        'Click the [+] button to add a new connection. Each tab operates independently.',
       highlight: WS.CONN_TAB_ADD,
+      pauseAfter: true,
     },
 
-    // ── 9. Disconnect ────────────────────────────────────────────
+    // ── 12. Disconnect ───────────────────────────────────────────
     {
       id: 'ws-disconnect',
       title: 'Disconnect',
-      description: 'Click Disconnect to close the connection gracefully. Your message history is preserved. You can reconnect anytime without losing your setup.',
+      description:
+        'Click Disconnect to close the connection gracefully. Your message history is preserved. ' +
+        'You can reconnect anytime — the URL field keeps `{{wsBaseUrl}}` so the endpoint stays in sync with the Environment Manager.',
       highlight: WS.DISCONNECT_BTN,
+      pauseAfter: true,
       preAction: async (ctx) => {
-        // Guard: ensure connected so Disconnect actually does something visible
         await ensureConnected(ctx);
         await ctx.click(WS.LEFT_TAB_CONNECT);
       },
       action: async (ctx) => {
         await ctx.click(WS.DISCONNECT_BTN);
-      },
-    },
-
-    // ── 10. Environment Manager — save endpoint ──────────────────
-    {
-      id: 'ws-env-intro',
-      title: 'Save Your Endpoint to the Environment Manager',
-      description:
-        'You\'ve been typing `ws://localhost:9876` by hand. The **Environment Manager** lets you save that address once — then reference it everywhere with `{{wsBaseUrl}}`. Open **Settings → Environments**, create a **"WebSocket Demo"** environment and a **"ws-demo"** microservice, then set the WebSocket endpoint. From now on, any URL field that uses `{{wsBaseUrl}}/ws` will resolve automatically.',
-      highlight: EM.PROTOCOL_PANEL,
-      pauseAfter: true,
-      preAction: async (ctx: DemoActionContext) => {
-        // Guard: if not already on EM or WS studio, navigate to WS studio first.
-        if (!document.querySelector(EM.MANAGER)) {
-          if (!document.querySelector('[data-testid="ws-studio"]')) {
-            await navigateToWebSocketStudio(ctx);
-          }
-        }
-      },
-      action: async (ctx: DemoActionContext) => {
-        await ensureDemoEnvironment(ctx, DEMO_ENV_NAME);
-        await ensureDemoMicroservice(ctx, DEMO_SVC_NAME);
-        await configureProtocolEndpointInEnvManager(ctx, 'websocket', DEMO_WS_BASE, {
-          httpFallbackBase: 'http://localhost:9876',
-          svcName: DEMO_SVC_NAME,
-        });
-        await ctx.delay(1500);
+        _wsConnected = false;
       },
     },
   ],

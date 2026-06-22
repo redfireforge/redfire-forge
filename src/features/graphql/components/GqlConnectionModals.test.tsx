@@ -71,8 +71,7 @@ function makeDefaultProps(overrides = {}) {
     auth: null,
     onSaveProfile: vi.fn(),
     onDeleteProfile: vi.fn(),
-    onSetEndpoint: vi.fn(),
-    onAuthChange: vi.fn(),
+    onApplyProfileToActiveTab: vi.fn(),
     prevBaseUrlRef: { current: undefined } as React.MutableRefObject<string | undefined>,
     envModalOpen: false,
     onEnvModalClose: vi.fn(),
@@ -142,14 +141,15 @@ describe('GqlConnectionModals — profile modal interactions', () => {
     expect(onSaveProfile).toHaveBeenCalledWith('New Profile');
   });
 
-  it('updates endpoint and auth on profile load', () => {
-    const onSetEndpoint = vi.fn();
-    const onAuthChange = vi.fn();
+  it('Phase 6F: applies profile to active tab on profile load', () => {
+    const onApplyProfileToActiveTab = vi.fn();
     const onProfileModalClose = vi.fn();
-    render(<GqlConnectionModals {...makeDefaultProps({ profileModalOpen: true, onSetEndpoint, onAuthChange, onProfileModalClose })} />);
+    render(<GqlConnectionModals {...makeDefaultProps({ profileModalOpen: true, onApplyProfileToActiveTab, onProfileModalClose })} />);
     fireEvent.click(screen.getByTestId('profile-load'));
-    expect(onSetEndpoint).toHaveBeenCalledWith('https://new.endpoint/gql');
-    expect(onAuthChange).toHaveBeenCalledWith(null);
+    expect(onApplyProfileToActiveTab).toHaveBeenCalledWith({
+      endpoint: 'https://new.endpoint/gql',
+      auth: null,
+    });
     expect(onProfileModalClose).toHaveBeenCalledOnce();
     expect(removeKey).toHaveBeenCalledWith('gql-endpoint-base');
   });

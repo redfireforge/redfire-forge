@@ -3,8 +3,9 @@
  * Used by WebSocket, SSE, and GraphQL protocol lessons.
  */
 import type { DemoActionContext } from '../types';
-import { APP, EM, emAddProtocolItemSel } from '../../../shared/selectors';
+import { APP, EM, emAddProtocolItemSel, emRemoveProtocolSel } from '../../../shared/selectors';
 import type { ProtocolKey } from '../../../shared/types';
+import { fillControlledInput } from './setup-helpers';
 
 /** Shared SSE demo lesson identifiers and endpoint (basic + advanced lessons). */
 export const SSE_DEMO_ENV_NAME = 'SSE Demo';
@@ -27,7 +28,9 @@ export async function ensureSseDemoEndpointConfigured(ctx: DemoActionContext): P
   await navigateToEnvironmentManager(ctx);
   await ctx.delay(400);
   await expandNamedMicroservice(ctx, SSE_DEMO_SVC_NAME);
+  await ensureProtocolDisabled(ctx, 'http');
   await ensureProtocolEnabled(ctx, 'sse');
+  await undeployAllExceptNamedEnv(ctx, SSE_DEMO_ENV_NAME);
   await ensureNamedEnvDeployedOnProtocol(ctx, 'sse', SSE_DEMO_ENV_NAME, SSE_DEMO_BASE_URL);
 }
 
@@ -40,6 +43,112 @@ export async function ensureSseDemoHeaderContext(ctx: DemoActionContext): Promis
   }
   await selectEnvInHeader(ctx, SSE_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, SSE_DEMO_SVC_NAME);
+}
+
+/** Shared GraphQL demo lesson identifiers and endpoint (GQL-1+ lessons). */
+export const GQL_DEMO_ENV_NAME = 'GraphQL Demo';
+export const GQL_DEMO_SVC_NAME = 'graphql-demo';
+export const GQL_DEMO_BASE_URL = 'http://localhost:4010';
+export const GQL_DEMO_GRAPHQL_PATH = '/graphql';
+
+/** Shared WebSocket demo lesson identifiers and endpoint (basics + workspace lessons). */
+export const WS_DEMO_ENV_NAME = 'WebSocket Demo';
+export const WS_DEMO_SVC_NAME = 'ws-demo';
+export const WS_DEMO_BASE_URL = 'ws://localhost:9876';
+
+/**
+ * Prepare ws-demo for the WebSocket demo lessons: WebSocket protocol only, WebSocket Demo row deployed.
+ * Does not set the endpoint URL — use before the "Configure endpoint" demo step.
+ */
+export async function ensureWsDemoProtocolReady(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEnvironment(ctx, WS_DEMO_ENV_NAME);
+  await ensureDemoMicroservice(ctx, WS_DEMO_SVC_NAME);
+  await navigateToEnvironmentManager(ctx);
+  await ctx.delay(400);
+  await expandNamedMicroservice(ctx, WS_DEMO_SVC_NAME);
+  await ensureProtocolDisabled(ctx, 'http');
+  await ensureProtocolEnabled(ctx, 'websocket');
+  await undeployAllExceptNamedEnv(ctx, WS_DEMO_ENV_NAME);
+  await ensureNamedEnvDeployedOnProtocol(ctx, 'websocket', WS_DEMO_ENV_NAME);
+  await selectProtocolTab(ctx, 'websocket');
+}
+
+/**
+ * Recreate the WebSocket Demo environment + ws-demo microservice with WebSocket endpoint configured.
+ * WebSocket-only — does not add an HTTP protocol tab.
+ */
+export async function ensureWsDemoEndpointConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureWsDemoProtocolReady(ctx);
+  await editNamedProtocolEndpoint(ctx, WS_DEMO_ENV_NAME, WS_DEMO_BASE_URL);
+}
+
+/** Ensure demo env/svc exist and are selected in the app header so {{wsBaseUrl}} resolves. */
+export async function ensureWsDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, WS_DEMO_ENV_NAME);
+  const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, WS_DEMO_SVC_NAME);
+  if (!envReady || !svcReady) {
+    await ensureWsDemoEndpointConfigured(ctx);
+  }
+  await selectEnvInHeader(ctx, WS_DEMO_ENV_NAME);
+  await selectSvcInHeader(ctx, WS_DEMO_SVC_NAME);
+}
+
+/**
+ * Prepare graphql-demo for GraphQL demo lessons: GraphQL protocol only, GraphQL Demo row deployed.
+ * Does not set the endpoint URL — use before the "Configure endpoint" demo step.
+ */
+export async function ensureGqlDemoProtocolReady(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEnvironment(ctx, GQL_DEMO_ENV_NAME);
+  await ensureDemoMicroservice(ctx, GQL_DEMO_SVC_NAME);
+  await navigateToEnvironmentManager(ctx);
+  await ctx.delay(400);
+  await expandNamedMicroservice(ctx, GQL_DEMO_SVC_NAME);
+  await ensureProtocolDisabled(ctx, 'http');
+  await ensureProtocolEnabled(ctx, 'graphql');
+  await undeployAllExceptNamedEnv(ctx, GQL_DEMO_ENV_NAME);
+  await ensureNamedEnvDeployedOnProtocol(ctx, 'graphql', GQL_DEMO_ENV_NAME);
+  await selectProtocolTab(ctx, 'graphql');
+}
+
+/** Set GraphQL base URL and default path on a named environment row. */
+export async function configureNamedGraphqlEndpoint(
+  ctx: DemoActionContext,
+  envName: string,
+  baseUrl: string,
+  path = '/graphql',
+): Promise<void> {
+  await selectProtocolTab(ctx, 'graphql');
+  await editNamedProtocolEndpoint(ctx, envName, baseUrl);
+  const pathInput = document.querySelector<HTMLInputElement>(panelScoped(EM.GRAPHQL_PATH_INPUT));
+  if (pathInput && pathInput.value.trim() !== path) {
+    await ctx.fill(panelScoped(EM.GRAPHQL_PATH_INPUT), path);
+    await ctx.delay(400);
+  }
+}
+
+/**
+ * Recreate the GraphQL Demo environment + graphql-demo microservice with GraphQL endpoint configured.
+ * GraphQL-only — does not add an HTTP protocol tab.
+ */
+export async function ensureGqlDemoEndpointConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureGqlDemoProtocolReady(ctx);
+  await configureNamedGraphqlEndpoint(
+    ctx,
+    GQL_DEMO_ENV_NAME,
+    GQL_DEMO_BASE_URL,
+    GQL_DEMO_GRAPHQL_PATH,
+  );
+}
+
+/** Ensure demo env/svc exist and are selected in the app header so {{graphqlUrl}} resolves. */
+export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, GQL_DEMO_ENV_NAME);
+  const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, GQL_DEMO_SVC_NAME);
+  if (!envReady || !svcReady) {
+    await ensureGqlDemoEndpointConfigured(ctx);
+  }
+  await selectEnvInHeader(ctx, GQL_DEMO_ENV_NAME);
+  await selectSvcInHeader(ctx, GQL_DEMO_SVC_NAME);
 }
 
 // ── Demo-dedicated env / microservice creation & cleanup ───────────────────
@@ -105,6 +214,43 @@ export async function cleanupDemoEnvironment(
 
 // ── Demo-dedicated env / microservice creation ─────────────────────────────
 
+async function waitForEnabledButton(
+  ctx: DemoActionContext,
+  selector: string,
+  timeoutMs = 3000,
+): Promise<HTMLButtonElement | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const btn = document.querySelector<HTMLButtonElement>(selector);
+    if (btn && !btn.disabled) return btn;
+    await ctx.delay(100);
+  }
+  return null;
+}
+
+/** Fill an EM add-row input and click Add once the button is enabled. */
+async function submitEmAddRow(
+  ctx: DemoActionContext,
+  inputSelector: string,
+  addButtonSelector: string,
+  name: string,
+): Promise<void> {
+  await ctx.waitFor(inputSelector);
+  await ctx.delay(200);
+  const input = document.querySelector<HTMLInputElement>(inputSelector);
+  if (!input) return;
+  fillControlledInput(input, name);
+  await ctx.delay(200);
+  let addBtn = await waitForEnabledButton(ctx, addButtonSelector);
+  if (!addBtn) {
+    fillControlledInput(input, name);
+    await ctx.delay(200);
+    addBtn = await waitForEnabledButton(ctx, addButtonSelector);
+  }
+  addBtn?.click();
+  await ctx.delay(400);
+}
+
 /**
  * Ensure a named environment exists, creating it if absent.
  * Idempotent: does nothing when `[data-env-name="${name}"]` is already in the DOM.
@@ -117,11 +263,9 @@ export async function ensureDemoEnvironment(
 ): Promise<void> {
   await navigateToEnvironmentManager(ctx);
   if (document.querySelector(`[data-env-name="${name}"]`)) return;
-  await ctx.fill(EM.ADD_ENV_INPUT, name);
-  await ctx.delay(300);
-  await ctx.click(EM.ADD_ENV_BTN);
+  await submitEmAddRow(ctx, EM.ADD_ENV_INPUT, EM.ADD_ENV_BTN, name);
   // Wait for the chip to appear in the DOM.
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     if (document.querySelector(`[data-env-name="${name}"]`)) break;
     await ctx.delay(100);
   }
@@ -138,36 +282,54 @@ export async function ensureDemoMicroservice(
 ): Promise<void> {
   await navigateToEnvironmentManager(ctx);
   if (document.querySelector(`[data-svc-name="${name}"]`)) return;
-  await ctx.fill(EM.ADD_SVC_INPUT, name);
-  await ctx.delay(300);
-  await ctx.click(EM.ADD_SVC_BTN);
-  for (let i = 0; i < 20; i++) {
+  await submitEmAddRow(ctx, EM.ADD_SVC_INPUT, EM.ADD_SVC_BTN, name);
+  for (let i = 0; i < 30; i++) {
     if (document.querySelector(`[data-svc-name="${name}"]`)) break;
     await ctx.delay(100);
   }
   await ctx.delay(400);
 }
 
+/** Collapse whichever microservice card currently has the protocol panel open. */
+export async function collapseExpandedMicroservice(ctx: DemoActionContext): Promise<void> {
+  const panel = document.querySelector(EM.PROTOCOL_PANEL);
+  if (!panel) return;
+  const expandedCard = panel.closest<HTMLElement>('[data-svc-name]');
+  if (!expandedCard) return;
+  const collapseBtn = expandedCard.querySelector<HTMLElement>('[data-testid^="em-svc-configure-"]');
+  if (collapseBtn?.textContent?.includes('Collapse')) {
+    collapseBtn.click();
+    await ctx.delay(400);
+  }
+}
+
 /**
  * Expand the Configure panel for a specific named microservice.
- * Falls back to expanding the first microservice if the named card is not found.
+ * Collapses a different expanded card first so stale HTTP/WS state on another
+ * service does not block the demo from configuring ws-demo.
  */
 export async function expandNamedMicroservice(
   ctx: DemoActionContext,
   name: string,
 ): Promise<void> {
-  if (document.querySelector(EM.PROTOCOL_PANEL)) return;
+  await navigateToEnvironmentManager(ctx);
   const svcCard = document.querySelector<HTMLElement>(`[data-svc-name="${name}"]`);
-  if (svcCard) {
-    const configBtn = svcCard.querySelector<HTMLElement>('[data-testid^="em-svc-configure-"]');
-    if (configBtn) {
-      configBtn.click();
-      await ctx.waitFor(EM.PROTOCOL_PANEL);
-      await ctx.delay(600);
-      return;
-    }
+  if (!svcCard) {
+    await expandFirstMicroservice(ctx);
+    return;
   }
-  // Fallback: expand first visible microservice.
+  const panel = document.querySelector(EM.PROTOCOL_PANEL);
+  if (panel && !svcCard.contains(panel)) {
+    await collapseExpandedMicroservice(ctx);
+  }
+  if (svcCard.contains(document.querySelector(EM.PROTOCOL_PANEL)!)) return;
+  const configBtn = svcCard.querySelector<HTMLElement>('[data-testid^="em-svc-configure-"]');
+  if (configBtn) {
+    configBtn.click();
+    await ctx.waitFor(EM.PROTOCOL_PANEL);
+    await ctx.delay(600);
+    return;
+  }
   await expandFirstMicroservice(ctx);
 }
 
@@ -316,6 +478,42 @@ export async function ensureFirstEnvDeployed(
   httpBaseUrl: string,
 ): Promise<void> {
   await ensureFirstEnvDeployedOnProtocol(ctx, 'http', httpBaseUrl);
+}
+
+/**
+ * Remove a protocol tab if it is present (e.g. stale HTTP from an older demo run).
+ * Idempotent — no-op when the remove button is absent.
+ */
+export async function ensureProtocolDisabled(
+  ctx: DemoActionContext,
+  protocol: ProtocolKey,
+): Promise<void> {
+  const removeSel = emRemoveProtocolSel(protocol);
+  if (!document.querySelector(removeSel)) return;
+  await ctx.click(removeSel);
+  await ctx.delay(400);
+  const tabSel = PROTOCOL_TAB[protocol];
+  for (let i = 0; i < 20; i++) {
+    if (!document.querySelector(tabSel)) break;
+    await ctx.delay(100);
+  }
+  await ctx.delay(300);
+}
+
+/** Uncheck deploy on every env row except the named one inside the open protocol panel. */
+export async function undeployAllExceptNamedEnv(ctx: DemoActionContext, keepEnvName: string): Promise<void> {
+  const panel = document.querySelector(EM.PROTOCOL_PANEL);
+  if (!panel) return;
+  for (const checkbox of Array.from(
+    panel.querySelectorAll<HTMLInputElement>('input[type="checkbox"][aria-label^="Deploy "]'),
+  )) {
+    const label = checkbox.getAttribute('aria-label') ?? '';
+    const envName = label.replace(/^Deploy /, '');
+    if (envName === keepEnvName || !checkbox.checked) continue;
+    checkbox.click();
+    await ctx.delay(200);
+  }
+  await ctx.delay(300);
 }
 
 /**

@@ -3,18 +3,14 @@
  *
  * Popover for APQ / batch / dedup / complexity-gate connection settings.
  * Opened via a gear button in the connection bar area.
- *
- * Settings exposed:
- *   APQ tab:          Enable APQ toggle + "Use GET" sub-option
- *   Batch tab:        Enable batch toggle + timeout input + Reset detection
- *   Dedup tab:        Enable dedup toggle
- *   Performance tab:  Complexity gate toggle + block-threshold input
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { GqlBatchSettingsPanel, type GqlBatchSettingsPanelProps } from './GqlBatchSettingsPanel';
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AdvancedSettingsValues {
   apqEnabled: boolean;
@@ -26,7 +22,6 @@ export interface AdvancedSettingsValues {
   dedupEnabled: boolean;
   complexityBlockEnabled: boolean;
   complexityBlockThreshold: number;
-  // Phase 2 Deferred — Transport + Limits
   subscriptionTransport: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
   sseMode: 'distinct' | 'single';
   wsEndpointOverride: string;
@@ -37,52 +32,208 @@ export interface AdvancedSettingsValues {
 
 interface GraphqlAdvancedSettingsProps {
   values: AdvancedSettingsValues;
-  onChange: (patch: Partial<AdvancedSettingsValues>) => void;
+  /** Commits draft values when the user clicks Save. */
+  onSave: (values: AdvancedSettingsValues) => void;
+  /** Discards draft and closes (Cancel / Escape). */
+  onClose: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   open: boolean;
-  onClose: () => void;
+  /** Phase 6G — batch group + tab checklist (when batchEnabled in draft). */
+  batchSettings?: GqlBatchSettingsPanelProps | null;
 }
 
 type SettingsTab = 'apq' | 'batch' | 'dedup' | 'performance' | 'transport' | 'limits';
 
-const TAB_LABELS: Record<SettingsTab, string> = {
-  apq: 'APQ',
-  batch: 'Batch',
-  dedup: 'Dedup',
-  performance: 'Performance',
-  transport: 'Transport',
-  limits: 'Limits',
+const TABS: SettingsTab[] = ['apq', 'batch', 'dedup', 'performance', 'transport', 'limits'];
+
+const TAB_META: Record<SettingsTab, { label: string; subtitle: string }> = {
+  apq: {
+    label: 'APQ',
+    subtitle: 'Persist query hashes to reduce repeat-request payload size.',
+  },
+  batch: {
+    label: 'Batch',
+    subtitle: 'Combine multiple operations into one HTTP request.',
+  },
+  dedup: {
+    label: 'Dedup',
+    subtitle: 'Collapse duplicate in-flight requests within the active tab.',
+  },
+  performance: {
+    label: 'Performance',
+    subtitle: 'Gate expensive queries before they reach the server.',
+  },
+  transport: {
+    label: 'Transport',
+    subtitle: 'Subscription protocol and WebSocket endpoint overrides.',
+  },
+  limits: {
+    label: 'Limits',
+    subtitle: 'In-memory buffer sizes and upload constraints.',
+  },
 };
+
+// ─── Layout helpers ───────────────────────────────────────────────────────────
+
+function AdvIntro({ children }: { children: ReactNode }) {
+  return <p className="gql-advsettings-intro">{children}</p>;
+}
+
+function AdvFormCard({ children }: { children: ReactNode }) {
+  return <div className="gql-advsettings-form-card">{children}</div>;
+}
+
+function AdvToggleRow({
+  checked,
+  disabled = false,
+  onChange,
+  title,
+  hint,
+  badge,
+  ariaLabel,
+  testId,
+  nested = false,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  hint?: string;
+  badge?: ReactNode;
+  ariaLabel: string;
+  testId?: string;
+  nested?: boolean;
+}) {
+  return (
+    <label
+      className={`gql-advsettings-toggle${nested ? ' gql-advsettings-toggle--nested' : ''}${disabled ? ' gql-advsettings-toggle--disabled' : ''}`}
+      data-testid={testId}
+    >
+      <input
+        type="checkbox"
+        className="gql-advsettings-toggle__input"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={ariaLabel}
+      />
+      <span className="gql-advsettings-toggle__box" aria-hidden="true" />
+      <span className="gql-advsettings-toggle__content">
+        <span className="gql-advsettings-toggle__title">
+          {title}
+          {badge}
+        </span>
+        {hint ? <span className="gql-advsettings-toggle__hint">{hint}</span> : null}
+      </span>
+    </label>
+  );
+}
+
+function AdvFormRow({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`gql-advsettings-form-row${className ? ` ${className}` : ''}`}>
+      <div className="gql-advsettings-form-row__label-col">
+        <span className="gql-advsettings-form-row__label">{label}</span>
+        {hint ? <span className="gql-advsettings-form-row__label-hint">{hint}</span> : null}
+      </div>
+      <div className="gql-advsettings-form-row__ctrl">{children}</div>
+    </div>
+  );
+}
+
+function AdvNote({ children, variant = 'info' }: { children: ReactNode; variant?: 'info' | 'warn' }) {
+  return (
+    <p className={`gql-advsettings-note gql-advsettings-note--${variant}`} role="note">
+      {children}
+    </p>
+  );
+}
+
+function AdvAlert({
+  children,
+  action,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="gql-advsettings-alert" role="status">
+      <span className="gql-advsettings-alert__text">{children}</span>
+      {action}
+    </div>
+  );
+}
+
+function AdvRadioCards({
+  name,
+  value,
+  onChange,
+  options,
+}: {
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; title: string; hint: string }[];
+}) {
+  return (
+    <div className="gql-advsettings-radio-cards" role="radiogroup" aria-label={name}>
+      {options.map((opt) => (
+        <label
+          key={opt.value}
+          className={`gql-advsettings-radio-card${value === opt.value ? ' gql-advsettings-radio-card--selected' : ''}`}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="gql-advsettings-radio-card__input"
+          />
+          <span className="gql-advsettings-radio-card__title">{opt.title}</span>
+          <span className="gql-advsettings-radio-card__hint">{opt.hint}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function GraphqlAdvancedSettings({
   values,
-  onChange,
-  anchorRef,
-  open,
+  onSave,
   onClose,
+  anchorRef: _anchorRef,
+  open,
+  batchSettings = null,
 }: GraphqlAdvancedSettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('apq');
+  const [draft, setDraft] = useState<AdvancedSettingsValues>(values);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const { onDragStart, isDragged, modalStyle } = useModalDrag(open);
 
-  // Close on outside click
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(target) &&
-        anchorRef.current &&
-        !anchorRef.current.contains(target)
-      ) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open, onClose, anchorRef]);
+    if (open) setDraft(values);
+  }, [open, values]);
+
+  const patchDraft = useCallback((patch: Partial<AdvancedSettingsValues>) => {
+    setDraft((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    onSave(draft);
+  }, [draft, onSave]);
 
   const handleEscapeClose = useCallback(() => {
     if (open) onClose();
@@ -92,352 +243,404 @@ export function GraphqlAdvancedSettings({
 
   if (!open) return null;
 
+  const tabMeta = TAB_META[activeTab];
+
   return (
     <div
       ref={popoverRef}
-      className="gql-advsettings-popover"
+      className={`gql-advsettings-popover${isDragged ? ' gql-advsettings-popover--dragged' : ''}`}
+      style={modalStyle}
       role="dialog"
       aria-label="Advanced query settings"
     >
-      <div className="gql-advsettings-header">
-        <span className="gql-advsettings-title">Advanced Settings</span>
-        <button
-          type="button"
-          className="gql-advsettings-close"
-          onClick={onClose}
-          aria-label="Close advanced settings"
-        >×</button>
+      <div
+        className="gql-advsettings-header gql-advsettings-header--draggable"
+        onMouseDown={onDragStart}
+      >
+        <div className="gql-advsettings-header__text">
+          <span className="gql-advsettings-title">Advanced settings</span>
+          <span className="gql-advsettings-subtitle">{tabMeta.subtitle}</span>
+        </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="gql-advsettings-tabs" role="tablist">
-        {(['apq', 'batch', 'dedup', 'performance', 'transport', 'limits'] as SettingsTab[]).map((tab) => (
+      <div className="gql-advsettings-tabs" role="tablist" aria-label="Settings categories">
+        {TABS.map((tab) => (
           <button
             key={tab}
             type="button"
             role="tab"
+            id={`gql-advsettings-tab-${tab}`}
             aria-selected={activeTab === tab}
+            aria-controls={`gql-advsettings-panel-${tab}`}
             className={`gql-advsettings-tab${activeTab === tab ? ' active' : ''}`}
+            data-testid={`gql-adv-settings-tab-${tab}`}
             onClick={() => setActiveTab(tab)}
           >
-            {TAB_LABELS[tab]}
+            {TAB_META[tab].label}
           </button>
         ))}
       </div>
 
-      <div className="gql-advsettings-body">
-        {/* ── APQ tab ───────────────────────────────────────────────────────── */}
+      <div
+        className="gql-advsettings-body"
+        role="tabpanel"
+        id={`gql-advsettings-panel-${activeTab}`}
+        aria-labelledby={`gql-advsettings-tab-${activeTab}`}
+      >
         {activeTab === 'apq' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Automatic Persisted Queries (Apollo APQ spec v1) reduces bandwidth by
-              sending only the query hash on repeat executions.
-            </p>
+            <AdvIntro>
+              Automatic Persisted Queries (Apollo APQ spec v1) sends only the query hash on repeat
+              executions, reducing bandwidth for large documents.
+            </AdvIntro>
 
-            <label className="gql-advsettings-row">
-              <input
-                type="checkbox"
-                checked={values.apqEnabled}
-                disabled={values.apqUnsupportedDetected}
-                onChange={(e) => onChange({ apqEnabled: e.target.checked })}
-                aria-label="Enable Automatic Persisted Queries"
+            <AdvFormCard>
+              <AdvToggleRow
+                checked={draft.apqEnabled}
+                disabled={draft.apqUnsupportedDetected}
+                onChange={(apqEnabled) => patchDraft({ apqEnabled })}
+                title="Enable APQ"
+                hint="Persist query hashes after first run."
+                ariaLabel="Enable Automatic Persisted Queries"
+                badge={
+                  draft.apqUnsupportedDetected ? (
+                    <span className="gql-advsettings-badge-warn" title="Server returned non-APQ response">
+                      Unsupported
+                    </span>
+                  ) : undefined
+                }
               />
-              <span>
-                Enable APQ
-                {values.apqUnsupportedDetected && (
-                  <span className="gql-advsettings-badge-warn" title="Server returned non-APQ response">
-                    Unsupported by server
-                  </span>
-                )}
-              </span>
-            </label>
 
-            {values.apqEnabled && (
-              <label className="gql-advsettings-row gql-advsettings-indent">
-                <input
-                  type="checkbox"
-                  checked={values.apqUseGet}
-                  onChange={(e) => onChange({ apqUseGet: e.target.checked })}
-                  aria-label="Use GET for query requests"
+              {draft.apqEnabled && (
+                <AdvToggleRow
+                  checked={draft.apqUseGet}
+                  onChange={(apqUseGet) => patchDraft({ apqUseGet })}
+                  title="Use GET for queries"
+                  hint="Hash-only GET requests when allowed."
+                  ariaLabel="Use GET for query requests"
+                  nested
                 />
-                <span>
-                  Use GET for queries
-                  <span className="gql-advsettings-hint">CDN-cacheable hash-only requests</span>
-                </span>
-              </label>
+              )}
+            </AdvFormCard>
+
+            {draft.apqEnabled && draft.batchEnabled && (
+              <AdvNote>APQ is inactive while batch execution is running.</AdvNote>
             )}
 
-            {values.apqEnabled && values.batchEnabled && (
-              <p className="gql-advsettings-note">
-                APQ is inactive during batch execution.
-              </p>
-            )}
-
-            {values.apqUnsupportedDetected && (
-              <button
-                type="button"
-                className="gql-advsettings-reset-btn"
-                onClick={() => onChange({ apqUnsupportedDetected: false, apqEnabled: true })}
+            {draft.apqUnsupportedDetected && (
+              <AdvAlert
+                action={
+                  <button
+                    type="button"
+                    className="gql-advsettings-reset-btn"
+                    onClick={() => patchDraft({ apqUnsupportedDetected: false, apqEnabled: true })}
+                  >
+                    Reset detection
+                  </button>
+                }
               >
-                Reset APQ detection
-              </button>
+                This server did not accept persisted queries. Reset to try APQ again.
+              </AdvAlert>
             )}
           </div>
         )}
 
-        {/* ── Batch tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'batch' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Send multiple operations in a single HTTP request. Check the "Batch"
-              checkbox on operation tabs, then click "Send Batch (N)".
-            </p>
+            <AdvNote>
+              Configure which operations share one HTTP request. Selection is reflected as
+              {' '}<strong>Send Batch (N)</strong> on the connection bar.
+            </AdvNote>
 
-            <label className="gql-advsettings-row">
-              <input
-                type="checkbox"
-                checked={values.batchEnabled}
-                onChange={(e) => onChange({ batchEnabled: e.target.checked })}
-                aria-label="Enable query batching"
+            <AdvFormCard>
+              <AdvToggleRow
+                checked={draft.batchEnabled}
+                onChange={(batchEnabled) => patchDraft({ batchEnabled })}
+                title="Enable query batching"
+                hint="Select tabs by endpoint to include."
+                ariaLabel="Enable query batching"
+                testId="gql-adv-batch-enable-toggle"
               />
-              <span>Enable query batching</span>
-            </label>
+            </AdvFormCard>
 
-            {values.batchEnabled && (
-              <label className="gql-advsettings-row gql-advsettings-indent">
-                <span className="gql-advsettings-label">Timeout</span>
-                <input
-                  type="number"
-                  min={5000}
-                  max={120000}
-                  step={1000}
-                  value={values.batchTimeoutMs}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    onChange({ batchTimeoutMs: Number.isFinite(n) && n >= 5000 ? n : 30000 });
-                  }}
-                  className="gql-advsettings-input-sm"
-                  aria-label="Batch timeout in milliseconds"
-                />
-                <span className="gql-advsettings-hint">ms</span>
-              </label>
-            )}
-
-            {values.batchUnsupportedDetected && (
-              <div className="gql-advsettings-warn-block">
-                <span>Server does not support array batching. Operations are sent individually.</span>
-                <button
-                  type="button"
-                  className="gql-advsettings-reset-btn"
-                  onClick={() => onChange({ batchUnsupportedDetected: false })}
-                >
-                  Reset batch detection
-                </button>
+            {draft.batchEnabled && batchSettings && (
+              <div className="gql-adv-batch-workspace">
+                <GqlBatchSettingsPanel {...batchSettings} />
               </div>
             )}
+
+            {draft.batchEnabled && (
+              <AdvFormCard>
+                <AdvFormRow
+                  label="Timeout"
+                  hint="Max wait for the batch response."
+                >
+                  <div className="gql-advsettings-inline-ctrl">
+                    <input
+                      type="number"
+                      min={5000}
+                      max={120000}
+                      step={1000}
+                      value={draft.batchTimeoutMs}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        patchDraft({ batchTimeoutMs: Number.isFinite(n) && n >= 5000 ? n : 30000 });
+                      }}
+                      className="gql-advsettings-input-sm"
+                      aria-label="Batch timeout in milliseconds"
+                    />
+                    <span className="gql-advsettings-inline-hint">ms</span>
+                  </div>
+                </AdvFormRow>
+              </AdvFormCard>
+            )}
+
+            {draft.batchUnsupportedDetected && (
+              <AdvAlert
+                action={
+                  <button
+                    type="button"
+                    className="gql-advsettings-reset-btn"
+                    onClick={() => patchDraft({ batchUnsupportedDetected: false })}
+                  >
+                    Reset detection
+                  </button>
+                }
+              >
+                Server does not support array batching. Operations are sent individually.
+              </AdvAlert>
+            )}
           </div>
         )}
 
-        {/* ── Dedup tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'dedup' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Detects when the same query + variables is fired while an identical
-              request is still in-flight. Offers three choices: wait and merge,
-              cancel original, or send anyway.
-            </p>
+            <AdvIntro>
+              Detects when the same query and variables are fired while an identical request is
+              still in-flight. Choose to wait and merge, cancel the original, or send anyway.
+            </AdvIntro>
 
-            <label className="gql-advsettings-row">
-              <input
-                type="checkbox"
-                checked={values.dedupEnabled}
-                onChange={(e) => onChange({ dedupEnabled: e.target.checked })}
-                aria-label="Enable request deduplication"
+            <AdvFormCard>
+              <AdvToggleRow
+                checked={draft.dedupEnabled}
+                onChange={(dedupEnabled) => patchDraft({ dedupEnabled })}
+                title="Enable request deduplication"
+                hint="Scope is within the active tab only."
+                ariaLabel="Enable request deduplication"
               />
-              <span>Enable request deduplication</span>
-            </label>
-            <p className="gql-advsettings-note">
-              Deduplication scope is within-tab only. Cross-tab dedup is not implemented.
-            </p>
+            </AdvFormCard>
+
+            <AdvNote variant="warn">
+              Cross-tab deduplication is not implemented — each tab tracks its own in-flight set.
+            </AdvNote>
           </div>
         )}
 
-        {/* ── Performance tab ───────────────────────────────────────────────── */}
         {activeTab === 'performance' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Block queries that exceed a complexity threshold before sending.
-              The existing complexity badge still warns at ½× threshold.
-            </p>
+            <AdvIntro>
+              Block queries that exceed a complexity threshold before sending. The ≈N badge next to
+              Execute still warns at half the block threshold.
+            </AdvIntro>
 
-            <label className="gql-advsettings-row">
-              <input
-                type="checkbox"
-                checked={values.complexityBlockEnabled}
-                onChange={(e) => onChange({ complexityBlockEnabled: e.target.checked })}
-                aria-label="Enable complexity gate"
+            <AdvFormCard>
+              <AdvToggleRow
+                checked={draft.complexityBlockEnabled}
+                onChange={(complexityBlockEnabled) => patchDraft({ complexityBlockEnabled })}
+                title="Block high-complexity queries"
+                hint="Gate queries above the cost threshold."
+                ariaLabel="Enable complexity gate"
               />
-              <span>Block high-complexity queries</span>
-            </label>
 
-            {values.complexityBlockEnabled && (
-              <label className="gql-advsettings-row gql-advsettings-indent">
-                <span className="gql-advsettings-label">Block threshold</span>
-                <input
-                  type="number"
-                  min={100}
-                  max={100000}
-                  step={100}
-                  value={values.complexityBlockThreshold}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    onChange({ complexityBlockThreshold: Number.isFinite(n) && n >= 100 ? n : 1000 });
-                  }}
-                  className="gql-advsettings-input-sm"
-                  aria-label="Complexity block threshold"
-                />
-                <span className="gql-advsettings-hint">cost units</span>
-              </label>
-            )}
+              {draft.complexityBlockEnabled && (
+                <AdvFormRow label="Block threshold" hint="Estimated cost units before blocking.">
+                  <div className="gql-advsettings-inline-ctrl">
+                    <input
+                      type="number"
+                      min={100}
+                      max={100000}
+                      step={100}
+                      value={draft.complexityBlockThreshold}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        patchDraft({
+                          complexityBlockThreshold: Number.isFinite(n) && n >= 100 ? n : 1000,
+                        });
+                      }}
+                      className="gql-advsettings-input-sm"
+                      aria-label="Complexity block threshold"
+                    />
+                    <span className="gql-advsettings-inline-hint">cost</span>
+                  </div>
+                </AdvFormRow>
+              )}
+            </AdvFormCard>
           </div>
         )}
 
-        {/* ── Transport tab ─────────────────────────────────────────────────── */}
         {activeTab === 'transport' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Control which WebSocket sub-protocol or streaming transport is used
-              for subscriptions. "Auto" lets the server negotiate.
-            </p>
+            <AdvIntro>
+              Control which WebSocket sub-protocol or streaming transport is used for
+              subscriptions. Auto lets the server negotiate the best option.
+            </AdvIntro>
 
-            <label className="gql-advsettings-row">
-              <span className="gql-advsettings-label">Subscription transport</span>
-              <select
-                value={values.subscriptionTransport}
-                onChange={(e) =>
-                  onChange({ subscriptionTransport: e.target.value as AdvancedSettingsValues['subscriptionTransport'] })
-                }
-                className="gql-advsettings-select"
-                aria-label="Subscription transport protocol"
+            <AdvFormCard>
+              <AdvFormRow label="Subscription transport" hint="Live subscription protocol.">
+                <select
+                  value={draft.subscriptionTransport}
+                  onChange={(e) =>
+                    patchDraft({
+                      subscriptionTransport: e.target.value as AdvancedSettingsValues['subscriptionTransport'],
+                    })
+                  }
+                  className="gql-advsettings-select"
+                  aria-label="Subscription transport protocol"
+                >
+                  <option value="auto">Auto (negotiate)</option>
+                  <option value="graphql-transport-ws">graphql-transport-ws</option>
+                  <option value="graphql-ws">graphql-ws (legacy)</option>
+                  <option value="sse">Server-Sent Events</option>
+                </select>
+              </AdvFormRow>
+
+              {draft.subscriptionTransport === 'sse' && (
+                <div className="gql-advsettings-form-row gql-advsettings-form-row--stacked">
+                  <div className="gql-advsettings-form-row__label-col">
+                    <span className="gql-advsettings-form-row__label">SSE mode</span>
+                    <span className="gql-advsettings-form-row__label-hint">
+                      How subscriptions share streams.
+                    </span>
+                  </div>
+                  <AdvRadioCards
+                    name="sseMode"
+                    value={draft.sseMode}
+                    onChange={(sseMode) => patchDraft({ sseMode: sseMode as AdvancedSettingsValues['sseMode'] })}
+                    options={[
+                      {
+                        value: 'distinct',
+                        title: 'Distinct connection',
+                        hint: 'New SSE stream per subscription',
+                      },
+                      {
+                        value: 'single',
+                        title: 'Single connection',
+                        hint: 'Multiplex over one SSE stream',
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+
+              <AdvFormRow
+                label="WS endpoint override"
+                hint="Blank uses main HTTP endpoint."
               >
-                <option value="auto">Auto (negotiate)</option>
-                <option value="graphql-transport-ws">graphql-transport-ws (WS)</option>
-                <option value="graphql-ws">graphql-ws (legacy WS)</option>
-                <option value="sse">Server-Sent Events (SSE)</option>
-              </select>
-            </label>
-
-            {values.subscriptionTransport === 'sse' && (
-              <fieldset className="gql-advsettings-fieldset">
-                <legend className="gql-advsettings-legend">SSE mode</legend>
-                <label className="gql-advsettings-row">
-                  <input
-                    type="radio"
-                    name="sseMode"
-                    value="distinct"
-                    checked={values.sseMode === 'distinct'}
-                    onChange={() => onChange({ sseMode: 'distinct' })}
-                  />
-                  <span>
-                    Distinct connection
-                    <span className="gql-advsettings-hint">New SSE stream per subscription</span>
-                  </span>
-                </label>
-                <label className="gql-advsettings-row">
-                  <input
-                    type="radio"
-                    name="sseMode"
-                    value="single"
-                    checked={values.sseMode === 'single'}
-                    onChange={() => onChange({ sseMode: 'single' })}
-                  />
-                  <span>
-                    Single connection
-                    <span className="gql-advsettings-hint">Multiplex over one SSE stream</span>
-                  </span>
-                </label>
-              </fieldset>
-            )}
-
-            <label className="gql-advsettings-row">
-              <span className="gql-advsettings-label">WS endpoint override</span>
-              <input
-                type="url"
-                value={values.wsEndpointOverride}
-                placeholder="wss://example.com/graphql (leave blank to use main endpoint)"
-                onChange={(e) => onChange({ wsEndpointOverride: e.target.value })}
-                className="gql-advsettings-input"
-                aria-label="WebSocket endpoint override"
-              />
-            </label>
-            <p className="gql-advsettings-note">
-              Leave blank to derive the WebSocket URL from the main HTTP endpoint.
-            </p>
+                <input
+                  type="url"
+                  value={draft.wsEndpointOverride}
+                  placeholder="wss://example.com/graphql"
+                  onChange={(e) => patchDraft({ wsEndpointOverride: e.target.value })}
+                  className="gql-advsettings-input"
+                  aria-label="WebSocket endpoint override"
+                />
+              </AdvFormRow>
+            </AdvFormCard>
           </div>
         )}
 
-        {/* ── Limits tab ────────────────────────────────────────────────────── */}
         {activeTab === 'limits' && (
           <div className="gql-advsettings-section">
-            <p className="gql-advsettings-desc">
-              Tune in-memory buffer sizes and file upload limits.
-            </p>
+            <AdvIntro>
+              Tune in-memory buffer sizes and file upload limits for this connection profile.
+            </AdvIntro>
 
-            <label className="gql-advsettings-row">
-              <span className="gql-advsettings-label">History buffer</span>
-              <input
-                type="number"
-                min={10}
-                max={500}
-                step={10}
-                value={values.historyMaxItems}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  onChange({ historyMaxItems: Number.isFinite(n) && n >= 10 ? Math.min(n, 500) : 100 });
-                }}
-                className="gql-advsettings-input-sm"
-                aria-label="History buffer size"
-              />
-              <span className="gql-advsettings-hint">items (10–500)</span>
-            </label>
+            <AdvFormCard>
+              <AdvFormRow label="History buffer" hint="Recent executions kept per tab.">
+                <div className="gql-advsettings-inline-ctrl">
+                  <input
+                    type="number"
+                    min={10}
+                    max={500}
+                    step={10}
+                    value={draft.historyMaxItems}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      patchDraft({
+                        historyMaxItems: Number.isFinite(n) && n >= 10 ? Math.min(n, 500) : 100,
+                      });
+                    }}
+                    className="gql-advsettings-input-sm"
+                    aria-label="History buffer size"
+                  />
+                  <span className="gql-advsettings-inline-hint">10–500</span>
+                </div>
+              </AdvFormRow>
 
-            <label className="gql-advsettings-row">
-              <span className="gql-advsettings-label">Subscription buffer</span>
-              <input
-                type="number"
-                min={100}
-                max={10000}
-                step={100}
-                value={values.subscriptionBufferSize}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  onChange({ subscriptionBufferSize: Number.isFinite(n) && n >= 100 ? Math.min(n, 10000) : 5000 });
-                }}
-                className="gql-advsettings-input-sm"
-                aria-label="Subscription buffer size"
-              />
-              <span className="gql-advsettings-hint">messages (100–10000)</span>
-            </label>
+              <AdvFormRow label="Subscription buffer" hint="Live message ring per subscription.">
+                <div className="gql-advsettings-inline-ctrl">
+                  <input
+                    type="number"
+                    min={100}
+                    max={10000}
+                    step={100}
+                    value={draft.subscriptionBufferSize}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      patchDraft({
+                        subscriptionBufferSize:
+                          Number.isFinite(n) && n >= 100 ? Math.min(n, 10000) : 5000,
+                      });
+                    }}
+                    className="gql-advsettings-input-sm"
+                    aria-label="Subscription buffer size"
+                  />
+                  <span className="gql-advsettings-inline-hint">100–10k</span>
+                </div>
+              </AdvFormRow>
 
-            <label className="gql-advsettings-row">
-              <span className="gql-advsettings-label">Max file size</span>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                step={1}
-                value={values.maxFileSizeMb}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  onChange({ maxFileSizeMb: Number.isFinite(n) && n >= 1 ? Math.min(n, 100) : 50 });
-                }}
-                className="gql-advsettings-input-sm"
-                aria-label="Max file upload size in megabytes"
-              />
-              <span className="gql-advsettings-hint">MB (1–100)</span>
-            </label>
+              <AdvFormRow label="Max file size" hint="Upload limit for file variables.">
+                <div className="gql-advsettings-inline-ctrl">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={draft.maxFileSizeMb}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      patchDraft({
+                        maxFileSizeMb: Number.isFinite(n) && n >= 1 ? Math.min(n, 100) : 50,
+                      });
+                    }}
+                    className="gql-advsettings-input-sm"
+                    aria-label="Max file upload size in megabytes"
+                  />
+                  <span className="gql-advsettings-inline-hint">MB</span>
+                </div>
+              </AdvFormRow>
+            </AdvFormCard>
           </div>
         )}
+      </div>
+
+      <div className="gql-advsettings-footer">
+        <button
+          type="button"
+          className="gql-btn gql-btn--secondary gql-advsettings-cancel-btn"
+          onClick={onClose}
+          data-testid="gql-adv-settings-cancel-btn"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="gql-btn gql-btn--primary gql-advsettings-save-btn"
+          onClick={handleSave}
+          data-testid="gql-adv-settings-save-btn"
+        >
+          Save
+        </button>
       </div>
     </div>
   );

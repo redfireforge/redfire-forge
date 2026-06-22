@@ -18,7 +18,8 @@ describe('ws-workflow-builder lesson', () => {
     expect(wsWorkflowBuilderLesson.concept.title).toBeTruthy();
     expect(wsWorkflowBuilderLesson.concept.body).toBeTruthy();
     expect(wsWorkflowBuilderLesson.initialTab).toBe('workflow');
-    // allowedTabs must include workflow-runner so step 11 navigation does not trigger auto-exit
+    // allowedTabs must include workflow + workflow-runner so designer steps and step 11 navigation do not auto-exit
+    expect(wsWorkflowBuilderLesson.allowedTabs).toContain('workflow');
     expect(wsWorkflowBuilderLesson.allowedTabs).toContain('workflow-runner');
   });
 
@@ -99,13 +100,20 @@ describe('ws-workflow-builder lesson', () => {
     }
   });
 
-  it('create step uses ctx.click and ctx.fill', async () => {
+  it('create step uses ctx.click and ctx.fill when canvas is absent', async () => {
     const ctx = makeCtx();
     const createStep = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-create')!;
     await createStep.action!(ctx);
-    // Clicks: sidebar new btn, blank item, create OK
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('New workflow'));
     expect(ctx.fill).toHaveBeenCalledWith(expect.any(String), 'WS Echo Demo');
+  });
+
+  it('create step action is no-op when canvas already exists', async () => {
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+    const ctx = makeCtx();
+    const createStep = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-create')!;
+    await createStep.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('add-connect step clicks palette item', async () => {
@@ -286,7 +294,8 @@ describe('ws-workflow-builder lesson', () => {
     vi.restoreAllMocks();
   });
 
-  it('wf-palette preAction dismisses onboarding tooltip when present (line 196 true)', async () => {
+  it('wf-palette preAction dismisses onboarding tooltip when present', async () => {
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
     const skipBtn = document.createElement('button');
     skipBtn.className = 'onboarding-tooltip-skip';
     const clickSpy = vi.fn();
@@ -298,13 +307,15 @@ describe('ws-workflow-builder lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('wf-palette preAction is no-op when onboarding tooltip absent (line 196 false)', async () => {
+  it('wf-palette preAction is no-op when onboarding tooltip absent', async () => {
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
     const step = wsWorkflowBuilderLesson.steps.find(s => s.id === 'wf-palette')!;
     const ctx = makeCtx();
     await expect(step.preAction!(ctx)).resolves.not.toThrow();
   });
 
   it('wf-add-connect preAction scrolls palette item into view', async () => {
+    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
     const el = document.createElement('div');
     el.className = 'wf-palette-block-wsConnect';
     el.scrollIntoView = vi.fn();

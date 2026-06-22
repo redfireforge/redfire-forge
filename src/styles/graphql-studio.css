@@ -45,6 +45,7 @@
   --gql-success: var(--success, #a6e3a1);  /* schema loaded, polling on, copy flash */
   --gql-danger:  var(--danger,  #f38ba8);  /* schema error, validation warning */
   --gql-warning: var(--warning, #f9e2af);  /* TLS skip active */
+  --gql-mutation: var(--warning, #f59e0b); /* write operations — tab M badge */
   /* BUG-1E-R4-14 fix: teal token for env badge and schema-explorer interface badges.
      Falls back to Catppuccin teal (#94e2d5) on themes that don't define --teal. */
   --gql-teal:    var(--teal,  #94e2d5);
@@ -64,7 +65,8 @@
 
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -143,6 +145,38 @@
   flex-shrink: 0;
   color: var(--gql-warning, #e5a000);
   cursor: default;
+}
+
+.gql-endpoint-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.gql-endpoint-reset-btn:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.gql-endpoint-reset-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.gql-endpoint-reset-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Schema status — standalone element after Execute button */
@@ -361,6 +395,28 @@
   color: var(--text-muted);
   line-height: 1.4;
   margin: 0;
+}
+
+.gql-polling-reset-link {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gql-polling-reset-link:hover {
+  text-decoration: underline;
+}
+
+.gql-polling-reset-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ─── Phase 1 Gap: TLS skip toggle button ───────────────────────────────── */
@@ -680,6 +736,22 @@
 }
 
 /* BUG-R3-1 fix: No Auth hint — shown when "No Auth" is selected in the dropdown */
+.gql-auth-profile-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  line-height: 1.45;
+}
+
+.gql-auth-profile-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .gql-auth-no-auth-hint {
   padding: 9px 11px;
   background: color-mix(in srgb, var(--border) 25%, transparent);
@@ -944,81 +1016,66 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent; /* per project modal rules */
+  background: transparent;
 }
 
-/* BUG-R2-2 fix: min-height ensures the modal always looks substantial,
-   even when there are no environments or variables yet */
 .gql-env-modal {
   display: flex;
   flex-direction: column;
-  width: 780px;
-  max-width: 95vw;
-  min-height: 440px;
-  max-height: 90vh;
-  background: var(--bg);
+  width: 820px;
+  max-width: 96vw;
+  min-height: 480px;
+  max-height: 88vh;
+  background: var(--bg-elevated, var(--surface));
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  animation: gql-modal-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* BUG-P1-R3-1 fix: programmatically-focused modal containers (tabIndex=-1) must not
-   show a browser focus ring around the whole panel. Visible focus rings belong only
-   on interactive elements inside the modal, not the container itself. */
 .gql-env-modal:focus {
   outline: none;
 }
 
-/* Modal header */
 .gql-env-modal-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
+  align-items: flex-start;
+  padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--bg);
 }
 
-.gql-env-modal-header-left {
+.gql-env-modal-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gql-env-modal-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--accent, var(--gql-accent));
+  color: var(--primary);
 }
 
 .gql-env-modal-title {
-  font-size: 13px;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text);
 }
 
-.gql-env-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: none;
+.gql-env-modal-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
   color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.12s, color 0.12s;
+  line-height: 1.45;
+  max-width: 560px;
 }
 
-.gql-env-modal-close:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-/* BUG-GQL-R13-14 fix: keyboard focus indicator */
-.gql-env-modal-close:focus-visible {
-  outline: 2px solid var(--gql-accent);
-  outline-offset: 2px;
-}
-
-/* Modal body: sidebar + main panel */
 .gql-env-modal-body {
   display: flex;
   flex: 1;
@@ -1026,51 +1083,91 @@
   min-height: 0;
 }
 
+.gql-env-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 8%, var(--bg-elevated, var(--surface)));
+  flex-shrink: 0;
+}
+
+.gql-env-modal-close-btn {
+  min-width: 72px;
+  justify-content: center;
+}
+
+.gql-env-modal-close-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* ── Left sidebar ── */
 
 .gql-env-sidebar {
-  width: 210px;
+  width: 232px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  background: var(--bg);
 }
 
 .gql-env-sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
+.gql-env-sidebar-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .gql-env-sidebar-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gql-env-sidebar-count {
+  font-size: 0.68rem;
   color: var(--text-muted);
+  opacity: 0.85;
 }
 
 .gql-env-sidebar-new {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--gql-accent) 8%, transparent);
-  color: var(--accent, var(--gql-accent));
-  font-size: 11px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+  font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
 }
 
 .gql-env-sidebar-new:hover {
-  background: color-mix(in srgb, var(--gql-accent) 15%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  border-color: var(--primary);
+}
+
+.gql-env-sidebar-new:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .gql-env-sidebar-empty {
@@ -1079,27 +1176,27 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
-  font-size: 12px;
+  padding: 28px 18px;
+  font-size: 0.74rem;
   color: var(--text-muted);
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .gql-env-sidebar-list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 8px;
   list-style: none;
+  margin: 0;
 }
 
 .gql-env-sidebar-item {
   display: flex;
   align-items: center;
-  padding: 0 8px;
-  border-radius: 5px;
-  margin: 2px 4px;
-  transition: background 0.1s;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: background 0.12s;
 }
 
 .gql-env-sidebar-item:hover {
@@ -1107,25 +1204,30 @@
 }
 
 .gql-env-sidebar-item--selected {
-  background: color-mix(in srgb, var(--gql-accent) 8%, transparent);
-  border-left: 2px solid var(--accent, var(--gql-accent));
-  padding-left: 6px;
-  margin-left: 4px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .gql-env-sidebar-item-btn {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 4px;
+  gap: 8px;
+  padding: 9px 8px;
   background: none;
   border: none;
-  color: var(--text-secondary, var(--text));
-  font-size: 12px;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
   min-width: 0;
+}
+
+.gql-env-sidebar-item-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: 6px;
 }
 
 .gql-env-sidebar-name {
@@ -1134,10 +1236,9 @@
   white-space: nowrap;
 }
 
-/* Active environment indicator dot */
 .gql-env-active-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   border: 1.5px solid var(--border);
   flex-shrink: 0;
@@ -1146,45 +1247,45 @@
 }
 
 .gql-env-active-dot--on {
-  background: var(--gql-success);
-  border-color: var(--gql-success);
-  box-shadow: 0 0 5px color-mix(in srgb, var(--gql-success) 40%, transparent);
+  background: var(--gql-success, #22c55e);
+  border-color: var(--gql-success, #22c55e);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-success, #22c55e) 25%, transparent);
 }
 
 .gql-env-sidebar-delete {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  min-width: 22px;
+  height: 26px;
+  padding: 0 4px;
+  margin-right: 4px;
   border: none;
   background: none;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
   flex-shrink: 0;
 }
 
-.gql-env-sidebar-item:hover .gql-env-sidebar-delete {
+.gql-env-sidebar-item:hover .gql-env-sidebar-delete,
+.gql-env-sidebar-delete--confirming {
   opacity: 1;
 }
 
 .gql-env-sidebar-delete:hover {
-  background: color-mix(in srgb, var(--gql-danger) 10%, transparent);
-  color: var(--gql-danger);
+  background: color-mix(in srgb, var(--gql-danger, #ef4444) 12%, transparent);
+  color: var(--gql-danger, #f87171);
 }
 
-/* BUG-GQL-R8-8 fix: confirming state for environment delete (two-click pattern) */
 .gql-env-sidebar-delete--confirming {
-  opacity: 1;
-  background: color-mix(in srgb, var(--gql-danger) 12%, transparent);
-  color: var(--gql-danger);
-  border: 1px solid color-mix(in srgb, var(--gql-danger) 40%, transparent);
-  width: auto;
-  padding: 0 6px;
-  font-size: 11px;
+  background: color-mix(in srgb, var(--gql-danger, #ef4444) 12%, transparent);
+  color: var(--gql-danger, #f87171);
+  border: 1px solid color-mix(in srgb, var(--gql-danger, #ef4444) 35%, var(--border));
+  padding: 0 8px;
+  font-size: 0.68rem;
   font-weight: 600;
 }
 
@@ -1192,9 +1293,8 @@
   white-space: nowrap;
 }
 
-/* Import button at bottom of sidebar */
 .gql-env-sidebar-footer {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -1202,31 +1302,33 @@
 .gql-env-import-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
-  padding: 5px 8px;
-  border-radius: 4px;
+  padding: 7px 10px;
+  border-radius: 6px;
   border: 1px dashed var(--border);
-  background: none;
+  background: var(--surface);
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 0.72rem;
+  font-weight: 500;
   cursor: pointer;
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 
 .gql-env-import-btn:hover {
-  border-color: var(--accent, var(--gql-accent));
-  color: var(--accent, var(--gql-accent));
-  background: color-mix(in srgb, var(--gql-accent) 5%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
 }
 
 .gql-env-import-error {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--gql-danger);
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--gql-danger, #f87171);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1244,6 +1346,7 @@
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  background: var(--surface);
 }
 
 .gql-env-main-empty {
@@ -1252,47 +1355,51 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 32px;
+  gap: 14px;
+  padding: 36px 28px;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 0.76rem;
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .gql-env-main-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 18px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   gap: 12px;
   flex-shrink: 0;
+  background: var(--bg);
 }
 
 .gql-env-name-wrap {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-/* Env name — click-to-edit */
 .gql-env-name-display {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
   border: 1px solid transparent;
   background: none;
-  font-size: 14px;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
-  max-width: 280px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
+  align-self: flex-start;
 }
 
 .gql-env-name-display:hover {
@@ -1307,18 +1414,32 @@
 }
 
 .gql-env-name-display:hover .gql-env-name-edit-icon {
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
-/* Name edit input (inline) */
 .gql-env-name-input {
-  font-size: 14px;
+  font-size: 0.88rem;
   font-weight: 600;
-  width: 280px;
-  padding: 4px 8px;
+  width: min(100%, 320px);
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 
-/* Right side action buttons */
+.gql-env-name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-env-var-summary {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
 .gql-env-main-actions {
   display: flex;
   align-items: center;
@@ -1326,8 +1447,6 @@
   flex-shrink: 0;
 }
 
-/* "Active" status badge (shown when the env IS active) */
-/* BUG-R2-5 fix: pop-in animation confirms the "Set Active" action was received */
 @keyframes gql-badge-pop {
   0%   { transform: scale(0.8); opacity: 0; }
   60%  { transform: scale(1.06); }
@@ -1338,18 +1457,18 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--gql-success) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gql-success) 30%, transparent);
-  color: var(--gql-success);
-  font-size: 11.5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gql-success, #22c55e) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--gql-success, #22c55e) 35%, var(--border));
+  color: var(--gql-success, #4ade80);
+  font-size: 0.72rem;
   font-weight: 600;
   animation: gql-badge-pop 0.18s ease-out;
 }
 
 .gql-env-export-btn {
-  gap: 4px;
+  gap: 5px;
 }
 
 /* ── Variable section ── */
@@ -1360,10 +1479,18 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  padding: 14px 18px 16px;
 }
 
-/* BUG-R3-2 fix: empty state uses column layout so the "Add Variable" CTA
-   sits below the hint text (co-located), rather than detached at the bottom-left */
+.gql-env-inline-code {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--border) 18%, var(--surface));
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
 .gql-env-var-empty {
   flex: 1;
   display: flex;
@@ -1371,115 +1498,171 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 32px 24px;
-  font-size: 12.5px;
+  padding: 36px 24px;
+  font-size: 0.76rem;
   color: var(--text-muted);
   text-align: center;
-  line-height: 1.7;
+  line-height: 1.6;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 40%, var(--surface));
 }
 
-.gql-env-inline-code {
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 11.5px;
-  background: var(--surface-hover);
-  padding: 1px 5px;
-  border-radius: 3px;
+.gql-env-var-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
 }
 
 .gql-env-var-table {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 14px;
+  min-height: 0;
+}
+
+.gql-env-var-head,
+.gql-env-var-row {
+  display: grid;
+  grid-template-columns: 44px minmax(110px, 0.95fr) minmax(150px, 1.35fr) 116px;
+  align-items: center;
+  column-gap: 10px;
 }
 
 .gql-env-var-head {
-  display: flex;
-  align-items: center;
-  padding: 4px 0 6px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  background: var(--bg);
+  font-size: 0.68rem;
+  font-weight: 500;
   color: var(--text-muted);
-  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: center;
 }
 
-.gql-env-var-col-toggle { width: 22px; flex-shrink: 0; }
-.gql-env-var-col-key { flex: 0 0 160px; }
-.gql-env-var-col-value { flex: 1; }
-.gql-env-var-col-actions { width: 60px; flex-shrink: 0; }
+.gql-env-var-head .gql-env-var-col-enable,
+.gql-env-var-head .gql-env-var-col-key,
+.gql-env-var-head .gql-env-var-col-value,
+.gql-env-var-head .gql-env-var-col-actions {
+  text-align: center;
+}
 
 .gql-env-var-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  transition: background 0.1s;
+  padding: 6px 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+
+.gql-env-var-row:last-child {
+  border-bottom: none;
 }
 
 .gql-env-var-row:hover {
-  background: color-mix(in srgb, var(--border) 20%, transparent);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
 }
 
 .gql-env-var-row--disabled {
-  opacity: 0.45;
+  opacity: 0.5;
 }
 
-.gql-env-var-toggle {
-  width: 22px;
-  flex-shrink: 0;
+.gql-env-var-enable {
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 }
 
-.gql-env-var-key {
-  flex: 0 0 160px;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 12px;
+.gql-env-var-enable__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
+.gql-env-var-enable__box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.gql-env-var-enable__input:checked + .gql-env-var-enable__box {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+
+.gql-env-var-enable__input:focus-visible + .gql-env-var-enable__box {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.gql-env-var-key,
 .gql-env-var-input {
-  flex: 1;
-  min-width: 0; /* allow flex item to shrink below content size */
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 12px;
+  font-size: 0.74rem;
 }
 
-/* Password/masked input wrap */
+.gql-env-var-key:hover,
+.gql-env-var-input:hover {
+  border-color: var(--primary);
+}
+
+.gql-env-var-key:focus,
+.gql-env-var-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-env-var-key::placeholder,
+.gql-env-var-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
+  font-family: system-ui, sans-serif;
+}
+
+.gql-env-var-value-cell {
+  min-width: 0;
+}
+
 .gql-env-masked-wrap {
-  flex: 1;
   display: flex;
   align-items: center;
-  background: var(--surface);
+  width: 100%;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
   overflow: hidden;
 }
 
 .gql-env-masked-wrap .gql-env-var-input {
-  flex: 1;
-  /* BUG-R3-1 fix: the masked input doesn't have gql-input class, so we add
-     the same padding manually so text doesn't render flush against the border */
-  padding: 5px 9px;
   border: none;
-  background: transparent;
   border-radius: 0;
-  /* Suppress the gql-input focus ring — the wrapper handles it via :focus-within */
-  outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
-/* BUG-R2-3 fix: when the secret input inside has focus, highlight the outer wrapper */
 .gql-env-masked-wrap:focus-within {
-  border-color: var(--accent, var(--gql-accent));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-accent) 15%, transparent);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
-/* Suppress gql-input's own focus ring when it lives inside the masked-wrap */
-.gql-env-masked-wrap .gql-input:focus,
 .gql-env-masked-wrap .gql-env-var-input:focus {
   box-shadow: none;
 }
@@ -1488,8 +1671,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-left: 1px solid var(--border);
   background: transparent;
@@ -1504,16 +1687,22 @@
   background: var(--surface-hover);
 }
 
-/* Lock icon — marks a variable as secret */
+.gql-env-var-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .gql-env-var-secret-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
   color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -1521,71 +1710,73 @@
 }
 
 .gql-env-var-secret-toggle:hover {
-  background: var(--surface-hover);
+  border-color: var(--primary);
   color: var(--text);
+  background: var(--surface-hover);
 }
 
 .gql-env-var-secret-toggle--active {
-  color: var(--gql-warning);
-  border-color: color-mix(in srgb, var(--gql-warning) 30%, transparent);
-  background: color-mix(in srgb, var(--gql-warning) 8%, transparent);
+  color: var(--gql-warning, #fbbf24);
+  border-color: color-mix(in srgb, var(--gql-warning, #f59e0b) 40%, var(--border));
+  background: color-mix(in srgb, var(--gql-warning, #f59e0b) 10%, var(--bg));
 }
 
 .gql-env-var-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   background: none;
   color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
   cursor: pointer;
-  border-radius: 4px;
   flex-shrink: 0;
-  transition: color 0.12s, background 0.12s;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
 }
 
 .gql-env-var-remove:hover {
-  color: var(--gql-danger);
-  background: color-mix(in srgb, var(--gql-danger) 10%, transparent);
+  color: var(--gql-danger, #f87171);
+  background: color-mix(in srgb, var(--gql-danger, #ef4444) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--gql-danger, #ef4444) 30%, var(--border));
 }
 
-/* Add variable button */
+.gql-env-var-card-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 35%, var(--surface));
+}
+
 .gql-env-var-add {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin: 8px 14px;
-  padding: 5px 10px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 5px;
   border: 1px dashed var(--border);
-  background: none;
+  background: var(--bg);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 0.74rem;
+  font-weight: 500;
   cursor: pointer;
   transition: border-color 0.12s, color 0.12s, background 0.12s;
-  align-self: flex-start;
 }
 
 .gql-env-var-add:hover {
-  border-color: var(--accent, var(--gql-accent));
-  color: var(--accent, var(--gql-accent));
-  background: color-mix(in srgb, var(--gql-accent) 5%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
 }
 
-/* Inside the empty state: centered, slightly more prominent */
 .gql-env-var-add--centered {
-  align-self: center;
   border-style: solid;
-  color: var(--accent, var(--gql-accent));
-  border-color: color-mix(in srgb, var(--gql-accent) 35%, transparent);
-  background: color-mix(in srgb, var(--gql-accent) 6%, transparent);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
 .gql-env-var-add--centered:hover {
-  background: color-mix(in srgb, var(--gql-accent) 12%, transparent);
-  border-color: var(--accent, var(--gql-accent));
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  border-color: var(--primary);
 }
 
 /* ─── Phase 1E: Headers panel — unresolved var warning ─────────────────── */
@@ -1629,108 +1820,209 @@
 .gql-tab-bar {
   display: flex;
   align-items: stretch;
-  background: var(--surface);
+  gap: 0;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  min-height: 34px;
+  min-height: 40px;
+  padding: 0 6px;
 }
 
-.gql-tab-bar::-webkit-scrollbar { display: none; }
+.gql-tab-bar__scroll {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-top: 4px;
+}
+
+.gql-tab-bar__scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.gql-tab-bar__scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
 
 .gql-tab {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 12px 0 10px;
-  height: 34px;
-  font-size: 12.5px;
-  border: none;
+  gap: 7px;
+  padding: 0 10px 0 8px;
+  min-height: 32px;
+  max-width: 220px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   position: relative;
   white-space: nowrap;
-  transition: color 0.1s, background 0.1s;
-  border-right: 1px solid var(--border);
+  transition: color 0.12s, background 0.12s, border-color 0.12s, box-shadow 0.12s;
   flex-shrink: 0;
+}
+
+.gql-tab--stacked {
+  min-height: 38px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .gql-tab:hover {
   color: var(--text);
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--surface-hover) 80%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .gql-tab:focus-visible {
-  outline: 2px solid var(--gql-accent);
+  outline: 2px solid var(--primary);
   outline-offset: -2px;
 }
 
 .gql-tab--active {
   color: var(--text);
   background: var(--bg);
+  border-color: var(--border);
+  box-shadow: 0 -1px 0 var(--bg);
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-bottom: 1px;
 }
 
-.gql-tab--active::after {
+.gql-tab--active::before {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  top: 0;
+  left: 8px;
+  right: 8px;
   height: 2px;
-  background: var(--gql-accent);
-  border-radius: 2px 2px 0 0;
+  border-radius: 2px;
+  background: var(--primary);
 }
 
-/* Type indicator dot */
-/* Operation-type badge — replaces the old 7px dot.
-   Shows Q / M / S letter inside a small pill for at-a-glance readability,
-   matching the mockup design (colored letter badges). */
+.gql-tab--query.gql-tab--active::before {
+  background: var(--primary);
+}
+
+.gql-tab--mutation.gql-tab--active::before {
+  background: var(--gql-mutation, #f59e0b);
+}
+
+.gql-tab--subscription.gql-tab--active::before {
+  background: var(--gql-success, #4ade80);
+}
+
 .gql-tab-type-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0;
   flex-shrink: 0;
   line-height: 1;
+  border: 1px solid transparent;
 }
 
-.gql-tab--query        .gql-tab-type-badge { background: color-mix(in srgb, var(--gql-accent) 20%, transparent); color: var(--gql-accent); }
-.gql-tab--mutation     .gql-tab-type-badge { background: color-mix(in srgb, var(--gql-danger) 20%, transparent); color: var(--gql-danger); }
-.gql-tab--subscription .gql-tab-type-badge { background: color-mix(in srgb, var(--gql-success) 20%, transparent); color: var(--gql-success); }
+.gql-tab--query        .gql-tab-type-badge {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+}
+
+.gql-tab--mutation     .gql-tab-type-badge {
+  background: color-mix(in srgb, var(--gql-mutation, #f59e0b) 14%, var(--surface));
+  color: var(--gql-mutation, #f59e0b);
+  border-color: color-mix(in srgb, var(--gql-mutation, #f59e0b) 28%, var(--border));
+}
+
+.gql-tab--subscription .gql-tab-type-badge {
+  background: color-mix(in srgb, var(--gql-success, #22c55e) 14%, var(--surface));
+  color: var(--gql-success, #4ade80);
+  border-color: color-mix(in srgb, var(--gql-success, #22c55e) 28%, var(--border));
+}
+
+.gql-tab-label-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1.2;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.gql-tab-label-wrap:not(.gql-tab-label-wrap--stacked) {
+  flex-direction: row;
+}
 
 .gql-tab-label {
-  max-width: 140px;
+  max-width: 148px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+  color: inherit;
 }
 
-/* Unsaved dot — amber/warning so it's visually distinct from the blue active-tab
-   underline. Mockup spec: "orange dot" for unsaved state. */
+.gql-tab-subtitle {
+  font-size: 0.64rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.88;
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.gql-tab-rename-input {
+  width: 120px;
+  max-width: 160px;
+  min-width: 72px;
+  padding: 3px 6px;
+  font-size: 0.76rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--primary);
+  border-radius: 5px;
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
 .gql-tab-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--gql-warning);
+  background: var(--gql-warning, #fbbf24);
   flex-shrink: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-warning, #f59e0b) 25%, transparent);
 }
 
 .gql-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   opacity: 0;
-  font-size: 14px;
-  line-height: 1;
   color: var(--text-muted);
-  padding: 0 2px;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 0.15s, color 0.1s;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
   user-select: none;
   outline: none;
 }
@@ -1741,45 +2033,54 @@
 }
 
 .gql-tab-close:hover {
-  color: var(--gql-danger);
-  background: color-mix(in srgb, var(--gql-danger) 12%, transparent);
+  color: var(--gql-danger, #f87171);
+  background: color-mix(in srgb, var(--gql-danger, #ef4444) 12%, transparent);
 }
 
 .gql-tab-close:focus-visible {
-  outline: 2px solid var(--gql-accent);
+  outline: 2px solid var(--primary);
   outline-offset: 1px;
   opacity: 1;
 }
 
 .gql-tab-add {
-  padding: 7px 12px;
-  font-size: 16px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 32px;
+  margin: 4px 0 4px 2px;
+  align-self: center;
   background: transparent;
-  border: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
   flex-shrink: 0;
   outline: none;
 }
 
 .gql-tab-add:hover {
-  color: var(--text);
+  color: var(--primary);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .gql-tab-add:focus-visible {
-  outline: 2px solid var(--gql-accent);
-  outline-offset: -2px;
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .gql-tab-add:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
 }
-/* Prevent :hover from re-enabling visual feedback on disabled state */
+
 .gql-tab-add:disabled:hover {
   color: var(--text-muted);
+  border-color: var(--border);
+  background: transparent;
 }
 
 /* ─── Main Layout ───────────────────────────────────────────────────────────── */
@@ -1800,12 +2101,43 @@
   border-right: none;
 }
 
+.gql-studio-workspace {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gql-studio-workspace--builder .gql-left-pane {
+  flex: 1;
+  width: auto !important;
+}
+
+.gql-pane-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.gql-pane-divider:hover {
+  background: var(--primary);
+}
+
+.gql-pane-divider:focus-visible {
+  outline: none;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
 .gql-left-pane {
   display: flex;
   flex-direction: column;
-  width: 55%;
-  min-width: 320px;
-  border-right: 1px solid var(--border);
+  min-width: 0;
+  min-height: 0;
+  border-right: none;
 }
 
 .gql-right-pane {
@@ -2350,14 +2682,29 @@
 /* ── Left column: type list ──────────────────────────────────────────────── */
 
 .gql-se-list-col {
-  width: 248px;
-  min-width: 180px;
-  flex-shrink: 0;
+  min-width: 160px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
   background: var(--surface);
   overflow: hidden;
+}
+
+.gql-se-pane-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.gql-se-pane-divider:hover {
+  background: var(--primary);
+}
+
+.gql-se-pane-divider:focus-visible {
+  outline: none;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 /* Header: "Types (N)" + action buttons */
@@ -2732,8 +3079,15 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   padding: 0 16px 20px;
+}
+
+/* Horizontal scroll for wide field tables (Arguments + Description columns). */
+.gql-se-fields-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin-top: 4px;
 }
 
 /* SDL tab: flex column so the toolbar stays pinned and pre scrolls */
@@ -2760,6 +3114,7 @@
 
 .gql-se-fields-table {
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -2816,42 +3171,44 @@
   padding: 4px 6px 4px 0;
 }
 
-/* "Try →" button — revealed on row hover for clean table appearance */
+/* "Try →" button — always visible with strong contrast on dark field rows */
 .gql-se-try-btn {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 3px 7px;
-  background: color-mix(in srgb, var(--gql-accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gql-accent) 28%, transparent);
+  padding: 3px 8px;
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 65%, var(--border));
   border-radius: 4px;
-  color: var(--gql-accent);
-  font-size: 0.68rem;
-  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 700;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 120ms ease, background 120ms ease, border-color 120ms ease;
+  opacity: 1;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
   white-space: nowrap;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .gql-se-ftr:hover .gql-se-try-btn,
 .gql-se-ftr:focus-within .gql-se-try-btn {
-  opacity: 1;
+  background: color-mix(in srgb, var(--primary) 30%, var(--surface));
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 .gql-se-try-btn:hover {
-  background: color-mix(in srgb, var(--gql-accent) 22%, transparent);
-  border-color: var(--gql-accent);
+  background: color-mix(in srgb, var(--primary) 38%, var(--surface));
+  border-color: var(--primary);
 }
 
 .gql-se-try-btn:focus-visible {
-  opacity: 1;
-  outline: 2px solid var(--gql-accent);
+  outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
 
 .gql-se-try-btn:active {
-  background: color-mix(in srgb, var(--gql-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--primary) 45%, var(--surface));
 }
 
 .gql-se-fname {
@@ -3686,6 +4043,52 @@
   overflow: auto;
   outline: none;
 }
+
+.gql-rv-data-user {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.gql-rv-data-user-head {
+  margin-bottom: 6px;
+}
+
+.gql-rv-data-user-path {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gql-accent);
+}
+
+.gql-rv-data-user-fields {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.gql-rv-data-user-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+}
+
+.gql-rv-data-user-row dt {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.gql-rv-data-user-row dd {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
 .gql-rv-json-scroll:focus-visible {
   outline: 2px solid var(--gql-accent);
   outline-offset: -2px;
@@ -4112,6 +4515,11 @@
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+@keyframes gql-modal-pop-in-centered {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
 .gql-profile-modal {
   background: var(--bg-elevated, var(--surface));
   border: 1px solid var(--border);
@@ -4134,11 +4542,17 @@
 
 .gql-profile-modal__header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px 12px;
+  align-items: flex-start;
+  padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.gql-profile-modal__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .gql-profile-modal__title {
@@ -4150,26 +4564,34 @@
   color: var(--text);
 }
 
-.gql-profile-modal__close {
-  font-size: 18px;
-  line-height: 1;
+.gql-profile-modal__subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
   color: var(--text-muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 2px 5px;
-  border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  line-height: 1.45;
+  max-width: 420px;
 }
 
-.gql-profile-modal__close:hover {
-  color: var(--text);
-  background: var(--surface-hover);
+.gql-profile-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--border) 8%, var(--bg-elevated, var(--surface)));
 }
 
-/* BUG-GQL-R12-22 fix: keyboard focus indicator for profile modal close */
-.gql-profile-modal__close:focus-visible {
-  outline: 2px solid var(--gql-accent);
+.gql-profile-modal__close-btn {
+  min-width: 72px;
+  justify-content: center;
+}
+
+.gql-profile-modal__close-btn:focus-visible,
+.gql-profile-save-btn:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -4189,13 +4611,25 @@
   border-top: 1px solid var(--border);
 }
 
-.gql-profile-section__heading {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+.gql-profile-section__heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
+}
+
+.gql-profile-section__heading {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.gql-profile-section__count {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
 }
 
 /* ── Empty state ───────────────────────────────────────────────────── */
@@ -4248,10 +4682,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 12px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--border) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   transition: background 0.12s, border-color 0.12s;
 }
 
@@ -4371,45 +4805,69 @@
 /* ── Save form ─────────────────────────────────────────────────────── */
 
 .gql-profile-section--save {
-  background: color-mix(in srgb, var(--border) 15%, transparent);
+  background: color-mix(in srgb, var(--border) 10%, var(--bg-elevated, var(--surface)));
 }
 
-.gql-profile-save-form__preview {
+.gql-profile-save-preview-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.gql-profile-save-preview-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--border) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gql-profile-save-preview-row:last-child {
+  border-bottom: none;
+}
+
+.gql-profile-save-preview-label {
+  flex: 0 0 88px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-right: 1px solid var(--border);
 }
 
 .gql-profile-save-form__endpoint {
   flex: 1;
   min-width: 0;
+  padding: 0 12px;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text);
   font-family: 'Fira Code', 'Cascadia Code', monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  background: var(--surface);
 }
 
-.gql-profile-save-form__endpoint em {
-  font-style: italic;
+.gql-profile-save-preview-row .gql-profile-auth-badge {
+  margin-left: 12px;
+}
+
+.gql-profile-save-form__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.76rem;
+  font-weight: 500;
   color: var(--text-muted);
-  font-family: inherit;
-}
-
-.gql-profile-save-form__row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
 }
 
 .gql-profile-save-form__input {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
@@ -5594,7 +6052,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--bg);
 }
 
 /* ── Toolbar ─────────────────────────────────────────────────────────────── */
@@ -5602,160 +6060,255 @@
 .gql-qb-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  flex-wrap: wrap;
+  min-height: 48px;
+}
+
+.gql-qb-toolbar-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
 }
 
 .gql-qb-toolbar-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.3px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Op type switcher */
-.gql-qb-op-switcher {
+.gql-qb-toolbar-meta {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gql-qb-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Op type switcher — segmented control with Q/M/S badges */
+.gql-qb-op-switcher {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg);
   flex-shrink: 0;
 }
 
 .gql-qb-op-btn {
-  padding: 4px 10px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  background: var(--bg-tertiary);
+  background: transparent;
   color: var(--text-muted);
   border: none;
-  transition: background 0.1s, color 0.1s;
-  line-height: 1.4;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .gql-qb-op-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.gql-qb-op-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.gql-qb-op-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.gql-qb-op-btn--query .gql-qb-op-letter {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: var(--primary);
+}
+
+.gql-qb-op-btn--mutation .gql-qb-op-letter {
+  background: color-mix(in srgb, var(--gql-mutation, #f59e0b) 14%, var(--surface));
+  color: var(--gql-mutation, #f59e0b);
+}
+
+.gql-qb-op-btn--subscription .gql-qb-op-letter {
+  background: color-mix(in srgb, var(--gql-success, #22c55e) 14%, var(--surface));
+  color: var(--gql-success, #4ade80);
+}
+
+.gql-qb-op-label {
+  color: inherit;
 }
 
 .gql-qb-op-btn--query.gql-qb-op-btn--active {
-  background: color-mix(in srgb, var(--gql-accent) 18%, transparent);
-  color: var(--gql-accent);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, var(--border));
 }
 
 .gql-qb-op-btn--mutation.gql-qb-op-btn--active {
-  background: color-mix(in srgb, var(--gql-danger) 18%, transparent);
-  color: var(--gql-danger);
+  background: color-mix(in srgb, var(--gql-mutation, #f59e0b) 12%, var(--surface));
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gql-mutation, #f59e0b) 35%, var(--border));
 }
 
 .gql-qb-op-btn--subscription.gql-qb-op-btn--active {
-  background: color-mix(in srgb, var(--gql-success) 18%, transparent);
-  color: var(--gql-success);
+  background: color-mix(in srgb, var(--gql-success, #22c55e) 12%, var(--surface));
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gql-success, #22c55e) 35%, var(--border));
 }
 
 /* Operation name input */
 .gql-qb-op-name {
-  padding: 4px 8px;
-  border-radius: 5px;
+  padding: 6px 10px;
+  border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.76rem;
   font-family: var(--font-mono, monospace);
-  width: 180px;
-  flex-shrink: 0;
+  width: min(200px, 100%);
+  min-width: 140px;
+  flex-shrink: 1;
+}
+
+.gql-qb-op-name::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
 }
 
 .gql-qb-op-name:focus {
   outline: none;
-  border-color: var(--gql-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-accent) 20%, transparent);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
-/* Schema badge */
+/* Schema + selection badges */
 .gql-qb-schema-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: var(--bg-tertiary);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg);
   color: var(--text-muted);
   border: 1px solid var(--border);
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .gql-qb-schema-badge--empty {
-  color: var(--gql-warning);
-  border-color: color-mix(in srgb, var(--gql-warning) 30%, transparent);
-  background: color-mix(in srgb, var(--gql-warning) 8%, transparent);
+  color: var(--gql-warning, #fbbf24);
+  border-color: color-mix(in srgb, var(--gql-warning, #f59e0b) 35%, var(--border));
+  background: color-mix(in srgb, var(--gql-warning, #f59e0b) 8%, var(--bg));
 }
 
-/* Selection count badge */
 .gql-qb-sel-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--gql-accent) 15%, transparent);
-  color: var(--gql-accent);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
   white-space: nowrap;
   font-weight: 600;
 }
 
 /* Toolbar action buttons */
-.gql-qb-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-}
-
 .gql-qb-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 5px 11px;
-  border-radius: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-size: 11px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
   white-space: nowrap;
+  outline: none;
 }
 
-.gql-qb-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--gql-accent);
-  color: var(--gql-accent);
+.gql-qb-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--text);
 }
 
 .gql-qb-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gql-accent) 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-qb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .gql-qb-btn--sm {
-  padding: 4px 9px;
-  font-size: 11px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+}
+
+.gql-qb-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.gql-qb-btn--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gql-danger, #ef4444) 10%, transparent);
+  border-color: color-mix(in srgb, var(--gql-danger, #ef4444) 25%, var(--border));
+  color: var(--gql-danger, #f87171);
 }
 
 .gql-qb-btn--primary {
-  background: var(--gql-accent);
-  color: var(--bg-primary);
-  border-color: var(--gql-accent);
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
 }
 
-.gql-qb-btn--primary:hover {
-  background: color-mix(in srgb, var(--gql-accent) 85%, white);
-  border-color: color-mix(in srgb, var(--gql-accent) 85%, white);
-  color: var(--bg-primary);
+.gql-qb-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 88%, white);
+  border-color: color-mix(in srgb, var(--primary) 88%, white);
+  color: var(--bg);
+}
+
+.gql-qb-btn--success {
+  background: color-mix(in srgb, var(--gql-success, #22c55e) 14%, var(--bg));
+  border-color: color-mix(in srgb, var(--gql-success, #22c55e) 35%, var(--border));
+  color: var(--gql-success, #4ade80);
 }
 
 /* ── Body layout (3 columns) ─────────────────────────────────────────────── */
@@ -5770,25 +6323,49 @@
 /* ── Left: Field selector tree ───────────────────────────────────────────── */
 
 .gql-qb-field-tree {
-  width: 340px;
-  min-width: 280px;
-  max-width: 400px;
+  width: 320px;
+  min-width: 260px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary);
+  background: var(--surface);
   border-right: 1px solid var(--border);
   overflow: hidden;
   flex-shrink: 0;
+}
+
+.gql-qb-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.gql-qb-panel-header-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gql-qb-panel-header-hint {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
 }
 
 /* Search bar */
 .gql-qb-search-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: var(--bg);
   flex-shrink: 0;
 }
 
@@ -5799,12 +6376,19 @@
 
 .gql-qb-search-input {
   flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 0.74rem;
   outline: none;
   min-width: 0;
+}
+
+.gql-qb-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .gql-qb-search-input::placeholder {
@@ -6246,28 +6830,45 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 32px 20px;
+  gap: 10px;
+  padding: 36px 24px;
   text-align: center;
   color: var(--text-muted);
   flex: 1;
   user-select: none;
 }
 
-.gql-qb-no-schema svg {
-  opacity: 0.35;
-  color: var(--gql-accent);
+.gql-qb-no-schema-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  color: var(--primary);
 }
 
-.gql-qb-no-schema p {
-  font-size: 12px;
-  line-height: 1.5;
+.gql-qb-no-schema-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
   margin: 0;
-  max-width: 220px;
 }
 
+.gql-qb-no-schema-desc {
+  font-size: 0.72rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 240px;
+  color: var(--text-muted);
+}
+
+.gql-qb-no-schema-desc strong,
 .gql-qb-no-schema strong {
-  color: var(--gql-accent);
+  color: var(--primary);
+  font-weight: 600;
 }
 
 /* Search results overlay */
@@ -6346,45 +6947,60 @@
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--bg);
 }
 
 .gql-qb-preview-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 7px 12px;
-  background: var(--bg-secondary);
+  padding: 8px 12px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
+.gql-qb-preview-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .gql-qb-preview-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--gql-purple, #cba6f7);
-  letter-spacing: 0.3px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .gql-qb-preview-hint {
-  font-size: 10px;
+  font-size: 0.66rem;
   color: var(--text-muted);
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 /* Code area */
 .gql-qb-code-area {
   flex: 1;
   overflow: auto;
-  padding: 12px 0;
+  padding: 12px;
+}
+
+.gql-qb-code-card {
+  min-height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
 }
 
 .gql-qb-code {
   margin: 0;
-  padding: 0;
+  padding: 12px 0;
   font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 0.8rem;
+  line-height: 1.65;
   white-space: pre;
   background: transparent;
 }
@@ -6953,87 +7569,211 @@
 .gql-trace-view {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px 12px 12px;
   color: var(--text);
   font-size: 0.8rem;
 }
 
-/* Summary metrics bar */
-.gql-trace-summary {
+/* Stat cards */
+.gql-trace-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 8px;
+}
+
+.gql-trace-stat {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 2px;
   padding: 8px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.gql-trace-summary-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.gql-trace-stat--slowest {
+  grid-column: span 2;
 }
 
-.gql-trace-summary-label {
-  font-size: 0.7rem;
+.gql-trace-stat-label {
+  font-size: 0.68rem;
   color: var(--text-muted);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.gql-trace-summary-value {
-  font-size: 0.78rem;
+.gql-trace-stat-value {
+  font-size: 0.82rem;
   color: var(--text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.gql-trace-summary-item--slowest .gql-trace-summary-value {
-  color: #f87171;
+.gql-trace-stat-value--muted {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
-/* Sort controls */
-.gql-trace-controls {
+.gql-trace-stat-resolver {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gql-trace-stat-timing {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Request phase overview bar */
+.gql-trace-phase-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.gql-trace-phase-bar__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
-.gql-trace-controls-label {
+.gql-trace-phase-bar__title {
   font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
-.gql-trace-sort-btns {
+.gql-trace-phase-bar__scale {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.gql-trace-phase-track {
+  position: relative;
+  height: 10px;
+  background: color-mix(in srgb, var(--border) 35%, var(--bg));
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gql-trace-phase-seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  min-width: 2px;
+}
+
+.gql-trace-phase-seg--parse {
+  background: color-mix(in srgb, #06b6d4 55%, var(--surface));
+}
+
+.gql-trace-phase-seg--validate {
+  background: color-mix(in srgb, #8b5cf6 55%, var(--surface));
+}
+
+.gql-trace-phase-seg--execution {
+  background: color-mix(in srgb, var(--primary) 60%, var(--surface));
+}
+
+.gql-trace-phase-seg--overhead {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--text-muted) 18%, var(--bg)),
+    color-mix(in srgb, var(--text-muted) 18%, var(--bg)) 3px,
+    color-mix(in srgb, var(--text-muted) 8%, var(--bg)) 3px,
+    color-mix(in srgb, var(--text-muted) 8%, var(--bg)) 6px
+  );
+}
+
+.gql-trace-phase-legend {
   display: flex;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gql-trace-phase-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.gql-trace-phase-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Toolbar — sort + duration legend on one row */
+.gql-trace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gql-trace-sort {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.gql-trace-toolbar-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 2px;
 }
 
 .gql-trace-sort-btn {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 4px;
-  font-size: 0.72rem;
+  font-size: 0.71rem;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
+
 .gql-trace-sort-btn:hover {
   background: var(--surface-hover);
   color: var(--text);
+  border-color: var(--primary);
 }
+
 .gql-trace-sort-btn--active {
-  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
   color: var(--primary);
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
 }
+
 .gql-trace-sort-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
@@ -7043,10 +7783,9 @@
 .gql-trace-legend {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.71rem;
+  gap: 10px;
+  font-size: 0.68rem;
   color: var(--text-muted);
-  margin-bottom: 6px;
 }
 
 .gql-trace-legend-item {
@@ -7063,24 +7802,29 @@
   flex-shrink: 0;
 }
 
+/* Table wrapper */
+.gql-trace-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
 /* Column header row */
 .gql-trace-header-row {
   display: grid;
-  grid-template-columns: 240px 1fr 80px;
-  gap: 6px;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2px;
+  grid-template-columns: minmax(140px, 220px) 1fr 72px;
+  gap: 8px;
+  padding: 4px 6px 6px;
 }
 
 .gql-trace-header-label,
 .gql-trace-header-timeline,
 .gql-trace-header-duration {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .gql-trace-header-duration {
@@ -7091,18 +7835,19 @@
 .gql-trace-rows {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .gql-trace-row {
   display: grid;
-  grid-template-columns: 240px 1fr 80px;
-  gap: 6px;
+  grid-template-columns: minmax(140px, 220px) 1fr 72px;
+  gap: 8px;
   align-items: center;
-  padding: 3px 6px;
-  border-radius: 3px;
+  padding: 4px 6px;
+  border-radius: 4px;
   transition: background 0.1s;
 }
+
 .gql-trace-row:hover {
   background: var(--surface-hover);
 }
@@ -7150,32 +7895,36 @@
   margin-left: 2px;
 }
 
-/* Timeline column — relative positioning for Gantt bar */
+/* Timeline column — Gantt bar */
 .gql-trace-timeline {
   position: relative;
-  height: 14px;
-  background: color-mix(in srgb, var(--border) 40%, transparent);
-  border-radius: 3px;
+  height: 18px;
+  background: color-mix(in srgb, var(--border) 30%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .gql-trace-bar {
   position: absolute;
-  top: 1px;
-  height: calc(100% - 2px);
-  border-radius: 2px;
-  min-width: 2px;
+  top: 2px;
+  height: calc(100% - 4px);
+  border-radius: 3px;
+  min-width: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 40%, transparent);
   transition: opacity 0.1s;
 }
 
 .gql-trace-bar--ok {
-  background: #22c55e;
+  background: color-mix(in srgb, #22c55e 85%, var(--surface));
 }
+
 .gql-trace-bar--warn {
-  background: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 85%, var(--surface));
 }
+
 .gql-trace-bar--slow {
-  background: #ef4444;
+  background: color-mix(in srgb, #ef4444 85%, var(--surface));
 }
 
 /* Duration column */
@@ -7185,6 +7934,19 @@
   color: var(--text-muted);
   text-align: right;
   white-space: nowrap;
+  font-weight: 500;
+}
+
+.gql-trace-duration--ok {
+  color: color-mix(in srgb, #22c55e 75%, var(--text));
+}
+
+.gql-trace-duration--warn {
+  color: color-mix(in srgb, #f59e0b 80%, var(--text));
+}
+
+.gql-trace-duration--slow {
+  color: color-mix(in srgb, #ef4444 80%, var(--text));
 }
 
 /* Empty state */
@@ -8204,12 +8966,22 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   padding: 40px 24px;
   text-align: center;
   height: 100%;
 }
-.gql-mock-guard-icon { font-size: 2.5rem; }
+.gql-mock-guard-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
 .gql-mock-guard-title { font-size: 1rem; font-weight: 600; color: var(--text); }
 .gql-mock-guard-body  { font-size: 0.8rem; color: var(--text-muted); max-width: 260px; line-height: 1.5; }
 .gql-mock-guard-link  {
@@ -8231,29 +9003,71 @@
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
 .gql-mock-header {
-  padding: 12px 14px 8px;
+  padding: 14px 14px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--surface);
 }
-.gql-mock-toggle-row {
+.gql-mock-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.gql-mock-header-copy { min-width: 0; }
+.gql-mock-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+.gql-mock-subtitle {
+  margin: 3px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.gql-mock-sync-badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.gql-mock-toggle-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.gql-mock-toggle-card--on {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
 }
 .gql-mock-toggle-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   user-select: none;
+  min-width: 0;
 }
 .gql-mock-toggle-input { display: none; }
 .gql-mock-toggle-slider {
-  width: 36px;
-  height: 20px;
+  width: 38px;
+  height: 22px;
   background: var(--border);
-  border-radius: 10px;
+  border-radius: 11px;
   position: relative;
   transition: background 0.2s;
   flex-shrink: 0;
@@ -8263,165 +9077,328 @@
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 14px;
-  height: 14px;
-  background: #fff;
+  width: 16px;
+  height: 16px;
+  background: var(--text);
   border-radius: 50%;
   transition: left 0.2s;
 }
 .gql-mock-toggle-input:checked + .gql-mock-toggle-slider { background: var(--primary); }
-.gql-mock-toggle-input:checked + .gql-mock-toggle-slider::after { left: 19px; }
+.gql-mock-toggle-input:checked + .gql-mock-toggle-slider::after { left: 19px; background: var(--bg); }
 .gql-mock-toggle-input:disabled + .gql-mock-toggle-slider { opacity: 0.4; cursor: not-allowed; }
-/* When the checkbox is disabled the whole label should show not-allowed, not pointer */
 .gql-mock-toggle-input:disabled ~ .gql-mock-toggle-text { opacity: 0.55; }
 .gql-mock-toggle-label:has(.gql-mock-toggle-input:disabled) { cursor: not-allowed; }
-.gql-mock-toggle-text { font-size: 0.82rem; color: var(--text); font-weight: 500; }
-.gql-mock-syncing { color: var(--text-muted); animation: gql-spin 1s linear infinite; display: inline-block; }
-@keyframes gql-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.gql-mock-toggle-text {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .gql-mock-no-sdl {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--danger, #f87171);
-  font-style: italic;
+  text-align: right;
+  line-height: 1.35;
+  max-width: 120px;
 }
 .gql-mock-sync-error {
   font-size: 0.72rem;
   color: var(--danger, #f87171);
-  padding: 4px 0;
-  margin-bottom: 4px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--danger, #f87171) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger, #f87171) 8%, var(--bg));
 }
 .gql-mock-status-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 10px;
 }
 .gql-mock-status-badge {
-  background: #92400e;
-  color: #fde68a;
-  border-radius: 4px;
-  padding: 1px 6px;
+  background: color-mix(in srgb, var(--success, #a6e3a1) 16%, var(--surface));
+  color: var(--success, #a6e3a1);
+  border: 1px solid color-mix(in srgb, var(--success, #a6e3a1) 35%, var(--border));
+  border-radius: 999px;
+  padding: 2px 8px;
   font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.gql-mock-status-chip {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
-/* ── Schema source ───────────────────────────────────────────────────────── */
-.gql-mock-section {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+/* ── Settings stack ──────────────────────────────────────────────────────── */
+.gql-mock-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 8px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.gql-mock-form-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
 }
 .gql-mock-section-label {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.76rem;
+  font-weight: 500;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 6px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
-.gql-mock-radio-group {
+
+/* ── Schema source segmented options ─────────────────────────────────────── */
+.gql-mock-segment {
   display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
 }
-.gql-mock-radio-label {
+.gql-mock-segment-option {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  align-items: flex-start;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.gql-mock-segment-option:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+.gql-mock-segment-option--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.gql-mock-segment-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.gql-mock-segment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  width: 100%;
+  min-width: 0;
+}
+.gql-mock-segment-title {
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text);
-  font-size: 0.79rem;
+  line-height: 1.3;
+}
+.gql-mock-segment-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 .gql-mock-sdl-editor {
-  margin-top: 8px;
-  width: 100%;
+  margin: 0 8px 8px;
+  width: calc(100% - 16px);
   box-sizing: border-box;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 0.75rem;
-  padding: 8px;
+  padding: 8px 10px;
   resize: vertical;
+  min-height: 96px;
 }
-.gql-mock-sdl-editor:focus { border-color: var(--primary); outline: none; }
+.gql-mock-sdl-editor:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 
-/* ── Latency section ─────────────────────────────────────────────────────── */
-.gql-mock-latency-section { gap: 0; }
-.gql-mock-latency-row {
+/* ── Timing form rows (two-tone pattern) ─────────────────────────────────── */
+.gql-mock-form-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  min-height: 48px;
+  border-top: 1px solid var(--border);
 }
-.gql-mock-latency-row:last-child { margin-bottom: 0; }
-.gql-mock-field-label {
-  font-size: 0.72rem;
+.gql-mock-form-row--muted .gql-mock-number-input { opacity: 0.75; }
+.gql-mock-form-label {
+  flex: 0 0 88px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 0.76rem;
+  font-weight: 500;
   color: var(--text-muted);
-  width: 72px;
-  flex-shrink: 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.gql-mock-form-ctrl {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  min-width: 0;
+  background: var(--surface);
+}
+.gql-mock-form-ctrl--slider { gap: 10px; }
+.gql-mock-form-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
 }
 .gql-mock-slider {
   flex: 1;
-  accent-color: var(--primary);
+  min-width: 0;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 999px;
+  outline: none;
+}
+.gql-mock-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+.gql-mock-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+}
+.gql-mock-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .gql-mock-latency-value {
   font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text);
-  width: 44px;
+  min-width: 52px;
   text-align: right;
+  white-space: nowrap;
 }
 .gql-mock-number-input {
-  width: 80px;
+  width: 72px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--text);
-  padding: 3px 6px;
+  padding: 6px 8px;
   font-size: 0.76rem;
 }
-.gql-mock-number-input:focus { border-color: var(--primary); outline: none; }
+.gql-mock-number-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .gql-mock-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--surface);
 }
 .gql-mock-tab {
-  flex: 1;
-  padding: 7px 4px;
+  flex: 0 0 auto;
+  padding: 9px 12px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
 }
 .gql-mock-tab:hover { color: var(--text); }
-.gql-mock-tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+.gql-mock-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+.gql-mock-tab--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
 .gql-mock-tab-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  background: var(--bg);
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .gql-mock-empty {
-  padding: 24px 16px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  text-align: center;
-  line-height: 1.5;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 18px;
+  min-height: 140px;
+  text-align: center;
+}
+.gql-mock-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+.gql-mock-empty-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.gql-mock-empty-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-width: 240px;
+}
+.gql-mock-inline-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  word-break: break-all;
 }
 
 /* ── Resolvers tab ───────────────────────────────────────────────────────── */
@@ -8610,15 +9587,25 @@
 }
 .gql-mock-log-count { font-size: 0.72rem; color: var(--text-muted); }
 .gql-mock-refresh-btn {
-  background: none;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-muted);
+  border-radius: 6px;
+  color: var(--text);
   font-size: 0.72rem;
-  padding: 3px 8px;
+  font-weight: 500;
+  padding: 6px 12px;
   cursor: pointer;
+  margin-top: 4px;
 }
-.gql-mock-refresh-btn:hover { color: var(--text); border-color: var(--primary); }
+.gql-mock-refresh-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+.gql-mock-refresh-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 .gql-mock-log-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
 .gql-mock-log-row-summary {
   display: flex;
@@ -8669,23 +9656,40 @@
 .gql-mock-footer {
   display: flex;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   flex-wrap: wrap;
+  background: var(--surface);
+  justify-content: flex-start;
 }
 .gql-mock-footer-btn {
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-muted);
   font-size: 0.72rem;
-  padding: 4px 10px;
+  font-weight: 500;
+  padding: 6px 10px;
   cursor: pointer;
   position: relative;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.gql-mock-footer-btn:hover { color: var(--text); border-color: var(--primary); }
-.gql-mock-footer-btn--danger:hover { color: var(--danger, #f87171); border-color: var(--danger, #f87171); }
+.gql-mock-footer-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+}
+.gql-mock-footer-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.gql-mock-footer-btn--danger:hover {
+  color: var(--danger, #f87171);
+  border-color: var(--danger, #f87171);
+  background: color-mix(in srgb, var(--danger, #f87171) 8%, var(--bg));
+}
+.gql-mock-footer-btn--import { display: inline-flex; align-items: center; }
 .gql-mock-import-input {
   position: absolute;
   inset: 0;
@@ -8810,52 +9814,85 @@
 /* ── Advanced settings popover ───────────────────────────────────────────── */
 .gql-advsettings-popover {
   position: fixed;
-  top: 50px;
-  right: 16px;
+  top: 50%;
+  left: 50%;
+  right: auto;
   z-index: 300;
-  width: 340px;
-  background: var(--surface);
+  /* Default footprint — roomy for Batch tab table; user can still resize (both). */
+  width: min(720px, calc(100vw - 32px));
+  min-width: min(560px, calc(100vw - 32px));
+  max-width: min(960px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 48px));
+  min-height: min(440px, calc(100vh - 48px));
+  max-height: min(780px, calc(100vh - 32px));
+  background: var(--bg-elevated, var(--surface));
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  resize: both;
+  transform: translate(-50%, -50%);
+  animation: gql-modal-pop-in-centered 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+.gql-advsettings-popover--dragged {
+  left: auto;
+  right: auto;
+  transform: none;
+  animation: none;
+}
+
 .gql-advsettings-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px 8px;
+  align-items: flex-start;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  flex-shrink: 0;
 }
+
+.gql-advsettings-header--draggable {
+  cursor: move;
+  user-select: none;
+}
+
+.gql-advsettings-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .gql-advsettings-title {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
-.gql-advsettings-close {
-  background: none;
-  border: none;
+
+.gql-advsettings-subtitle {
+  font-size: 0.72rem;
+  font-weight: 400;
   color: var(--text-muted);
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-  border-radius: 3px;
+  line-height: 1.45;
 }
-.gql-advsettings-close:hover { color: var(--text); background: var(--surface-hover); }
 
 .gql-advsettings-tabs {
   display: flex;
+  gap: 2px;
+  padding: 0 10px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  flex-shrink: 0;
 }
+
 .gql-advsettings-tab {
-  flex: 1;
-  padding: 7px 4px;
+  flex: 0 0 auto;
+  padding: 8px 11px;
   font-size: 0.72rem;
   font-weight: 500;
   background: none;
@@ -8863,96 +9900,499 @@
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 4px 4px 0 0;
 }
+
 .gql-advsettings-tab.active,
 .gql-advsettings-tab[aria-selected="true"] {
-  color: #89b4fa;
-  border-bottom-color: #89b4fa;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
 }
-.gql-advsettings-tab:hover:not(.active) { color: var(--text); }
 
-.gql-advsettings-body { padding: 12px 14px; }
-.gql-advsettings-section { display: flex; flex-direction: column; gap: 8px; }
-.gql-advsettings-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin: 0;
-}
-.gql-advsettings-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 0.75rem;
+.gql-advsettings-tab:hover:not(.active) {
   color: var(--text);
+  background: var(--surface-hover);
 }
-.gql-advsettings-indent { margin-left: 20px; }
-.gql-advsettings-label { flex: 0 0 80px; color: var(--text-muted); font-size: 0.72rem; }
-.gql-advsettings-input-sm {
-  width: 80px;
-  padding: 3px 6px;
+
+.gql-advsettings-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.gql-advsettings-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.gql-advsettings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gql-advsettings-intro {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.gql-advsettings-form-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Toggle rows ─────────────────────────────────────────────────────────── */
+
+.gql-advsettings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.12s;
+}
+
+.gql-advsettings-toggle:last-child {
+  border-bottom: none;
+}
+
+.gql-advsettings-toggle:hover:not(.gql-advsettings-toggle--disabled) {
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.gql-advsettings-toggle--nested {
+  margin-left: 0;
+  padding-left: 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+  border-top: 1px solid var(--border);
+}
+
+.gql-advsettings-toggle--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gql-advsettings-toggle__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.gql-advsettings-toggle__box {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 15px;
+  margin-left: 12px;
   border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--bg);
-  color: var(--text);
-  font-size: 0.73rem;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.gql-advsettings-input-sm:focus {
+
+.gql-advsettings-toggle__input:checked + .gql-advsettings-toggle__box {
+  background: var(--primary);
   border-color: var(--primary);
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: inset 0 0 0 2px var(--surface);
 }
-.gql-advsettings-hint {
+
+.gql-advsettings-toggle__input:focus-visible + .gql-advsettings-toggle__box {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.gql-advsettings-toggle__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 12px 10px 0;
+  overflow: hidden;
+  max-height: 48px;
+}
+
+.gql-advsettings-toggle__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gql-advsettings-toggle__hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Two-tone form rows ──────────────────────────────────────────────────── */
+
+.gql-advsettings-form-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  max-height: 48px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-advsettings-form-row:last-child {
+  border-bottom: none;
+}
+
+.gql-advsettings-form-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  max-height: none;
+  overflow: visible;
+  padding-bottom: 10px;
+}
+
+.gql-advsettings-form-row--stacked .gql-advsettings-form-row__label-col {
+  flex: none;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  max-height: 48px;
+}
+
+.gql-advsettings-form-row__label-col {
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  min-height: 48px;
+  max-height: 48px;
+  overflow: hidden;
+}
+
+.gql-advsettings-form-row__label {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gql-advsettings-form-row__label-hint {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  opacity: 0.72;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gql-advsettings-form-row__ctrl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+
+.gql-advsettings-inline-ctrl {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.gql-advsettings-inline-hint {
   font-size: 0.68rem;
   color: var(--text-muted);
   opacity: 0.75;
+  white-space: nowrap;
 }
-.gql-advsettings-note {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  opacity: 0.8;
-  margin: 2px 0 0;
-  font-style: italic;
-}
-.gql-advsettings-badge-warn {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: color-mix(in srgb, #f9e2af 20%, transparent);
-  color: #f9e2af;
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-.gql-advsettings-warn-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
+
+.gql-advsettings-input-sm {
+  width: 88px;
+  padding: 6px 10px;
   border-radius: 5px;
-  background: color-mix(in srgb, #f9e2af 8%, var(--surface));
-  border: 1px solid color-mix(in srgb, #f9e2af 30%, transparent);
-  font-size: 0.71rem;
-  color: #f9e2af;
-}
-.gql-advsettings-reset-btn {
-  padding: 3px 8px;
-  border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--bg);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  align-self: flex-start;
-}
-.gql-advsettings-reset-btn:hover {
-  background: var(--surface-hover);
   color: var(--text);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gql-advsettings-input-sm:hover {
   border-color: var(--primary);
 }
+
+.gql-advsettings-input-sm:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-advsettings-select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 28px 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.74rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.gql-advsettings-select:hover {
+  border-color: var(--primary);
+}
+
+.gql-advsettings-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-advsettings-input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.74rem;
+}
+
+.gql-advsettings-input:hover {
+  border-color: var(--primary);
+}
+
+.gql-advsettings-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-advsettings-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
+}
+
+/* ── SSE radio cards ─────────────────────────────────────────────────────── */
+
+.gql-advsettings-radio-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  padding: 0 10px 2px;
+}
+
+.gql-advsettings-radio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.gql-advsettings-radio-card:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, var(--bg));
+}
+
+.gql-advsettings-radio-card--selected {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+}
+
+.gql-advsettings-radio-card__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gql-advsettings-radio-card__title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.gql-advsettings-radio-card__hint {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+  line-height: 1.35;
+}
+
+/* ── Notes, alerts, badges ───────────────────────────────────────────────── */
+
+.gql-advsettings-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 12%, var(--surface));
+  color: var(--text-muted);
+}
+
+.gql-advsettings-note--warn {
+  border-color: color-mix(in srgb, var(--gql-warning, #f59e0b) 35%, var(--border));
+  background: color-mix(in srgb, var(--gql-warning, #f59e0b) 8%, var(--surface));
+  color: var(--text-muted);
+}
+
+.gql-advsettings-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gql-advsettings-subsection__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.gql-advsettings-subsection__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.gql-advsettings-subsection__hint {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+  opacity: 0.82;
+  line-height: 1.4;
+}
+
+.gql-advsettings-badge-warn {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gql-warning, #f59e0b) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gql-warning, #f59e0b) 35%, transparent);
+  color: var(--gql-warning, #fbbf24);
+  font-size: 0.64rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gql-advsettings-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--gql-warning, #f59e0b) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--gql-warning, #f59e0b) 30%, var(--border));
+}
+
+.gql-advsettings-alert__text {
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.gql-advsettings-reset-btn {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gql-advsettings-reset-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+.gql-advsettings-reset-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.gql-advsettings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 8%, var(--bg-elevated, var(--surface)));
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.gql-advsettings-cancel-btn,
+.gql-advsettings-save-btn {
+  min-width: 72px;
+  justify-content: center;
+}
+
+.gql-advsettings-cancel-btn:focus-visible,
+.gql-advsettings-save-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 
 /* ── Dedup in-flight banner ──────────────────────────────────────────────── */
 .gql-dedup-banner {
@@ -9306,67 +10746,551 @@
 
 /* ── Batch tab checkbox ──────────────────────────────────────────────────── */
 .gql-tab-batch-cb {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
   border: 1.5px solid var(--border);
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--bg);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s;
   position: relative;
-  vertical-align: middle;
 }
-.gql-tab-batch-cb:hover { border-color: #89b4fa; }
+.gql-tab-batch-cb:hover { border-color: var(--primary); }
 .gql-tab-batch-cb--checked {
-  background: #89b4fa;
-  border-color: #89b4fa;
+  background: color-mix(in srgb, var(--primary) 85%, var(--bg));
+  border-color: var(--primary);
 }
 .gql-tab-batch-cb--checked::after {
   content: '';
   position: absolute;
   top: 1px;
-  left: 2px;
+  left: 4px;
   width: 4px;
-  height: 6px;
-  border: 1.5px solid #1e293b;
+  height: 7px;
+  border: 1.5px solid var(--bg);
   border-top: none;
   border-left: none;
   transform: rotate(45deg);
 }
 
+/* ── Advanced Settings batch workspace (Phase 6G) ─────────────────── */
+.gql-adv-batch-workspace {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.gql-adv-batch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gql-adv-batch-panel--empty {
+  padding: 16px 14px;
+}
+
+.gql-adv-batch-panel__empty-text {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.gql-adv-batch-panel__group-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.gql-adv-batch-panel__group-field {
+  flex: 0 0 auto;
+  display: none;
+}
+
+.gql-adv-batch-panel__field-label {
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__field-hint {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  opacity: 0.72;
+  line-height: 1.3;
+}
+
+.gql-adv-batch-panel__group-ctrl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.gql-adv-batch-panel__select {
+  width: 100%;
+  max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.gql-adv-batch-panel__setup-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+}
+
+.gql-adv-batch-panel__endpoint-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg));
+  max-width: 100%;
+}
+
+.gql-adv-batch-panel__endpoint-host {
+  font-size: 0.76rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text);
+}
+
+.gql-adv-batch-panel__endpoint-meta {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 45%, var(--surface));
+  min-height: 36px;
+}
+
+.gql-adv-batch-panel__status--ready {
+  background: color-mix(in srgb, #22c55e 10%, var(--surface));
+  border-top-color: color-mix(in srgb, #22c55e 35%, var(--border));
+}
+
+.gql-adv-batch-panel__status--warn {
+  background: color-mix(in srgb, #f59e0b 8%, var(--surface));
+  border-top-color: color-mix(in srgb, #f59e0b 30%, var(--border));
+}
+
+.gql-adv-batch-panel__status-main {
+  display: none;
+}
+
+.gql-adv-batch-panel__status-copy {
+  display: none;
+}
+
+.gql-adv-batch-panel__status-label {
+  display: none;
+}
+
+.gql-adv-batch-panel__status-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.71rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__status--ready .gql-adv-batch-panel__status-text {
+  color: color-mix(in srgb, #bbf7d0 70%, var(--text));
+}
+
+.gql-adv-batch-panel__status-count {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1;
+}
+
+.gql-adv-batch-panel__demo-badge {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  min-height: 36px;
+}
+
+.gql-adv-batch-panel__list-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+}
+
+.gql-adv-batch-panel__list-heading {
+  display: none;
+}
+
+.gql-adv-batch-panel__list-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__list-count {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.gql-adv-batch-panel__list-subtitle {
+  display: none;
+}
+
+.gql-adv-batch-panel__list-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gql-adv-batch-panel__list-actions-sep {
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-size: 0.7rem;
+}
+
+.gql-adv-batch-panel__link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.gql-adv-batch-panel__link-btn:hover {
+  text-decoration: underline;
+}
+
+.gql-adv-batch-panel__link-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.gql-adv-batch-panel__table {
+  --gql-batch-col-check: 14px;
+  --gql-batch-col-op: 18px;
+  --gql-batch-col-name: minmax(148px, 44%);
+  --gql-batch-col-gap: 10px;
+}
+
+.gql-adv-batch-panel__table-head,
+.gql-adv-batch-panel__tab-label {
+  display: grid;
+  grid-template-columns:
+    var(--gql-batch-col-check)
+    var(--gql-batch-col-op)
+    var(--gql-batch-col-name)
+    minmax(0, 1fr);
+  column-gap: var(--gql-batch-col-gap);
+  align-items: center;
+}
+
+.gql-adv-batch-panel__table-head {
+  min-height: 30px;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.gql-adv-batch-panel__table-head-check,
+.gql-adv-batch-panel__table-head-op {
+  display: block;
+}
+
+.gql-adv-batch-panel__table-head-name,
+.gql-adv-batch-panel__table-head-query {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__tab-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.gql-adv-batch-panel__tab-row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.gql-adv-batch-panel__tab-row--checked {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg));
+}
+
+.gql-adv-batch-panel__tab-label {
+  display: grid;
+  grid-template-columns:
+    var(--gql-batch-col-check)
+    var(--gql-batch-col-op)
+    var(--gql-batch-col-name)
+    minmax(0, 1fr);
+  column-gap: var(--gql-batch-col-gap);
+  align-items: center;
+  padding: 0 10px;
+  cursor: pointer;
+  min-height: 40px;
+  max-height: 40px;
+}
+
+.gql-adv-batch-panel__tab-label:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.gql-adv-batch-panel__tab-cb-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.gql-adv-batch-panel__tab-cb-box {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  position: relative;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.gql-adv-batch-panel__tab-cb-input:checked + .gql-adv-batch-panel__tab-cb-box {
+  background: color-mix(in srgb, var(--primary) 88%, var(--bg));
+  border-color: var(--primary);
+}
+
+.gql-adv-batch-panel__tab-cb-input:checked + .gql-adv-batch-panel__tab-cb-box::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 7px;
+  border: 1.5px solid var(--bg);
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.gql-adv-batch-panel__tab-cb-input:focus-visible + .gql-adv-batch-panel__tab-cb-box {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.gql-adv-batch-panel__op-badge {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.gql-adv-batch-panel__tab-line {
+  display: contents;
+}
+
+.gql-adv-batch-panel__tab-body {
+  display: none;
+}
+
+.gql-adv-batch-panel__tab-name-row {
+  display: none;
+}
+
+.gql-adv-batch-panel__tab-name {
+  min-width: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gql-adv-batch-panel__tab-sep {
+  display: none;
+}
+
+.gql-adv-batch-panel__tab-query {
+  min-width: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.gql-adv-batch-panel__included-badge {
+  display: none;
+}
+
+.gql-adv-batch-panel__op-badge--query {
+  color: color-mix(in srgb, #60a5fa 85%, var(--text));
+  border-color: color-mix(in srgb, #60a5fa 40%, var(--border));
+}
+
+.gql-adv-batch-panel__op-badge--mutation {
+  color: color-mix(in srgb, var(--gql-mutation, #f59e0b) 85%, var(--text));
+  border-color: color-mix(in srgb, var(--gql-mutation, #f59e0b) 40%, var(--border));
+}
+
+.gql-batch-summary-chip {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: nowrap;
+}
+
+.gql-tab-batch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 50%, var(--border));
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  line-height: 1;
+}
+
 /* ── Latency Histogram Strip (Phase 2 Deferred) ──────────────────── */
 .gql-hist {
-  border-top: 1px solid #334155;
-  background: #0f172a;
-  padding: 6px 10px 4px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 8px 12px 6px;
   flex-shrink: 0;
 }
 .gql-hist-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 5px;
+  gap: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 .gql-hist-title {
-  font-size: 10px;
+  font-size: 0.68rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: 0.06em;
 }
 .gql-hist-stat {
-  font-size: 10px;
-  color: #cbd5e1;
+  font-size: 0.68rem;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
-.gql-hist-stat--muted { color: #475569; }
+.gql-hist-stat--muted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 .gql-hist-bars {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 36px;
+  gap: 3px;
+  height: 44px;
+  padding: 6px 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
 }
 .gql-hist-col {
   display: flex;
@@ -9374,39 +11298,62 @@
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 2px;
+  gap: 3px;
   height: 100%;
   cursor: default;
+  position: relative;
 }
 .gql-hist-bar-wrap {
   flex: 1;
   width: 100%;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-height: 0;
 }
 .gql-hist-bar {
   width: 100%;
   border-radius: 2px 2px 0 0;
   min-height: 0;
-  transition: height 0.15s ease;
+  transition: height 0.15s ease, opacity 0.15s ease;
 }
-.gql-hist-bar--ok   { background: #22c55e; }
-.gql-hist-bar--warn { background: #f59e0b; }
-.gql-hist-bar--slow { background: #ef4444; }
-.gql-hist-col:hover .gql-hist-bar { opacity: 0.8; }
+.gql-hist-bar--ok {
+  background: color-mix(in srgb, #22c55e 88%, var(--surface));
+}
+.gql-hist-bar--warn {
+  background: color-mix(in srgb, #f59e0b 88%, var(--surface));
+}
+.gql-hist-bar--slow {
+  background: color-mix(in srgb, #ef4444 88%, var(--surface));
+}
+.gql-hist-col:hover .gql-hist-bar { opacity: 0.85; }
+.gql-hist-col:hover .gql-hist-label { color: var(--text); }
 .gql-hist-label {
-  font-size: 8px;
-  color: #475569;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: clip;
+  text-overflow: ellipsis;
   max-width: 100%;
   text-align: center;
-  line-height: 1;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
 }
-/* Count removed from visual — tooltip on hover provides count instead */
-.gql-hist-count { display: none; }
-.gql-hist-col { position: relative; }
+.gql-hist-count {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.gql-hist-col:focus-within .gql-hist-label,
+.gql-hist-col:hover .gql-hist-count {
+  color: var(--text);
+}
 
 /* ── Fragment Section (Query Builder Summary Panel) ─────────────────── */
 .gql-qb-frag-list {
@@ -9521,41 +11468,3 @@
   padding: 2px 0;
 }
 
-/* ── Advanced Settings — Transport & Limits tabs (Phase 2 Deferred) ── */
-.gql-advsettings-select {
-  flex: 1;
-  min-width: 0;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 3px 6px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.gql-advsettings-select:hover { border-color: #475569; }
-.gql-advsettings-input {
-  flex: 1;
-  min-width: 0;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 3px 6px;
-  font-size: 12px;
-}
-.gql-advsettings-input:hover { border-color: #475569; }
-.gql-advsettings-input:focus { outline: none; border-color: #3b82f6; }
-.gql-advsettings-fieldset {
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 6px 10px;
-  margin: 6px 0 0;
-}
-.gql-advsettings-legend {
-  font-size: 10px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  padding: 0 4px;
-}

@@ -122,6 +122,45 @@ describe('collectionItemImport', () => {
       const patch = buildWorkflowImportPatch(makeItem({ connectionId: 'missing' }), null);
       expect(patch.endpoint).toBeUndefined();
     });
+
+    it('Phase 6F-14: roundtrip studio tab profile link via collection item connectionId', async () => {
+      const staging: ConnectionProfile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example.com/graphql',
+        auth: { type: 'bearer', token: 'staging-token' },
+        createdAt: 1,
+      };
+      const prod: ConnectionProfile = {
+        id: 'prof-prod',
+        name: 'Prod',
+        endpoint: 'https://prod.example.com/graphql',
+        auth: { type: 'bearer', token: 'prod-token' },
+        createdAt: 2,
+      };
+      const catalog = [staging, prod];
+
+      const stagingPatch = await resolveImportPatchForItem(
+        makeItem({ connectionId: 'prof-staging', name: 'Tab1 Query' }),
+        catalog,
+      );
+      expect(stagingPatch.endpoint).toBe(staging.endpoint);
+      expect(stagingPatch.auth).toEqual(staging.auth);
+
+      const prodPatch = await resolveImportPatchForItem(
+        makeItem({ connectionId: 'prof-prod', name: 'Tab2 Query' }),
+        catalog,
+      );
+      expect(prodPatch.endpoint).toBe(prod.endpoint);
+      expect(prodPatch.auth).toEqual(prod.auth);
+
+      const orphanPatch = await resolveImportPatchForItem(
+        makeItem({ connectionId: 'deleted-profile' }),
+        catalog,
+      );
+      expect(orphanPatch.endpoint).toBeUndefined();
+      expect(orphanPatch.auth).toBeUndefined();
+    });
   });
 
   describe('resolveImportPatchForItem', () => {

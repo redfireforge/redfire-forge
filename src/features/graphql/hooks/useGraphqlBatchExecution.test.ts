@@ -55,15 +55,15 @@ const makeAdvSettings = (overrides: Partial<AdvancedSettingsValues> = {}): Advan
 const defaultParams = () => {
   const advSettings = makeAdvSettings();
   const advSettingsRef = { current: advSettings };
-  const connectionIdRef = { current: null as string | null };
   return {
     tabs: [] as GqlStudioTab[],
-    endpoint: 'https://api.example.com/graphql',
+    activeTabId: null as string | null,
+    pageDefaultEndpoint: 'https://api.example.com/graphql',
     auth: null,
+    pageDefaultAuth: null,
     activeEnvironment: null,
-    skipTlsVerify: false,
+    pageDefaultSkipTlsVerify: false,
     advSettingsRef,
-    connectionIdRef,
     setAdvSettings: vi.fn(),
     setBatchUnsupportedToast: vi.fn(),
     setRightView: vi.fn(),
@@ -130,6 +130,63 @@ describe('useGraphqlBatchExecution', () => {
       expect(result.current.batchTabOverrides.get('t2')).toBe(true);
       expect(result.current.batchTabOverrides.get('t3')).toBeUndefined();
     });
+
+    it('ignores toggle on tabs outside the active batch group (§11.0 demo)', () => {
+      const tabs = [
+        { ...makeTab('user-1'), demoLessonId: undefined },
+        { ...makeTab('demo-1'), demoLessonId: 'gql-batch-execution' },
+        { ...makeTab('demo-2'), demoLessonId: 'gql-batch-execution' },
+      ];
+      const params = {
+        ...defaultParams(),
+        tabs,
+        activeTabId: 'demo-1',
+        activeDemoLessonId: 'gql-batch-execution',
+      };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('user-1'); });
+      expect(result.current.batchTabOverrides.get('user-1')).toBeUndefined();
+      act(() => { result.current.handleToggleBatch('demo-1'); });
+      expect(result.current.batchTabOverrides.get('demo-1')).toBe(true);
+    });
+
+    it('scopes effective batch to demo group when demo lesson is active', () => {
+      const tabs = [
+        { ...makeTab('user-1'), demoLessonId: undefined },
+        { ...makeTab('demo-1'), demoLessonId: 'gql-batch-execution' },
+        { ...makeTab('demo-2'), demoLessonId: 'gql-batch-execution' },
+      ];
+      const { result, rerender } = renderHook(
+        (props: { activeDemoLessonId: string | null }) => useGraphqlBatchExecution({
+          ...defaultParams(),
+          tabs,
+          activeTabId: 'user-1',
+          activeDemoLessonId: props.activeDemoLessonId,
+        }),
+        { initialProps: { activeDemoLessonId: null as string | null } },
+      );
+      act(() => { result.current.handleToggleBatch('user-1'); });
+      act(() => { result.current.handleToggleBatch('demo-1'); });
+      act(() => { result.current.handleToggleBatch('demo-2'); });
+      expect(result.current.effectiveBatchedTabs).toHaveLength(3);
+      rerender({ activeDemoLessonId: 'gql-batch-execution' });
+      expect(result.current.effectiveBatchedTabs).toHaveLength(2);
+      expect(result.current.effectiveBatchedTabs.every((t) => t.demoLessonId === 'gql-batch-execution')).toBe(true);
+    });
+
+    it('only toggles tabs in the active endpoint group', () => {
+      const tabs = [
+        { ...makeTab('a1'), endpoint: 'https://a.example.com/graphql' },
+        { ...makeTab('a2'), endpoint: 'https://a.example.com/graphql' },
+        { ...makeTab('b1'), endpoint: 'https://b.example.com/graphql' },
+      ];
+      const params = { ...defaultParams(), tabs, activeTabId: 'a1' };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('b1'); });
+      expect(result.current.batchTabOverrides.get('b1')).toBeUndefined();
+      act(() => { result.current.handleToggleBatch('a1'); });
+      expect(result.current.batchTabOverrides.get('a1')).toBe(true);
+    });
   });
 
   describe('effectiveBatchedTabs', () => {
@@ -180,7 +237,7 @@ describe('useGraphqlBatchExecution', () => {
     });
 
     it('does nothing when endpoint is empty', async () => {
-      const params = { ...defaultParams(), tabs: [makeTab('t1'), makeTab('t2')], endpoint: '' };
+      const params = { ...defaultParams(), tabs: [makeTab('t1'), makeTab('t2')], pageDefaultEndpoint: '' };
       const { result } = renderHook(() => useGraphqlBatchExecution(params));
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); });
@@ -189,7 +246,7 @@ describe('useGraphqlBatchExecution', () => {
 
     it('does nothing when endpoint has unresolved vars', async () => {
       vi.mocked(findUnresolvedVars).mockReturnValue(['MY_VAR']);
-      const params = { ...defaultParams(), tabs: [makeTab('t1'), makeTab('t2')], endpoint: '{{MY_VAR}}' };
+      const params = { ...defaultParams(), tabs: [makeTab('t1'), makeTab('t2')], pageDefaultEndpoint: '{{MY_VAR}}' };
       const { result } = renderHook(() => useGraphqlBatchExecution(params));
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); });
@@ -277,7 +334,77 @@ describe('useGraphqlBatchExecution', () => {
       expect(result.current.batchResult?.results[0].response.httpStatus).toBe(200);
       expect(result.current.batchResult?.results[1].response.httpStatus).toBe(408);
     });
-  });
+
+    it('Phase 6G: cannot batch tabs from different endpoint groups', () => {
+      const tabs = [
+        { ...makeTab('t1'), endpoint: 'https://staging.example.com/graphql' },
+        { ...makeTab('t2'), endpoint: 'https://prod.example.com/graphql' },
+      ];
+      const params = { ...defaultParams(), tabs, activeTabId: 't1' };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      expect(result.current.effectiveBatchedTabs).toHaveLength(1);
+      expect(result.current.batchEndpointMismatch).toBe(false);
+    });
+
+    it('Phase 6A-8: batchEndpointReady is true when checked tabs share endpoint', () => {
+      const shared = 'https://staging.example.com/graphql';
+      const tabs = [
+        { ...makeTab('t1'), endpoint: shared },
+        { ...makeTab('t2'), endpoint: shared },
+      ];
+      const params = { ...defaultParams(), tabs, activeTabId: 't1' };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      expect(result.current.batchEndpointReady).toBe(true);
+    });
+
+    it('Phase 6G: batchEndpointReady is false when fewer than two tabs checked in active group', () => {
+      const tabs = [
+        { ...makeTab('t1'), endpoint: 'https://staging.example.com/graphql' },
+        { ...makeTab('t2'), endpoint: 'https://prod.example.com/graphql' },
+      ];
+      const params = { ...defaultParams(), tabs, activeTabId: 't1' };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); });
+      expect(result.current.batchEndpointReady).toBe(false);
+      expect(result.current.batchEndpointMismatch).toBe(false);
+    });
+
+    it('Phase 6A-8: does not send batch when checked tabs span different endpoints', async () => {
+      const tabs = [
+        { ...makeTab('t1'), endpoint: 'https://staging.example.com/graphql' },
+        { ...makeTab('t2'), endpoint: 'https://prod.example.com/graphql' },
+      ];
+      const params = { ...defaultParams(), tabs };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('Phase 6A-8: uses common batched-tab endpoint, not page default when tabs override', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ data: { a: 1 } }, { data: { b: 2 } }] }),
+      });
+      const shared = 'https://staging.example.com/graphql';
+      const tabs = [
+        { ...makeTab('t1', 'query { a }'), endpoint: shared },
+        { ...makeTab('t2', 'query { b }'), endpoint: shared },
+      ];
+      const params = {
+        ...defaultParams(),
+        tabs,
+        pageDefaultEndpoint: 'https://prod.example.com/graphql',
+      };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      const body = JSON.parse(vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string) as { endpoint: string };
+      expect(body.endpoint).toBe(shared);
+    });
 
     it('sends headers from individual batched tabs', async () => {
       vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -316,7 +443,7 @@ describe('useGraphqlBatchExecution', () => {
       expect(body.operations[0].variables).toEqual({ key: 'value' });
     });
 
-    it('writes per-connection batch detection when connId is set', async () => {
+    it('writes batch detection to batched endpoint URL (Phase 6A-8)', async () => {
       const { readKey: mockReadKey, writeKey: mockWriteKey } = await import('../../../shared/utils/storage');
       vi.mocked(mockReadKey).mockResolvedValue(null);
       vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -324,17 +451,21 @@ describe('useGraphqlBatchExecution', () => {
         status: 200,
         json: async () => ({ results: [{ data: {} }, { data: {} }], batchUnsupported: true }),
       });
-      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
-      const params = { ...defaultParams(), tabs };
-      params.connectionIdRef.current = 'conn-batch-test';
+      const shared = 'https://staging.example.com/graphql';
+      const tabs = [
+        { ...makeTab('t1', 'query { a }'), endpoint: shared },
+        { ...makeTab('t2', 'query { b }'), endpoint: shared },
+      ];
+      const params = { ...defaultParams(), tabs, pageDefaultEndpoint: 'https://prod.example.com/graphql' };
       const { result } = renderHook(() => useGraphqlBatchExecution(params));
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
       const detectionCalls = vi.mocked(mockWriteKey).mock.calls.filter(
-        (c) => c[0] === 'gql_conn_detection_conn-batch-test',
+        (c) => c[0] === `gql_conn_detection_${shared}`,
       );
       expect(detectionCalls.length).toBeGreaterThan(0);
     });
+  });
 
   describe('complexityGatePending', () => {
     it('can be set to true and false', () => {
@@ -527,11 +658,12 @@ describe('useGraphqlBatchExecution', () => {
       });
       const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
       const params = { ...defaultParams(), tabs };
-      params.connectionIdRef.current = 'conn-existing-data';
       const { result } = renderHook(() => useGraphqlBatchExecution(params));
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 300)); });
-      const detectCalls = vi.mocked(mockWriteKey).mock.calls.filter((c) => String(c[0]).includes('conn-existing-data'));
+      const detectCalls = vi.mocked(mockWriteKey).mock.calls.filter(
+        (c) => c[0] === 'gql_conn_detection_https://api.example.com/graphql',
+      );
       expect(detectCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(detectCalls[0][1] as string) as { apq?: boolean; batch?: boolean };
       expect(written.apq).toBe(true);
@@ -585,12 +717,111 @@ describe('useGraphqlBatchExecution', () => {
       });
       const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
       const params = { ...defaultParams(), tabs };
-      params.connectionIdRef.current = 'conn-write-err';
       params.advSettingsRef.current = makeAdvSettings({ batchUnsupportedDetected: false });
       const { result } = renderHook(() => useGraphqlBatchExecution(params));
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 100)); });
       expect(result.current.batchResult).not.toBeNull();
+    });
+
+    it('uses generic error message when fetch rejects with a non-Error value', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue('network down');
+      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
+      const params = { ...defaultParams(), tabs };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      expect(result.current.batchResult?.results[0].response.errors?.[0].message).toBe('Batch request failed');
+    });
+
+    it('408 timeout preserves batchUnsupported flag from response body', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: false,
+        status: 408,
+        json: async () => ({ results: [], batchUnsupported: true }),
+      });
+      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
+      const params = { ...defaultParams(), tabs };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      expect(result.current.batchResult?.batchUnsupported).toBe(true);
+    });
+
+    it('Phase 6F Slice 3: batch operation headers use each tab profile auth', async () => {
+      vi.mocked(buildAuthHeaders).mockImplementation((auth) => {
+        if (auth?.type === 'bearer' && auth.token === 'staging') return { Authorization: 'Bearer staging' };
+        if (auth?.type === 'bearer' && auth.token === 'prod') return { Authorization: 'Bearer prod' };
+        return {};
+      });
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ data: { a: 1 } }, { data: { b: 2 } }] }),
+      });
+      const shared = 'https://shared.example.com/graphql';
+      const profiles = [
+        {
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: shared,
+          auth: { type: 'bearer' as const, token: 'staging' },
+          createdAt: 1,
+        },
+        {
+          id: 'prof-prod',
+          name: 'Prod',
+          endpoint: shared,
+          auth: { type: 'bearer' as const, token: 'prod' },
+          createdAt: 1,
+        },
+      ];
+      const tabs = [
+        { ...makeTab('t1', 'query { a }'), connectionId: 'prof-staging', endpoint: shared },
+        { ...makeTab('t2', 'query { b }'), connectionId: 'prof-prod', endpoint: shared },
+      ];
+      const params = {
+        ...defaultParams(),
+        tabs,
+        profiles,
+        pageDefaultAuth: { type: 'bearer' as const, token: 'page-should-not-be-used' },
+      };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+
+      const fetchCall = vi.mocked(global.fetch).mock.calls[0];
+      const body = JSON.parse(String(fetchCall?.[1]?.body)) as {
+        operations: Array<{ headers: Record<string, string> }>;
+      };
+      expect(body.operations[0]?.headers.Authorization).toBe('Bearer staging');
+      expect(body.operations[1]?.headers.Authorization).toBe('Bearer prod');
+    });
+
+    it('Phase 6F: batchProfileLinkPending when checked tab has unresolved profile link', () => {
+      const shared = 'https://shared.example.com/graphql';
+      const tabs = [
+        { ...makeTab('t1', 'query { a }'), connectionId: 'prof-staging', endpoint: shared },
+        { ...makeTab('t2', 'query { b }'), endpoint: shared },
+      ];
+      const params = { ...defaultParams(), tabs, profiles: [] };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      expect(result.current.batchProfileLinkPending).toBe(true);
+      expect(result.current.batchEndpointReady).toBe(false);
+    });
+
+    it('Phase 6F: does not send batch when checked tab has pending profile link', async () => {
+      const shared = 'https://shared.example.com/graphql';
+      const tabs = [
+        { ...makeTab('t1', 'query { a }'), connectionId: 'prof-staging', endpoint: shared },
+        { ...makeTab('t2', 'query { b }'), endpoint: shared },
+      ];
+      const params = { ...defaultParams(), tabs, profiles: [] };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); });
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 });

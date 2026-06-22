@@ -12,13 +12,20 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
-- Keep concise, user-facing summaries of new features here.
+- Environment Manager multi-protocol endpoint panels (GraphQL, WebSocket, SSE, Kafka).
+- GraphQL Demo Hub lessons (GQL-1 through GQL-19): queries, mutations, subscriptions, batch execution, TLS, multi-tab, mock server, workflow integration, and related E2E specs.
+- GraphQL Studio batch execution UI, advanced settings, schema layer hooks, and live-demo overlay.
+- Shared selector modules (`gql`, `ws`, etc.) extracted from monolithic `selectors.ts`.
 
 ### Changed
-- Keep concise behavior or UX changes here.
+- GraphQL Studio page and App shell refactored to stay under 900-line monolith limit.
+- Demo Player prerequisite gate supports multi-endpoint Docker checks and GraphQL tab-budget gating.
+- Unit test coverage raised to >90% on every source file (statements, branches, functions, lines).
 
 ### Fixed
-- Keep concise bug-fix summaries here.
+- PrerequisiteGate infinite re-render loop (`probeEndpoints` memoization).
+- GraphQL endpoint badge hostname display (localhost vs 127.0.0.1).
+- Monaco/vitest test environment polyfills and assorted GraphQL route/TLS handler edge cases.
 
 ---
 

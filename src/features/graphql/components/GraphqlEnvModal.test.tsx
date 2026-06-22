@@ -52,7 +52,7 @@ describe('GraphqlEnvModal — rendering', () => {
   it('renders the modal dialog', () => {
     render(<GraphqlEnvModal {...makeProps()} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Environment Variables')).toBeInTheDocument();
+    expect(screen.getByText(/Environment variables/i)).toBeInTheDocument();
   });
 
   it('shows empty sidebar when no environments', () => {
@@ -126,10 +126,10 @@ describe('GraphqlEnvModal — rendering', () => {
 // ─── Close behaviors ──────────────────────────────────────────────────────────
 
 describe('GraphqlEnvModal — close behaviors', () => {
-  it('calls onClose when × button is clicked', () => {
+  it('calls onClose when Close button is clicked', () => {
     const onClose = vi.fn();
     render(<GraphqlEnvModal {...makeProps({ onClose })} />);
-    fireEvent.click(screen.getByLabelText('Close environment manager'));
+    fireEvent.click(screen.getByTestId('gql-env-close-btn'));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -335,7 +335,7 @@ describe('GraphqlEnvModal — variable management', () => {
     expect(screen.getByDisplayValue('secret')).toBeInTheDocument();
   });
 
-  it('adds a new variable row when Add Variable is clicked (empty state)', () => {
+  it('adds a new variable row when Add variable is clicked (empty state)', () => {
     const env1 = makeEnv({ name: 'Dev', variables: [] });
     render(<GraphqlEnvModal {...makeProps({ environments: [env1] })} />);
     expect(screen.queryByTestId('gql-env-var-row')).not.toBeInTheDocument();
@@ -343,7 +343,7 @@ describe('GraphqlEnvModal — variable management', () => {
     expect(screen.getByTestId('gql-env-var-row')).toBeInTheDocument();
   });
 
-  it('adds a new variable row when Add Variable is clicked (non-empty state)', () => {
+  it('adds a new variable row when Add variable is clicked (non-empty state)', () => {
     const env1 = makeEnv({
       name: 'Dev',
       variables: [{ key: 'EXISTING', value: 'val', enabled: true, masked: false }],
@@ -402,11 +402,21 @@ describe('GraphqlEnvModal — variable management', () => {
       variables: [{ key: 'TOKEN', value: 'abc', enabled: true, masked: false }],
     });
     render(<GraphqlEnvModal {...makeProps({ environments: [env1], onUpdateVariables })} />);
-    const secretBtn = screen.getByLabelText('Mark as secret (masks the value)');
+    const secretBtn = screen.getByLabelText('Hide value as secret (mask with dots)');
     fireEvent.click(secretBtn);
     expect(onUpdateVariables).toHaveBeenCalled();
     const lastCall = onUpdateVariables.mock.calls[onUpdateVariables.mock.calls.length - 1];
     expect(lastCall[1][0].masked).toBe(true);
+  });
+
+  it('defaults variables without masked flag to hidden (password input)', () => {
+    const env1 = makeEnv({
+      name: 'Dev',
+      variables: [{ key: 'TOKEN', value: 'abc', enabled: true }],
+    });
+    render(<GraphqlEnvModal {...makeProps({ environments: [env1] })} />);
+    const input = screen.getByLabelText('Variable value (secret)') as HTMLInputElement;
+    expect(input.type).toBe('password');
   });
 });
 

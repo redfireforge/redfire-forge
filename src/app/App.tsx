@@ -14,6 +14,7 @@ import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useDemoShortcuts } from './hooks/useDemoShortcuts';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
+import { useDemoGlobalAuthBridge } from './hooks/useDemoGlobalAuthBridge';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
@@ -62,17 +63,20 @@ import {
   isApiTab,
   isWorkflowTab,
   isHarnessTab,
+  isProtocolsTab,
   readTabFromUrl,
   writeTabToUrl,
+  setLastProtocolsTab,
+  LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
+import { onStorageFull, cleanupStaleStorageKeys, readKey, writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import '../styles/demo-player.css';
 import '../styles/demo-hub.css';
 import DemoHub from '../features/demo-player/DemoHub';
 import { useDemoHub } from '../features/demo-player/useDemoHub';
-import LiveDemo from '../features/demo-player/LiveDemo';
+import AppLiveDemoOverlay from './components/AppLiveDemoOverlay';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 export default function App() {
@@ -140,6 +144,7 @@ export default function App() {
 
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
   useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
+  useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -251,12 +256,25 @@ export default function App() {
     cleanupStaleStorageKeys();
   }, []);
 
+  // Restore last Protocols sub-tab (GraphQL, Kafka, etc.) from storage.
+  useEffect(() => {
+    void readKey(LAST_PROTOCOLS_TAB_STORAGE_KEY).then((saved) => {
+      if (saved && isProtocolsTab(saved as Tab)) {
+        setLastProtocolsTab(saved as Tab);
+      }
+    });
+  }, []);
+
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
 
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
     writeTabToUrl(activeTab);
     if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
+    if (isProtocolsTab(activeTab)) {
+      setLastProtocolsTab(activeTab);
+      void writeKey(LAST_PROTOCOLS_TAB_STORAGE_KEY, activeTab).catch(() => { /* silent */ });
+    }
   }, [activeTab, setGalleryInitialDomain]);
 
   // ---- Layout CSS var sync (--header-h and --sidebar-w) ----
@@ -873,24 +891,7 @@ export default function App() {
 
       {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
 
-      {/* Live Demo overlay — renders on top of whatever tab the lesson navigated to */}
-      {demoHub.state.view === 'live' && demoHub.state.selectedLesson && (
-        <LiveDemo
-          lesson={demoHub.state.selectedLesson}
-          stepIndex={demoHub.state.stepIndex}
-          isPlaying={demoHub.state.isPlaying}
-          stepPhase={demoHub.stepPhase}
-          onNext={demoHub.nextStep}
-          onTogglePlay={demoHub.toggleAutoPlay}
-          onSkipReading={demoHub.skipReading}
-          onRestart={demoHub.restartDemo}
-          onExit={() => { void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub')); }}
-          onComplete={() => {
-            demoHub.confirmLessonComplete();
-            void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub'));
-          }}
-        />
-      )}
+      <AppLiveDemoOverlay demoHub={demoHub} setActiveTab={setActiveTab} />
 
     </div>
   );

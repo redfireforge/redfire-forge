@@ -148,7 +148,13 @@ export default function LiveDemo({
       )}
 
       {/* Floating narration panel */}
-      <div className="demo-live-panel" ref={panelRef} style={dragStyle}>
+      <div
+        className="demo-live-panel"
+        ref={panelRef}
+        style={dragStyle}
+        data-testid="demo-live-panel"
+        data-step-phase={stepPhase}
+      >
         <div className="demo-live-panel-header demo-live-panel-header--draggable" onMouseDown={onDragMouseDown}>
           <span className="demo-live-drag-handle" aria-hidden="true">⠿</span>
           <span className="demo-live-lesson-name">{lesson.name}</span>
@@ -180,6 +186,12 @@ export default function LiveDemo({
         <div className="demo-live-panel-body">
           <h4 className="demo-live-step-title">{step.title}</h4>
           <p className="demo-live-step-desc" dangerouslySetInnerHTML={{ __html: renderMarkdown(step.description) }} />
+          {step.diagram && (
+            <div
+              className="demo-step-diagram demo-step-diagram--live"
+              dangerouslySetInnerHTML={{ __html: step.diagram }}
+            />
+          )}
           {phaseLabel && (
             <span
               className={`demo-live-phase-badge${stepPhase === 'reading' ? ' skippable' : ''}`}

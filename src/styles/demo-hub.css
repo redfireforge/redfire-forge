@@ -1009,6 +1009,30 @@
   display: block;
 }
 
+.demo-step-diagram {
+  margin-top: 16px;
+  padding: 0;
+  background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.demo-step-diagram svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.demo-step-diagram--live {
+  margin-top: 10px;
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.demo-step-diagram--live svg {
+  max-height: 200px;
+}
+
 .demo-start-btn {
   padding: 10px 28px;
   border: none;
@@ -1685,6 +1709,27 @@
   color: #4a9eff;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.demo-lesson-desktop-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted, #a8b8cc);
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #3b4a60);
+  white-space: nowrap;
+}
+
+.demo-lesson-row--desktop-blocked .demo-lesson-item--desktop-blocked {
+  opacity: 0.82;
+}
+
+.prereq-gate--desktop {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border, #3b4a60));
 }
 
 /* ─── Responsive ─────────────────────────────────────────────── */

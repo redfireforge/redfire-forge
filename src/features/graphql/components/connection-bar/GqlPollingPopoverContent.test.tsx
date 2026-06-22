@@ -142,6 +142,24 @@ describe('GqlPollingPopoverContent', () => {
     expect(screen.getByText(/Automatically re-introspect/)).toBeInTheDocument();
   });
 
+  it('Phase 6F: shows reset link when tab has polling override', () => {
+    const onClearPolling = vi.fn();
+    const onClose = vi.fn();
+    render(<GqlPollingPopoverContent {...defaultProps({
+      hasPollingOverride: true,
+      onClearPolling,
+      onClose,
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-polling-reset-btn'));
+    expect(onClearPolling).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('Phase 6F: hides reset link when no polling override', () => {
+    render(<GqlPollingPopoverContent {...defaultProps({ hasPollingOverride: false })} />);
+    expect(screen.queryByTestId('gql-polling-reset-btn')).not.toBeInTheDocument();
+  });
+
   it('applies style from popoverPos', () => {
     const { container } = render(
       <GqlPollingPopoverContent {...defaultProps({ popoverPos: { top: 200, right: 40 } })} />,

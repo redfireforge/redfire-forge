@@ -23,6 +23,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
 import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot, GraphqlTypeNode } from '../../../shared/types/graphql';
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { KIND_ABBR, KIND_CSS, KIND_LABEL, fieldCountText } from '../utils/schemaExplorerUtils';
@@ -91,6 +92,16 @@ export function GraphqlSchemaExplorer({
   const [selectedTypeName, setSelectedTypeName] = useState<string | null>(null);
   const [detailTab, setDetailTab]       = useState<DetailTab>('fields');
   const [savingSnapshot, setSavingSnapshot] = useState(false);
+
+  const seBodyRef = useRef<HTMLDivElement>(null);
+  const { width: listColWidth, dividerProps: seDividerProps } = useSplitPaneResize({
+    storageKey: 'redfire-gql-se-split-v1',
+    defaultWidth: 248,
+    minWidth: 160,
+    minOppositeWidth: 220,
+    containerRef: seBodyRef,
+    label: 'Resize schema type list and detail panes',
+  });
 
   // ── Filtered type list ─────────────────────────────────────────────────────
   const filteredTypes = useMemo<GraphqlTypeNode[]>(() => {
@@ -295,10 +306,10 @@ export function GraphqlSchemaExplorer({
       {/* Types tab */}
       {mainTab === 'types' && (
       <>
-      <div className="gql-se-body">
+      <div className="gql-se-body" ref={seBodyRef} data-testid="gql-se-body">
 
         {/* Left: type list column */}
-        <div className="gql-se-list-col">
+        <div className="gql-se-list-col" style={{ width: listColWidth, flexShrink: 0 }}>
           <div className="gql-se-list-header">
             <span id="gql-se-list-title" className="gql-se-list-title">
               Types ({schemaInfo.types.length})
@@ -441,6 +452,12 @@ export function GraphqlSchemaExplorer({
             )}
           </div>
         </div>
+
+        <div
+          className="gql-se-pane-divider"
+          data-testid="gql-se-pane-divider"
+          {...seDividerProps}
+        />
 
         {/* Right: detail panel */}
         <div className="gql-se-detail-panel" data-testid="gql-se-detail-panel">

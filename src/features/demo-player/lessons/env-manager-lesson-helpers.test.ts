@@ -7,7 +7,14 @@ import {
   expandFirstMicroservice,
   ensureFirstEnvDeployed,
   ensureNamedEnvDeployedOnProtocol,
+  ensureProtocolDisabled,
   ensureSseDemoHeaderContext,
+  ensureWsDemoEndpointConfigured,
+  ensureWsDemoProtocolReady,
+  ensureWsDemoHeaderContext,
+  ensureGqlDemoProtocolReady,
+  ensureGqlDemoEndpointConfigured,
+  ensureGqlDemoHeaderContext,
   editNamedProtocolEndpoint,
   selectProtocolTab,
   editFirstProtocolEndpoint,
@@ -230,6 +237,212 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 
+  it('ensureProtocolDisabled clicks remove when HTTP tab is present', async () => {
+    document.body.innerHTML = `
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-protocol-tab-http">HTTP</button>
+        <button data-testid="em-remove-protocol-http">×</button>
+      </div>`;
+    const ctx = makeCtx();
+    await ensureProtocolDisabled(ctx, 'http');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+  });
+
+  it('ensureProtocolDisabled is no-op when remove button is absent', async () => {
+    document.body.innerHTML = `<div data-testid="microservice-protocol-panel"></div>`;
+    const ctx = makeCtx();
+    await ensureProtocolDisabled(ctx, 'http');
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('expandNamedMicroservice collapses a different expanded card before opening the target', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="other-svc">
+        <div data-testid="microservice-protocol-panel">
+          <button data-testid="em-svc-configure-other">Collapse</button>
+        </div>
+      </div>
+      <div data-svc-name="ws-demo">
+        <button data-testid="em-svc-configure-ws">Configure</button>
+      </div>`;
+    const otherCollapse = document.querySelector<HTMLButtonElement>('[data-testid="em-svc-configure-other"]')!;
+    const wsConfigure = document.querySelector<HTMLButtonElement>('[data-testid="em-svc-configure-ws"]')!;
+    const otherClick = vi.spyOn(otherCollapse, 'click');
+    const wsClick = vi.spyOn(wsConfigure, 'click');
+    const ctx = makeCtx();
+    await expandNamedMicroservice(ctx, 'ws-demo');
+    expect(otherClick).toHaveBeenCalled();
+    expect(wsClick).toHaveBeenCalled();
+  });
+
+  it('ensureWsDemoEndpointConfigured removes stale HTTP tab and deploys WebSocket Demo row', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="ws-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-remove-protocol-http">×</button>
+        <button data-testid="em-protocol-tab-http">HTTP</button>
+        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" checked aria-label="Deploy d01" /></td>
+            <td><span class="em-env-chip">d01</span></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy WebSocket Demo" /></td>
+            <td><span class="em-env-chip">WebSocket Demo</span></td>
+            <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
+            <td><code class="em-url-text"></code></td>
+          </tr>
+        </table>
+        <input data-testid="em-endpoint-edit-input" />
+        <button data-testid="em-endpoint-save-btn">Save</button>
+      </div>`;
+    const d01Checkbox = document.querySelector<HTMLInputElement>('[aria-label="Deploy d01"]')!;
+    const d01Click = vi.spyOn(d01Checkbox, 'click');
+    const ctx = makeCtx();
+    await ensureWsDemoEndpointConfigured(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+    expect(d01Click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
+  });
+
+  it('ensureWsDemoProtocolReady undeploys stale rows without saving endpoint URL', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="ws-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" checked aria-label="Deploy d01" /></td>
+            <td><span class="em-env-chip">d01</span></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy WebSocket Demo" /></td>
+            <td><span class="em-env-chip">WebSocket Demo</span></td>
+          </tr>
+        </table>
+      </div>`;
+    const d01Checkbox = document.querySelector<HTMLInputElement>('[aria-label="Deploy d01"]')!;
+    const d01Click = vi.spyOn(d01Checkbox, 'click');
+    const ctx = makeCtx();
+    await ensureWsDemoProtocolReady(ctx);
+    expect(d01Click).toHaveBeenCalled();
+    expect(ctx.fill).not.toHaveBeenCalledWith('[data-testid="em-endpoint-edit-input"]', expect.any(String));
+  });
+
+  it('ensureWsDemoEndpointConfigured saves endpoint on WebSocket Demo row', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="WebSocket Demo"></div>
+      <div data-svc-name="ws-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+        <button data-testid="em-protocol-tab-websocket">WebSocket</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy WebSocket Demo" /></td>
+            <td><span class="em-env-chip">WebSocket Demo</span></td>
+            <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
+            <td><code class="em-url-text"></code></td>
+          </tr>
+        </table>
+        <input data-testid="em-endpoint-edit-input" />
+        <button data-testid="em-endpoint-save-btn">Save</button>
+      </div>`;
+    const ctx = makeCtx();
+    await ensureWsDemoEndpointConfigured(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
+  });
+
+  it('ensureWsDemoHeaderContext selects header options when already present', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">WebSocket Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">ws-demo</option>
+      </select>`;
+    const ctx = makeCtx();
+    await ensureWsDemoHeaderContext(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+  });
+
+  it('ensureGqlDemoProtocolReady removes HTTP tab and deploys GraphQL Demo row only', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="GraphQL Demo"></div>
+      <div data-svc-name="graphql-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-remove-protocol-http">Remove HTTP</button>
+        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+        <button data-testid="em-protocol-tab-graphql">GraphQL</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" checked aria-label="Deploy d01" /></td>
+            <td><span class="em-env-chip">d01</span></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy GraphQL Demo" /></td>
+            <td><span class="em-env-chip">GraphQL Demo</span></td>
+          </tr>
+        </table>
+      </div>`;
+    const d01Checkbox = document.querySelector<HTMLInputElement>('[aria-label="Deploy d01"]')!;
+    const d01Click = vi.spyOn(d01Checkbox, 'click');
+    const ctx = makeCtx();
+    await ensureGqlDemoProtocolReady(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+    expect(d01Click).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-graphql"]');
+  });
+
+  it('ensureGqlDemoEndpointConfigured saves endpoint on GraphQL Demo row', async () => {
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <div data-env-name="GraphQL Demo"></div>
+      <div data-svc-name="graphql-demo"></div>
+      <div data-testid="microservice-protocol-panel">
+        <button data-testid="em-add-protocol-btn">+ Add protocol</button>
+        <button data-testid="em-protocol-tab-graphql">GraphQL</button>
+        <table>
+          <tr>
+            <td><input type="checkbox" aria-label="Deploy GraphQL Demo" /></td>
+            <td><span class="em-env-chip">GraphQL Demo</span></td>
+            <td><button data-testid="em-endpoint-edit-btn">Edit</button></td>
+            <td><code class="em-url-text"></code></td>
+          </tr>
+        </table>
+        <input data-testid="em-endpoint-edit-input" />
+        <button data-testid="em-endpoint-save-btn">Save</button>
+        <input data-testid="em-graphql-path-input" value="/graphql" />
+      </div>`;
+    const ctx = makeCtx();
+    await ensureGqlDemoEndpointConfigured(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-graphql"]');
+  });
+
+  it('ensureGqlDemoHeaderContext selects header options when already present', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select">
+        <option value="e1">GraphQL Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="s1">graphql-demo</option>
+      </select>`;
+    const ctx = makeCtx();
+    await ensureGqlDemoHeaderContext(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+  });
+
   it('editNamedProtocolEndpoint edits the row matching the environment name', async () => {
     document.body.innerHTML = `
       <div data-testid="microservice-protocol-panel">
@@ -369,11 +582,22 @@ describe('env-manager-lesson-helpers', () => {
   // ── ensureDemoEnvironment ────────────────────────────────────────
 
   it('ensureDemoEnvironment creates env when name is absent', async () => {
-    document.body.innerHTML = '<div class="env-manager"></div>';
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <input data-testid="em-new-env-input" />
+      <button data-testid="em-add-env-btn" type="button"></button>`;
+    const addBtn = document.querySelector<HTMLButtonElement>(EM.ADD_ENV_BTN)!;
+    const clickSpy = vi.fn(() => {
+      const chip = document.createElement('div');
+      chip.setAttribute('data-env-name', 'WebSocket Demo');
+      document.body.appendChild(chip);
+    });
+    addBtn.addEventListener('click', clickSpy);
     const ctx = makeCtx();
     await ensureDemoEnvironment(ctx, 'WebSocket Demo');
-    expect(ctx.fill).toHaveBeenCalledWith(EM.ADD_ENV_INPUT, 'WebSocket Demo');
-    expect(ctx.click).toHaveBeenCalledWith(EM.ADD_ENV_BTN);
+    const input = document.querySelector<HTMLInputElement>(EM.ADD_ENV_INPUT);
+    expect(input?.value).toBe('WebSocket Demo');
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('ensureDemoEnvironment is no-op when env chip already in DOM', async () => {
@@ -388,11 +612,22 @@ describe('env-manager-lesson-helpers', () => {
   // ── ensureDemoMicroservice ───────────────────────────────────────
 
   it('ensureDemoMicroservice creates svc when name is absent', async () => {
-    document.body.innerHTML = '<div class="env-manager"></div>';
+    document.body.innerHTML = `
+      <div class="env-manager"></div>
+      <input data-testid="em-new-svc-input" />
+      <button data-testid="em-add-svc-btn" type="button"></button>`;
+    const addBtn = document.querySelector<HTMLButtonElement>(EM.ADD_SVC_BTN)!;
+    const clickSpy = vi.fn(() => {
+      const card = document.createElement('div');
+      card.setAttribute('data-svc-name', 'ws-demo');
+      document.body.appendChild(card);
+    });
+    addBtn.addEventListener('click', clickSpy);
     const ctx = makeCtx();
     await ensureDemoMicroservice(ctx, 'ws-demo');
-    expect(ctx.fill).toHaveBeenCalledWith(EM.ADD_SVC_INPUT, 'ws-demo');
-    expect(ctx.click).toHaveBeenCalledWith(EM.ADD_SVC_BTN);
+    const input = document.querySelector<HTMLInputElement>(EM.ADD_SVC_INPUT);
+    expect(input?.value).toBe('ws-demo');
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('ensureDemoMicroservice is no-op when svc card already in DOM', async () => {
@@ -418,11 +653,12 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(EM.PROTOCOL_PANEL);
   });
 
-  it('expandNamedMicroservice is no-op when protocol panel is already open', async () => {
+  it('expandNamedMicroservice is no-op when the named card is already expanded', async () => {
     document.body.innerHTML = `
-      <div data-testid="microservice-protocol-panel"></div>
+      <div class="env-manager"></div>
       <div data-svc-name="ws-demo">
-        <button data-testid="em-svc-configure-abc">Configure</button>
+        <button data-testid="em-svc-configure-abc">Collapse</button>
+        <div data-testid="microservice-protocol-panel"></div>
       </div>`;
     const ctx = makeCtx();
     await expandNamedMicroservice(ctx, 'ws-demo');

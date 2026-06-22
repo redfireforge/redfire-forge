@@ -29,6 +29,14 @@ describe('GqlLatencyHistogram', () => {
     expect(screen.getAllByText('1').length).toBeGreaterThan(0);
   });
 
+  it('shows request counts above non-empty buckets', () => {
+    render(<GqlLatencyHistogram latencyHistory={[10, 70, 110, 300, 1200, 35000]} />);
+
+    const counts = document.querySelectorAll('.gql-hist-count');
+    expect(counts.length).toBeGreaterThan(0);
+    expect(Array.from(counts).some((el) => el.textContent === '1')).toBe(true);
+  });
+
   it('applies bar speed classes across buckets', () => {
     const { container } = render(
       <GqlLatencyHistogram latencyHistory={[20, 80, 150, 300, 800, 1500, 4000]} />,

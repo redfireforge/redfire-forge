@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
 import { GqlTabBar } from './GqlTabBar';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
@@ -80,11 +81,25 @@ describe('GqlTabBar', () => {
     expect(defaultProps.onAddTab).toHaveBeenCalled();
   });
 
-  it('disables + button when MAX_TABS reached', () => {
-    const maxTabs = Array.from({ length: 8 }, (_, i) => makeTab(`t${i + 1}`));
-    render(<GqlTabBar {...defaultProps} tabs={maxTabs} />);
+  it('disables + button when MAX_USER_TABS reached', () => {
+    const maxUserTabs = Array.from({ length: 7 }, (_, i) => makeTab(`t${i + 1}`));
+    render(<GqlTabBar {...defaultProps} tabs={maxUserTabs} />);
     const addBtn = screen.getByTestId('gql-tab-add-btn') as HTMLButtonElement;
     expect(addBtn.disabled).toBe(true);
+  });
+
+  it('hides close button on demo tabs', () => {
+    const user = makeTab('user-1');
+    const demo = makeTab('demo-1', { demoLessonId: 'gql-first-query', label: 'Demo: Test' });
+    render(
+      <GqlTabBar
+        {...defaultProps}
+        tabs={[user, demo]}
+        activeTabId="demo-1"
+      />,
+    );
+    expect(screen.getByTestId('gql-tab-close-user-1')).toBeTruthy();
+    expect(screen.queryByTestId('gql-tab-close-demo-1')).toBeNull();
   });
 
   it('shows close button only when more than one tab', () => {
@@ -153,62 +168,204 @@ describe('GqlTabBar', () => {
   });
 
   describe('batch mode', () => {
-    const batchProps = {
-      ...defaultProps,
-      batchEnabled: true,
-      batchedTabIds: new Set<string>(['t1']),
-      onToggleBatch: vi.fn(),
-    };
-
-    it('renders batch checkbox when batchEnabled and onToggleBatch provided', () => {
-      render(<GqlTabBar {...batchProps} />);
-      expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+    it('renders read-only batch badge on included tabs', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          batchEnabled
+          batchIncludedTabIds={new Set(['t1'])}
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-batch-badge-t1')).toBeInTheDocument();
+      expect(screen.queryByTestId('gql-tab-batch-badge-t2')).toBeNull();
     });
 
-    it('shows checked state for batched tabs', () => {
-      render(<GqlTabBar {...batchProps} />);
-      const checkbox = screen.getAllByRole('checkbox')[0];
-      expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    it('does not render batch badge when batch is disabled', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          batchEnabled={false}
+          batchIncludedTabIds={new Set(['t1'])}
+        />,
+      );
+      expect(screen.queryByTestId('gql-tab-batch-badge-t1')).toBeNull();
     });
 
-    it('calls onToggleBatch when batch checkbox is clicked', () => {
-      const onToggleBatch = vi.fn();
-      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
-      fireEvent.click(screen.getAllByRole('checkbox')[0]);
-      expect(onToggleBatch).toHaveBeenCalled();
+    it('does not render batch badge on tabs not in batchIncludedTabIds', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[makeTab('t1'), makeTab('t2')]}
+          batchEnabled
+          batchIncludedTabIds={new Set(['t2'])}
+        />,
+      );
+      expect(screen.queryByTestId('gql-tab-batch-badge-t1')).toBeNull();
+      expect(screen.getByTestId('gql-tab-batch-badge-t2')).toBeInTheDocument();
+    });
+  });
+
+  describe('tab rename', () => {
+    it('shows rename input on double-click when onRenameTab is provided', () => {
+      render(<GqlTabBar {...defaultProps} onRenameTab={vi.fn()} />);
+      const label = screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!;
+      fireEvent.doubleClick(label);
+      expect(screen.getByTestId('gql-tab-rename-t1')).toBeTruthy();
     });
 
-    it('calls onToggleBatch when Space is pressed on batch checkbox', () => {
-      const onToggleBatch = vi.fn();
-      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
-      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: ' ' });
-      expect(onToggleBatch).toHaveBeenCalled();
+    it('calls onRenameTab on Enter in rename input', () => {
+      const onRenameTab = vi.fn();
+      render(<GqlTabBar {...defaultProps} onRenameTab={onRenameTab} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      const input = screen.getByTestId('gql-tab-rename-t1') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'My Query' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onRenameTab).toHaveBeenCalledWith('t1', 'My Query');
     });
 
-    it('calls onToggleBatch when Enter is pressed on batch checkbox', () => {
-      const onToggleBatch = vi.fn();
-      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
-      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: 'Enter' });
-      expect(onToggleBatch).toHaveBeenCalled();
+    it('commits rename on blur', () => {
+      const onRenameTab = vi.fn();
+      render(<GqlTabBar {...defaultProps} onRenameTab={onRenameTab} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      const input = screen.getByTestId('gql-tab-rename-t1') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'Blurred Name' } });
+      fireEvent.blur(input);
+      expect(onRenameTab).toHaveBeenCalledWith('t1', 'Blurred Name');
     });
 
-    it('does not call onToggleBatch for other keys on batch checkbox', () => {
-      const onToggleBatch = vi.fn();
-      render(<GqlTabBar {...batchProps} onToggleBatch={onToggleBatch} />);
-      fireEvent.keyDown(screen.getAllByRole('checkbox')[0], { key: 'Escape' });
-      expect(onToggleBatch).not.toHaveBeenCalled();
+    it('cancels rename on Escape without calling onRenameTab', () => {
+      const onRenameTab = vi.fn();
+      render(<GqlTabBar {...defaultProps} onRenameTab={onRenameTab} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      const input = screen.getByTestId('gql-tab-rename-t1') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'Discarded' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(onRenameTab).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('gql-tab-rename-t1')).toBeNull();
     });
 
-    it('does not render batch checkbox for subscription tabs', () => {
-      const tabs = [makeTab('t1', { operationType: 'subscription' }), makeTab('t2')];
-      render(<GqlTabBar {...batchProps} tabs={tabs} />);
-      // Only t2 (query) should have a checkbox
-      expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    it('stops click propagation on rename input', () => {
+      const onTabClick = vi.fn();
+      render(<GqlTabBar {...defaultProps} onTabClick={onTabClick} onRenameTab={vi.fn()} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      fireEvent.click(screen.getByTestId('gql-tab-rename-t1'));
+      expect(onTabClick).not.toHaveBeenCalled();
     });
 
-    it('does not render batch checkbox when onToggleBatch is not provided', () => {
-      render(<GqlTabBar {...defaultProps} batchEnabled={true} batchedTabIds={new Set()} />);
-      expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    it('does not start rename on double-click when onRenameTab is missing', () => {
+      render(<GqlTabBar {...defaultProps} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      expect(screen.queryByTestId('gql-tab-rename-t1')).toBeNull();
+    });
+  });
+
+  describe('tab presentation — title and subtitle', () => {
+    it('uses endpoint hostname as tab title without duplicate subtitle', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { label: '127.0.0.1:4041', endpoint: 'http://127.0.0.1:4041/graphql' }),
+          ]}
+          activeTabId="t2"
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-t2').querySelector('.gql-tab-label')).toHaveTextContent('127.0.0.1:4041');
+      expect(screen.queryByTestId('gql-tab-subtitle-t2')).toBeNull();
+    });
+
+    it('shows endpoint subtitle when manual title differs from connection', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', {
+              label: 'GetUsers',
+              labelManual: true,
+              endpoint: 'https://api.io/graphql',
+            }),
+          ]}
+        />,
+      );
+      expect(screen.queryByTestId('gql-tab-subtitle-t1')).toBeNull();
+      expect(screen.getByTestId('gql-tab-subtitle-t2')).toHaveTextContent('api.io');
+      expect(screen.getByTestId('gql-tab-t2').querySelector('.gql-tab-label')).toHaveTextContent('GetUsers');
+    });
+
+    it('does not show subtitle when tab has no endpoint override', () => {
+      render(<GqlTabBar {...defaultProps} />);
+      expect(screen.queryByTestId('gql-tab-subtitle-t1')).toBeNull();
+      expect(screen.queryByTestId('gql-tab-subtitle-t2')).toBeNull();
+    });
+
+    it('uses page default endpoint as title for tab without per-tab override', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          pageDefaultEndpoint="http://127.0.0.1:4041/graphql"
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { endpoint: 'http://127.0.0.1:4042/graphql' }),
+          ]}
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')).toHaveTextContent('127.0.0.1:4041');
+      expect(screen.queryByTestId('gql-tab-subtitle-t1')).toBeNull();
+      expect(screen.getByTestId('gql-tab-t2').querySelector('.gql-tab-label')).toHaveTextContent('127.0.0.1:4042');
+    });
+
+    it('applies stacked layout when subtitle is present', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { label: 'My Query', labelManual: true, endpoint: 'https://api.io/graphql' }),
+          ]}
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-t2').className).toContain('gql-tab--stacked');
+      expect(screen.getByTestId('gql-tab-t1').className).not.toContain('gql-tab--stacked');
+    });
+  });
+
+  describe('Phase 6F — profile-linked tabs', () => {
+    const profiles = [{
+      id: 'prof-staging',
+      name: 'Staging',
+      endpoint: 'https://staging.example/graphql',
+      auth: null,
+      createdAt: 1,
+    }];
+
+    it('uses profile endpoint hostname as title when profile is linked', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          profiles={profiles}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { connectionId: 'prof-staging' }),
+          ]}
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-t2').querySelector('.gql-tab-label')).toHaveTextContent('staging.example');
+      expect(screen.getByTestId('gql-tab-subtitle-t2')).toHaveTextContent('Staging');
+    });
+
+    it('shows profile subtitle when endpoint is title and profile is linked', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          profiles={profiles}
+          tabs={[makeTab('t1'), makeTab('t2', { connectionId: 'prof-staging', endpoint: 'https://staging.example/graphql' })]}
+          activeTabId="t2"
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-t2').querySelector('.gql-tab-label')).toHaveTextContent('staging.example');
+      expect(screen.getByTestId('gql-tab-subtitle-t2')).toHaveTextContent('Staging');
     });
   });
 });

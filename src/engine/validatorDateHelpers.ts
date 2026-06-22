@@ -2,7 +2,7 @@ import type { DateReference } from '../shared/types';
 
 export function resolveDate(ref: DateReference): string {
   if (ref.kind === 'fixed') return ref.iso.slice(0, 10);
-  const now = new Date();
+  const now = new Date(Date.now());
   if (ref.timezone === 'utc') {
     return now.toISOString().slice(0, 10);
   }

@@ -16,6 +16,8 @@ let _lesson11AssertConfigured = false;
 let _lesson11AssertThreshold = '';
 let _lesson11PassRun = false;
 let _lesson11FailRun = false;
+let _lesson11ConsoleOpen = false;
+let _lesson11DebugRun = false;
 
 export function resetGqlLesson11SessionFlags(): void {
   _lesson11Created = false;
@@ -26,6 +28,8 @@ export function resetGqlLesson11SessionFlags(): void {
   _lesson11AssertThreshold = '';
   _lesson11PassRun = false;
   _lesson11FailRun = false;
+  _lesson11ConsoleOpen = false;
+  _lesson11DebugRun = false;
 }
 
 async function dismissWorkflowOnboarding(ctx: DemoActionContext): Promise<void> {
@@ -259,6 +263,34 @@ export async function ensureLesson11WorkflowFailRun(ctx: DemoActionContext): Pro
   await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
   await ctx.delay(800);
   _lesson11FailRun = true;
+}
+
+/** Open the Workflow Console panel before running Quick Test. */
+export async function ensureLesson11ConsoleOpen(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11AssertRuleConfigured(ctx, '500');
+  if (_lesson11ConsoleOpen && document.querySelector(WF.CONSOLE)) return;
+
+  const panel = document.querySelector<HTMLElement>(WF.CONSOLE);
+  if (!panel) {
+    const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
+    if (badge) {
+      badge.click();
+      await ctx.delay(500);
+    }
+  }
+  _lesson11ConsoleOpen = true;
+}
+
+/** Start a step-through Debug run to observe node-by-node execution. */
+export async function ensureLesson11DebugRun(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11WorkflowFailRun(ctx);
+  if (_lesson11DebugRun) return;
+
+  ctx.navigateToTab('workflow');
+  await ctx.delay(400);
+  await ctx.click(WF.DEBUG_BTN);
+  await ctx.delay(1200);
+  _lesson11DebugRun = true;
 }
 
 /** Setup for Lesson 11 — remove stale demo workflow. */

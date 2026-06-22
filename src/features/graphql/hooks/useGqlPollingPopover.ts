@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-const MIN_POLL_SECONDS = 10;
-const MAX_POLL_SECONDS = 3600;
+import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 
 export interface UseGqlPollingPopoverOptions {
   pollingEnabled:        boolean;
@@ -48,7 +46,7 @@ export function useGqlPollingPopover({
   onPollingChangeRef.current = onPollingChange;
 
   const commitPollingInterval = () => {
-    const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSecondsRef.current));
+    const clamped = clampPollingIntervalSeconds(localIntervalSecondsRef.current);
     setLocalIntervalSeconds(clamped);
     onPollingChangeRef.current?.(pollingEnabledRef.current, clamped);
     return clamped;
@@ -58,7 +56,7 @@ export function useGqlPollingPopover({
   const closePollingPopoverViaRef = useRef<() => void>(() => setPollingOpen(false));
   closePollingPopoverViaRef.current = () => {
     if (pollingEnabledRef.current) {
-      const clamped = Math.max(MIN_POLL_SECONDS, Math.min(MAX_POLL_SECONDS, localIntervalSecondsRef.current));
+      const clamped = clampPollingIntervalSeconds(localIntervalSecondsRef.current);
       setLocalIntervalSeconds(clamped);
       onPollingChangeRef.current?.(pollingEnabledRef.current, clamped);
     }

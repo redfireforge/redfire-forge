@@ -8,7 +8,6 @@ import {
   ensureIntrospected,
   fillGqlEditor,
   getDemoUserAId,
-  getEndpointInput,
   getGqlEditorQuery,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
@@ -21,6 +20,7 @@ import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import { resetGqlLesson7SessionFlags } from './lesson7-query-builder';
 import { resetGqlLesson8SessionFlags } from './lesson8-collections-history';
 import { resetGqlLesson9SessionFlags } from './lesson9-export-share';
+import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
 /** Query with `health` only — low complexity baseline for Lesson 10. */
 export const GQL_TRACING_HEALTH_QUERY = GQL_HEALTH_QUERY;
@@ -55,11 +55,11 @@ export function resetGqlLesson10SessionFlags(): void {
   _lesson10HistogramReady = false;
 }
 
-/** Parse the `~N` complexity badge text into a number. */
+/** Parse the `≈N` complexity badge text into a number. */
 export function getComplexityBadgeScore(): number {
   const el = document.querySelector(GQL.COMPLEXITY_BADGE);
   if (!el) return 0;
-  const m = el.textContent?.match(/~?(\d+)/);
+  const m = el.textContent?.match(/[≈~]?(\d+)/);
   return m ? Number.parseInt(m[1], 10) : 0;
 }
 
@@ -156,7 +156,7 @@ export async function ensureLatencyHistogramVisible(ctx: DemoActionContext): Pro
   _lesson10HistogramReady = true;
 }
 
-/** Setup for Lesson 10 — clean slate, seed demo user for `user(id: …)` arg. */
+/** Setup for Lesson 10 (GQL-11) — demo tab; seed demo user for `user(id: …)` arg. */
 export async function gqlPerformanceTracingLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -185,12 +185,7 @@ export async function gqlPerformanceTracingLessonSetup(ctx: DemoActionContext): 
     await ctx.delay(200);
   }
 
-  const input = getEndpointInput();
-  if (input?.value.trim()) {
-    await ctx.fill(GQL.ENDPOINT_INPUT, '');
-    await ctx.delay(200);
-  }
-
+  await ensureGqlDemoTab(ctx, 'gql-performance-tracing', 'Performance Tracing');
   await fillGqlEditor(ctx, '', { focus: false });
   try {
     await seedDemoUsers();
@@ -199,10 +194,9 @@ export async function gqlPerformanceTracingLessonSetup(ctx: DemoActionContext): 
   }
 }
 
-/** Cleanup for Lesson 10. */
+/** Cleanup for Lesson 10 (GQL-11) — close demo tab and reset session flags. */
 export async function gqlPerformanceTracingLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson10SessionFlags();
-  await ensureEditorMode(ctx);
-  await ctx.delay(100);
+  await closeGqlDemoTabs(ctx, 'gql-performance-tracing');
 }
 

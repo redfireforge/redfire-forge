@@ -86,6 +86,19 @@ describe('useSplitPaneResize', () => {
     expect(result.current.width).toBe(900);
   });
 
+  it('applies maxWidthRatio when clamping persisted width', async () => {
+    localStorage.setItem('test-split', '650');
+    const container = makeContainer(1000);
+    const { result } = renderHook(() =>
+      useSplitPaneResize(baseOptions(container, { maxWidthRatio: 0.42 })),
+    );
+    await act(async () => {
+      await tick();
+    });
+    expect(result.current.width).toBe(420);
+    expect(result.current.maxWidth).toBe(420);
+  });
+
   it('ignores a non-numeric persisted value', async () => {
     localStorage.setItem('test-split', 'not-a-number');
     const container = makeContainer(1000);
@@ -145,7 +158,7 @@ describe('useSplitPaneResize', () => {
     expect(result.current.width).toBe(100);
   });
 
-  it('does not clamp the upper bound when there is no container', async () => {
+  it('caps width at defaultWidth before the container is measured', async () => {
     const { result } = renderHook(() =>
       useSplitPaneResize(baseOptions(null)),
     );
@@ -153,9 +166,9 @@ describe('useSplitPaneResize', () => {
       await tick();
     });
     act(() => result.current.dividerProps.onKeyDown(keyEvent('ArrowRight')));
-    expect(result.current.width).toBe(416);
+    expect(result.current.width).toBe(400);
     act(() => result.current.dividerProps.onKeyDown(keyEvent('ArrowRight')));
-    expect(result.current.width).toBe(432);
+    expect(result.current.width).toBe(400);
   });
 
   it('re-clamps the width down when the container shrinks on resize', async () => {

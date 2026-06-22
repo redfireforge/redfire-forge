@@ -290,105 +290,13 @@ export function getVariablesEditorOptions(): MonacoType.editor.IStandaloneEditor
 
 /**
  * Builds a stable Monaco model URI for a given operation tab.
- * Pattern: "inmemory://graphql/<tabId>"
- *
- * Using the `path` prop of @monaco-editor/react with this URI ensures
- * each tab keeps its own independent model with its own undo history.
+ * Re-exported from graphqlQueryParseUtils (no Monaco side effects).
  */
-export function buildModelUri(tabId: string): string {
-  return `inmemory://graphql/${tabId}`;
-}
-
-/**
- * Builds a stable Monaco model URI for a tab's variables JSON editor.
- * Pattern: "inmemory://graphql-vars/<tabId>"
- */
-export function buildVarsModelUri(tabId: string): string {
-  return `inmemory://graphql-vars/${tabId}`;
-}
-
-// ─── Operation Name Extraction ───────────────────────────────────────────────
-
-// Intentionally uses regex rather than graphql.parse() for keystroke-level
-// robustness: graphql.parse() throws on any syntax error, which would break
-// tab-label and operation-type derivation every time the user is mid-edit.
-// The regex approach safely extracts operations from partial/malformed queries.
-
-export interface ExtractedOperation {
-  name: string;
-  type: 'query' | 'mutation' | 'subscription';
-}
-
-/**
- * Extracts named operations from a GraphQL document string using regex.
- * Returns an empty array for anonymous operations.
- *
- * Matches both PascalCase and camelCase operation names, which are both
- * valid per the GraphQL specification: `query GetUser`, `mutation createPost`.
- * The name must start with a letter or underscore (not a digit).
- *
- * This is a best-effort parser — it handles normal operation definitions but
- * does not handle edge cases (operations inside comments, multi-line edge cases).
- * Replace with graphql.parse() in Phase 1B.
- *
- * NOTE: The regex is created fresh on each call (not module-scoped) to avoid
- * the stateful lastIndex race condition that occurs in React Strict Mode where
- * render functions may execute multiple times concurrently.
- */
-export function extractOperations(query: string): ExtractedOperation[] {
-  if (!query.trim()) return [];
-  const ops: ExtractedOperation[] = [];
-  const stripped = query.replace(/#[^\n]*/g, '').replace(/"""[\s\S]*?"""/g, '');
-  // Fresh regex instance per call — no shared lastIndex state.
-  // Operation names may start with any letter (upper or lower) or underscore.
-  const pattern = /(?:^|\s)(query|mutation|subscription)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(stripped)) !== null) {
-    ops.push({
-      type: match[1] as 'query' | 'mutation' | 'subscription',
-      name: match[2],
-    });
-  }
-  return ops;
-}
-
-/**
- * Derives the display label for a tab from its query text.
- * Returns the first operation name, or "Untitled" for anonymous operations.
- */
-export function deriveTabLabel(query: string): string {
-  const ops = extractOperations(query);
-  return ops.length > 0 ? ops[0].name : 'Untitled';
-}
-
-/**
- * Derives the primary operation type from the query text.
- *
- * Handles three forms:
- *   1. Named:     "query MyOp { ... }"  → 'query'
- *   2. Anonymous: "query { ... }"       → 'query'
- *   3. Shorthand: "{ ... }"             → 'query' (implicit query)
- *
- * Returns undefined only when the text is empty or cannot be classified.
- */
-export function deriveOperationType(
-  query: string,
-): 'query' | 'mutation' | 'subscription' | undefined {
-  // First try named operations (most specific)
-  const ops = extractOperations(query);
-  if (ops.length > 0) return ops[0].type;
-
-  // Fall back to anonymous / shorthand detection
-  const stripped = query.replace(/#[^\n]*/g, '').trim();
-  if (!stripped) return undefined;
-
-  // Shorthand query: document starts directly with "{"
-  if (stripped.startsWith('{')) return 'query';
-
-  // Anonymous operation: "query { ... }" / "mutation { ... }" / "subscription { ... }"
-  // Also handles "query(...) { ... }" (operation with variable definitions but no name)
-  const anonMatch = /^(query|mutation|subscription)\s*[({]/.exec(stripped);
-  if (anonMatch) return anonMatch[1] as 'query' | 'mutation' | 'subscription';
-
-  return undefined;
-}
+export {
+  buildModelUri,
+  buildVarsModelUri,
+  extractOperations,
+  deriveTabLabel,
+  deriveOperationType,
+} from './graphqlQueryParseUtils';
+export type { ExtractedOperation } from './graphqlQueryParseUtils';

@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql3'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
 import { gqlSchemaLesson } from './graphql-schema-exploration';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '../../../../shared/selectors';
 import {
@@ -36,8 +43,9 @@ describe('gql-schema-exploration lesson', () => {
     expect(gqlSchemaLesson.id).toBe('gql-schema-exploration');
     expect(gqlSchemaLesson.category).toBe('graphql');
     expect(gqlSchemaLesson.name).toBe('Schema Exploration');
-    expect(gqlSchemaLesson.steps.length).toBe(7);
-    expect(gqlSchemaLesson.estimatedMinutes).toBe(3);
+    expect(gqlSchemaLesson.steps.length).toBe(9);
+    expect(gqlSchemaLesson.estimatedMinutes).toBe(4);
+    expect(gqlSchemaLesson.tabBudget).toBe(1);
   });
 
   it('has correct step IDs in order', () => {
@@ -48,20 +56,55 @@ describe('gql-schema-exploration lesson', () => {
       'gql4-browse',
       'gql4-search',
       'gql4-try-insert',
+      'gql4-exec-inserted',
+      'gql4-read-inserted',
       'gql4-sdl-export',
     ]);
   });
 
-  it('all 7 steps have pauseAfter: true', () => {
+  it('all 9 steps have pauseAfter: true', () => {
     gqlSchemaLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–7 have preAction guards', () => {
+  it('stateful steps 2–9 have preAction guards', () => {
     gqlSchemaLesson.steps.slice(1).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
+  });
+
+  it('concept diagram matches 700×430 studio chrome standard', () => {
+    expect(gqlSchemaLesson.concept.diagram).toContain('viewBox="0 0 700 430"');
+  });
+
+  it('concept diagram renders Schema Explorer chrome with type list and field table', () => {
+    const diagram = gqlSchemaLesson.concept.diagram ?? '';
+    expect(diagram).toContain('Schema Explorer');
+    expect(diagram).toContain('Type Browser');
+    expect(diagram).toContain('Field Table');
+    expect(diagram).toContain('Try →');
+    expect(diagram).toContain('SDL Tab');
+  });
+
+  it('concept diagram includes all four numbered capability callouts', () => {
+    const diagram = gqlSchemaLesson.concept.diagram ?? '';
+    expect(diagram).toContain('①');
+    expect(diagram).toContain('②');
+    expect(diagram).toContain('③');
+    expect(diagram).toContain('④');
+  });
+
+  it('concept body references Your First GraphQL Query (not a legacy card number)', () => {
+    expect(gqlSchemaLesson.concept.body).toContain('Your First GraphQL Query');
+  });
+
+  it('concept body covers all four Schema Explorer capabilities', () => {
+    const body = gqlSchemaLesson.concept.body;
+    expect(body).toContain('Type browser');
+    expect(body).toContain('Field table');
+    expect(body).toContain('Try →');
+    expect(body).toContain('SDL tab + Export');
   });
 
   it('step gql4-intro highlights schema tab', () => {
@@ -109,7 +152,7 @@ describe('gql-schema-exploration lesson', () => {
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-browse')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_QUERY, 8000);
   });
 
   it('step gql4-search preAction ensures Query type selected', async () => {
@@ -128,6 +171,68 @@ describe('gql-schema-exploration lesson', () => {
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_USER);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_QUERY);
+  });
+
+  it('step gql4-exec-inserted highlights execute button', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-exec-inserted')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
+  });
+
+  it('step gql4-exec-inserted action switches to response tab and executes', async () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-exec-inserted')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);
+  });
+
+  it('step gql4-exec-inserted preAction ensures try-insert state', async () => {
+    stubSchemaExplorerDom();
+    stubMonacoEditor('query { health }');
+    markTryInsertDone();
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-exec-inserted')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('step gql4-read-inserted highlights response body', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
+    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
+    expect(step.verify).toBe(GQL.RESPONSE_BODY);
+  });
+
+  it('step gql4-read-inserted preAction fires execute when response absent', async () => {
+    stubSchemaExplorerDom();
+    stubMonacoEditor('query { health }');
+    markTryInsertDone();
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('step gql4-read-inserted preAction skips execute when response body present', async () => {
+    stubSchemaExplorerDom();
+    stubMonacoEditor('query { health }');
+    markTryInsertDone();
+    document.body.insertAdjacentHTML('beforeend', '<pre data-testid="gql-response-body">ok</pre>');
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('step gql4-read-inserted action switches to response tab', async () => {
+    stubSchemaExplorerDom();
+    stubMonacoEditor('query { health }');
+    markTryInsertDone();
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 
   it('step gql4-sdl-export preAction ensures try insert done', async () => {
@@ -200,6 +305,11 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.INSERT_FIELD_TOAST, 5000);
   });
 
+  it('step gql4-sdl-export highlights SDL tab (description narrates SDL content first)', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
+    expect(step.highlight).toBe(GQL.SCHEMA_SDL_TAB);
+  });
+
   it('step gql4-sdl-export opens SDL tab and clicks export', async () => {
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
     const ctx = makeCtx();
@@ -208,10 +318,33 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.SNAPSHOT_BTN);
   });
 
-  it('gqlSchemaLessonCleanup resets session flags', async () => {
+  it('step descriptions contain WHY framing (educational depth matches GQL-1/GQL-2 standard)', () => {
+    const introStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-intro')!;
+    expect(introStep.description).toContain('production API');
+    const searchStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-search')!;
+    expect(searchStep.description).toContain('indispensable');
+    const tryStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-try-insert')!;
+    expect(tryStep.description).toContain('valuable');
+    const execStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-exec-inserted')!;
+    expect(execStep.description).toContain('Try →');
+    const readStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
+    expect(readStep.description).toContain('browse');
+    const sdlStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
+    expect(sdlStep.description).toContain('git diff');
+  });
+
+  it('step gql4-browse action opens schema tab then selects Query type', async () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-browse')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SCHEMA_TYPE_QUERY);
+  });
+
+  it('gqlSchemaLessonCleanup closes demo tab and resets session flags', async () => {
     const ctx = makeCtx();
     await gqlSchemaLessonCleanup(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-schema-exploration');
   });
 
   it('markTryInsertDone sets try insert session flag', async () => {
@@ -223,7 +356,7 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.TRY_FIELD_HEALTH);
   });
 
-  it('setup clears endpoint and sets insert template query', async () => {
+  it('setup creates demo tab and sets insert template query', async () => {
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://old" />
       <button data-testid="gql-mode-editor" class="gql-mode-btn gql-mode-btn--active"></button>
@@ -240,7 +373,8 @@ describe('gql-schema-exploration lesson', () => {
     };
     const ctx = makeCtx();
     await gqlSchemaLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-schema-exploration', 'Schema Exploration');
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
     expect(setValue).toHaveBeenCalledWith(GQL_INSERT_TEMPLATE_QUERY);
   });
 });
@@ -367,10 +501,10 @@ describe('gql schema selector helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(gqlSchemaTypeSelector('User'));
   });
 
-  it('gqlSchemaLessonCleanup resets flags and delays', async () => {
+  it('gqlSchemaLessonCleanup closes demo tab', async () => {
     const ctx = makeCtx();
     await gqlSchemaLessonCleanup(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-schema-exploration');
   });
 
   it('ensureTryInsertDone clicks try button when health field missing', async () => {
