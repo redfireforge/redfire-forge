@@ -161,6 +161,32 @@ describe('GraphqlResponseViewer', () => {
     expect(screen.getByTestId('gql-rv-request-header-val-Authorization').textContent).toBe('Bearer lesson6-demo-jwt');
   });
 
+  it('renders auth-sent row in metadata tab when stamped on response', () => {
+    const response = makeResponse({
+      authSentSource: 'page',
+      authSentLines: ['Authorization: Bearer page-sess-••••'],
+      requestHeaders: { Authorization: 'Bearer page-session-token' },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    const row = screen.getByTestId('gql-rv-auth-sent');
+    expect(row.textContent).toContain('Authentication sent');
+    expect(row.textContent).toContain('Authorization: Bearer page-sess-••••');
+    expect(row.textContent).toContain('from page default');
+  });
+
+  it('shows muted no-auth message when authSentSource is set but lines are empty', () => {
+    const response = makeResponse({
+      authSentSource: 'tab',
+      authSentLines: [],
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    const row = screen.getByTestId('gql-rv-auth-sent');
+    expect(row.textContent).toContain('No authentication headers were sent');
+    expect(row.textContent).toContain('tab override');
+  });
+
   it('shows header badge count on headers tab', () => {
     const response = makeResponse({ httpHeaders: { 'x-a': '1', 'x-b': '2' } });
     render(<GraphqlResponseViewer response={response} />);

@@ -24,6 +24,7 @@ import {
   closeDemoWorkspace,
   countUserTabsInStorage,
   dispatchGqlTabsReload,
+  dispatchGqlPageAuthReload,
   filterTabsForPersistence,
   isGraphqlStudioLesson,
   loadDemoSession,
@@ -33,8 +34,9 @@ import {
   userTabsToCloseForLesson,
   DEMO_SESSION_KEY,
   GQL_TABS_RELOAD_EVENT,
+  GQL_PAGE_AUTH_RELOAD_EVENT,
 } from './gqlDemoWorkspace';
-import { STORAGE_KEY, makeBlankTab, makeDemoTab } from './tabPersistence';
+import { STORAGE_KEY, AUTH_STORAGE_KEY, DEMO_PRIOR_PAGE_AUTH_KEY, makeBlankTab, makeDemoTab } from './tabPersistence';
 
 const mockReadKey = vi.mocked(readKey);
 const mockWriteKey = vi.mocked(writeKey);
@@ -63,6 +65,14 @@ describe('gqlDemoWorkspace', () => {
     window.removeEventListener(GQL_TABS_RELOAD_EVENT, handler);
   });
 
+  it('dispatchGqlPageAuthReload fires a custom event', () => {
+    const handler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+    dispatchGqlPageAuthReload();
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+  });
+
   it('prepareDemoWorkspace appends a demo tab and saves session', async () => {
     const user = makeBlankTab();
     user.label = 'My Query';
@@ -75,6 +85,13 @@ describe('gqlDemoWorkspace', () => {
     expect(mockWriteKey).toHaveBeenCalledWith(
       DEMO_SESSION_KEY,
       expect.stringContaining('"lessonId":"gql-first-query"'),
+    );
+    const sessionWrite = mockWriteKey.mock.calls.find(([k]) => k === DEMO_SESSION_KEY);
+    const session = JSON.parse(sessionWrite![1] as string) as { priorPageAuth?: { stored: boolean } };
+    expect(session.priorPageAuth).toEqual({ stored: false });
+    expect(mockWriteKey).toHaveBeenCalledWith(
+      DEMO_PRIOR_PAGE_AUTH_KEY,
+      JSON.stringify({ stored: false }),
     );
     const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
     expect(tabsWrite).toBeTruthy();
@@ -111,6 +128,7 @@ describe('gqlDemoWorkspace', () => {
 
     await closeDemoWorkspace('gql-first-query');
     expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_SESSION_KEY);
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
     const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
     const savedTabs = JSON.parse(tabsWrite![1] as string) as { id: string }[];
     expect(savedTabs).toHaveLength(1);
@@ -130,6 +148,66 @@ describe('gqlDemoWorkspace', () => {
 
     const purged = await purgeOrphanDemoTabs();
     expect(purged).toBe(true);
+  });
+
+  it('purgeOrphanDemoTabs restores page auth from backup when session is missing', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('orphan', 'Demo: Orphan');
+    const priorAuth = JSON.stringify({ type: 'inherit', globalProfileId: 'prof-1' });
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) return null;
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === AUTH_STORAGE_KEY) return JSON.stringify({ type: 'bearer', token: 'lesson-pollution' });
+      if (key === DEMO_PRIOR_PAGE_AUTH_KEY) {
+        return JSON.stringify({
+          stored: true,
+          auth: { type: 'inherit', globalProfileId: 'prof-1' },
+        });
+      }
+      return null;
+    });
+
+    const authHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+
+    const purged = await purgeOrphanDemoTabs();
+    expect(purged).toBe(true);
+    expect(mockWriteKey).toHaveBeenCalledWith(AUTH_STORAGE_KEY, priorAuth);
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
+    expect(authHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+  });
+
+  it('loadDemoSession parses stored session and normalizes priorPageAuth', async () => {
+    mockReadKey.mockResolvedValue(
+      JSON.stringify({
+        lessonId: 'gql-first-query',
+        priorActiveTabId: 'a',
+        demoTabId: 'b',
+        priorPageAuth: { stored: true, auth: { type: 'inherit', globalProfileId: 'prof-1' } },
+      }),
+    );
+    const session = await loadDemoSession();
+    expect(session?.lessonId).toBe('gql-first-query');
+    expect(session?.priorPageAuth).toEqual({
+      stored: true,
+      auth: { type: 'inherit', globalProfileId: 'prof-1' },
+    });
+  });
+
+  it('loadDemoSession drops corrupt priorPageAuth', async () => {
+    mockReadKey.mockResolvedValue(
+      JSON.stringify({
+        lessonId: 'gql-first-query',
+        priorActiveTabId: 'a',
+        demoTabId: 'b',
+        priorPageAuth: { stored: true, auth: { type: 'not-a-real-type' } },
+      }),
+    );
+    const session = await loadDemoSession();
+    expect(session?.priorPageAuth).toBeUndefined();
   });
 
   it('loadDemoSession parses stored session', async () => {
@@ -279,6 +357,9 @@ describe('gqlDemoWorkspace', () => {
 
     await closeDemoWorkspace('gql-other-lesson');
     expect(mockRemoveKey).not.toHaveBeenCalledWith(DEMO_SESSION_KEY);
+    expect(mockWriteKey).not.toHaveBeenCalledWith(AUTH_STORAGE_KEY, expect.anything());
+    expect(mockRemoveKey).not.toHaveBeenCalledWith(AUTH_STORAGE_KEY);
+    expect(mockRemoveKey).not.toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
   });
 
   it('closeDemoWorkspace swallows persistence errors', async () => {
@@ -322,6 +403,138 @@ describe('gqlDemoWorkspace', () => {
 
   it('userTabsToCloseForLesson clamps tabBudget below 1 to 1', () => {
     expect(userTabsToCloseForLesson(8, 0)).toBe(1);
+  });
+
+  it('closeDemoWorkspace restores page auth snapshot and dispatches reload event', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-auth-headers', 'Demo: Auth');
+    const priorAuth = JSON.stringify({ type: 'inherit', globalProfileId: 'prof-1' });
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-auth-headers',
+          priorActiveTabId: user.id,
+          demoTabId: demo.id,
+          priorPageAuth: { stored: true, auth: { type: 'inherit', globalProfileId: 'prof-1' } },
+        });
+      }
+      if (key === STORAGE_KEY) {
+        return JSON.stringify([user, { ...demo, auth: { type: 'bearer', token: 'lesson' } }]);
+      }
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === AUTH_STORAGE_KEY) return JSON.stringify({ type: 'bearer', token: 'lesson-pollution' });
+      return null;
+    });
+
+    const authHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+
+    await closeDemoWorkspace('gql-auth-headers');
+
+    expect(mockWriteKey).toHaveBeenCalledWith(AUTH_STORAGE_KEY, priorAuth);
+    expect(authHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+  });
+
+  it('closeDemoWorkspace clears page auth when snapshot was stored:false', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-auth-headers', 'Demo: Auth');
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-auth-headers',
+          priorActiveTabId: user.id,
+          demoTabId: demo.id,
+          priorPageAuth: { stored: false },
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === AUTH_STORAGE_KEY) return JSON.stringify({ type: 'bearer', token: 'lesson' });
+      return null;
+    });
+
+    const authHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+
+    await closeDemoWorkspace('gql-auth-headers');
+
+    expect(mockRemoveKey).toHaveBeenCalledWith(AUTH_STORAGE_KEY);
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
+    expect(authHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+  });
+
+  it('closeDemoWorkspace restores page auth from backup when session is missing', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-auth-headers', 'Demo: Auth');
+    const priorAuth = JSON.stringify({ type: 'bearer', token: 'pre-lesson' });
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) return null;
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === AUTH_STORAGE_KEY) return JSON.stringify({ type: 'bearer', token: 'lesson-pollution' });
+      if (key === DEMO_PRIOR_PAGE_AUTH_KEY) {
+        return JSON.stringify({ stored: true, auth: { type: 'bearer', token: 'pre-lesson' } });
+      }
+      return null;
+    });
+
+    const authHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+
+    await closeDemoWorkspace('gql-auth-headers');
+
+    expect(mockWriteKey).toHaveBeenCalledWith(AUTH_STORAGE_KEY, priorAuth);
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
+    expect(authHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+  });
+
+  it('prepareDemoWorkspace restores prior page auth when switching lessons without cleanup', async () => {
+    const user = makeBlankTab();
+    seedTabs([user], user.id);
+    const priorAuth = JSON.stringify({ type: 'bearer', token: 'pre-lesson-a' });
+    let authStorage: string | null = JSON.stringify({ type: 'bearer', token: 'lesson-a-pollution' });
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-auth-headers',
+          priorActiveTabId: user.id,
+          demoTabId: 'old-demo',
+          priorPageAuth: { stored: true, auth: { type: 'bearer', token: 'pre-lesson-a' } },
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user]);
+      if (key === `${STORAGE_KEY}_active`) return user.id;
+      if (key === AUTH_STORAGE_KEY) return authStorage;
+      return null;
+    });
+    mockWriteKey.mockImplementation(async (key: string, value: string) => {
+      if (key === AUTH_STORAGE_KEY) authStorage = value;
+    });
+
+    const authHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+
+    const result = await prepareDemoWorkspace('gql-multi-tab', 'Demo: Multi-Tab', 2);
+    expect(result.ok).toBe(true);
+
+    expect(mockWriteKey).toHaveBeenCalledWith(AUTH_STORAGE_KEY, priorAuth);
+    expect(authHandler).toHaveBeenCalled();
+
+    const sessionWrite = mockWriteKey.mock.calls.find(([k]) => k === DEMO_SESSION_KEY);
+    const session = JSON.parse(sessionWrite![1] as string) as {
+      lessonId: string;
+      priorPageAuth: { stored: boolean; auth: { token: string } };
+    };
+    expect(session.lessonId).toBe('gql-multi-tab');
+    expect(session.priorPageAuth.auth.token).toBe('pre-lesson-a');
+
+    window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
   });
 
   it('closeDemoWorkspace removes all demo tabs for a multi-tab lesson', async () => {

@@ -354,28 +354,28 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         if (signal.aborted) return;
       }
 
-      // Phase 2: spotlight (retry-based)
-      setStepPhase('spotlight');
-      if (step.highlight) {
-        await waitForElement(step.highlight, 2000, signal);
-        if (signal.aborted) return;
-        // Find the visible element (same multi-tab logic as DemoSpotlight/waitForElement)
-        const allHighlight = document.querySelectorAll(step.highlight);
-        const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await abortableSleep(400, signal); // scroll settle
-        if (signal.aborted) return;
-      }
-
-      // Phase 3: reading pause (auto-calculated from word count)
-      // — user can click the "👀 Reading" badge to skip this wait.
+      // Phase 2+3: spotlight target + reading pause run together so the
+      // "Reading — click to skip" badge is visible during both waits.
       setStepPhase('reading');
       const readTime = (typeof step.pauseAfter === 'number') ? step.pauseAfter : calcReadingTime(step);
-      await new Promise<void>(resolve => {
+
+      const readingPause = new Promise<void>((resolve) => {
         skipReadingRef.current = resolve;
         const timer = setTimeout(resolve, scaleMs(readTime));
         signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
       });
+
+      const spotlightWork = (async () => {
+        if (!step.highlight) return;
+        await waitForElement(step.highlight, 2000, signal);
+        if (signal.aborted) return;
+        const allHighlight = document.querySelectorAll(step.highlight);
+        const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await abortableSleep(400, signal);
+      })();
+
+      await Promise.all([readingPause, spotlightWork]);
       skipReadingRef.current = null;
       if (signal.aborted) return;
 

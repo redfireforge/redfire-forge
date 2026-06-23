@@ -480,7 +480,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | SASL / broker auth | N/A | ✅ `kafka-secure` (PLAIN, SCRAM-256, SCRAM-512) | N/A |
 | Subscription auth over WebSocket | ✅ `ws-auth-transport` | N/A | **❌ GQL-7 Subscriptions has no auth step** — Phase 2 adds cross-ref in GQL-4 Auth |
 | Security-specific Docker stack | ✅ `docker/websocket/` (TLS + mTLS) | ✅ `docker/kafka/secure/` + `docker/kafka/tls/` | ✅ `docker/graphql/tls/` (TLS + mTLS proxies, certs generated) |
-| Auth profile hint in Studio UI | N/A | N/A | ✅ Phase 6F polish — `GraphqlAuthPopover` shows linked profile name |
+| Auth profile hint in Studio UI | N/A | N/A | ✅ Phase 6F polish — bottom Auth panel shows linked profile name |
 
 ### 4.2 Verdict
 

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
 
@@ -298,12 +298,22 @@ describe('GraphqlSchemaExplorer — loaded state', () => {
   });
 });
 
+function changelogRowByLabel(label: string): HTMLElement {
+  const rows = screen.getAllByTestId('gql-changelog-row');
+  const row = rows.find((r) => r.querySelector('.gql-changelog-row-label')?.textContent === label);
+  if (!row) throw new Error(`Changelog row not found for label: ${label}`);
+  return row;
+}
+
 describe('GraphqlSchemaExplorer — Changelog tab', () => {
   const schemaInfo = makeSchemaInfo([makeType('Query')]);
   const snap1 = { id: 'snap-1', label: 'v1.0', sdl: 'type Query { hello: String }', capturedAt: Date.now() - 10000, typesCount: 5 };
   const snap2 = { id: 'snap-2', label: 'v2.0', sdl: 'type Query { world: String }', capturedAt: Date.now(), typesCount: 6 };
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  });
 
   it('shows empty state when no snapshots exist', () => {
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" />);
@@ -326,6 +336,36 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
     expect(screen.getByTestId('gql-changelog-diff-btn')).toBeTruthy();
+    expect(screen.getByText('View diff')).toBeTruthy();
+  });
+
+  it('shows changelog toolbar with snapshot count', () => {
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    expect(screen.getByText('Schema snapshots')).toBeTruthy();
+    expect(screen.getByText('2 saved')).toBeTruthy();
+  });
+
+  it('sorts changelog rows newest first', () => {
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    const rows = screen.getAllByTestId('gql-changelog-row');
+    expect(within(rows[0]).getByText('v2.0')).toBeTruthy();
+    expect(within(rows[1]).getByText('v1.0')).toBeTruthy();
+  });
+
+  it('selects a snapshot row when clicked', () => {
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    const rows = screen.getAllByTestId('gql-changelog-row');
+    fireEvent.click(rows[1]);
+    expect(rows[1].className).toContain('gql-changelog-row--selected');
   });
 
   it('calls onOpenDiff when diff button is clicked', () => {
@@ -372,14 +412,35 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
     expect(onDelete).toHaveBeenCalledWith('snap-1');
   });
 
+  it('shows per-row delete buttons', () => {
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} onDeleteSnapshot={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    expect(screen.getAllByTestId('gql-changelog-row-delete-btn')).toHaveLength(2);
+  });
+
+  it('calls onClearOlderSnapshots from toolbar button', async () => {
+    const onClearOlder = vi.fn().mockResolvedValue(1);
+    render(
+      <GraphqlSchemaExplorer
+        schemaInfo={schemaInfo}
+        status="loaded"
+        snapshots={[snap1, snap2]}
+        onClearOlderSnapshots={onClearOlder}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    fireEvent.click(screen.getByTestId('gql-changelog-clear-older-btn'));
+    await vi.waitFor(() => expect(onClearOlder).toHaveBeenCalledWith(1));
+  });
+
   it('renders compare-against selector with other snapshot options', () => {
     render(
       <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />,
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    const selects = screen.getAllByTestId('gql-changelog-compare-select');
-    // The first select (for snap1) should have snap2 as option
-    expect(selects[0]).toBeTruthy();
+    expect(screen.getByTestId('gql-changelog-compare-select')).toBeTruthy();
   });
 
   it('calls onOpenDiff with compareToId when a compare target is selected', () => {
@@ -393,15 +454,14 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    const selects = screen.getAllByTestId('gql-changelog-compare-select');
-    // Select snap2 as compare target for snap1
-    fireEvent.change(selects[0], { target: { value: 'snap-2' } });
-    const diffBtns = screen.getAllByTestId('gql-changelog-diff-btn');
-    fireEvent.click(diffBtns[0]);
+    fireEvent.click(changelogRowByLabel('v1.0'));
+    const select = screen.getByTestId('gql-changelog-compare-select');
+    fireEvent.change(select, { target: { value: 'snap-2' } });
+    fireEvent.click(screen.getByTestId('gql-changelog-diff-btn'));
     expect(onOpenDiff).toHaveBeenCalledWith(snap1, 'snap-2');
   });
 
-  it('purges compareTargets when a referenced snapshot is deleted (lines 501-511)', () => {
+  it('purges compare target when a referenced snapshot is deleted', () => {
     const onOpenDiff = vi.fn();
     const onDelete = vi.fn();
     const { rerender } = render(
@@ -414,10 +474,8 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    // Set snap2 as compare target for snap1
-    const selects = screen.getAllByTestId('gql-changelog-compare-select');
-    fireEvent.change(selects[0], { target: { value: 'snap-2' } });
-    // Now rerender with snap2 removed (simulates deletion)
+    fireEvent.click(changelogRowByLabel('v1.0'));
+    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 'snap-2' } });
     rerender(
       <GraphqlSchemaExplorer
         schemaInfo={schemaInfo}
@@ -427,10 +485,37 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
         onDeleteSnapshot={onDelete}
       />,
     );
-    // After snap2 is removed, compareTargets should be purged → diff btn should call with undefined
-    const diffBtns = screen.getAllByTestId('gql-changelog-diff-btn');
-    fireEvent.click(diffBtns[0]);
+    fireEvent.click(screen.getByTestId('gql-changelog-diff-btn'));
     expect(onOpenDiff).toHaveBeenCalledWith(snap1, undefined);
+  });
+
+  it('caps changelog tab badge at 9+ when many snapshots exist', () => {
+    const many = Array.from({ length: 19 }, (_, i) => ({
+      id: `snap-${i}`,
+      label: `v${i}`,
+      sdl: 'type Query { hello: String }',
+      capturedAt: Date.now() - i * 1000,
+      typesCount: 1,
+    }));
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={many} />,
+    );
+    expect(screen.getByTestId('gql-se-tab-changelog').textContent).toContain('9+');
+  });
+
+  it('shows show-more control when more than 8 snapshots', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      id: `snap-${i}`,
+      label: `v${i}`,
+      sdl: 'type Query { hello: String }',
+      capturedAt: Date.now() - i * 1000,
+      typesCount: 1,
+    }));
+    render(
+      <GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={many} />,
+    );
+    fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
+    expect(screen.getByTestId('gql-changelog-show-more')).toBeTruthy();
   });
 });
 
@@ -712,14 +797,14 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     const snap = { id: 's1', label: 'My Label', sdl: 'type Q { q: String }', capturedAt: Date.now(), typesCount: 1, connectionId: 'c1' };
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap]} />);
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    expect(screen.getByText('My Label')).toBeTruthy();
+    expect(within(screen.getByTestId('gql-changelog-row')).getByText('My Label')).toBeTruthy();
   });
 
-  it('shows date string in changelog row when label is undefined (covers snap.label ?? "Snapshot")', () => {
+  it('shows time-based title in changelog row when label is undefined', () => {
     const snap = { id: 's1', label: undefined, sdl: 'type Q { q: String }', capturedAt: Date.now(), typesCount: 1, connectionId: 'c1' };
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap as never]} />);
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    expect(screen.getByText('Snapshot')).toBeTruthy();
+    expect(screen.getByTestId('gql-changelog-row').textContent).toMatch(/\d/);
   });
 
   // L558[1]: s.label shown in comparison options
@@ -728,9 +813,7 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     const snap2 = { id: 's2', label: 'v2', sdl: 'type Q { b: String }', capturedAt: Date.now(), typesCount: 1, connectionId: 'c1' };
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />);
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    // Both snaps should have compare selects
-    const selects = screen.getAllByTestId('gql-changelog-compare-select');
-    expect(selects.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('gql-changelog-compare-select')).toBeTruthy();
   });
 
   // L566[1]: diff with compareToId set
@@ -739,11 +822,9 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     const snap2 = { id: 's2', label: 'v2', sdl: 'type Q { b: String }', capturedAt: Date.now(), typesCount: 1, connectionId: 'c1' };
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" snapshots={[snap1, snap2]} />);
     fireEvent.click(screen.getByTestId('gql-se-tab-changelog'));
-    const selects = screen.getAllByTestId('gql-changelog-compare-select');
-    // Select snap2 as compareToId for snap1
-    fireEvent.change(selects[0], { target: { value: 's2' } });
-    const diffBtns = screen.getAllByTestId('gql-changelog-diff-btn');
-    expect(diffBtns[0].getAttribute('title')).toContain('Compare two snapshots');
+    fireEvent.click(changelogRowByLabel('v1'));
+    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 's2' } });
+    expect(screen.getByTestId('gql-changelog-diff-btn').getAttribute('title')).toContain('Compare two snapshots');
   });
 
   // L262[1]: changelog currentSdl ?? '' when schemaInfo.sdl is undefined

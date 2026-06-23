@@ -76,6 +76,7 @@ interface GqlRightPaneProps {
   snapshots?: GraphqlSchemaSnapshot[];
   onSaveSnapshot?: () => Promise<void>;
   onDeleteSnapshot?: (id: string) => void;
+  onClearOlderSnapshots?: (keepCount?: number) => Promise<number>;
   onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
   // 3D-7: deprecated field usages
   deprecatedUsages?: DeprecatedFieldUsage[];
@@ -99,6 +100,7 @@ export function GqlRightPane({
   snapshots,
   onSaveSnapshot,
   onDeleteSnapshot,
+  onClearOlderSnapshots,
   onOpenDiff,
   deprecatedUsages,
   onOpenCollectionItem,
@@ -282,6 +284,7 @@ export function GqlRightPane({
             snapshots={snapshots}
             onSaveSnapshot={onSaveSnapshot}
             onDeleteSnapshot={onDeleteSnapshot}
+            onClearOlderSnapshots={onClearOlderSnapshots}
             onOpenDiff={onOpenDiff}
             deprecatedUsages={deprecatedUsages ?? []}
             onOpenCollectionItem={onOpenCollectionItem}

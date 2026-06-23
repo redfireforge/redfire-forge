@@ -3,11 +3,17 @@ import type { GraphqlAuth } from '../../../shared/types/graphql';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 
+/** True when auth stores inherit from Environment Manager catalog (not bare inherit workspace). */
+export function isInheritGlobalAuth(auth: GraphqlAuth | null): boolean {
+  return auth?.type === 'inherit' && Boolean(auth.globalProfileId?.trim());
+}
+
 export interface UseGqlTabConnectionHandlersParams {
   tabsLength: number;
   hasActiveTabEndpointOverride: boolean;
   hasActiveTabProfileLink: boolean;
-  /** When true, auth edits unlink connectionId (any tab with connectionId set). */
+  hasActiveTabAuthOverride: boolean;
+  /** When true, auth edits may unlink connectionId (explicit override — not inherit-global). */
   hasActiveTabConnectionId: boolean;
   hasActiveTabSkipTlsOverride: boolean;
   hasActiveTabTlsCertOverride: boolean;
@@ -21,7 +27,7 @@ export interface UseGqlTabConnectionHandlersParams {
   handlePollingChange: (enabled: boolean, intervalSeconds: number) => void;
   updateActiveTabPolling: (enabled: boolean, intervalSeconds: number) => void;
   handleAuthChange: (newAuth: GraphqlAuth | null) => void;
-  clearActiveTabProfileLink: () => void;
+  updateActiveTabAuth: (newAuth: GraphqlAuth | null, options?: { clearProfileLink?: boolean }) => void;
 }
 
 export interface UseGqlTabConnectionHandlersResult {
@@ -40,6 +46,7 @@ export function useGqlTabConnectionHandlers({
   tabsLength,
   hasActiveTabEndpointOverride,
   hasActiveTabProfileLink,
+  hasActiveTabAuthOverride,
   hasActiveTabConnectionId,
   hasActiveTabSkipTlsOverride,
   hasActiveTabTlsCertOverride,
@@ -53,13 +60,16 @@ export function useGqlTabConnectionHandlers({
   handlePollingChange,
   updateActiveTabPolling,
   handleAuthChange,
-  clearActiveTabProfileLink,
+  updateActiveTabAuth,
 }: UseGqlTabConnectionHandlersParams): UseGqlTabConnectionHandlersResult {
   const usesPageDefaultConnection =
     tabsLength === 1 && !hasActiveTabEndpointOverride && !hasActiveTabProfileLink;
 
   const usesPageDefaultPolling =
     tabsLength === 1 && !hasActiveTabPollingOverride;
+
+  const usesPageDefaultAuth =
+    tabsLength === 1 && !hasActiveTabAuthOverride && !hasActiveTabProfileLink;
 
   const handleConnectionEndpointChange = useCallback(
     (url: string) => {
@@ -118,10 +128,20 @@ export function useGqlTabConnectionHandlers({
     ),
     handleConnectionAuthChange: useCallback(
       (newAuth: GraphqlAuth | null) => {
-        if (hasActiveTabConnectionId) clearActiveTabProfileLink();
-        handleAuthChange(newAuth);
+        if (usesPageDefaultAuth) {
+          handleAuthChange(newAuth);
+          return;
+        }
+        updateActiveTabAuth(newAuth, {
+          clearProfileLink: hasActiveTabConnectionId && !isInheritGlobalAuth(newAuth),
+        });
       },
-      [hasActiveTabConnectionId, clearActiveTabProfileLink, handleAuthChange],
+      [
+        usesPageDefaultAuth,
+        hasActiveTabConnectionId,
+        handleAuthChange,
+        updateActiveTabAuth,
+      ],
     ),
   };
 }

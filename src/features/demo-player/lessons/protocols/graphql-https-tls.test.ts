@@ -377,7 +377,7 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 
-  it('ensureTlsAuthConfigured opens auth popover and configures bearer', async () => {
+  it('ensureTlsAuthConfigured opens Auth panel and configures bearer', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
@@ -385,13 +385,12 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select">
           <option value="none">No Auth</option>
           <option value="bearer">Bearer</option>
         </select>
         <input data-testid="gql-auth-bearer-input" value="" />
-        <button data-testid="gql-auth-popover-close"></button>
       </div>
     `;
     await ensureTlsAuthConfigured(ctx);
@@ -407,13 +406,12 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select">
           <option value="none">No Auth</option>
           <option value="bearer">Bearer</option>
         </select>
         <input data-testid="gql-auth-bearer-input" value="" />
-        <button data-testid="gql-auth-popover-close"></button>
       </div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
@@ -439,7 +437,7 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="{{authToken}}" />
       </div>
@@ -451,7 +449,7 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('ensureTlsAuthConfigured skips auth badge click when popover already open', async () => {
+  it('ensureTlsAuthConfigured skips auth badge click when Auth panel already open', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
@@ -459,7 +457,7 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select">
           <option value="bearer">Bearer</option>
         </select>
@@ -524,37 +522,33 @@ describe('gql-https-tls lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('gqlTlsLessonSetup closes auth popover via close button when present', async () => {
+  it('gqlTlsLessonSetup closes auth panel when auth tab is active', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="" />
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <div data-testid="gql-auth-popover">
-        <button data-testid="gql-auth-popover-close"></button>
-      </div>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+      <div data-testid="gql-auth-panel"></div>
     `;
     stubMonacoEditor('');
-    const closeBtn = document.querySelector<HTMLElement>(GQL.AUTH_POPOVER_CLOSE)!;
-    const closeSpy = vi.spyOn(closeBtn, 'click');
     await gqlTlsLessonSetup(ctx);
-    expect(closeSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('gqlTlsLessonSetup toggles auth badge when popover open without close button', async () => {
+  it('gqlTlsLessonSetup leaves auth panel open when auth tab is inactive', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="" />
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <div data-testid="gql-auth-popover"></div>
+      <div data-testid="gql-auth-panel"></div>
       <button data-testid="gql-auth-badge-btn"></button>
     `;
     stubMonacoEditor('');
-    const authBtn = document.querySelector<HTMLElement>(GQL.AUTH_BADGE_BTN)!;
-    const authSpy = vi.spyOn(authBtn, 'click');
     await gqlTlsLessonSetup(ctx);
-    expect(authSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('gqlt-endpoint step action fills HTTPS endpoint', async () => {
@@ -579,7 +573,7 @@ describe('gql-https-tls lesson', () => {
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="" />
       </div>
@@ -604,7 +598,7 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-tls-configure"></button>
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
       </div>
@@ -657,7 +651,7 @@ describe('gql-https-tls lesson', () => {
       <button data-testid="gql-tls-configure"></button>
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
       </div>
@@ -799,7 +793,7 @@ describe('gql-https-tls lesson', () => {
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
       <span data-testid="gql-schema-badge-ok"></span>
       <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-popover">
+      <div data-testid="gql-auth-panel">
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
       </div>

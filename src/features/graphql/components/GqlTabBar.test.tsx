@@ -368,4 +368,64 @@ describe('GqlTabBar', () => {
       expect(screen.getByTestId('gql-tab-subtitle-t2')).toHaveTextContent('Staging');
     });
   });
+
+  describe('Phase 6H Slice 4 — auth dots', () => {
+    const profiles = [{
+      id: 'prof-staging',
+      name: 'Staging',
+      endpoint: 'https://staging.example/graphql',
+      auth: { type: 'bearer' as const, token: 'x' },
+      createdAt: 1,
+    }];
+
+    it('does not render auth dots for a single tab', () => {
+      render(<GqlTabBar {...defaultProps} tabs={[makeTab('t1')]} activeTabId="t1" />);
+      expect(screen.queryByTestId('gql-tab-auth-dot-t1')).toBeNull();
+    });
+
+    it('renders inherit dot for inheriting tab in multi-tab session', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          profiles={profiles}
+          tabs={[makeTab('t1'), makeTab('t2')]}
+          activeTabId="t1"
+        />,
+      );
+      const dot = screen.getByTestId('gql-tab-auth-dot-t1');
+      expect(dot.className).toContain('gql-tab-auth-dot--inherit');
+    });
+
+    it('renders profile dot for profile-linked tab without auth override', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          profiles={profiles}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { connectionId: 'prof-staging', endpoint: 'https://staging.example/graphql' }),
+          ]}
+          activeTabId="t2"
+        />,
+      );
+      const dot = screen.getByTestId('gql-tab-auth-dot-t2');
+      expect(dot.className).toContain('gql-tab-auth-dot--profile');
+    });
+
+    it('renders override dot when tab stores bearer auth override', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          profiles={profiles}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { auth: { type: 'bearer', token: 'tab-only' } }),
+          ]}
+          activeTabId="t2"
+        />,
+      );
+      const dot = screen.getByTestId('gql-tab-auth-dot-t2');
+      expect(dot.className).toContain('gql-tab-auth-dot--override');
+    });
+  });
 });

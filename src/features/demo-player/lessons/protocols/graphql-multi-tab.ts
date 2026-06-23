@@ -14,6 +14,12 @@ import {
   ensureLesson14Tab2Executed,
   ensureLesson14TabPolling,
   ensureLesson14TabProfileLinks,
+  ensureLesson14PerTabAuthConfigured,
+  LESSON14_TAB2_BEARER_TOKEN,
+  closeAuthPanelIfOpen,
+  openAuthPanelQuiet,
+  selectAuthInPanel,
+  selectNoAuthInPanel,
   gqlMultiTabLessonCleanup,
   gqlMultiTabLessonSetup,
 } from './graphql-lesson-helpers';
@@ -24,8 +30,8 @@ export const gqlMultiTabLesson: DemoLesson = {
   category: 'graphql',
   name: 'Multi-Tab Workspaces',
   description:
-    'Open multiple independent GraphQL workspaces in one window — each with its own endpoint, schema, auth profile, and response cache.',
-  estimatedMinutes: 5,
+    'Open multiple independent GraphQL workspaces in one window — each with its own endpoint, schema, auth override, and response cache.',
+  estimatedMinutes: 6,
   initialTab: 'graphql-studio',
   allowedTabs: ['graphql-studio'],
   /** Two demo tab slots — user workspace must stay untouched (§11.0). */
@@ -40,7 +46,7 @@ export const gqlMultiTabLesson: DemoLesson = {
 
   concept: {
     title: 'Multi-Tab Workspaces — One Window, Many Environments',
-    body: `Every GraphQL Studio tab is a fully **independent workspace**: it has its own endpoint override, its own introspected schema, its own response cache, and its own auth profile. You can run queries against staging on Tab 1 while Tab 2 is live on production — without any context-switching, tool-switching, or re-configuration.
+    body: `Every GraphQL Studio tab is a fully **independent workspace**: it has its own endpoint override, its own introspected schema, its own response cache, and its own auth override. You can run queries against staging on Tab 1 while Tab 2 is live on production — without any context-switching, tool-switching, or re-configuration.
 
 **Why tabs instead of separate browser windows or tools?**
 Switching tools breaks your flow. Opening a second Postman/Insomnia window means two separate auth configurations, two separate header sets, and no shared history. A second browser window of the same Studio app would share state and overwrite each other's endpoint. Studio tabs solve this cleanly: one window, one history sidebar, one collection, but completely isolated per-tab execution contexts.
@@ -57,7 +63,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       {
         term: 'Tab workspace',
         definition:
-          'Each Studio tab is a self-contained environment with its own endpoint override, introspected schema, response cache, and auth profile. Tabs share the page-level default endpoint but can individually override it.',
+          'Each Studio tab is a self-contained environment with its own endpoint override, introspected schema, response cache, and auth override. Tabs share the page-level default endpoint but can individually override it.',
       },
       {
         term: 'Per-tab endpoint override',
@@ -78,6 +84,11 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
         term: 'Page-level default endpoint',
         definition:
           'The baseline endpoint URL inherited by all tabs that have not set a per-tab override. Set via the Environment Manager or the connection bar when only one tab is open. Changing it updates all non-overridden tabs simultaneously.',
+      },
+      {
+        term: 'Per-tab auth override',
+        definition:
+          'When two or more tabs are open, auth edits on a tab store an explicit override on that tab only. Tab auth dots in the tab bar show which tabs diverge from workspace auth. Queries and subscriptions on the active tab use its resolved auth chain.',
       },
     ],
     diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
@@ -358,27 +369,62 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       pauseAfter: true,
     },
 
-    // ── Step 8 (7C): Profile-linked tabs ─────────────────────────────────
+    // ── Step 8: Per-tab auth — same server, different credentials ─────────
+    {
+      id: 'gql14-per-tab-auth',
+      title: 'Per-Tab Auth — Same Server, Different Credentials',
+      description:
+        'Both **Staging** and **Production** tabs target the same GraphQL server, but auth is **per-tab**. On **Staging** (Tab 1), open **Auth** and choose **No Auth** — an explicit override that sends no credentials. Switch to **Production** (Tab 2), set **Bearer** with a demo token, then **Execute** on each tab and compare **Metadata → Request headers**.\n\n' +
+        '**Why per-tab auth matters?** Real teams often hit the same API gateway with different credentials per environment — a read-only public key on staging and a full-access token on production. Without per-tab auth you would constantly reconfigure the connection bar when switching tabs. Tab auth dots in the tab bar show at a glance which tabs carry an override.',
+      highlight: GQL.AUTH_BADGE_BTN,
+      preAction: ensureLesson14PerTabAuthConfigured,
+      action: async (ctx) => {
+        await activateGqlTabByIndex(ctx, 0);
+        await selectNoAuthInPanel(ctx);
+        await ctx.delay(500);
+        await closeAuthPanelIfOpen(ctx);
+        await ctx.click(GQL.EXECUTE_BTN);
+        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+        await ctx.delay(400);
+        await ctx.click(GQL.RV_TAB_METADATA);
+        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+        await ctx.delay(600);
+        await activateGqlTabByIndex(ctx, 1);
+        await selectAuthInPanel(ctx, 'bearer');
+        await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
+        await ctx.delay(500);
+        await closeAuthPanelIfOpen(ctx);
+        await ctx.click(GQL.EXECUTE_BTN);
+        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+        await ctx.delay(400);
+        await ctx.click(GQL.RV_TAB_METADATA);
+        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+        await ctx.delay(800);
+      },
+      verify: GQL.RV_REQUEST_HEADERS,
+      pauseAfter: true,
+    },
+
+    // ── Step 9 (7C): Profile-linked tabs ─────────────────────────────────
     {
       id: 'gql14-profiles',
       title: 'Profile-Linked Tabs',
       description:
-        'Click **Profiles** on the connection bar and **Save** the current connection for each demo tab as **Staging** (Tab 1) and **Production** (Tab 2). Then **Load** each profile back onto its tab — the tab now carries a `connectionId` link to that snapshot.\n\n' +
-        'Open **Auth** on the **Production** tab. The popover shows **Auth from profile Production — edit to unlink** — the `linkedProfileName` hint (Phase 6F) confirms this tab inherits endpoint + auth from the named connection profile, not the page default. **Why profile-linked tabs?** Teams map one profile per environment; linking a tab to "Staging" or "Production" makes the active server obvious in the tab bar and keeps auth/endpoint pairs consistent when you switch tabs.',
+        'Click **Profiles** on the connection bar and **Save** the current connection for each demo tab as **GQL-14 Staging** (Tab 1) and **GQL-14 Production** (Tab 2). Then **Load** each profile back onto its tab — the tab now carries a `connectionId` link to that snapshot.\n\n' +
+        'Open **Auth** on the **Production** tab. The panel shows the **inherit banner** — *Inheriting auth from profile GQL-14 Production — no tab override* (Phase 6H). This confirms the tab inherits endpoint + auth from the named connection profile until you edit auth on that tab. **Why profile-linked tabs?** Teams map one profile per environment; linking a tab to a named profile makes the active server obvious in the tab bar and keeps auth/endpoint pairs consistent when you switch tabs.',
       highlight: GQL.PROFILE_BADGE,
       preAction: ensureLesson14TabProfileLinks,
       action: async (ctx) => {
         await activateGqlTabByIndex(ctx, 1);
-        await ctx.click(GQL.AUTH_BADGE_BTN);
-        await ctx.waitFor(GQL.AUTH_POPOVER, 5000);
-        await ctx.waitFor(GQL.AUTH_PROFILE_HINT, 5000);
+        await openAuthPanelQuiet(ctx);
+        await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
         await ctx.delay(900);
       },
-      verify: GQL.AUTH_PROFILE_HINT,
+      verify: GQL.AUTH_INHERIT_BANNER,
       pauseAfter: true,
     },
 
-    // ── Step 9 (7C): Per-tab schema polling ───────────────────────────────
+    // ── Step 10 (7C): Per-tab schema polling ───────────────────────────────
     {
       id: 'gql14-polling',
       title: 'Per-Tab Schema Polling',

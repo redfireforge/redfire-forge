@@ -25,7 +25,7 @@ export const gqlSchemaLesson: DemoLesson = {
   name: 'Schema Exploration',
   description:
     'Browse the introspected schema, search types, inspect fields and arguments, insert a field with Try →, execute the resulting query, and export SDL — everything you need to understand any GraphQL API without reading documentation.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'graphql-studio',
   allowedTabs: ['graphql-studio'],
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -526,31 +526,51 @@ The test server schema used in this lesson has five types: **Query** (root entry
       pauseAfter: true,
     },
 
-    // ── 9. SDL view & export ───────────────────────────────────────────────────
+    // ── 9. SDL type view ───────────────────────────────────────────────────────
     {
-      id: 'gql4-sdl-export',
-      title: 'SDL View & Export',
+      id: 'gql4-sdl-view',
+      title: 'SDL Type View',
       description:
-        'In the type detail panel, switch to the **SDL** tab to see the raw Schema Definition Language representation: ' +
+        'With **Query** selected in the type browser, open the **SDL** tab in the detail panel. ' +
+        'You will see the raw Schema Definition Language for that type — for example ' +
         '`type Query { health: String user(id: ID!): User order(id: ID!): Order }`. ' +
-        'This is the actual definition the server owns — the same format that schema versioning tools, ' +
-        'linters, and CI diff checks compare against. ' +
-        'Click **Export SDL** in the explorer toolbar to download the **entire schema** as a `.graphql` file. ' +
-        'Commit this file to version control: when a field is added, renamed, or removed, ' +
-        '`git diff` makes the change immediately visible to your team. ' +
-        '**Lesson 12 (Schema Diff)** shows how RedfireForge compares schema snapshots automatically and highlights breaking changes.',
+        'This is the actual contract the server owns: the same format schema versioning tools, linters, and CI diff checks compare against.',
       highlight: GQL.SCHEMA_SDL_TAB,
       preAction: ensureTryInsertDone,
       action: async (ctx) => {
         await selectSchemaType(ctx, 'Query');
-        await ctx.delay(400);
+        await ctx.delay(600);
         await ctx.click(GQL.SCHEMA_SDL_TAB);
         await ctx.waitFor(GQL.SCHEMA_SDL_VIEW, 5000);
-        await ctx.delay(800);
-        await ctx.click(GQL.SNAPSHOT_BTN);
-        await ctx.delay(700);
+        await ctx.delay(1500);
       },
       verify: GQL.SCHEMA_SDL_VIEW,
+      pauseAfter: true,
+    },
+
+    // ── 10. Export full schema SDL ─────────────────────────────────────────────
+    {
+      id: 'gql4-export-sdl',
+      title: 'Export SDL',
+      description:
+        'The **Export SDL** button in the Schema Explorer toolbar (download icon, labelled **SDL**) saves the **entire schema** as a `.graphql` file — not just the selected type. ' +
+        'Commit this file to version control: when a field is added, renamed, or removed, `git diff` makes the change immediately visible to your team. ' +
+        '**Lesson 12 (Schema Diff)** shows how RedfireForge compares schema snapshots automatically and highlights breaking changes.',
+      highlight: GQL.SNAPSHOT_BTN,
+      preAction: async (ctx) => {
+        await ensureTryInsertDone(ctx);
+        await selectSchemaType(ctx, 'Query');
+        if (!document.querySelector(GQL.SCHEMA_SDL_VIEW)) {
+          await ctx.click(GQL.SCHEMA_SDL_TAB);
+          await ctx.waitFor(GQL.SCHEMA_SDL_VIEW, 5000);
+        }
+      },
+      action: async (ctx) => {
+        await ctx.delay(800);
+        await ctx.click(GQL.SNAPSHOT_BTN);
+        await ctx.delay(2000);
+      },
+      verify: GQL.SNAPSHOT_BTN,
       pauseAfter: true,
     },
   ],

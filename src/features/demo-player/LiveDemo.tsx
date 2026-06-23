@@ -125,11 +125,13 @@ export default function LiveDemo({
   // only allow advancement during reading pause or when a step is idle.
   const canNavigate = stepPhase === 'reading' || stepPhase === 'done';
 
-  // Phase label for user feedback
-  const phaseLabel = stepPhase === 'reading' ? '👀 Reading'
+  // Phase label for user feedback (pinned above controls — always visible)
+  const phaseLabel = stepPhase === 'pre' ? '⏳ Preparing'
+    : stepPhase === 'reading' ? '👀 Reading'
     : stepPhase === 'action' ? '⚡ Acting'
     : stepPhase === 'verify' ? '✓ Verifying'
     : null;
+  const phaseSkippable = stepPhase === 'reading';
 
   return (
     <>
@@ -192,16 +194,23 @@ export default function LiveDemo({
               dangerouslySetInnerHTML={{ __html: step.diagram }}
             />
           )}
-          {phaseLabel && (
-            <span
-              className={`demo-live-phase-badge${stepPhase === 'reading' ? ' skippable' : ''}`}
-              onClick={stepPhase === 'reading' ? onSkipReading : undefined}
-              title={stepPhase === 'reading' ? 'Click to skip reading pause' : undefined}
-            >
-              {phaseLabel}{stepPhase === 'reading' ? ' — click to skip' : ''}
-            </span>
-          )}
         </div>
+
+        {phaseLabel && (
+          <div className="demo-live-panel-status">
+            <span
+              className={`demo-live-phase-badge${phaseSkippable ? ' skippable' : ''}`}
+              onClick={phaseSkippable ? onSkipReading : undefined}
+              onKeyDown={phaseSkippable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSkipReading(); } : undefined}
+              role={phaseSkippable ? 'button' : undefined}
+              tabIndex={phaseSkippable ? 0 : undefined}
+              title={phaseSkippable ? 'Click to skip reading pause' : undefined}
+              data-testid="demo-live-phase-badge"
+            >
+              {phaseLabel}{phaseSkippable ? ' — click to skip' : ''}
+            </span>
+          </div>
+        )}
 
         <div className="demo-live-panel-controls">
           <button

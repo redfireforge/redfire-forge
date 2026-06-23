@@ -626,6 +626,7 @@ export async function selectEnvInHeader(
   if (!select) return;
   const option = Array.from(select.options).find(o => o.text.trim() === envName);
   if (!option) return;
+  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
   await ctx.selectOption(APP.HEADER_ENV_SELECT, option.value);
   await ctx.delay(300);
 }
@@ -643,6 +644,7 @@ export async function selectSvcInHeader(
   if (!select) return;
   const option = Array.from(select.options).find(o => o.text.trim() === svcName);
   if (!option) return;
+  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
   await ctx.selectOption(APP.HEADER_SVC_SELECT, option.value);
   await ctx.delay(300);
 }

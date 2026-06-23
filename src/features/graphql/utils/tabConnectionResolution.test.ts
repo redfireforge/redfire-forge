@@ -6,6 +6,10 @@ import {
   findProfileById,
   isTabProfileLinked,
   isTabProfileLinkPending,
+  isTabAuthOverridden,
+  resolveTabAuth,
+  resolveTabAuthSentSource,
+  resolveProfileAuthContribution,
   resolveTabConnection,
   resolveTabRawEndpoint,
   resolveTabLabelEndpoint,
@@ -130,6 +134,118 @@ describe('isTabProfileLinked / isTabProfileLinkPending', () => {
   });
 });
 
+describe('isTabAuthOverridden / resolveTabAuth (Phase 6H)', () => {
+  const profile = makeProfile();
+
+  it('isTabAuthOverridden is false when auth field absent', () => {
+    expect(isTabAuthOverridden(makeTab())).toBe(false);
+  });
+
+  it('isTabAuthOverridden is true for explicit null (No Auth override)', () => {
+    expect(isTabAuthOverridden(makeTab({ auth: null }))).toBe(true);
+  });
+
+  it('isTabAuthOverridden is true for explicit bearer override', () => {
+    expect(isTabAuthOverridden(makeTab({ auth: { type: 'bearer', token: 'x' } }))).toBe(true);
+  });
+
+  it('isTabAuthOverridden is false for bare inherit without globalProfileId', () => {
+    expect(isTabAuthOverridden(makeTab({ auth: { type: 'inherit' } }))).toBe(false);
+  });
+
+  it('isTabAuthOverridden is true for inherit with globalProfileId', () => {
+    expect(isTabAuthOverridden(makeTab({ auth: { type: 'inherit', globalProfileId: 'p1' } }))).toBe(true);
+  });
+
+  it('resolveTabAuth falls through bare tab inherit to profile auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging', auth: { type: 'inherit' } });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toEqual(profile.auth);
+  });
+
+  it('resolveTabAuth falls through bare tab inherit to page when no profile', () => {
+    const tab = makeTab({ auth: { type: 'inherit' } });
+    expect(resolveTabAuth(tab, undefined, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+  });
+
+  it('resolveTabAuth uses tab explicit bearer over profile and page', () => {
+    const tab = makeTab({
+      connectionId: 'prof-staging',
+      auth: { type: 'bearer', token: 'tab-token' },
+    });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toEqual({
+      type: 'bearer',
+      token: 'tab-token',
+    });
+  });
+
+  it('resolveTabAuth uses tab explicit null over profile auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging', auth: null });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toBeNull();
+  });
+
+  it('resolveTabAuth uses tab inherit-global over page default', () => {
+    const tab = makeTab({
+      auth: { type: 'inherit', globalProfileId: 'catalog-1' },
+    });
+    expect(resolveTabAuth(tab, undefined, PAGE_DEFAULTS.auth)).toEqual({
+      type: 'inherit',
+      globalProfileId: 'catalog-1',
+    });
+  });
+
+  it('resolveTabAuth falls through to profile when tab inherits workspace', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toEqual(profile.auth);
+  });
+
+  it('resolveTabAuth falls through to page when no tab override or profile', () => {
+    expect(resolveTabAuth(makeTab(), undefined, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+  });
+
+  it('resolveTabAuth uses page when profile link is pending (profile undefined)', () => {
+    const tab = makeTab({ connectionId: 'gone' });
+    expect(resolveTabAuth(tab, undefined, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+  });
+
+  it('resolveTabAuth uses page when linked profile has missing auth field', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: undefined as unknown as GraphqlAuth | null });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+  });
+
+  it('resolveTabAuth preserves profile explicit null (No Auth)', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: null });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toBeNull();
+  });
+
+  it('resolveTabAuth falls through bare profile inherit to page default', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: { type: 'inherit' } });
+    expect(resolveTabAuth(tab, profile, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+  });
+
+  it('resolveProfileAuthContribution falls through bare inherit and missing auth', () => {
+    expect(resolveProfileAuthContribution(undefined, PAGE_DEFAULTS.auth)).toEqual(PAGE_DEFAULTS.auth);
+    expect(
+      resolveProfileAuthContribution(
+        makeProfile({ auth: undefined as unknown as GraphqlAuth | null }),
+        PAGE_DEFAULTS.auth,
+      ),
+    ).toEqual(PAGE_DEFAULTS.auth);
+    expect(resolveProfileAuthContribution(makeProfile({ auth: null }), PAGE_DEFAULTS.auth)).toBeNull();
+    expect(
+      resolveProfileAuthContribution(makeProfile({ auth: { type: 'inherit' } }), PAGE_DEFAULTS.auth),
+    ).toEqual(PAGE_DEFAULTS.auth);
+    expect(
+      resolveProfileAuthContribution(
+        makeProfile({ auth: { type: 'inherit', globalProfileId: 'p1' } }),
+        PAGE_DEFAULTS.auth,
+      ),
+    ).toEqual({ type: 'inherit', globalProfileId: 'p1' });
+  });
+});
+
 describe('resolveTabConnection', () => {
   it('resolves auth from linked profile', () => {
     const tab = makeTab({ connectionId: 'prof-staging' });
@@ -152,6 +268,49 @@ describe('resolveTabConnection', () => {
     expect(result.auth).toEqual(PAGE_DEFAULTS.auth);
     expect(result.profileName).toBeUndefined();
     expect(result.connectionId).toBeUndefined();
+  });
+
+  it('Phase 6H: tab explicit bearer overrides linked profile auth', () => {
+    const tab = makeTab({
+      connectionId: 'prof-staging',
+      auth: { type: 'bearer', token: 'tab-only' },
+    });
+    const result = resolveTabConnection(tab, [makeProfile()], PAGE_DEFAULTS);
+    expect(result.auth).toEqual({ type: 'bearer', token: 'tab-only' });
+    expect(result.profileName).toBe('Staging');
+  });
+
+  it('Phase 6H: tab explicit null overrides linked profile auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging', auth: null });
+    expect(resolveTabConnection(tab, [makeProfile()], PAGE_DEFAULTS).auth).toBeNull();
+  });
+
+  it('Phase 6H: profile explicit null overrides page auth when tab inherits workspace', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: null });
+    expect(resolveTabConnection(tab, [profile], PAGE_DEFAULTS).auth).toBeNull();
+  });
+
+  it('Phase 6H: tab inherit-global overrides page default', () => {
+    const tab = makeTab({ auth: { type: 'inherit', globalProfileId: 'env-prof' } });
+    expect(resolveTabConnection(tab, [], PAGE_DEFAULTS).auth).toEqual({
+      type: 'inherit',
+      globalProfileId: 'env-prof',
+    });
+  });
+
+  it('Phase 6H: bare tab inherit falls through to profile auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging', auth: { type: 'inherit' } });
+    expect(resolveTabConnection(tab, [makeProfile()], PAGE_DEFAULTS).auth).toEqual({
+      type: 'bearer',
+      token: 'staging-token',
+    });
+  });
+
+  it('Phase 6H: bare profile inherit falls through to page auth in resolveTabConnection', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: { type: 'inherit' } });
+    expect(resolveTabConnection(tab, [profile], PAGE_DEFAULTS).auth).toEqual(PAGE_DEFAULTS.auth);
   });
 
   it('inherits skipTlsVerify from tab override', () => {
@@ -206,5 +365,44 @@ describe('resolveTabConnection', () => {
     const result = resolveTabConnection(tab, [], PAGE_DEFAULTS);
     expect(result.tlsCaCert).toBe('tab-ca');
     expect(result.tlsClientCert).toBe('page-client');
+  });
+});
+
+describe('resolveTabAuthSentSource', () => {
+  it('returns tab when tab auth is overridden', () => {
+    const tab = makeTab({ auth: { type: 'bearer', token: 'tab-only' } });
+    expect(resolveTabAuthSentSource(tab, undefined, PAGE_DEFAULTS.auth)).toBe('tab');
+  });
+
+  it('returns profile when linked profile supplies explicit auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    expect(resolveTabAuthSentSource(tab, makeProfile(), PAGE_DEFAULTS.auth)).toBe('profile');
+  });
+
+  it('returns page when profile inherits workspace default', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: { type: 'inherit' } });
+    expect(resolveTabAuthSentSource(tab, profile, PAGE_DEFAULTS.auth)).toBe('page');
+  });
+
+  it('returns profile when profile inherits a global auth profile', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({
+      auth: { type: 'inherit', globalProfileId: 'global-1' },
+    });
+    expect(resolveTabAuthSentSource(tab, profile, PAGE_DEFAULTS.auth)).toBe('profile');
+  });
+
+  it('returns tab when tab inherits a global auth profile explicitly', () => {
+    const tab = makeTab({
+      auth: { type: 'inherit', globalProfileId: 'global-1' },
+    });
+    expect(resolveTabAuthSentSource(tab, undefined, PAGE_DEFAULTS.auth)).toBe('tab');
+  });
+
+  it('returns profile when profile explicitly disables auth', () => {
+    const tab = makeTab({ connectionId: 'prof-staging' });
+    const profile = makeProfile({ auth: null });
+    expect(resolveTabAuthSentSource(tab, profile, PAGE_DEFAULTS.auth)).toBe('profile');
   });
 });

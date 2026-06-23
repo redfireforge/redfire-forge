@@ -50,6 +50,12 @@ export const GQL = {
   // ── Bottom Panel ───────────────────────────────────────────────────────────
   BOTTOM_TAB_VARS:     '[data-testid="gql-bottom-tab-variables"]',
   BOTTOM_TAB_HEADERS:  '[data-testid="gql-bottom-tab-headers"]',
+  BOTTOM_TAB_AUTH:     '[data-testid="gql-bottom-tab-auth"]',
+  BOTTOM_TAB_FILES:    '[data-testid="gql-bottom-tab-files"]',
+  AUTH_PANEL:          '[data-testid="gql-auth-panel"]',
+  AUTH_PAGE_SCOPE_BANNER: '[data-testid="gql-auth-page-scope-banner"]',
+  AUTH_OVERRIDE_BANNER: '[data-testid="gql-auth-override-banner"]',
+  AUTH_SWITCH_OVERRIDE_BTN: '[data-testid="gql-auth-switch-override-btn"]',
 
   // ── Variables Panel ────────────────────────────────────────────────────────
   VARS_PANEL:          '[data-testid="gql-variables-panel"]',
@@ -73,6 +79,7 @@ export const GQL = {
   RV_TAB_BODY:         '[data-testid="gql-rv-tab-body"]',
   RV_TAB_METADATA:     '[data-testid="gql-rv-tab-metadata"]',
   RV_METADATA:         '[data-testid="gql-rv-metadata"]',
+  RV_AUTH_SENT:          '[data-testid="gql-rv-auth-sent"]',
   RV_REQUEST_HEADERS:  '[data-testid="gql-rv-request-headers"]',
 
   // ── TLS (Lesson 5) — toggle appears only for https:// endpoints ──────────
@@ -91,7 +98,6 @@ export const GQL = {
 
   // ── Auth, Environments & Profiles (Lesson 6) ─────────────────────────────
   AUTH_BADGE_BTN:      '[data-testid="gql-auth-badge-btn"]',
-  AUTH_POPOVER:        '[data-testid="gql-auth-popover"]',
   AUTH_TYPE_SELECT:    '[data-testid="gql-auth-type-select"]',
   AUTH_BEARER_INPUT:   '[data-testid="gql-auth-bearer-input"]',
   AUTH_BASIC_USER:     '[data-testid="gql-auth-basic-user"]',
@@ -101,7 +107,10 @@ export const GQL = {
   AUTH_PREVIEW:        '[data-testid="gql-auth-preview"]',
   AUTH_PROFILE_SELECT: '[data-testid="gql-auth-profile-select"]',
   AUTH_PROFILE_HINT:   '[data-testid="gql-auth-profile-hint"]',
-  AUTH_POPOVER_CLOSE:  '[data-testid="gql-auth-popover-close"]',
+  AUTH_INHERIT_BANNER: '[data-testid="gql-auth-inherit-banner"]',
+  AUTH_RESET_INHERIT_BTN: '[data-testid="gql-auth-reset-inherit-btn"]',
+  AUTH_BADGE_SCOPE_PILL: '[data-testid="gql-auth-badge-scope-pill"]',
+  tabAuthDot: (tabId: string) => `[data-testid="gql-tab-auth-dot-${tabId}"]`,
   PROFILE_BADGE:       '[data-testid="gql-profile-badge"]',
   PROFILE_MODAL:       '[data-testid="gql-profile-modal"]',
   PROFILE_NAME_INPUT:  '[data-testid="gql-profile-name-input"]',
@@ -111,6 +120,7 @@ export const GQL = {
   ENV_MODAL:           '[data-testid="gql-env-modal"]',
   ENV_CLOSE_BTN:       '[data-testid="gql-env-close-btn"]',
   ENV_NEW_BTN:         '[data-testid="gql-env-new-btn"]',
+  ENV_SET_ACTIVE_BTN:  '[data-testid="gql-env-set-active-btn"]',
   ENV_VAR_ADD_BTN:     '[data-testid="gql-env-var-add-btn"]',
   ENV_VAR_KEY:         '[data-testid="gql-env-var-key"]',
   ENV_VAR_VALUE:       '[data-testid="gql-env-var-row"] .gql-env-var-input',
@@ -128,12 +138,20 @@ export const GQL = {
   COPY_SDL_BTN:        '[data-testid="gql-se-copy-sdl-btn"]',
   /** Export SDL to file (Lesson 4) — not the schema snapshot button. */
   SNAPSHOT_BTN:        '[data-testid="gql-se-export-sdl-btn"]',
+  SE_TAB_TYPES:        '[data-testid="gql-se-tab-types"]',
   SAVE_SNAPSHOT_BTN:   '[data-testid="gql-se-save-snapshot"]',
   CHANGELOG_TAB:       '[data-testid="gql-se-tab-changelog"]',
   CHANGELOG_PANEL:     '[data-testid="gql-changelog-panel"]',
   CHANGELOG_ROW:       '[data-testid="gql-changelog-row"]',
+  /** Baseline snapshot row — set via data-lesson-baseline during GQL-12 demo. */
+  CHANGELOG_BASELINE_ROW: '[data-lesson-baseline="true"]',
+  CHANGELOG_BASELINE_DIFF_BTN: '[data-lesson-baseline="true"] [data-testid="gql-changelog-diff-btn"]',
   CHANGELOG_DIFF_BTN:  '[data-testid="gql-changelog-diff-btn"]',
   CHANGELOG_COMPARE_SELECT: '[data-testid="gql-changelog-compare-select"]',
+  CHANGELOG_CLEAR_OLDER_BTN: '[data-testid="gql-changelog-clear-older-btn"]',
+  CHANGELOG_ROW_DELETE_BTN: '[data-testid="gql-changelog-row-delete-btn"]',
+  CHANGELOG_COMPARE_BAR: '[data-testid="gql-changelog-compare-bar"]',
+  CHANGELOG_SHOW_MORE: '[data-testid="gql-changelog-show-more"]',
   SCHEMA_CHANGE_TOAST: '[data-testid="gql-schema-change-toast"]',
   SCHEMA_TYPE_QUERY:   '[data-testid="gql-se-type-Query"]',
   SCHEMA_TYPE_MUTATION:'[data-testid="gql-se-type-Mutation"]',
@@ -306,7 +324,11 @@ export const GQL = {
   DIFF_MODAL:          '[data-testid="gql-diff-modal"]',
   DIFF_ROW:            '[data-testid="gql-diff-row"]',
   DIFF_ACK_BTN:        '[data-testid="gql-diff-ack-btn"]',
+  DIFF_SUMMARY:        '.gql-diff-summary',
+  DIFF_CONTENT:        '.gql-diff-content',
+  DIFF_FILTERS:        '.gql-diff-filters',
   DIFF_COUNT_BREAKING: '.gql-diff-count--breaking',
+  DIFF_FILTER_ALL:     '.gql-diff-filter--all',
   DIFF_FILTER_BREAKING: '.gql-diff-filter--breaking',
   DIFF_FILTER_SAFE:    '.gql-diff-filter--safe',
   DIFF_FILTER_DEPRECATED: '.gql-diff-filter--deprecated',

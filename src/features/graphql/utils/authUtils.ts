@@ -7,6 +7,13 @@
 
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { ConnectionProfile } from './connectionProfileStorage';
+import type { GqlStudioTab } from './tabPersistence';
+import {
+  isTabAuthOverridden,
+  isTabProfileLinked,
+  resolveTabAuthLayer,
+} from './tabConnectionResolution';
 import { resolveEffectiveGqlAuth, inheritAuthProfileLabel } from './gqlAuthResolve';
 
 /**
@@ -135,6 +142,113 @@ export function isAuthConfigured(
     case 'custom':  return true;
     default:        return false;
   }
+}
+
+// ─── Phase 6H Slice 4 — badge + tab strip presentation ───────────────────────
+
+export type GqlAuthBadgeVariant = 'inherit' | 'override' | 'profile' | 'default';
+
+export type GqlAuthBadgeScope = 'page' | 'tab' | 'profile';
+
+export interface GqlAuthBadgePresentation {
+  label: string;
+  variant: GqlAuthBadgeVariant;
+  /** Scope pill on the connection-bar badge; null when not useful (single inheriting tab). */
+  scope: GqlAuthBadgeScope | null;
+  configured: boolean;
+}
+
+export type GqlTabAuthDotKind = 'inherit' | 'profile' | 'override' | 'none';
+
+function resolvedAuthInheritSuffix(
+  auth: GraphqlAuth | null,
+  globalAuthProfiles: GlobalAuthProfile[],
+): string {
+  if (!auth) return 'No Auth';
+  if (auth.type === 'inherit') {
+    return inheritAuthProfileLabel(auth, globalAuthProfiles) ?? 'Profile';
+  }
+  return authBadgeLabel(auth, globalAuthProfiles);
+}
+
+/**
+ * Connection-bar auth badge: resolved label + visual variant + optional scope pill.
+ * Badge always reflects **resolved** credentials; styling reflects inherit vs override vs profile.
+ */
+export function resolveGqlAuthBadgePresentation(params: {
+  resolvedAuth: GraphqlAuth | null;
+  hasTabAuthOverride: boolean;
+  hasProfileLink: boolean;
+  usesPageDefaultAuth: boolean;
+  linkedProfileName?: string | null;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  tabsLength?: number;
+}): GqlAuthBadgePresentation {
+  const {
+    resolvedAuth,
+    hasTabAuthOverride,
+    hasProfileLink,
+    usesPageDefaultAuth,
+    linkedProfileName = null,
+    globalAuthProfiles = [],
+    tabsLength = 1,
+  } = params;
+
+  const configured = isAuthConfigured(resolvedAuth, globalAuthProfiles);
+
+  let variant: GqlAuthBadgeVariant;
+  let scope: GqlAuthBadgeScope;
+
+  if (hasTabAuthOverride) {
+    variant = 'override';
+    scope = 'tab';
+  } else if (hasProfileLink) {
+    variant = 'profile';
+    scope = 'profile';
+  } else if (!usesPageDefaultAuth) {
+    variant = 'inherit';
+    scope = 'tab';
+  } else {
+    variant = 'default';
+    scope = 'page';
+  }
+
+  const showScopePill = tabsLength > 1 || hasProfileLink || hasTabAuthOverride;
+
+  let label: string;
+  if (hasTabAuthOverride) {
+    label = authBadgeLabel(resolvedAuth, globalAuthProfiles);
+  } else if (hasProfileLink && linkedProfileName) {
+    label = `Inherit (${linkedProfileName})`;
+  } else if ((variant === 'inherit' || variant === 'profile') && !usesPageDefaultAuth) {
+    label = `Inherit (${resolvedAuthInheritSuffix(resolvedAuth, globalAuthProfiles)})`;
+  } else {
+    label = authBadgeLabel(resolvedAuth, globalAuthProfiles);
+  }
+
+  return {
+    label,
+    variant,
+    scope: showScopePill ? scope : null,
+    // Inherit chain uses dashed styling even when resolved credentials exist.
+    configured: variant === 'inherit' ? false : configured,
+  };
+}
+
+/** Tab-strip auth dot kind — only rendered when multiple tabs are open. */
+export function resolveTabAuthDotKind(
+  tab: GqlStudioTab,
+  profiles: ConnectionProfile[],
+  _globalAuthProfiles: GlobalAuthProfile[] = [],
+): GqlTabAuthDotKind {
+  if (isTabAuthOverridden(tab)) {
+    const layer = resolveTabAuthLayer(tab);
+    if (layer === null) return 'none';
+    // Any explicit tab auth layer (including empty bearer / inherit-global) is an override.
+    return 'override';
+  }
+  if (isTabProfileLinked(tab, profiles)) return 'profile';
+  return 'inherit';
 }
 
 /**

@@ -1,5 +1,7 @@
 /* GraphQL Studio — TLS / mTLS configuration panel (Lesson GQL-5) */
 
+/* ── Connection-bar trigger button ────────────────────────────────────────── */
+
 .gql-tls-configure-btn {
   display: inline-flex;
   align-items: center;
@@ -14,6 +16,7 @@
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .gql-tls-configure-btn:hover:not(:disabled) {
@@ -35,6 +38,8 @@
 .gql-tls-configure-label {
   letter-spacing: 0.02em;
 }
+
+/* ── Mode badges (on the trigger button) ──────────────────────────────────── */
 
 .gql-tls-mode-badge {
   font-size: 0.58rem;
@@ -60,184 +65,3 @@
   color: #34d399;
 }
 
-.gql-tls-overlay {
-  background: transparent;
-}
-
-.gql-tls-modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.gql-tls-modal-header {
-  border-bottom: 1px solid var(--border);
-}
-
-.gql-tls-modal-body {
-  padding: 12px 14px;
-  overflow-y: auto;
-}
-
-.gql-tls-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border);
-}
-
-.gql-tls-footer-btn {
-  padding: 6px 14px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font-size: 0.76rem;
-  cursor: pointer;
-}
-
-.gql-tls-footer-btn:hover {
-  border-color: var(--primary);
-}
-
-.gql-tls-footer-btn--primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.gql-tls-footer-btn--primary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.gql-tls-notice {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 8px 10px;
-  margin-bottom: 12px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
-.gql-tls-section {
-  margin-bottom: 14px;
-}
-
-.gql-tls-section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.gql-tls-section-title {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.gql-tls-section-tag {
-  font-size: 0.62rem;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-}
-
-.gql-tls-section-tag--mtls {
-  color: #34d399;
-  border-color: color-mix(in srgb, #34d399 40%, var(--border));
-}
-
-.gql-tls-section-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin: 0 0 8px;
-  line-height: 1.45;
-}
-
-.gql-tls-option-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  cursor: pointer;
-}
-
-.gql-tls-option-row--warn {
-  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
-  background: color-mix(in srgb, var(--warning) 8%, var(--bg));
-}
-
-.gql-tls-option-label {
-  display: block;
-  font-size: 0.74rem;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.gql-tls-option-desc {
-  display: block;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.gql-tls-warn-badge {
-  color: var(--warning);
-  font-size: 0.9rem;
-}
-
-.gql-tls-field {
-  margin-top: 8px;
-}
-
-.gql-tls-field-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.gql-tls-field-label {
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.gql-tls-field-set-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: #34d399;
-}
-
-.gql-tls-textarea {
-  width: 100%;
-  min-height: 88px;
-  padding: 8px 10px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-monospace, monospace;
-  font-size: 0.68rem;
-  resize: vertical;
-  box-sizing: border-box;
-}
-
-.gql-tls-textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
-}

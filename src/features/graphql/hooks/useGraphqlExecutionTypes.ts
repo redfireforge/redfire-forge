@@ -4,6 +4,7 @@
 import type { GraphqlResponse } from '../../../shared/types/graphql';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import type { DedupChoice } from '../utils/dedupExecution';
+import type { AuthSentStampInput } from '../utils/graphqlExecutionResponseParsing';
 
 export type ExecutionStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -25,6 +26,8 @@ export interface ExecuteParams {
   _skipDedupCheck?: boolean;
   _skipDedupCheckOnly?: boolean;
   sourceTabId?: string;
+  /** Phase 6H — auth provenance for Metadata "auth sent" row. */
+  authSentStamp?: AuthSentStampInput;
   onExecutionStarted?: (tabId: string) => void;
   onExecutionCompleted?: (
     tabId: string,
