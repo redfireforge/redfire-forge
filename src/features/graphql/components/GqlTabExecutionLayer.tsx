@@ -4,12 +4,15 @@ import type { GraphqlAuth } from '../../../shared/types/graphql';
 import { useGraphqlExecution } from '../hooks/useGraphqlExecution';
 import type { ExecuteParams } from '../hooks/useGraphqlExecution';
 import { stampAuthHeaders } from '../utils/authUtils';
+import type { GqlAuthSentSource } from '../utils/gqlAuthResolve';
 import type { GqlTabExecutionHandle, GqlTabExecutionState } from '../types/gqlTabExecution';
 
 export interface GqlTabExecutionLayerProps {
   tabId: string;
   /** Phase 6F — profile-scoped auth for this tab (from resolveTabConnection). */
   resolvedAuth?: GraphqlAuth | null;
+  /** Phase 6H — where resolved auth credentials originated. */
+  authSentSource?: GqlAuthSentSource;
   /** Global auth profiles for inherit resolution. */
   globalAuthProfiles?: GlobalAuthProfile[];
   onExecutionCompleted?: ExecuteParams['onExecutionCompleted'];
@@ -26,6 +29,7 @@ export interface GqlTabExecutionLayerProps {
 export function GqlTabExecutionLayer({
   tabId,
   resolvedAuth = null,
+  authSentSource = 'page',
   globalAuthProfiles = [],
   onExecutionCompleted,
   onRegister,
@@ -45,6 +49,8 @@ export function GqlTabExecutionLayer({
 
   const resolvedAuthRef = useRef(resolvedAuth);
   resolvedAuthRef.current = resolvedAuth;
+  const authSentSourceRef = useRef(authSentSource);
+  authSentSourceRef.current = authSentSource;
   const globalAuthProfilesRef = useRef(globalAuthProfiles);
   globalAuthProfilesRef.current = globalAuthProfiles;
 
@@ -65,9 +71,25 @@ export function GqlTabExecutionLayer({
 
   const wrappedExecute = useCallback(
     (params: ExecuteParams) => {
+      const incomingHeaders = params.headers ?? {};
+      const resolvedAuthHeaderKeys = Object.keys(
+        stampAuthHeaders({}, resolvedAuthRef.current, globalAuthProfilesRef.current),
+      );
+      const hasResolvedAuthAlready = resolvedAuthHeaderKeys.some((key) =>
+        Object.prototype.hasOwnProperty.call(incomingHeaders, key),
+      );
+      const finalHeaders = hasResolvedAuthAlready
+        ? incomingHeaders
+        : stampAuthHeaders(incomingHeaders, resolvedAuthRef.current, globalAuthProfilesRef.current);
+
       execute({
         ...params,
-        headers: stampAuthHeaders(params.headers, resolvedAuthRef.current, globalAuthProfilesRef.current),
+        headers: finalHeaders,
+        authSentStamp: {
+          source: authSentSourceRef.current,
+          storedAuth: resolvedAuthRef.current,
+          globalAuthProfiles: globalAuthProfilesRef.current,
+        },
         sourceTabId: tabId,
         onExecutionCompleted,
       });

@@ -32,6 +32,14 @@ import {
   gqlFirstQuerySetup,
   gqlFirstQueryCleanup,
   gqlVariablesLessonSetup,
+  clearActiveTabAuthOverride,
+  configureDemoTabInheritPageAuth,
+  openAuthPanelQuiet,
+  closeAuthPanelQuiet,
+  _openAuthPanel,
+  _closeAuthPanelIfOpen,
+  selectAuthInPanel,
+  selectNoAuthInPanel,
   gqlVariablesLessonCleanup,
 } from './core';
 
@@ -200,5 +208,113 @@ describe('graphql-lesson-helpers core', () => {
     const ctx = makeCtx();
     await gqlVariablesLessonCleanup(ctx);
     expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-variables');
+  });
+
+  it('clearActiveTabAuthOverride clicks reset when control is visible', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+      <div data-testid="gql-auth-panel">
+        <button data-testid="gql-auth-reset-inherit-btn"></button>
+      </div>
+    `;
+    const ctx = makeCtx();
+    await clearActiveTabAuthOverride(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_RESET_INHERIT_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
+  it('clearActiveTabAuthOverride closes auth tab when reset control absent', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <div data-testid="gql-auth-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await clearActiveTabAuthOverride(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_RESET_INHERIT_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
+  it('clearActiveTabAuthOverride opens panel when auth tab inactive and reset absent', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <div data-testid="gql-auth-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await clearActiveTabAuthOverride(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_RESET_INHERIT_BTN);
+  });
+
+  it('configureDemoTabInheritPageAuth waits for auth badge then clears override', async () => {
+    document.body.innerHTML = `<button data-testid="gql-auth-badge-btn"></button>`;
+    const ctx = makeCtx();
+    await configureDemoTabInheritPageAuth(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN, 5000);
+  });
+
+  it('openAuthPanelQuiet skips when auth tab is already selected', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+    `;
+    const ctx = makeCtx();
+    await openAuthPanelQuiet(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('openAuthPanelQuiet clicks auth badge when panel exists but auth tab inactive', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await openAuthPanelQuiet(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+  });
+
+  it('closeAuthPanelQuiet switches to Variables when auth tab is active', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+      <div data-testid="gql-auth-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await closeAuthPanelQuiet(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
+  it('closeAuthPanelQuiet is no-op when auth panel exists but auth tab inactive', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel"></div>
+    `;
+    const ctx = makeCtx();
+    await closeAuthPanelQuiet(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('selectAuthInPanel opens panel and selects auth type', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <select data-testid="gql-auth-type-select"></select>
+    `;
+    const ctx = makeCtx();
+    await selectAuthInPanel(ctx, 'bearer');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'bearer');
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, 5000);
+  });
+
+  it('selectNoAuthInPanel selects none auth type', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <select data-testid="gql-auth-type-select"></select>
+    `;
+    const ctx = makeCtx();
+    await selectNoAuthInPanel(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'none');
   });
 });

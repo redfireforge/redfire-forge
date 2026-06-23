@@ -99,6 +99,10 @@ export interface GraphqlResponse {
   httpHeaders: Record<string, string>;
   /** Outgoing request headers sent with this operation (auth + custom, env-resolved). */
   requestHeaders?: Record<string, string>;
+  /** Phase 6H — where resolved auth credentials originated (page / tab / profile). */
+  authSentSource?: 'page' | 'tab' | 'profile';
+  /** Phase 6H — masked auth header lines shown in Metadata tab (e.g. Authorization: Bearer …). */
+  authSentLines?: string[];
   timestamp: number;
   // Sprint 7 (2D) — incremental delivery metadata
   /** true while a multipart/mixed stream is still delivering chunks */

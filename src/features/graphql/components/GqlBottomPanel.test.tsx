@@ -124,6 +124,59 @@ describe('GqlBottomPanel', () => {
     expect(baseProps.onVariablesChange).toHaveBeenCalledWith('{"key":"value"}');
   });
 
+  // ── Auth tab (Slice 7.3) ─────────────────────────────────────────────────
+
+  it('renders Auth tab when onAuthChange is provided', () => {
+    render(<GqlBottomPanel {...baseProps} onAuthChange={vi.fn()} />);
+    expect(screen.getByTestId('gql-bottom-tab-auth')).toBeTruthy();
+  });
+
+  it('does not render Auth tab when onAuthChange is omitted', () => {
+    render(<GqlBottomPanel {...baseProps} />);
+    expect(screen.queryByTestId('gql-bottom-tab-auth')).toBeNull();
+  });
+
+  it('calls onTabChange with auth when Auth tab is clicked', () => {
+    render(<GqlBottomPanel {...baseProps} onAuthChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('gql-bottom-tab-auth'));
+    expect(baseProps.onTabChange).toHaveBeenCalledWith('auth');
+  });
+
+  it('shows Auth panel when activeTab is auth', () => {
+    render(
+      <GqlBottomPanel
+        {...baseProps}
+        activeTab="auth"
+        onAuthChange={vi.fn()}
+        resolvedAuthPreview="No auth"
+      />,
+    );
+    expect(screen.getByTestId('gql-auth-panel')).toBeTruthy();
+  });
+
+  it('shows override dot on Auth tab when hasAuthOverride is true', () => {
+    render(
+      <GqlBottomPanel
+        {...baseProps}
+        onAuthChange={vi.fn()}
+        hasAuthOverride
+      />,
+    );
+    const authTab = screen.getByTestId('gql-bottom-tab-auth');
+    expect(authTab.querySelector('.gql-bottom-tab-override-dot')).toBeTruthy();
+  });
+
+  it('uses page-default title on Auth tab when authScope is page', () => {
+    render(
+      <GqlBottomPanel
+        {...baseProps}
+        onAuthChange={vi.fn()}
+        authScope="page"
+      />,
+    );
+    expect(screen.getByTestId('gql-bottom-tab-auth')).toHaveAttribute('title', 'Page default auth');
+  });
+
   // ── Files tab ───────────────────────────────────────────────────────────
 
   it('renders Files tab button', () => {

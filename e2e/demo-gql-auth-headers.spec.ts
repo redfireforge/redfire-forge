@@ -7,7 +7,7 @@
  * Full lesson (Bearer, API Key, Basic, inherit profile, connection profile) needs Docker on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 12 disables Next — use walkFullGql4Lesson (GQL-1 style), not runNextStep on the final step.
+ * Last-step rule: step 8 disables Next — use walkFullGql4Lesson (GQL-1 style), not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';

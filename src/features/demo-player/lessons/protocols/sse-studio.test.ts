@@ -151,9 +151,11 @@ describe('sse-studio lesson', () => {
   it('step sse-header-select action selects demo env and svc in header', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select">
+        <option value="">Select env</option>
         <option value="e1">SSE Demo</option>
       </select>
       <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
         <option value="s1">sse-demo</option>
       </select>`;
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-header-select')!;

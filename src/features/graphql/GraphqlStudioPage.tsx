@@ -2,7 +2,7 @@
  * GraphqlStudioPage — GraphQL Studio main page (tabs, execution, schema, collections).
  * Orchestration hooks live under hooks/; layout pieces under components/GraphqlStudioPage*.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { GQL_STUDIO_PROXY_BASE } from './graphqlStudioPageConstants';
 import type { GraphqlHistoryItem } from '../../shared/types/graphql';
@@ -32,9 +32,10 @@ import { useGraphqlHistory } from './hooks/useGraphqlHistory';
 import { useGraphqlCollections } from './hooks/useGraphqlCollections';
 import { useGraphqlCollectionRunner } from './hooks/useGraphqlCollectionRunner';
 import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettings';
+import { useDemoGqlEnvBridge } from './hooks/useDemoGqlEnvBridge';
 import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
 import { useGraphqlStudioShortcutsBridge } from './hooks/useGraphqlStudioShortcutsBridge';
-import { useSplitPaneResize } from '../../shared/hooks/useSplitPaneResize';
+import { useGraphqlStudioSplitPanes } from './hooks/useGraphqlStudioSplitPanes';
 import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
 import { useGraphqlStudioEnvMap } from './hooks/useGraphqlStudioEnvMap';
 import { useGraphqlHistoryMaxItems } from './hooks/useGraphqlHistoryMaxItems';
@@ -42,7 +43,6 @@ import { useMonacoExecutionMarkers } from './hooks/useMonacoExecutionMarkers';
 import { resolveVars } from './utils/envUtils';
 import { normalizeGraphqlEndpoint } from './utils/graphqlEndpointUtils';
 import { useGqlActiveTabConnection } from './hooks/useGqlActiveTabConnection';
-import type { FileEntry } from './utils/multipartBuilder';
 import {
   buildActiveTabHeaderMap,
   buildGraphqlSchemaHeaders,
@@ -53,6 +53,8 @@ import { useGraphqlAdvancedSettings } from './hooks/useGraphqlAdvancedSettings';
 import { useGraphqlBatchExecution } from './hooks/useGraphqlBatchExecution';
 import { useGqlTabResponseCache, resolveActiveTabUploadProgress } from './hooks/useGqlTabResponseCache';
 import { useGqlTabConnectionHandlers } from './hooks/useGqlTabConnectionHandlers';
+import { describeResolvedGqlAuth } from './utils/gqlAuthResolve';
+import { resolveGqlAuthBadgePresentation } from './utils/authUtils';
 import { useGqlExecutionCompletedHandler } from './hooks/useGqlExecutionCompletedHandler';
 import { useGraphqlStudioExecute } from './hooks/useGraphqlStudioExecute';
 import { useGqlVariablesValidation } from './hooks/useGqlVariablesValidation';
@@ -62,8 +64,9 @@ import '../../styles/graphql-studio.css';
 import '../../styles/graphql-tls-panel.css';
 import '../../styles/graphql-collections.css';
 import { useGraphqlStudioBatchAdvSettings } from './hooks/useGraphqlStudioBatchAdvSettings';
-import type { BottomPanelTabExtended, GraphqlStudioPageProps, RightPaneView } from './graphqlStudioPageTypes';
+import type { BottomPanelTab, BottomPanelTabExtended, GraphqlStudioPageProps } from './graphqlStudioPageTypes';
 import { useGraphqlStudioSubscriptionGuard } from './hooks/useGraphqlStudioSubscriptionGuard';
+import { useGraphqlStudioUIState } from './hooks/useGraphqlStudioUIState';
 
 
 export function GraphqlStudioPage({
@@ -74,30 +77,19 @@ export function GraphqlStudioPage({
   selectedEnvId,
   globalAuthProfiles = [],
 }: GraphqlStudioPageProps) {
-  const [bottomTab, setBottomTab]   = useState<BottomPanelTabExtended>('variables');
-  const [rightView, setRightView]   = useState<RightPaneView>('response');
-  const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
-  const [builderMode, setBuilderMode] = useState(false);
+  const { bottomTab, setBottomTab, rightView, setRightView, fileEntries, setFileEntries, builderMode, setBuilderMode, focusAuthPanel } = useGraphqlStudioUIState();
 
-  const gqlSplitRef = useRef<HTMLDivElement>(null);
-  const gqlActivitySplitRef = useRef<HTMLDivElement>(null);
-  const { width: editorPaneWidth, dividerProps: gqlPaneDividerProps } = useSplitPaneResize({
-    storageKey: 'redfire-gql-split-v1',
-    defaultWidth: 640,
-    minWidth: 320,
-    minOppositeWidth: 300,
-    containerRef: gqlSplitRef,
-    label: 'Resize editor and response panes',
-  });
-  const { width: activityPanelWidth, dividerProps: activityDividerProps } = useSplitPaneResize({
-    storageKey: 'redfire-gql-activity-split-v1',
-    defaultWidth: 320,
-    minWidth: 240,
-    minOppositeWidth: 480,
-    maxWidthRatio: 0.42,
-    containerRef: gqlActivitySplitRef,
-    label: 'Resize activity sidebar',
-  });
+  const {
+    gqlSplitRef,
+    gqlActivitySplitRef,
+    gqlLeftPaneRef,
+    editorPaneWidth,
+    gqlPaneDividerProps,
+    activityPanelWidth,
+    activityDividerProps,
+    bottomPanelHeight,
+    bottomPanelDividerProps,
+  } = useGraphqlStudioSplitPanes();
 
   const [activityTab, setActivityTab] = useState(() => loadPersistedActivityTab());
   const [runnerCollectionId, setRunnerCollectionId] = useState<string | null>(null);
@@ -116,8 +108,11 @@ export function GraphqlStudioPage({
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
+    upsertEnvironment, deleteEnvironmentByName,
     envModalOpen, setEnvModalOpen,
   } = useGraphqlConnectionSettings(resolvedBaseUrl);
+
+  useDemoGqlEnvBridge({ upsertEnvironment, deleteEnvironmentByName });
 
   const { globalEnvMap, endpointProtocolStatus } = useGraphqlStudioEnvMap({
     selectedSvc,
@@ -152,12 +147,14 @@ export function GraphqlStudioPage({
     confirmingCloseTabId, closeActiveTabRef, executingRef,
     addTab, handleTabClick, closeTab, renameTab,
     resolvedTabEndpoint, hasActiveTabEndpointOverride, hasActiveTabProfileLink,
+    hasResolvedProfileLink,
     updateActiveTabEndpoint, clearActiveTabEndpoint,
-    applyProfileToActiveTab, clearConnectionIdsForProfile, clearActiveTabProfileLink,
+    applyProfileToActiveTab, clearConnectionIdsForProfile,
     updateActiveTabSkipTlsVerify, hasActiveTabSkipTlsOverride,
     hasActiveTabTlsCertOverride,
     updateActiveTabTlsSettings,
     updateActiveTabPolling, clearActiveTabPolling, hasActiveTabPollingOverride, hasPendingProfileEndpoint,
+    updateActiveTabAuth, clearActiveTabAuth, hasActiveTabAuthOverride,
     handleSelectOperation, handleQueryChange, handleVariablesChange,
     handleHeadersChange, handleAssertionsChange, handleSubscriptionTransportChange,
     activeDemoLessonId,
@@ -178,6 +175,7 @@ export function GraphqlStudioPage({
     pageDefaultTlsClientKey: tlsClientKey,
     pageDefaultPollingEnabled: pollingEnabled,
     pageDefaultPollingIntervalSeconds: pollingIntervalSeconds,
+    pageDefaultAuth: auth,
     profiles,
     profilesReady,
     onTabClosed: removeTabFromCache,
@@ -217,6 +215,7 @@ export function GraphqlStudioPage({
     tabsLength: tabs.length,
     hasActiveTabEndpointOverride,
     hasActiveTabProfileLink,
+    hasActiveTabAuthOverride,
     hasActiveTabConnectionId: Boolean(activeTab?.connectionId),
     hasActiveTabSkipTlsOverride,
     hasActiveTabTlsCertOverride,
@@ -230,8 +229,39 @@ export function GraphqlStudioPage({
     handlePollingChange,
     updateActiveTabPolling,
     handleAuthChange,
-    clearActiveTabProfileLink,
+    updateActiveTabAuth,
   });
+
+  const usesPageDefaultAuth =
+    tabs.length === 1 && !hasActiveTabAuthOverride && !hasActiveTabProfileLink;
+
+  const storedAuthForPanel = usesPageDefaultAuth ? auth : activeTab?.auth;
+
+  const authBadgePresentation = useMemo(
+    () => resolveGqlAuthBadgePresentation({
+      resolvedAuth: resolvedTabAuth,
+      hasTabAuthOverride: hasActiveTabAuthOverride,
+      hasProfileLink: hasResolvedProfileLink,
+      usesPageDefaultAuth,
+      linkedProfileName,
+      globalAuthProfiles,
+      tabsLength: tabs.length,
+    }),
+    [
+      resolvedTabAuth,
+      hasActiveTabAuthOverride,
+      hasResolvedProfileLink,
+      usesPageDefaultAuth,
+      linkedProfileName,
+      globalAuthProfiles,
+      tabs.length,
+    ],
+  );
+
+  const resolvedAuthPreview = useMemo(
+    () => describeResolvedGqlAuth(resolvedTabAuth, globalAuthProfiles),
+    [resolvedTabAuth, globalAuthProfiles],
+  );
 
   const {
     editorMountRef, prettifyError, insertToast, handlePrettify, handleInsertField,
@@ -329,7 +359,7 @@ export function GraphqlStudioPage({
     handleAdvSettingsChange,
   } = useGraphqlAdvancedSettings(tabSchemaConnectionId, activeTabApqInfo);
 
-  const onIntrospectComplete = useCallback(() => setRightView('schema'), []);
+  const onIntrospectComplete = useCallback(() => setRightView('schema'), [setRightView]);
 
   const {
     schemaStatus,
@@ -350,6 +380,7 @@ export function GraphqlStudioPage({
     toastBaselineSnapshotIdRef,
     handleSaveSnapshot,
     handleDeleteSnapshot,
+    handleClearOlderSnapshots,
     handleOpenDiff,
     handleAcknowledge,
     handleUnacknowledge,
@@ -560,11 +591,10 @@ export function GraphqlStudioPage({
         queryEmpty={!activeTab?.query.trim()}
         fileErrors={fileEntries.some((e) => e.error !== null)}
         queryValidationErrors={queryValidationErrorCount}
-        auth={resolvedTabAuth ?? undefined}
-        onAuthChange={handleConnectionAuthChange}
-        linkedProfileName={linkedProfileName}
+        auth={resolvedTabAuth}
+        onFocusAuthPanel={focusAuthPanel}
+        authBadgePresentation={authBadgePresentation}
         globalAuthProfiles={globalAuthProfiles}
-        defaultAuthProfileId={defaultAuthProfileId}
         recentEndpoints={recentEndpoints}
         onRemoveRecentEndpoint={removeRecentEndpoint}
         activeEnvName={activeEnvironment?.name ?? null}
@@ -666,6 +696,7 @@ export function GraphqlStudioPage({
         confirmingCloseTabId={confirmingCloseTabId}
         pageDefaultEndpoint={endpoint}
         pageDefaultEndpointResolved={pageDefaultEndpointResolved}
+        globalAuthProfiles={globalAuthProfiles}
         onTabClick={handleTabClick}
         onTabClose={closeTab}
         onAddTab={addTab}
@@ -715,6 +746,7 @@ export function GraphqlStudioPage({
           >
         <div
           className="gql-left-pane"
+          ref={gqlLeftPaneRef}
           style={builderMode ? undefined : { width: editorPaneWidth, flexShrink: 0 }}
         >
           <div className="gql-editor-mode-bar" data-testid="gql-editor-mode-bar">
@@ -787,20 +819,34 @@ export function GraphqlStudioPage({
               />
 
               {bottomTab === 'runner' && runnerCollectionId ? (
-                <GraphqlCollectionRunnerPanel
-                  runner={runner}
-                  items={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.items ?? []}
-                  collectionName={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.collection.name ?? 'Collection'}
-                  onClose={() => setBottomTab('variables')}
-                />
+                <>
+                  <div
+                    className="gql-bottom-panel-divider"
+                    data-testid="gql-bottom-panel-divider"
+                    {...bottomPanelDividerProps}
+                  />
+                  <GraphqlCollectionRunnerPanel
+                    runner={runner}
+                    items={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.items ?? []}
+                    collectionName={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.collection.name ?? 'Collection'}
+                    onClose={() => setBottomTab('variables')}
+                  />
+                </>
               ) : (
-                <GqlBottomPanel
-                  activeTab={(bottomTab === 'runner' ? 'variables' : bottomTab) as 'variables' | 'headers' | 'files'}
-                  onTabChange={(tab) => setBottomTab(tab as BottomPanelTabExtended)}
-                  varsModelPath={varsModelPath}
-                  defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
-                  onVariablesChange={handleVariablesChange}
-                  varsError={varsError}
+                <>
+                  <div
+                    className="gql-bottom-panel-divider"
+                    data-testid="gql-bottom-panel-divider"
+                    {...bottomPanelDividerProps}
+                  />
+                  <div className="gql-bottom-panel-container" style={{ height: bottomPanelHeight, overflowY: 'auto' }}>
+                    <GqlBottomPanel
+                      activeTab={(bottomTab === 'runner' ? 'variables' : bottomTab) as BottomPanelTab}
+                      onTabChange={(tab) => setBottomTab(tab as BottomPanelTabExtended)}
+                      varsModelPath={varsModelPath}
+                      defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
+                      onVariablesChange={handleVariablesChange}
+                      varsError={varsError}
                   headers={activeTab.headers}
                   onHeadersChange={handleHeadersChange}
                   activeEnvironment={activeEnvironment}
@@ -808,7 +854,18 @@ export function GraphqlStudioPage({
                   fileEntries={fileEntries}
                   onFileEntriesChange={setFileEntries}
                   uploadProgress={activeTabUploadProgress}
-                />
+                  storedAuth={storedAuthForPanel}
+                  resolvedAuthPreview={resolvedAuthPreview}
+                  authScope={usesPageDefaultAuth ? 'page' : 'tab'}
+                  hasAuthOverride={hasActiveTabAuthOverride}
+                  onAuthChange={handleConnectionAuthChange}
+                  onResetAuthToInherit={usesPageDefaultAuth ? undefined : clearActiveTabAuth}
+                      linkedProfileName={linkedProfileName}
+                      globalAuthProfiles={globalAuthProfiles}
+                      defaultAuthProfileId={defaultAuthProfileId}
+                    />
+                  </div>
+                </>
               )}
             </>
           )}
@@ -837,6 +894,7 @@ export function GraphqlStudioPage({
             snapshots={snapshots}
             onSaveSnapshot={handleSaveSnapshot}
             onDeleteSnapshot={handleDeleteSnapshot}
+            onClearOlderSnapshots={handleClearOlderSnapshots}
             onOpenDiff={handleOpenDiff}
             deprecatedUsages={deprecatedUsages}
             onOpenCollectionItem={handleOpenCollectionItem}

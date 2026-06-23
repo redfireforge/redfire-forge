@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>GraphQL Per-Tab Auth — Design Mockups</title>
+  <link rel="stylesheet" href="gql-per-tab-auth-mockup.css" />
+</head>
+<body>
+  <div class="index-page">
+    <h1>GraphQL Studio — Per-Tab Auth Design Options</h1>
+    <p class="lead">
+      Interactive mockups for the auth isolation problem: two tabs on the same endpoint need different credentials
+      (local health check vs authenticated demo). Click each card to open a full-screen mockup, then switch query tabs
+      to see how auth behaves.
+    </p>
+
+    <div class="option-grid">
+      <a class="option-card" href="gql-auth-option-current.html">
+        <h2><span class="card-tag current">Current</span> Page-level auth (today)</h2>
+        <p>Auth badge reads from workspace storage. Both tabs share the same credentials — the design gap you identified.</p>
+      </a>
+
+      <a class="option-card rec" href="gql-auth-option-a.html">
+        <h2><span class="card-tag rec">Recommended</span> Option A — <code>tab.auth</code> override</h2>
+        <p>Mirror endpoint/TLS: each tab can override auth. Badge shows active tab's resolved auth. Single-tab sessions still edit page default.</p>
+      </a>
+
+      <a class="option-card" href="gql-auth-option-d.html">
+        <h2><span class="card-tag alt">Option D</span> Explicit inherit chain</h2>
+        <p>Option A plus Requests-style inherit modes: inherit workspace, inherit global profile directly, or explicit override with reset.</p>
+      </a>
+
+      <a class="option-card" href="gql-auth-option-b.html">
+        <h2><span class="card-tag alt">Option B</span> Connection profiles only</h2>
+        <p>Auth isolation via named profiles per tab. Works today for linked tabs, but heavy UX when only auth differs.</p>
+      </a>
+
+      <a class="option-card" href="gql-auth-option-c.html">
+        <h2><span class="card-tag weak">Option C</span> Headers panel only</h2>
+        <p>No auth popover — users put <code>Authorization</code> in per-tab Headers. Duplicates UI; breaks subscription connectionParams.</p>
+      </a>
+    </div>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Criteria</th>
+          <th>Current</th>
+          <th>Option A</th>
+          <th>Option D</th>
+          <th>Option B</th>
+          <th>Option C</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Independent auth per tab</td>
+          <td class="no">No</td>
+          <td class="yes">Yes</td>
+          <td class="yes">Yes</td>
+          <td class="partial">Via profiles</td>
+          <td class="partial">Via headers</td>
+        </tr>
+        <tr>
+          <td>Same endpoint, different auth</td>
+          <td class="no">No</td>
+          <td class="yes">Yes</td>
+          <td class="yes">Yes</td>
+          <td class="partial">Needs 2 profiles</td>
+          <td class="yes">Yes</td>
+        </tr>
+        <tr>
+          <td>Inherit global auth profile</td>
+          <td class="yes">Page-level</td>
+          <td class="yes">Via page default</td>
+          <td class="yes">Per-tab inherit</td>
+          <td class="yes">In profile</td>
+          <td class="no">Manual header</td>
+        </tr>
+        <tr>
+          <td>WS subscription auth</td>
+          <td class="yes">Structured</td>
+          <td class="yes">Structured</td>
+          <td class="yes">Structured</td>
+          <td class="yes">Structured</td>
+          <td class="no">Header only</td>
+        </tr>
+        <tr>
+          <td>UX complexity</td>
+          <td>Low</td>
+          <td>Low</td>
+          <td>Medium</td>
+          <td>High</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td>Matches WebSocket / Requests</td>
+          <td class="no">No</td>
+          <td class="yes">Yes</td>
+          <td class="yes">Best</td>
+          <td class="partial">Partial</td>
+          <td class="no">No</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top: 24px; font-size: 0.72rem; color: var(--text-muted);">
+      Open at 1280×900 in Chrome. Files live in <code>docs/plan/future/graphql/mockups/</code>.
+    </p>
+  </div>
+</body>
+</html>

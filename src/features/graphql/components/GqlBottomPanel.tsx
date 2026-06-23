@@ -1,17 +1,20 @@
 /**
- * GqlBottomPanel.tsx — the bottom panel (Variables / Headers / Files tabs) in GraphQL Studio.
+ * GqlBottomPanel.tsx — the bottom panel (Variables / Headers / Auth / Files tabs) in GraphQL Studio.
  *
  * Extracted from GraphqlStudioPage.tsx.
  * Phase 2.0 Sprint 4: added "Files" tab for multipart file upload (2E-1).
+ * Phase 6H Slice 7.3: Auth tab (Option D bottom panel).
  */
 
-import type { GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { BottomPanelTab } from '../graphqlStudioPageTypes';
+import type { GqlAuthPopoverScope } from '../utils/gqlAuthPopoverUtils';
 import type { FileEntry } from '../utils/multipartBuilder';
+import { GraphqlAuthPanel } from './GraphqlAuthPanel';
 import { GraphqlFileUpload } from './GraphqlFileUpload';
 import { GraphqlHeadersPanel } from './GraphqlHeadersPanel';
 import { GraphqlVariablesPanel } from './GraphqlVariablesPanel';
-
-type BottomPanelTab = 'variables' | 'headers' | 'files';
 
 interface GqlBottomPanelProps {
   activeTab: BottomPanelTab;
@@ -29,6 +32,16 @@ interface GqlBottomPanelProps {
   maxFileSizeMb?: number;
   /** Sprint 8 (2E-4): 0–100 while uploading, null when idle */
   uploadProgress?: number | null;
+  /** Phase 6H Slice 7.3 — auth panel props */
+  storedAuth?: GraphqlAuth | null | undefined;
+  resolvedAuthPreview?: string;
+  authScope?: GqlAuthPopoverScope;
+  hasAuthOverride?: boolean;
+  onAuthChange?: (auth: GraphqlAuth | null) => void;
+  onResetAuthToInherit?: () => void;
+  linkedProfileName?: string | null;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
 }
 
 export function GqlBottomPanel({
@@ -46,14 +59,24 @@ export function GqlBottomPanel({
   onFileEntriesChange,
   maxFileSizeMb,
   uploadProgress,
+  storedAuth,
+  resolvedAuthPreview = '',
+  authScope = 'tab',
+  hasAuthOverride = false,
+  onAuthChange,
+  onResetAuthToInherit,
+  linkedProfileName = null,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
 }: GqlBottomPanelProps) {
   const activeHeaderCount = headers.filter((h) => h.enabled).length;
   const validFileCount = fileEntries.filter((e) => e.error === null && e.varPath.trim() !== '').length;
   const hasFileErrors = fileEntries.some((e) => e.error !== null);
+  const showAuthPanel = onAuthChange != null;
 
   return (
     <div className="gql-bottom-panel">
-      <div className="gql-bottom-tabs" role="tablist" aria-label="Variables, headers, and files">
+      <div className="gql-bottom-tabs" role="tablist" aria-label="Variables, headers, auth, and files">
         <button
           id="gql-bottom-tab-variables-btn"
           className={`gql-bottom-tab${activeTab === 'variables' ? ' gql-bottom-tab--active' : ''}${varsError ? ' gql-bottom-tab--error' : ''}`}
@@ -85,6 +108,30 @@ export function GqlBottomPanel({
             <span className="gql-bottom-tab-badge">{activeHeaderCount}</span>
           )}
         </button>
+        {showAuthPanel && (
+          <button
+            id="gql-bottom-tab-auth-btn"
+            className={`gql-bottom-tab${activeTab === 'auth' ? ' gql-bottom-tab--active' : ''}${hasAuthOverride ? ' gql-bottom-tab--override' : ''}`}
+            role="tab"
+            aria-selected={activeTab === 'auth'}
+            aria-controls="gql-bottom-tabpanel"
+            onClick={() => onTabChange('auth')}
+            data-testid="gql-bottom-tab-auth"
+            type="button"
+            title={
+              authScope === 'page'
+                ? 'Page default auth'
+                : hasAuthOverride
+                  ? 'This tab overrides workspace auth'
+                  : 'Inheriting workspace auth'
+            }
+          >
+            Auth
+            {hasAuthOverride && (
+              <span className="gql-bottom-tab-override-dot" aria-label="Tab auth override" title="Tab auth override" />
+            )}
+          </button>
+        )}
         <button
           id="gql-bottom-tab-files-btn"
           className={`gql-bottom-tab${activeTab === 'files' ? ' gql-bottom-tab--active' : ''}${hasFileErrors ? ' gql-bottom-tab--error' : ''}`}
@@ -141,6 +188,19 @@ export function GqlBottomPanel({
             globalEnvMap={globalEnvMap}
           />
         )}
+        {activeTab === 'auth' && showAuthPanel && (
+          <GraphqlAuthPanel
+            storedAuth={storedAuth}
+            resolvedPreview={resolvedAuthPreview}
+            authScope={authScope}
+            hasAuthOverride={hasAuthOverride}
+            onResetToInherit={onResetAuthToInherit}
+            onChange={onAuthChange}
+            linkedProfileName={linkedProfileName}
+            globalAuthProfiles={globalAuthProfiles}
+            defaultAuthProfileId={defaultAuthProfileId}
+          />
+        )}
         {activeTab === 'files' && (
           <GraphqlFileUpload
             entries={fileEntries}
@@ -151,7 +211,6 @@ export function GqlBottomPanel({
         )}
       </div>
 
-      {/* Upload progress banner — visible on all tabs while uploading */}
       {uploadProgress != null && activeTab !== 'files' && (
         <div className="gql-file-progress gql-file-progress--banner" data-testid="gql-files-progress-banner" role="status">
           <div

@@ -73,6 +73,41 @@ describe('useGqlActiveTabConnection', () => {
     expect(result.current.resolvedTabAuth).toEqual({ type: 'bearer', token: 'page' });
   });
 
+  it('Phase 6H: preserves tab explicit null No Auth (does not fall back to page auth)', () => {
+    const { result } = renderHook(() => useGqlActiveTabConnection({
+      activeTab: { ...tab, connectionId: undefined, auth: null },
+      profiles,
+      endpoint: 'https://page.example/graphql',
+      auth: { type: 'bearer', token: 'page' } as GraphqlAuth,
+      skipTlsVerify: false,
+      pollingEnabled: false,
+      pollingIntervalSeconds: 30,
+    }));
+
+    expect(result.current.resolvedTabAuth).toBeNull();
+  });
+
+  it('Phase 6H: preserves profile explicit null when tab inherits workspace', () => {
+    const noAuthProfile = [{
+      id: 'prof-1',
+      name: 'Public',
+      endpoint: 'https://staging.example/graphql',
+      auth: null,
+      createdAt: 1,
+    }];
+    const { result } = renderHook(() => useGqlActiveTabConnection({
+      activeTab: tab,
+      profiles: noAuthProfile,
+      endpoint: 'https://page.example/graphql',
+      auth: { type: 'bearer', token: 'page' } as GraphqlAuth,
+      skipTlsVerify: false,
+      pollingEnabled: false,
+      pollingIntervalSeconds: 30,
+    }));
+
+    expect(result.current.resolvedTabAuth).toBeNull();
+  });
+
   it('resolves per-tab polling overrides (Phase 6F)', () => {
     const { result } = renderHook(() => useGqlActiveTabConnection({
       activeTab: { ...tab, connectionId: undefined, pollingEnabled: true, pollingIntervalSeconds: 15 },

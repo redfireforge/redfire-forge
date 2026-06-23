@@ -5,6 +5,7 @@
 import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
 import {
   type GqlStudioTab,
+  type GqlPageAuthSnapshot,
   MAX_TABS,
   MAX_USER_TABS,
   makeBlankTab,
@@ -14,6 +15,13 @@ import {
   makeDemoTab,
   saveTabs,
   countUserTabs,
+  capturePageAuthSnapshot,
+  restorePageAuthSnapshot,
+  stripDemoTabAuthOverride,
+  saveDemoPriorPageAuthBackup,
+  loadDemoPriorPageAuthBackup,
+  clearDemoPriorPageAuthBackup,
+  normalizePageAuthSnapshot,
 } from './tabPersistence';
 
 export { MAX_USER_TABS };
@@ -21,6 +29,8 @@ export { MAX_TABS } from './tabPersistence';
 
 export const DEMO_SESSION_KEY = 'gql_demo_session_v1';
 export const GQL_TABS_RELOAD_EVENT = 'gql-tabs-reload';
+/** Fired after demo cleanup restores page-level auth (Phase 6H Slice 6). */
+export const GQL_PAGE_AUTH_RELOAD_EVENT = 'gql-page-auth-reload';
 
 export interface GqlDemoSession {
   lessonId: string;
@@ -30,6 +40,8 @@ export interface GqlDemoSession {
   tabBudget?: number;
   /** Primary demo tab label for follow-on tabs. */
   displayName?: string;
+  /** Page auth before the lesson started — restored on close. */
+  priorPageAuth?: GqlPageAuthSnapshot;
 }
 
 export interface PrepareDemoWorkspaceResult {
@@ -44,12 +56,26 @@ export function dispatchGqlTabsReload(): void {
   }
 }
 
+export function dispatchGqlPageAuthReload(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(GQL_PAGE_AUTH_RELOAD_EVENT));
+  }
+}
+
 export async function loadDemoSession(): Promise<GqlDemoSession | null> {
   try {
     const raw = await readKey(DEMO_SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GqlDemoSession;
     if (!parsed?.lessonId || !parsed.demoTabId) return null;
+    if (parsed.priorPageAuth !== undefined) {
+      const normalized = normalizePageAuthSnapshot(parsed.priorPageAuth);
+      if (normalized === undefined) {
+        delete parsed.priorPageAuth;
+      } else {
+        parsed.priorPageAuth = normalized;
+      }
+    }
     return parsed;
   } catch {
     return null;
@@ -111,6 +137,13 @@ export async function purgeOrphanDemoTabs(): Promise<boolean> {
   const userTabs = tabs.filter((t) => !t.demoLessonId);
   if (userTabs.length === tabs.length) return false;
 
+  const backup = await loadDemoPriorPageAuthBackup();
+  if (backup !== undefined) {
+    await restorePageAuthSnapshot(backup);
+    dispatchGqlPageAuthReload();
+    await clearDemoPriorPageAuthBackup();
+  }
+
   const activeId = await loadActiveTabId();
   const nextActive = pickRestoreActiveId(userTabs, activeId);
   await saveTabs(userTabs.length > 0 ? userTabs : tabs.slice(0, 1), nextActive);
@@ -148,12 +181,26 @@ export async function prepareDemoWorkspace(
       ? priorActiveId
       : (userTabs[0]?.id ?? nextTabs[0].id);
 
+    const existingSession = await loadDemoSession();
+    if (
+      existingSession?.priorPageAuth !== undefined
+      && existingSession.lessonId !== lessonId
+    ) {
+      await restorePageAuthSnapshot(existingSession.priorPageAuth);
+      dispatchGqlPageAuthReload();
+    }
+    const priorPageAuth = existingSession?.lessonId === lessonId && existingSession.priorPageAuth !== undefined
+      ? existingSession.priorPageAuth
+      : await capturePageAuthSnapshot();
+
+    await saveDemoPriorPageAuthBackup(priorPageAuth);
     await saveDemoSession({
       lessonId,
       priorActiveTabId: priorUserActive,
       demoTabId: demoTab.id,
       tabBudget: budget,
       displayName: label,
+      priorPageAuth,
     });
     advanceSeqPastRestoredIds(nextTabs);
     await saveTabs(nextTabs, demoTab.id);
@@ -169,6 +216,16 @@ export async function closeDemoWorkspace(lessonId?: string): Promise<void> {
     const session = await loadDemoSession();
     let tabs = await loadTabs();
     const activeId = await loadActiveTabId();
+    const shouldCloseSession = !lessonId || session?.lessonId === lessonId;
+    const hadDemoTabsToRemove = tabs.some(
+      (t) => t.demoLessonId && (!lessonId || t.demoLessonId === lessonId),
+    );
+
+    tabs = tabs.map((t) => {
+      if (!t.demoLessonId) return t;
+      const willRemove = !lessonId || t.demoLessonId === lessonId;
+      return willRemove ? stripDemoTabAuthOverride(t) : t;
+    });
 
     tabs = stripDemoTabs(tabs, lessonId);
     const userTabs = tabs.filter((t) => !t.demoLessonId);
@@ -184,7 +241,24 @@ export async function closeDemoWorkspace(lessonId?: string): Promise<void> {
       await saveTabs(userTabs, restoreId);
     }
 
-    if (!lessonId || session?.lessonId === lessonId) {
+    const shouldRestorePageAuth =
+      hadDemoTabsToRemove && (shouldCloseSession || !session);
+
+    if (shouldRestorePageAuth) {
+      const snapshot = session?.priorPageAuth !== undefined
+        ? session.priorPageAuth
+        : await loadDemoPriorPageAuthBackup();
+      if (snapshot !== undefined) {
+        await restorePageAuthSnapshot(snapshot);
+        dispatchGqlPageAuthReload();
+      }
+    }
+
+    if (shouldCloseSession || (!session && hadDemoTabsToRemove)) {
+      await clearDemoPriorPageAuthBackup();
+    }
+
+    if (shouldCloseSession) {
       await saveDemoSession(null);
     }
   } catch {

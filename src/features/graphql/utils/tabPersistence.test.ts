@@ -24,11 +24,22 @@ import {
   countUserTabs,
   isDemoTab,
   normalizeTab,
+  normalizeGraphqlAuth,
+  graphqlAuthEquals,
+  computeTabAuthStoredValue,
   loadTabs,
   saveTabs,
   loadActiveTabId,
   loadAuth,
   saveAuth,
+  capturePageAuthSnapshot,
+  restorePageAuthSnapshot,
+  stripDemoTabAuthOverride,
+  normalizePageAuthSnapshot,
+  saveDemoPriorPageAuthBackup,
+  loadDemoPriorPageAuthBackup,
+  clearDemoPriorPageAuthBackup,
+  _DEMO_PRIOR_PAGE_AUTH_KEY,
   loadTlsCerts,
   saveTlsCerts,
   normalizeTlsCertsStorage,
@@ -479,10 +490,192 @@ describe('loadAuth / saveAuth', () => {
   });
 
   it('accepts all valid auth types', async () => {
-    for (const type of ['bearer', 'basic', 'apiKey', 'oauth2', 'custom'] as const) {
+    for (const type of ['inherit', 'bearer', 'basic', 'apiKey', 'oauth2', 'custom'] as const) {
       await saveAuth({ type });
       expect((await loadAuth())!.type).toBe(type);
     }
+  });
+
+  it('round-trips inherit auth with globalProfileId', async () => {
+    await saveAuth({ type: 'inherit', globalProfileId: 'prof-env-1' });
+    expect(await loadAuth()).toEqual({ type: 'inherit', globalProfileId: 'prof-env-1' });
+  });
+});
+
+describe('capturePageAuthSnapshot / restorePageAuthSnapshot (Phase 6H Slice 6)', () => {
+  beforeEach(async () => {
+    await saveAuth(null);
+  });
+
+  it('capturePageAuthSnapshot returns stored:false when key absent', async () => {
+    expect(await capturePageAuthSnapshot()).toEqual({ stored: false });
+  });
+
+  it('capturePageAuthSnapshot captures bearer auth', async () => {
+    await saveAuth({ type: 'bearer', token: 'before-lesson' });
+    expect(await capturePageAuthSnapshot()).toEqual({
+      stored: true,
+      auth: { type: 'bearer', token: 'before-lesson' },
+    });
+  });
+
+  it('restorePageAuthSnapshot restores prior bearer and clears when absent', async () => {
+    const snapshot = { stored: true as const, auth: { type: 'bearer' as const, token: 'orig' } };
+    await saveAuth({ type: 'apiKey', headerName: 'X', headerValue: 'lesson' });
+    await restorePageAuthSnapshot(snapshot);
+    expect(await loadAuth()).toEqual({ type: 'bearer', token: 'orig' });
+
+    await restorePageAuthSnapshot({ stored: false });
+    expect(await loadAuth()).toBeNull();
+  });
+
+  it('restorePageAuthSnapshot is a no-op when snapshot is undefined', async () => {
+    await saveAuth({ type: 'bearer', token: 'keep-me' });
+    await restorePageAuthSnapshot(undefined);
+    expect(await loadAuth()).toEqual({ type: 'bearer', token: 'keep-me' });
+  });
+});
+
+describe('normalizePageAuthSnapshot / demo prior-page-auth backup', () => {
+  beforeEach(async () => {
+    await clearDemoPriorPageAuthBackup();
+    await saveAuth(null);
+  });
+
+  it('normalizePageAuthSnapshot accepts stored:false and bearer auth', () => {
+    expect(normalizePageAuthSnapshot({ stored: false })).toEqual({ stored: false });
+    expect(
+      normalizePageAuthSnapshot({ stored: true, auth: { type: 'bearer', token: 'x' } }),
+    ).toEqual({ stored: true, auth: { type: 'bearer', token: 'x' } });
+    expect(normalizePageAuthSnapshot({ stored: true, auth: null })).toEqual({
+      stored: true,
+      auth: null,
+    });
+    expect(normalizePageAuthSnapshot({ stored: true })).toBeUndefined();
+  });
+
+  it('round-trips demo prior-page-auth backup', async () => {
+    const snapshot = { stored: true as const, auth: { type: 'inherit' as const, globalProfileId: 'p1' } };
+    await saveDemoPriorPageAuthBackup(snapshot);
+    expect(await loadDemoPriorPageAuthBackup()).toEqual(snapshot);
+    await clearDemoPriorPageAuthBackup();
+    expect(await loadDemoPriorPageAuthBackup()).toBeUndefined();
+  });
+});
+
+describe('stripDemoTabAuthOverride (Phase 6H Slice 6)', () => {
+  it('strips auth from demo tabs only when override is set', () => {
+    const demo = makeDemoTab('gql-multi-tab', 'Demo: Multi');
+    const withAuth = { ...demo, auth: { type: 'bearer' as const, token: 'x' } };
+    expect(stripDemoTabAuthOverride(withAuth).auth).toBeUndefined();
+    expect(stripDemoTabAuthOverride(demo)).toBe(demo);
+    expect(stripDemoTabAuthOverride(makeTab('user-1', {
+      auth: { type: 'bearer', token: 'x' },
+    })).auth).toEqual({ type: 'bearer', token: 'x' });
+  });
+});
+
+describe('graphqlAuthEquals / computeTabAuthStoredValue (Phase 6H Slice 2)', () => {
+  it('graphqlAuthEquals treats null and matching bearer as equal', () => {
+    expect(graphqlAuthEquals(null, null)).toBe(true);
+    expect(graphqlAuthEquals({ type: 'bearer', token: 'x' }, { type: 'bearer', token: 'x' })).toBe(true);
+    expect(graphqlAuthEquals({ type: 'bearer', token: 'x' }, { type: 'bearer', token: 'y' })).toBe(false);
+  });
+
+  it('computeTabAuthStoredValue omits field when auth matches page default', () => {
+    const page = { type: 'bearer' as const, token: 'page' };
+    expect(computeTabAuthStoredValue(page, page)).toBeUndefined();
+  });
+
+  it('computeTabAuthStoredValue stores null when page has bearer (explicit No Auth)', () => {
+    expect(computeTabAuthStoredValue(null, { type: 'bearer', token: 'page' })).toBeNull();
+  });
+
+  it('computeTabAuthStoredValue stores null when page is also null (explicit tab override)', () => {
+    expect(computeTabAuthStoredValue(null, null)).toBeNull();
+  });
+
+  it('computeTabAuthStoredValue omits bare inherit (inherit workspace)', () => {
+    expect(computeTabAuthStoredValue({ type: 'inherit' }, { type: 'bearer', token: 'p' })).toBeUndefined();
+  });
+
+  it('computeTabAuthStoredValue stores inherit-global override', () => {
+    expect(
+      computeTabAuthStoredValue(
+        { type: 'inherit', globalProfileId: 'prof-1' },
+        { type: 'bearer', token: 'p' },
+      ),
+    ).toEqual({ type: 'inherit', globalProfileId: 'prof-1' });
+  });
+});
+
+describe('normalizeGraphqlAuth (Phase 6H)', () => {
+  it('returns null for explicit null', () => {
+    expect(normalizeGraphqlAuth(null)).toBeNull();
+  });
+
+  it('returns undefined for invalid type', () => {
+    expect(normalizeGraphqlAuth({ type: 'unknown' })).toBeUndefined();
+    expect(normalizeGraphqlAuth('string')).toBeUndefined();
+  });
+
+  it('normalizes inherit with optional globalProfileId', () => {
+    expect(normalizeGraphqlAuth({ type: 'inherit' })).toEqual({ type: 'inherit' });
+    expect(normalizeGraphqlAuth({ type: 'inherit', globalProfileId: '  p1  ' })).toEqual({
+      type: 'inherit',
+      globalProfileId: 'p1',
+    });
+  });
+
+  it('normalizes bearer token fields', () => {
+    expect(normalizeGraphqlAuth({ type: 'bearer', token: 'tok' })).toEqual({
+      type: 'bearer',
+      token: 'tok',
+    });
+  });
+});
+
+describe('normalizeTab auth (Phase 6H)', () => {
+  it('omits auth when field absent (inherit workspace)', () => {
+    expect(normalizeTab({ id: 't1' })!.auth).toBeUndefined();
+  });
+
+  it('preserves explicit null No Auth override', () => {
+    expect(normalizeTab({ id: 't1', auth: null })!.auth).toBeNull();
+  });
+
+  it('round-trips tab bearer auth through loadTabs', async () => {
+    const tab = makeTab('t-auth', { auth: { type: 'bearer', token: 'tab-tok' } });
+    await saveTabs([tab], 't-auth');
+    const loaded = await loadTabs();
+    expect(loaded[0].auth).toEqual({ type: 'bearer', token: 'tab-tok' });
+  });
+
+  it('round-trips tab auth null through loadTabs', async () => {
+    const tab = makeTab('t-noauth', { auth: null });
+    await saveTabs([tab], 't-noauth');
+    expect((await loadTabs())[0].auth).toBeNull();
+  });
+
+  it('strips bare inherit on tab through loadTabs round-trip', async () => {
+    const tab = makeTab('t-inherit', { auth: { type: 'inherit' } });
+    await saveTabs([tab], 't-inherit');
+    expect((await loadTabs())[0].auth).toBeUndefined();
+  });
+
+  it('drops invalid auth object (falls back to inherit workspace)', () => {
+    expect(normalizeTab({ id: 't1', auth: { type: 'bogus' } })!.auth).toBeUndefined();
+  });
+
+  it('drops bare inherit on tab (inherit workspace — not a tab override)', () => {
+    expect(normalizeTab({ id: 't1', auth: { type: 'inherit' } })!.auth).toBeUndefined();
+  });
+
+  it('preserves inherit-global on tab when globalProfileId set', () => {
+    expect(normalizeTab({ id: 't1', auth: { type: 'inherit', globalProfileId: 'p1' } })!.auth).toEqual({
+      type: 'inherit',
+      globalProfileId: 'p1',
+    });
   });
 });
 

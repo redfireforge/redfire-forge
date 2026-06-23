@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import { deriveOperationType, extractOperations } from '../utils/monacoGraphqlSetup';
 import { disposeTabModels } from '../utils/tabPersistence';
@@ -10,6 +10,7 @@ import {
   findProfileById,
   isTabProfileLinked,
   isTabProfileLinkPending,
+  isTabAuthOverridden,
 } from '../utils/tabConnectionResolution';
 import { withAutoTabLabel, isAutoLabelEligible } from '../utils/tabLabelUtils';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
@@ -25,6 +26,8 @@ import {
   MAX_TABS,
   MAX_USER_TABS,
   countUserTabs,
+  computeTabAuthStoredValue,
+  graphqlAuthEquals,
 } from '../utils/tabPersistence';
 import {
   GQL_TABS_RELOAD_EVENT,
@@ -60,6 +63,8 @@ export interface UseGqlStudioTabsOptions {
   pageDefaultPollingEnabled?: boolean;
   /** Page-level default polling interval (seconds). Phase 6F. */
   pageDefaultPollingIntervalSeconds?: number;
+  /** Page-level default auth. Phase 6H. */
+  pageDefaultAuth?: GraphqlAuth | null;
   /** Saved connection profiles for endpoint resolution (Phase 6F). */
   profiles?: ConnectionProfile[];
   /** True after profile catalog has loaded from storage (Phase 6F). */
@@ -89,6 +94,8 @@ export interface UseGqlStudioTabsResult {
   updateActiveTabTlsSettings: (patch: Partial<GqlTlsSettings>) => void;
   updateActiveTabPolling: (enabled: boolean, intervalSeconds: number) => void;
   clearActiveTabPolling: () => void;
+  updateActiveTabAuth: (auth: GraphqlAuth | null, options?: { clearProfileLink?: boolean }) => void;
+  clearActiveTabAuth: () => void;
   resolvedTabEndpoint:    string;
   hasActiveTabEndpointOverride: boolean;
   hasActiveTabProfileLink: boolean;
@@ -97,6 +104,7 @@ export interface UseGqlStudioTabsResult {
   hasActiveTabSkipTlsOverride: boolean;
   hasActiveTabTlsCertOverride: boolean;
   hasActiveTabPollingOverride: boolean;
+  hasActiveTabAuthOverride: boolean;
   /** True while connectionId is set but profile catalog has not resolved it yet (Phase 6F). */
   hasPendingProfileEndpoint: boolean;
   applyProfileToActiveTab: (profile: ConnectionProfile) => void;
@@ -130,6 +138,7 @@ export function useGqlStudioTabs({
   pageDefaultTlsClientKey,
   pageDefaultPollingEnabled = false,
   pageDefaultPollingIntervalSeconds = 30,
+  pageDefaultAuth = null,
   profiles = [],
   profilesReady = false,
   onTabClosed,
@@ -418,9 +427,16 @@ export function useGqlStudioTabs({
     setTabs((prev) =>
       prev.map((t) => {
         if (t.id !== activeTabIdRef.current) return t;
-        if (t.connectionId === profile.id && t.endpoint === nextEndpoint) return t;
+        if (
+          t.connectionId === profile.id
+          && t.endpoint === nextEndpoint
+          && !isTabAuthOverridden(t)
+        ) {
+          return t;
+        }
+        const { auth: _auth, ...base } = t;
         return relabelTab({
-          ...t,
+          ...base,
           connectionId: profile.id,
           endpoint: nextEndpoint,
           unsavedChanges: true,
@@ -574,6 +590,49 @@ export function useGqlStudioTabs({
     );
   }, []);
 
+  const updateActiveTabAuth = useCallback((
+    newAuth: GraphqlAuth | null,
+    options?: { clearProfileLink?: boolean },
+  ) => {
+    const nextStored = computeTabAuthStoredValue(newAuth, pageDefaultAuth);
+    const shouldClearProfileLink = options?.clearProfileLink && nextStored !== undefined;
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.id !== activeTabIdRef.current) return t;
+
+        let next = t;
+        if (shouldClearProfileLink && t.connectionId !== undefined) {
+          next = relabelTab({ ...next, connectionId: undefined });
+        }
+
+        if (nextStored === undefined) {
+          if (next.auth === undefined) {
+            return next === t ? next : { ...next, unsavedChanges: true };
+          }
+          const { auth: _auth, ...rest } = next;
+          return { ...rest, unsavedChanges: true };
+        }
+
+        if (graphqlAuthEquals(next.auth, nextStored)) {
+          return next === t ? next : { ...next, unsavedChanges: true };
+        }
+
+        return { ...next, auth: nextStored, unsavedChanges: true };
+      }),
+    );
+  }, [pageDefaultAuth, relabelTab]);
+
+  const clearActiveTabAuth = useCallback(() => {
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.id !== activeTabIdRef.current) return t;
+        if (t.auth === undefined) return t;
+        const { auth: _auth, ...rest } = t;
+        return { ...rest, unsavedChanges: true };
+      }),
+    );
+  }, []);
+
   const handleQueryChange = useCallback(
     (value: string) => {
       const operationType = deriveOperationType(value);
@@ -641,6 +700,7 @@ export function useGqlStudioTabs({
   const hasActiveTabPollingOverride = activeTab
     ? activeTab.pollingEnabled !== undefined || activeTab.pollingIntervalSeconds !== undefined
     : false;
+  const hasActiveTabAuthOverride = activeTab ? isTabAuthOverridden(activeTab) : false;
   const hasPendingProfileEndpoint = activeTab
     ? (Boolean(activeTab.connectionId) && !profilesReady)
       || isTabProfileLinkPending(activeTab, profiles)
@@ -701,6 +761,8 @@ export function useGqlStudioTabs({
     updateActiveTabTlsSettings,
     updateActiveTabPolling,
     clearActiveTabPolling,
+    updateActiveTabAuth,
+    clearActiveTabAuth,
     resolvedTabEndpoint,
     hasActiveTabEndpointOverride,
     hasActiveTabProfileLink,
@@ -708,6 +770,7 @@ export function useGqlStudioTabs({
     hasActiveTabSkipTlsOverride,
     hasActiveTabTlsCertOverride,
     hasActiveTabPollingOverride,
+    hasActiveTabAuthOverride,
     hasPendingProfileEndpoint,
     applyProfileToActiveTab,
     clearConnectionIdsForProfile,

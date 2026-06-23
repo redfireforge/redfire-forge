@@ -54,7 +54,7 @@ test.describe('TLS Panel (WP-16–18)', () => {
       await page.waitForTimeout(300);
       const tlsBody = page.locator('[data-testid="tls-body"]');
       if (await tlsBody.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await expect(page.locator('[data-testid="tls-reject-unauthorized"]')).toBeVisible();
+        await expect(page.locator('[data-testid="tls-skip-cert"]')).toBeVisible();
         await expect(page.locator('[data-testid="tls-ca-cert"]')).toBeVisible();
       }
     }
@@ -67,7 +67,7 @@ test.describe('TLS Panel (WP-16–18)', () => {
     if (await tlsToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
       await tlsToggle.click();
       await page.waitForTimeout(300);
-      const rejectToggle = page.locator('[data-testid="tls-reject-unauthorized"]');
+      const rejectToggle = page.locator('[data-testid="tls-skip-cert"]');
       if (await rejectToggle.isVisible({ timeout: 1000 }).catch(() => false)) {
         await rejectToggle.click();
         await page.waitForTimeout(200);
