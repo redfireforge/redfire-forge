@@ -385,7 +385,7 @@ describe('ws-tls-local lesson', () => {
 
   it('setup clicks skip-cert checkbox when its state differs from desired', async () => {
     const wrapper = document.createElement('div');
-    wrapper.setAttribute('data-testid', 'tls-reject-unauthorized');
+    wrapper.setAttribute('data-testid', 'tls-skip-cert');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = true; // start checked, setup wants it unchecked (false)

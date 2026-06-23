@@ -295,7 +295,7 @@ describe('ws-tls lesson', () => {
 
   it('step tls-skip-cert highlights skip-cert checkbox', () => {
     const step = wsTlsLesson.steps.find(s => s.id === 'tls-skip-cert')!;
-    expect(step.highlight).toContain('tls-reject-unauthorized');
+    expect(step.highlight).toContain('tls-skip-cert');
   });
 
   it('step tls-skip-cert preAction navigates to Connect tab first, then disconnects, and expands TLS panel', async () => {
@@ -332,7 +332,7 @@ describe('ws-tls lesson', () => {
 
   it('step tls-skip-cert action dispatches click on checkbox to enable skip-cert', async () => {
     const label = document.createElement('label');
-    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    label.setAttribute('data-testid', 'tls-skip-cert');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = false;
@@ -417,7 +417,7 @@ describe('ws-tls lesson', () => {
 
   it('step tls-transport preAction switches to client mode, resets skip-cert, and switches back to Connect tab', async () => {
     const label = document.createElement('label');
-    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    label.setAttribute('data-testid', 'tls-skip-cert');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
@@ -451,7 +451,7 @@ describe('ws-tls lesson', () => {
     document.body.appendChild(toggle);
 
     const label = document.createElement('label');
-    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    label.setAttribute('data-testid', 'tls-skip-cert');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
@@ -526,7 +526,7 @@ describe('ws-tls lesson', () => {
     document.body.appendChild(toggle);
 
     const label = document.createElement('label');
-    label.setAttribute('data-testid', 'tls-reject-unauthorized');
+    label.setAttribute('data-testid', 'tls-skip-cert');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true; // Simulate skip-cert left enabled from a previous session

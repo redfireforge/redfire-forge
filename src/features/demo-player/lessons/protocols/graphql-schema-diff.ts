@@ -4,6 +4,7 @@ import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
   LESSON12_BASELINE_LABEL,
+  ensureLesson12BaselineReady,
   ensureLesson12ChangelogOpen,
   ensureLesson12DiffExported,
   ensureLesson12DiffFilters,
@@ -21,7 +22,7 @@ export const gqlSchemaDiffLesson: DemoLesson = {
   name: 'Schema Diff & Breaking Changes',
   description:
     'Save schema snapshots, compare against the live introspected schema, review BREAKING vs SAFE changes, filter by severity, and export the diff as JSON.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'graphql-studio',
   allowedTabs: ['graphql-studio'],
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -285,7 +286,7 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-save-snapshot',
       title: 'Save a Schema Snapshot',
       description:
-        'Open the **Schema** tab on the right. On the **Types** sub-tab, click **📷 Save Snapshot** — the current introspected SDL is stored with an auto-generated timestamp label.\n\n' +
+        'In the **Schema Explorer** on the right, stay on the **Types** sub-tab and click **📷 Save Snapshot** — the current introspected SDL is stored with an auto-generated timestamp label.\n\n' +
         '**Why save before comparing?** The snapshot is your reference point — the "before" state that the diff will compare against. Without a snapshot, you only know what the schema looks like now; with a snapshot, you know what it looked like at the moment you captured it. ' +
         'This lets you answer: "did the schema change between my last deploy and now?" Snapshots are stored per endpoint URL in IndexedDB, so they persist across sessions and survive page refreshes.',
       highlight: GQL.SAVE_SNAPSHOT_BTN,
@@ -320,16 +321,15 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-compare',
       title: 'Diff the Baseline Against Current Schema',
       description:
-        `Select the **${LESSON12_BASELINE_LABEL}** row (the older baseline). Leave the compare dropdown on **vs. Current Schema**, then click **Diff** — this compares the saved SDL to the live introspected schema.\n\n` +
-        '**Why "vs. Current Schema" is the primary mode?** The most common workflow is: you saved a snapshot before a deploy, the deploy happened, and now you want to know what changed. "vs. Current Schema" answers that question directly — it introspects the live server, computes the diff, and shows every change. ' +
-        'This catches breaking changes that might have slipped through code review, where the schema SDL was updated but the impact on client queries was not considered.',
-      highlight: GQL.CHANGELOG_DIFF_BTN,
-      preAction: ensureLesson12ChangelogOpen,
+        `Select the **${LESSON12_BASELINE_LABEL}** row, then click **View diff** in the compare bar below — leave **Compare against** on **Current schema**.\n\n` +
+        'This compares the older baseline SDL to the live introspected schema and opens the diff modal.',
+      highlight: GQL.CHANGELOG_COMPARE_BAR,
+      preAction: ensureLesson12BaselineReady,
       action: async (ctx) => {
         await ensureLesson12DiffOpen(ctx);
       },
       verify: GQL.DIFF_MODAL,
-      pauseAfter: true,
+      pauseAfter: 5500,
     },
 
     // ── Step 4: Review diff modal ───────────────────────────────────────────
@@ -337,14 +337,13 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-diff-modal',
       title: 'Review the Diff Modal',
       description:
-        'The **Schema Diff** modal lists every change between the baseline and current SDL. Each row shows severity (color-coded), field path, and a human-readable description. Toggle **SDL Diff** in the toolbar to see raw side-by-side SDL if needed.\n\n' +
+        'The **Schema Diff** modal opens on the **Changes** tab. Each row shows a severity pill, field path, and a human-readable change summary — scan the list before diving into details.\n\n' +
         '**Why show the diff as a structured table (not just text)?** Raw SDL comparison (like a git diff) tells you what text changed — but not whether that change will break clients. A structured table with severity classification makes the risk immediately scannable: you can see at a glance how many Breaking vs. Safe changes exist without reading every line of SDL. ' +
-        'The SDL Diff toggle is available for cases where you need the raw text context.',
-      highlight: GQL.DIFF_MODAL,
+        'Switch to **SDL Diff** in the toolbar when you need raw side-by-side SDL text.',
+      highlight: GQL.DIFF_CONTENT,
       preAction: ensureLesson12DiffOpen,
       action: async (ctx) => {
-        await ensureLesson12DiffOpen(ctx);
-        await ctx.delay(800);
+        await ctx.delay(1500);
       },
       verify: GQL.DIFF_ROW,
       pauseAfter: true,
@@ -355,15 +354,14 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-breaking',
       title: 'Breaking Change Count',
       description:
-        'Watch the red **Breaking** count badge in the modal header — it highlights removals and incompatible modifications that will immediately fail existing client queries (e.g. `Query.users` was removed since the prior release).\n\n' +
+        'Look at the summary badges in the modal header — the red **Breaking** count highlights removals and incompatible modifications that will immediately fail existing client queries (e.g. `Query.users` removed since the prior release).\n\n' +
         '**Why a prominent count badge?** Breaking changes require immediate action — client-side code must be updated before the change can go to production. Surfacing the count in the header means you see the severity summary without scrolling the change list. ' +
         'A badge showing "0 Breaking" gives you the confidence to deploy; "2 Breaking" tells you to stop and coordinate a migration. ' +
         'The red color follows the standard traffic-light convention: stop and review before proceeding.',
       highlight: GQL.DIFF_COUNT_BREAKING,
       preAction: ensureLesson12DiffOpen,
       action: async (ctx) => {
-        await ensureLesson12DiffOpen(ctx);
-        await ctx.delay(800);
+        await ctx.delay(1500);
       },
       verify: GQL.DIFF_COUNT_BREAKING,
       pauseAfter: true,
@@ -374,10 +372,10 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-filters',
       title: 'Filter by Severity',
       description:
-        'Use the severity tabs — **Breaking**, **Safe**, **Deprecated** — to narrow the change list. **Safe** shows additive changes (e.g. new `User.email` field). **Deprecated** may be empty on this server but the filter is always available.\n\n' +
+        'Use the severity filter tabs in the toolbar — **All**, **Breaking**, **Safe**, **Deprecated** — to narrow the change list. **Safe** shows additive changes (e.g. new `User.email` field). **Deprecated** may be empty on this server but the filter is always available.\n\n' +
         '**Why filter instead of showing everything?** In large schemas, a diff between two releases can contain dozens of changes — mostly Safe additive ones (new types, new fields). When you are on-call reviewing an incident or pre-deploy check, you care only about Breaking changes. ' +
         'Filtering isolates the signal from the noise. Conversely, a product manager reviewing the release notes might want only the Safe additions — new features clients can start using immediately. The filter tabs serve both audiences.',
-      highlight: GQL.DIFF_FILTER_BREAKING,
+      highlight: GQL.DIFF_FILTERS,
       preAction: ensureLesson12DiffOpen,
       action: async (ctx) => {
         await ensureLesson12DiffFilters(ctx);
@@ -391,7 +389,7 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       id: 'gql12-export',
       title: 'Export Diff as JSON',
       description:
-        'Click **Export diff as JSON** in the modal footer. A `schema-diff-*.json` file downloads with severity counts and the full change list — ready for CI schema gates or sharing with your team.\n\n' +
+        'Click **Export JSON** in the modal footer. A `schema-diff-*.json` file downloads with severity counts and the full change list — ready for CI schema gates or sharing with your team.\n\n' +
         '**Why automate with the export?** Manual review catches breaking changes when someone happens to run the diff. Automated schema gating catches them every time. A CI/CD script can:\n' +
         '1. Call the Studio export API (or parse the JSON from a scripted run)\n' +
         '2. Fail the build if `breakingCount > 0`\n' +

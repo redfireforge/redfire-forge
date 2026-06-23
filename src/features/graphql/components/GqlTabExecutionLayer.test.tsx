@@ -67,7 +67,7 @@ describe('GqlTabExecutionLayer', () => {
     }));
   });
 
-  it('Phase 6F: stamps profile-scoped auth headers on execute', () => {
+  it('Phase 6F: preserves already-resolved auth headers on execute', () => {
     const onRegister = vi.fn();
 
     render(
@@ -83,16 +83,49 @@ describe('GqlTabExecutionLayer', () => {
     handle.execute({
       endpoint: 'https://api.example.com/graphql',
       query: '{ hello }',
-      headers: { Authorization: 'Bearer stale' },
+      headers: { Authorization: 'Bearer resolved-from-env' },
     });
 
     expect(stampAuthHeaders).toHaveBeenCalledWith(
-      { Authorization: 'Bearer stale' },
+      {},
       { type: 'bearer', token: 'profile-token' },
       [],
     );
     expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: 'Bearer profile-token' }),
+      headers: expect.objectContaining({ Authorization: 'Bearer resolved-from-env' }),
+      authSentStamp: expect.objectContaining({
+        source: 'page',
+        storedAuth: { type: 'bearer', token: 'profile-token' },
+      }),
+    }));
+  });
+
+  it('Phase 6H: forwards authSentSource to execute params', () => {
+    const onRegister = vi.fn();
+
+    render(
+      <GqlTabExecutionLayer
+        tabId="tab-42"
+        resolvedAuth={{ type: 'bearer', token: 'tab-token' }}
+        authSentSource="tab"
+        onRegister={onRegister}
+        onUnregister={vi.fn()}
+      />,
+    );
+
+    const handle = onRegister.mock.calls[0]![1];
+    handle.execute({
+      endpoint: 'https://api.example.com/graphql',
+      query: '{ hello }',
+      headers: {},
+    });
+
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer tab-token' }),
+      authSentStamp: expect.objectContaining({
+        source: 'tab',
+        storedAuth: { type: 'bearer', token: 'tab-token' },
+      }),
     }));
   });
 

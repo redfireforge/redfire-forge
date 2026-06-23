@@ -1,180 +1,86 @@
 // ── Lesson 6: Authentication & Headers ──────────────────────────────────────
+//
+// Clean rewrite — 8-step lesson flow:
+//   1. Intro (no action)
+//   2. Set up Env variables (authToken + apiKey)
+//   3. Bearer Token — configure {{authToken}}, execute, verify resolved header
+//   4. API Key      — switch, configure {{apiKey}}, execute, verify resolved header
+//   5. Basic Auth   — switch, fill credentials, execute, verify header
+//   6. Inherit      — switch to global profile, execute, verify header
+//   7. Save connection profile
+//   8. Auth carries into subscriptions (no action)
 
 import type { GlobalAuthProfile } from '../../../../../shared/types';
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import {
   GQL_HEALTH_QUERY,
+  closeAuthPanelIfOpen,
+  configureDemoTabInheritPageAuth,
   ensureDemoEndpoint,
   ensureHealthQuery,
   fillGqlEditor,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
+  selectAuthInPanel,
 } from './core';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { fillControlledInput } from '../../../lessons/setup-helpers';
 
-export const LESSON6_BEARER_TEMPLATE = '{{authToken}}';
-export const LESSON6_AUTH_TOKEN_VALUE = 'lesson6-demo-jwt';
-export const LESSON6_API_KEY_HEADER = 'X-API-Key';
-export const LESSON6_API_KEY_TEMPLATE = '{{apiKey}}';
-export const LESSON6_API_KEY_SECRET = 'lesson6-secret-key';
-export const LESSON6_PROFILE_NAME = 'Lesson 6 Demo';
-export const LESSON6_BASIC_USER = 'demo';
-export const LESSON6_BASIC_PASS = 'demo-pass';
-export const LESSON6_GLOBAL_AUTH_PROFILE_ID = 'lesson6-gql-auth-profile';
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+export const LESSON6_AUTH_TOKEN_VALUE         = 'lesson6-demo-jwt';
+export const LESSON6_API_KEY_VALUE            = 'lesson6-api-key-secret';
+/** @deprecated alias – use LESSON6_API_KEY_VALUE */
+export const LESSON6_API_KEY_SECRET           = LESSON6_API_KEY_VALUE;
+export const LESSON6_BEARER_TEMPLATE          = '{{authToken}}';
+export const LESSON6_API_KEY_TEMPLATE         = '{{apiKey}}';
+export const LESSON6_API_KEY_HEADER           = 'X-API-Key';
+export const LESSON6_BASIC_USER               = 'demo';
+export const LESSON6_BASIC_PASS               = 'demo-pass';
+export const LESSON6_GLOBAL_AUTH_PROFILE_ID   = 'lesson6-gql-profile';
 export const LESSON6_GLOBAL_AUTH_PROFILE_NAME = 'Lesson 6 Bearer';
+export const LESSON6_PROFILE_NAME             = 'GQL Auth Demo';
 
-let _lesson6BearerConfigured = false;
-let _lesson6EnvTokenSet = false;
-let _lesson6BearerExecuted = false;
-let _lesson6ApiKeyConfigured = false;
-let _lesson6ApiKeyExecuted = false;
-let _lesson6BasicConfigured = false;
-let _lesson6BasicExecuted = false;
-let _lesson6InheritConfigured = false;
-let _lesson6InheritExecuted = false;
-let _lesson6ProfileSaved = false;
+// ── Session flags ─────────────────────────────────────────────────────────────
+
+let _envReady    = false;
+let _bearerDone  = false;
+let _apiKeyDone  = false;
+let _basicDone   = false;
+let _inheritDone = false;
+let _profileDone = false;
 
 export function resetGqlLesson6SessionFlags(): void {
-  _lesson6BearerConfigured = false;
-  _lesson6EnvTokenSet = false;
-  _lesson6BearerExecuted = false;
-  _lesson6ApiKeyConfigured = false;
-  _lesson6ApiKeyExecuted = false;
-  _lesson6BasicConfigured = false;
-  _lesson6BasicExecuted = false;
-  _lesson6InheritConfigured = false;
-  _lesson6InheritExecuted = false;
-  _lesson6ProfileSaved = false;
+  _envReady = _bearerDone = _apiKeyDone = _basicDone = _inheritDone = _profileDone = false;
 }
 
-function responseInspectorText(): string {
-  const meta = document.querySelector(GQL.RV_METADATA)?.textContent ?? '';
-  const reqHdr = document.querySelector(GQL.RV_REQUEST_HEADERS)?.textContent ?? '';
-  return `${meta}${reqHdr}`;
-}
+// ── Mark-done setters (called from lesson action callbacks once animated) ────
 
-async function closeAuthPopoverIfOpen(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(GQL.AUTH_POPOVER)) {
-    const closeBtn = document.querySelector<HTMLElement>(GQL.AUTH_POPOVER_CLOSE);
-    if (closeBtn) {
-      await ctx.click(GQL.AUTH_POPOVER_CLOSE);
-    } else {
-      await ctx.click(GQL.AUTH_BADGE_BTN);
-    }
-    await ctx.delay(300);
-  }
-}
+export function markBearerDone(): void { _bearerDone = true; }
+export function markApiKeyDone(): void { _apiKeyDone = true; }
+export function markBasicDone(): void { _basicDone = true; }
+export function markInheritDone(): void { _inheritDone = true; }
 
-async function closeEnvModalIfOpen(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(GQL.ENV_MODAL)) {
+// ── Core DOM helpers ──────────────────────────────────────────────────────────
+
+async function closeEnvIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.ENV_MODAL)) return;
+  // Prefer the dedicated Close button; fall back to overlay click
+  const closeBtn = document.querySelector<HTMLElement>(GQL.ENV_CLOSE_BTN);
+  if (closeBtn) {
+    await ctx.click(GQL.ENV_CLOSE_BTN);
+  } else {
     const overlay = document.querySelector<HTMLElement>('[data-testid="gql-env-modal-overlay"]');
-    if (overlay) {
-      await ctx.click('[data-testid="gql-env-modal-overlay"]');
-    }
-    await ctx.delay(300);
+    overlay?.click();
   }
+  await ctx.delay(300);
 }
 
-/** Quietly open Bearer auth popover with token field visible (reading-phase spotlight). */
-export async function prepareBearerAuthSpotlight(ctx: DemoActionContext): Promise<void> {
-  await closeEnvModalIfOpen(ctx);
-  await ensureAuthPopoverOpen(ctx);
-  const bearerInput = document.querySelector(GQL.AUTH_BEARER_INPUT);
-  if (!bearerInput) {
-    await ctx.selectOption(GQL.AUTH_TYPE_SELECT, 'bearer');
-  }
-  await ctx.waitFor(GQL.AUTH_BEARER_INPUT, 5000);
-  await ctx.delay(200);
-}
-
-/** Bearer + env configured, modals closed, ready to execute (no execute yet). */
-export async function prepareBearerExecuteSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureBearerAuthConfigured(ctx);
-  await ensureEnvAuthToken(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
-  await ensureHealthQuery(ctx);
-}
-
-/** Open auth popover after bearer execute — spotlight targets type dropdown for API Key step. */
-export async function prepareApiKeyAuthSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureBearerExecutedWithMetadata(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureAuthPopoverOpen(ctx);
-  await ctx.delay(200);
-}
-
-/** API Key configured, modals closed, ready to execute. */
-export async function prepareApiKeyExecuteSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureApiKeyAuthConfigured(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureHealthQuery(ctx);
-}
-
-/** Open auth popover after API Key execute — spotlight targets type dropdown for Basic step. */
-export async function prepareBasicAuthSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureApiKeyExecutedWithMetadata(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureAuthPopoverOpen(ctx);
-  await ctx.delay(200);
-}
-
-/** Basic auth configured, modals closed, ready to execute. */
-export async function prepareBasicExecuteSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureBasicAuthConfigured(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureHealthQuery(ctx);
-}
-
-/** Inherit mode popover with profile dropdown visible (profile not yet selected). */
-export async function prepareInheritAuthSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureBasicExecutedWithMetadata(ctx);
-  seedLesson6GlobalAuthProfile();
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureAuthPopoverOpen(ctx);
-  await ctx.selectOption(GQL.AUTH_TYPE_SELECT, 'inherit');
-  await ctx.waitFor(GQL.AUTH_PROFILE_SELECT, 5000);
-  await ctx.delay(200);
-}
-
-/** Inherit auth configured, modals closed, ready to execute. */
-export async function prepareInheritExecuteSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureInheritAuthConfigured(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await ensureHealthQuery(ctx);
-}
-
-/** Inherit executed with metadata open — ready for connection profile step. */
-export async function prepareProfileSpotlight(ctx: DemoActionContext): Promise<void> {
-  await ensureInheritExecutedWithMetadata(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
-}
-
-/** Open the Auth popover from the connection bar. */
-export async function ensureAuthPopoverOpen(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(GQL.AUTH_POPOVER)) return;
-  await ctx.waitFor(GQL.AUTH_BADGE_BTN, 5000);
-  await ctx.click(GQL.AUTH_BADGE_BTN);
-  await ctx.waitFor(GQL.AUTH_POPOVER, 5000);
-  await ctx.delay(400);
-}
-
-/** Select auth type in the popover. */
-export async function selectAuthType(
-  ctx: DemoActionContext,
-  type: 'inherit' | 'bearer' | 'basic' | 'apiKey',
-): Promise<void> {
-  await ensureAuthPopoverOpen(ctx);
-  await ctx.selectOption(GQL.AUTH_TYPE_SELECT, type);
-  await ctx.delay(400);
-}
-
-/** Seed the demo global auth profile via the App bridge (Environment Manager catalog). */
+/** Seed the demo global auth profile via the App bridge. */
 export function seedLesson6GlobalAuthProfile(): void {
   const upsert = (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile as
     | ((profile: GlobalAuthProfile) => void)
@@ -186,188 +92,189 @@ export function seedLesson6GlobalAuthProfile(): void {
   });
 }
 
-/** Configure inherit auth bound to the seeded global profile. */
-export async function ensureInheritAuthConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureBasicExecutedWithMetadata(ctx);
-  seedLesson6GlobalAuthProfile();
-  if (_lesson6InheritConfigured && document.querySelector(GQL.AUTH_PROFILE_SELECT)) return;
+// ── Env variable setup ────────────────────────────────────────────────────────
 
-  await selectAuthType(ctx, 'inherit');
-  await ctx.waitFor(GQL.AUTH_PROFILE_SELECT, 5000);
-  await ctx.delay(400);
-  await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
-  await ctx.delay(400);
-  _lesson6InheritConfigured = true;
+/**
+ * Set a React-controlled input value so React's synthetic onChange handler
+ * picks up the change. Uses fillControlledInput which resets _valueTracker
+ * before setting the native value — required for React 18 to fire onChange.
+ */
+function nativeSetInput(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  fillControlledInput(input, value);
 }
 
-/** Execute with inherited profile auth and verify Metadata headers. */
-export async function ensureInheritExecutedWithMetadata(ctx: DemoActionContext): Promise<void> {
-  await ensureInheritAuthConfigured(ctx);
-  if (_lesson6InheritExecuted && responseInspectorText().includes(LESSON6_AUTH_TOKEN_VALUE)) return;
-
-  await closeAuthPopoverIfOpen(ctx);
-  await ctx.click(GQL.EXECUTE_BTN);
-  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
-  await ctx.click(GQL.RV_TAB_METADATA);
-  await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-  await ctx.delay(600);
-  _lesson6InheritExecuted = true;
-}
-
-function setEnvVarInModal(key: string, value: string): void {
+/**
+ * Ensure an env variable row with the given key is present in the modal and
+ * has the given value.  If the row does not exist a new one is created via the
+ * "+ Add variable" button — with an async delay so React renders the row
+ * before we query for the new inputs.
+ */
+async function ensureEnvVar(
+  ctx: DemoActionContext,
+  key: string,
+  value: string,
+): Promise<void> {
+  // 1. Check if a row with this key already exists → update value only
   const rows = document.querySelectorAll('[data-testid="gql-env-var-row"]');
   for (const row of rows) {
     const keyInput = row.querySelector<HTMLInputElement>('[data-testid="gql-env-var-key"]');
     if (keyInput?.value === key) {
       const valInput = row.querySelector<HTMLInputElement>('.gql-env-var-input');
-      if (valInput) {
-        const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-        desc?.set?.call(valInput, value);
-        valInput.dispatchEvent(new Event('input', { bubbles: true }));
-        valInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      if (valInput) nativeSetInput(valInput, value);
       return;
     }
   }
-  const addBtn = document.querySelector<HTMLButtonElement>('[data-testid="gql-env-var-add-btn"]');
-  addBtn?.click();
+  // 2. Try reusing an empty row before creating a new one
+  for (const row of rows) {
+    const keyInput = row.querySelector<HTMLInputElement>('[data-testid="gql-env-var-key"]');
+    if (keyInput && !keyInput.value) {
+      nativeSetInput(keyInput, key);
+      const valInput = row.querySelector<HTMLInputElement>('.gql-env-var-input');
+      if (valInput) nativeSetInput(valInput, value);
+      return;
+    }
+  }
+  // 3. No usable row — click "+ Add variable" and wait for React to render the new row
+  await ctx.click(GQL.ENV_VAR_ADD_BTN);
+  await ctx.delay(400);
   const keyInputs = document.querySelectorAll<HTMLInputElement>('[data-testid="gql-env-var-key"]');
   const valInputs = document.querySelectorAll<HTMLInputElement>('.gql-env-var-input');
-  const keyInput = keyInputs[keyInputs.length - 1];
-  const valInput = valInputs[valInputs.length - 1];
-  if (keyInput && valInput) {
-    const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-    desc?.set?.call(keyInput, key);
-    keyInput.dispatchEvent(new Event('input', { bubbles: true }));
-    desc?.set?.call(valInput, value);
-    valInput.dispatchEvent(new Event('input', { bubbles: true }));
-    valInput.dispatchEvent(new Event('change', { bubbles: true }));
-  }
+  const lastKey = keyInputs[keyInputs.length - 1];
+  const lastVal = valInputs[valInputs.length - 1];
+  if (lastKey) nativeSetInput(lastKey, key);
+  if (lastVal) nativeSetInput(lastVal, value);
 }
 
-/** Open environment modal and set authToken variable. */
-export async function ensureEnvAuthToken(ctx: DemoActionContext): Promise<void> {
+/**
+ * Open the Env modal, create an environment if none exists, set `authToken`
+ * and `apiKey` variables, and activate the environment so `{{vars}}` resolve.
+ * Idempotent — skips on second call via session flag.
+ */
+export async function ensureEnvReady(ctx: DemoActionContext): Promise<void> {
+  if (_envReady) return;
   await ensureDemoEndpoint(ctx);
-  if (_lesson6EnvTokenSet) return;
 
-  await closeAuthPopoverIfOpen(ctx);
-  if (!document.querySelector(GQL.ENV_MODAL)) {
-    await ctx.click(GQL.ENV_BADGE);
-    await ctx.waitFor(GQL.ENV_MODAL, 5000);
-    await ctx.delay(600);
-  }
+  // Use the window bridge to upsert the env directly into React state — much
+  // more reliable than DOM manipulation of the env modal inputs.
+  const bridge = (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv as
+    | ((name: string, vars: Array<{ key: string; value: string }>) => void)
+    | undefined;
 
-  const newEnvBtn = document.querySelector(GQL.ENV_NEW_BTN);
-  if (newEnvBtn) {
+  if (bridge) {
+    bridge('Demo', [
+      { key: 'authToken', value: LESSON6_AUTH_TOKEN_VALUE },
+      { key: 'apiKey',    value: LESSON6_API_KEY_VALUE },
+    ]);
+    // Give React one tick to flush state updates before proceeding
+    await ctx.delay(300);
+  } else {
+    // Fallback: open env modal and set vars via DOM (bridge not available)
+    await closeAuthPanelIfOpen(ctx);
+    if (!document.querySelector(GQL.ENV_MODAL)) {
+      await ctx.click(GQL.ENV_BADGE);
+      await ctx.waitFor(GQL.ENV_MODAL, 5000);
+      await ctx.delay(600);
+    }
     const envItems = document.querySelectorAll('[data-testid^="gql-env-item-"]');
     if (envItems.length === 0) {
       await ctx.click(GQL.ENV_NEW_BTN);
       await ctx.delay(500);
     }
+    await ensureEnvVar(ctx, 'authToken', LESSON6_AUTH_TOKEN_VALUE);
+    await ctx.delay(200);
+    await ensureEnvVar(ctx, 'apiKey', LESSON6_API_KEY_VALUE);
+    await ctx.delay(400);
+    await ctx.click(GQL.ENV_SET_ACTIVE_BTN);
+    await ctx.delay(500);
   }
 
-  setEnvVarInModal('authToken', LESSON6_AUTH_TOKEN_VALUE);
-  setEnvVarInModal('apiKey', LESSON6_API_KEY_SECRET);
-  await ctx.delay(500);
-  _lesson6EnvTokenSet = true;
+  _envReady = true;
 }
 
-/** Configure Bearer auth with {{authToken}} template and close the popover for spotlight handoff. */
-export async function ensureBearerAuthConfiguredQuiet(ctx: DemoActionContext): Promise<void> {
-  await ensureBearerAuthConfigured(ctx);
-  await closeAuthPopoverIfOpen(ctx);
-}
+// ── Ensure-executed chain ─────────────────────────────────────────────────────
 
-/** Configure Bearer auth with {{authToken}} template. */
-export async function ensureBearerAuthConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureDemoEndpoint(ctx);
-  if (_lesson6BearerConfigured) return;
-  await selectAuthType(ctx, 'bearer');
+/** Ensure Bearer auth is configured, executed, and Metadata tab is showing. */
+export async function ensureBearerDone(ctx: DemoActionContext): Promise<void> {
+  if (_bearerDone) return;
+  await ensureEnvReady(ctx);
+  await ensureHealthQuery(ctx);
+  await closeEnvIfOpen(ctx);
+  await selectAuthInPanel(ctx, 'bearer');
   await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
   await ctx.delay(400);
-  _lesson6BearerConfigured = true;
-}
-
-/** Execute health query with bearer auth and open Metadata tab. */
-export async function ensureBearerExecutedWithMetadata(ctx: DemoActionContext): Promise<void> {
-  await ensureEnvAuthToken(ctx);
-  await ensureBearerAuthConfigured(ctx);
-  await ensureHealthQuery(ctx);
-  if (_lesson6BearerExecuted && responseInspectorText().includes('Authorization')) return;
-
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
+  await ctx.delay(400);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-  await ctx.delay(600);
-  _lesson6BearerExecuted = true;
+  await ctx.delay(500);
+  _bearerDone = true;
 }
 
-/** Switch auth to API Key with {{apiKey}} value template. */
-export async function ensureApiKeyAuthConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureBearerExecutedWithMetadata(ctx);
-  if (_lesson6ApiKeyConfigured) return;
-  await selectAuthType(ctx, 'apiKey');
+/** Ensure API Key auth is configured, executed, and Metadata shows X-API-Key header. */
+export async function ensureApiKeyDone(ctx: DemoActionContext): Promise<void> {
+  if (_apiKeyDone) return;
+  await ensureBearerDone(ctx);
+  await selectAuthInPanel(ctx, 'apiKey');
   await ctx.fill(GQL.AUTH_APIKEY_NAME, LESSON6_API_KEY_HEADER);
   await ctx.delay(300);
   await ctx.fill(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
   await ctx.delay(400);
-  _lesson6ApiKeyConfigured = true;
-}
-
-/** Execute again and verify API key header in Metadata. */
-export async function ensureApiKeyExecutedWithMetadata(ctx: DemoActionContext): Promise<void> {
-  await ensureApiKeyAuthConfigured(ctx);
-  if (_lesson6ApiKeyExecuted && responseInspectorText().includes(LESSON6_API_KEY_HEADER)) return;
-
-  await closeAuthPopoverIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
+  await ctx.delay(400);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-  await ctx.delay(600);
-  _lesson6ApiKeyExecuted = true;
+  await ctx.delay(500);
+  _apiKeyDone = true;
 }
 
-/** Configure Basic auth with username/password. */
-export async function ensureBasicAuthConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureApiKeyExecutedWithMetadata(ctx);
-  if (_lesson6BasicConfigured) return;
-  await selectAuthType(ctx, 'basic');
+/** Ensure Basic auth is configured, executed, and Metadata shows Basic header. */
+export async function ensureBasicDone(ctx: DemoActionContext): Promise<void> {
+  if (_basicDone) return;
+  await ensureApiKeyDone(ctx);
+  await selectAuthInPanel(ctx, 'basic');
   await ctx.fill(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
   await ctx.delay(300);
   await ctx.fill(GQL.AUTH_BASIC_PASS, LESSON6_BASIC_PASS);
   await ctx.delay(400);
-  _lesson6BasicConfigured = true;
-}
-
-/** Execute health query with basic auth and open Metadata tab. */
-export async function ensureBasicExecutedWithMetadata(ctx: DemoActionContext): Promise<void> {
-  await ensureBasicAuthConfigured(ctx);
-  if (_lesson6BasicExecuted && responseInspectorText().includes('Basic')) return;
-
-  await closeAuthPopoverIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
+  await ctx.delay(400);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-  await ctx.delay(600);
-  _lesson6BasicExecuted = true;
+  await ctx.delay(500);
+  _basicDone = true;
 }
 
-/** Save current endpoint + auth as a named connection profile. */
-export async function ensureProfileSaved(ctx: DemoActionContext): Promise<void> {
-  await ensureInheritExecutedWithMetadata(ctx);
-  if (_lesson6ProfileSaved && document.querySelector(`[data-testid^="gql-profile-row-"]`)) return;
+/** Ensure Inherit auth is configured (profile bound), executed, and Metadata verified. */
+export async function ensureInheritDone(ctx: DemoActionContext): Promise<void> {
+  if (_inheritDone) return;
+  await ensureBasicDone(ctx);
+  seedLesson6GlobalAuthProfile();
+  await selectAuthInPanel(ctx, 'inherit');
+  await ctx.delay(400);
+  await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
+  await ctx.delay(400);
+  await closeAuthPanelIfOpen(ctx);
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  await ctx.delay(400);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+  await ctx.delay(500);
+  _inheritDone = true;
+}
 
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
+/** Ensure connection profile has been saved under LESSON6_PROFILE_NAME. */
+export async function ensureProfileDone(ctx: DemoActionContext): Promise<void> {
+  if (_profileDone) return;
+  await ensureInheritDone(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
   await ctx.click(GQL.PROFILE_BADGE);
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
   await ctx.delay(600);
@@ -375,10 +282,64 @@ export async function ensureProfileSaved(ctx: DemoActionContext): Promise<void> 
   await ctx.delay(400);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
   await ctx.delay(800);
-  _lesson6ProfileSaved = true;
+  _profileDone = true;
 }
 
-/** Setup for Lesson 6 (GQL-4) — demo tab, modals closed, health query template. */
+// ── preActions (spotlight preparers for each step) ───────────────────────────
+
+/** Step 2 preAction — close any open modals; demo tab and endpoint are already set. */
+export async function preEnvStep(ctx: DemoActionContext): Promise<void> {
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/** Step 3 preAction — env vars must be ready; close env modal so the Auth panel can open cleanly. */
+export async function preBearerStep(ctx: DemoActionContext): Promise<void> {
+  await ensureEnvReady(ctx);
+  await closeEnvIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
+}
+
+/** Step 4 preAction — Bearer must be executed; Metadata shows Bearer header as "before" view. */
+export async function preApiKeyStep(ctx: DemoActionContext): Promise<void> {
+  await ensureBearerDone(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/** Step 5 preAction — API Key must be executed; Metadata shows X-API-Key header as "before" view. */
+export async function preBasicStep(ctx: DemoActionContext): Promise<void> {
+  await ensureApiKeyDone(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/** Step 6 preAction — Basic must be executed; seed global profile; Metadata shows Basic header. */
+export async function preInheritStep(ctx: DemoActionContext): Promise<void> {
+  await ensureBasicDone(ctx);
+  seedLesson6GlobalAuthProfile();
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/** Step 7 preAction — Inherit must be executed; all modals closed; Profiles badge is spotlit. */
+export async function preProfileStep(ctx: DemoActionContext): Promise<void> {
+  await ensureInheritDone(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
+}
+
+/** Step 8 preAction — profile saved; close profile modal so Auth badge is unobstructed. */
+export async function preSubscriptionStep(ctx: DemoActionContext): Promise<void> {
+  await ensureProfileDone(ctx);
+  if (document.querySelector(GQL.PROFILE_MODAL)) {
+    await ctx.click(GQL.PROFILE_CLOSE_BTN);
+    await ctx.delay(300);
+  }
+}
+
+// ── Lesson lifecycle ──────────────────────────────────────────────────────────
+
 export async function gqlAuthLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -387,9 +348,15 @@ export async function gqlAuthLessonSetup(ctx: DemoActionContext): Promise<void> 
   resetGqlLesson5SessionFlags();
   resetGqlLesson6SessionFlags();
 
+  // Delete any leftover "Demo" env from a previous run so the lesson starts clean
+  const deleteEnv = (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName as
+    | ((name: string) => void)
+    | undefined;
+  deleteEnv?.('Demo');
+
   seedLesson6GlobalAuthProfile();
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
 
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {
@@ -407,14 +374,18 @@ export async function gqlAuthLessonSetup(ctx: DemoActionContext): Promise<void> 
   }
 
   await ensureGqlDemoTab(ctx, 'gql-auth-headers', 'Authentication & Headers');
+  await configureDemoTabInheritPageAuth(ctx);
   await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
 }
 
-/** Cleanup for Lesson 6 (GQL-4) — close demo tab, popovers, and reset session flags. */
 export async function gqlAuthLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson6SessionFlags();
-  await closeAuthPopoverIfOpen(ctx);
-  await closeEnvModalIfOpen(ctx);
+  await closeAuthPanelIfOpen(ctx);
+  await closeEnvIfOpen(ctx);
   await closeGqlDemoTabs(ctx, 'gql-auth-headers');
+  // Remove the Demo env so it doesn't persist into future lesson runs
+  const deleteEnv = (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName as
+    | ((name: string) => void)
+    | undefined;
+  deleteEnv?.('Demo');
 }
-

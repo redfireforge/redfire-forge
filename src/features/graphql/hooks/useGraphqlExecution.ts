@@ -42,6 +42,7 @@ import {
   apqInfoFromResponse,
   parseHttpBody,
   stampRequestHeaders,
+  type AuthSentStampInput,
 } from '../utils/graphqlExecutionResponseParsing';
 import { notifyExecutionCompleted } from '../utils/graphqlExecutionNotify';
 
@@ -90,6 +91,8 @@ export interface ExecuteParams {
   _skipDedupCheckOnly?: boolean;
   /** Owning studio tab — attributes in-flight state per tab (Phase 6A). */
   sourceTabId?: string;
+  /** Phase 6H — auth provenance for Metadata "auth sent" row. */
+  authSentStamp?: AuthSentStampInput;
   /** Invoked when execution actually starts loading (after dedup guard passes). */
   onExecutionStarted?: (tabId: string) => void;
   /** Invoked when a dedup waiter receives the shared result (Phase 6A — per-tab cache). */
@@ -253,6 +256,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         _skipDedupCheck = false,
         _skipDedupCheckOnly = false,
         sourceTabId,
+        authSentStamp,
         onExecutionStarted,
       } = params;
 
@@ -262,7 +266,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
 
       // ── 2D-6: @defer / @stream + file upload mutual exclusion ──────────────
       if (formData && hasIncrementalDirective(query)) {
-        const errorResp: GraphqlResponse = {
+        const errorResp = stampRequestHeaders({
           data: null,
           errors: [{
             message: 'Cannot combine @defer or @stream with file upload. ' +
@@ -272,7 +276,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           httpStatus: 0,
           httpHeaders: {},
           timestamp: Date.now(),
-        };
+        }, headers, authSentStamp);
         rememberCompletedSnapshot('error', errorResp, null);
         setStatus('error');
         setResponse(errorResp);
@@ -374,6 +378,9 @@ export function useGraphqlExecution(): UseGraphqlExecution {
         requestHeaders['Accept'] = 'application/json, multipart/mixed';
       }
 
+      // Upload sends `headers` as-is (multipart); JSON requests use the enriched requestHeaders map.
+      const outgoingHeaders = formData ? headers : requestHeaders;
+
       // ── Phase 3F: create dedup Promise ────────────────────────────────────
       // The promise wraps the entire execution so "Wait and merge" waiters get
       // the same result when the request settles.
@@ -416,7 +423,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             const latencyMs = Math.round(performance.now() - startTime);
             const gqlResponse = stampRequestHeaders(
               parseHttpBody(result.status, result.headers, result.body, latencyMs, result.error),
-              requestHeaders,
+              outgoingHeaders,
+              authSentStamp,
             );
             const hasErrors = (gqlResponse.errors?.length ?? 0) > 0;
             const finalStatus: ExecutionStatus = !hasErrors || gqlResponse.data !== null ? 'success' : 'error';
@@ -472,10 +480,10 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                 return;
               }
               const message = err instanceof Error ? err.message : 'Network error';
-              const errorResp: GraphqlResponse = {
+              const errorResp = stampRequestHeaders({
                 httpStatus: 0, httpHeaders: {}, latencyMs: Math.round(performance.now() - startTime),
                 timestamp: Date.now(), data: null, errors: [{ message }],
-              };
+              }, outgoingHeaders, authSentStamp);
               rememberCompletedSnapshot('error', errorResp, null);
               rejectExecPromise(new Error(message));
               notifyExecutionCompleted(params, 'error', errorResp, null);
@@ -507,7 +515,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
                   timestamp: Date.now(),
                   isStreaming: chunk.hasNext,
                   chunkCount: chunkIdx,
-                }, requestHeaders);
+                }, outgoingHeaders, authSentStamp);
                 const isLast = !chunk.hasNext;
                 const hasErrors = !!(gqlResp.errors && gqlResp.errors.length > 0);
                 const finalStatus: ExecutionStatus = isLast
@@ -522,11 +530,11 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               });
 
               if (chunkIdx === 0 && mountedRef.current && !ctrl.signal.aborted) {
-                const emptyResp: GraphqlResponse = {
+                const emptyResp = stampRequestHeaders({
                   httpStatus: resp.status, httpHeaders: respHeaders,
                   latencyMs: Math.round(performance.now() - startTime), timestamp: Date.now(),
                   data: null, errors: [{ message: `Server returned multipart/mixed but no incremental chunks were received (HTTP ${resp.status})` }],
-                };
+                }, outgoingHeaders, authSentStamp);
                 rememberCompletedSnapshot('error', emptyResp, null);
                 rejectExecPromise(new Error('No incremental chunks'));
                 notifyExecutionCompleted(params, 'error', emptyResp, null);
@@ -550,7 +558,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
             const latencyMs = Math.round(performance.now() - startTime);
             const gqlResponse = stampRequestHeaders(
               parseHttpBody(resp.status, respHeaders, body, latencyMs),
-              requestHeaders,
+              outgoingHeaders,
+              authSentStamp,
             );
             const hasErr2 = (gqlResponse.errors?.length ?? 0) > 0;
             const fs2: ExecutionStatus = !hasErr2 || gqlResponse.data !== null ? 'success' : 'error';
@@ -687,7 +696,7 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               apqHash: apqResult.hash,
               apqCacheHit: apqResult.cacheHit,
               apqUnsupported: apqResult.unsupported,
-            }, requestHeaders);
+            }, outgoingHeaders, authSentStamp);
 
             if (ctrl.signal.aborted) {
               // Reject so dedup "wait" waiters are not stuck in loading state,
@@ -738,7 +747,8 @@ export function useGraphqlExecution(): UseGraphqlExecution {
               Math.round(performance.now() - startTime),
               result.error,
             ),
-              requestHeaders,
+              outgoingHeaders,
+              authSentStamp,
             );
           }
 
@@ -767,14 +777,14 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           }
           const latencyMs = Math.round(performance.now() - startTime);
           const message = err instanceof Error ? err.message : 'Unknown network error';
-          const errorResponse: GraphqlResponse = {
+          const errorResponse = stampRequestHeaders({
             httpStatus: 0,
             httpHeaders: {},
             latencyMs,
             timestamp: Date.now(),
             data: null,
             errors: [{ message }],
-          };
+          }, outgoingHeaders, authSentStamp);
           rememberCompletedSnapshot('error', errorResponse, null);
           rejectExecPromise(err);
           notifyExecutionCompleted(params, 'error', errorResponse, null);

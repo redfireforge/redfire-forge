@@ -294,9 +294,11 @@ describe('ws-basics lesson', () => {
   it('step ws-header-select action selects WebSocket Demo and ws-demo in header', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select">
+        <option value="">Select env</option>
         <option value="e1">WebSocket Demo</option>
       </select>
       <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
         <option value="s1">ws-demo</option>
       </select>`;
     const step = wsBasicsLesson.steps.find(s => s.id === 'ws-header-select')!;

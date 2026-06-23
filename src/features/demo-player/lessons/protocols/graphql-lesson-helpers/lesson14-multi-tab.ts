@@ -26,6 +26,12 @@ import { resetGqlLesson11SessionFlags } from './lesson11-workflow-integration';
 import { resetGqlLesson12SessionFlags } from './lesson12-schema-diff';
 import { resetGqlLesson13SessionFlags } from './lesson13-mock-server';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import {
+  closeAuthPanelIfOpen,
+  openAuthPanelQuiet,
+  selectAuthInPanel,
+  selectNoAuthInPanel,
+} from './core';
 import { fillControlledInput } from '../../setup-helpers';
 
 const GQL14_LESSON_ID = 'gql-multi-tab';
@@ -39,10 +45,12 @@ export const LESSON14_STAGING_LABEL = 'Staging';
 export const LESSON14_PRODUCTION_LABEL = 'Production';
 /** Direct endpoint used as Tab 2 override so the badge is clearly visible. */
 export const LESSON14_TAB2_ENDPOINT = GQL_DEMO_HTTP;
+/** Bearer token used on Tab 2 during the per-tab auth beat (Phase 6H). */
+export const LESSON14_TAB2_BEARER_TOKEN = 'gql14-production-bearer';
 
-/** Connection profile names saved during GQL-14 optional profile step (7C). */
-export const LESSON14_STAGING_PROFILE_NAME = 'Staging';
-export const LESSON14_PRODUCTION_PROFILE_NAME = 'Production';
+/** Connection profile names saved during GQL-14 profile step — lesson-scoped to avoid clobbering user profiles. */
+export const LESSON14_STAGING_PROFILE_NAME = 'GQL-14 Staging';
+export const LESSON14_PRODUCTION_PROFILE_NAME = 'GQL-14 Production';
 
 let _lesson14Tab1Set = false;
 let _lesson14Tab2Added = false;
@@ -50,6 +58,7 @@ let _lesson14Tab2Set = false;
 let _lesson14Tab2Executed = false;
 let _lesson14SwitchedToTab1 = false;
 let _lesson14TabsRenamed = false;
+let _lesson14PerTabAuthConfigured = false;
 let _lesson14ProfilesLinked = false;
 let _lesson14PollingConfigured = false;
 
@@ -60,6 +69,7 @@ export function resetGqlLesson14SessionFlags(): void {
   _lesson14Tab2Executed = false;
   _lesson14SwitchedToTab1 = false;
   _lesson14TabsRenamed = false;
+  _lesson14PerTabAuthConfigured = false;
   _lesson14ProfilesLinked = false;
   _lesson14PollingConfigured = false;
 }
@@ -283,15 +293,71 @@ async function closeProfileModalIfOpen(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
 }
 
-async function closeAuthPopoverIfOpen(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(GQL.AUTH_POPOVER)) return;
-  const closeBtn = document.querySelector<HTMLElement>(GQL.AUTH_POPOVER_CLOSE);
-  if (closeBtn) {
-    await ctx.click(GQL.AUTH_POPOVER_CLOSE);
-  } else {
-    await ctx.click(GQL.AUTH_BADGE_BTN);
+/** Two-click delete for a named profile row in the open profile modal. */
+async function removeProfileRowByName(ctx: DemoActionContext, name: string): Promise<void> {
+  const row = findProfileRowByName(name);
+  if (!row) return;
+  const deleteBtn = row.querySelector<HTMLElement>('button[data-testid^="gql-profile-delete-"]');
+  const testId = deleteBtn?.getAttribute('data-testid');
+  if (!testId) return;
+  const sel = `[data-testid="${testId}"]`;
+  await ctx.click(sel);
+  await ctx.delay(400);
+  await ctx.click(sel);
+  await ctx.delay(500);
+}
+
+/**
+ * Remove Staging/Production lesson snapshots so a fresh run can save current tab state.
+ * Called from setup/cleanup to avoid loading stale auth from a prior lesson run.
+ */
+export async function purgeLesson14ConnectionProfiles(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.PROFILE_BADGE)) return;
+  await ctx.click(GQL.PROFILE_BADGE);
+  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
+  await ctx.delay(400);
+  await removeProfileRowByName(ctx, LESSON14_STAGING_PROFILE_NAME);
+  await removeProfileRowByName(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  await closeProfileModalIfOpen(ctx);
+}
+
+async function setActiveTabNoAuth(ctx: DemoActionContext): Promise<void> {
+  await selectNoAuthInPanel(ctx);
+  await closeAuthPanelIfOpen(ctx);
+}
+
+async function setActiveTabBearer(ctx: DemoActionContext, token: string): Promise<void> {
+  await selectAuthInPanel(ctx, 'bearer');
+  const current = document.querySelector<HTMLInputElement>(GQL.AUTH_BEARER_INPUT)?.value?.trim() ?? '';
+  if (current !== token) {
+    await ctx.fill(GQL.AUTH_BEARER_INPUT, token);
+    await ctx.delay(400);
   }
-  await ctx.delay(300);
+  await closeAuthPanelIfOpen(ctx);
+}
+
+/** Guard: Tab 1 (Staging) uses explicit No Auth override. */
+export async function ensureLesson14Tab1NoAuth(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14TabsRenamed(ctx);
+  await activateGqlTabByIndex(ctx, 0);
+  await setActiveTabNoAuth(ctx);
+}
+
+/** Guard: Tab 2 (Production) uses explicit Bearer override. */
+export async function ensureLesson14Tab2Bearer(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14Tab1NoAuth(ctx);
+  await activateGqlTabByIndex(ctx, 1);
+  await setActiveTabBearer(ctx, LESSON14_TAB2_BEARER_TOKEN);
+}
+
+/**
+ * Guard: both demo tabs share the same server but carry different per-tab auth
+ * (Tab 1 No Auth, Tab 2 Bearer — Phase 6H).
+ */
+export async function ensureLesson14PerTabAuthConfigured(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14PerTabAuthConfigured) return;
+  await ensureLesson14Tab2Bearer(ctx);
+  _lesson14PerTabAuthConfigured = true;
 }
 
 async function saveCurrentTabAsProfile(ctx: DemoActionContext, name: string): Promise<void> {
@@ -319,7 +385,7 @@ async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): P
 }
 
 async function ensureLesson14ProfilesSaved(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14TabsRenamed(ctx);
+  await ensureLesson14PerTabAuthConfigured(ctx);
   await activateGqlTabByIndex(ctx, 0);
   await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME);
   await activateGqlTabByIndex(ctx, 1);
@@ -389,14 +455,13 @@ export async function ensureLesson14TabPolling(ctx: DemoActionContext): Promise<
 /** Alias for plan §7C helper name. */
 export const ensureTabPolling = ensureLesson14TabPolling;
 
-/** Open auth popover on Production tab to surface linkedProfileName hint. */
+/** Open Auth panel on Production tab to surface profile inherit banner (Phase 6H). */
 export async function ensureLesson14ProfileAuthHintVisible(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14TabProfileLinks(ctx);
   await activateGqlTabByIndex(ctx, 1);
-  await closeAuthPopoverIfOpen(ctx);
-  await ctx.click(GQL.AUTH_BADGE_BTN);
-  await ctx.waitFor(GQL.AUTH_POPOVER, 5000);
-  await ctx.waitFor(GQL.AUTH_PROFILE_HINT, 5000);
+  await closeAuthPanelIfOpen(ctx);
+  await openAuthPanelQuiet(ctx);
+  await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
   await ctx.delay(400);
 }
 
@@ -429,10 +494,15 @@ export async function gqlMultiTabLessonSetup(ctx: DemoActionContext): Promise<vo
 
   await ensureEditorMode(ctx);
   await ensureGqlDemoTab(ctx, GQL14_LESSON_ID, 'Multi-Tab Workspaces', 2);
+  await ctx.waitFor(GQL.PROFILE_BADGE, 5000);
+  await purgeLesson14ConnectionProfiles(ctx);
 }
 
-/** Multi-Tab lesson cleanup (GQL-14) — close all demo tabs. */
+/** Multi-Tab lesson cleanup (GQL-14) — purge lesson profiles and close demo tabs. */
 export async function gqlMultiTabLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson14SessionFlags();
+  if (document.querySelector(GQL.PROFILE_BADGE)) {
+    await purgeLesson14ConnectionProfiles(ctx);
+  }
   await closeGqlDemoTabs(ctx, GQL14_LESSON_ID);
 }

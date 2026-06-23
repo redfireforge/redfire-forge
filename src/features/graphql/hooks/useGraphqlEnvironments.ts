@@ -62,6 +62,13 @@ export interface UseGraphqlEnvironmentsReturn {
    * Returns null if the id is not found.
    */
   exportEnvironment: (id: string) => string | null;
+  /**
+   * Atomically create-or-update a named environment and set it active.
+   * Safe to call from outside React (e.g. demo player window bridge).
+   */
+  upsertEnvironment: (name: string, vars: Array<{ key: string; value: string }>) => void;
+  /** Delete all environments with the given name. No-op if none exist. */
+  deleteEnvironmentByName: (name: string) => void;
 }
 
 export function useGraphqlEnvironments(): UseGraphqlEnvironmentsReturn {
@@ -233,14 +240,72 @@ export function useGraphqlEnvironments(): UseGraphqlEnvironmentsReturn {
     [environments],
   );
 
+  // ── Atomic upsert + activate (for demo player bridge) ─────────────────────
+  /**
+   * Create-or-update a named environment in a single state transition and set
+   * it as the active environment.  Safe to call from non-React contexts (e.g.
+   * window bridge callbacks) because everything happens in one updater.
+   */
+  const upsertEnvironment = useCallback(
+    (name: string, vars: Array<{ key: string; value: string }>): void => {
+      const now = Date.now();
+      setEnvironments((prev) => {
+        const existing = prev.find((e) => e.name === name);
+        const merged: GraphqlEnvironmentVariable[] = existing ? [...existing.variables] : [];
+        for (const v of vars) {
+          const idx = merged.findIndex((m) => m.key === v.key);
+          if (idx >= 0) {
+            merged[idx] = { ...merged[idx], value: v.value, enabled: true };
+          } else {
+            merged.push({ key: v.key, value: v.value, enabled: true, masked: false });
+          }
+        }
+        if (existing) {
+          return prev.map((e) =>
+            e.id === existing.id
+              ? { ...e, variables: merged, isActive: true, updatedAt: now }
+              : { ...e, isActive: false },
+          );
+        }
+        const newEnv: GraphqlEnvironment = {
+          id: generateEnvId(),
+          name,
+          variables: merged,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+        return [...prev.map((e) => ({ ...e, isActive: false })), newEnv];
+      });
+    },
+    [],
+  );
+
+  /** Delete all environments matching the given name. No-op if none exist. */
+  const deleteEnvironmentByName = useCallback(
+    (name: string): void => {
+      setEnvironments((prev) => {
+        const filtered = prev.filter((e) => e.name !== name);
+        // Re-activate first remaining env if the active one was removed
+        if (filtered.length > 0 && !filtered.some((e) => e.isActive)) {
+          return filtered.map((e, i) => ({ ...e, isActive: i === 0 }));
+        }
+        return filtered;
+      });
+    },
+    [],
+  );
+
   return {
     environments,
     activeEnvironment,
     createEnvironment,
     deleteEnvironment,
+    deleteEnvironmentByName,
     setActiveEnvironment,
     updateEnvironmentName,
     updateVariables,
+    upsertEnvironment,
     importEnvironment,
     exportEnvironment,
   };
