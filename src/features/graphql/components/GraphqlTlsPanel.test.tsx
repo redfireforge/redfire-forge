@@ -145,7 +145,7 @@ describe('GraphqlTlsPanel', () => {
     );
     openModal();
     onTlsChange.mockClear();
-    fireEvent.click(document.querySelector('.gql-tls-overlay')!);
+    fireEvent.click(document.querySelector('.ws-tls-overlay')!);
     expect(onTlsChange).not.toHaveBeenCalled();
     expect(screen.queryByTestId('gql-tls-body')).toBeNull();
   });

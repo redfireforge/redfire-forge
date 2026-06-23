@@ -58,7 +58,8 @@ describe('GraphqlSchemaDiff', () => {
   it('renders modal with correct title and labels', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
     expect(screen.getByText('Schema Diff')).toBeInTheDocument();
-    expect(screen.getByText('v1.0 snapshot → Current schema')).toBeInTheDocument();
+    expect(screen.getByText('v1.0 snapshot')).toBeInTheDocument();
+    expect(screen.getByText('Current schema')).toBeInTheDocument();
   });
 
   it('renders aria-label with old/new labels', () => {
@@ -71,9 +72,10 @@ describe('GraphqlSchemaDiff', () => {
     expect(screen.getByText('No changes')).toBeInTheDocument();
   });
 
-  it('shows empty state message when no changes', () => {
+  it('shows empty state when no changes', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
-    expect(screen.getByText('No changes between the two schema versions.')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-diff-empty')).toBeInTheDocument();
+    expect(screen.getByText('Schemas match')).toBeInTheDocument();
   });
 
   // ─── Summary counts ────────────────────────────────────────────────────────
@@ -290,7 +292,7 @@ describe('GraphqlSchemaDiff', () => {
     });
     render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
     fireEvent.click(screen.getByRole('tab', { name: /breaking/i }));
-    expect(screen.getByText('No changes matching the selected filter.')).toBeInTheDocument();
+    expect(screen.getByText('No matching changes')).toBeInTheDocument();
   });
 
   it('filters by dangerous', () => {
@@ -420,20 +422,82 @@ describe('GraphqlSchemaDiff', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
     fireEvent.click(screen.getByRole('button', { name: 'Changes' }));
     expect(screen.queryByTestId('gql-diff-sdl-view')).not.toBeInTheDocument();
-    expect(screen.getByText('No changes between the two schema versions.')).toBeInTheDocument();
+    expect(screen.getByText('Schemas match')).toBeInTheDocument();
   });
 
-  it('renders SDL diff with added and removed lines', () => {
+  it('renders SDL diff with line numbers and syntax tokens', () => {
     render(<GraphqlSchemaDiff
       {...defaultProps}
       oldSdl={'type Query {\n  users: [User]\n}'}
       newSdl={'type Query {\n  user(id: ID!): User\n}'}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
-    expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
-    // Shows diff lines
-    const addedLines = document.querySelectorAll('.gql-diff-sdl-line--added, .gql-diff-sdl-line--removed');
-    expect(addedLines.length).toBeGreaterThan(0);
+    expect(document.querySelector('.gql-diff-sdl-ln')).toBeTruthy();
+    expect(document.querySelector('.gql-sdl-keyword')).toBeTruthy();
+  });
+
+  it('shows SDL diff stats and search bar', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByPlaceholderText('Search SDL… (Cmd+F)')).toBeInTheDocument();
+    expect(screen.getByText(/unchanged/)).toBeInTheDocument();
+  });
+
+  it('filters SDL diff to changes only', () => {
+    render(<GraphqlSchemaDiff
+      {...defaultProps}
+      oldSdl={'type Query {\n  users: [User]\n}'}
+      newSdl={'type Query {\n  user(id: ID!): User\n}'}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    const before = document.querySelectorAll('[data-testid="gql-diff-sdl-line"]').length;
+    fireEvent.click(screen.getByTestId('gql-diff-sdl-hide-unchanged'));
+    const after = document.querySelectorAll('[data-testid="gql-diff-sdl-line"]').length;
+    expect(after).toBeLessThan(before);
+  });
+
+  it('shows no-edits banner for identical SDLs', () => {
+    const sameSdl = 'type Query { hello: String }';
+    render(<GraphqlSchemaDiff {...defaultProps} oldSdl={sameSdl} newSdl={sameSdl} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByTestId('gql-diff-sdl-no-edits')).toBeInTheDocument();
+  });
+
+  it('applies wide modal class in SDL diff view', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    expect(screen.getByTestId('gql-diff-modal')).toHaveClass('gql-diff-modal--wide');
+  });
+
+  it('renders draggable header with grip', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const header = screen.getByTestId('gql-diff-header');
+    expect(header).toHaveClass('gql-diff-header--draggable');
+    expect(header.querySelector('.gql-diff-drag-grip')).toBeTruthy();
+  });
+
+  it('moves modal on header drag', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const modal = screen.getByTestId('gql-diff-modal');
+    const header = screen.getByTestId('gql-diff-header');
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 80, width: 900, height: 600,
+      right: 1000, bottom: 680, x: 100, y: 80, toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 90 });
+    fireEvent.mouseMove(window, { clientX: 170, clientY: 130 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBeTruthy();
+    expect(modal.style.top).toBeTruthy();
+  });
+
+  it('shows total change count when changes exist', () => {
+    const result = makeResult({
+      breakingCount: 1,
+      changes: [makeChange()],
+    });
+    render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
+    expect(screen.getByText('1 total')).toBeInTheDocument();
   });
 
   // ─── Broken items banner ───────────────────────────────────────────────────

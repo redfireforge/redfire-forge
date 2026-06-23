@@ -530,7 +530,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
       description:
         'Click the **Metadata** tab in the Response panel. It reveals the raw HTTP request that was sent: **HTTP POST** method, `Content-Type: application/json`, and the serialised query body. ' +
         'This is a key insight: despite the schema, type system, and query language, every GraphQL operation travels over ordinary HTTP — no special protocol, no persistent connection (for queries and mutations). ' +
-        'If your server requires an `Authorization` header or a custom `X-API-Key`, you add it in the **Headers** panel or the **Auth** popover — exactly as you would for any REST call. ' +
+        'If your server requires an `Authorization` header or a custom `X-API-Key`, you add it in the **Headers** panel or the **Auth** bottom tab — exactly as you would for any REST call. ' +
         '**Lesson 6 (Authentication & Headers)** covers this in detail.',
       highlight: GQL.RV_TAB_METADATA,
       preAction: ensureExecuted,

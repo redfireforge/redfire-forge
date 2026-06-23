@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Option C — Headers panel only</title>
+  <link rel="stylesheet" href="gql-per-tab-auth-mockup.css" />
+</head>
+<body>
+  <header class="mock-topbar">
+    <div class="mock-topbar-left">
+      <span class="mock-brand">RedfireForge · GraphQL Studio</span>
+      <span class="mock-option-tag">Option C — headers only</span>
+    </div>
+    <div class="mock-topbar-right">
+      <a class="mock-nav-link" href="gql-per-tab-auth-index.html">← All options</a>
+      <a class="mock-nav-link" href="gql-auth-option-a.html">Compare: Option A →</a>
+    </div>
+  </header>
+
+  <div class="mock-banner warn">
+    <b>Option C:</b> Remove (or de-emphasize) the auth popover. Users put credentials in the per-tab
+    <strong>Headers</strong> panel. Page auth may still apply globally — risk of double headers.
+    Subscriptions cannot use structured <code>connectionParams</code> from raw headers alone.
+  </div>
+
+  <div class="gql-studio">
+    <nav class="proto-nav"><span>Requests</span><span class="active">GraphQL</span><span>WebSocket</span></nav>
+
+    <div class="conn-bar">
+      <div class="conn-endpoint-wrap">
+        <input class="conn-endpoint" readonly value="http://localhost:4010/graphql" />
+      </div>
+      <!-- Auth badge hidden or grayed out -->
+      <div class="auth-wrap">
+        <button type="button" class="auth-badge" style="opacity:0.45;text-decoration:line-through;" disabled title="Use Headers panel instead">
+          <span class="dot" style="background:var(--text-muted);"></span>
+          Auth (deprecated)
+        </button>
+      </div>
+      <button type="button" class="conn-btn conn-btn--secondary">Introspect</button>
+      <button type="button" class="conn-btn conn-btn--primary">Execute</button>
+    </div>
+
+    <div class="gql-main">
+      <div class="editor-col">
+        <div class="query-tabs" id="queryTabs">
+          <button type="button" class="query-tab active" data-tab="0">
+            Local 4010 Docker
+          </button>
+          <button type="button" class="query-tab" data-tab="1">
+            Demo: Authentication
+          </button>
+        </div>
+
+        <div class="code-area" id="codeArea"></div>
+
+        <div class="bottom-panel">
+          <div class="bottom-tabs">
+            <button type="button" class="bottom-tab">Variables</button>
+            <button type="button" class="bottom-tab active">Headers <span class="warn-icon">⚠</span></button>
+            <button type="button" class="bottom-tab">Fragments</button>
+          </div>
+          <div class="bottom-body" id="hdrBody"></div>
+        </div>
+      </div>
+
+      <aside class="response-col">
+        <div class="response-header">Response · Metadata</div>
+        <div class="response-meta">
+          <div class="auth-sent" id="authSent"></div>
+          <p style="margin-top:10px;font-size:0.68rem;color:var(--warning);" id="warnBox"></p>
+        </div>
+      </aside>
+
+      <aside class="annot-col">
+        <h3>Why this is weak</h3>
+        <div class="highlight bad">
+          <div class="label">Double auth risk</div>
+          Page-level popover may still inject Bearer while tab Headers also sets Authorization.
+        </div>
+        <ul>
+          <li>No inherit-from-global-profile in Headers</li>
+          <li>GQL-4 lesson teaches auth popover — breaks training</li>
+          <li>WS subscriptions need <code>buildConnectionParams()</code></li>
+          <li>Users must know header names manually</li>
+        </ul>
+        <p>Headers remain useful for <em>non-auth</em> custom keys (tracing, feature flags).</p>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const hdrPanels = [
+      `<table class="hdr-table"><thead><tr><th class="cb">✓</th><th>Key</th><th>Value</th></tr></thead><tbody>
+        <tr><td class="cb">☐</td><td colspan="2" style="color:var(--text-muted);font-style:italic;">Empty — but page auth may still inject Bearer!</td></tr>
+      </tbody></table>`,
+      `<table class="hdr-table"><thead><tr><th class="cb">✓</th><th>Key</th><th>Value</th></tr></thead><tbody>
+        <tr><td class="cb">☑</td><td><input readonly value="Authorization" /></td><td><input readonly value="Bearer demo-token-secret" /></td></tr>
+      </tbody></table>`,
+    ];
+    const queries = [
+      '<div><span class="kw">query</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">health</span></div><div><span class="pn">}</span></div>',
+      '<div><span class="kw">query</span> <span class="fn">Me</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">me</span> <span class="pn">{</span> <span class="fn">id</span> <span class="pn">}</span></div><div><span class="pn">}</span></div>',
+    ];
+    const sent = [
+      { text: 'Page auth still sends:<br/><span style="color:var(--danger);">Authorization: Bearer &lt;session&gt;</span><br/><span style="font-size:0.65rem;">Header row disabled — conflict!</span>', warn: 'Tab 1 has no header row, but page-level inherit still adds Bearer.' },
+      { text: 'Merged headers:<br/><span style="color:var(--warning);">Authorization: Bearer demo-token-secret</span><br/><span style="font-size:0.65rem;">(tab header wins if page also set — confusing)</span>', warn: 'User must manually type Authorization in Headers for every authenticated tab.' },
+    ];
+
+    const tabs = document.querySelectorAll('.query-tab[data-tab]');
+    const codeArea = document.getElementById('codeArea');
+    const hdrBody = document.getElementById('hdrBody');
+    const authSent = document.getElementById('authSent');
+    const warnBox = document.getElementById('warnBox');
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        const i = +btn.dataset.tab;
+        codeArea.innerHTML = queries[i];
+        hdrBody.innerHTML = hdrPanels[i];
+        authSent.innerHTML = sent[i].text;
+        warnBox.textContent = sent[i].warn;
+      });
+    });
+    tabs[0].click();
+  </script>
+</body>
+</html>

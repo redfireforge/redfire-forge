@@ -1,5 +1,12 @@
 import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphql';
 import type { ApqInfo } from '../hooks/useGraphqlExecution';
+import {
+  describeAuthSentMetadata,
+  type AuthSentMetadata,
+  type GqlAuthSentSource,
+} from './gqlAuthResolve';
+import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 
 /** Parse an HTTP response body into a GraphqlResponse. */
 export function parseHttpBody(
@@ -41,11 +48,54 @@ export function parseHttpBody(
   return base;
 }
 
+export interface AuthSentStampInput {
+  source: GqlAuthSentSource;
+  storedAuth?: GraphqlAuth | null;
+  globalAuthProfiles?: GlobalAuthProfile[];
+}
+
+export function authSentFieldsFromMetadata(
+  meta: AuthSentMetadata,
+): Pick<GraphqlResponse, 'authSentSource' | 'authSentLines'> {
+  return {
+    authSentSource: meta.source,
+    authSentLines: meta.lines,
+  };
+}
+
+export function buildAuthSentFields(
+  requestHeaders: Record<string, string>,
+  stamp?: AuthSentStampInput,
+): Pick<GraphqlResponse, 'authSentSource' | 'authSentLines'> | undefined {
+  if (!stamp) return undefined;
+  return authSentFieldsFromMetadata(
+    describeAuthSentMetadata(
+      stamp.storedAuth ?? null,
+      stamp.source,
+      stamp.globalAuthProfiles ?? [],
+      requestHeaders,
+    ),
+  );
+}
+
 export function stampRequestHeaders(
   response: GraphqlResponse,
   requestHeaders: Record<string, string>,
+  authStamp?: AuthSentStampInput,
 ): GraphqlResponse {
-  return { ...response, requestHeaders: { ...requestHeaders } };
+  const authFields = buildAuthSentFields(requestHeaders, authStamp);
+  const stamped: GraphqlResponse = {
+    ...response,
+    requestHeaders: { ...requestHeaders },
+  };
+  if (authFields) {
+    stamped.authSentSource = authFields.authSentSource;
+    stamped.authSentLines = authFields.authSentLines;
+  } else {
+    delete stamped.authSentSource;
+    delete stamped.authSentLines;
+  }
+  return stamped;
 }
 
 /** Build connection-bar APQ metadata from a stamped GraphqlResponse (dedup wait path). */

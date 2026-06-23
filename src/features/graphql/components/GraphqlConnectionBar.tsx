@@ -4,7 +4,7 @@
  * Phase 1A: endpoint URL input + Execute (disabled) + Introspect (disabled).
  * Phase 1B: schema introspection, schema status badge, polling indicator.
  * Phase 1C: execute handler, operation-name selector, Cancel button.
- * Phase 1D: GQL method badge, auth badge + popover, recent endpoints dropdown.
+ * Phase 1D: GQL method badge, auth badge (focuses bottom Auth tab), recent endpoints dropdown.
  * Phase 1E: env badge button (opens environment manager modal).
  * Phase 1 Gap: TLS skip toggle, schema polling config popover.
  *
@@ -20,9 +20,8 @@ import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../.
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { useGqlPollingPopover } from '../hooks/useGqlPollingPopover';
-import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
+import { authBadgeLabel, isAuthConfigured, type GqlAuthBadgePresentation } from '../utils/authUtils';
 import { findUnresolvedVars } from '../utils/envUtils';
-import { GraphqlAuthPopover } from './GraphqlAuthPopover';
 import { GqlPollingPopoverContent } from './connection-bar/GqlPollingPopoverContent';
 import { GqlSubscriptionControls } from './connection-bar/GqlSubscriptionControls';
 import { GraphqlTlsPanel } from './GraphqlTlsPanel';
@@ -58,13 +57,12 @@ interface GraphqlConnectionBarProps {
   disabled?: boolean;
   fileErrors?: boolean;
   auth?: GraphqlAuth | null;
-  onAuthChange?: (auth: GraphqlAuth | null) => void;
-  /** Phase 6F: profile name when active tab auth is linked via connectionId */
-  linkedProfileName?: string | null;
-  /** Global auth profiles — enables inherit-from-profile in auth popover. */
+  /** Phase 6H Slice 7.4: focus the bottom-panel Auth tab when the badge is clicked. */
+  onFocusAuthPanel?: () => void;
+  /** Phase 6H Slice 4: badge label + variant + scope pill (computed in page). */
+  authBadgePresentation?: GqlAuthBadgePresentation;
+  /** Global auth profiles — used for auth badge label fallback. */
   globalAuthProfiles?: GlobalAuthProfile[];
-  /** Env-bound auth profile id — pre-selected when user picks inherit. */
-  defaultAuthProfileId?: string | null;
   recentEndpoints?: string[];
   onRemoveRecentEndpoint?: (url: string) => void;
   activeEnvName?: string | null;
@@ -148,10 +146,9 @@ export function GraphqlConnectionBar({
   disabled = false,
   fileErrors = false,
   auth,
-  onAuthChange,
-  linkedProfileName = null,
+  onFocusAuthPanel,
+  authBadgePresentation,
   globalAuthProfiles = [],
-  defaultAuthProfileId = null,
   recentEndpoints = [],
   onRemoveRecentEndpoint,
   activeEnvName,
@@ -226,12 +223,24 @@ export function GraphqlConnectionBar({
     onPollingChange,
   });
 
-  // ── Auth popover ─────────────────────────────────────────────────────────
-  const [authOpen, setAuthOpen] = useState(false);
-  const authBadgeRef = useRef<HTMLButtonElement>(null);
+  // ── Auth badge ───────────────────────────────────────────────────────────
 
-  const authLabel     = authBadgeLabel(auth, globalAuthProfiles);
-  const authConfigured = isAuthConfigured(auth, globalAuthProfiles);
+  const authLabel     = authBadgePresentation?.label ?? authBadgeLabel(auth, globalAuthProfiles);
+  const authConfigured = authBadgePresentation?.configured ?? isAuthConfigured(auth, globalAuthProfiles);
+  const authBadgeVariant = authBadgePresentation?.variant ?? (authConfigured ? 'default' : 'inherit');
+  const authBadgeScope = authBadgePresentation?.scope ?? null;
+  const authBadgeClassName = [
+    'gql-auth-badge',
+    authBadgeVariant === 'inherit' && 'gql-auth-badge--inherit',
+    authBadgeVariant === 'override' && 'gql-auth-badge--override',
+    authBadgeVariant === 'profile' && 'gql-auth-badge--profile',
+    authConfigured && authBadgeVariant !== 'inherit' && authBadgeVariant !== 'profile' && 'gql-auth-badge--configured',
+  ].filter(Boolean).join(' ');
+  const authScopePillLabel =
+    authBadgeScope === 'page' ? 'Page'
+      : authBadgeScope === 'tab' ? 'Tab'
+        : authBadgeScope === 'profile' ? 'Profile'
+          : null;
 
   // ── Recent endpoints dropdown ────────────────────────────────────────────
   const [endpointFocused, setEndpointFocused] = useState(false);
@@ -500,41 +509,33 @@ export function GraphqlConnectionBar({
         </button>
       )}
 
-      {/* Auth badge + popover */}
+      {/* Auth badge — opens bottom Auth panel (Slice 7.4) */}
       <div className="gql-auth-badge-wrap">
         <button
-          ref={authBadgeRef}
           type="button"
-          className={`gql-auth-badge${authConfigured ? ' gql-auth-badge--configured' : ''}`}
-          onClick={() => setAuthOpen((o) => !o)}
-          aria-expanded={authOpen}
-          aria-haspopup="dialog"
-          aria-label={`Authentication: ${authLabel} — click to configure`}
+          className={authBadgeClassName}
+          onClick={() => onFocusAuthPanel?.()}
+          aria-haspopup="false"
+          aria-label={`Authentication: ${authLabel}${authScopePillLabel ? ` (${authScopePillLabel} scope)` : ''} — open Auth panel`}
           data-testid="gql-auth-badge-btn"
-          title={`Authentication: ${authLabel}`}
-          disabled={disabled}
+          title={`Authentication: ${authLabel}${authScopePillLabel ? ` · ${authScopePillLabel}` : ''} — open Auth panel`}
+          disabled={disabled || !onFocusAuthPanel}
         >
+          <span className="gql-auth-badge-dot" aria-hidden="true" />
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
           {authLabel}
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          {authScopePillLabel && (
+            <span
+              className={`gql-auth-badge-scope-pill gql-auth-badge-scope-pill--${authBadgeScope}`}
+              data-testid="gql-auth-badge-scope-pill"
+            >
+              {authScopePillLabel}
+            </span>
+          )}
         </button>
-
-        {authOpen && onAuthChange && (
-          <GraphqlAuthPopover
-            auth={auth ?? null}
-            onChange={onAuthChange}
-            onClose={() => setAuthOpen(false)}
-            anchorRef={authBadgeRef}
-            linkedProfileName={linkedProfileName}
-            globalAuthProfiles={globalAuthProfiles}
-            defaultAuthProfileId={defaultAuthProfileId}
-          />
-        )}
       </div>
 
       {/* Introspect button */}

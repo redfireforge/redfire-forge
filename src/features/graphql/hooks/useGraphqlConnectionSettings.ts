@@ -13,6 +13,7 @@ import { useRecentEndpoints } from './useRecentEndpoints';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import { useGraphqlEnvironments } from './useGraphqlEnvironments';
 import { loadAuth, saveAuth, loadTlsCerts, saveTlsCerts, ENDPOINT_BASE_STORAGE_KEY, ENDPOINT_STORAGE_KEY, POLLING_STORAGE_KEY, TLS_STORAGE_KEY, type GqlTlsCertsStorage } from '../utils/tabPersistence';
+import { GQL_PAGE_AUTH_RELOAD_EVENT } from '../utils/gqlDemoWorkspace';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
@@ -64,6 +65,8 @@ export interface GraphqlConnectionSettingsResult {
   updateVariables: ReturnType<typeof useGraphqlEnvironments>['updateVariables'];
   importEnvironment: ReturnType<typeof useGraphqlEnvironments>['importEnvironment'];
   exportEnvironment: ReturnType<typeof useGraphqlEnvironments>['exportEnvironment'];
+  upsertEnvironment: ReturnType<typeof useGraphqlEnvironments>['upsertEnvironment'];
+  deleteEnvironmentByName: ReturnType<typeof useGraphqlEnvironments>['deleteEnvironmentByName'];
   envModalOpen: boolean;
   setEnvModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -150,6 +153,7 @@ export function useGraphqlConnectionSettings(
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
+    upsertEnvironment, deleteEnvironmentByName,
   } = useGraphqlEnvironments();
   const [envModalOpen, setEnvModalOpen] = useState(false);
 
@@ -201,6 +205,14 @@ export function useGraphqlConnectionSettings(
     })();
   }, []);
 
+  useEffect(() => {
+    const handler = () => {
+      void loadAuth().then((savedAuth) => { setAuth(savedAuth); });
+    };
+    window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+    return () => window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+  }, []);
+
   return {
     endpoint, setEndpoint, historyConnectionId, setHistoryConnectionId, prevBaseUrlRef,
     skipTlsVerify, handleSkipTlsVerifyChange,
@@ -215,6 +227,7 @@ export function useGraphqlConnectionSettings(
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,
+    upsertEnvironment, deleteEnvironmentByName,
     envModalOpen, setEnvModalOpen,
   };
 }

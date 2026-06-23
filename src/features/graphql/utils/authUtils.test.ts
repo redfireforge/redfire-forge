@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams, stampAuthHeaders } from './authUtils';
+import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams, stampAuthHeaders, resolveGqlAuthBadgePresentation, resolveTabAuthDotKind } from './authUtils';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GqlStudioTab } from './tabPersistence';
 
 // ─── buildAuthHeaders ─────────────────────────────────────────────────────────
 
@@ -233,5 +234,173 @@ describe('buildConnectionParams', () => {
 
   it('returns empty object for custom (headers injected via Headers panel)', () => {
     expect(buildConnectionParams({ type: 'custom' })).toEqual({});
+  });
+});
+
+// ─── resolveGqlAuthBadgePresentation (Phase 6H Slice 4) ───────────────────────
+
+describe('resolveGqlAuthBadgePresentation', () => {
+  const profiles = [{ id: 'p1', name: 'Staging', auth: { type: 'bearer' as const, token: 't' } }];
+
+  it('single tab page bearer uses default variant without scope pill', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'bearer', token: 'page' },
+      hasTabAuthOverride: false,
+      hasProfileLink: false,
+      usesPageDefaultAuth: true,
+      tabsLength: 1,
+    });
+    expect(p.label).toBe('Bearer');
+    expect(p.variant).toBe('default');
+    expect(p.scope).toBeNull();
+    expect(p.configured).toBe(true);
+  });
+
+  it('single tab page No Auth uses default variant with plain label (not Inherit prefix)', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: null,
+      hasTabAuthOverride: false,
+      hasProfileLink: false,
+      usesPageDefaultAuth: true,
+      tabsLength: 1,
+    });
+    expect(p.label).toBe('No Auth');
+    expect(p.variant).toBe('default');
+    expect(p.scope).toBeNull();
+    expect(p.configured).toBe(false);
+  });
+
+  it('multi-tab inheriting tab shows dashed inherit label and tab scope pill', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'bearer', token: 'page' },
+      hasTabAuthOverride: false,
+      hasProfileLink: false,
+      usesPageDefaultAuth: false,
+      tabsLength: 2,
+    });
+    expect(p.label).toBe('Inherit (Bearer)');
+    expect(p.variant).toBe('inherit');
+    expect(p.scope).toBe('tab');
+    expect(p.configured).toBe(false);
+  });
+
+  it('tab bearer override shows override variant with tab scope pill', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'bearer', token: 'tab-only' },
+      hasTabAuthOverride: true,
+      hasProfileLink: false,
+      usesPageDefaultAuth: false,
+      tabsLength: 2,
+    });
+    expect(p.label).toBe('Bearer');
+    expect(p.variant).toBe('override');
+    expect(p.scope).toBe('tab');
+    expect(p.configured).toBe(true);
+  });
+
+  it('profile-linked tab without override shows profile variant and inherit label', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'bearer', token: 'staging' },
+      hasTabAuthOverride: false,
+      hasProfileLink: true,
+      usesPageDefaultAuth: false,
+      linkedProfileName: 'Staging',
+      tabsLength: 2,
+    });
+    expect(p.label).toBe('Inherit (Staging)');
+    expect(p.variant).toBe('profile');
+    expect(p.scope).toBe('profile');
+    expect(p.configured).toBe(true);
+  });
+
+  it('tab explicit null override shows No Auth with override variant', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: null,
+      hasTabAuthOverride: true,
+      hasProfileLink: false,
+      usesPageDefaultAuth: false,
+      tabsLength: 2,
+    });
+    expect(p.label).toBe('No Auth');
+    expect(p.variant).toBe('override');
+    expect(p.configured).toBe(false);
+  });
+
+  it('tab inherit-global override uses catalog profile name in label', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'inherit', globalProfileId: 'p1' },
+      hasTabAuthOverride: true,
+      hasProfileLink: false,
+      usesPageDefaultAuth: false,
+      globalAuthProfiles: profiles,
+      tabsLength: 2,
+    });
+    expect(p.label).toBe('Inherit (Staging)');
+    expect(p.variant).toBe('override');
+  });
+
+  it('does not use profile variant while profile link is still pending', () => {
+    const p = resolveGqlAuthBadgePresentation({
+      resolvedAuth: { type: 'bearer', token: 'page' },
+      hasTabAuthOverride: false,
+      hasProfileLink: false,
+      usesPageDefaultAuth: false,
+      tabsLength: 1,
+    });
+    expect(p.variant).toBe('inherit');
+    expect(p.label).toBe('Inherit (Bearer)');
+    expect(p.scope).toBeNull();
+  });
+});
+
+// ─── resolveTabAuthDotKind (Phase 6H Slice 4) ─────────────────────────────────
+
+describe('resolveTabAuthDotKind', () => {
+  const makeTab = (over: Partial<GqlStudioTab> = {}): GqlStudioTab => ({
+    id: 'tab-1',
+    label: 'Tab',
+    modelUri: 'inmemory://tab-1',
+    query: '',
+    variables: '{}',
+    headers: [],
+    unsavedChanges: false,
+    ...over,
+  });
+
+  const profiles = [{
+    id: 'prof-staging',
+    name: 'Staging',
+    endpoint: 'https://staging.example/graphql',
+    auth: { type: 'bearer' as const, token: 'x' },
+    createdAt: 1,
+  }];
+
+  it('returns inherit when tab has no auth override', () => {
+    expect(resolveTabAuthDotKind(makeTab(), profiles)).toBe('inherit');
+  });
+
+  it('returns profile when tab is profile-linked without auth override', () => {
+    expect(resolveTabAuthDotKind(
+      makeTab({ connectionId: 'prof-staging' }),
+      profiles,
+    )).toBe('profile');
+  });
+
+  it('returns override when tab stores bearer override', () => {
+    expect(resolveTabAuthDotKind(
+      makeTab({ auth: { type: 'bearer', token: 'tab-only' } }),
+      profiles,
+    )).toBe('override');
+  });
+
+  it('returns none when tab stores explicit null No Auth', () => {
+    expect(resolveTabAuthDotKind(makeTab({ auth: null }), profiles)).toBe('none');
+  });
+
+  it('returns override for bearer override even when token is empty', () => {
+    expect(resolveTabAuthDotKind(
+      makeTab({ auth: { type: 'bearer', token: '' } }),
+      profiles,
+    )).toBe('override');
   });
 });

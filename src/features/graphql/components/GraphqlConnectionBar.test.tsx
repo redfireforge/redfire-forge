@@ -3,7 +3,7 @@
  *
  * GraphqlConnectionBar — comprehensive unit tests.
  * Tests the connection bar rendering, interactions, schema status badges,
- * auth popover, transport selector, and more.
+ * auth badge (focuses bottom Auth panel), transport selector, and more.
  */
 import '@testing-library/jest-dom/vitest';
 import { render, fireEvent, screen, act, createEvent } from '@testing-library/react';
@@ -189,40 +189,81 @@ describe('GraphqlConnectionBar — schema status', () => {
 // ─── Auth badge ───────────────────────────────────────────────────────────────
 
 describe('GraphqlConnectionBar — auth badge', () => {
-  it('renders auth badge button when onAuthChange is provided', () => {
-    render(<GraphqlConnectionBar {...defaultProps({ onAuthChange: vi.fn(), auth: null })} />);
+  it('renders auth badge button when onFocusAuthPanel is provided', () => {
+    render(<GraphqlConnectionBar {...defaultProps({ onFocusAuthPanel: vi.fn(), auth: null })} />);
     expect(screen.getByTestId('gql-auth-badge-btn')).toBeTruthy();
   });
 
-  it('opens auth popover when auth badge is clicked', () => {
-    render(<GraphqlConnectionBar {...defaultProps({ onAuthChange: vi.fn(), auth: null })} />);
+  it('focuses Auth panel when auth badge is clicked', () => {
+    const onFocusAuthPanel = vi.fn();
+    render(<GraphqlConnectionBar {...defaultProps({ onFocusAuthPanel, auth: null })} />);
     fireEvent.click(screen.getByTestId('gql-auth-badge-btn'));
-    expect(screen.getByTestId('gql-auth-popover')).toBeTruthy();
+    expect(onFocusAuthPanel).toHaveBeenCalledTimes(1);
   });
 
-  it('closes auth popover when clicking outside', () => {
-    render(<GraphqlConnectionBar {...defaultProps({ onAuthChange: vi.fn(), auth: null })} />);
-    fireEvent.click(screen.getByTestId('gql-auth-badge-btn'));
-    expect(screen.getByTestId('gql-auth-popover')).toBeTruthy();
-    // Close by pressing Escape
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByTestId('gql-auth-popover')).toBeNull();
+  it('disables auth badge when onFocusAuthPanel is not provided', () => {
+    render(<GraphqlConnectionBar {...defaultProps({ auth: null })} />);
+    expect(screen.getByTestId('gql-auth-badge-btn')).toBeDisabled();
   });
 
-  it('shows linked profile hint in auth popover when linkedProfileName is set', () => {
+  it('Phase 6H Slice 4: applies inherit badge class and scope pill from presentation', () => {
     render(
       <GraphqlConnectionBar
         {...defaultProps({
-          onAuthChange: vi.fn(),
-          auth: { type: 'bearer', token: 'tok' },
-          linkedProfileName: 'Staging',
+          onFocusAuthPanel: vi.fn(),
+          auth: { type: 'bearer', token: 'page' },
+          authBadgePresentation: {
+            label: 'Inherit (Bearer)',
+            variant: 'inherit',
+            scope: 'tab',
+            configured: false,
+          },
         })}
       />,
     );
-    fireEvent.click(screen.getByTestId('gql-auth-badge-btn'));
-    const hint = screen.getByTestId('gql-auth-profile-hint');
-    expect(hint.textContent).toContain('Staging');
-    expect(hint.textContent).toContain('edit to unlink');
+    const btn = screen.getByTestId('gql-auth-badge-btn');
+    expect(btn.className).toContain('gql-auth-badge--inherit');
+    expect(screen.getByTestId('gql-auth-badge-scope-pill')).toHaveTextContent('Tab');
+    expect(btn).toHaveTextContent('Inherit (Bearer)');
+  });
+
+  it('Phase 6H Slice 4: applies override badge class for tab override presentation', () => {
+    render(
+      <GraphqlConnectionBar
+        {...defaultProps({
+          onFocusAuthPanel: vi.fn(),
+          auth: { type: 'bearer', token: 'tab-only' },
+          authBadgePresentation: {
+            label: 'Bearer',
+            variant: 'override',
+            scope: 'tab',
+            configured: true,
+          },
+        })}
+      />,
+    );
+    const btn = screen.getByTestId('gql-auth-badge-btn');
+    expect(btn.className).toContain('gql-auth-badge--override');
+    expect(btn.className).toContain('gql-auth-badge--configured');
+  });
+
+  it('Phase 6H Slice 4: renders auth label once inside badge button', () => {
+    render(
+      <GraphqlConnectionBar
+        {...defaultProps({
+          onFocusAuthPanel: vi.fn(),
+          auth: { type: 'bearer', token: 'page' },
+          authBadgePresentation: {
+            label: 'Inherit (Bearer)',
+            variant: 'inherit',
+            scope: 'tab',
+            configured: false,
+          },
+        })}
+      />,
+    );
+    const btn = screen.getByTestId('gql-auth-badge-btn');
+    expect(btn.textContent).toBe('Inherit (Bearer)Tab');
   });
 });
 

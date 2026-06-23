@@ -342,8 +342,15 @@ const mocks = vi.hoisted(() => {
         updateActiveTabEndpoint: vi.fn(),
         clearActiveTabEndpoint: vi.fn(),
         updateActiveTabSkipTlsVerify: vi.fn(),
+        updateActiveTabTlsSettings: vi.fn(),
+        updateActiveTabAuth: vi.fn(),
+        clearActiveTabAuth: vi.fn(),
         hasActiveTabSkipTlsOverride: activeTab.skipTlsVerify !== undefined,
         hasActiveTabTlsCertOverride: false,
+        hasActiveTabAuthOverride: Boolean(
+          activeTab.auth !== undefined
+          && !(activeTab.auth?.type === 'inherit' && !activeTab.auth.globalProfileId),
+        ),
         updateActiveTabPolling: vi.fn(),
         clearActiveTabPolling: vi.fn(),
         hasActiveTabPollingOverride: activeTab.pollingEnabled !== undefined
@@ -444,9 +451,13 @@ vi.mock('./utils/gqlActivityBarUtils', () => ({
   loadPersistedActivityTab: mocks.loadPersistedActivityTab,
 }));
 
-vi.mock('./utils/authUtils', () => ({
-  buildAuthHeaders: mocks.buildAuthHeaders,
-}));
+vi.mock('./utils/authUtils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./utils/authUtils')>();
+  return {
+    ...actual,
+    buildAuthHeaders: mocks.buildAuthHeaders,
+  };
+});
 
 vi.mock('./utils/envUtils', () => ({
   findUnresolvedVars: mocks.findUnresolvedVars,
@@ -893,6 +904,9 @@ function setupTabs(overrides: Record<string, unknown> = {}) {
       updateActiveTabEndpoint: vi.fn(),
       clearActiveTabEndpoint: vi.fn(),
       updateActiveTabSkipTlsVerify: vi.fn(),
+      updateActiveTabTlsSettings: vi.fn(),
+      updateActiveTabAuth: vi.fn(),
+      clearActiveTabAuth: vi.fn(),
       resolvedTabEndpoint,
       hasActiveTabEndpointOverride: tabEndpointOverride !== undefined,
       hasActiveTabProfileLink: Boolean(connectionId)
@@ -911,6 +925,10 @@ function setupTabs(overrides: Record<string, unknown> = {}) {
       clearActiveTabPolling: vi.fn(),
       hasActiveTabPollingOverride: activeTab.pollingEnabled !== undefined
         || activeTab.pollingIntervalSeconds !== undefined,
+      hasActiveTabAuthOverride: Boolean(
+        activeTab.auth !== undefined
+        && !(activeTab.auth?.type === 'inherit' && !activeTab.auth.globalProfileId),
+      ),
       handleSelectOperation: vi.fn(),
       handleQueryChange: vi.fn(),
       handleVariablesChange: vi.fn(),
@@ -1243,14 +1261,114 @@ describe('GraphqlStudioPage', () => {
       });
       renderPage();
       expect(mocks.captured.connectionBar?.auth).toEqual({ type: 'bearer', token: 'staging-token' });
-      expect(mocks.captured.connectionBar?.linkedProfileName).toBe('Staging');
+      expect(mocks.captured.bottomPanel?.linkedProfileName).toBe('Staging');
+    });
+
+    it('Phase 6H Slice 3: profile-linked tab edits stored tab layer (not page auth)', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+      });
+      setupConnection({
+        auth: { type: 'bearer', token: 'page-token' },
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+      });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.authScope).toBe('tab');
+      expect(mocks.captured.bottomPanel?.storedAuth).toBeUndefined();
+      expect(mocks.captured.bottomPanel?.hasAuthOverride).toBe(false);
+      expect(mocks.captured.bottomPanel?.resolvedAuthPreview).toContain('Bearer');
+    });
+
+    it('Phase 6H Slice 3: single inheriting tab edits page default auth', () => {
+      setupTabs();
+      setupConnection({ auth: { type: 'bearer', token: 'page-token' } });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.authScope).toBe('page');
+      expect(mocks.captured.bottomPanel?.storedAuth).toEqual({ type: 'bearer', token: 'page-token' });
+      expect(mocks.captured.bottomPanel?.onResetAuthToInherit).toBeUndefined();
+    });
+
+    it('Phase 6H Slice 3: tab auth override wires reset to clearActiveTabAuth', () => {
+      const tab = setupTabs({ auth: { type: 'bearer', token: 'tab-only' } });
+      setupConnection({ auth: { type: 'bearer', token: 'page-token' } });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.authScope).toBe('tab');
+      expect(mocks.captured.bottomPanel?.storedAuth).toEqual(tab.auth);
+      expect(mocks.captured.bottomPanel?.hasAuthOverride).toBe(true);
+      expect(mocks.captured.bottomPanel?.onResetAuthToInherit).toBe(
+        mocks.useGqlStudioTabs.mock.results.at(-1)?.value.clearActiveTabAuth,
+      );
+    });
+
+    it('Phase 6H Slice 7.4: auth badge focuses bottom Auth panel', () => {
+      setupTabs();
+      setupConnection({ auth: { type: 'bearer', token: 'page-token' } });
+      renderPage();
+      expect(typeof mocks.captured.connectionBar?.onFocusAuthPanel).toBe('function');
+      act(() => {
+        (mocks.captured.connectionBar?.onFocusAuthPanel as () => void)();
+      });
+      expect(mocks.captured.bottomPanel?.activeTab).toBe('auth');
+    });
+
+    it('Phase 6H Slice 7.4: auth badge focus passes page scope to bottom panel', () => {
+      setupTabs();
+      setupConnection({ auth: { type: 'bearer', token: 'page-token' } });
+      renderPage();
+      expect(mocks.captured.bottomPanel?.authScope).toBe('page');
+      expect(mocks.captured.bottomPanel?.storedAuth).toEqual({ type: 'bearer', token: 'page-token' });
+    });
+
+    it('Phase 6H Slice 4: passes authBadgePresentation for tab bearer override', () => {
+      setupTabs({ auth: { type: 'bearer', token: 'tab-only' } });
+      setupConnection({ auth: { type: 'bearer', token: 'page-token' } });
+      renderPage();
+      expect(mocks.captured.connectionBar?.authBadgePresentation).toEqual({
+        label: 'Bearer',
+        variant: 'override',
+        scope: 'tab',
+        configured: true,
+      });
+    });
+
+    it('Phase 6H Slice 4: profile-linked tab badge uses profile variant', () => {
+      setupTabs({
+        connectionId: 'prof-staging',
+        endpoint: 'https://staging.example.com/graphql',
+        hasResolvedProfileLink: true,
+      });
+      setupConnection({
+        auth: { type: 'bearer', token: 'page-token' },
+        profiles: [{
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: 'https://staging.example.com/graphql',
+          auth: { type: 'bearer', token: 'staging-token' },
+          createdAt: 1,
+        }],
+      });
+      renderPage();
+      expect(mocks.captured.connectionBar?.authBadgePresentation).toMatchObject({
+        label: 'Inherit (Staging)',
+        variant: 'profile',
+        scope: 'profile',
+        configured: true,
+      });
     });
 
     it('Phase 6F: linkedProfileName is null when connectionId is orphaned (profile missing)', () => {
       setupTabs({ connectionId: 'prof-deleted' });
       setupConnection({ profiles: [] });
       renderPage();
-      expect(mocks.captured.connectionBar?.linkedProfileName).toBeNull();
+      expect(mocks.captured.bottomPanel?.linkedProfileName).toBeNull();
     });
 
     it('Phase 6F Slice 3: passes profiles + pageDefaults to tab execution hook', () => {
