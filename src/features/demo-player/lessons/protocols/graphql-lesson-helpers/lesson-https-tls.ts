@@ -4,11 +4,13 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import {
   GQL_HEALTH_QUERY,
+  closeAuthPanelQuiet,
   configureDemoTabEndpointOverride,
   ensureHealthQuery,
   fillGqlEditor,
   resetGqlLessonSessionFlags,
   resetGqlLesson2SessionFlags,
+  selectAuthInPanel,
 } from './core';
 import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
@@ -150,11 +152,6 @@ function isTlsToggleActive(): boolean {
   return btn?.getAttribute('aria-pressed') === 'true';
 }
 
-function endpointIsHttps(): boolean {
-  const input = document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT);
-  return !!(input?.value?.startsWith('https://'));
-}
-
 // ── Guard helpers ─────────────────────────────────────────────────────────────
 
 function endpointIsMtls(): boolean {
@@ -268,7 +265,9 @@ export async function ensureMtlsIntrospected(ctx: DemoActionContext): Promise<vo
 
 /** Fill the HTTPS TLS endpoint if not already set. */
 export async function ensureTlsEndpoint(ctx: DemoActionContext): Promise<void> {
-  if (_gqltEndpointSet && endpointIsHttps()) return;
+  // Flag alone is the guard — once Phase 1 endpoint has been set, don't re-run
+  // even if we're currently on a different endpoint (e.g. Phase 3 mTLS 4445).
+  if (_gqltEndpointSet) return;
   await configureDemoTabEndpointOverride(ctx, GQL_TLS_HTTPS_ENDPOINT);
   await ctx.delay(200);
   _gqltEndpointSet = true;
@@ -300,20 +299,10 @@ export async function ensureTlsIntrospected(ctx: DemoActionContext): Promise<voi
 export async function ensureTlsAuthConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureTlsIntrospected(ctx);
   if (_gqltAuthConfigured) return;
-  const authBtn = document.querySelector<HTMLButtonElement>(GQL.AUTH_BADGE_BTN);
-  if (authBtn && !document.querySelector(GQL.AUTH_POPOVER)) {
-    authBtn.click();
-    await ctx.waitFor(GQL.AUTH_POPOVER, 5000);
-    await ctx.delay(400);
-  }
-  await ctx.selectOption(GQL.AUTH_TYPE_SELECT, 'bearer');
+  await selectAuthInPanel(ctx, 'bearer');
   await ctx.fill(GQL.AUTH_BEARER_INPUT, GQL_TLS_BEARER_TEMPLATE);
   await ctx.delay(500);
-  const closeBtn = document.querySelector<HTMLButtonElement>(GQL.AUTH_POPOVER_CLOSE);
-  if (closeBtn) {
-    closeBtn.click();
-    await ctx.delay(300);
-  }
+  await closeAuthPanelQuiet(ctx);
   _gqltAuthConfigured = true;
 }
 
@@ -342,18 +331,8 @@ export async function gqlTlsLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson6SessionFlags();
   resetGqlTlsSessionFlags();
 
-  // Close any open auth popover
-  const popoverClose = document.querySelector<HTMLButtonElement>(GQL.AUTH_POPOVER_CLOSE);
-  if (popoverClose) {
-    popoverClose.click();
-    await ctx.delay(200);
-  } else if (document.querySelector(GQL.AUTH_POPOVER)) {
-    const authBtn = document.querySelector<HTMLButtonElement>(GQL.AUTH_BADGE_BTN);
-    if (authBtn) {
-      authBtn.click();
-      await ctx.delay(200);
-    }
-  }
+  // Close any open auth panel
+  await closeAuthPanelQuiet(ctx);
 
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {

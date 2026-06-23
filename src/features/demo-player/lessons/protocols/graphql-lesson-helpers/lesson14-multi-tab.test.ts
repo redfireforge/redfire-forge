@@ -10,6 +10,11 @@ import {
   ensureLesson14ProfileAuthHintVisible,
   ensureLesson14TabProfileLinks,
   ensureLesson14Tab2BadgeHighlight,
+  ensureLesson14PerTabAuthConfigured,
+  LESSON14_TAB2_BEARER_TOKEN,
+  purgeLesson14ConnectionProfiles,
+  LESSON14_STAGING_PROFILE_NAME,
+  LESSON14_PRODUCTION_PROFILE_NAME,
   renameDemoTabByIndex,
   ensureTabProfileLink,
   ensureTabPolling,
@@ -57,11 +62,17 @@ function stubProfileDom(): void {
       <button data-testid="gql-profile-close-btn"></button>
       <ul class="gql-profile-list"></ul>
     </div>
-    <button data-testid="gql-auth-badge-btn"></button>
-    <div data-testid="gql-auth-popover">
-      <button data-testid="gql-auth-popover-close"></button>
-      <p data-testid="gql-auth-profile-hint">hint</p>
-    </div>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth"></button>
+      <div data-testid="gql-auth-panel">
+        <select data-testid="gql-auth-type-select">
+          <option value="none">No Auth</option>
+          <option value="bearer">Bearer</option>
+        </select>
+        <input data-testid="gql-auth-bearer-input" value="" />
+        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile ${LESSON14_PRODUCTION_PROFILE_NAME}</p>
+      </div>
     <button data-testid="gql-polling-config-btn"></button>
     <div data-testid="gql-polling-popover">
       <button data-testid="gql-polling-toggle" aria-checked="false" role="switch"></button>
@@ -126,14 +137,48 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson14TabProfileLinks(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, 'Staging');
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, 'Production');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_STAGING_PROFILE_NAME);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_PRODUCTION_PROFILE_NAME);
   });
 
-  it('ensureLesson14ProfileAuthHintVisible closes auth popover via close button', async () => {
+  it('ensureLesson14PerTabAuthConfigured sets No Auth on tab 1 and Bearer on tab 2', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel">
+        <select data-testid="gql-auth-type-select">
+          <option value="none">No Auth</option>
+          <option value="bearer">Bearer</option>
+        </select>
+        <input data-testid="gql-auth-bearer-input" value="" />
+      </div>
+    `);
+    const tab0 = document.querySelector('[data-testid="gql-tab-0"] .gql-tab-label')!;
+    const tab1 = document.querySelector('[data-testid="gql-tab-1"] .gql-tab-label')!;
+    tab0.textContent = 'Staging';
+    tab1.textContent = 'Production';
+    await ensureLesson14PerTabAuthConfigured(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'none');
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'bearer');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
+    vi.mocked(ctx.selectOption).mockClear();
+    await ensureLesson14PerTabAuthConfigured(ctx);
+    expect(ctx.selectOption).not.toHaveBeenCalled();
+  });
+
+  it('ensureLesson14ProfileAuthHintVisible opens auth panel via badge when auth tab inactive', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
     stubProfileDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="false"></button>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel">
+        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile</p>
+      </div>
+    `);
     document.querySelector('.gql-profile-list')!.innerHTML = `
       <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span><button class="gql-profile-btn--load">Load</button></li>
       <li class="gql-profile-row"><span class="gql-profile-row__name">Production</span><button class="gql-profile-btn--load">Load</button></li>`;
@@ -142,22 +187,43 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     tab0.textContent = 'Staging';
     tab1.textContent = 'Production';
     await ensureTabProfileLink(ctx);
-    document.querySelector(GQL.AUTH_POPOVER)?.setAttribute('data-open', '1');
     vi.mocked(ctx.click).mockClear();
     await ensureLesson14ProfileAuthHintVisible(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_POPOVER_CLOSE);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('ensureLesson14ProfileAuthHintVisible falls back to auth badge when no close btn', async () => {
+  it('ensureLesson14ProfileAuthHintVisible closes active auth tab before opening panel', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
     stubProfileDom();
-    document.querySelector(GQL.AUTH_POPOVER_CLOSE)?.remove();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel">
+        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile</p>
+      </div>
+    `);
     document.querySelector('.gql-profile-list')!.innerHTML = `
       <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span><button class="gql-profile-btn--load">Load</button></li>
       <li class="gql-profile-row"><span class="gql-profile-row__name">Production</span><button class="gql-profile-btn--load">Load</button></li>`;
     await ensureTabProfileLink(ctx);
-    document.querySelector(GQL.AUTH_POPOVER)?.setAttribute('data-open', '1');
+    vi.mocked(ctx.click).mockClear();
+    document.querySelector<HTMLElement>(GQL.BOTTOM_TAB_AUTH)?.setAttribute('aria-selected', 'true');
+    await ensureLesson14ProfileAuthHintVisible(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
+  it('ensureLesson14ProfileAuthHintVisible opens auth panel via badge when panel closed', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.querySelector('.gql-profile-list')!.innerHTML = `
+      <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span><button class="gql-profile-btn--load">Load</button></li>
+      <li class="gql-profile-row"><span class="gql-profile-row__name">Production</span><button class="gql-profile-btn--load">Load</button></li>`;
+    await ensureTabProfileLink(ctx);
+    document.querySelector(GQL.AUTH_PANEL)?.remove();
     vi.mocked(ctx.click).mockClear();
     await ensureLesson14ProfileAuthHintVisible(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
@@ -184,13 +250,32 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.POLLING_TOGGLE);
   });
 
+  it('purgeLesson14ConnectionProfiles double-clicks delete on matching rows', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.querySelector('.gql-profile-list')!.innerHTML = `
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span>
+        <button data-testid="gql-profile-delete-staging">Remove</button>
+      </li>
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span>
+        <button data-testid="gql-profile-delete-production">Remove</button>
+      </li>`;
+    await purgeLesson14ConnectionProfiles(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="gql-profile-delete-staging"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="gql-profile-delete-production"]');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+  });
+
   it('saveCurrentTabAsProfile skips when profile row already exists', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
     stubProfileDom();
     document.querySelector('.gql-profile-list')!.innerHTML = `
-      <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span></li>
-      <li class="gql-profile-row"><span class="gql-profile-row__name">Production</span></li>`;
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span></li>
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span></li>`;
     vi.mocked(ctx.click).mockClear();
     await ensureLesson14TabProfileLinks(ctx);
     const saveCalls = vi.mocked(ctx.click).mock.calls.filter((c) => c[0] === GQL.PROFILE_SAVE_BTN);

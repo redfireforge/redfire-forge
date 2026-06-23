@@ -4,6 +4,8 @@ import {
   authConfigToGraphqlAuth,
   resolveEffectiveGqlAuth,
   describeResolvedGqlAuth,
+  describeAuthSentMetadata,
+  authSentSourceLabel,
   inheritAuthProfileLabel,
 } from './gqlAuthResolve';
 
@@ -185,6 +187,81 @@ describe('describeResolvedGqlAuth', () => {
   it('handles basic auth with empty username', () => {
     expect(describeResolvedGqlAuth({ type: 'basic', username: '', password: 'p' }, profiles))
       .toContain('Username not set');
+  });
+});
+
+describe('describeAuthSentMetadata', () => {
+  it('masks bearer token from request headers with source label', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'demo-token-secret' },
+      'tab',
+      profiles,
+      { Authorization: 'Bearer demo-token-secret', 'Content-Type': 'application/json' },
+    );
+    expect(meta.sourceLabel).toBe('tab override');
+    expect(meta.lines[0]).toContain('Authorization: Bearer demo-token');
+    expect(meta.lines[0]).toContain('••••');
+  });
+
+  it('returns empty lines when no auth headers were sent', () => {
+    const meta = describeAuthSentMetadata(null, 'page', profiles, {
+      'Content-Type': 'application/json',
+    });
+    expect(meta.source).toBe('page');
+    expect(meta.lines).toEqual([]);
+  });
+
+  it('falls back to masked stored auth preview when headers omit auth keys', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'page-session' },
+      'page',
+      profiles,
+    );
+    expect(meta.lines[0]).toContain('Authorization: Bearer page-session');
+    expect(meta.lines[0]).toContain('••••');
+    expect(meta.lines[0]).not.toBe('Authorization: Bearer page-session');
+  });
+
+  it('reads Authorization case-insensitively from request headers', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'secret' },
+      'page',
+      profiles,
+      { authorization: 'Bearer secret-token-value' },
+    );
+    expect(meta.lines[0]).toContain('Authorization: Bearer secret-token');
+    expect(meta.lines[0]).toContain('••••');
+  });
+
+  it('formats bearer scheme case-insensitively', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'secret' },
+      'page',
+      profiles,
+      { Authorization: 'bearer secret-token-value' },
+    );
+    expect(meta.lines[0]).toContain('Authorization: Bearer secret-token');
+    expect(meta.lines[0]).toContain('••••');
+  });
+
+  it('does not show inherit placeholder text when no auth headers were sent', () => {
+    const meta = describeAuthSentMetadata({ type: 'inherit' }, 'page', profiles, {
+      'Content-Type': 'application/json',
+    });
+    expect(meta.lines).toEqual([]);
+  });
+
+  it('does not show custom-auth placeholder when headers omit auth keys', () => {
+    const meta = describeAuthSentMetadata({ type: 'custom' }, 'tab', profiles);
+    expect(meta.lines).toEqual([]);
+  });
+});
+
+describe('authSentSourceLabel', () => {
+  it('maps all source kinds', () => {
+    expect(authSentSourceLabel('page')).toBe('from page default');
+    expect(authSentSourceLabel('tab')).toBe('tab override');
+    expect(authSentSourceLabel('profile')).toBe('from connection profile');
   });
 });
 

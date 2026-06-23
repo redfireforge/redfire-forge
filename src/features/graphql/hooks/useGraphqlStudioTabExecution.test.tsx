@@ -137,6 +137,44 @@ describe('useGraphqlStudioTabExecution', () => {
     ]);
   });
 
+  it('Phase 6H: passes tab explicit null auth to execution layer (not page default)', async () => {
+    const tabs = [
+      { ...makeTab('tab-1'), auth: null },
+      { ...makeTab('tab-2'), connectionId: 'prof-prod', endpoint: 'https://prod.example.com/graphql' },
+    ];
+    const profiles = [{
+      id: 'prof-prod',
+      name: 'Prod',
+      endpoint: 'https://prod.example.com/graphql',
+      auth: { type: 'bearer' as const, token: 'prod' },
+      createdAt: 1,
+    }];
+
+    const { result } = renderHook(() =>
+      useGraphqlStudioTabExecution({
+        tabs,
+        activeTabId: 'tab-1',
+        profiles,
+        pageDefaults: {
+          endpoint: 'https://default.example.com/graphql',
+          auth: { type: 'bearer', token: 'page-should-not-be-used' },
+          skipTlsVerify: false,
+          pollingEnabled: false,
+          pollingIntervalSeconds: 30,
+        },
+      }),
+    );
+
+    render(<>{result.current.executionLayers}</>);
+    await act(async () => {});
+
+    expect(layerMounts.find((m) => m.tabId === 'tab-1')?.resolvedAuth).toBeNull();
+    expect(layerMounts.find((m) => m.tabId === 'tab-2')?.resolvedAuth).toEqual({
+      type: 'bearer',
+      token: 'prod',
+    });
+  });
+
   it('forwards execute, cancel, cancelTab, and resolveDedupChoice to active handle', async () => {
     const { result } = renderHook(() =>
       useGraphqlStudioTabExecution({

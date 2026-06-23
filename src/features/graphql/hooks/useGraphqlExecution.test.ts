@@ -1262,6 +1262,37 @@ describe('useGraphqlExecution — file upload path', () => {
     expect(gqlFetch).not.toHaveBeenCalled();
   });
 
+  it('Phase 6H: stamps upload responses with outgoing headers (no synthetic JSON Content-Type)', async () => {
+    vi.mocked(hasIncrementalDirective).mockReturnValue(false);
+    vi.mocked(gqlUpload).mockResolvedValue({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ data: { upload: 'ok' } }),
+      error: undefined,
+    });
+
+    const { result } = renderHook(() => useGraphqlExecution());
+    const formData = new FormData();
+
+    await act(async () => {
+      result.current.execute(baseParams({
+        formData,
+        headers: { Authorization: 'Bearer upload-token' },
+        authSentStamp: {
+          source: 'tab',
+          storedAuth: { type: 'bearer', token: 'upload-token' },
+        },
+      }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(result.current.response?.requestHeaders).toEqual({ Authorization: 'Bearer upload-token' });
+    expect(result.current.response?.requestHeaders?.['Content-Type']).toBeUndefined();
+    expect(result.current.response?.authSentSource).toBe('tab');
+    expect(result.current.response?.authSentLines?.[0]).toContain('Authorization: Bearer upload');
+  });
+
   it('handles gqlUpload Aborted error result', async () => {
     vi.mocked(gqlUpload).mockResolvedValue({
       status: 0,

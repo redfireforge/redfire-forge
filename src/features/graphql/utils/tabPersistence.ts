@@ -18,6 +18,8 @@ export const MAX_TABS = 8;
 export const MAX_USER_TABS = MAX_TABS - 1;
 export const STORAGE_KEY = 'gql_tabs_v1';
 export const AUTH_STORAGE_KEY = 'gql_auth_v1';
+/** Survives demo-session loss so orphan tab purge / crash cleanup can restore page auth. */
+export const DEMO_PRIOR_PAGE_AUTH_KEY = 'gql_demo_prior_page_auth_v1';
 export const POLLING_STORAGE_KEY = 'gql_polling_v1';
 export const TLS_STORAGE_KEY = 'gql_tls_skip_v1';
 /** Page-level CA / mTLS PEM fields (mirrors skipTlsVerify page storage). */
@@ -60,6 +62,11 @@ export interface GqlStudioTab extends GraphqlOperationTab {
   /** Per-tab polling override; undefined = inherit page default (Phase 6F — wired in slice 2) */
   pollingEnabled?: boolean;
   pollingIntervalSeconds?: number;
+  /**
+   * Phase 6H — per-tab auth override.
+   * undefined = inherit workspace (profile → page); null = explicit No Auth.
+   */
+  auth?: GraphqlAuth | null;
   /** Set when Demo Hub created this tab — stripped on lesson cleanup. */
   demoLessonId?: string;
 }
@@ -121,6 +128,108 @@ export function isDemoTab(tab: GqlStudioTab): boolean {
 
 export function countUserTabs(tabs: GqlStudioTab[]): number {
   return tabs.filter((t) => !isDemoTab(t)).length;
+}
+
+// ─── Auth normalizer (page + tab persistence) ─────────────────────────────────
+
+const GRAPHQL_AUTH_TYPES = ['inherit', 'bearer', 'basic', 'apiKey', 'oauth2', 'custom'] as const;
+type GraphqlAuthType = (typeof GRAPHQL_AUTH_TYPES)[number];
+
+function isGraphqlAuthType(value: unknown): value is GraphqlAuthType {
+  return typeof value === 'string' && (GRAPHQL_AUTH_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Validates raw persisted auth JSON.
+ * - `null` → explicit No Auth override (tab layer only)
+ * - object → GraphqlAuth when type is valid
+ * - anything else → undefined (treat as absent / inherit workspace on tabs)
+ */
+export function normalizeGraphqlAuth(raw: unknown): GraphqlAuth | null | undefined {
+  if (raw === null) return null;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const a = raw as Record<string, unknown>;
+  if (!isGraphqlAuthType(a.type)) return undefined;
+
+  const auth: GraphqlAuth = { type: a.type };
+
+  if (a.type === 'inherit') {
+    if (typeof a.globalProfileId === 'string' && a.globalProfileId.trim()) {
+      auth.globalProfileId = a.globalProfileId.trim();
+    }
+    return auth;
+  }
+
+  if (typeof a.token === 'string') auth.token = a.token;
+  if (typeof a.username === 'string') auth.username = a.username;
+  if (typeof a.password === 'string') auth.password = a.password;
+  if (typeof a.headerName === 'string') auth.headerName = a.headerName;
+  if (typeof a.headerValue === 'string') auth.headerValue = a.headerValue;
+
+  if (a.oauth2 && typeof a.oauth2 === 'object') {
+    const o = a.oauth2 as Record<string, unknown>;
+    auth.oauth2 = {
+      tokenUrl: typeof o.tokenUrl === 'string' ? o.tokenUrl : '',
+      clientId: typeof o.clientId === 'string' ? o.clientId : '',
+      clientSecret: typeof o.clientSecret === 'string' ? o.clientSecret : '',
+      scope: typeof o.scope === 'string' ? o.scope : undefined,
+      audience: typeof o.audience === 'string' ? o.audience : undefined,
+    };
+  }
+
+  return auth;
+}
+
+/** Deep equality for persisted GraphqlAuth configs (Phase 6H tab override comparison). */
+export function graphqlAuthEquals(
+  a: GraphqlAuth | null | undefined,
+  b: GraphqlAuth | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a === b;
+  if (a.type !== b.type) return false;
+
+  switch (a.type) {
+    case 'inherit':
+      return a.globalProfileId === (b as GraphqlAuth & { type: 'inherit' }).globalProfileId;
+    case 'bearer':
+      return a.token === (b as GraphqlAuth & { type: 'bearer' }).token;
+    case 'basic':
+      return (
+        a.username === (b as GraphqlAuth & { type: 'basic' }).username
+        && a.password === (b as GraphqlAuth & { type: 'basic' }).password
+      );
+    case 'apiKey':
+      return (
+        a.headerName === (b as GraphqlAuth & { type: 'apiKey' }).headerName
+        && a.headerValue === (b as GraphqlAuth & { type: 'apiKey' }).headerValue
+      );
+    case 'oauth2':
+    case 'custom':
+    default:
+      return JSON.stringify(a) === JSON.stringify(b);
+  }
+}
+
+/**
+ * Maps a connection-bar auth edit to tab storage.
+ * Returns `undefined` when the tab should inherit workspace (omit `auth` field).
+ */
+export function computeTabAuthStoredValue(
+  newAuth: GraphqlAuth | null,
+  pageDefaultAuth: GraphqlAuth | null,
+): GraphqlAuth | null | undefined {
+  if (newAuth?.type === 'inherit' && !newAuth.globalProfileId?.trim()) {
+    return undefined;
+  }
+  // Explicit No Auth is always a tab override — even when page default is also null.
+  if (newAuth === null) {
+    return null;
+  }
+  if (graphqlAuthEquals(newAuth, pageDefaultAuth)) {
+    return undefined;
+  }
+  return newAuth;
 }
 
 // ─── Tab normalizer ───────────────────────────────────────────────────────────
@@ -192,6 +301,15 @@ export function normalizeTab(raw: unknown): GqlStudioTab | null {
       typeof t.demoLessonId === 'string' && t.demoLessonId.trim()
         ? t.demoLessonId.trim()
         : undefined,
+    ...(() => {
+      if (!('auth' in t)) return {};
+      const normalized = normalizeGraphqlAuth(t.auth);
+      if (normalized === undefined) return {};
+      if (normalized === null) return { auth: null };
+      // Tab inherit-global requires globalProfileId; bare inherit = inherit workspace (omit field).
+      if (normalized.type === 'inherit' && !normalized.globalProfileId) return {};
+      return { auth: normalized };
+    })(),
   };
 }
 
@@ -233,11 +351,9 @@ export async function loadAuth(): Promise<GraphqlAuth | null> {
     const raw = await readKey(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const a = parsed as Record<string, unknown>;
-    const validTypes = ['bearer', 'basic', 'apiKey', 'oauth2', 'custom'] as const;
-    if (!validTypes.includes(a.type as (typeof validTypes)[number])) return null;
-    return parsed as GraphqlAuth;
+    const normalized = normalizeGraphqlAuth(parsed);
+    if (normalized === undefined) return null;
+    return normalized;
   } catch {
     return null;
   }
@@ -251,6 +367,79 @@ export async function saveAuth(auth: GraphqlAuth | null): Promise<void> {
       await removeKey(AUTH_STORAGE_KEY);
     }
   } catch { /* no-op */ }
+}
+
+/** Snapshot of page-level auth before a Demo Hub lesson (Phase 6H Slice 6). */
+export type GqlPageAuthSnapshot =
+  | { stored: false }
+  | { stored: true; auth: GraphqlAuth | null };
+
+/** Validates raw JSON into a page-auth snapshot; returns undefined when corrupt. */
+export function normalizePageAuthSnapshot(raw: unknown): GqlPageAuthSnapshot | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (o.stored === false) return { stored: false };
+  if (o.stored !== true) return undefined;
+  if (o.auth === null) return { stored: true, auth: null };
+  const normalized = normalizeGraphqlAuth(o.auth);
+  if (normalized === undefined) return undefined;
+  return { stored: true, auth: normalized };
+}
+
+/** Capture current `gql_auth_v1` for restore when a demo lesson closes. */
+export async function capturePageAuthSnapshot(): Promise<GqlPageAuthSnapshot> {
+  try {
+    const raw = await readKey(AUTH_STORAGE_KEY);
+    if (!raw) return { stored: false };
+    const normalized = normalizeGraphqlAuth(JSON.parse(raw) as unknown);
+    if (normalized === undefined) return { stored: false };
+    return { stored: true, auth: normalized };
+  } catch {
+    return { stored: false };
+  }
+}
+
+/** Restore page auth from a demo-session snapshot. No-op when snapshot is absent. */
+export async function restorePageAuthSnapshot(
+  snapshot: GqlPageAuthSnapshot | undefined,
+): Promise<void> {
+  if (!snapshot) return;
+  if (!snapshot.stored) {
+    await removeKey(AUTH_STORAGE_KEY);
+    return;
+  }
+  await saveAuth(snapshot.auth);
+}
+
+export async function saveDemoPriorPageAuthBackup(
+  snapshot: GqlPageAuthSnapshot,
+): Promise<void> {
+  try {
+    await writeKey(DEMO_PRIOR_PAGE_AUTH_KEY, JSON.stringify(snapshot));
+  } catch { /* no-op */ }
+}
+
+export async function loadDemoPriorPageAuthBackup(): Promise<GqlPageAuthSnapshot | undefined> {
+  try {
+    const raw = await readKey(DEMO_PRIOR_PAGE_AUTH_KEY);
+    if (!raw) return undefined;
+    return normalizePageAuthSnapshot(JSON.parse(raw) as unknown);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function clearDemoPriorPageAuthBackup(): Promise<void> {
+  try {
+    await removeKey(DEMO_PRIOR_PAGE_AUTH_KEY);
+  } catch { /* no-op */ }
+}
+
+/** Remove per-tab auth override from a demo tab before lesson cleanup (Phase 6H Slice 6). */
+export function stripDemoTabAuthOverride(tab: GqlStudioTab): GqlStudioTab {
+  if (!tab.demoLessonId || tab.auth === undefined) return tab;
+  const { auth: _auth, ...rest } = tab;
+  return rest as GqlStudioTab;
 }
 
 // ─── Page-level TLS certificate persistence ───────────────────────────────────

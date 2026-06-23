@@ -251,8 +251,26 @@ describe('useGraphqlSchemaSnapshots', () => {
       const { result } = renderHook(() => useGraphqlSchemaSnapshots('conn1', info, 'loaded', null, EMPTY_TREES));
       await act(async () => { await result.current.handleSaveSnapshot(); });
       expect(saveSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({ connectionId: 'conn1', sdl: 'type Query { hello: String }' }),
+        expect.objectContaining({
+          connectionId: 'conn1',
+          sdl: 'type Query { hello: String }',
+          label: expect.stringMatching(/^Snapshot · /),
+        }),
       );
+    });
+
+    it('skips save when latest snapshot has identical SDL', async () => {
+      const sdl = 'type Query { hello: String }';
+      vi.mocked(loadSnapshots).mockResolvedValue([
+        makeSnapshot('existing', sdl),
+      ]);
+      const info = makeSchemaInfo(sdl);
+      const { result } = renderHook(() => useGraphqlSchemaSnapshots('conn1', info, 'loaded', null, EMPTY_TREES));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => { await result.current.handleSaveSnapshot(); });
+      expect(saveSnapshot).not.toHaveBeenCalled();
     });
   });
 
@@ -274,6 +292,28 @@ describe('useGraphqlSchemaSnapshots', () => {
       await act(async () => { await result.current.handleDeleteSnapshot('s1'); });
       expect(deleteSnapshot).toHaveBeenCalledWith('s1');
       expect(loadSnapshots).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleClearOlderSnapshots', () => {
+    it('deletes generic older snapshots but keeps named baselines', async () => {
+      vi.mocked(loadSnapshots).mockResolvedValue([
+        makeSnapshot('new', 'type Q { b: String }'),
+        makeSnapshot('old', 'type Q { a: String }'),
+        { ...makeSnapshot('baseline', 'type Q { a: String }'), label: 'Prior release (demo)' },
+      ]);
+      const { result } = renderHook(() => useGraphqlSchemaSnapshots('conn1', null, 'none', null, EMPTY_TREES));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      let removed = 0;
+      await act(async () => {
+        removed = await result.current.handleClearOlderSnapshots(1);
+      });
+      expect(removed).toBe(1);
+      expect(deleteSnapshot).toHaveBeenCalledWith('old');
+      expect(deleteSnapshot).not.toHaveBeenCalledWith('baseline');
+      expect(deleteSnapshot).not.toHaveBeenCalledWith('new');
     });
   });
 

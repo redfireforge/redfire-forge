@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 9 disables Next — use walkFullGql14Lesson, not runNextStep on the final step.
+ * Last-step rule: step 10 disables Next — use walkFullGql14Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';

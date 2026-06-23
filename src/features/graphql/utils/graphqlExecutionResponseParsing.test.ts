@@ -61,6 +61,32 @@ describe('stampRequestHeaders', () => {
     const stamped = stampRequestHeaders(base, { Authorization: 'Bearer x' });
     expect(stamped.requestHeaders).toEqual({ Authorization: 'Bearer x' });
   });
+
+  it('Phase 6H: stamps auth-sent metadata when authStamp is provided', () => {
+    const base = parseHttpBody(200, {}, '{}', 1);
+    const stamped = stampRequestHeaders(
+      base,
+      { Authorization: 'Bearer demo-token-secret' },
+      {
+        source: 'tab',
+        storedAuth: { type: 'bearer', token: 'demo-token-secret' },
+      },
+    );
+    expect(stamped.authSentSource).toBe('tab');
+    expect(stamped.authSentLines?.[0]).toContain('Authorization: Bearer demo-token');
+    expect(stamped.authSentLines?.[0]).toContain('••••');
+  });
+
+  it('clears auth-sent fields when authStamp is omitted', () => {
+    const base = {
+      ...parseHttpBody(200, {}, '{}', 1),
+      authSentSource: 'tab' as const,
+      authSentLines: ['Authorization: Bearer old'],
+    };
+    const stamped = stampRequestHeaders(base, { Authorization: 'Bearer x' });
+    expect(stamped.authSentSource).toBeUndefined();
+    expect(stamped.authSentLines).toBeUndefined();
+  });
 });
 
 describe('apqInfoFromResponse', () => {

@@ -28,6 +28,7 @@ vi.mock('./useGraphqlSchemaSnapshots', () => ({
     toastBaselineSnapshotIdRef: { current: null },
     handleSaveSnapshot: vi.fn(),
     handleDeleteSnapshot: vi.fn(),
+    handleClearOlderSnapshots: vi.fn(),
     handleOpenDiff: vi.fn(),
     handleAcknowledge: vi.fn(),
     handleUnacknowledge: vi.fn(),

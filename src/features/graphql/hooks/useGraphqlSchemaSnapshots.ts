@@ -12,6 +12,7 @@ import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { scanDeprecatedFieldUsages } from '../utils/deprecatedFieldScanner';
 import { computeSchemaDiff } from '../utils/schemaDiff';
 import { saveSnapshot, loadSnapshots, deleteSnapshot } from '../utils/schemaSnapshot';
+import { buildDefaultSnapshotLabel, resolveSnapshotTypesCount, isGenericSnapshotLabel } from '../utils/changelogPanelUtils';
 import { getAcks, addAck, deleteAck, ackId } from '../utils/schemaDiffAck';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,6 +49,8 @@ export interface UseGraphqlSchemaSnapshotsResult {
   toastBaselineSnapshotIdRef: React.RefObject<string | null>;
   handleSaveSnapshot: () => Promise<void>;
   handleDeleteSnapshot: (id: string) => Promise<void>;
+  /** Delete all snapshots except the N newest (default: keep latest only). */
+  handleClearOlderSnapshots: (keepCount?: number) => Promise<number>;
   handleOpenDiff: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => Promise<void>;
   handleAcknowledge: (changePath: string, note: string) => Promise<void>;
   handleUnacknowledge: (changePath: string) => Promise<void>;
@@ -91,6 +94,16 @@ export function useGraphqlSchemaSnapshots(
       .catch(() => {});
   }, [connectionId]);
 
+  // Allow external callers (e.g. demo lesson re-seed) to refresh the changelog list.
+  useEffect(() => {
+    if (!connectionId) return;
+    const reload = () => {
+      loadSnapshots(connectionId).then(setSnapshots).catch(() => {});
+    };
+    window.addEventListener('rf-gql-snapshots-changed', reload);
+    return () => window.removeEventListener('rf-gql-snapshots-changed', reload);
+  }, [connectionId]);
+
   // Detect schema changes between introspections and show a toast.
   // Uses snapshotsRef (kept in sync above) instead of the `snapshots` state
   // value to avoid re-running the effect on every snapshot save/delete while
@@ -120,12 +133,20 @@ export function useGraphqlSchemaSnapshots(
 
   const handleSaveSnapshot = useCallback(async () => {
     if (!schemaInfo?.sdl || !connectionId) return;
+    const latest = snapshotsRef.current[0];
+    if (latest?.sdl === schemaInfo.sdl) return;
+
+    const capturedAt = Date.now();
     const snapshot: GraphqlSchemaSnapshot = {
       id: crypto.randomUUID(),
       connectionId,
       sdl: schemaInfo.sdl,
-      typesCount: (schemaInfo.types as unknown[]).length,
-      capturedAt: Date.now(),
+      typesCount: resolveSnapshotTypesCount(
+        schemaInfo.sdl,
+        (schemaInfo.types as unknown[] | undefined)?.length ?? 0,
+      ),
+      capturedAt,
+      label: buildDefaultSnapshotLabel(capturedAt),
     };
     await saveSnapshot(snapshot);
     setSnapshots(await loadSnapshots(connectionId));
@@ -134,6 +155,26 @@ export function useGraphqlSchemaSnapshots(
   const handleDeleteSnapshot = useCallback(async (id: string) => {
     await deleteSnapshot(id);
     if (connectionId) setSnapshots(await loadSnapshots(connectionId));
+  }, [connectionId]);
+
+  const handleClearOlderSnapshots = useCallback(async (keepCount = 1) => {
+    if (!connectionId || keepCount < 1) return 0;
+    const sorted = [...snapshotsRef.current].sort((a, b) => b.capturedAt - a.capturedAt);
+    const keepIds = new Set<string>();
+    for (const snap of sorted.slice(0, keepCount)) {
+      keepIds.add(snap.id);
+    }
+    // Preserve named snapshots (e.g. demo baselines, release tags).
+    for (const snap of sorted) {
+      if (!isGenericSnapshotLabel(snap.label)) keepIds.add(snap.id);
+    }
+    const toDelete = sorted.filter((snap) => !keepIds.has(snap.id));
+    if (toDelete.length === 0) return 0;
+    for (const snap of toDelete) {
+      await deleteSnapshot(snap.id);
+    }
+    setSnapshots(await loadSnapshots(connectionId));
+    return toDelete.length;
   }, [connectionId]);
 
   const handleOpenDiff = useCallback(async (
@@ -217,6 +258,7 @@ export function useGraphqlSchemaSnapshots(
     toastBaselineSnapshotIdRef,
     handleSaveSnapshot,
     handleDeleteSnapshot,
+    handleClearOlderSnapshots,
     handleOpenDiff,
     handleAcknowledge,
     handleUnacknowledge,

@@ -1466,6 +1466,12 @@ describe('LiveDemo', () => {
     expect(fill.style.width).toBe('100%');
   });
 
+  it('shows preparing badge during pre phase', () => {
+    render(<LiveDemo {...liveProps} stepPhase="pre" />);
+    expect(screen.getByTestId('demo-live-phase-badge')).toBeTruthy();
+    expect(screen.getByText(/Preparing/)).toBeTruthy();
+  });
+
   it('does not show phase badge for done phase', () => {
     render(<LiveDemo {...liveProps} stepPhase="done" />);
     expect(screen.queryByText(/Reading/)).toBeNull();

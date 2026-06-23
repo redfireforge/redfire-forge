@@ -61,7 +61,7 @@ describe('WebSocketTlsPanel', () => {
     render(<WebSocketTlsPanel {...defaultProps({ onTlsChange: onChange })} />);
     fireEvent.click(screen.getByTestId('tls-toggle'));
 
-    const checkbox = screen.getByTestId('tls-reject-unauthorized').querySelector('input')!;
+    const checkbox = screen.getByTestId('tls-skip-cert').querySelector('input')!;
     fireEvent.click(checkbox);
     expect(onChange).toHaveBeenCalledWith({ rejectUnauthorized: false });
   });
@@ -121,7 +121,7 @@ describe('WebSocketTlsPanel', () => {
     render(<WebSocketTlsPanel {...defaultProps({ disabled: true })} />);
     fireEvent.click(screen.getByTestId('tls-toggle'));
 
-    const checkbox = screen.getByTestId('tls-reject-unauthorized').querySelector('input')!;
+    const checkbox = screen.getByTestId('tls-skip-cert').querySelector('input')!;
     expect(checkbox.disabled).toBe(true);
     expect((screen.getByTestId('tls-ca-cert') as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).disabled).toBe(true);
@@ -132,7 +132,7 @@ describe('WebSocketTlsPanel', () => {
     render(<WebSocketTlsPanel {...defaultProps({ disabled: false })} />);
     fireEvent.click(screen.getByTestId('tls-toggle'));
 
-    const checkbox = screen.getByTestId('tls-reject-unauthorized').querySelector('input')!;
+    const checkbox = screen.getByTestId('tls-skip-cert').querySelector('input')!;
     expect(checkbox.disabled).toBe(false);
     expect((screen.getByTestId('tls-ca-cert') as HTMLTextAreaElement).disabled).toBe(false);
     expect((screen.getByTestId('tls-client-cert') as HTMLTextAreaElement).disabled).toBe(false);

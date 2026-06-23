@@ -65,12 +65,13 @@ function stubTlsChainDom(opts: {
     <button data-testid="gql-introspect-btn"></button>
     ${schemaOk ? '<span data-testid="gql-schema-badge-ok"></span>' : ''}
     <button data-testid="gql-auth-badge-btn"></button>
-    <div data-testid="gql-auth-popover">
+    <button data-testid="gql-bottom-tab-variables"></button>
+    <button data-testid="gql-bottom-tab-auth"></button>
+    <div data-testid="gql-auth-panel">
       <select data-testid="gql-auth-type-select">
         <option value="bearer">Bearer</option>
       </select>
       <input data-testid="gql-auth-bearer-input" value="" />
-      <button data-testid="gql-auth-popover-close"></button>
     </div>
     <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
@@ -302,12 +303,12 @@ describe('lesson-https-tls helpers', () => {
     expect(checkbox().checked).toBe(false);
   });
 
-  it('ensureTlsAuthConfigured closes popover via close button', async () => {
+  it('ensureTlsAuthConfigured closes auth panel by switching to Variables', async () => {
     stubTlsChainDom();
     const ctx = makeCtx();
-    const closeBtn = document.querySelector<HTMLButtonElement>(GQL.AUTH_POPOVER_CLOSE)!;
-    const closeSpy = vi.spyOn(closeBtn, 'click');
+    const authTab = document.querySelector<HTMLButtonElement>(GQL.BOTTOM_TAB_AUTH)!;
+    authTab.setAttribute('aria-selected', 'true');
     await ensureTlsAuthConfigured(ctx);
-    expect(closeSpy).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 });
