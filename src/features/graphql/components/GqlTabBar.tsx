@@ -3,10 +3,12 @@
  */
 
 import { useRef, useState } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import { MAX_TABS, MAX_USER_TABS, countUserTabs, isDemoTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { findProfileById, resolveTabLabelEndpoint } from '../utils/tabConnectionResolution';
+import { resolveTabAuthDotKind } from '../utils/authUtils';
 import { getTabPresentation } from '../utils/tabLabelUtils';
 
 interface GqlTabBarProps {
@@ -21,6 +23,7 @@ interface GqlTabBarProps {
   onAddTab: () => void;
   onRenameTab?: (tabId: string, label: string) => void;
   profiles?: ConnectionProfile[];
+  globalAuthProfiles?: GlobalAuthProfile[];
   batchEnabled?: boolean;
   /** Phase 6G: read-only badge on tabs included in the active batch group. */
   batchIncludedTabIds?: ReadonlySet<string>;
@@ -46,6 +49,7 @@ export function GqlTabBar({
   onAddTab,
   onRenameTab,
   profiles = [],
+  globalAuthProfiles = [],
   batchEnabled = false,
   batchIncludedTabIds,
 }: GqlTabBarProps) {
@@ -54,6 +58,7 @@ export function GqlTabBar({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const userTabCount = countUserTabs(tabs);
   const atUserTabCap = userTabCount >= MAX_USER_TABS || tabs.length >= MAX_TABS;
+  const showAuthDots = tabs.length > 1;
 
   const startRename = (tab: GqlStudioTab, title: string, e: React.MouseEvent) => {
     if (!onRenameTab) return;
@@ -99,6 +104,9 @@ export function GqlTabBar({
           const hasSubtitle = Boolean(subtitle);
           const demoTab = isDemoTab(tab);
           const showBatchBadge = batchEnabled && batchIncludedTabIds?.has(tab.id);
+          const authDotKind = showAuthDots
+            ? resolveTabAuthDotKind(tab, profiles, globalAuthProfiles)
+            : null;
 
           return (
             <button
@@ -121,6 +129,25 @@ export function GqlTabBar({
                 >
                   B
                 </span>
+              )}
+
+              {authDotKind && (
+                <span
+                  className={`gql-tab-auth-dot gql-tab-auth-dot--${authDotKind}`}
+                  title={
+                    authDotKind === 'override' ? 'Tab auth override'
+                      : authDotKind === 'profile' ? 'Auth from linked profile'
+                        : authDotKind === 'inherit' ? 'Inherits workspace auth'
+                          : 'No auth override'
+                  }
+                  aria-label={
+                    authDotKind === 'override' ? 'Tab auth override'
+                      : authDotKind === 'profile' ? 'Auth from linked profile'
+                        : authDotKind === 'inherit' ? 'Inherits workspace auth'
+                          : 'Explicit no auth'
+                  }
+                  data-testid={`gql-tab-auth-dot-${tab.id}`}
+                />
               )}
 
               <span className="gql-tab-type-badge" title={opLabel} aria-label={opLabel}>

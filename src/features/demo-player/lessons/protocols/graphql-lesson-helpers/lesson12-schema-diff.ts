@@ -106,6 +106,15 @@ function findBaselineChangelogRow(): HTMLElement | null {
   return rows[0] ?? null;
 }
 
+/** Mark the baseline snapshot row so lesson spotlights target the correct diff button. */
+export function markLesson12BaselineRow(): void {
+  document.querySelectorAll('[data-lesson-baseline="true"]').forEach((el) => {
+    el.removeAttribute('data-lesson-baseline');
+  });
+  const row = findBaselineChangelogRow();
+  if (row) row.setAttribute('data-lesson-baseline', 'true');
+}
+
 /** Seed a prior-release snapshot in IDB (silent setup — UI refreshes after step 1 save). */
 export async function ensureLesson12BaselineSnapshot(): Promise<void> {
   if (_lesson12BaselineId) return;
@@ -133,10 +142,10 @@ export async function ensureLesson12BaselineSnapshot(): Promise<void> {
 /** Open Schema Explorer on the Types tab (Save snapshot lives here). */
 export async function ensureLesson12TypesTab(ctx: DemoActionContext): Promise<void> {
   await ensureSchemaExplorerOpen(ctx);
-  const typesTab = document.querySelector<HTMLElement>('[data-testid="gql-se-tab-types"]');
+  const typesTab = document.querySelector<HTMLElement>(GQL.SE_TAB_TYPES);
   if (typesTab && !typesTab.classList.contains('gql-se-main-tab--active')) {
-    await ctx.click('[data-testid="gql-se-tab-types"]');
-    await ctx.delay(400);
+    await ctx.click(GQL.SE_TAB_TYPES);
+    await ctx.delay(500);
   }
 }
 
@@ -148,7 +157,7 @@ export async function ensureLesson12SnapshotSaved(ctx: DemoActionContext): Promi
   }
   await ctx.waitFor(GQL.SAVE_SNAPSHOT_BTN, 5000);
   await ctx.click(GQL.SAVE_SNAPSHOT_BTN);
-  await ctx.delay(700);
+  await ctx.delay(1200);
   _lesson12SnapshotSaved = true;
 }
 
@@ -159,21 +168,59 @@ export async function ensureLesson12ChangelogOpen(ctx: DemoActionContext): Promi
   await ctx.click(GQL.CHANGELOG_TAB);
   await ctx.waitFor(GQL.CHANGELOG_PANEL, 5000);
   await ctx.waitFor(GQL.CHANGELOG_ROW, 5000);
-  await ctx.delay(800);
+  markLesson12BaselineRow();
+  await ctx.delay(1000);
   _lesson12ChangelogOpen = true;
+}
+
+/** Notify GraphQL Studio to reload snapshots from storage (demo lesson re-seed). */
+export function notifyGqlSnapshotsChanged(): void {
+  window.dispatchEvent(new CustomEvent('rf-gql-snapshots-changed'));
+}
+
+/** Ensure baseline row is visible in changelog (re-seed, expand list, mark for spotlight). */
+export async function ensureLesson12BaselineReady(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson12ChangelogOpen(ctx);
+
+  const hasBaselineInDom = () =>
+    [...document.querySelectorAll<HTMLElement>(GQL.CHANGELOG_ROW)].some((row) =>
+      row.textContent?.includes(LESSON12_BASELINE_LABEL),
+    );
+
+  if (!hasBaselineInDom()) {
+    await ensureLesson12BaselineSnapshot();
+    notifyGqlSnapshotsChanged();
+    await ctx.delay(900);
+  }
+
+  const showMore = document.querySelector<HTMLElement>(GQL.CHANGELOG_SHOW_MORE);
+  if (showMore) {
+    await ctx.click(GQL.CHANGELOG_SHOW_MORE);
+    await ctx.delay(500);
+  }
+
+  if (!hasBaselineInDom()) {
+    await ensureLesson12BaselineSnapshot();
+    notifyGqlSnapshotsChanged();
+    await ctx.delay(900);
+  }
+
+  markLesson12BaselineRow();
+  await ctx.delay(400);
 }
 
 /** Open diff modal — baseline snapshot vs current schema. */
 export async function ensureLesson12DiffOpen(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson12ChangelogOpen(ctx);
+  await ensureLesson12BaselineReady(ctx);
   if (_lesson12DiffOpen && document.querySelector(GQL.DIFF_MODAL)) return;
-  const row = findBaselineChangelogRow();
-  if (row) {
-    row.setAttribute('data-lesson-target', 'baseline');
-    await ctx.click('[data-lesson-target="baseline"] [data-testid="gql-changelog-diff-btn"]');
-  } else {
-    await ctx.click(GQL.CHANGELOG_DIFF_BTN);
+
+  markLesson12BaselineRow();
+  const baselineRow = document.querySelector(GQL.CHANGELOG_BASELINE_ROW);
+  if (baselineRow) {
+    await ctx.click(GQL.CHANGELOG_BASELINE_ROW);
+    await ctx.delay(500);
   }
+  await ctx.click(GQL.CHANGELOG_DIFF_BTN);
   await ctx.waitFor(GQL.DIFF_MODAL, 5000);
   await ctx.delay(800);
   _lesson12DiffOpen = true;
@@ -184,11 +231,13 @@ export async function ensureLesson12DiffFilters(ctx: DemoActionContext): Promise
   await ensureLesson12DiffOpen(ctx);
   if (_lesson12FiltersDemoed) return;
   await ctx.click(GQL.DIFF_FILTER_BREAKING);
-  await ctx.delay(600);
+  await ctx.delay(1200);
   await ctx.click(GQL.DIFF_FILTER_SAFE);
-  await ctx.delay(600);
+  await ctx.delay(1200);
   await ctx.click(GQL.DIFF_FILTER_DEPRECATED);
-  await ctx.delay(600);
+  await ctx.delay(1200);
+  await ctx.click(GQL.DIFF_FILTER_ALL);
+  await ctx.delay(800);
   _lesson12FiltersDemoed = true;
 }
 
@@ -198,7 +247,7 @@ export async function ensureLesson12DiffExported(ctx: DemoActionContext): Promis
   if (_lesson12Exported) return;
   await ctx.waitFor(GQL.DIFF_EXPORT_JSON, 5000);
   await ctx.click(GQL.DIFF_EXPORT_JSON);
-  await ctx.delay(700);
+  await ctx.delay(2000);
   _lesson12Exported = true;
 }
 

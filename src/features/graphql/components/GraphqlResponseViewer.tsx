@@ -15,6 +15,7 @@ import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/g
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
 import { getResponseDataCreateUser, getResponseDataUser } from '../utils/graphqlResponseDataExtractors';
+import { authSentSourceLabel } from '../utils/gqlAuthResolve';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,25 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
                 <span className="gql-rv-meta-apq-badge gql-rv-meta-apq-badge--unsupported">unsupported</span>
               )}
             </span>
+          </div>
+        )}
+        {response.authSentSource != null && (
+          <div className="gql-rv-meta-row gql-rv-meta-row--stacked" data-testid="gql-rv-auth-sent">
+            <span className="gql-rv-meta-label">Authentication sent</span>
+            <div className="gql-rv-meta-auth-sent">
+              {response.authSentLines && response.authSentLines.length > 0 ? (
+                response.authSentLines.map((line, idx) => (
+                  <div key={idx} className="gql-rv-meta-auth-sent-line">{line}</div>
+                ))
+              ) : (
+                <div className="gql-rv-meta-auth-sent-line gql-rv-meta-auth-sent-line--muted">
+                  No authentication headers were sent
+                </div>
+              )}
+              <span className="gql-rv-meta-auth-sent-source">
+                ({authSentSourceLabel(response.authSentSource)})
+              </span>
+            </div>
           </div>
         )}
       </div>

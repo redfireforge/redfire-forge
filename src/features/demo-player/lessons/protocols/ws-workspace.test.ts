@@ -343,9 +343,11 @@ describe('ws-workspace lesson', () => {
   it('step ws-header-select highlights header selectors and selects demo env/svc', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select">
+        <option value="">Select env</option>
         <option value="e1">WebSocket Demo</option>
       </select>
       <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
         <option value="s1">ws-demo</option>
       </select>`;
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-header-select')!;
@@ -359,9 +361,11 @@ describe('ws-workspace lesson', () => {
   it('step ws-env-resolve preAction ensures header context before filling URL', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select">
+        <option value="">Select env</option>
         <option value="e1">WebSocket Demo</option>
       </select>
       <select data-testid="header-svc-select">
+        <option value="">Select svc</option>
         <option value="s1">ws-demo</option>
       </select>`;
     const step = wsWorkspaceLesson.steps.find(s => s.id === 'ws-env-resolve')!;

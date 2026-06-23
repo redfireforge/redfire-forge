@@ -58,6 +58,7 @@ vi.mock('./useGraphqlEnvironments', () => ({
 import { useGraphqlConnectionSettings } from './useGraphqlConnectionSettings';
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { loadAuth, loadTlsCerts, saveTlsCerts } from '../utils/tabPersistence';
+import { GQL_PAGE_AUTH_RELOAD_EVENT } from '../utils/gqlDemoWorkspace';
 
 describe('useGraphqlConnectionSettings', () => {
   beforeEach(() => {
@@ -316,6 +317,24 @@ describe('useGraphqlConnectionSettings', () => {
       const { result } = renderHook(() => useGraphqlConnectionSettings());
       await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
       expect(result.current.auth).toEqual({ type: 'bearer', token: 'restored-token' });
+    });
+
+    it('reloads auth from storage on GQL_PAGE_AUTH_RELOAD_EVENT', async () => {
+      vi.mocked(loadAuth)
+        .mockResolvedValueOnce({ type: 'bearer', token: 'initial' })
+        .mockResolvedValueOnce({ type: 'inherit', globalProfileId: 'prof-1' });
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(result.current.auth).toEqual({ type: 'bearer', token: 'initial' });
+
+      act(() => result.current.handleAuthChange({ type: 'bearer', token: 'lesson-pollution' }));
+      expect(result.current.auth).toEqual({ type: 'bearer', token: 'lesson-pollution' });
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(GQL_PAGE_AUTH_RELOAD_EVENT));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(result.current.auth).toEqual({ type: 'inherit', globalProfileId: 'prof-1' });
     });
 
     it('restores TLS certs from loadTlsCerts when saved', async () => {

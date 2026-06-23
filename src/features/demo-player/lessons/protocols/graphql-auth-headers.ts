@@ -1,34 +1,36 @@
-/** Lesson GQL-4: Authentication & Headers */
+/** Lesson GQL-4: Authentication & Headers (rewritten — 8-step clean flow) */
 import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
   GQL_DEMO_HTTP,
   LESSON6_AUTH_TOKEN_VALUE,
+  LESSON6_API_KEY_VALUE,
+  LESSON6_API_KEY_HEADER,
+  LESSON6_API_KEY_TEMPLATE,
   LESSON6_BEARER_TEMPLATE,
-  LESSON6_PROFILE_NAME,
-  ensureApiKeyAuthConfigured,
-  ensureAuthPopoverOpen,
-  ensureBasicAuthConfigured,
-  ensureBearerAuthConfiguredQuiet,
-  ensureEnvAuthToken,
-  ensureHealthQuery,
-  ensureInheritAuthConfigured,
-  ensureInheritExecutedWithMetadata,
-  ensureProfileSaved,
+  LESSON6_BASIC_USER,
+  LESSON6_BASIC_PASS,
+  LESSON6_GLOBAL_AUTH_PROFILE_ID,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
+  LESSON6_PROFILE_NAME,
+  closeAuthPanelIfOpen,
+  ensureEnvReady,
+  markBearerDone,
+  markApiKeyDone,
+  markBasicDone,
+  markInheritDone,
+  preEnvStep,
+  preBearerStep,
+  preApiKeyStep,
+  preBasicStep,
+  preInheritStep,
+  preProfileStep,
+  preSubscriptionStep,
+  seedLesson6GlobalAuthProfile,
+  selectAuthInPanel,
   gqlAuthLessonCleanup,
   gqlAuthLessonSetup,
-  prepareApiKeyAuthSpotlight,
-  prepareApiKeyExecuteSpotlight,
-  prepareBasicAuthSpotlight,
-  prepareBasicExecuteSpotlight,
-  prepareBearerAuthSpotlight,
-  prepareBearerExecuteSpotlight,
-  prepareInheritAuthSpotlight,
-  prepareInheritExecuteSpotlight,
-  prepareProfileSpotlight,
-  selectAuthType,
 } from './graphql-lesson-helpers';
 
 export const gqlAuthHeadersLesson: DemoLesson = {
@@ -37,8 +39,8 @@ export const gqlAuthHeadersLesson: DemoLesson = {
   category: 'graphql',
   name: 'Authentication & Headers',
   description:
-    'Configure Inherit, Bearer, API Key, and Basic auth — resolve secrets from global profiles or environment variables, verify outgoing headers in the Metadata tab, and save a reusable connection profile.',
-  estimatedMinutes: 6,
+    'Store secrets in environment variables, then configure Bearer, API Key, Basic, and Inherit auth — each type executed once and verified in the Metadata tab. Save a reusable connection profile at the end.',
+  estimatedMinutes: 5,
   initialTab: 'graphql-studio',
   allowedTabs: ['graphql-studio'],
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -52,23 +54,39 @@ export const gqlAuthHeadersLesson: DemoLesson = {
   cleanup: gqlAuthLessonCleanup,
 
   concept: {
-    title: 'Auth & Connection Profiles',
+    title: 'Auth, Env Variables & Connection Profiles',
     body: `Every GraphQL API requires some form of credential — a JWT for user identity, an API key for service-to-service calls, or a username/password pair for legacy services. GraphQL Studio puts **all auth configuration on the connection bar** so you never have to hunt through a separate settings page.
 
-**Why not put credentials in the query?** GraphQL sends operations as JSON in the request body. Credentials belong in HTTP **headers** — they travel outside the payload, can be stripped by proxies at the edge, and follow HTTP security standards that API gateways and load balancers already understand.
+**Start with Env variables.** Before configuring any auth type, open the **Env badge** and store real secret values there — for example \`authToken = ${LESSON6_AUTH_TOKEN_VALUE}\` and \`apiKey = ${LESSON6_API_KEY_VALUE}\`. Auth fields accept \`{{variableName}}\` placeholders. At execute time, GraphQL Studio resolves \`{{authToken}}\` to \`${LESSON6_AUTH_TOKEN_VALUE}\` before the request leaves the client. The Metadata tab proves it: after execution you'll see the literal resolved value, not the template string.
 
-The **Auth badge** (🔒) opens a popover where you choose **Inherit from Auth Profile**, Bearer, Basic, or API Key. **Inherit** pulls credentials from the **Environment Manager** auth-profile catalog — the same profiles used by WebSocket and SSE studios — so one update propagates everywhere. For per-tab secrets, type \`{{variableName}}\` and GraphQL Studio resolves the value from your active **environment** at execute time.
+**Why not put credentials in the query?** GraphQL sends operations as JSON in the request body. Credentials belong in HTTP **headers** — they travel outside the payload, can be stripped by proxies at the edge, and follow HTTP security standards that API gateways already understand.
 
-After **Execute**, open the **Metadata** tab in the response panel to see the exact \`Authorization\` (or custom) header the client sent. This is your ground truth for debugging auth failures.
+The **Auth badge** (🔒) focuses the **Auth** bottom tab with four modes:
+- **Bearer Token** — \`Authorization: Bearer <token>\`. Use \`{{authToken}}\` as the value.
+- **API Key** — a custom header such as \`X-API-Key: {{apiKey}}\`. The header name is configurable.
+- **Basic Auth** — credentials encoded as \`Authorization: Basic base64(user:pass)\`. Base64 is *encoding*, not encryption — requires HTTPS (Lesson GQL-5) to be safe in transit.
+- **Inherit from Auth Profile** — references a shared credential from the **Environment Manager** catalog. Update the profile once and every studio that references it picks up the change automatically.
 
-**Connection profiles** snapshot the current endpoint + auth combination with a name. They differ from **global auth profiles**: connection profiles capture a whole GraphQL Studio context (URL + auth mode), while global auth profiles store reusable credentials shared across the app.
+After **Execute**, open the **Metadata** tab to see the exact headers that were sent. This is your ground truth for debugging auth failures.
 
-> The test server on port **4010** accepts any token value. This lesson focuses on *configuration and verification*, not on server-side token validation.`,
+With a **single tab**, auth edits update the **page-level default** — every new tab inherits it until it sets its own override. With **multiple tabs** (GQL-14), each tab can store an explicit auth override while sharing the same endpoint URL.
+
+**Connection profiles** snapshot the current endpoint + auth mode under a name. Load a profile to restore the full context in one click — useful when switching between dev, staging, and prod.`,
     keyTerms: [
+      {
+        term: 'Environment variable',
+        definition:
+          'Named secret stored in the Env modal. Referenced as `{{key}}` in auth fields and endpoint URLs. Prevents hardcoding credentials — swap environments without touching the auth config. At execute time the placeholder is replaced with the real value before the request leaves the client.',
+      },
       {
         term: 'Bearer token',
         definition:
-          'HTTP `Authorization: Bearer <token>` header — the most common auth scheme for REST and GraphQL APIs. Typically carries a signed JWT that the server validates to confirm user identity.',
+          'HTTP `Authorization: Bearer <token>` header — the most common auth scheme for REST and GraphQL APIs. Typically carries a signed JWT. Use `{{authToken}}` as the template value and store the real token in Env.',
+      },
+      {
+        term: 'API Key',
+        definition:
+          'A custom header (e.g. `X-API-Key: {{apiKey}}`) used for service-to-service calls. The header name is configurable — not all APIs use `Authorization`. The value is resolved from Env at execute time.',
       },
       {
         term: 'Basic Auth',
@@ -76,363 +94,318 @@ After **Execute**, open the **Metadata** tab in the response panel to see the ex
           'HTTP `Authorization: Basic base64(user:pass)` header. Credentials are base64-encoded (not encrypted). Requires HTTPS (GQL-5) to be safe in transit.',
       },
       {
-        term: 'API Key',
+        term: 'Request headers (Metadata tab)',
         definition:
-          'A custom header (e.g. `X-API-Key: secret`) used for service-to-service calls. The header name is configurable — not all APIs use `Authorization`.',
-      },
-      {
-        term: 'Environment variable',
-        definition:
-          'Named secret stored in the Env modal. Referenced as `{{key}}` in auth fields and endpoint URLs. Prevents hardcoding credentials in demos or shared configs.',
-      },
-      {
-        term: 'Request headers (Metadata)',
-        definition:
-          'The outgoing HTTP headers actually sent with the operation — visible in the Metadata tab after execute. Use this to confirm auth is resolved and transmitted correctly.',
+          'The outgoing HTTP headers actually sent with the operation — visible in the Metadata tab after execute. Confirms that env-variable placeholders were resolved and the correct credential was transmitted.',
       },
       {
         term: 'Inherit from Auth Profile',
         definition:
-          'Auth mode that references a global profile from Environment Manager. GraphQL Studio resolves the profile\'s Bearer/Basic/API Key credentials at execute time — same pattern as WebSocket and SSE studios.',
+          "Auth mode that references a global profile from Environment Manager. GraphQL Studio resolves the profile's Bearer/Basic/API Key credentials at execute time — same catalog used by WebSocket and SSE studios.",
       },
       {
         term: 'Connection profile',
         definition:
-          'Named snapshot of endpoint URL + auth settings in GraphQL Studio. Save via the Profiles badge; load with one click to restore a full context without re-entering credentials.',
+          'Named snapshot of endpoint URL + auth mode in GraphQL Studio. Save via the Profiles badge; load with one click to restore a full context without re-entering credentials.',
+      },
+      {
+        term: 'Per-tab auth override',
+        definition:
+          'When two or more tabs are open, auth edits on a tab store an explicit override on that tab only. Other tabs keep their own auth (or inherit workspace). Subscriptions and queries on the active tab use that tab\'s resolved auth chain.',
       },
     ],
-    diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
-  <!-- ── Window chrome ─────────────────────────────────────────────────────── -->
-  <rect x="0" y="0" width="700" height="430" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.5"/>
-  <!-- Title bar -->
-  <rect x="0" y="0" width="700" height="32" rx="10" fill="var(--surface)"/>
-  <rect x="0" y="22" width="700" height="10" fill="var(--surface)"/>
-  <!-- Traffic lights -->
-  <circle cx="18" cy="16" r="5" fill="#ff5f57"/>
-  <circle cx="34" cy="16" r="5" fill="#febc2e"/>
-  <circle cx="50" cy="16" r="5" fill="#28c840"/>
-  <!-- Title -->
-  <text x="350" y="21" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-weight="500">GraphQL Studio — Authentication &amp; Headers</text>
+    diagram: `<svg viewBox="0 0 700 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
+  <!-- Window chrome -->
+  <rect x="0" y="0" width="700" height="400" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.5"/>
+  <rect x="0" y="0" width="700" height="30" rx="10" fill="var(--surface)"/>
+  <rect x="0" y="20" width="700" height="10" fill="var(--surface)"/>
+  <circle cx="18" cy="15" r="5" fill="#ff5f57"/><circle cx="34" cy="15" r="5" fill="#febc2e"/><circle cx="50" cy="15" r="5" fill="#28c840"/>
+  <text x="350" y="20" text-anchor="middle" fill="var(--text-muted)" font-size="10.5" font-weight="500">GraphQL Studio — Authentication &amp; Headers</text>
 
-  <!-- ── Connection bar ─────────────────────────────────────────────────────── -->
-  <rect x="8" y="38" width="684" height="30" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <!-- Padlock icon (left of endpoint) -->
-  <rect x="16" y="46" width="14" height="14" rx="2" fill="none" stroke="var(--text-muted)" stroke-width="1.3"/>
-  <path d="M19 46 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="var(--text-muted)" stroke-width="1.3"/>
-  <circle cx="23" cy="53" r="1.5" fill="var(--text-muted)"/>
-  <!-- Endpoint input -->
-  <rect x="36" y="42" width="368" height="22" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
-  <text x="44" y="57" fill="var(--text-muted)" font-size="10">localhost:4010/graphql</text>
-  <!-- Auth badge (highlighted) -->
-  <rect x="412" y="42" width="62" height="22" rx="3" fill="color-mix(in srgb, var(--primary) 18%, var(--surface))" stroke="var(--primary)" stroke-width="1.5"/>
-  <text x="443" y="57" text-anchor="middle" fill="var(--primary)" font-size="9" font-weight="600">🔒 Auth</text>
-  <!-- Env badge -->
-  <rect x="480" y="42" width="54" height="22" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
-  <text x="507" y="57" text-anchor="middle" fill="var(--text-muted)" font-size="9">Env</text>
-  <!-- Execute button -->
-  <rect x="542" y="42" width="70" height="22" rx="3" fill="var(--primary)" stroke="none"/>
-  <text x="577" y="57" text-anchor="middle" fill="white" font-size="10" font-weight="600">▶ Execute</text>
+  <!-- Connection bar -->
+  <rect x="8" y="36" width="684" height="28" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <rect x="14" y="42" width="356" height="18" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <text x="20" y="54" fill="var(--text-muted)" font-size="9.5">http://localhost:4010/graphql</text>
+  <rect x="374" y="42" width="56" height="18" rx="3" fill="color-mix(in srgb, #34d399 18%, var(--surface))" stroke="#34d399" stroke-width="1.5"/>
+  <text x="402" y="54" text-anchor="middle" fill="#34d399" font-size="9" font-weight="700">⬡ Env</text>
+  <rect x="434" y="42" width="60" height="18" rx="3" fill="color-mix(in srgb, var(--primary) 18%, var(--surface))" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="464" y="54" text-anchor="middle" fill="var(--primary)" font-size="9" font-weight="700">🔒 Auth</text>
+  <rect x="498" y="42" width="60" height="18" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <text x="528" y="54" text-anchor="middle" fill="var(--text-muted)" font-size="9">Profiles</text>
+  <rect x="564" y="42" width="68" height="18" rx="3" fill="var(--primary)"/>
+  <text x="598" y="54" text-anchor="middle" fill="white" font-size="9.5" font-weight="600">▶ Execute</text>
 
-  <!-- ── Editor pane ─────────────────────────────────────────────────────────── -->
-  <rect x="8" y="74" width="336" height="196" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <!-- Editor tab bar -->
-  <rect x="8" y="74" width="336" height="24" rx="4" fill="var(--bg)"/>
-  <rect x="8" y="88" width="336" height="10" fill="var(--bg)"/>
-  <rect x="16" y="78" width="52" height="16" rx="3" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <text x="42" y="89" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">Editor</text>
-  <rect x="74" y="78" width="52" height="16" rx="3" fill="none"/>
-  <text x="100" y="89" text-anchor="middle" fill="var(--text-muted)" font-size="9">Builder</text>
-  <!-- Monaco code area -->
-  <rect x="8" y="98" width="336" height="172" fill="var(--bg)"/>
-  <!-- Line numbers -->
-  <text x="18" y="116" fill="var(--text-muted)" font-size="9" opacity="0.5">1</text>
-  <text x="18" y="130" fill="var(--text-muted)" font-size="9" opacity="0.5">2</text>
-  <text x="18" y="144" fill="var(--text-muted)" font-size="9" opacity="0.5">3</text>
-  <!-- Code -->
-  <text x="34" y="116" fill="#a78bfa" font-size="10" font-family="monospace">query</text>
-  <text x="70" y="116" fill="var(--text)" font-size="10" font-family="monospace">{</text>
-  <text x="44" y="130" fill="#34d399" font-size="10" font-family="monospace">  health</text>
-  <text x="34" y="144" fill="var(--text)" font-size="10" font-family="monospace">}</text>
-  <!-- Cursor -->
-  <rect x="75" y="136" width="1.5" height="10" fill="var(--primary)" opacity="0.8"/>
+  <!-- Env modal -->
+  <rect x="8" y="70" width="220" height="148" rx="6" fill="var(--surface)" stroke="#34d399" stroke-width="1.5" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,0.35))"/>
+  <rect x="8" y="70" width="220" height="26" rx="6" fill="var(--bg)"/>
+  <rect x="8" y="86" width="220" height="10" fill="var(--bg)"/>
+  <text x="22" y="87" fill="#34d399" font-size="9.5" font-weight="700">⬡ Environment Variables</text>
+  <rect x="16" y="102" width="204" height="22" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <text x="22" y="116" fill="var(--text-muted)" font-size="8.5" font-family="monospace">authToken</text>
+  <text x="108" y="116" fill="#34d399" font-size="8.5" font-family="monospace">lesson6-demo-jwt</text>
+  <rect x="16" y="128" width="204" height="22" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <text x="22" y="142" fill="var(--text-muted)" font-size="8.5" font-family="monospace">apiKey</text>
+  <text x="108" y="142" fill="#34d399" font-size="8.5" font-family="monospace">lesson6-api-key…</text>
+  <rect x="60" y="156" width="116" height="18" rx="4" fill="var(--primary)"/>
+  <text x="118" y="169" text-anchor="middle" fill="white" font-size="9" font-weight="600">Set Active</text>
+  <text x="118" y="197" text-anchor="middle" fill="#34d399" font-size="8.5" font-weight="600">② Env: store secrets first</text>
 
-  <!-- ── Auth popover (floating) ─────────────────────────────────────────────── -->
-  <rect x="344" y="68" width="214" height="202" rx="6" fill="var(--surface)" stroke="var(--primary)" stroke-width="1.5"
-    style="filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))"/>
-  <!-- Popover header -->
-  <rect x="344" y="68" width="214" height="28" rx="6" fill="var(--bg)"/>
-  <rect x="344" y="82" width="214" height="14" fill="var(--bg)"/>
-  <text x="360" y="86" fill="var(--text)" font-size="10" font-weight="600">Authentication</text>
-  <!-- Close X -->
-  <text x="543" y="86" fill="var(--text-muted)" font-size="11">✕</text>
-  <!-- Type row -->
-  <text x="360" y="112" fill="var(--text-muted)" font-size="8.5" font-weight="500">Type</text>
-  <rect x="394" y="100" width="152" height="20" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
-  <text x="400" y="113" fill="var(--text)" font-size="9">Inherit from Auth Profile</text>
-  <text x="532" y="113" fill="var(--text-muted)" font-size="9">▾</text>
-  <!-- Profile row (inherit mode) -->
-  <text x="360" y="138" fill="var(--text-muted)" font-size="8.5" font-weight="500">Auth Profile</text>
-  <rect x="394" y="126" width="152" height="20" rx="3" fill="var(--bg)" stroke="var(--primary)" stroke-width="1"/>
-  <text x="400" y="139" fill="var(--text)" font-size="9">Lesson 6 Bearer</text>
-  <text x="532" y="139" fill="var(--text-muted)" font-size="9">▾</text>
-  <!-- Preview footer -->
-  <rect x="344" y="236" width="214" height="34" rx="6" fill="var(--bg)"/>
-  <rect x="344" y="236" width="214" height="14" fill="var(--surface)"/>
-  <text x="356" y="251" fill="var(--text-muted)" font-size="7.5">ℹ</text>
-  <text x="366" y="249" fill="#34d399" font-size="7.5" font-family="monospace">Lesson 6 Bearer: Authorization: Bearer les…</text>
-  <text x="366" y="261" fill="var(--text-muted)" font-size="7" opacity="0.7">Resolved from global auth profile</text>
+  <!-- Bottom Auth panel -->
+  <rect x="236" y="70" width="232" height="180" rx="6" fill="var(--surface)" stroke="var(--primary)" stroke-width="1.5" style="filter:drop-shadow(0 4px 14px rgba(0,0,0,0.4))"/>
+  <rect x="236" y="70" width="232" height="26" rx="6" fill="var(--bg)"/>
+  <rect x="236" y="86" width="232" height="10" fill="var(--bg)"/>
+  <text x="250" y="87" fill="var(--text)" font-size="9.5" font-weight="700">Authentication</text>
+  <text x="250" y="110" fill="var(--text-muted)" font-size="8" font-weight="500">TYPE</text>
+  <rect x="284" y="100" width="172" height="18" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <text x="290" y="112" fill="var(--text)" font-size="8.5">Bearer Token</text>
+  <text x="446" y="112" fill="var(--text-muted)" font-size="8">▾</text>
+  <text x="250" y="134" fill="var(--text-muted)" font-size="8" font-weight="500">TOKEN</text>
+  <rect x="284" y="124" width="172" height="18" rx="3" fill="var(--bg)" stroke="var(--primary)" stroke-width="1.5"/>
+  <text x="290" y="136" fill="var(--primary)" font-size="8.5" font-family="monospace">{{authToken}}</text>
+  <rect x="236" y="148" width="232" height="24" rx="3" fill="color-mix(in srgb, var(--primary) 8%, var(--bg))" stroke="var(--border)" stroke-width="0.5"/>
+  <text x="244" y="160" fill="var(--text-muted)" font-size="7.5">ℹ</text>
+  <text x="254" y="158" fill="var(--primary)" font-size="7.5" font-family="monospace">Authorization: Bearer lesson6-demo-jwt</text>
+  <text x="254" y="167" fill="var(--text-muted)" font-size="7">Resolved from env variable</text>
+  <text x="352" y="197" text-anchor="middle" fill="var(--primary)" font-size="8.5" font-weight="600">③ Auth bottom tab: Bearer + resolved preview</text>
 
-  <!-- ── Response pane (right) ──────────────────────────────────────────────── -->
-  <rect x="350" y="74" width="342" height="196" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <!-- (Response pane is partially obscured by auth popover — visible on the right) -->
-  <!-- Right tab bar -->
-  <rect x="350" y="74" width="342" height="24" rx="4" fill="var(--bg)"/>
-  <rect x="350" y="88" width="342" height="10" fill="var(--bg)"/>
-  <text x="562" y="89" text-anchor="middle" fill="var(--text-muted)" font-size="9">Response</text>
-  <text x="612" y="89" text-anchor="middle" fill="var(--text-muted)" font-size="9">Schema</text>
-  <!-- Metadata sub-tabs (visible on right of popover) -->
-  <rect x="560" y="98" width="130" height="18" rx="0" fill="var(--bg)"/>
-  <text x="566" y="110" fill="var(--text-muted)" font-size="8">Body</text>
-  <text x="590" y="110" fill="var(--text-muted)" font-size="8">Headers</text>
-  <rect x="619" y="98" width="46" height="18" fill="color-mix(in srgb, var(--primary) 12%, var(--bg))" stroke="none"/>
-  <text x="642" y="110" text-anchor="middle" fill="var(--primary)" font-size="8" font-weight="600">Metadata</text>
-  <!-- Request Headers visible -->
-  <rect x="560" y="120" width="130" height="14" rx="2" fill="var(--bg)"/>
-  <text x="566" y="130" fill="var(--text-muted)" font-size="7.5" font-weight="600">REQUEST HEADERS</text>
-  <rect x="560" y="136" width="130" height="40" rx="2" fill="var(--bg)" opacity="0.6"/>
-  <text x="566" y="147" fill="var(--text-muted)" font-size="7.5" font-family="monospace">Content-Type:</text>
-  <text x="566" y="156" fill="var(--text-muted)" font-size="7.5" font-family="monospace" opacity="0.7">  application/json</text>
-  <text x="566" y="166" fill="#34d399" font-size="7.5" font-family="monospace">Authorization:</text>
-  <text x="566" y="175" fill="#34d399" font-size="7.5" font-family="monospace" opacity="0.8">  Bearer les…</text>
+  <!-- Metadata / request headers -->
+  <rect x="476" y="70" width="216" height="180" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <rect x="476" y="70" width="216" height="22" rx="6" fill="var(--bg)"/>
+  <rect x="476" y="82" width="216" height="10" fill="var(--bg)"/>
+  <text x="490" y="83" fill="var(--text-muted)" font-size="8">Body</text>
+  <text x="522" y="83" fill="var(--text-muted)" font-size="8">Headers</text>
+  <rect x="546" y="70" width="60" height="22" rx="0" fill="color-mix(in srgb, var(--primary) 12%, var(--bg))" stroke="none"/>
+  <text x="576" y="83" text-anchor="middle" fill="var(--primary)" font-size="8" font-weight="700">Metadata</text>
+  <text x="484" y="104" fill="var(--text-muted)" font-size="7.5" font-weight="700">REQUEST HEADERS</text>
+  <rect x="484" y="108" width="200" height="16" rx="2" fill="color-mix(in srgb, var(--primary) 8%, var(--bg))"/>
+  <text x="488" y="119" fill="#34d399" font-size="7.5" font-family="monospace">Authorization: Bearer lesson6-demo-jwt</text>
+  <rect x="484" y="126" width="200" height="16" rx="2" fill="color-mix(in srgb, #f59e0b 8%, var(--bg))"/>
+  <text x="488" y="137" fill="#f59e0b" font-size="7.5" font-family="monospace">X-API-Key: lesson6-api-key-secret</text>
+  <rect x="484" y="144" width="200" height="16" rx="2" fill="color-mix(in srgb, #a78bfa 8%, var(--bg))"/>
+  <text x="488" y="155" fill="#a78bfa" font-size="7.5" font-family="monospace">Authorization: Basic ZGVtbzpkZW1vLXBhc3M=</text>
+  <rect x="484" y="162" width="200" height="16" rx="2" fill="color-mix(in srgb, var(--primary) 8%, var(--bg))"/>
+  <text x="488" y="173" fill="var(--primary)" font-size="7.5" font-family="monospace">Authorization: Bearer lesson6-demo-jwt</text>
+  <text x="488" y="182" fill="var(--text-muted)" font-size="6.5" font-style="italic">  (from Inherit profile)</text>
+  <text x="584" y="197" text-anchor="middle" fill="var(--text-muted)" font-size="8.5" font-weight="600">④⑤⑥: Metadata shows resolved value</text>
 
-  <!-- ── Bottom panel ────────────────────────────────────────────────────────── -->
-  <rect x="8" y="276" width="684" height="26" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
-  <text x="20" y="293" fill="var(--text-muted)" font-size="8.5">Variables</text>
-  <text x="68" y="293" fill="var(--text-muted)" font-size="8.5">Headers</text>
-  <text x="110" y="293" fill="var(--text-muted)" font-size="8.5">Files</text>
+  <!-- Bottom flow -->
+  <text x="350" y="218" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-weight="700" opacity="0.7">8-step lesson flow</text>
 
-  <!-- ── Legend ─────────────────────────────────────────────────────────────── -->
-  <text x="350" y="322" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-weight="600" opacity="0.7">Authentication workflow</text>
+  <rect x="8" y="226" width="98" height="50" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+  <text x="57" y="238" text-anchor="middle" fill="var(--text)" font-size="8.5" font-weight="600">① Intro</text>
+  <text x="57" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Auth badge overview</text>
+  <text x="57" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">4 auth modes explained</text>
 
-  <!-- Step 1: Auth badge -->
-  <rect x="8" y="330" width="156" height="54" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <rect x="8" y="330" width="156" height="18" rx="5" fill="color-mix(in srgb, var(--primary) 15%, var(--surface))"/>
-  <rect x="8" y="340" width="156" height="8" fill="color-mix(in srgb, var(--primary) 15%, var(--surface))"/>
-  <text x="86" y="342" text-anchor="middle" fill="var(--primary)" font-size="8.5" font-weight="700">① Auth Badge</text>
-  <text x="86" y="356" text-anchor="middle" fill="var(--text-muted)" font-size="8">Click 🔒 → Inherit, Bearer,</text>
-  <text x="86" y="366" text-anchor="middle" fill="var(--text-muted)" font-size="8">Basic, or API Key</text>
-  <text x="86" y="378" text-anchor="middle" fill="var(--text-muted)" font-size="8">Use {{var}} to reference secrets</text>
+  <rect x="114" y="226" width="98" height="50" rx="5" fill="color-mix(in srgb, #34d399 8%, var(--surface))" stroke="#34d399" stroke-width="1.2"/>
+  <text x="163" y="238" text-anchor="middle" fill="#34d399" font-size="8.5" font-weight="600">② Env Setup</text>
+  <text x="163" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">authToken + apiKey</text>
+  <text x="163" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Set Active → resolved</text>
 
-  <!-- Step 2: Env -->
-  <rect x="172" y="330" width="156" height="54" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <rect x="172" y="330" width="156" height="18" rx="5" fill="color-mix(in srgb, #34d399 12%, var(--surface))"/>
-  <rect x="172" y="340" width="156" height="8" fill="color-mix(in srgb, #34d399 12%, var(--surface))"/>
-  <text x="250" y="342" text-anchor="middle" fill="#34d399" font-size="8.5" font-weight="700">② Env Variables</text>
-  <text x="250" y="356" text-anchor="middle" fill="var(--text-muted)" font-size="8">Click Env → add authToken</text>
-  <text x="250" y="366" text-anchor="middle" fill="var(--text-muted)" font-size="8">and apiKey values</text>
-  <text x="250" y="378" text-anchor="middle" fill="var(--text-muted)" font-size="8">{{vars}} resolve at execute</text>
+  <rect x="220" y="226" width="98" height="50" rx="5" fill="color-mix(in srgb, var(--primary) 8%, var(--surface))" stroke="var(--primary)" stroke-width="1.2"/>
+  <text x="269" y="238" text-anchor="middle" fill="var(--primary)" font-size="8.5" font-weight="600">③ Bearer</text>
+  <text x="269" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">{{authToken}} filled</text>
+  <text x="269" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Execute → verify header</text>
 
-  <!-- Step 3: Metadata -->
-  <rect x="336" y="330" width="156" height="54" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <rect x="336" y="330" width="156" height="18" rx="5" fill="color-mix(in srgb, #a78bfa 12%, var(--surface))"/>
-  <rect x="336" y="340" width="156" height="8" fill="color-mix(in srgb, #a78bfa 12%, var(--surface))"/>
-  <text x="414" y="342" text-anchor="middle" fill="#a78bfa" font-size="8.5" font-weight="700">③ Metadata Tab</text>
-  <text x="414" y="356" text-anchor="middle" fill="var(--text-muted)" font-size="8">Execute → open Metadata</text>
-  <text x="414" y="366" text-anchor="middle" fill="var(--text-muted)" font-size="8">confirm Authorization header</text>
-  <text x="414" y="378" text-anchor="middle" fill="var(--text-muted)" font-size="8">was sent (env-resolved)</text>
+  <rect x="326" y="226" width="98" height="50" rx="5" fill="color-mix(in srgb, #f59e0b 8%, var(--surface))" stroke="#f59e0b" stroke-width="1.2"/>
+  <text x="375" y="238" text-anchor="middle" fill="#f59e0b" font-size="8.5" font-weight="600">④ API Key</text>
+  <text x="375" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">{{apiKey}} filled</text>
+  <text x="375" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Execute → verify header</text>
 
-  <!-- Step 4: Profiles -->
-  <rect x="500" y="330" width="192" height="54" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-  <rect x="500" y="330" width="192" height="18" rx="5" fill="color-mix(in srgb, #febc2e 12%, var(--surface))"/>
-  <rect x="500" y="340" width="192" height="8" fill="color-mix(in srgb, #febc2e 12%, var(--surface))"/>
-  <text x="596" y="342" text-anchor="middle" fill="#febc2e" font-size="8.5" font-weight="700">④ Connection Profile</text>
-  <text x="596" y="356" text-anchor="middle" fill="var(--text-muted)" font-size="8">Click Profiles → name → Save</text>
-  <text x="596" y="366" text-anchor="middle" fill="var(--text-muted)" font-size="8">Captures endpoint + auth</text>
-  <text x="596" y="378" text-anchor="middle" fill="var(--text-muted)" font-size="8">One-click context restore</text>
+  <rect x="432" y="226" width="98" height="50" rx="5" fill="color-mix(in srgb, #a78bfa 8%, var(--surface))" stroke="#a78bfa" stroke-width="1.2"/>
+  <text x="481" y="238" text-anchor="middle" fill="#a78bfa" font-size="8.5" font-weight="600">⑤ Basic Auth</text>
+  <text x="481" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">user + pass filled</text>
+  <text x="481" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Execute → verify header</text>
 
-  <!-- Flow arrows between legend boxes -->
-  <line x1="164" y1="357" x2="172" y2="357" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="328" y1="357" x2="336" y2="357" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="492" y1="357" x2="500" y2="357" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="538" y="226" width="154" height="50" rx="5" fill="color-mix(in srgb, #34d399 8%, var(--surface))" stroke="#34d399" stroke-width="1.2"/>
+  <text x="615" y="238" text-anchor="middle" fill="#34d399" font-size="8.5" font-weight="600">⑥ Inherit + ⑦ Profile + ⑧ Sub</text>
+  <text x="615" y="250" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Global auth profile catalog</text>
+  <text x="615" y="262" text-anchor="middle" fill="var(--text-muted)" font-size="7.5">Save profile → sub auth</text>
+
+  <line x1="106" y1="251" x2="114" y2="251" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="212" y1="251" x2="220" y2="251" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="318" y1="251" x2="326" y2="251" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="424" y1="251" x2="432" y2="251" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="530" y1="251" x2="538" y2="251" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="8" y="284" width="684" height="30" rx="5" fill="color-mix(in srgb, #34d399 6%, var(--bg))" stroke="color-mix(in srgb, #34d399 30%, var(--border))" stroke-width="1"/>
+  <text x="350" y="296" text-anchor="middle" fill="var(--text-muted)" font-size="8.5">
+    <tspan font-weight="600" fill="#34d399">Key insight: </tspan>
+    Auth fields store templates like {{authToken}} — Env stores real values — Metadata confirms resolved headers were sent
+  </text>
+  <text x="350" y="308" text-anchor="middle" fill="var(--text-muted)" font-size="8">
+    Bearer and API Key use {{vars}} · Basic uses direct credentials · Inherit pulls from shared global profile catalog
+  </text>
+
+  <text x="350" y="336" text-anchor="middle" fill="var(--text-muted)" font-size="9" opacity="0.7">
+    Each auth type shown exactly once · No repeated screens · Env activated before first execute
+  </text>
 
   <defs>
     <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
       <polygon points="0 0,5 2.5,0 5" fill="var(--border)"/>
     </marker>
   </defs>
-
-  <!-- Callout arrow from ① to Auth badge in connection bar -->
-  <line x1="86" y1="330" x2="443" y2="64" stroke="var(--primary)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5"/>
 </svg>`,
   },
 
   steps: [
+    // ── Step 1: Overview + Demo env setup ────────────────────────────────────
     {
       id: 'gql6-intro',
       title: 'Auth on the Connection Bar',
       description:
-        'Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the authentication popover — you can pick **Inherit from Auth Profile** (central catalog), **Bearer**, **Basic**, or **API Key**. Notice the **Profiles** badge beside it (saved endpoint + auth snapshots) and the **Env** badge (secret store). They work together to keep credentials out of your queries.',
+        `Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, all auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the **Auth** bottom tab — a docked panel with four modes: **Bearer Token**, **API Key**, **Basic Auth**, and **Inherit from Auth Profile**. Notice the **Env badge** beside it — the lesson configures a **Demo** environment here with two variables (\`authToken\` and \`apiKey\`) so auth fields can use \`{{authToken}}\` placeholders instead of hardcoded secrets. Watch the modal open now so you can see the configured values before the auth steps begin.`,
       highlight: GQL.AUTH_BADGE_BTN,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql6-bearer',
-      title: 'Bearer Token — Referencing a Secret',
-      description:
-        'Click the **Auth badge** → select **Bearer Token** → type `{{authToken}}` in the token field. Notice the preview footer immediately shows `Authorization: Bearer {{authToken}}`. The `{{…}}` syntax is intentional: you never paste a raw token here. The actual value is stored in **Env** and resolved at execute time — so demos, screenshots, and shared configs never leak real credentials.',
-      highlight: GQL.AUTH_BEARER_INPUT,
-      preAction: prepareBearerAuthSpotlight,
       action: async (ctx) => {
-        await ensureAuthPopoverOpen(ctx);
-        await selectAuthType(ctx, 'bearer');
-        await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
-        await ctx.delay(800);
-      },
-      verify: GQL.AUTH_PREVIEW,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql6-env',
-      title: 'Store the Secret in Env',
-      description:
-        'Now store the actual values. Click the **Env badge** → add variable `authToken` with value `' + LESSON6_AUTH_TOKEN_VALUE + '`. Also add `apiKey` for the API Key step. **Why this separation?** The query editor, connection bar config, and your code can all reference `{{authToken}}` safely — only the Env modal ever sees the real secret. Swap environments (dev/staging/prod) without touching the auth config.',
-      highlight: GQL.ENV_BADGE,
-      preAction: ensureBearerAuthConfiguredQuiet,
-      action: async (ctx) => {
-        await ensureEnvAuthToken(ctx);
-        await ctx.delay(800);
+        // Create the Demo env in React state via the window bridge (reliable, no DOM fragility)
+        await ensureEnvReady(ctx);
+        // Open the Env modal so the viewer can read the configured variables
+        if (!document.querySelector(GQL.ENV_MODAL)) {
+          await ctx.click(GQL.ENV_BADGE);
+          await ctx.waitFor(GQL.ENV_MODAL, 5000);
+        }
+        await ctx.delay(1200); // leave open so viewer can read authToken + apiKey rows
+        // Leave modal open — step 2's preAction will close it
       },
       verify: GQL.ENV_MODAL,
       pauseAfter: true,
     },
 
+    // ── Step 2: Set up environment variables ─────────────────────────────────
     {
-      id: 'gql6-execute-bearer',
-      title: 'Execute & Verify the Bearer Header',
+      id: 'gql6-env',
+      title: 'Environment Variables — Secrets Out of Config Files',
       description:
-        'Click **Execute**. When the response arrives, open the **Metadata** tab and scroll to **Request headers**. Find `Authorization: Bearer lesson6-demo-jwt` — the `{{authToken}}` placeholder was resolved to the real value before the request left the client. This is your **ground truth for debugging**: if a server rejects auth, Metadata shows exactly what was sent.',
-      highlight: GQL.EXECUTE_BTN,
-      preAction: prepareBearerExecuteSpotlight,
+        `The **Demo** environment is now active with two variables: \`authToken\` = \`${LESSON6_AUTH_TOKEN_VALUE}\` and \`apiKey\` = \`${LESSON6_API_KEY_VALUE}\`. Auth fields accept \`{{variableName}}\` placeholders — the real value lives here, in Env. When you execute, GraphQL Studio resolves \`{{authToken}}\` to \`${LESSON6_AUTH_TOKEN_VALUE}\` before the request leaves the client. The Metadata tab will confirm this: you'll see the literal resolved value, not the template. **Why env variables first?** Secrets never appear in your query files or auth configs — swap environments without touching the auth setup.`,
+      highlight: GQL.ENV_BADGE,
+      preAction: preEnvStep,
       action: async (ctx) => {
-        await ensureHealthQuery(ctx);
+        await ensureEnvReady(ctx); // idempotent guard
+        // Re-open modal to show the configured env is active
+        if (!document.querySelector(GQL.ENV_MODAL)) {
+          await ctx.click(GQL.ENV_BADGE);
+          await ctx.waitFor(GQL.ENV_MODAL, 5000);
+        }
+        await ctx.delay(800); // leave open so viewer can read the variables
+      },
+      verify: GQL.ENV_MODAL,
+      pauseAfter: true,
+    },
+
+    // ── Step 3: Bearer Token ──────────────────────────────────────────────────
+    {
+      id: 'gql6-bearer',
+      title: 'Bearer Token — Configure, Execute & Verify',
+      description:
+        `Now configure Bearer auth and confirm it in Metadata. The **Auth** bottom tab opens with **Bearer Token** selected — \`${LESSON6_BEARER_TEMPLATE}\` is typed in the token field. The preview footer shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` (placeholder already resolved). After clicking **Execute**, the **Metadata** tab opens: \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` confirms the resolved token was actually sent. **This is your ground truth for debugging** — if a server rejects auth, Metadata shows exactly what was transmitted.`,
+      highlight: GQL.AUTH_BEARER_INPUT,
+      preAction: preBearerStep,
+      action: async (ctx) => {
+        await selectAuthInPanel(ctx, 'bearer');
+        await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+        await ctx.delay(700);
+        await closeAuthPanelIfOpen(ctx);
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(500);
+        await ctx.delay(400);
         await ctx.click(GQL.RV_TAB_METADATA);
         await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(800);
+        await ctx.delay(1200);
+        markBearerDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
+    // ── Step 4: API Key ───────────────────────────────────────────────────────
     {
       id: 'gql6-apikey',
-      title: 'Switch to API Key Auth',
+      title: 'API Key — Configure, Execute & Verify',
       description:
-        'Some services prefer a **custom header** over the standard `Authorization` scheme — especially internal microservices or third-party gateways. Re-open **Auth** → select **API Key** → set header name `X-API-Key`, value `{{apiKey}}`. The preview updates instantly. Notice the header *name* is now `X-API-Key` instead of `Authorization` — the same env variable trick applies to the value.',
-      highlight: GQL.AUTH_TYPE_SELECT,
-      preAction: prepareApiKeyAuthSpotlight,
+        `The Metadata tab above shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\`. Now watch the API Key flow: the **Auth** bottom tab switches to **API Key**, header name becomes \`${LESSON6_API_KEY_HEADER}\` with value \`${LESSON6_API_KEY_TEMPLATE}\`, then the query executes — the Metadata tab updates to \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\` (the \`{{apiKey}}\` env variable resolved). **Same env-variable pattern, different header name.** Some services prefer a custom header over the standard \`Authorization\` scheme — especially internal microservices and third-party gateways.`,
+      highlight: GQL.RV_REQUEST_HEADERS,
+      preAction: preApiKeyStep,
       action: async (ctx) => {
-        await ensureApiKeyAuthConfigured(ctx);
-        await ctx.delay(800);
-      },
-      verify: GQL.AUTH_PREVIEW,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql6-execute-apikey',
-      title: 'Verify the API Key Header',
-      description:
-        'Click **Execute** → open the **Metadata** tab. The **Request headers** section now shows `X-API-Key: lesson6-secret-key` — the `{{apiKey}}` env variable resolved to its value. Compare this to the Bearer step: **same query, same endpoint, different auth injection**. This is the power of separating auth config from the query itself.',
-      highlight: GQL.EXECUTE_BTN,
-      preAction: prepareApiKeyExecuteSpotlight,
-      action: async (ctx) => {
+        await selectAuthInPanel(ctx, 'apiKey');
+        await ctx.fill(GQL.AUTH_APIKEY_NAME, LESSON6_API_KEY_HEADER);
+        await ctx.delay(300);
+        await ctx.fill(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
+        await ctx.delay(700);
+        await closeAuthPanelIfOpen(ctx);
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(500);
+        await ctx.delay(400);
         await ctx.click(GQL.RV_TAB_METADATA);
         await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(800);
+        await ctx.delay(1200);
+        markApiKeyDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
+    // ── Step 5: Basic Auth ────────────────────────────────────────────────────
     {
       id: 'gql6-basic',
-      title: 'Basic Auth — Username & Password',
+      title: 'Basic Auth — Configure, Execute & Verify',
       description:
-        'The third auth scheme is **Basic Auth**, used by many older REST and GraphQL services. Re-open **Auth** → select **Basic Auth** → enter username `demo` and password `demo-pass`. The preview shows `Authorization: Basic ••• (demo:••••••)` — the colon-joined credentials are base64-encoded before transmission. **Important:** base64 is *encoding*, not *encryption*. Without HTTPS (Lesson GQL-5), anyone intercepting the request can decode it instantly.',
-      highlight: GQL.AUTH_TYPE_SELECT,
-      preAction: prepareBasicAuthSpotlight,
+        `The Metadata tab now shows \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\`. Watch the Basic Auth flow: the **Auth** bottom tab switches to **Basic Auth**, username \`${LESSON6_BASIC_USER}\` and password \`${LESSON6_BASIC_PASS}\` are filled in directly (not via env vars), then the query executes — the Metadata tab updates to \`Authorization: Basic ZGVtbzpkZW1vLXBhc3M=\`. That base64 value encodes \`${LESSON6_BASIC_USER}:${LESSON6_BASIC_PASS}\`. **Note:** credentials are entered directly here because the auth system base64-encodes them before building the header — unlike Bearer and API Key, the placeholder would get encoded rather than resolved. base64 is *encoding*, not *encryption* — requires HTTPS (GQL-5) to be safe.`,
+      highlight: GQL.RV_REQUEST_HEADERS,
+      preAction: preBasicStep,
       action: async (ctx) => {
-        await ensureBasicAuthConfigured(ctx);
-        await ctx.delay(800);
-      },
-      verify: GQL.AUTH_PREVIEW,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql6-basic-exec',
-      title: 'Execute & Confirm Basic Auth Encoding',
-      description:
-        'Click **Execute** → **Metadata** tab → **Request headers**. You will see `Authorization: Basic ZGVtbzpkZW1vLXBhc3M=` — the base64 of `demo:demo-pass`. Notice the **header name** is identical to Bearer (`Authorization`) but the **scheme prefix** is `Basic` instead of `Bearer`. The GraphQL server reads the scheme to know how to decode the credential. This single header field carries three different auth types — just by changing the prefix.',
-      highlight: GQL.EXECUTE_BTN,
-      preAction: prepareBasicExecuteSpotlight,
-      action: async (ctx) => {
+        await selectAuthInPanel(ctx, 'basic');
+        await ctx.fill(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
+        await ctx.delay(300);
+        await ctx.fill(GQL.AUTH_BASIC_PASS, LESSON6_BASIC_PASS);
+        await ctx.delay(700);
+        await closeAuthPanelIfOpen(ctx);
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(500);
+        await ctx.delay(400);
         await ctx.click(GQL.RV_TAB_METADATA);
         await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(800);
+        await ctx.delay(1200);
+        markBasicDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
+    // ── Step 6: Inherit from Auth Profile ─────────────────────────────────────
     {
       id: 'gql6-inherit',
       title: 'Inherit from Auth Profile',
       description:
-        `After manual Bearer, API Key, and Basic, there is a fourth mode: **Inherit from Auth Profile** — the same option WebSocket and SSE studios use. Auth profiles live in **Environment Manager** as a central catalog. Re-open **Auth** → select **Inherit from Auth Profile** → choose **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}**.\n\nThe preview footer shows the resolved \`Authorization: Bearer …\` from the catalog — no \`{{authToken}}\` placeholder in the connection bar. **Why inherit?** Update the profile once in Environment Manager and every studio tab that references it picks up the new credential automatically.`,
-      highlight: GQL.AUTH_PROFILE_SELECT,
-      preAction: prepareInheritAuthSpotlight,
+        `The Metadata tab shows \`Authorization: Basic …\`. Now the fourth mode: **Inherit from Auth Profile** — the same option WebSocket and SSE studios use. The **Auth** bottom tab selects **Inherit**, chooses the **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** catalog profile (which stores a Bearer token), then the query executes — the Metadata tab shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables. **Why inherit?** Update the catalog profile once in Environment Manager and every studio that references it picks up the new credential automatically — no need to touch each endpoint's auth config.`,
+      highlight: GQL.RV_REQUEST_HEADERS,
+      preAction: preInheritStep,
       action: async (ctx) => {
-        await ensureInheritAuthConfigured(ctx);
-        await ctx.delay(800);
-      },
-      verify: GQL.AUTH_PREVIEW,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql6-inherit-exec',
-      title: 'Execute with Inherited Profile',
-      description:
-        `Click **Execute** → open the **Metadata** tab. **Request headers** shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` — the token came from the **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** global profile, not from Env variables or manual entry. Compare to the Bearer step: same header on the wire, but the credential source moved from per-tab config to the shared catalog. This is how teams standardize staging and prod tokens across GraphQL, WebSocket, and SSE.`,
-      highlight: GQL.EXECUTE_BTN,
-      preAction: prepareInheritExecuteSpotlight,
-      action: async (ctx) => {
-        await ensureInheritExecutedWithMetadata(ctx);
-        await ctx.delay(800);
+        seedLesson6GlobalAuthProfile();
+        await selectAuthInPanel(ctx, 'inherit');
+        await ctx.delay(400);
+        await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
+        await ctx.delay(700);
+        await closeAuthPanelIfOpen(ctx);
+        await ctx.click(GQL.EXECUTE_BTN);
+        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+        await ctx.delay(400);
+        await ctx.click(GQL.RV_TAB_METADATA);
+        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+        await ctx.delay(1200);
+        markInheritDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
+    // ── Step 7: Save connection profile ──────────────────────────────────────
     {
       id: 'gql6-profile',
       title: 'Save a Connection Profile',
       description:
         `Click **Profiles** on the connection bar → enter name **${LESSON6_PROFILE_NAME}** → **Save**. This **connection profile** captures the endpoint \`${GQL_DEMO_HTTP}\` plus the current auth mode (inherit) as a named snapshot — distinct from the **global auth profile** you selected in the previous step. **Why connection profiles?** When you switch between dev, staging, and prod — each with different URLs and auth modes — load the right connection profile in one click instead of re-entering everything.`,
       highlight: GQL.PROFILE_BADGE,
-      preAction: prepareProfileSpotlight,
+      preAction: preProfileStep,
       action: async (ctx) => {
         await ctx.click(GQL.PROFILE_BADGE);
         await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
@@ -446,14 +419,37 @@ After **Execute**, open the **Metadata** tab in the response panel to see the ex
       pauseAfter: true,
     },
 
+    // ── Step 8: Auth carries into subscriptions ───────────────────────────────
     {
-      id: 'gql6-subscription-auth',
+      id: 'gql6-subscription',
       title: 'Auth Carries into Subscriptions',
       description:
-        'Here is a subtle but important detail: the Bearer, API Key, or Basic credentials you configured here **automatically travel into the WebSocket handshake** when you subscribe (Lesson GQL-7). The initial HTTP upgrade request that establishes the WebSocket connection includes the same auth headers. You do **not** need to configure auth separately for subscriptions — it inherits from the connection bar. This is why auth is on the *connection bar* rather than tied to individual query tabs.',
+        'The **🔒 Auth badge** on the connection bar configures credentials for the **active tab**. With one tab open (this lesson), edits set the **page-level default** — the same resolved auth is used for HTTP queries **and** for WebSocket subscription handshakes on that tab (Lesson GQL-7): the initial HTTP upgrade request includes the same auth headers. When you open a second tab (GQL-14), each tab can override auth independently while sharing the same endpoint URL.\n\n' +
+        'You do **not** configure auth separately for subscriptions — the **active tab\'s** resolved auth chain applies automatically. The same principle applies to SSE subscriptions on the active tab. Run **Execute** below to confirm the inherit profile auth still appears in **Metadata → Request headers**.',
       highlight: GQL.AUTH_BADGE_BTN,
-      preAction: ensureProfileSaved,
+      preAction: preSubscriptionStep,
+      action: async (ctx) => {
+        // Saving the connection profile (step 7) may have cleared the auth mode.
+        // Always re-establish inherit auth before executing the final query.
+        seedLesson6GlobalAuthProfile();
+        await selectAuthInPanel(ctx, 'inherit');
+        await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
+        await ctx.delay(300);
+        await closeAuthPanelIfOpen(ctx);
+        
+        // Execute final query to show auth headers carry through to subscriptions
+        await ctx.click(GQL.EXECUTE_BTN);
+        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+        await ctx.delay(400);
+        // Switch to Response → Metadata to verify auth headers
+        await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+        await ctx.delay(300);
+        await ctx.click(GQL.RV_TAB_METADATA);
+        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+        await ctx.delay(500);
+      },
       pauseAfter: true,
     },
   ],
 };
+

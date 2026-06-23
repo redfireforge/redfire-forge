@@ -118,6 +118,128 @@ export function describeResolvedGqlAuth(
   }
 }
 
+export type GqlAuthSentSource = 'page' | 'tab' | 'profile';
+
+export interface AuthSentMetadata {
+  source: GqlAuthSentSource;
+  sourceLabel: string;
+  lines: string[];
+}
+
+export function authSentSourceLabel(source: GqlAuthSentSource): string {
+  switch (source) {
+    case 'page':
+      return 'from page default';
+    case 'tab':
+      return 'tab override';
+    case 'profile':
+      return 'from connection profile';
+  }
+}
+
+function maskAuthValue(value: string): string {
+  if (value.length <= 8) return '••••';
+  return `${value.slice(0, Math.min(12, value.length))}-••••`;
+}
+
+function formatAuthorizationForDisplay(value: string): string {
+  const trimmed = value.trim();
+  if (/^bearer /i.test(trimmed)) {
+    const token = trimmed.replace(/^bearer /i, '').trim();
+    return token
+      ? `Authorization: Bearer ${maskAuthValue(token)}`
+      : 'Authorization: Bearer (empty)';
+  }
+  if (/^basic /i.test(trimmed)) {
+    return 'Authorization: Basic ••••';
+  }
+  return `Authorization: ${maskAuthValue(trimmed)}`;
+}
+
+function findHeaderValue(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string | undefined {
+  if (!headers) return undefined;
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target) return value;
+  }
+  return undefined;
+}
+
+/** Masked auth line derived from stored/effective auth when request headers omit auth keys. */
+function describeEffectiveAuthSentLine(
+  storedAuth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[],
+): string | null {
+  const effective = resolveEffectiveGqlAuth(storedAuth, globalAuthProfiles);
+  if (!effective) return null;
+
+  switch (effective.type) {
+    case 'bearer': {
+      const token = effective.token?.trim() ?? '';
+      return token ? formatAuthorizationForDisplay(`Bearer ${token}`) : null;
+    }
+    case 'basic': {
+      const user = effective.username?.trim() ?? '';
+      return user ? 'Authorization: Basic ••••' : null;
+    }
+    case 'apiKey': {
+      const name = effective.headerName?.trim() ?? '';
+      const value = effective.headerValue ?? '';
+      if (!name) return null;
+      return `${name}: ${value ? mask(value) : '(empty value)'}`;
+    }
+    default:
+      return null;
+  }
+}
+
+function extractAuthDisplayLines(
+  storedAuth: GraphqlAuth | null | undefined,
+  globalAuthProfiles: GlobalAuthProfile[],
+  requestHeaders?: Record<string, string>,
+): string[] {
+  const effective = resolveEffectiveGqlAuth(storedAuth, globalAuthProfiles);
+  const lines: string[] = [];
+
+  const authorization = findHeaderValue(requestHeaders, 'Authorization');
+  if (authorization) {
+    lines.push(formatAuthorizationForDisplay(authorization));
+  }
+
+  if (effective?.type === 'apiKey' && effective.headerName?.trim()) {
+    const name = effective.headerName.trim();
+    const raw = findHeaderValue(requestHeaders, name);
+    if (raw !== undefined && !lines.some((line) => line.startsWith(`${name}:`))) {
+      lines.push(`${name}: ${raw ? mask(raw) : '(empty value)'}`);
+    }
+  }
+
+  if (lines.length > 0) return lines;
+
+  const fallback = describeEffectiveAuthSentLine(storedAuth, globalAuthProfiles);
+  return fallback ? [fallback] : [];
+}
+
+/**
+ * Phase 6H — masked auth-sent summary for the response Metadata tab.
+ * Prefer actual outgoing request headers when available; fall back to stored auth preview.
+ */
+export function describeAuthSentMetadata(
+  storedAuth: GraphqlAuth | null | undefined,
+  source: GqlAuthSentSource,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+  requestHeaders?: Record<string, string>,
+): AuthSentMetadata {
+  return {
+    source,
+    sourceLabel: authSentSourceLabel(source),
+    lines: extractAuthDisplayLines(storedAuth, globalAuthProfiles, requestHeaders),
+  };
+}
+
 /** Profile name for inherit auth badge label, when bound. */
 export function inheritAuthProfileLabel(
   auth: GraphqlAuth | null | undefined,

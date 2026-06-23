@@ -43,8 +43,8 @@ describe('gql-schema-exploration lesson', () => {
     expect(gqlSchemaLesson.id).toBe('gql-schema-exploration');
     expect(gqlSchemaLesson.category).toBe('graphql');
     expect(gqlSchemaLesson.name).toBe('Schema Exploration');
-    expect(gqlSchemaLesson.steps.length).toBe(9);
-    expect(gqlSchemaLesson.estimatedMinutes).toBe(4);
+    expect(gqlSchemaLesson.steps.length).toBe(10);
+    expect(gqlSchemaLesson.estimatedMinutes).toBe(5);
     expect(gqlSchemaLesson.tabBudget).toBe(1);
   });
 
@@ -58,17 +58,18 @@ describe('gql-schema-exploration lesson', () => {
       'gql4-try-insert',
       'gql4-exec-inserted',
       'gql4-read-inserted',
-      'gql4-sdl-export',
+      'gql4-sdl-view',
+      'gql4-export-sdl',
     ]);
   });
 
-  it('all 9 steps have pauseAfter: true', () => {
+  it('all 10 steps have pauseAfter: true', () => {
     gqlSchemaLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–9 have preAction guards', () => {
+  it('stateful steps 2–10 have preAction guards', () => {
     gqlSchemaLesson.steps.slice(1).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
@@ -235,14 +236,25 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 
-  it('step gql4-sdl-export preAction ensures try insert done', async () => {
+  it('step gql4-sdl-view preAction ensures try insert done', async () => {
     stubSchemaExplorerDom();
     stubMonacoEditor('query { health }');
     markTryInsertDone();
-    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-view')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.TRY_FIELD_HEALTH);
+  });
+
+  it('step gql4-export-sdl preAction opens SDL tab when detail panel missing', async () => {
+    stubSchemaExplorerDom();
+    stubMonacoEditor('query { health }');
+    markTryInsertDone();
+    document.querySelector('[data-testid="gql-se-detail-panel"]')?.removeAttribute('data-testid');
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-export-sdl')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SCHEMA_SDL_TAB);
   });
 
   it('ensureQueryTypeSelected guard skips when Query already selected', async () => {
@@ -305,17 +317,31 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.INSERT_FIELD_TOAST, 5000);
   });
 
-  it('step gql4-sdl-export highlights SDL tab (description narrates SDL content first)', () => {
-    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
+  it('step gql4-sdl-view highlights SDL tab', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-view')!;
     expect(step.highlight).toBe(GQL.SCHEMA_SDL_TAB);
   });
 
-  it('step gql4-sdl-export opens SDL tab and clicks export', async () => {
-    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
+  it('step gql4-export-sdl highlights Export SDL toolbar button', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-export-sdl')!;
+    expect(step.highlight).toBe(GQL.SNAPSHOT_BTN);
+  });
+
+  it('step gql4-sdl-view opens SDL tab for Query type', async () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-view')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SCHEMA_SDL_TAB);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_SDL_VIEW, 5000);
+    expect(ctx.delay).toHaveBeenCalledWith(1500);
+  });
+
+  it('step gql4-export-sdl clicks Export SDL with extended pause', async () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-export-sdl')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SNAPSHOT_BTN);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
   });
 
   it('step descriptions contain WHY framing (educational depth matches GQL-1/GQL-2 standard)', () => {
@@ -329,8 +355,8 @@ describe('gql-schema-exploration lesson', () => {
     expect(execStep.description).toContain('Try →');
     const readStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-read-inserted')!;
     expect(readStep.description).toContain('browse');
-    const sdlStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-sdl-export')!;
-    expect(sdlStep.description).toContain('git diff');
+    const exportStep = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-export-sdl')!;
+    expect(exportStep.description).toContain('git diff');
   });
 
   it('step gql4-browse action opens schema tab then selects Query type', async () => {

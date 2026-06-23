@@ -10,6 +10,7 @@
  * Pitfalls memo: e2e/DEMO-LESSON-E2E-MEMO.md
  */
 import type { APIRequestContext, Page } from '@playwright/test';
+import { GQL } from '../src/shared/selectors';
 import {
   launchGqlLesson,
   waitForReadingPhase,
@@ -31,8 +32,8 @@ import {
 
 export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 13 } as const;
 export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 18 } as const;
-export const GQL3_LESSON = { name: 'Schema Exploration', steps: 9 } as const;
-export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 12 } as const;
+export const GQL3_LESSON = { name: 'Schema Exploration', steps: 10 } as const;
+export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 8 } as const;
 export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 12 } as const;
 export const GQL6_LESSON = { name: 'Mutations — Create, Update, Delete', steps: 16 } as const;
 export const GQL7_LESSON = { name: 'Subscriptions — Real-Time Data', steps: 12 } as const;
@@ -42,11 +43,24 @@ export const GQL10_LESSON = { name: 'Export & Share Queries', steps: 5 } as cons
 export const GQL11_LESSON = { name: 'Performance Tracing', steps: 8 } as const;
 export const GQL12_LESSON = { name: 'Schema Diff & Breaking Changes', steps: 7 } as const;
 export const GQL13_LESSON = { name: 'Mock Server', steps: 15 } as const;
-export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 9 } as const;
+export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 10 } as const;
 export const GQL15_LESSON = { name: 'Batch Execution', steps: 9 } as const;
 export const GQL16_LESSON = { name: 'Workflow Integration', steps: 10 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 10 } as const;
 export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 8 } as const;
+
+/** Bottom Auth panel selectors for GQL-4 / GQL-14 lesson walks (Slice 7.6 — Option D). */
+export const GQL_LESSON_AUTH = {
+  badge: GQL.AUTH_BADGE_BTN,
+  bottomTab: GQL.BOTTOM_TAB_AUTH,
+  panel: GQL.AUTH_PANEL,
+  typeSelect: GQL.AUTH_TYPE_SELECT,
+} as const;
+
+/** Wait until the docked Auth panel is visible (after badge click or tab switch). */
+export async function waitForGqlAuthPanel(page: Page, timeout = 15_000): Promise<void> {
+  await page.locator(GQL.AUTH_PANEL).waitFor({ state: 'visible', timeout });
+}
 
 /** Mock proxy endpoint (desktop / Node proxy on port 3001). */
 export const GQL13_MOCK_HTTP = 'http://localhost:3001/api/graphql/mock';
@@ -1085,7 +1099,7 @@ function makeGqlLessonWalk(lesson: { steps: number }, timeoutFromStep: number) {
   };
 }
 
-/** Play through all 7 GQL-14 steps (multi-tab workspaces). */
+/** Play through all 10 GQL-14 steps (multi-tab workspaces). */
 export const walkFullGql14Lesson = makeGqlLessonWalk(GQL14_LESSON, 2);
 
 /** Play through all 9 GQL-15 steps (batch execution). */

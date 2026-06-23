@@ -11,9 +11,13 @@
  *  - Optional: snapshot vs. snapshot comparison (hides Acknowledge when both historical)
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
+import { tokenizeSDL } from '../utils/sdlTokenizer';
 
 export type DiffSeverityFilter = 'all' | 'breaking' | 'dangerous' | 'safe' | 'deprecated';
 
@@ -81,6 +85,7 @@ export function GraphqlSchemaDiff({
   const [ackNotes, setAckNotes]           = useState<Record<string, string>>({});
   const [expandedAck, setExpandedAck]     = useState<string | null>(null);
   const [sdlView, setSdlView]             = useState<'changes' | 'sdl'>('changes');
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(true);
 
   useModalEscapeClose(onClose, { capture: true });
 
@@ -122,20 +127,48 @@ export function GraphqlSchemaDiff({
   }, [newSdl]);
 
   return (
-    <div className="gql-diff-backdrop" onClick={onClose} data-testid="gql-diff-backdrop">
+    <div
+      className={`gql-diff-backdrop${isDragged ? ' gql-diff-backdrop--dragged' : ''}`}
+      style={overlayStyle}
+      onClick={onClose}
+      data-testid="gql-diff-backdrop"
+    >
       <div
-        className="gql-diff-modal"
+        className={[
+          'gql-diff-modal',
+          sdlView === 'sdl' ? 'gql-diff-modal--wide' : '',
+          isDragged ? 'gql-diff-modal--dragged' : '',
+        ].filter(Boolean).join(' ')}
+        style={modalStyle}
         role="dialog"
         aria-modal="true"
         aria-label={`Schema diff: ${oldLabel} → ${newLabel}`}
         onClick={(e) => e.stopPropagation()}
         data-testid="gql-diff-modal"
       >
-        {/* Header */}
-        <div className="gql-diff-header">
-          <div className="gql-diff-title-row">
-            <span className="gql-diff-title">Schema Diff</span>
-            <span className="gql-diff-subtitle">{oldLabel} → {newLabel}</span>
+        {/* Header — drag handle */}
+        <div
+          className="gql-diff-header gql-diff-header--draggable"
+          onMouseDown={onDragStart}
+          data-testid="gql-diff-header"
+        >
+          <span className="gql-diff-drag-grip" aria-hidden="true" title="Drag to move">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+              <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+              <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+            </svg>
+          </span>
+          <div className="gql-diff-header-main">
+            <div className="gql-diff-title-row">
+              <span className="gql-diff-title">Schema Diff</span>
+              <div className="gql-diff-compare" aria-label={`Comparing ${oldLabel} to ${newLabel}`}>
+                <span className="gql-diff-compare-chip gql-diff-compare-chip--old">{oldLabel}</span>
+                <span className="gql-diff-compare-arrow" aria-hidden="true">→</span>
+                <span className="gql-diff-compare-chip gql-diff-compare-chip--new">{newLabel}</span>
+              </div>
+            </div>
+            <span className="gql-diff-drag-hint">Drag header to reposition</span>
           </div>
           {/* Summary counts */}
           <div className="gql-diff-summary">
@@ -161,6 +194,11 @@ export function GraphqlSchemaDiff({
             )}
             {result.changes.length === 0 && (
               <span className="gql-diff-count gql-diff-count--nochange">No changes</span>
+            )}
+            {result.changes.length > 0 && (
+              <span className="gql-diff-count gql-diff-count--total">
+                {result.changes.length} total
+              </span>
             )}
           </div>
         </div>
@@ -228,10 +266,21 @@ export function GraphqlSchemaDiff({
           ) : (
             <>
               {filteredChanges.length === 0 && (
-                <div className="gql-diff-empty">
-                  {result.changes.length === 0
-                    ? 'No changes between the two schema versions.'
-                    : 'No changes matching the selected filter.'}
+                <div className="gql-diff-empty" data-testid="gql-diff-empty">
+                  <div className="gql-diff-empty-icon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                    </svg>
+                  </div>
+                  <p className="gql-diff-empty-title">
+                    {result.changes.length === 0 ? 'Schemas match' : 'No matching changes'}
+                  </p>
+                  <p className="gql-diff-empty-hint">
+                    {result.changes.length === 0
+                      ? 'The baseline and current SDL are identical. Switch to SDL Diff for a line-by-line view.'
+                      : 'Try a different severity filter or view all changes.'}
+                  </p>
                 </div>
               )}
 
@@ -425,25 +474,184 @@ function AcknowledgedSection({
 
 // ─── SdlDiffView ──────────────────────────────────────────────────────────────
 
+function SdlHighlightedLine({ text }: { text: string }) {
+  const tokens = useMemo(() => tokenizeSDL(text), [text]);
+  return (
+    <span className="gql-diff-sdl-text">
+      {tokens.map((tok, j) => (
+        tok.cls
+          ? <span key={j} className={tok.cls}>{tok.text}</span>
+          : <span key={j}>{tok.text}</span>
+      ))}
+    </span>
+  );
+}
+
 function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [hideUnchanged, setHideUnchanged] = useState(false);
+
   const diffLines = useMemo(() => computeLineDiff(oldSdl, newSdl), [oldSdl, newSdl]);
+
+  const stats = useMemo(() => ({
+    added: diffLines.filter((l) => l.type === 'added').length,
+    removed: diffLines.filter((l) => l.type === 'removed').length,
+    unchanged: diffLines.filter((l) => l.type === 'unchanged').length,
+  }), [diffLines]);
+
+  const displayLines = useMemo(
+    () => (hideUnchanged ? diffLines.filter((l) => l.type !== 'unchanged') : diffLines),
+    [diffLines, hideUnchanged],
+  );
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const matchingLineIndices = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return displayLines.reduce<number[]>((acc, line, i) => {
+      if (line.text.toLowerCase().includes(q)) acc.push(i);
+      return acc;
+    }, []);
+  }, [displayLines, searchQuery]);
+
+  const matchCount = matchingLineIndices.length;
+
+  const {
+    currentMatchIndex,
+    setCurrentMatchIndex,
+    goNext,
+    goPrev,
+    clear: clearNav,
+  } = useSearchMatchNavigation(matchCount);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setCurrentMatchIndex(0);
+  }, [setCurrentMatchIndex]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    clearNav();
+  }, [clearNav]);
+
+  const activeLineIndex = matchCount > 0 ? matchingLineIndices[currentMatchIndex] : -1;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (activeLineIndex < 0) return;
+    lineRefs.current.get(activeLineIndex)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [activeLineIndex]);
+
+  const hasEdits = stats.added > 0 || stats.removed > 0;
+
   return (
     <div className="gql-diff-sdl-view" data-testid="gql-diff-sdl-view">
+      <div className="gql-diff-sdl-toolbar">
+        <div className="gql-diff-sdl-stats">
+          <span className="gql-diff-sdl-stat gql-diff-sdl-stat--removed">
+            − {stats.removed} removed
+          </span>
+          <span className="gql-diff-sdl-stat gql-diff-sdl-stat--added">
+            + {stats.added} added
+          </span>
+          <span className="gql-diff-sdl-stat gql-diff-sdl-stat--unchanged">
+            {stats.unchanged} unchanged
+          </span>
+        </div>
+        <label className="gql-diff-sdl-toggle">
+          <input
+            type="checkbox"
+            checked={hideUnchanged}
+            onChange={(e) => setHideUnchanged(e.target.checked)}
+            data-testid="gql-diff-sdl-hide-unchanged"
+          />
+          <span>Changes only</span>
+        </label>
+      </div>
+
+      <div className="gql-diff-sdl-search-bar">
+        <SearchMatchBar
+          value={searchQuery}
+          onChange={handleSearchChange}
+          currentMatch={matchCount > 0 ? currentMatchIndex + 1 : 0}
+          totalMatches={matchCount}
+          onPrev={goPrev}
+          onNext={goNext}
+          onClear={clearSearch}
+          inputRef={searchInputRef}
+          placeholder="Search SDL… (Cmd+F)"
+          className="gql-diff-sdl-search-inner"
+          inputClassName="gql-diff-sdl-search-input"
+          countClassName="gql-diff-sdl-search-count"
+          navClassName="gql-diff-sdl-search-nav"
+          clearClassName="gql-diff-sdl-search-clear"
+          navStyle="text"
+          ariaLabel="Search SDL diff"
+          prevTitle="Previous match (Shift+Enter)"
+          nextTitle="Next match (Enter)"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && matchCount > 0) {
+              e.preventDefault();
+              if (e.shiftKey) goPrev();
+              else goNext();
+            }
+          }}
+        />
+      </div>
+
       <div className="gql-diff-sdl-header">
+        <span className="gql-diff-sdl-gutter-label" aria-hidden="true">#</span>
         <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--removed">− Removed</span>
         <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--added">+ Added</span>
         <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--unchanged">Unchanged</span>
       </div>
+
       <div className="gql-diff-sdl-body">
-        {diffLines.map((line, i) => (
+        {!hasEdits && (
+          <div className="gql-diff-sdl-no-edits" data-testid="gql-diff-sdl-no-edits">
+            <span className="gql-diff-sdl-no-edits-icon" aria-hidden="true">✓</span>
+            <span>No SDL differences — every line matches between versions.</span>
+          </div>
+        )}
+
+        {displayLines.length === 0 && hasEdits && hideUnchanged && (
+          <div className="gql-diff-sdl-no-edits">
+            <span>All visible lines are unchanged. Uncheck &ldquo;Changes only&rdquo; to see full SDL.</span>
+          </div>
+        )}
+
+        {displayLines.map((line, i) => (
           <div
-            key={i}
-            className={`gql-diff-sdl-line gql-diff-sdl-line--${line.type}`}
+            key={`${line.type}:${i}:${line.text}`}
+            ref={(el) => {
+              if (el) lineRefs.current.set(i, el);
+              else lineRefs.current.delete(i);
+            }}
+            className={[
+              'gql-diff-sdl-line',
+              `gql-diff-sdl-line--${line.type}`,
+              i === activeLineIndex ? 'gql-diff-sdl-line--search-active' : '',
+            ].filter(Boolean).join(' ')}
+            data-testid="gql-diff-sdl-line"
           >
-            <span className="gql-diff-sdl-marker">
+            <span className="gql-diff-sdl-ln" aria-hidden="true">{i + 1}</span>
+            <span className={`gql-diff-sdl-marker gql-diff-sdl-marker--${line.type}`}>
               {line.type === 'added' ? '+' : line.type === 'removed' ? '−' : ' '}
             </span>
-            <span className="gql-diff-sdl-text">{line.text}</span>
+            <SdlHighlightedLine text={line.text} />
           </div>
         ))}
       </div>

@@ -28,6 +28,7 @@ import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot, GraphqlTypeNode } from '
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { KIND_ABBR, KIND_CSS, KIND_LABEL, fieldCountText } from '../utils/schemaExplorerUtils';
 import { TypeDetail, type DetailTab } from './explorer/TypeDetail';
+import { ChangelogPanel } from './explorer/ChangelogPanel';
 import { SchemaIdleState, SchemaLoadingState, SchemaIntrospectionDisabledState, SchemaErrorState } from './explorer/SchemaEmptyStates';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ interface GraphqlSchemaExplorerProps {
   snapshots?: GraphqlSchemaSnapshot[];
   onSaveSnapshot?: () => Promise<void>;
   onDeleteSnapshot?: (id: string) => void;
+  onClearOlderSnapshots?: (keepCount?: number) => Promise<number>;
   onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
   // 3D-7: deprecated field usage from collection items
   deprecatedUsages?: DeprecatedFieldUsage[];
@@ -82,6 +84,7 @@ export function GraphqlSchemaExplorer({
   snapshots = [],
   onSaveSnapshot,
   onDeleteSnapshot,
+  onClearOlderSnapshots,
   onOpenDiff,
   deprecatedUsages = [],
   onOpenCollectionItem,
@@ -208,7 +211,11 @@ export function GraphqlSchemaExplorer({
             onClick={() => setMainTab('changelog')}
             data-testid="gql-se-tab-changelog"
           >
-            Changelog {snapshots.length > 0 && <span className="gql-se-snap-count">{snapshots.length}</span>}
+            Changelog {snapshots.length > 0 && (
+              <span className="gql-se-snap-count" aria-label={`${snapshots.length} snapshots`}>
+                {snapshots.length > 9 ? '9+' : snapshots.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -217,6 +224,7 @@ export function GraphqlSchemaExplorer({
             snapshots={snapshots}
             currentSdl={schemaInfo?.sdl ?? ''}
             onDelete={onDeleteSnapshot}
+            onClearOlder={onClearOlderSnapshots}
             onOpenDiff={onOpenDiff}
           />
         ) : status === 'loading' ? (
@@ -259,7 +267,11 @@ export function GraphqlSchemaExplorer({
           onClick={() => setMainTab('changelog')}
           data-testid="gql-se-tab-changelog"
         >
-          Changelog {snapshots.length > 0 && <span className="gql-se-snap-count">{snapshots.length}</span>}
+          Changelog {snapshots.length > 0 && (
+            <span className="gql-se-snap-count" aria-label={`${snapshots.length} snapshots`}>
+              {snapshots.length > 9 ? '9+' : snapshots.length}
+            </span>
+          )}
         </button>
         {deprecatedUsages.length > 0 && (
           <button
@@ -299,6 +311,7 @@ export function GraphqlSchemaExplorer({
           snapshots={snapshots}
           currentSdl={schemaInfo?.sdl ?? ''}
           onDelete={onDeleteSnapshot}
+          onClearOlder={onClearOlderSnapshots}
           onOpenDiff={onOpenDiff}
         />
       )}
@@ -521,117 +534,6 @@ export function GraphqlSchemaExplorer({
   );
 }
 
-// ─── ChangelogPanel ───────────────────────────────────────────────────────────
-
-interface ChangelogPanelProps {
-  snapshots: GraphqlSchemaSnapshot[];
-  currentSdl: string;
-  onDelete?: (id: string) => void;
-  onOpenDiff?: (snapshot: GraphqlSchemaSnapshot, compareToId?: string) => void;
-}
-
-function ChangelogPanel({ snapshots, currentSdl, onDelete, onOpenDiff }: ChangelogPanelProps) {
-  const [compareTargets, setCompareTargets] = useState<Record<string, string>>({});
-
-  // When a snapshot is deleted, purge any compareTarget pointing to its id
-  const snapshotIds = useMemo(() => new Set(snapshots.map((s) => s.id)), [snapshots]);
-  const prevSnapshotIdsRef = useRef(snapshotIds);
-  useEffect(() => {
-    const prev = prevSnapshotIdsRef.current;
-    prevSnapshotIdsRef.current = snapshotIds;
-    // Find ids that disappeared
-    const removed = [...prev].filter((id) => !snapshotIds.has(id));
-    if (removed.length === 0) return;
-    setCompareTargets((ct) => {
-      const next = { ...ct };
-      let changed = false;
-      for (const key of Object.keys(next)) {
-        // Clear if the row's own key or the compareToId was deleted
-        if (removed.includes(key) || removed.includes(next[key])) {
-          delete next[key];
-          changed = true;
-        }
-      }
-      return changed ? next : ct;
-    });
-  }, [snapshotIds]);
-
-  if (snapshots.length === 0) {
-    return (
-      <div className="gql-changelog-empty" data-testid="gql-changelog-empty">
-        <div className="gql-changelog-empty-title">No snapshots yet</div>
-        <div className="gql-changelog-empty-body">
-          Click "📷 Save Snapshot" in the Types tab to capture the current schema for future diff comparisons.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="gql-changelog-panel" data-testid="gql-changelog-panel">
-      {snapshots.map((snap) => {
-        const compareToId = compareTargets[snap.id];
-        const d = new Date(snap.capturedAt);
-        const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-          ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        return (
-          <div key={snap.id} className="gql-changelog-row" data-testid="gql-changelog-row">
-            <div className="gql-changelog-row-meta">
-              <span className="gql-changelog-row-label">{snap.label ?? 'Snapshot'}</span>
-              <span className="gql-changelog-row-date">{dateStr}</span>
-              <span className="gql-changelog-row-types">{snap.typesCount} types</span>
-            </div>
-            <div className="gql-changelog-row-actions">
-              {/* Compare target selector */}
-              <select
-                className="gql-changelog-compare-select"
-                value={compareToId ?? ''}
-                onChange={(e) => setCompareTargets((p) => ({ ...p, [snap.id]: e.target.value }))}
-                title="Compare against…"
-                data-testid="gql-changelog-compare-select"
-              >
-                <option value="">vs. Current Schema</option>
-                {snapshots
-                  .filter((s) => s.id !== snap.id)
-                  .map((s) => {
-                    const sd = new Date(s.capturedAt);
-                    const sDateStr = sd.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-                      ' ' + sd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    return (
-                      <option key={s.id} value={s.id}>{s.label ?? sDateStr}</option>
-                    );
-                  })}
-              </select>
-              <button
-                type="button"
-                className="gql-changelog-diff-btn"
-                onClick={() => onOpenDiff?.(snap, compareToId || undefined)}
-                disabled={!currentSdl && !compareToId}
-                title={compareToId ? 'Compare two snapshots' : 'Compare to current schema'}
-                data-testid="gql-changelog-diff-btn"
-              >
-                Diff
-              </button>
-              {onDelete && (
-                <button
-                  type="button"
-                  className="gql-changelog-delete-btn"
-                  onClick={() => onDelete(snap.id)}
-                  title="Delete snapshot"
-                  data-testid="gql-changelog-delete-btn"
-                  aria-label={`Delete snapshot ${snap.label ?? 'from ' + dateStr}`}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 // ─── DeprecatedUsagePanel ─────────────────────────────────────────────────────
 
 interface DeprecatedUsagePanelProps {

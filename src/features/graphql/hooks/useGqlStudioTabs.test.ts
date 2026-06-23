@@ -23,43 +23,47 @@ vi.mock('../utils/gqlDemoWorkspace', async (importOriginal) => {
   };
 });
 
-vi.mock('../utils/tabPersistence', () => ({
-  loadTabs: vi.fn(async () => []),
-  loadActiveTabId: vi.fn(async () => ''),
-  saveTabs: vi.fn(),
-  disposeTabModels: vi.fn(),
-  makeBlankTab: vi.fn(() => ({
-    id: 'tab-1',
-    label: 'Untitled',
-    query: '',
-    variables: '{}',
-    headers: [],
-    modelUri: 'inmemory://graphql/tab-1',
-    unsavedChanges: false,
-    operationType: undefined,
-    selectedOperation: undefined,
-    subscriptionTransport: 'auto' as const,
-  })),
-  makeDemoTab: vi.fn((lessonId: string, label: string) => ({
-    id: 'demo-tab-2',
-    label,
-    demoLessonId: lessonId,
-    query: '',
-    variables: '{}',
-    headers: [],
-    modelUri: 'inmemory://graphql/demo-tab-2',
-    unsavedChanges: false,
-    operationType: undefined,
-    selectedOperation: undefined,
-    subscriptionTransport: 'auto' as const,
-  })),
-  advanceSeqPastRestoredIds: vi.fn(),
-  SAVE_DEBOUNCE_MS: 0,
-  MAX_TABS: 8,
-  MAX_USER_TABS: 7,
-  countUserTabs: (tabs: { demoLessonId?: string }[]) =>
-    tabs.filter((t) => !t.demoLessonId?.trim()).length,
-}));
+vi.mock('../utils/tabPersistence', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/tabPersistence')>();
+  return {
+    ...actual,
+    loadTabs: vi.fn(async () => []),
+    loadActiveTabId: vi.fn(async () => ''),
+    saveTabs: vi.fn(),
+    disposeTabModels: vi.fn(),
+    makeBlankTab: vi.fn(() => ({
+      id: 'tab-1',
+      label: 'Untitled',
+      query: '',
+      variables: '{}',
+      headers: [],
+      modelUri: 'inmemory://graphql/tab-1',
+      unsavedChanges: false,
+      operationType: undefined,
+      selectedOperation: undefined,
+      subscriptionTransport: 'auto' as const,
+    })),
+    makeDemoTab: vi.fn((lessonId: string, label: string) => ({
+      id: 'demo-tab-2',
+      label,
+      demoLessonId: lessonId,
+      query: '',
+      variables: '{}',
+      headers: [],
+      modelUri: 'inmemory://graphql/demo-tab-2',
+      unsavedChanges: false,
+      operationType: undefined,
+      selectedOperation: undefined,
+      subscriptionTransport: 'auto' as const,
+    })),
+    advanceSeqPastRestoredIds: vi.fn(),
+    SAVE_DEBOUNCE_MS: 0,
+    MAX_TABS: 8,
+    MAX_USER_TABS: 7,
+    countUserTabs: (tabs: { demoLessonId?: string }[]) =>
+      tabs.filter((t) => !t.demoLessonId?.trim()).length,
+  };
+});
 
 vi.mock('../utils/monacoGraphqlSetup', () => ({
   deriveTabLabel: vi.fn((q: string) => q.trim() ? 'Labeled' : 'Untitled'),
@@ -789,6 +793,65 @@ describe('useGqlStudioTabs', () => {
       expect(result.current.tabs[0]).toEqual(before);
     });
 
+    it('Phase 6H: applyProfileToActiveTab clears tab auth override so profile auth applies', async () => {
+      const profile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example/graphql',
+        auth: { type: 'bearer' as const, token: 'profile-token' },
+        createdAt: 1,
+      };
+      mockLoadTabs.mockResolvedValue([
+        makeTab({
+          id: 'tab-1',
+          auth: { type: 'bearer', token: 'tab-override' },
+        }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({
+          pageDefaultAuth: { type: 'bearer', token: 'page-token' },
+          pageDefaultEndpoint: 'https://default.example/graphql',
+          profiles: [profile],
+        })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.applyProfileToActiveTab(profile); });
+      expect(result.current.tabs[0].auth).toBeUndefined();
+      expect(result.current.tabs[0].connectionId).toBe('prof-staging');
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('Phase 6H: re-applying same profile clears stale tab auth override', async () => {
+      const profile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example/graphql',
+        auth: null,
+        createdAt: 1,
+      };
+      mockLoadTabs.mockResolvedValue([
+        makeTab({
+          id: 'tab-1',
+          connectionId: 'prof-staging',
+          endpoint: 'https://staging.example/graphql',
+          auth: { type: 'bearer', token: 'stale-override' },
+        }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({
+          pageDefaultEndpoint: 'https://default.example/graphql',
+          profiles: [profile],
+        })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.applyProfileToActiveTab(profile); });
+      expect(result.current.tabs[0].auth).toBeUndefined();
+    });
+
     it('Phase 6F: clearActiveTabProfileLink is no-op when tab has no profile link', async () => {
       const { result } = renderHook(() =>
         useGqlStudioTabs(defaultOptions({ pageDefaultEndpoint: 'https://default.example/graphql' })),
@@ -1496,5 +1559,245 @@ describe('useGqlStudioTabs', () => {
     const tab2after = result.current.tabs.find((t) => t.id === 'tab-2');
     expect(tab1after?.selectedOperation).toBe('Alpha');
     expect(tab2after?.query).toBe('query Other { other }'); // unchanged
+  });
+
+  describe('Phase 6H — per-tab auth mutations', () => {
+    const pageBearer = { type: 'bearer' as const, token: 'page-token' };
+
+    it('hasActiveTabAuthOverride is false for inheriting tab', async () => {
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('hasActiveTabAuthOverride is true for explicit null No Auth', async () => {
+      mockLoadTabs.mockResolvedValue([makeTab({ id: 'tab-1', auth: null })] as never);
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+      expect(result.current.hasActiveTabAuthOverride).toBe(true);
+    });
+
+    it('hasActiveTabAuthOverride is false for bare inherit on tab', async () => {
+      mockLoadTabs.mockResolvedValue([makeTab({ id: 'tab-1', auth: { type: 'inherit' } })] as never);
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('updateActiveTabAuth stores bearer override on active tab', async () => {
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth({ type: 'bearer', token: 'tab-only' });
+      });
+      expect(result.current.tabs[0].auth).toEqual({ type: 'bearer', token: 'tab-only' });
+      expect(result.current.hasActiveTabAuthOverride).toBe(true);
+    });
+
+    it('updateActiveTabAuth clears override when auth matches page default', async () => {
+      mockLoadTabs.mockResolvedValue([
+        makeTab({ id: 'tab-1', auth: { type: 'bearer', token: 'tab-only' } }),
+      ] as never);
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth(pageBearer);
+      });
+      expect(result.current.tabs[0].auth).toBeUndefined();
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('updateActiveTabAuth stores explicit null when page has bearer', async () => {
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+      act(() => { result.current.updateActiveTabAuth(null); });
+      expect(result.current.tabs[0].auth).toBeNull();
+    });
+
+    it('clearActiveTabAuth removes tab auth override', async () => {
+      mockLoadTabs.mockResolvedValue([
+        makeTab({ id: 'tab-1', auth: { type: 'bearer', token: 'tab-only' } }),
+      ] as never);
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.clearActiveTabAuth(); });
+      expect(result.current.tabs[0].auth).toBeUndefined();
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('updateActiveTabAuth only modifies the active tab', async () => {
+      const tab1 = makeTab({ id: 'tab-1' });
+      const tab2 = makeTab({ id: 'tab-2' });
+      mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.handleTabClick('tab-2'); });
+      act(() => {
+        result.current.updateActiveTabAuth({ type: 'bearer', token: 'tab-2-only' });
+      });
+
+      expect(result.current.tabs.find((t) => t.id === 'tab-1')?.auth).toBeUndefined();
+      expect(result.current.tabs.find((t) => t.id === 'tab-2')?.auth).toEqual({
+        type: 'bearer',
+        token: 'tab-2-only',
+      });
+    });
+
+    it('updateActiveTabAuth clears profile link atomically when clearProfileLink set', async () => {
+      const profile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example/graphql',
+        auth: { type: 'bearer' as const, token: 'staging' },
+        createdAt: 1,
+      };
+      mockLoadTabs.mockResolvedValue([
+        makeTab({ id: 'tab-1', connectionId: 'prof-staging', endpoint: 'https://staging.example/graphql' }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({
+          pageDefaultAuth: pageBearer,
+          profiles: [profile],
+        })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth(
+          { type: 'bearer', token: 'tab-only' },
+          { clearProfileLink: true },
+        );
+      });
+
+      expect(result.current.tabs[0].connectionId).toBeUndefined();
+      expect(result.current.tabs[0].auth).toEqual({ type: 'bearer', token: 'tab-only' });
+    });
+
+    it('Phase 6H: inherit-workspace auth edit keeps profile link when clearProfileLink set', async () => {
+      const profile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example/graphql',
+        auth: { type: 'bearer' as const, token: 'staging' },
+        createdAt: 1,
+      };
+      mockLoadTabs.mockResolvedValue([
+        makeTab({
+          id: 'tab-1',
+          connectionId: 'prof-staging',
+          endpoint: 'https://staging.example/graphql',
+          auth: { type: 'bearer', token: 'tab-override' },
+        }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({
+          pageDefaultAuth: pageBearer,
+          profiles: [profile],
+        })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth({ type: 'inherit' }, { clearProfileLink: true });
+      });
+
+      expect(result.current.tabs[0].connectionId).toBe('prof-staging');
+      expect(result.current.tabs[0].auth).toBeUndefined();
+      expect(result.current.hasActiveTabAuthOverride).toBe(false);
+    });
+
+    it('Phase 6H: inherit-global auth edit keeps profile link when clearProfileLink false', async () => {
+      const profile = {
+        id: 'prof-staging',
+        name: 'Staging',
+        endpoint: 'https://staging.example/graphql',
+        auth: { type: 'bearer' as const, token: 'staging' },
+        createdAt: 1,
+      };
+      mockLoadTabs.mockResolvedValue([
+        makeTab({
+          id: 'tab-1',
+          connectionId: 'prof-staging',
+          endpoint: 'https://staging.example/graphql',
+          auth: { type: 'inherit', globalProfileId: 'catalog-1' },
+        }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({
+          pageDefaultAuth: pageBearer,
+          profiles: [profile],
+        })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth(
+          { type: 'inherit', globalProfileId: 'catalog-2' },
+          { clearProfileLink: false },
+        );
+      });
+
+      expect(result.current.tabs[0].connectionId).toBe('prof-staging');
+      expect(result.current.tabs[0].auth).toEqual({
+        type: 'inherit',
+        globalProfileId: 'catalog-2',
+      });
+    });
+
+    it('updateActiveTabAuth skips no-op when auth unchanged (deep equal)', async () => {
+      mockLoadTabs.mockResolvedValue([
+        makeTab({ id: 'tab-1', auth: { type: 'bearer', token: 'tab-only' } }),
+      ] as never);
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => {
+        result.current.updateActiveTabAuth({ type: 'bearer', token: 'tab-only' });
+      });
+      expect(result.current.tabs[0].unsavedChanges).toBe(false);
+    });
+
+    it('addTab does not copy auth from previous tab', async () => {
+      mockLoadTabs.mockResolvedValue([
+        makeTab({ id: 'tab-1', auth: { type: 'bearer', token: 'tab-only' } }),
+      ] as never);
+      mockMakeBlankTab.mockReturnValue(makeTab({ id: 'tab-2' }));
+
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultAuth: pageBearer })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.addTab(); });
+      const newTab = result.current.tabs.find((t) => t.id === 'tab-2');
+      expect(newTab?.auth).toBeUndefined();
+    });
   });
 });

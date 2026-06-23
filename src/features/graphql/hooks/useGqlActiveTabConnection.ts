@@ -60,7 +60,7 @@ export function useGqlActiveTabConnection({
     [activeTab, profiles, pageDefaults],
   );
 
-  const resolvedTabAuth = activeTabConnection?.auth ?? auth;
+  const resolvedTabAuth = activeTabConnection ? activeTabConnection.auth : auth;
   const resolvedTabSkipTlsVerify = activeTabConnection?.skipTlsVerify ?? skipTlsVerify;
   const resolvedTabTls = activeTabConnection
     ? tabConnectionTls(activeTabConnection)

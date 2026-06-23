@@ -13,6 +13,8 @@ import type { DedupChoice } from '../utils/dedupExecution';
 import { useGqlTabExecutionRegistry } from './useGqlTabExecutionRegistry';
 import {
   resolveTabConnection,
+  findProfileById,
+  resolveTabAuthSentSource,
   type TabConnectionPageDefaults,
 } from '../utils/tabConnectionResolution';
 
@@ -72,6 +74,15 @@ export function useGraphqlStudioTabExecution({
     return map;
   }, [tabs, profiles, pageDefaults]);
 
+  const tabAuthSentSource = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof resolveTabAuthSentSource>>();
+    for (const tab of tabs) {
+      const profile = findProfileById(profiles, tab.connectionId);
+      map.set(tab.id, resolveTabAuthSentSource(tab, profile, pageDefaults.auth));
+    }
+    return map;
+  }, [tabs, profiles, pageDefaults.auth]);
+
   const activeHandle = useMemo(
     () => getHandle(activeTabId),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces refresh when any tab's handle updates
@@ -109,7 +120,12 @@ export function useGraphqlStudioTabExecution({
       <GqlTabExecutionLayer
         key={tab.id}
         tabId={tab.id}
-        resolvedAuth={tabResolvedAuth.get(tab.id) ?? pageDefaults.auth}
+        resolvedAuth={
+          tabResolvedAuth.has(tab.id) ? tabResolvedAuth.get(tab.id)! : pageDefaults.auth
+        }
+        authSentSource={
+          tabAuthSentSource.has(tab.id) ? tabAuthSentSource.get(tab.id)! : 'page'
+        }
         globalAuthProfiles={globalAuthProfiles}
         onExecutionCompleted={onExecutionCompleted}
         onRegister={register}
@@ -117,7 +133,7 @@ export function useGraphqlStudioTabExecution({
         onStateChange={notifyStateChange}
       />
     )),
-    [tabs, tabResolvedAuth, pageDefaults.auth, globalAuthProfiles, onExecutionCompleted, register, unregister, notifyStateChange],
+    [tabs, tabResolvedAuth, tabAuthSentSource, pageDefaults.auth, globalAuthProfiles, onExecutionCompleted, register, unregister, notifyStateChange],
   );
 
   return {

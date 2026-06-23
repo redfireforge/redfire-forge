@@ -798,6 +798,63 @@ describe('useGraphqlBatchExecution', () => {
       expect(body.operations[1]?.headers.Authorization).toBe('Bearer prod');
     });
 
+    it('Phase 6H: tab.auth override beats profile auth in batch operation headers', async () => {
+      vi.mocked(buildAuthHeaders).mockImplementation((auth) => {
+        if (auth?.type === 'bearer' && auth.token === 'tab-override') {
+          return { Authorization: 'Bearer tab-override' };
+        }
+        if (auth?.type === 'bearer' && auth.token === 'prod') return { Authorization: 'Bearer prod' };
+        return {};
+      });
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ data: { a: 1 } }, { data: { b: 2 } }] }),
+      });
+      const shared = 'https://shared.example.com/graphql';
+      const profiles = [
+        {
+          id: 'prof-staging',
+          name: 'Staging',
+          endpoint: shared,
+          auth: { type: 'bearer' as const, token: 'staging' },
+          createdAt: 1,
+        },
+        {
+          id: 'prof-prod',
+          name: 'Prod',
+          endpoint: shared,
+          auth: { type: 'bearer' as const, token: 'prod' },
+          createdAt: 1,
+        },
+      ];
+      const tabs = [
+        {
+          ...makeTab('t1', 'query { a }'),
+          connectionId: 'prof-staging',
+          endpoint: shared,
+          auth: { type: 'bearer' as const, token: 'tab-override' },
+        },
+        { ...makeTab('t2', 'query { b }'), connectionId: 'prof-prod', endpoint: shared },
+      ];
+      const params = {
+        ...defaultParams(),
+        tabs,
+        profiles,
+        pageDefaultAuth: { type: 'bearer' as const, token: 'page-should-not-be-used' },
+      };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+
+      const fetchCall = vi.mocked(global.fetch).mock.calls[0];
+      const body = JSON.parse(String(fetchCall?.[1]?.body)) as {
+        operations: Array<{ headers: Record<string, string> }>;
+      };
+      expect(body.operations[0]?.headers.Authorization).toBe('Bearer tab-override');
+      expect(body.operations[1]?.headers.Authorization).toBe('Bearer prod');
+    });
+
     it('Phase 6F: batchProfileLinkPending when checked tab has unresolved profile link', () => {
       const shared = 'https://shared.example.com/graphql';
       const tabs = [
