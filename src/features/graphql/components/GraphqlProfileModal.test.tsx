@@ -289,4 +289,31 @@ describe('GraphqlProfileModal', () => {
     unmount();
     expect(removeSpy).toHaveBeenCalled();
   });
+
+  it('renders draggable header with grip', () => {
+    render(<GraphqlProfileModal {...defaultProps} />);
+    const header = screen.getByTestId('gql-profile-modal-header');
+    expect(header).toHaveClass('gql-profile-modal__header--draggable');
+    expect(header.querySelector('.gql-profile-modal__drag-grip')).toBeTruthy();
+  });
+
+  it('drag on header moves the modal offset', () => {
+    render(<GraphqlProfileModal {...defaultProps} />);
+    const header = screen.getByTestId('gql-profile-modal-header');
+    const modal = screen.getByTestId('gql-profile-modal');
+    const rect = { left: 100, top: 80, width: 540, height: 400 };
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 90 });
+    fireEvent.mouseMove(window, { clientX: 160, clientY: 120 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBe('140px');
+    expect(modal.style.top).toBe('110px');
+  });
 });

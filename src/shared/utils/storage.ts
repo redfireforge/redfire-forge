@@ -72,8 +72,21 @@ export async function writeKey(key: string, value: string): Promise<void> {
     localStorage.setItem(key, value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.error(`[Storage] QuotaExceededError writing "${key}" (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`);
-      notifyStorageFull(key);
+      console.warn(`[Storage] QuotaExceededError writing "${key}" — running cleanup and retrying`);
+      purgeStaleRunnerConfigKeys();
+      cleanupStaleStorageKeys();
+      try {
+        localStorage.setItem(key, value);
+        return;
+      } catch (retryErr) {
+        if (retryErr instanceof DOMException && retryErr.name === 'QuotaExceededError') {
+          console.error(
+            `[Storage] QuotaExceededError writing "${key}" after cleanup (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`,
+          );
+          notifyStorageFull(key);
+        }
+        throw retryErr;
+      }
     }
     throw e;
   }
@@ -566,9 +579,70 @@ export {
 
 // ---------- Runner config ----------
 
+/** Suffixes we always retain across runner-config purges. */
+const RUNNER_CONFIG_KEEP_SUFFIXES = ['_workflow_runner'];
+
+/**
+ * Remove accumulated per-context runner config keys from localStorage.
+ * Keeps the global key, workflow runner, current env:svc selection, and optional active key.
+ */
+export function purgeStaleRunnerConfigKeys(activeContextKey?: string): { removed: number; freedBytes: number } {
+  if (isTauri()) return { removed: 0, freedBytes: 0 };
+
+  const keep = new Set<string>([RUNNER_CONFIG_KEY]);
+  for (const suffix of RUNNER_CONFIG_KEEP_SUFFIXES) {
+    keep.add(`${RUNNER_CONFIG_KEY}:${suffix}`);
+  }
+  if (activeContextKey) {
+    keep.add(`${RUNNER_CONFIG_KEY}:${activeContextKey}`);
+  }
+
+  try {
+    const envId = localStorage.getItem(FLAT_SEL_ENV_KEY)?.replace(/^"|"$/g, '').trim();
+    const svcId = localStorage.getItem(FLAT_SEL_SVC_KEY)?.replace(/^"|"$/g, '').trim();
+    if (envId && svcId) {
+      keep.add(`${RUNNER_CONFIG_KEY}:${envId}:${svcId}`);
+      keep.add(`${RUNNER_CONFIG_KEY}:${envId}:${svcId}:param`);
+    } else if (envId) {
+      keep.add(`${RUNNER_CONFIG_KEY}:${envId}`);
+      keep.add(`${RUNNER_CONFIG_KEY}:${envId}:param`);
+    }
+  } catch { /* ignore */ }
+
+  const toRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(`${RUNNER_CONFIG_KEY}:`)) continue;
+    if (!keep.has(key)) toRemove.push(key);
+  }
+
+  let freedBytes = 0;
+  for (const key of toRemove) {
+    freedBytes += (localStorage.getItem(key) ?? '').length * 2;
+    localStorage.removeItem(key);
+  }
+  return { removed: toRemove.length, freedBytes };
+}
+
 export async function saveRunnerConfig(config: unknown, contextKey?: string): Promise<void> {
   const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
-  await writeKey(key, JSON.stringify(config));
+  const payload = JSON.stringify(config);
+  try {
+    await writeKey(key, payload);
+  } catch (e) {
+    if (!(e instanceof DOMException && e.name === 'QuotaExceededError')) throw e;
+    purgeStaleRunnerConfigKeys(contextKey);
+    cleanupStaleStorageKeys();
+    try {
+      await writeKey(key, payload);
+    } catch (retryErr) {
+      if (retryErr instanceof DOMException && retryErr.name === 'QuotaExceededError') {
+        console.warn(`[Storage] Runner config save failed after cleanup for "${key}"`);
+        return;
+      }
+      throw retryErr;
+    }
+  }
 }
 
 export async function loadRunnerConfig(contextKey?: string): Promise<unknown | null> {
@@ -766,25 +840,10 @@ export function cleanupStaleStorageKeys(): { removed: number; freedKB: number } 
     freedBytes += size;
   }
 
-  // Also trim runner-config keys with deep composite IDs (4+ segments = stale per-run configs)
-  const configsToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    if (key.startsWith('perf-test-runner-config:')) {
-      const segments = key.split(':');
-      if (segments.length >= 4) {
-        configsToRemove.push(key);
-      }
-    }
-  }
-
-  for (const key of configsToRemove) {
-    const size = (localStorage.getItem(key) ?? '').length * 2;
-    localStorage.removeItem(key);
-    removed++;
-    freedBytes += size;
-  }
+  // Trim stale per-env runner configs (demo lessons and env switches accumulate these)
+  const runnerPurge = purgeStaleRunnerConfigKeys();
+  removed += runnerPurge.removed;
+  freedBytes += runnerPurge.freedBytes;
 
   // Migrate remaining large localStorage keys to IDB (fire-and-forget)
   migrateRemainingLargeKeysToIdb().catch(() => { /* best effort */ });

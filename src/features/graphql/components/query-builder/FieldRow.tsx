@@ -165,6 +165,7 @@ export const FieldRow = memo(function FieldRow({
 
       {showArgs && (
         <div className="gql-qb-args-block" style={{ paddingLeft: `${8 + depth * 16 + 40}px` }}>
+          <div className="gql-qb-args-label">Arguments</div>
           {field.args!.map((arg) => (
             <ArgInput
               key={arg.name}

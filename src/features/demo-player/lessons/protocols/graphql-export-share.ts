@@ -2,12 +2,18 @@
 import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HEALTH,
   GQL_DEMO_HTTP,
   ensureBuilderHealthAndUserSelected,
   ensureBuilderSdlCopied,
   ensureExportBuilderEditedToEditor,
-  ensureHistoryCopyAsCurl,
+  ensureExportQueryExecuted,
+  prepareGql9ExecReading,
+  prepareGql9HistoryReading,
+  prepareGql9CurlReading,
+  ensureHistoryEntryVisible,
+  copyHistoryAsCurl,
   ensureIntrospected,
   getBuilderCodeText,
   gqlExportShareLessonCleanup,
@@ -21,9 +27,9 @@ export const gqlExportShareLesson: DemoLesson = {
   name: 'Export & Share Queries',
   description:
     'Export GraphQL operations via Builder preview, copy SDL, transfer to the editor, and share as cURL from History.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -56,17 +62,17 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       {
         term: 'SDL preview',
         definition:
-          'Live-generated query text in the Builder center panel (`gql-qb-code`). Updates with every checkbox change, argument fill, alias, or directive — the authoritative visual export of the query you are constructing.',
+          'Live-generated query text in the Builder center **SDL preview** panel. Updates with every checkbox change, argument fill, alias, or directive — the authoritative visual export of the query you are constructing.',
       },
       {
         term: 'Copy (Builder)',
         definition:
-          'Toolbar button (`gql-qb-copy`) that copies the current SDL preview to your clipboard. Use to paste into `.graphql` files, READMEs, Postman, or frontend code. Brief "Copied ✓" confirmation appears.',
+          'Toolbar **Copy** button that copies the current SDL preview to your clipboard. Use to paste into `.graphql` files, READMEs, Postman, or frontend code. Brief "Copied ✓" confirmation appears.',
       },
       {
         term: 'Edit in Editor',
         definition:
-          'One-way transfer (`gql-qb-edit`): the Builder SDL lands in Monaco and Builder mode turns off. From that point, you hand-edit the query. There is no back-sync from the editor to the Builder.',
+          'One-way transfer via **Edit in Editor**: the Builder SDL lands in Monaco and Builder mode turns off. From that point, you hand-edit the query. There is no back-sync from the editor to the Builder.',
       },
       {
         term: 'Copy as cURL',
@@ -311,7 +317,7 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       id: 'gql9-preview',
       title: 'Read the Live SDL Preview',
       description:
-        'Watch the center **SDL preview** (`gql-qb-code`) — it shows the complete generated query with both `health` and `user(id: …)` fields, updating in real time as you interact with the Builder.\n\n' +
+        'Watch the center **SDL preview** — it shows the complete generated query with both `health` and `user(id: …)` fields, updating in real time as you interact with the Builder.\n\n' +
         '**Why a live preview instead of a separate Code Gen step?** The SDL preview eliminates the round-trip: you see the exact query that will be sent as you build it, not after a "generate" button click. ' +
         'If you check a field and the SDL looks wrong, you uncheck it immediately — there is no intermediate state to reason about. ' +
         'This is also the canonical export surface: the preview text is exactly what executes when you click Execute.',
@@ -334,7 +340,7 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       id: 'gql9-copy',
       title: 'Copy SDL to Clipboard',
       description:
-        'Click **Copy** (`gql-qb-copy`) in the Builder toolbar — the generated query is copied to your clipboard. The button briefly shows **Copied ✓** as confirmation.\n\n' +
+        'Click **Copy** in the Builder toolbar — the generated query is copied to your clipboard. The button briefly shows **Copied ✓** as confirmation.\n\n' +
         '**Why Copy is the developer handoff path:** The clipboard is the universal bridge between tools. Once the SDL is on your clipboard you can:\n' +
         '- Paste it into a `.graphql` file in your codebase and commit it\n' +
         '- Paste it into a Postman or Insomnia request body\n' +
@@ -356,7 +362,7 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       id: 'gql9-edit',
       title: 'Transfer to Editor (One-Way)',
       description:
-        'Click **Edit in Editor** (`gql-qb-edit`) — the SDL transfers to Monaco and **Builder mode turns off**. You can now hand-edit the query text before executing.\n\n' +
+        'Click **Edit in Editor** — the SDL transfers to Monaco and **Builder mode turns off**. You can now hand-edit the query text before executing.\n\n' +
         '**Why is this a one-way transfer?** The Builder is a selection model — it tracks which checkboxes are ticked and which arguments are filled. ' +
         'Once you have arbitrary text in the editor (you can write any valid GraphQL), there is no reliable way to reconstruct the checkbox state from that text. ' +
         'So the transfer is intentionally one-way. Use **Edit in Editor** when the Builder got you 90% there and you need to make a final tweak — add a fragment, change a field alias, or add a directive — that Builder mode does not expose.',
@@ -370,26 +376,54 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       pauseAfter: true,
     },
 
-    // ── Step 5: Copy as cURL from History ──────────────────────────────────
+    // ── Step 5: Execute exported query ─────────────────────────────────────
     {
-      id: 'gql9-curl',
-      title: 'Share as cURL from History',
+      id: 'gql9-exec-export',
+      title: 'Execute the Exported Query',
       description:
-        'Click **Execute** to run the query, then open **History** → **right-click** the entry → **Copy as cURL**. A complete `curl -X POST` command with your endpoint and JSON body is copied to your clipboard.\n\n' +
-        '**Why cURL is the universal sharing format:** A cURL command encodes the complete HTTP request — URL, headers, and body — in a single string that works in any terminal on any operating system. It is also the language that engineers, support teams, and CI pipelines share when discussing API calls. ' +
-        'Specific advantages:\n' +
-        '- **Reproducibility**: the recipient runs the exact same HTTP request, not an approximation\n' +
-        '- **CI/CD**: paste into a GitHub Actions step or a bash script with no modification\n' +
-        '- **Tool import**: Postman and Insomnia both accept cURL commands via "Import from cURL"\n' +
-        '- **Bug reports**: a cURL command in a bug report removes all ambiguity about what was sent',
-      highlight: GQL.HISTORY_CONTEXT_MENU,
-      preAction: ensureExportBuilderEditedToEditor,
+        'Click **Execute** to run the query you transferred from Builder. This creates a **History** entry with the full HTTP request details — endpoint, headers, and JSON body — ready for cURL export.\n\n' +
+        '**Why execute before cURL?** History captures the *actual* request that was sent, including any hand-edits you made in Monaco. The cURL command is derived from that real execution, not from the Builder preview alone.',
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareGql9ExecReading,
       action: async (ctx) => {
-        await ensureHistoryCopyAsCurl(ctx);
+        await ensureExportQueryExecuted(ctx);
+        await ctx.delay(800);
+      },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    // ── Step 6: Open History entry ─────────────────────────────────────────
+    {
+      id: 'gql9-open-history',
+      title: 'Open History — Find Your Request',
+      description:
+        'Open the **History** activity tab. The latest entry shows your query name, status code, and timing. **Right-click** (or context menu) targets this row in the next step.\n\n' +
+        '**Why History as the cURL source?** It records every executed request with resolved endpoint URL and serialized variables — exactly what a reproducible cURL command needs.',
+      highlight: GQL.HISTORY_ENTRY,
+      preAction: prepareGql9HistoryReading,
+      action: async (ctx) => {
+        await ensureHistoryEntryVisible(ctx);
         await ctx.delay(800);
       },
       verify: GQL.HISTORY_ENTRY,
       pauseAfter: true,
+    },
+
+    // ── Step 7: Copy as cURL ───────────────────────────────────────────────
+    {
+      id: 'gql9-curl',
+      title: 'Share as cURL from History',
+      description:
+        '**Right-click** the History entry → **Copy as cURL**. A complete `curl -X POST` command with your endpoint and JSON body is copied to your clipboard.\n\n' +
+        '**Why cURL is the universal sharing format:** A cURL command encodes the complete HTTP request — URL, headers, and body — in a single string that works in any terminal on any operating system. It is also the language that engineers, support teams, and CI pipelines share when discussing API calls.',
+      highlight: GQL.HISTORY_CONTEXT_MENU,
+      preAction: prepareGql9CurlReading,
+      action: async (ctx) => {
+        await copyHistoryAsCurl(ctx);
+      },
+      verify: GQL.HISTORY_ENTRY,
+      pauseAfter: 5500,
     },
   ],
 };

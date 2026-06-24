@@ -123,9 +123,10 @@ describe('gql-query-builder lesson', () => {
 
   // ─── Spotlight / highlight correctness ───────────────────────────────────
 
-  it('gql7-builder highlights QB_FIELD_TREE (field tree is visible after switching)', () => {
+  it('gql7-builder highlights MODE_BUILDER (Builder tab before switching)', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-builder')!;
-    expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
+    expect(step.highlight).toBe(GQL.MODE_BUILDER);
+    expect(step.verify).toBe(GQL.QB_FIELD_TREE);
   });
 
   it('gql7-expand highlights QB_FIELD_TREE (expand button is in field tree)', () => {
@@ -133,9 +134,9 @@ describe('gql-query-builder lesson', () => {
     expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
   });
 
-  it('gql7-health highlights QB_CODE (live SDL preview updates)', () => {
+  it('gql7-health highlights QB_FIELD_TREE (live SDL preview updates)', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-health')!;
-    expect(step.highlight).toBe(GQL.QB_CODE);
+    expect(step.highlight).toBe(GQL.QB_FIELD_TREE);
   });
 
   it('gql7-select-all highlights QB_SELECT_ALL', () => {
@@ -148,14 +149,14 @@ describe('gql-query-builder lesson', () => {
     expect(step.highlight).toBe(GQL.QB_ARG_USER_ID);
   });
 
-  it('gql7-alias highlights FO_ALIAS_USER_ID (alias input in Summary)', () => {
+  it('gql7-alias highlights FO_EXPAND_USER_ID (field options row in Summary)', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-alias')!;
-    expect(step.highlight).toBe(GQL.FO_ALIAS_USER_ID);
+    expect(step.highlight).toBe(GQL.FO_EXPAND_USER_ID);
   });
 
-  it('gql7-include highlights FO_INCLUDE_USER_ID (@include toggle)', () => {
+  it('gql7-include highlights FO_EXPAND_USER_ID (field options row in Summary)', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-include')!;
-    expect(step.highlight).toBe(GQL.FO_INCLUDE_USER_ID);
+    expect(step.highlight).toBe(GQL.FO_EXPAND_USER_ID);
   });
 
   it('gql7-copy highlights QB_COPY button', () => {
@@ -168,9 +169,10 @@ describe('gql-query-builder lesson', () => {
     expect(step.highlight).toBe(GQL.QB_EDIT);
   });
 
-  it('gql7-one-way highlights MODE_EDITOR (demonstrating builder state not synced back)', () => {
+  it('gql7-one-way highlights QB_CODE (generated SDL without editor comment)', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
-    expect(step.highlight).toBe(GQL.MODE_EDITOR);
+    expect(step.highlight).toBe(GQL.QB_CODE);
+    expect(step.verify).toBe(GQL.QB_CODE);
   });
 
   // ─── Step description WHY content ────────────────────────────────────────
@@ -193,9 +195,9 @@ describe('gql-query-builder lesson', () => {
     expect(step.description).toContain('id');
   });
 
-  it('gql7-alias description explains alias WHY for response key renaming', () => {
+  it('gql7-alias description references user › id breadcrumb row', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-alias')!;
-    expect(step.description).toContain('alias');
+    expect(step.description).toContain('user › id');
     expect(step.description).toContain('userId');
   });
 
@@ -209,6 +211,7 @@ describe('gql-query-builder lesson', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
     expect(step.description).toContain('one-way');
     expect(step.description).toContain('selection model');
+    expect(step.description).toContain('Generated query');
   });
 
   // ─── Existing step action tests ───────────────────────────────────────────
@@ -419,7 +422,7 @@ describe('gql-query-builder lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_BUILDER);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_EDITOR);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.MODE_EDITOR);
     expect(getMonacoGqlModel()?.getValue()).toContain(LESSON7_EDITOR_COMMENT);
   });
 

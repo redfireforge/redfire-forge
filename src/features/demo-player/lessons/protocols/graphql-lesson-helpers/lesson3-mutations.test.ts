@@ -40,7 +40,9 @@ import {
   prepareGql3WriteDeleteReading,
   prepareGql3WireDeleteVarReading,
   prepareGql3ExecDeleteReading,
-  prepareGql3IdempotencyReading,
+  prepareGql3ObserveDeleteReading,
+  prepareGql3IdempotencyExecReading,
+  prepareGql3ObserveIdempotencyReading,
   ensureCreateUserExecuted,
   ensureCreateOrderExecuted,
   ensureDeleteUserMutation,
@@ -347,7 +349,23 @@ describe('lesson3-mutations helpers', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 
-  it('prepareGql3IdempotencyReading executes first delete when not yet done', async () => {
+  it('prepareGql3ObserveDeleteReading opens response after first delete', async () => {
+    buildGql3StudioDom();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { deleteUser: { success: true } } }),
+    }));
+    stubMonacoEditor(GQL_DELETE_USER_MUTATION);
+    storeFirstDeleteExecuted();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-rv-tab-response" aria-selected="false"></button>
+      <pre data-testid="gql-response-body">{"data":{"deleteUser":{"success":true}}}</pre>
+    `);
+    const ctx = makeCtx();
+    await prepareGql3ObserveDeleteReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+  });
+
+  it('prepareGql3IdempotencyExecReading executes first delete when not yet done', async () => {
     buildGql3StudioDom();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: async () => ({ data: { createUser: { id: 'usr-1' } } }),
@@ -357,7 +375,23 @@ describe('lesson3-mutations helpers', () => {
       <button data-testid="gql-bottom-tab-variables" aria-selected="true"></button>
     `);
     const ctx = makeCtx();
-    await prepareGql3IdempotencyReading(ctx);
+    await prepareGql3IdempotencyExecReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('prepareGql3ObserveIdempotencyReading executes second delete when not yet done', async () => {
+    buildGql3StudioDom();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { deleteUser: { success: false } } }),
+    }));
+    stubMonacoEditor(GQL_DELETE_USER_MUTATION);
+    storeFirstDeleteExecuted();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-rv-tab-response" aria-selected="false"></button>
+      <pre data-testid="gql-response-body">{"data":{"deleteUser":{"success":false}}}</pre>
+    `);
+    const ctx = makeCtx();
+    await prepareGql3ObserveIdempotencyReading(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 

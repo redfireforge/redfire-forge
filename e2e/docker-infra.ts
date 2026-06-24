@@ -43,6 +43,28 @@ async function isGraphqlHealthy(): Promise<boolean> {
   }
 }
 
+async function isGqlTlsHealthy(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:4444/health', { signal: AbortSignal.timeout(3_000) });
+    if (!resp.ok) return false;
+    const body = (await resp.json()) as { status?: string };
+    return body.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+async function isGqlMtlsHealthy(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:4446/health', { signal: AbortSignal.timeout(3_000) });
+    if (!resp.ok) return false;
+    const body = (await resp.json()) as { status?: string };
+    return body.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
 async function isSchemaRegistryHealthy(): Promise<boolean> {
   try {
     const resp = await fetch('http://localhost:8085/subjects', { signal: AbortSignal.timeout(3_000) });
@@ -57,6 +79,26 @@ const GRAPHQL_STACK: DockerStackDef = {
   cwd: path.join(REPO_ROOT, 'docker/graphql'),
   healthCheck: isGraphqlHealthy,
 };
+
+const GQL_TLS_STACK: DockerStackDef = {
+  name: 'graphql-tls',
+  cwd: path.join(REPO_ROOT, 'docker/graphql/tls'),
+  healthCheck: isGqlTlsHealthy,
+};
+
+const GQL_MTLS_STACK: DockerStackDef = {
+  name: 'graphql-mtls',
+  cwd: path.join(REPO_ROOT, 'docker/graphql/tls'),
+  composeArgs: '-f docker-compose.mtls.yml',
+  healthCheck: isGqlMtlsHealthy,
+};
+
+/** GQL-5 full walk — plain GraphQL (4010) + TLS (4444) + mTLS (4446). */
+const GQL5_DOCKER_STACKS: DockerStackDef[] = [
+  GRAPHQL_STACK,
+  GQL_TLS_STACK,
+  GQL_MTLS_STACK,
+];
 
 const FULL_DOCKER_STACKS: DockerStackDef[] = [
   GRAPHQL_STACK,
@@ -110,8 +152,43 @@ function startStack(stack: DockerStackDef): void {
   execSync(cmd, { cwd: stack.cwd, stdio: 'inherit' });
 }
 
-export async function ensureDockerInfrastructure(fullDocker: boolean): Promise<void> {
-  const stacks = fullDocker ? FULL_DOCKER_STACKS : [GRAPHQL_STACK];
+function ensureGqlTlsCerts(): void {
+  const tlsDir = path.join(REPO_ROOT, 'docker/graphql/tls');
+  console.log('[docker-infra] Ensuring GraphQL TLS certs exist...');
+  execSync('./generate-cert.sh', { cwd: tlsDir, stdio: 'inherit' });
+  execSync('./generate-client-cert.sh', { cwd: tlsDir, stdio: 'inherit' });
+}
+
+function buildGraphqlTestServerImage(): void {
+  console.log('[docker-infra] Building graphql-test-server image (required by TLS stacks)...');
+  execSync('docker compose build', {
+    cwd: path.join(REPO_ROOT, 'docker/graphql'),
+    stdio: 'inherit',
+  });
+}
+
+function graphqlTestServerImageExists(): boolean {
+  try {
+    execSync('docker image inspect graphql-graphql-test-server:latest', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureGraphqlTestServerImage(): Promise<void> {
+  if (await isGraphqlHealthy()) {
+    console.log('[docker-infra] graphql-test-server already healthy — skip image build');
+    return;
+  }
+  if (graphqlTestServerImageExists()) {
+    console.log('[docker-infra] graphql-graphql-test-server:latest present — skip build');
+    return;
+  }
+  buildGraphqlTestServerImage();
+}
+
+async function ensureStacks(stacks: DockerStackDef[]): Promise<void> {
   for (const stack of stacks) {
     if (await stack.healthCheck()) {
       console.log(`[docker-infra] ${stack.name} already running — skip`);
@@ -122,8 +199,28 @@ export async function ensureDockerInfrastructure(fullDocker: boolean): Promise<v
   }
 }
 
+export async function ensureDockerInfrastructure(fullDocker: boolean): Promise<void> {
+  const stacks = fullDocker ? FULL_DOCKER_STACKS : [GRAPHQL_STACK];
+  await ensureStacks(stacks);
+}
+
+/** Start plain GraphQL + TLS + mTLS stacks for GQL-5 demo E2E. */
+export async function ensureGql5DockerInfrastructure(): Promise<void> {
+  ensureGqlTlsCerts();
+  await ensureGraphqlTestServerImage();
+  await ensureStacks(GQL5_DOCKER_STACKS);
+}
+
 export function stopDockerInfrastructure(fullDocker: boolean): void {
   const stacks = fullDocker ? [...FULL_DOCKER_STACKS].reverse() : [GRAPHQL_STACK];
+  stopStacks(stacks);
+}
+
+export function stopGql5DockerInfrastructure(): void {
+  stopStacks([...GQL5_DOCKER_STACKS].reverse());
+}
+
+function stopStacks(stacks: DockerStackDef[]): void {
   for (const stack of stacks) {
     try {
       const cmd = stack.composeArgs

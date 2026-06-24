@@ -1,30 +1,18 @@
 /**
- * GqlLatencyHistogram.tsx — Phase 2 Deferred
+ * GqlLatencyHistogram — compact latency distribution strip below the response viewer.
  *
- * Compact latency histogram strip displayed below the response viewer.
- * Shows a distribution of the last N response latencies in 10 logarithmic
- * buckets.  Appears only when at least 2 data points are available.
- *
- * Bucket boundaries (ms): <50, 50–100, 100–200, 200–500, 500–1000,
- *   1000–2000, 2000–5000, 5000–10000, 10000–30000, ≥30000
+ * Shows the last N response latencies in logarithmic buckets with summary metrics.
  */
 
 import { useMemo } from 'react';
+import { computePercentiles } from '../../../shared/utils/percentiles';
+import { BUCKETS, bucketIndex, formatLatencyMs } from './gqlLatencyHistogramUtils';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const BUCKETS: Array<{ label: string; max: number }> = [
-  { label: '<50ms',    max: 50 },
-  { label: '50–100',  max: 100 },
-  { label: '100–200', max: 200 },
-  { label: '200–500', max: 500 },
-  { label: '0.5–1s',  max: 1000 },
-  { label: '1–2s',    max: 2000 },
-  { label: '2–5s',    max: 5000 },
-  { label: '5–10s',   max: 10000 },
-  { label: '10–30s',  max: 30000 },
-  { label: '≥30s',    max: Infinity },
-];
+const SPEED_LEGEND = [
+  { label: 'Fast', className: 'gql-hist-bar--ok' },
+  { label: 'Moderate', className: 'gql-hist-bar--warn' },
+  { label: 'Slow', className: 'gql-hist-bar--slow' },
+] as const;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -33,25 +21,41 @@ interface GqlLatencyHistogramProps {
   latencyHistory: number[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function bucketIndex(ms: number): number {
-  for (let i = 0; i < BUCKETS.length - 1; i++) {
-    if (ms < BUCKETS[i].max) return i;
-  }
-  return BUCKETS.length - 1;
-}
-
 function barColorClass(bucketIdx: number): string {
-  // 0–3: green (≤ 500ms), 4: amber (≤ 1s), 5+: red (>1s)
   if (bucketIdx <= 3) return 'gql-hist-bar--ok';
   if (bucketIdx === 4) return 'gql-hist-bar--warn';
   return 'gql-hist-bar--slow';
 }
 
+function formatPercent(count: number, total: number): string {
+  if (total <= 0) return '0%';
+  return `${Math.round((count / total) * 100)}%`;
+}
+
+interface MetricProps {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  title?: string;
+}
+
+function Metric({ label, value, highlight = false, title }: MetricProps) {
+  return (
+    <div
+      className={`gql-hist-metric${highlight ? ' gql-hist-metric--highlight' : ''}`}
+      title={title}
+    >
+      <span className="gql-hist-metric-label">{label}</span>
+      <span className="gql-hist-metric-value">{value}</span>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function GqlLatencyHistogram({ latencyHistory }: GqlLatencyHistogramProps) {
+  const total = latencyHistory.length;
+
   const counts = useMemo(() => {
     const arr = new Array<number>(BUCKETS.length).fill(0);
     for (const ms of latencyHistory) {
@@ -62,58 +66,108 @@ export function GqlLatencyHistogram({ latencyHistory }: GqlLatencyHistogramProps
 
   const maxCount = useMemo(() => Math.max(...counts, 1), [counts]);
 
-  // Compact stats
-  const avg = useMemo(
-    () =>
-      latencyHistory.length === 0
-        ? 0
-        : Math.round(latencyHistory.reduce((s, v) => s + v, 0) / latencyHistory.length),
-    [latencyHistory],
-  );
+  const stats = useMemo(() => {
+    const sorted = [...latencyHistory].sort((a, b) => a - b);
+    const summary = computePercentiles(sorted);
+    return {
+      sorted,
+      avg: Math.round(summary.mean),
+      min: summary.min,
+      max: summary.max,
+      p95: Math.round(summary.p95),
+      p95Bucket: summary.p95 > 0 ? bucketIndex(summary.p95) : -1,
+    };
+  }, [latencyHistory]);
 
-  const sorted = useMemo(() => [...latencyHistory].sort((a, b) => a - b), [latencyHistory]);
-  const p95 = useMemo(() => {
-    if (sorted.length === 0) return 0;
-    const idx = Math.min(Math.ceil(sorted.length * 0.95) - 1, sorted.length - 1);
-    return sorted[idx];
-  }, [sorted]);
+  const requestLabel = total === 1 ? '1 request' : `${total} requests`;
 
   return (
-    <div className="gql-hist" data-testid="gql-histogram-strip" aria-label="Latency distribution">
+    <section
+      className="gql-hist"
+      data-testid="gql-histogram-strip"
+      aria-label="Latency distribution"
+    >
       <div className="gql-hist-header">
-        <span className="gql-hist-title">Latency</span>
-        <span className="gql-hist-stat" title="Average latency">avg {avg}ms</span>
-        <span className="gql-hist-stat" title="95th percentile">p95 {p95}ms</span>
-        <span className="gql-hist-stat gql-hist-stat--muted">n={latencyHistory.length}</span>
+        <div className="gql-hist-heading">
+          <h3 className="gql-hist-title">Latency distribution</h3>
+          <p className="gql-hist-subtitle">Session history · {requestLabel}</p>
+        </div>
+        <div className="gql-hist-metrics" aria-label="Latency summary">
+          <Metric label="Min" value={formatLatencyMs(stats.min)} title="Fastest response" />
+          <Metric label="Avg" value={formatLatencyMs(stats.avg)} title="Mean latency" />
+          <Metric
+            label="p95"
+            value={formatLatencyMs(stats.p95)}
+            highlight
+            title="95th percentile — 95% of requests were faster than this"
+          />
+          <Metric label="Max" value={formatLatencyMs(stats.max)} title="Slowest response" />
+        </div>
       </div>
-      <div className="gql-hist-bars" role="img" aria-label={`Latency histogram over ${latencyHistory.length} requests`}>
-        {BUCKETS.map((bucket, i) => {
-          const count = counts[i];
-          const heightPct = maxCount > 0 ? Math.max((count / maxCount) * 100, count > 0 ? 8 : 0) : 0;
-          return (
-            <div
-              key={bucket.label}
-              className="gql-hist-col"
-              title={`${bucket.label}: ${count} request${count !== 1 ? 's' : ''}`}
-            >
-              <div className="gql-hist-bar-wrap">
-                {count > 0 && (
-                  <span className="gql-hist-count" aria-hidden="true">
-                    {count}
-                  </span>
-                )}
-                <div
-                  className={`gql-hist-bar ${barColorClass(i)}`}
-                  style={{ height: `${heightPct}%` }}
-                  aria-hidden="true"
-                />
+
+      <div
+        className="gql-hist-chart"
+        role="img"
+        aria-label={`Latency histogram over ${total} requests`}
+      >
+        <div className="gql-hist-bars">
+          {BUCKETS.map((bucket, i) => {
+            const count = counts[i];
+            const heightPct = count > 0
+              ? Math.max((count / maxCount) * 100, 12)
+              : 0;
+            const isP95Bucket = i === stats.p95Bucket && count > 0;
+            const tooltip = count > 0
+              ? `${bucket.label}: ${count} request${count !== 1 ? 's' : ''} (${formatPercent(count, total)})`
+              : `${bucket.label}: no requests`;
+
+            return (
+              <div
+                key={bucket.label}
+                className={[
+                  'gql-hist-col',
+                  count > 0 ? 'gql-hist-col--filled' : 'gql-hist-col--empty',
+                  isP95Bucket ? 'gql-hist-col--p95' : '',
+                ].filter(Boolean).join(' ')}
+                title={tooltip}
+                data-testid={`gql-hist-col-${i}`}
+              >
+                <div className="gql-hist-bar-wrap">
+                  {count > 0 && (
+                    <span className="gql-hist-count" aria-hidden="true">
+                      {count}
+                    </span>
+                  )}
+                  <div
+                    className={`gql-hist-bar ${barColorClass(i)}`}
+                    style={{ height: count > 0 ? `${heightPct}%` : undefined }}
+                    aria-hidden="true"
+                  />
+                  {count === 0 && <div className="gql-hist-bar gql-hist-bar--ghost" aria-hidden="true" />}
+                </div>
+                <span className="gql-hist-label">{bucket.label}</span>
               </div>
-              <span className="gql-hist-label">{bucket.label}</span>
-              {count > 0 && <span className="gql-hist-count">{count}</span>}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      <div className="gql-hist-footer">
+        <div className="gql-hist-legend" aria-hidden="true">
+          {SPEED_LEGEND.map(({ label, className }, idx) => (
+            <span key={label} className="gql-hist-legend-item">
+              {idx > 0 && <span className="gql-hist-legend-sep">·</span>}
+              <span className={`gql-hist-legend-swatch ${className}`} />
+              {label}
+            </span>
+          ))}
+        </div>
+        {stats.p95Bucket >= 0 && (
+          <span className="gql-hist-p95-note" data-testid="gql-hist-p95-note">
+            p95 marker · {BUCKETS[stats.p95Bucket].label}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }

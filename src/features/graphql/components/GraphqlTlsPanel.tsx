@@ -74,8 +74,9 @@ export function GraphqlTlsPanel({
   const hasCaCert = !!caCert?.trim();
   const hasMtls = !!(clientCert?.trim() || clientKey?.trim());
   const hasTlsContent = skipTlsVerify || hasCaCert || hasMtls;
-  const modeLabel = hasMtls ? 'mTLS' : hasCaCert ? 'Custom CA' : skipTlsVerify ? 'Skip Verify' : null;
-  const modeBadgeVariant = hasMtls ? 'mtls' : hasCaCert ? 'ca' : skipTlsVerify ? 'skip' : null;
+  const hasValidatedCa = hasCaCert && !skipTlsVerify;
+  const modeLabel = hasMtls ? 'mTLS' : hasValidatedCa ? 'Custom CA' : skipTlsVerify ? 'Skip Verify' : null;
+  const modeBadgeVariant = hasMtls ? 'mtls' : hasValidatedCa ? 'ca' : skipTlsVerify ? 'skip' : null;
 
   const configureBtn = (
     <button

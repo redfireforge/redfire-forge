@@ -63,8 +63,8 @@ export function SummaryPanel({
     return cost;
   }, [schemaInfo, selectedCount, state.selectedFields, types, rootTypeName]);
 
-  const complexityCls = estimatedComplexity > 150 ? 'gql-qb-summary-value--danger'
-    : estimatedComplexity > 80  ? 'gql-qb-summary-value--warn'
+  const complexityCls = estimatedComplexity > 150 ? 'gql-qb-summary-stat-value--danger'
+    : estimatedComplexity > 80  ? 'gql-qb-summary-stat-value--warn'
     : '';
 
   const handlePathSearch = useCallback((q: string) => {
@@ -91,49 +91,57 @@ export function SummaryPanel({
   return (
     <div className="gql-qb-summary" data-testid="gql-qb-summary">
       <div className="gql-qb-summary-section">
-        <h3 className="gql-qb-summary-title">Selection Summary</h3>
-        <div className="gql-qb-summary-grid">
-          <div className="gql-qb-summary-row">
-            <span className="gql-qb-summary-label">Selected fields</span>
-            <span className="gql-qb-summary-value">{selectedCount}</span>
-          </div>
-          <div className="gql-qb-summary-row">
-            <span className="gql-qb-summary-label">Nested depth</span>
-            <span className="gql-qb-summary-value">{maxDepth}</span>
-          </div>
-          <div className="gql-qb-summary-row">
-            <span className="gql-qb-summary-label">Arguments</span>
-            <span className="gql-qb-summary-value">{argsCount}</span>
-          </div>
-          <div className="gql-qb-summary-row">
-            <span className="gql-qb-summary-label">Variables</span>
-            <span className="gql-qb-summary-value">{variablesCount}</span>
-          </div>
-          {estimatedComplexity > 0 && (
-            <div className="gql-qb-summary-row">
-              <span className="gql-qb-summary-label">Est. complexity</span>
-              <span className={`gql-qb-summary-value ${complexityCls}`} title="Estimated query complexity score">{estimatedComplexity}</span>
+        <h3 className="gql-qb-summary-title">Selection summary</h3>
+        {selectedCount === 0 ? (
+          <p className="gql-qb-summary-empty">
+            Check fields in the schema tree to build your operation. Metrics update as you select.
+          </p>
+        ) : (
+          <div className="gql-qb-summary-grid">
+            <div className="gql-qb-summary-stat gql-qb-summary-stat--primary">
+              <span className="gql-qb-summary-stat-value">{selectedCount}</span>
+              <span className="gql-qb-summary-stat-label">Fields</span>
             </div>
-          )}
-          {aliasCount > 0 && (
-            <div className="gql-qb-summary-row">
-              <span className="gql-qb-summary-label">Aliases</span>
-              <span className="gql-qb-summary-value">{aliasCount}</span>
+            <div className="gql-qb-summary-stat">
+              <span className="gql-qb-summary-stat-value">{maxDepth}</span>
+              <span className="gql-qb-summary-stat-label">Depth</span>
             </div>
-          )}
-          {directiveCount > 0 && (
-            <div className="gql-qb-summary-row">
-              <span className="gql-qb-summary-label">Directives</span>
-              <span className="gql-qb-summary-value">{directiveCount}</span>
+            <div className="gql-qb-summary-stat">
+              <span className="gql-qb-summary-stat-value">{argsCount}</span>
+              <span className="gql-qb-summary-stat-label">Args</span>
             </div>
-          )}
-          {fragmentCount > 0 && (
-            <div className="gql-qb-summary-row">
-              <span className="gql-qb-summary-label">Fragments</span>
-              <span className="gql-qb-summary-value">{fragmentCount}</span>
+            <div className="gql-qb-summary-stat">
+              <span className="gql-qb-summary-stat-value">{variablesCount}</span>
+              <span className="gql-qb-summary-stat-label">Variables</span>
             </div>
-          )}
-        </div>
+            {estimatedComplexity > 0 && (
+              <div className={`gql-qb-summary-stat gql-qb-summary-stat--wide${complexityCls ? ` ${complexityCls}` : ''}`}>
+                <span className={`gql-qb-summary-stat-value${complexityCls ? ` ${complexityCls}` : ''}`} title="Estimated query complexity score">
+                  {estimatedComplexity}
+                </span>
+                <span className="gql-qb-summary-stat-label">Est. complexity</span>
+              </div>
+            )}
+            {aliasCount > 0 && (
+              <div className="gql-qb-summary-stat">
+                <span className="gql-qb-summary-stat-value">{aliasCount}</span>
+                <span className="gql-qb-summary-stat-label">Aliases</span>
+              </div>
+            )}
+            {directiveCount > 0 && (
+              <div className="gql-qb-summary-stat">
+                <span className="gql-qb-summary-stat-value">{directiveCount}</span>
+                <span className="gql-qb-summary-stat-label">Directives</span>
+              </div>
+            )}
+            {fragmentCount > 0 && (
+              <div className="gql-qb-summary-stat">
+                <span className="gql-qb-summary-stat-value">{fragmentCount}</span>
+                <span className="gql-qb-summary-stat-label">Fragments</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedCount > 0 && (
@@ -155,8 +163,8 @@ export function SummaryPanel({
       />
 
       <div className="gql-qb-summary-section">
-        <h3 className="gql-qb-summary-title">Find Field Path</h3>
-        <p className="gql-qb-summary-hint">Find how to reach any field from root</p>
+        <h3 className="gql-qb-summary-title">Find field path</h3>
+        <p className="gql-qb-summary-hint">Jump to any field from the root type</p>
         <input
           type="text"
           className="gql-qb-summary-search"
@@ -196,8 +204,8 @@ export function SummaryPanel({
         )}
       </div>
 
-      <div className="gql-qb-summary-section gql-qb-kbd-section">
-        <h3 className="gql-qb-summary-title">Keyboard Shortcuts</h3>
+      <details className="gql-qb-summary-section gql-qb-kbd-section">
+        <summary className="gql-qb-summary-title gql-qb-kbd-summary">Keyboard shortcuts</summary>
         <div className="gql-qb-kbd-list">
           {[
             { key: '⌘K',    desc: 'Focus search' },
@@ -213,7 +221,7 @@ export function SummaryPanel({
             </div>
           ))}
         </div>
-      </div>
+      </details>
     </div>
   );
 }
@@ -235,7 +243,7 @@ function FieldOptionsSection({ state, onSetAlias, onSetDirective }: FieldOptions
 
   return (
     <div className="gql-qb-summary-section" data-testid="gql-qb-field-options">
-      <h3 className="gql-qb-summary-title">Field Options</h3>
+      <h3 className="gql-qb-summary-title">Field options</h3>
       <p className="gql-qb-summary-hint">Alias and directives per selected field</p>
       <div className="gql-qb-fo-list">
         {displayPaths.map((path) => (
@@ -264,6 +272,25 @@ interface FieldOptionRowProps {
   onSetDirective: (path: FieldPath, which: 'include' | 'skip', enabled: boolean, ifVar: string) => void;
 }
 
+function formatFieldOptionPath(path: string): React.ReactNode {
+  const segments = path.split('.');
+  if (segments.length === 1) {
+    return <span className="gql-qb-fo-leaf">{segments[0]}</span>;
+  }
+  return (
+    <>
+      {segments.map((seg, i) => (
+        <React.Fragment key={`${path}-${i}`}>
+          {i > 0 && <span className="gql-qb-fo-sep" aria-hidden="true"> › </span>}
+          <span className={i === segments.length - 1 ? 'gql-qb-fo-leaf' : 'gql-qb-fo-seg'}>
+            {seg}
+          </span>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
 function FieldOptionRow({ path, alias, directives, onSetAlias, onSetDirective }: FieldOptionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const leafName = path.split('.').pop() ?? path;
@@ -276,7 +303,7 @@ function FieldOptionRow({ path, alias, directives, onSetAlias, onSetDirective }:
     } else if (cur) {
       onSetDirective(path, 'include', true, cur.ifVar);
     } else {
-      onSetDirective(path, 'include', true, '');
+      onSetDirective(path, 'include', true, 'true');
     }
   };
 
@@ -287,7 +314,7 @@ function FieldOptionRow({ path, alias, directives, onSetAlias, onSetDirective }:
     } else if (cur) {
       onSetDirective(path, 'skip', true, cur.ifVar);
     } else {
-      onSetDirective(path, 'skip', true, '');
+      onSetDirective(path, 'skip', true, 'false');
     }
   };
 
@@ -298,13 +325,11 @@ function FieldOptionRow({ path, alias, directives, onSetAlias, onSetDirective }:
           type="button"
           className={`gql-qb-fo-expand${expanded ? ' gql-qb-fo-expand--open' : ''}`}
           onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? `Collapse options for ${leafName}` : `Expand options for ${leafName}`}
+          aria-label={expanded ? `Collapse options for ${path}` : `Expand options for ${path}`}
           title={path}
+          data-testid={`gql-fo-expand-${path}`}
         >
-          <span className="gql-qb-fo-leaf">{leafName}</span>
-          {path.includes('.') && (
-            <span className="gql-qb-fo-parent"> ({path.split('.').slice(0, -1).join('.')})</span>
-          )}
+          {formatFieldOptionPath(path)}
           <span className="gql-qb-fo-chevron">{expanded ? '▲' : '▼'}</span>
         </button>
       </div>
@@ -460,6 +485,7 @@ function FragmentSection({
   const handleCreate = useCallback(() => {
     const trimName = newName.trim();
     const trimType = newType.trim();
+    if (selectedPaths.length === 0) { setError('Select fields first to create a fragment.'); return; }
     if (!trimName) { setError('Fragment name is required.'); return; }
     if (!isValidGqlIdentifier(trimName)) { setError('Name must be a valid GraphQL identifier.'); return; }
     if (fragmentMap[trimName]) { setError(`Fragment "${trimName}" already exists.`); return; }
@@ -474,7 +500,7 @@ function FragmentSection({
   return (
     <div className="gql-qb-summary-section" data-testid="gql-qb-fragment-section">
       <h3 className="gql-qb-summary-title">Fragments</h3>
-      <p className="gql-qb-summary-hint">Named fragments emitted after the main operation</p>
+      <p className="gql-qb-summary-hint">Reusable field sets appended after the operation</p>
 
       {/* Existing fragments */}
       {fragments.length > 0 && (
@@ -522,37 +548,39 @@ function FragmentSection({
 
       {/* New fragment form */}
       <div className="gql-qb-frag-new">
-        <input
-          type="text"
-          className="gql-qb-frag-name-input"
-          placeholder="FragmentName"
-          value={newName}
-          onChange={(e) => { setNewName(e.target.value); setError(''); }}
-          aria-label="New fragment name"
-          data-testid="gql-qb-frag-name-input"
-        />
-        {objectTypeNames.length > 0 ? (
-          <select
-            className="gql-qb-frag-type-select"
-            value={newType}
-            onChange={(e) => { setNewType(e.target.value); setError(''); }}
-            aria-label="Fragment on type"
-            data-testid="gql-qb-frag-type-select"
-          >
-            <option value="">on type…</option>
-            {objectTypeNames.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        ) : (
+        <div className="gql-qb-frag-new-row">
           <input
             type="text"
-            className="gql-qb-frag-type-input"
-            placeholder="on type…"
-            value={newType}
-            onChange={(e) => { setNewType(e.target.value); setError(''); }}
-            aria-label="Fragment on type"
-            data-testid="gql-qb-frag-type-input"
+            className="gql-qb-frag-name-input"
+            placeholder="Fragment name"
+            value={newName}
+            onChange={(e) => { setNewName(e.target.value); setError(''); }}
+            aria-label="New fragment name"
+            data-testid="gql-qb-frag-name-input"
           />
-        )}
+          {objectTypeNames.length > 0 ? (
+            <select
+              className="gql-qb-frag-type-select"
+              value={newType}
+              onChange={(e) => { setNewType(e.target.value); setError(''); }}
+              aria-label="Fragment on type"
+              data-testid="gql-qb-frag-type-select"
+            >
+              <option value="">On type…</option>
+              {objectTypeNames.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          ) : (
+            <input
+              type="text"
+              className="gql-qb-frag-type-input"
+              placeholder="On type…"
+              value={newType}
+              onChange={(e) => { setNewType(e.target.value); setError(''); }}
+              aria-label="Fragment on type"
+              data-testid="gql-qb-frag-type-input"
+            />
+          )}
+        </div>
         <button
           type="button"
           className="gql-qb-frag-create-btn"
@@ -560,8 +588,11 @@ function FragmentSection({
           aria-label="Create new fragment from current selection"
           data-testid="gql-qb-frag-create-btn"
         >
-          + New from selection
+          New from selection
         </button>
+        {selectedPaths.length === 0 && (
+          <p className="gql-qb-frag-hint">Select fields in the tree to enable fragment creation.</p>
+        )}
         {error && <p className="gql-qb-frag-error" role="alert">{error}</p>}
       </div>
     </div>

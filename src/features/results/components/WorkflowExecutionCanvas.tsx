@@ -83,7 +83,7 @@ export default function WorkflowExecutionCanvas({
   selectedNodeId,
   onNodeClick,
   onNodeDoubleClick,
-  showMinimap = true,
+  showMinimap = false,
   onToggleMinimap,
   fitViewTrigger,
   onBottlenecksComputed,

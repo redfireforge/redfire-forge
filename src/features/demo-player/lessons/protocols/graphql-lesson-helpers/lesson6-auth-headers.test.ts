@@ -2,6 +2,17 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+vi.mock('./gql-demo-tab', () => ({
+  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql6'),
+  closeGqlDemoTabs: vi.fn(async () => {}),
+}));
+
+vi.mock('../../../../graphql/utils/gqlDemoConnectionProfiles', () => ({
+  GQL6_DEMO_PROFILE_NAME: 'Demo GQL-6',
+  purgeGqlDemoConnectionProfiles: vi.fn(async () => 0),
+}));
+
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
 import {
@@ -12,25 +23,53 @@ import {
   LESSON6_API_KEY_TEMPLATE,
   LESSON6_BASIC_USER,
   LESSON6_BASIC_PASS,
+  LESSON6_OAUTH_TOKEN_URL,
+  LESSON6_OAUTH_CLIENT_ID,
+  LESSON6_OAUTH_CLIENT_SECRET,
   LESSON6_GLOBAL_AUTH_PROFILE_ID,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
   LESSON6_PROFILE_NAME,
   resetGqlLesson6SessionFlags,
   seedLesson6GlobalAuthProfile,
+  upsertGqlDemoEnvVars,
   ensureEnvReady,
   ensureBearerDone,
   ensureApiKeyDone,
   ensureBasicDone,
+  ensureOauthDone,
   ensureInheritDone,
   ensureProfileDone,
+  runAuthExecuteWithMetadata,
+  selectInheritGlobalProfileInPanel,
+  markBearerDone,
+  markApiKeyDone,
+  markBasicDone,
+  markOauthDone,
+  markInheritDone,
+  preIntroStep,
   preEnvStep,
   preBearerStep,
   preApiKeyStep,
   preBasicStep,
+  preOauthStep,
   preInheritStep,
   preProfileStep,
   preSubscriptionStep,
+  prepareBearerConfigReading,
+  prepareBearerObserveReading,
+  prepareApiKeyConfigReading,
+  prepareApiKeyObserveReading,
+  prepareBasicConfigReading,
+  prepareBasicObserveReading,
+  prepareInheritConfigReading,
+  prepareInheritObserveReading,
+  prepareSubscriptionExecReading,
+  prepareSubscriptionObserveReading,
+  gqlAuthLessonSetup,
+  gqlAuthLessonCleanup,
 } from './lesson6-auth-headers';
+import { ensureGqlDemoTab, closeGqlDemoTabs } from './gql-demo-tab';
+import { purgeGqlDemoConnectionProfiles } from '../../../../graphql/utils/gqlDemoConnectionProfiles';
 import { stubMonacoEditor } from '../__test-utils__/graphql-test-fixtures';
 
 // ── Shared DOM helpers ────────────────────────────────────────────────────────
@@ -43,6 +82,8 @@ function buildFullDom(): void {
     <button data-testid="gql-env-badge"></button>
     <div data-testid="gql-env-modal">
       <button data-testid="gql-env-new-btn"></button>
+      <button data-testid="gql-env-var-add-btn"></button>
+      <button data-testid="gql-env-close-btn"></button>
       <div data-testid="gql-env-var-row">
         <input data-testid="gql-env-var-key" value="authToken" />
         <input class="gql-env-var-input" value="${LESSON6_AUTH_TOKEN_VALUE}" />
@@ -60,6 +101,7 @@ function buildFullDom(): void {
         <option value="bearer">Bearer</option>
         <option value="apiKey">API Key</option>
         <option value="basic">Basic</option>
+        <option value="oauth2">OAuth 2.0</option>
         <option value="inherit">Inherit</option>
       </select>
       <input data-testid="gql-auth-bearer-input" value="${LESSON6_BEARER_TEMPLATE}" />
@@ -67,6 +109,10 @@ function buildFullDom(): void {
       <input data-testid="gql-auth-apikey-val" value="${LESSON6_API_KEY_TEMPLATE}" />
       <input data-testid="gql-auth-basic-user" value="${LESSON6_BASIC_USER}" />
       <input data-testid="gql-auth-basic-pass" value="${LESSON6_BASIC_PASS}" />
+      <input data-testid="gql-auth-oauth-token-url" />
+      <input data-testid="gql-auth-oauth-client-id" />
+      <input data-testid="gql-auth-oauth-client-secret" />
+      <code data-testid="gql-auth-preview">Authorization: Bearer token</code>
       <select data-testid="gql-auth-profile-select">
         <option value="${LESSON6_GLOBAL_AUTH_PROFILE_ID}">${LESSON6_GLOBAL_AUTH_PROFILE_NAME}</option>
       </select>
@@ -83,6 +129,7 @@ function buildFullDom(): void {
     </div>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    <button data-testid="gql-right-tab-response" aria-selected="true"></button>
   `;
   stubMonacoEditor('query { health }');
 }
@@ -98,6 +145,8 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
 
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile;
+    delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
+    delete (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName;
     vi.unstubAllGlobals();
   });
 
@@ -377,5 +426,292 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     if (document.querySelector(GQL.PROFILE_MODAL)) {
       expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
     }
+  });
+
+  // ── Bridge + env var CRUD ───────────────────────────────────────────────────
+
+  it('upsertGqlDemoEnvVars uses window bridge when available', async () => {
+    const bridge = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = bridge;
+    const ctx = makeCtx();
+    await upsertGqlDemoEnvVars(ctx, [{ key: 'authToken', value: LESSON6_AUTH_TOKEN_VALUE }]);
+    expect(bridge).toHaveBeenCalledWith('Demo', [{ key: 'authToken', value: LESSON6_AUTH_TOKEN_VALUE, masked: true }]);
+  });
+
+  it('upsertGqlDemoEnvVars DOM path creates env and adds missing variables', async () => {
+    delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
+    document.body.innerHTML = `
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth" aria-selected="false"></button>
+      <button data-testid="gql-env-badge"></button>
+      <div data-testid="gql-env-modal">
+        <button data-testid="gql-env-new-btn"></button>
+        <button data-testid="gql-env-var-add-btn"></button>
+        <button data-testid="gql-env-set-active-btn"></button>
+        <div data-testid="gql-env-var-row">
+          <input data-testid="gql-env-var-key" value="" />
+          <input class="gql-env-var-input" value="" />
+          <button type="button" class="gql-env-var-secret-toggle" onclick="this.classList.add('gql-env-var-secret-toggle--active')"></button>
+        </div>
+      </div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.ENV_VAR_ADD_BTN) {
+        document.querySelector('[data-testid="gql-env-modal"]')?.insertAdjacentHTML(
+          'beforeend',
+          `<div data-testid="gql-env-var-row">
+            <input data-testid="gql-env-var-key" value="" />
+            <input class="gql-env-var-input" value="" />
+            <button type="button" class="gql-env-var-secret-toggle" onclick="this.classList.add('gql-env-var-secret-toggle--active')"></button>
+          </div>`,
+        );
+      }
+    });
+    await upsertGqlDemoEnvVars(ctx, [
+      { key: 'authToken', value: LESSON6_AUTH_TOKEN_VALUE },
+      { key: 'apiKey', value: LESSON6_API_KEY_VALUE },
+    ]);
+    const clickTargets = vi.mocked(ctx.click).mock.calls.map((c) => c[0]);
+    expect(clickTargets).toContain(GQL.ENV_SET_ACTIVE_BTN);
+    const keys = [...document.querySelectorAll<HTMLInputElement>('[data-testid="gql-env-var-key"]')].map((i) => i.value);
+    expect(keys).toContain('authToken');
+    expect(keys).toContain('apiKey');
+    const activeToggles = document.querySelectorAll('.gql-env-var-secret-toggle--active');
+    expect(activeToggles.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('closeEnvIfOpen falls back to overlay click when close button absent', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-env-modal"></div>
+      <div data-testid="gql-env-modal-overlay"></div>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth"></button>
+    `;
+    const overlay = document.querySelector<HTMLElement>('[data-testid="gql-env-modal-overlay"]')!;
+    const overlayClick = vi.spyOn(overlay, 'click');
+    const ctx = makeCtx();
+    await preEnvStep(ctx);
+    expect(overlayClick).toHaveBeenCalled();
+  });
+
+  // ── OAuth + inherit + execute ─────────────────────────────────────────────────
+
+  it('ensureOauthDone configures OAuth 2.0 fields', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await ensureOauthDone(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_CLIENT_ID, LESSON6_OAUTH_CLIENT_ID);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_CLIENT_SECRET, LESSON6_OAUTH_CLIENT_SECRET);
+  });
+
+  it('selectInheritGlobalProfileInPanel selects inherit + global profile', async () => {
+    buildFullDom();
+    const upsert = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile = upsert;
+    const ctx = makeCtx();
+    await selectInheritGlobalProfileInPanel(ctx);
+    expect(upsert).toHaveBeenCalled();
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
+  });
+
+  it('runAuthExecuteWithMetadata executes and opens Metadata tab', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await runAuthExecuteWithMetadata(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+  });
+
+  it('mark-done setters allow ensure chain short-circuit', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    markBearerDone();
+    markApiKeyDone();
+    markBasicDone();
+    markOauthDone();
+    markInheritDone();
+    vi.mocked(ctx.click).mockClear();
+    await ensureProfileDone(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_SAVE_BTN);
+    vi.mocked(ctx.click).mockClear();
+    await ensureInheritDone(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  // ── prepare* reading helpers ────────────────────────────────────────────────
+
+  it('prepareBearerConfigReading runs preBearerStep chain', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareBearerConfigReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_CLOSE_BTN);
+  });
+
+  it('prepareBearerObserveReading configures bearer without execute', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareBearerObserveReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('prepareApiKeyObserveReading configures api key without execute', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareApiKeyObserveReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
+  });
+
+  it('prepareBasicObserveReading configures basic auth without execute', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareBasicObserveReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
+  });
+
+  it('prepareInheritConfigReading seeds global profile via preInheritStep', async () => {
+    buildFullDom();
+    const upsert = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile = upsert;
+    const ctx = makeCtx();
+    await prepareInheritConfigReading(ctx);
+    expect(upsert).toHaveBeenCalled();
+  });
+
+  it('prepareInheritObserveReading configures inherit without execute', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareInheritObserveReading(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
+  });
+
+  it('prepareSubscriptionObserveReading executes with metadata', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareSubscriptionObserveReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+  });
+
+  it('preIntroStep closes stale modals on empty endpoint DOM', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="" />
+      <div data-testid="gql-env-modal"></div>
+      <button data-testid="gql-env-close-btn"></button>
+      <button data-testid="gql-bottom-tab-variables"></button>
+      <button data-testid="gql-bottom-tab-auth"></button>
+    `;
+    const ctx = makeCtx();
+    await preIntroStep(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(String));
+  });
+
+  it('preOauthStep runs after basic auth chain', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await preOauthStep(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
+  });
+
+  it('ensureOauthDone is idempotent on second call', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await ensureOauthDone(ctx);
+    vi.mocked(ctx.fill).mockClear();
+    await ensureOauthDone(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
+  });
+
+  it('preSubscriptionStep skips profile close when modal absent', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await ensureProfileDone(ctx);
+    document.querySelector(GQL.PROFILE_MODAL)?.remove();
+    vi.mocked(ctx.click).mockClear();
+    await preSubscriptionStep(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+  });
+
+  it('gqlAuthLessonCleanup skips profile close when modal absent', async () => {
+    buildFullDom();
+    document.querySelector(GQL.PROFILE_MODAL)?.remove();
+    const ctx = makeCtx();
+    await gqlAuthLessonCleanup(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+  });
+
+  // ── Lesson lifecycle ────────────────────────────────────────────────────────
+
+  it('gqlAuthLessonSetup prepares demo tab and editor', async () => {
+    buildFullDom();
+    stubMonacoEditor('query { health }');
+    const deleteEnv = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName = deleteEnv;
+    const historyBtn = document.createElement('button');
+    historyBtn.setAttribute('data-testid', 'gql-activity-history');
+    historyBtn.className = 'gql-activity-tab--active';
+    document.body.appendChild(historyBtn);
+    const ctx = makeCtx();
+    await gqlAuthLessonSetup(ctx);
+    expect(deleteEnv).toHaveBeenCalledWith('Demo');
+    expect(purgeGqlDemoConnectionProfiles).toHaveBeenCalledWith([LESSON6_PROFILE_NAME]);
+    expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-auth-headers', 'Authentication & Headers');
+  });
+
+  it('prepareApiKeyConfigReading runs preApiKeyStep chain', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareApiKeyConfigReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+  });
+
+  it('prepareBasicConfigReading runs preBasicStep chain', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareBasicConfigReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
+  });
+
+  it('prepareSubscriptionExecReading selects inherit profile', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await prepareSubscriptionExecReading(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
+  });
+
+  it('gqlAuthLessonSetup activates editor and response tabs when inactive', async () => {
+    buildFullDom();
+    stubMonacoEditor('query { health }');
+    document.querySelector(GQL.MODE_EDITOR)?.classList.remove('gql-mode-btn--active');
+    document.querySelector(GQL.RIGHT_TAB_RESPONSE)?.setAttribute('aria-selected', 'false');
+    const editorClick = vi.spyOn(document.querySelector<HTMLElement>(GQL.MODE_EDITOR)!, 'click');
+    const responseClick = vi.spyOn(document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE)!, 'click');
+    const ctx = makeCtx();
+    await gqlAuthLessonSetup(ctx);
+    expect(editorClick).toHaveBeenCalled();
+    expect(responseClick).toHaveBeenCalled();
+  });
+
+  it('gqlAuthLessonCleanup closes demo tabs and deletes Demo env', async () => {
+    buildFullDom();
+    const deleteEnv = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName = deleteEnv;
+    const ctx = makeCtx();
+    await gqlAuthLessonCleanup(ctx);
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-auth-headers');
+    expect(deleteEnv).toHaveBeenCalledWith('Demo');
+    expect(purgeGqlDemoConnectionProfiles).toHaveBeenCalledWith([LESSON6_PROFILE_NAME]);
+  });
+
+  it('gqlAuthLessonCleanup closes profile modal when open', async () => {
+    buildFullDom();
+    const ctx = makeCtx();
+    await gqlAuthLessonCleanup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
   });
 });

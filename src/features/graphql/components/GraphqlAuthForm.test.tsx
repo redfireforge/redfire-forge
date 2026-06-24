@@ -129,6 +129,21 @@ describe('GraphqlAuthForm — rendering', () => {
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'p1' });
   });
 
+  it('falls back to first global profile when defaultAuthProfileId is unset', () => {
+    const onChange = vi.fn();
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+      { id: 'p2', name: 'Prod', auth: { type: 'bearer', token: 'p' } },
+    ];
+    renderForm({ type: 'oauth2', oauth2: { tokenUrl: '', clientId: '', clientSecret: '' } }, onChange, {
+      authScope: 'tab',
+      hasAuthOverride: true,
+      globalAuthProfiles: profiles,
+    });
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'inherit' } });
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'p1' });
+  });
+
   it('hides linked profile hint when linkedProfileName is absent', () => {
     renderForm({ type: 'bearer', token: 'tok' }, vi.fn(), { authScope: 'tab', hasAuthOverride: true });
     expect(screen.queryByTestId('gql-auth-profile-hint')).toBeNull();
@@ -273,11 +288,29 @@ describe('GraphqlAuthForm — inherit and reset', () => {
     fireEvent.click(screen.getByTestId('gql-auth-switch-override-btn'));
     expect(onChange).toHaveBeenCalledWith({ type: 'bearer', token: '' });
   });
+
+  it('calls onChange with default oauth2 object when switching to oauth2 from scratch', () => {
+    const onChange = vi.fn();
+    renderForm(null, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'oauth2' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'oauth2',
+        oauth2: { tokenUrl: '', clientId: '', clientSecret: '' },
+      }),
+    );
+  });
 });
 
 describe('GraphqlAuthForm — read-only auth types', () => {
-  it('shows oauth2 read-only info', () => {
-    renderForm({ type: 'oauth2' });
+  it('shows oauth2 fields and guidance', () => {
+    renderForm({
+      type: 'oauth2',
+      oauth2: { tokenUrl: 'https://auth/token', clientId: 'c', clientSecret: 's' },
+    });
+    expect(screen.getByTestId('gql-auth-oauth-token-url')).toBeTruthy();
+    expect(screen.getByTestId('gql-auth-oauth-client-id')).toBeTruthy();
+    expect(screen.getByTestId('gql-auth-oauth-client-secret')).toBeTruthy();
     expect(screen.getByText(/pre-request scripts/i)).toBeTruthy();
   });
 

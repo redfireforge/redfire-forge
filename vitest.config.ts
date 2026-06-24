@@ -13,6 +13,8 @@ export default defineConfig({
     poolMatchGlobs: [
       // Server tests share module-level state — run each file in its own fork
       ['src-server/**', 'forks'],
+      // Demo hub coverage tests leave async timers — isolate from other files
+      ['src/features/demo-player/useDemoHub.coverage*.ts', 'forks'],
     ],
     retry: 2,
     coverage: {

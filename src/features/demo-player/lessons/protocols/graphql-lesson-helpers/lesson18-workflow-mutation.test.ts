@@ -8,6 +8,7 @@ import {
   LESSON18_WF_NAME,
   LESSON18_NODE_CREATE,
   LESSON18_NODE_DELETE,
+  createGqlMutationDemoWorkflow,
   resetGqlLesson18SessionFlags,
   gqlWorkflowMutationLessonSetup,
   ensureLesson18WorkflowLoaded,
@@ -20,6 +21,11 @@ import {
   selectGqlMutationDemoWorkflow,
 } from './lesson18-workflow-mutation';
 
+function seedLesson18WorkflowBridge(): void {
+  (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+    name === LESSON18_WF_NAME ? createGqlMutationDemoWorkflow() : null;
+}
+
 describe('lesson18-workflow-mutation helpers (direct)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -29,6 +35,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     delete (window as unknown as Record<string, unknown>).__wfConnect;
     delete (window as unknown as Record<string, unknown>).__wfAddNode;
@@ -65,6 +72,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     const ctx = makeCtx();
     await ensureLesson18MutationConfigured(ctx);
+    seedLesson18WorkflowBridge();
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson18MutationConfigured(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
@@ -86,6 +94,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     const ctx = makeCtx();
     await ensureLesson18MutationConfigured(ctx);
     await ensureLesson18MutationOutputBound(ctx);
+    seedLesson18WorkflowBridge();
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson18MutationOutputBound(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
@@ -115,6 +124,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     const ctx = makeCtx();
     await ensureLesson18MutationOutputBound(ctx);
     await ensureLesson18QueryConfigured(ctx);
+    seedLesson18WorkflowBridge();
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson18QueryConfigured(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
@@ -152,12 +162,13 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     const ctx = makeCtx();
     await ensureLesson18QueryConfigured(ctx);
     await ensureLesson18AssertConfigured(ctx);
+    seedLesson18WorkflowBridge();
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson18AssertConfigured(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
-  it('ensureLesson18QuickTestRun skips when exec summary already visible', async () => {
+  it('ensureLesson18QuickTestRun skips when prior quick test passed', async () => {
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <div data-testid="gql-wf-assert-panel">
@@ -181,9 +192,10 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
         <textarea data-testid="gql-wf-variables-editor"></textarea>
         <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
       </div>
-      <div data-testid="exec-summary"></div>
+      <div data-testid="exec-summary" class="wf-exec-strip wf-exec-strip-pass"></div>
       <button class="wf-quick-test-btn"></button>
     `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => createGqlMutationDemoWorkflow();
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     const ctx = makeCtx();
     await ensureLesson18AssertConfigured(ctx);

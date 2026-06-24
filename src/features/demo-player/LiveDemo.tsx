@@ -1,9 +1,14 @@
 /** Live Demo — floating narration panel during live step execution */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { DemoLesson, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
+import {
+  findFirstVisibleElement,
+  hasDemoHubTextSelection,
+  isSpotlightSuppressedForModal,
+} from './demoSpotlightUtils';
 
 interface LiveDemoProps {
   lesson: DemoLesson;
@@ -63,6 +68,31 @@ function useDraggable(panelRef: React.RefObject<HTMLDivElement | null>) {
   return { style, onMouseDown };
 }
 
+/** Isolated narration body — avoids re-rendering step copy when spotlight poll updates. */
+const DemoLiveNarration = memo(function DemoLiveNarration({
+  title,
+  description,
+  diagram,
+}: {
+  title: string;
+  description: string;
+  diagram?: string;
+}) {
+  const descriptionHtml = useMemo(() => renderMarkdown(description), [description]);
+  return (
+    <div className="demo-live-panel-body">
+      <h4 className="demo-live-step-title">{title}</h4>
+      <p className="demo-live-step-desc" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+      {diagram && (
+        <div
+          className="demo-step-diagram demo-step-diagram--live"
+          dangerouslySetInnerHTML={{ __html: diagram }}
+        />
+      )}
+    </div>
+  );
+});
+
 export default function LiveDemo({
   lesson,
   stepIndex,
@@ -79,42 +109,52 @@ export default function LiveDemo({
   const [targetFound, setTargetFound] = useState(false);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const targetFoundRef = useRef(false);
+  const scrolledHighlightRef = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const { style: dragStyle, onMouseDown: onDragMouseDown } = useDraggable(panelRef);
-
-  // Auto-close the overview whenever the user advances to a new step
-  useEffect(() => { setOverviewOpen(false); }, [stepIndex]);
+  const closeOverview = useCallback(() => setOverviewOpen(false), []);
 
   // Continuous spotlight poll: runs for the full lifetime of each step so the ring
   // can appear even when the action navigates to a different page mid-step.
-  // The cleanup function fires on step/highlight change, preventing stale polls.
+  // Paused while the steps overview is open or the user is copying panel text.
   useEffect(() => {
-    if (!step?.highlight) { setTargetFound(false); return; }
+    if (overviewOpen || !step?.highlight) {
+      if (!step?.highlight) {
+        targetFoundRef.current = false;
+        setTargetFound(false);
+      }
+      return;
+    }
+
+    scrolledHighlightRef.current = false;
 
     const poll = () => {
-      // When multiple tabs render the same testid, find the first VISIBLE match
-      // (e.g. left-tab-auth exists once per connection tab; inactive tabs have 0×0 size)
-      const all = document.querySelectorAll(step.highlight!);
-      const el = all.length > 0
-        ? Array.from(all).find(e => isElementVisible(e)) ?? null
-        : null;
-      if (el) {
-        setTargetFound(true);
+      if (hasDemoHubTextSelection()) return;
+
+      const el = findFirstVisibleElement(step.highlight!);
+      const found = !!(el && !isSpotlightSuppressedForModal(el));
+
+      if (found !== targetFoundRef.current) {
+        targetFoundRef.current = found;
+        setTargetFound(found);
+      }
+
+      if (found && el && !scrolledHighlightRef.current) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        setTargetFound(false);
+        scrolledHighlightRef.current = true;
       }
     };
 
-    // Reset and poll continuously — the interval is cancelled when the step changes.
+    targetFoundRef.current = false;
     setTargetFound(false);
-    pollRef.current = setInterval(poll, 100);
-    poll(); // immediate first check
+    pollRef.current = setInterval(poll, 500);
+    poll();
 
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-  }, [step?.highlight, stepIndex]);
+  }, [step?.highlight, stepIndex, overviewOpen]);
 
   if (!step) return null;
 
@@ -135,8 +175,8 @@ export default function LiveDemo({
 
   return (
     <>
-      {/* Spotlight ring on target element — hidden during preAction to avoid mis-positioned flash */}
-      {targetFound && step.highlight && stepPhase !== 'pre' && (
+      {/* Spotlight ring — hidden while steps overview is open */}
+      {targetFound && step.highlight && stepPhase !== 'pre' && !overviewOpen && (
         <DemoSpotlight selector={step.highlight} active={true} />
       )}
 
@@ -145,7 +185,7 @@ export default function LiveDemo({
         <StepOverviewDrawer
           lesson={lesson}
           currentStepIndex={stepIndex}
-          onClose={() => setOverviewOpen(false)}
+          onClose={closeOverview}
         />
       )}
 
@@ -185,16 +225,11 @@ export default function LiveDemo({
           <div className="demo-live-progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
 
-        <div className="demo-live-panel-body">
-          <h4 className="demo-live-step-title">{step.title}</h4>
-          <p className="demo-live-step-desc" dangerouslySetInnerHTML={{ __html: renderMarkdown(step.description) }} />
-          {step.diagram && (
-            <div
-              className="demo-step-diagram demo-step-diagram--live"
-              dangerouslySetInnerHTML={{ __html: step.diagram }}
-            />
-          )}
-        </div>
+        <DemoLiveNarration
+          title={step.title}
+          description={step.description}
+          diagram={step.diagram}
+        />
 
         {phaseLabel && (
           <div className="demo-live-panel-status">
@@ -224,7 +259,8 @@ export default function LiveDemo({
           <button
             className="demo-live-btn demo-live-play-btn"
             onClick={onTogglePlay}
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+            title={isPlaying ? 'Pause auto-play (Space)' : 'Play (Space)'}
+            aria-label={isPlaying ? 'Pause auto-play' : 'Play auto-play'}
           >
             {isPlaying ? '⏸' : '▶'}
           </button>
@@ -262,11 +298,4 @@ export default function LiveDemo({
       </div>
     </>
   );
-}
-
-function isElementVisible(el: Element): boolean {
-  const rect = el.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return false;
-  const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
 }

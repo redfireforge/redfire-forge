@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { Tab } from '../utils/appTabUtils';
 import type { StepPhase } from '../../features/demo-player/types';
+import { shouldIgnoreDemoShortcuts, shouldAllowDemoPlayPauseShortcut } from '../../features/demo-player/demoShortcutUtils';
 
 /**
  * Keyboard shortcuts and auto-exit behaviour for the Demo Hub.
@@ -41,8 +42,7 @@ export function useDemoShortcuts(
       // with __demoAction=true so the shortcut handler does not confuse them with
       // real user input and accidentally advances/reverses the demo step.
       if ((e as KeyboardEvent & { __demoAction?: boolean }).__demoAction) return;
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (shouldIgnoreDemoShortcuts(e.target)) return;
 
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
@@ -50,7 +50,7 @@ export function useDemoShortcuts(
         return;
       }
 
-      // Live mode shortcuts
+      // Live mode shortcuts — never steal Space/→/Esc from editors or form fields.
       if (demoHub.state.view === 'live') {
         switch (e.key) {
           case 'Escape':
@@ -67,6 +67,12 @@ export function useDemoShortcuts(
             }
             break;
           case ' ':
+            if (
+              !shouldAllowDemoPlayPauseShortcut(e.target)
+              && !shouldAllowDemoPlayPauseShortcut(document.activeElement)
+            ) {
+              return;
+            }
             e.preventDefault();
             demoHub.toggleAutoPlay();
             break;

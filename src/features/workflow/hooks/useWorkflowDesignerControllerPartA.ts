@@ -81,7 +81,7 @@ export function useWorkflowDesignerControllerPartA({
   workflowVariablesRef.current = workflowVariables;
   const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
-  const [showMinimap, setShowMinimap] = useState(true);
+  const [showMinimap, setShowMinimap] = useState(false);
   const nextNodeYRef = useRef(100);
 
   const toast = useToast();

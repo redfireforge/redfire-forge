@@ -1,7 +1,7 @@
 # GraphQL Studio — Living Plan
 
-> **Status:** Phases 1–6G + TLS transport **shipped**. **Phase 6H** (per-tab auth — Option D) is the next Studio engineering item; then demo QA and optional E2E.  
-> **Last updated:** 2026-06-22 (Phase 6H spec added)  
+> **Status:** Phases 1–6G + TLS transport + **Phase 6H** (per-tab auth) **shipped**. Phase 7 demo track **7A–7D ✅**; remaining work is QA/E2E.  
+> **Last updated:** 2026-06-22 (P1 lesson quality ✅ · 7C ✅ · page split P3 ✅)  
 > **Demo lessons & quality backlog:** `graphql-demo-lesson-enhancement.md`  
 > **Completed phase task tables:** `git show 94d99dce:docs/plan/future/graphql/graphql-studio-plan.md`
 
@@ -33,7 +33,7 @@ Keeping those here inflated token usage without helping future work.
 | Phase 6G — Batch UX (Advanced Settings) | ✅ | `GqlBatchSettingsPanel`; read-only **B** badges on tab bar |
 | GQL TLS transport | ✅ | Proxy routes, `GraphqlTlsPanel`, page PEM `gql_tls_certs_v1` |
 | **Phase 6H — Per-tab auth (Option D)** | ✅ | Slices 1–7 ✅ — bottom Auth tab, badge focus, metadata auth-sent, GQL-4/GQL-14 lessons — see **§ Phase 6H** + [mockup index](mockups/gql-per-tab-auth-index.html) |
-| Phase 7 demo track | 🔨 | **7A ✅ · 7B ✅ · 7D ✅** — see open items below |
+| Phase 7 demo track | ✅ | **7A ✅ · 7B ✅ · 7C ✅ · 7D ✅** — optional E2E/QA remain |
 
 ---
 
@@ -41,7 +41,7 @@ Keeping those here inflated token usage without helping future work.
 
 | Area | Path |
 |---|---|
-| Studio page | `src/features/graphql/GraphqlStudioPage.tsx` |
+| Studio page | `src/features/graphql/GraphqlStudioPage.tsx` (~836 lines) + `components/GraphqlStudioSplitWorkspace.tsx` |
 | Components / hooks / utils | `src/features/graphql/components/`, `hooks/`, `utils/` |
 | Demo lesson registry | `src/features/demo-player/lessons/protocols/graphql-lessons.ts` |
 | Selectors | `src/shared/selectors/gql.ts` |
@@ -91,9 +91,8 @@ Step counts, selectors, diagrams, and enhancement backlog: **`graphql-demo-lesso
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
-| **6H** | **Per-tab auth (Option D)** — full spec in **§ Phase 6H** | **P0** | 🔲 |
-| 6G-7 | E2E: two resolved endpoints → two batch groups in Advanced Settings | P2 | 🔲 |
-| — | `GraphqlStudioPage.tsx` line count (999) — optional further split if it grows | P3 | 🔨 watch |
+| 6G-7 | E2E: two resolved endpoints → two batch groups in Advanced Settings | P2 | ✅ |
+| — | `GraphqlStudioPage.tsx` further split if it grows past ~900 lines | P3 | ✅ | Extracted `GraphqlStudioSplitWorkspace.tsx` (2026-06-22) |
 
 New product scope beyond 6H should get a new phase section or a separate plan file.
 
@@ -105,12 +104,12 @@ These are **not** Studio engineering tasks; listed here so this file stays the s
 
 | Item | Priority | Status | Detail |
 |------|----------|--------|--------|
-| §11.0 acceptance E2E | P0 | 🔲 | User workspace survives lesson exit |
+| §11.0 acceptance E2E | P0 | ✅ | `demo-gql-workspace-isolation.spec.ts` — user workspace survives GQL-1 |
 | Phase 8 human validation | P0 | 🔲 | 1× auto-play Web + Tauri for all 19 lessons |
-| 7C — GQL-14 optional steps | P2 | 🔲 | Profile-linked tabs + per-tab polling beats |
-| Demo E2E GQL-19 | P2 | 🔲 | No `demo-gql-workflow-subscription.spec.ts` yet |
-| GQL-3…13 + GQL-16 enhancement | P1 | 🔨 | Diagrams, spotlight fixes — below GQL-1/GQL-2 bar |
-| GQL-5 full Docker E2E in default CI | P3 | 🔲 | Needs TLS + mTLS + plain stacks |
+| Demo E2E GQL-19 | P2 | ✅ | `demo-gql-workflow-subscription.spec.ts` |
+| GQL-3…13 + GQL-16 enhancement | P1 | ✅ | Diagrams, spotlight fixes — shipped 2026-06-22 |
+| 7C — GQL-14 optional steps | P2 | ✅ | `gql14-profiles` + `gql14-polling` (10 steps, 6 min) |
+| GQL-5 full Docker E2E in default CI | P3 | ✅ | `e2e-gql5-docker` job — `E2E_GQL5_DOCKER=1` + `npm run test:e2e:demo:gql5:ci` |
 
 Full tables: **`graphql-demo-lesson-enhancement.md` § “Pending, Deferred & Not Implemented”**  
 GQL-5 checklist: **`gql5-phase8-validation-checklist.md`**
@@ -520,9 +519,9 @@ Studio engineering is **done** when:
 - [x] Phases 1–6G + TLS transport implemented and unit-tested
 - [x] **Phase 6H per-tab auth (Option D)** — see **§ Phase 6H** checklist (user sign-off pending)
 - [x] 19 demo lessons registered with unit tests
-- [ ] §11.0 acceptance E2E passes
+- [x] §11.0 acceptance E2E passes
 - [ ] Phase 8 human validation sign-off (all 19 lessons)
-- [ ] Optional 6G-7 batch-group E2E (two endpoints)
+- [x] Optional 6G-7 batch-group E2E (two endpoints)
 
 ---
 

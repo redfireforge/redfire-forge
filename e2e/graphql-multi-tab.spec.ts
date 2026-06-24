@@ -9,6 +9,7 @@
  *   - Per-tab endpoint hostname badge on tabs with custom endpoints
  *   - Schema explorer restores the correct introspection per tab
  *   - Response pane cache preserves each tab's last execution result
+ *   - Phase 6G-7: two endpoints → two batch groups in Advanced Settings
  */
 
 import { test, expect } from '@playwright/test';
@@ -31,6 +32,7 @@ import {
   seedGqlStudioCleanState,
   silenceLogStream,
   GQL_STUDIO_URL,
+  enableGqlBatchInAdvancedSettings,
 } from './graphql-helpers';
 
 const STAGING_ENDPOINT = 'https://staging.example.com/graphql';
@@ -256,5 +258,38 @@ test.describe('GraphQL Studio — Phase 6F profile-per-tab + polling (6F-13)', (
 
     await clickGqlTabByIndex(page, 0);
     expect(await isGqlPollingEnabled(page)).toBe(true);
+  });
+});
+
+test.describe('GraphQL Studio — Phase 6G batch endpoint groups (6G-7)', () => {
+  test('two resolved endpoints produce two batch groups in Advanced Settings', async ({ page }) => {
+    await setupMultiTabStudio(page);
+    await prepareTwoTabsWithEndpoints(page);
+
+    await enableGqlBatchInAdvancedSettings(page);
+
+    const groupSelect = page.locator(GQL.ADV_BATCH_GROUP_SELECT);
+    await expect(groupSelect).toBeVisible({ timeout: 10_000 });
+    await expect(groupSelect.locator('option')).toHaveCount(2);
+
+    const optionLabels = await groupSelect.locator('option').allTextContents();
+    expect(optionLabels.some((l) => /staging\.example\.com/i.test(l))).toBe(true);
+    expect(optionLabels.some((l) => /prod\.example\.com/i.test(l))).toBe(true);
+
+    const optionMeta = await groupSelect.locator('option').evaluateAll((els) =>
+      els.map((el) => ({ value: el.getAttribute('value') ?? '', text: el.textContent ?? '' })),
+    );
+
+    for (const host of ['staging.example.com', 'prod.example.com']) {
+      const match = optionMeta.find((o) => o.text.includes(host));
+      expect(match, `batch group for ${host}`).toBeDefined();
+      await groupSelect.selectOption(match!.value);
+
+      const groupCheckboxes = page.locator(
+        `${GQL.ADV_BATCH_PANEL} [data-testid^="gql-adv-batch-tab-cb-"]`,
+      );
+      await expect(groupCheckboxes).toHaveCount(1);
+      await expect(groupCheckboxes.first()).toHaveAttribute('aria-label', new RegExp(host, 'i'));
+    }
   });
 });

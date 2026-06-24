@@ -178,7 +178,7 @@ export const wsSessionRecordingLesson: DemoLesson = {
 
 **Recording**
 
-In the Events toolbar, click **● Rec** to start recording. The button turns into a pulsing red **■ Stop**. Every message that flows through the connection is captured with its direction, payload, and precise timing. When you click Stop, the recording is saved as a JSON file (\`ws-recording-v1\` format) that you can share with teammates.
+In the Events toolbar, click **● Rec** to start recording. The button turns into a pulsing red **■ Stop**. Every message that flows through the connection is captured with its direction, payload, and precise timing. When you click Stop, the recording is saved as a JSON file that you can share with teammates.
 
 **Import & Replay**
 
@@ -592,7 +592,7 @@ During replay, the **Send** panel is hidden since you're watching a recording, n
       id: 'rec-stop',
       title: 'Stop & Save',
       description:
-        'Clicking **■ Stop** ends the recording. RedfireForge saves the session as a JSON file (`ws-recording-v1` format) that downloads automatically. The file contains metadata (URL, protocol, duration, message count) and the full array of timestamped events. You can share this file with teammates — they can replay it without needing the original server.',
+        'Clicking **■ Stop** ends the recording. RedfireForge saves the session as a JSON file that downloads automatically. The file contains metadata (URL, protocol, duration, message count) and the full array of timestamped events. You can share this file with teammates — they can replay it without needing the original server.',
       highlight: WS.REC_STOP_BTN,
       pauseAfter: true,
       preAction: async (ctx: DemoActionContext) => {

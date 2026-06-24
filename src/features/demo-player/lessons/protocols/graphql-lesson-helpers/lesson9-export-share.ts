@@ -56,7 +56,7 @@ async function openHistoryEntryContextMenu(ctx: DemoActionContext): Promise<void
   const entry = document.querySelector<HTMLElement>(GQL.HISTORY_ENTRY);
   if (entry) {
     entry.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }));
-    await ctx.delay(400);
+    await ctx.delay(600);
   }
 }
 
@@ -66,7 +66,7 @@ async function clickHistoryContextMenuItem(ctx: DemoActionContext, label: string
     .find((b) => b.textContent?.includes(label));
   if (btn) {
     btn.click();
-    await ctx.delay(400);
+    await ctx.delay(600);
   }
 }
 
@@ -125,23 +125,56 @@ export async function ensureExportBuilderEditedToEditor(ctx: DemoActionContext):
   _lesson9EditedToEditor = true;
 }
 
+/** Execute exported query from editor (History prerequisite). */
+export async function ensureExportQueryExecuted(ctx: DemoActionContext): Promise<void> {
+  await ensureExportBuilderEditedToEditor(ctx);
+  if (_lesson9Executed) return;
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  await ctx.delay(500);
+  _lesson9Executed = true;
+}
+
+export async function prepareGql9ExecReading(ctx: DemoActionContext): Promise<void> {
+  await ensureExportBuilderEditedToEditor(ctx);
+}
+
+export async function prepareGql9HistoryReading(ctx: DemoActionContext): Promise<void> {
+  await ensureExportQueryExecuted(ctx);
+  await openHistoryPanel(ctx);
+}
+
+/** Open History panel with latest entry visible (after execute). */
+export async function ensureHistoryEntryVisible(ctx: DemoActionContext): Promise<void> {
+  await prepareGql9HistoryReading(ctx);
+  await ctx.waitFor(GQL.HISTORY_ENTRY, 5000);
+  await ctx.delay(400);
+}
+
+/** Open History context menu for the cURL step reading phase (menu stays open for narration). */
+export async function prepareGql9CurlReading(ctx: DemoActionContext): Promise<void> {
+  await ensureHistoryEntryVisible(ctx);
+  if (_lesson9CurlCopied) return;
+  if (document.querySelector(GQL.HISTORY_CONTEXT_MENU)) return;
+  await openHistoryEntryContextMenu(ctx);
+}
+
+/** Copy as cURL from History context menu. */
+export async function copyHistoryAsCurl(ctx: DemoActionContext): Promise<void> {
+  await ensureHistoryEntryVisible(ctx);
+  if (_lesson9CurlCopied) return;
+  if (!document.querySelector(GQL.HISTORY_CONTEXT_MENU)) {
+    await openHistoryEntryContextMenu(ctx);
+    await ctx.delay(2000);
+  }
+  await clickHistoryContextMenuItem(ctx, 'Copy as cURL');
+  await ctx.delay(1500);
+  _lesson9CurlCopied = true;
+}
+
 /** Execute query, open History context menu, and copy as cURL. */
 export async function ensureHistoryCopyAsCurl(ctx: DemoActionContext): Promise<void> {
-  await ensureExportBuilderEditedToEditor(ctx);
-  if (_lesson9CurlCopied) return;
-
-  if (!_lesson9Executed) {
-    await ctx.click(GQL.EXECUTE_BTN);
-    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-    await ctx.delay(500);
-    _lesson9Executed = true;
-  }
-
-  await openHistoryPanel(ctx);
-  await openHistoryEntryContextMenu(ctx);
-  await clickHistoryContextMenuItem(ctx, 'Copy as cURL');
-  await ctx.delay(800);
-  _lesson9CurlCopied = true;
+  await copyHistoryAsCurl(ctx);
 }
 
 /** Setup for Lesson 9 (GQL-10) — demo tab; seed demo user for builder `id` arg. */

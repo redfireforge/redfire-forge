@@ -4,6 +4,7 @@ import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   configureDemoTabEndpointOverride,
   ensureDemoEndpoint,
   ensureEditorReadyForInsert,
@@ -27,7 +28,7 @@ export const gqlSchemaLesson: DemoLesson = {
     'Browse the introspected schema, search types, inspect fields and arguments, insert a field with Try →, execute the resulting query, and export SDL — everything you need to understand any GraphQL API without reading documentation.',
   estimatedMinutes: 5,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -49,7 +50,7 @@ export const gqlSchemaLesson: DemoLesson = {
 3. **Try →** — a per-field button in the field table that inserts the field name inside your query block. Fields that require arguments get \`fieldName()\` inserted, ready for you to fill the parentheses. A toast confirms **"Inserted: fieldName"**. After inserting, execute the query immediately to see the live result.
 4. **SDL tab + Export** — the **SDL** tab on the type detail panel shows the raw Schema Definition Language for that type (e.g. \`type Query { health: String user(id: ID!): User }\`). **Export SDL** in the toolbar downloads the **full schema** as a \`.graphql\` file — the standard input for schema versioning tools and CI diff checks.
 
-The test server schema used in this lesson has five types: **Query** (root entry points), **Mutation** (write operations), **User** and **Order** (domain objects), and **OrderInput** (an input type for creating orders). You explored the schema briefly in **Your First GraphQL Query** — this lesson goes deeper: search, field arguments, click-to-insert, and SDL export.`,
+The test server schema used in this lesson has five types: **Query** (root entry points), **Mutation** (write operations), **User** and **Order** (domain objects), and **OrderInput** (an input type for creating orders). You explored the schema briefly in **GQL-1 (Your First GraphQL Query)** — this lesson goes deeper: search, field arguments, click-to-insert, and SDL export.`,
     keyTerms: [
       {
         term: 'SDL',
@@ -74,7 +75,7 @@ The test server schema used in this lesson has five types: **Query** (root entry
       {
         term: 'Export SDL',
         definition:
-          'Downloads the full introspected schema as a `.graphql` file. Commit this to version control to track schema evolution — when a field is added, renamed, or removed, `git diff` makes it immediately visible. Lesson 12 (Schema Diff) shows automated comparison.',
+        'Downloads the full introspected schema as a `.graphql` file. Commit this to version control to track schema evolution — when a field is added, renamed, or removed, `git diff` makes it immediately visible. **GQL-12 (Schema Diff)** shows automated comparison.',
       },
     ],
     diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 430" style="display:block;width:100%;height:auto;font-family:system-ui,sans-serif">
@@ -348,7 +349,7 @@ The test server schema used in this lesson has five types: **Query** (root entry
         'that inserts the field directly into your Monaco editor. ' +
         'A **search box** at the top filters types as you type. ' +
         'The **SDL tab** on the detail panel shows the raw Schema Definition Language for any type. ' +
-        'This lesson builds on the quick schema glimpse from **Your First GraphQL Query** — here you search, inspect field arguments, use Try →, and export the full SDL.',
+        'This lesson builds on the quick schema glimpse from **GQL-1** — here you search, inspect field arguments, use Try →, execute, read the response, and export the full SDL.',
       highlight: GQL.RIGHT_TAB_SCHEMA,
       pauseAfter: true,
     },
@@ -555,7 +556,7 @@ The test server schema used in this lesson has five types: **Query** (root entry
       description:
         'The **Export SDL** button in the Schema Explorer toolbar (download icon, labelled **SDL**) saves the **entire schema** as a `.graphql` file — not just the selected type. ' +
         'Commit this file to version control: when a field is added, renamed, or removed, `git diff` makes the change immediately visible to your team. ' +
-        '**Lesson 12 (Schema Diff)** shows how RedfireForge compares schema snapshots automatically and highlights breaking changes.',
+        '**GQL-12 (Schema Diff)** shows how RedfireForge compares schema snapshots automatically and highlights breaking changes.',
       highlight: GQL.SNAPSHOT_BTN,
       preAction: async (ctx) => {
         await ensureTryInsertDone(ctx);

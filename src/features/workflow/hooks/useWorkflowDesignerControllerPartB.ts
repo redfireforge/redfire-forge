@@ -20,6 +20,7 @@ import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes'
 import type { WorkflowService } from '../types/workflow';
 import { useWorkflowDesignerInspectActions } from './useWorkflowDesignerInspectActions';
 import { useWorkflowPreviewReactFlowInit } from './useWorkflowPreviewReactFlowInit';
+import { useDemoWorkflowConfigModalBridge } from '../../../app/hooks/useDemoWorkflowConfigModalBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
 /**
@@ -147,6 +148,9 @@ export function useWorkflowDesignerControllerPartB(
     if (!n) return null;
     return enrichNodeData(n, nodeInitialVars);
   }, [configModalNodeId, nodes, nodeInitialVars]);
+
+  const closeConfigModal = useCallback(() => setConfigModalNodeId(null), [setConfigModalNodeId]);
+  useDemoWorkflowConfigModalBridge(closeConfigModal);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {

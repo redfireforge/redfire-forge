@@ -113,13 +113,13 @@ describe('WorkflowExecutionCanvas', () => {
 
   it('renders React Flow canvas', () => {
     const trace = createMockTrace();
-    const { getByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
+    const { getByTestId, queryByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
 
     expect(getByTestId('react-flow')).toBeInTheDocument();
     expect(getByTestId('background')).toBeInTheDocument();
     // Check for custom controls (wf-pill-controls class)
     expect(container.querySelector('.wf-pill-controls')).toBeInTheDocument();
-    expect(getByTestId('minimap')).toBeInTheDocument();
+    expect(queryByTestId('minimap')).not.toBeInTheDocument();
   });
 
   it('renders all nodes from workflow snapshot', () => {
@@ -416,7 +416,9 @@ describe('WorkflowExecutionCanvas', () => {
   describe('minimap nodeColor', () => {
     it('returns green for pass, red for fail, slate for skipped and unknown ids', () => {
       const tracePass = createMockTrace({ iterations: 2, passedIterations: 2 });
-      const { getByTestId, unmount } = render(<WorkflowExecutionCanvas trace={tracePass} />);
+      const { getByTestId, unmount } = render(
+        <WorkflowExecutionCanvas trace={tracePass} showMinimap />
+      );
       const mm = getByTestId('minimap');
       expect(mm.getAttribute('data-color-n1')).toBe('#22c55e');
       expect(mm.getAttribute('data-color-n2')).toBe('#22c55e');
@@ -425,7 +427,9 @@ describe('WorkflowExecutionCanvas', () => {
       unmount();
 
       const traceFail = createMockTrace({ iterations: 2, passedIterations: 1 });
-      const { getByTestId: getFail } = render(<WorkflowExecutionCanvas trace={traceFail} />);
+      const { getByTestId: getFail } = render(
+        <WorkflowExecutionCanvas trace={traceFail} showMinimap />
+      );
       const mmFail = getFail('minimap');
       expect(mmFail.getAttribute('data-color-n1')).toBe('#ef4444');
     });

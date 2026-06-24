@@ -13,7 +13,7 @@ import { useRecentEndpoints } from './useRecentEndpoints';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import { useGraphqlEnvironments } from './useGraphqlEnvironments';
 import { loadAuth, saveAuth, loadTlsCerts, saveTlsCerts, ENDPOINT_BASE_STORAGE_KEY, ENDPOINT_STORAGE_KEY, POLLING_STORAGE_KEY, TLS_STORAGE_KEY, type GqlTlsCertsStorage } from '../utils/tabPersistence';
-import { GQL_PAGE_AUTH_RELOAD_EVENT } from '../utils/gqlDemoWorkspace';
+import { GQL_PAGE_AUTH_RELOAD_EVENT, GQL_PAGE_ENDPOINT_RELOAD_EVENT, loadDemoSession } from '../utils/gqlDemoWorkspace';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
@@ -100,8 +100,15 @@ export function useGraphqlConnectionSettings(
 
   useEffect(() => {
     if (!endpointHydrated) return;
-    writeKey(ENDPOINT_STORAGE_KEY, normalizeGraphqlEndpoint(endpoint)).catch(() => { /* quota / unavailable — silent */ });
-    setHistoryConnectionId(endpoint || null);
+    void (async () => {
+      try {
+        const normalized = normalizeGraphqlEndpoint(endpoint);
+        const session = await loadDemoSession();
+        if (session && normalized === '{{graphqlUrl}}') return;
+        await writeKey(ENDPOINT_STORAGE_KEY, normalized);
+        setHistoryConnectionId(endpoint || null);
+      } catch { /* silent — quota / private mode */ }
+    })();
   }, [endpoint, endpointHydrated]);
 
   // ── TLS + polling ──────────────────────────────────────────────────────────
@@ -198,8 +205,10 @@ export function useGraphqlConnectionSettings(
         }
       } catch { /* ignore */ }
 
-      const savedAuth = await loadAuth();
-      if (savedAuth) setAuth(savedAuth);
+      try {
+        const savedAuth = await loadAuth();
+        if (savedAuth) setAuth(savedAuth);
+      } catch { /* ignore */ }
 
       setEndpointHydrated(true);
     })();
@@ -211,6 +220,16 @@ export function useGraphqlConnectionSettings(
     };
     window.addEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
     return () => window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      void readKey(ENDPOINT_STORAGE_KEY).then((saved) => {
+        if (saved !== null) setEndpoint(normalizeGraphqlEndpoint(saved));
+      }).catch(() => { /* ignore */ });
+    };
+    window.addEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, handler);
+    return () => window.removeEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, handler);
   }, []);
 
   return {

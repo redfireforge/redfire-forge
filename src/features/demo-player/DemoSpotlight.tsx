@@ -1,5 +1,9 @@
 /** Demo Player — Spotlight overlay that highlights a target element */
 import { useEffect, useState, useRef } from 'react';
+import {
+  findFirstVisibleElement,
+  isSpotlightSuppressedForModal,
+} from './demoSpotlightUtils';
 
 interface SpotlightProps {
   selector?: string;
@@ -23,25 +27,26 @@ export default function DemoSpotlight({ selector, active }: SpotlightProps) {
     if (!active || !selector) { return; }
 
     const track = () => {
-      // Find the first visible match — handles multi-tab scenarios where the
-      // same testid appears once per connection tab (active has size, inactive has 0×0)
-      const all = document.querySelectorAll(selector);
-      const el = all.length > 0
-        ? Array.from(all).find(e => {
-            const r = e.getBoundingClientRect();
-            return r.width > 0 || r.height > 0;
-          }) ?? null
-        : null;
-      if (el) {
+      const el = findFirstVisibleElement(selector);
+      if (el && !isSpotlightSuppressedForModal(el)) {
         const r = el.getBoundingClientRect();
-        setRect({
+        const next = {
           top: r.top - 6,
           left: r.left - 6,
           width: r.width + 12,
           height: r.height + 12,
-        });
+        };
+        setRect((prev) => (
+          prev
+          && prev.top === next.top
+          && prev.left === next.left
+          && prev.width === next.width
+          && prev.height === next.height
+            ? prev
+            : next
+        ));
       } else {
-        setRect(null);
+        setRect((prev) => (prev === null ? prev : null));
       }
       rafRef.current = requestAnimationFrame(track);
     };

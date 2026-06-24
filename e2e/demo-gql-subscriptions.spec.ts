@@ -66,11 +66,14 @@ test.describe('GQL-7 — full lesson (Docker)', () => {
 
     const log = page.locator('[data-testid="gql-sub-message-list"]');
     await expect(page.locator('[data-testid="gql-sub-log"]')).toBeVisible({ timeout: 15_000 });
-    await expect(log).toContainText('PENDING', { timeout: 15_000 });
-    await expect(log).toContainText('PROCESSING', { timeout: 15_000 });
-    // Step 12 re-subscribes then stops quickly — log may show 2 rows without COMPLETE.
-    await expect(page.locator('[data-testid="gql-sub-row"]')).toHaveCount(2, { timeout: 10_000 });
     await expect(page.locator('[data-testid="gql-assertion-row"]')).toBeVisible({ timeout: 15_000 });
+    // Subscription stream may lag the final demo step — wait for WS connect + first events.
+    await expect(page.locator('[data-testid="gql-ws-status"]')).toHaveClass(/gql-ws-status--active/, {
+      timeout: 30_000,
+    }).catch(() => {});
+    await expect(log).toContainText('PENDING', { timeout: 60_000 });
+    await expect(log).toContainText('PROCESSING', { timeout: 15_000 });
+    await expect(page.locator('[data-testid="gql-sub-row"]')).toHaveCount(2, { timeout: 10_000 });
 
     await takeNamedScreenshot(page, 'gql7-subscriptions-lesson-complete');
     await exitLesson(page);

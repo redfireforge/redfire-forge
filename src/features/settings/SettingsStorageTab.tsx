@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite, cleanupStaleStorageKeys, compactWorkflowStorage } from '../../shared/utils/storage';
+import { purgeGqlDemoEphemeralStorage } from '../demo-player/lessons/gql-demo-storage-cleanup';
 import { isTauri } from '../../shared/utils/platform';
 import { formatBytes } from '../../shared/utils/helpers';
 
@@ -151,11 +152,12 @@ export default function SettingsStorageTab({
         <label className="storage-cleanup-label">Free up space</label>
         <div className="storage-cleanup-buttons">
           <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+            const demo = await purgeGqlDemoEphemeralStorage();
             const stale = cleanupStaleStorageKeys();
             const compact = await compactWorkflowStorage(5);
-            const totalFreed = stale.freedKB + (compact.beforeKB - compact.afterKB);
+            const totalFreed = demo.freedKB + stale.freedKB + (compact.beforeKB - compact.afterKB);
             setActionMsg(totalFreed > 0
-              ? `Freed ${totalFreed} KB (${stale.removed} stale keys, versions trimmed ${compact.beforeKB}→${compact.afterKB} KB)`
+              ? `Freed ~${totalFreed} KB (${demo.profilesRemoved} demo profiles, ${demo.runnerConfigsRemoved} runner configs, ${stale.removed} stale keys)`
               : 'Storage is already optimized.');
             await refreshUsage();
             setTimeout(() => setActionMsg(null), 5000);

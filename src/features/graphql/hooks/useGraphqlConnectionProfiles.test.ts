@@ -22,7 +22,11 @@ vi.mock('../utils/connectionProfileStorage', async (importOriginal) => {
 });
 
 import { readKey, writeKey } from '../../../shared/utils/storage';
-import { readConnectionProfiles, parseConnectionProfiles } from '../utils/connectionProfileStorage';
+import {
+  readConnectionProfiles,
+  parseConnectionProfiles,
+  GQL_PROFILES_RELOAD_EVENT,
+} from '../utils/connectionProfileStorage';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import type { ConnectionProfile } from './useGraphqlConnectionProfiles';
 
@@ -323,5 +327,25 @@ describe('useGraphqlConnectionProfiles — deleteProfile', () => {
     act(() => { result.current.deleteProfile('p-1'); });
 
     expect(result.current.profiles).toHaveLength(0);
+  });
+});
+
+describe('useGraphqlConnectionProfiles — reload event', () => {
+  it('reloads profiles when GQL_PROFILES_RELOAD_EVENT fires', async () => {
+    mockReadKey.mockResolvedValue(JSON.stringify([makeProfile()]));
+
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profiles).toHaveLength(1));
+
+    mockReadKey.mockResolvedValue(JSON.stringify([
+      makeProfile(),
+      makeProfile({ id: 'p-2', name: 'Staging' }),
+    ]));
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(GQL_PROFILES_RELOAD_EVENT));
+    });
+
+    await waitFor(() => expect(result.current.profiles).toHaveLength(2));
   });
 });

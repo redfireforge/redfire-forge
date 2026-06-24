@@ -41,8 +41,8 @@ describe('gql-workflow-integration lesson', () => {
     expect(gqlWorkflowIntegrationLesson.id).toBe('gql-workflow-integration');
     expect(gqlWorkflowIntegrationLesson.category).toBe('graphql');
     expect(gqlWorkflowIntegrationLesson.name).toBe('Workflow Integration');
-    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(10);
-    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(5);
+    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(12);
+    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(7);
   });
 
   it('allows workflow and workflow-runner tabs', () => {
@@ -60,13 +60,15 @@ describe('gql-workflow-integration lesson', () => {
       'gql11-assert-source',
       'gql11-assert-rule',
       'gql11-console',
-      'gql11-run-pass',
-      'gql11-run-fail',
+      'gql11-run-pass-exec',
+      'gql11-observe-pass',
+      'gql11-tighten-threshold',
+      'gql11-observe-failure',
       'gql11-debug-mode',
     ]);
   });
 
-  it('all 10 steps have pauseAfter: true', () => {
+  it('all 12 steps have pauseAfter: true', () => {
     gqlWorkflowIntegrationLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -83,6 +85,11 @@ describe('gql-workflow-integration lesson', () => {
   it('concept title frames lesson as automation path', () => {
     expect(gqlWorkflowIntegrationLesson.concept.title).toContain('Workflow Integration');
     expect(gqlWorkflowIntegrationLesson.concept.title).toContain('Automated Test');
+  });
+
+  it('concept diagram uses CSS design tokens', () => {
+    expect(gqlWorkflowIntegrationLesson.concept.diagram).toContain('var(--bg)');
+    expect(gqlWorkflowIntegrationLesson.concept.diagram).not.toContain('#0f172a');
   });
 
   it('concept body explains WHY GraphQL Query node vs generic HTTP', () => {
@@ -207,14 +214,25 @@ describe('gql-workflow-integration lesson', () => {
     expect(step.verify).toBe(WF.CONSOLE);
   });
 
-  it('gql11-run-pass highlights quick test btn and verifies exec summary', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass')!;
+  it('gql11-run-pass-exec highlights quick test btn and verifies exec summary', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass-exec')!;
     expect(step.highlight).toBe(WF.QUICK_TEST_BTN);
     expect(step.verify).toBe(WF.EXEC_SUMMARY);
   });
 
-  it('gql11-run-fail highlights assert node and verifies assert node', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-fail')!;
+  it('gql11-observe-pass highlights query node on canvas', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-pass')!;
+    expect(step.highlight).toBe(GQL.WF_CANVAS_QUERY_NODE);
+  });
+
+  it('gql11-tighten-threshold highlights assert row and verifies assert node', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-tighten-threshold')!;
+    expect(step.highlight).toBe(GQL.WF_ASSERT_ROW);
+    expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
+  });
+
+  it('gql11-observe-failure highlights assert node and verifies assert node', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
     expect(step.highlight).toBe(GQL.WF_CANVAS_ASSERT_NODE);
     expect(step.verify).toBe(GQL.WF_CANVAS_ASSERT_NODE);
   });
@@ -269,14 +287,20 @@ describe('gql-workflow-integration lesson', () => {
     expect(step.description).toContain('Console');
   });
 
-  it('gql11-run-pass description explains what green nodes mean', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass')!;
+  it('gql11-observe-pass description explains what green nodes mean', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-pass')!;
     expect(step.description).toContain('green');
-    expect(step.description).toContain('500ms');
   });
 
-  it('gql11-run-fail description explains Console failure detail', () => {
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-fail')!;
+  it('gql11-tighten-threshold description explains threshold change only', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-tighten-threshold')!;
+    expect(step.description).toContain('500');
+    expect(step.description).toContain('1');
+    expect(step.description).toContain('configures');
+  });
+
+  it('gql11-observe-failure description explains Console failure detail', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
     expect(step.description).toContain('red');
     expect(step.description).toContain('Console');
   });
@@ -455,7 +479,7 @@ describe('gql-workflow-integration lesson', () => {
     expect(badgeClickSpy).not.toHaveBeenCalled();
   });
 
-  it('gql11-run-pass runs quick test expecting pass', async () => {
+  it('gql11-run-pass-exec runs quick test expecting pass', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
@@ -467,13 +491,31 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass')!;
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-pass-exec')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
-  it('gql11-run-fail runs quick test with tightened threshold', async () => {
+  it('gql11-tighten-threshold configures assert rule to 1ms', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildQueryConfigDom()}
+      <button class="wf-quick-test-btn"></button>
+      <div data-testid="wf-run-result-pass"></div>
+      <div class="wf-console-badge"></div>
+      <div class="wf-console-panel"></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-tighten-threshold')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '1');
+  });
+
+  it('gql11-observe-failure runs quick test with tightened threshold', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
@@ -485,7 +527,7 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
-    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-run-fail')!;
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);

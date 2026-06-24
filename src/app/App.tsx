@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
@@ -14,12 +14,15 @@ import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import { useDemoShortcuts } from './hooks/useDemoShortcuts';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
+import { useDemoSidebarBridge } from './hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from './hooks/useDemoGlobalAuthBridge';
+import { useDemoAppEnvironmentCleanupBridge } from './hooks/useDemoAppEnvironmentCleanupBridge';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
-import RustTestPanelOverlay from './components/RustTestPanelOverlay';
+import AppSidebarRegion from './components/AppSidebarRegion';
+import AppShellOverlays from './components/AppShellOverlays';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -34,9 +37,6 @@ import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
-import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
-import Sidebar from './Sidebar';
-import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
@@ -47,22 +47,14 @@ import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
-import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
-import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
-import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
-import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import { useToast } from '../shared/hooks/useToast';
 import {
   type Tab,
-  domainOf,
-  isApiTab,
-  isWorkflowTab,
-  isHarnessTab,
   isProtocolsTab,
   readTabFromUrl,
   writeTabToUrl,
@@ -76,7 +68,6 @@ import '../styles/demo-player.css';
 import '../styles/demo-hub.css';
 import DemoHub from '../features/demo-player/DemoHub';
 import { useDemoHub } from '../features/demo-player/useDemoHub';
-import AppLiveDemoOverlay from './components/AppLiveDemoOverlay';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 export default function App() {
@@ -144,7 +135,16 @@ export default function App() {
 
   useDemoShortcuts(demoHub, activeTab, setActiveTab);
   useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
+  useDemoSidebarBridge(setSidebarCollapsed);
   useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
+  useDemoAppEnvironmentCleanupBridge({
+    selectedEnvId,
+    selectedSvcId,
+    setEnvironments,
+    setMicroservices,
+    setSelectedEnvId,
+    setSelectedSvcId,
+  });
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -243,9 +243,13 @@ export default function App() {
     }
   }, [loading, initialTheme, initialTestRuns, setTheme]);
 
-  // ---- Warn when localStorage is full ----
+  // ---- Warn when localStorage is full (debounced — parallel saves fire once) ----
+  const lastStorageFullToastRef = useRef(0);
   useEffect(() => {
     return onStorageFull((key) => {
+      const now = Date.now();
+      if (now - lastStorageFullToastRef.current < 8_000) return;
+      lastStorageFullToastRef.current = now;
       toast.show('error', 'Storage Full',
         `Cannot save ${key}. Browser storage is full. Go to Settings → Storage to free up space.`);
     });
@@ -254,6 +258,9 @@ export default function App() {
   // ---- Auto-cleanup stale keys on first load ----
   useEffect(() => {
     cleanupStaleStorageKeys();
+    void import('../features/demo-player/lessons/gql-demo-storage-cleanup')
+      .then((m) => m.purgeGqlDemoEphemeralStorage())
+      .catch(() => { /* best effort */ });
   }, []);
 
   // Restore last Protocols sub-tab (GraphQL, Kafka, etc.) from storage.
@@ -400,140 +407,42 @@ export default function App() {
       {/* ── Activity Bar ── */}
       <AppActivityBar activeTab={activeTab} setActiveTab={handleSetActiveTab} />
 
-      {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && domainOf(activeTab) !== 'demo' && (
-      <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
-
-        <div className="usb-content">
-          {/* API domain: Requests + Catalog toggle */}
-          {isApiTab(activeTab) && (
-            <>
-              <div className="usb-sidebar-toggle-row">
-                <button className={`usb-sidebar-toggle ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
-                <button className={`usb-sidebar-toggle ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
-              </div>
-              <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
-            {catalog.loaded && (
-              <CatalogSidebar
-                entries={catalog.entries}
-                selectedEntryId={catalog.selectedEntryId}
-                onSelectEntry={(id) => { catalog.selectEntry(id); setActiveTab('catalog'); }}
-                onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
-                onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
-                onDeleteEntry={catalog.removeEntry}
-                onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
-                onEdit={(entryId) => setCatalogEditId(entryId)}
-                onExportSpec={handleExportSpec}
-              />
-            )}
-          </div>
-          <div style={{ display: activeTab === 'requests' ? 'contents' : 'none' }}>
-            {wb.loaded && (
-              <RequestsSidebar
-                collections={wb.collections}
-                selectedCollectionId={wb.selectedCollection?.id}
-                selectedRequestId={wb.selectedRequest?.id}
-                onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('requests'); }}
-                onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
-                onNewCollection={handleWbNewCollection}
-                onEditCollection={handleWbEditCollection}
-                onDeleteCollection={wb.removeCollection}
-                onDuplicateCollection={wb.duplicateCollection}
-                onNewRequest={handleWbNewRequest}
-                onDeleteRequest={wb.removeRequest}
-                onDuplicateRequest={wb.duplicateRequest}
-                onAddFolder={wb.addFolder}
-                onAddSubCollection={wb.addSubCollection}
-                onEditSubCollection={handleEditSubCollection}
-                onRenameFolder={wb.renameFolder}
-                onDeleteFolder={wb.removeFolder}
-                onDuplicateFolder={wb.duplicateFolder}
-                onMoveFolder={wb.moveFolder}
-                onMoveFolderTo={wb.moveFolderTo}
-                onMoveRequest={wb.moveRequest}
-                onMoveRequestToCollection={wb.moveRequestToCollection}
-                onMoveFolderToCollection={wb.moveFolderToCollection}
-                onMergeCollectionInto={wb.moveCollectionAsSubCollection}
-                countAllRequests={wb.countAllRequests}
-                onImportCollection={wb.importCollection}
-                onImportFolder={wb.importFolder}
-                onAddGroup={wb.addGroup}
-                onRenameGroup={wb.renameGroup}
-                onDeleteGroup={wb.deleteGroup}
-                onMoveToGroup={wb.moveToGroup}
-                onDuplicateGroup={wb.duplicateGroup}
-                onSendCollectionToHarness={(colId) => setBatchHarnessTarget({ colId })}
-                onSendFolderToHarness={(colId, folderId) => setBatchHarnessTarget({ colId, folderId })}
-                harnessRequestIds={harnessRequestIds}
-              />
-            )}
-          </div>
-            </>
-          )}
-          {isWorkflowTab(activeTab) && (
-            <WorkflowSidebar
-              workflows={wfHook.workflows}
-              selectedId={wfHook.selectedId}
-              folders={wfFolders.folders}
-              foldersLoaded={wfFolders.loaded}
-              onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
-              onNew={(name: string) => {
-                wfHook.create(name); setActiveTab('workflow');
-              }}
-              onBrowseTemplates={() => { setGalleryInitialDomain('workflows'); setActiveTab('gallery'); }}
-              onRename={(id, name) => {
-                wfHook.update(id, { name });
-              }}
-              onDelete={(id) => { wfHook.remove(id); }}
-              onDuplicate={(id) => { wfHook.duplicate(id); }}
-              onExport={handleWorkflowExport}
-              onExportFolder={handleExportFolder}
-              onImport={handleWorkflowImport}
-              onToggleFolderCollapse={wfFolders.toggleCollapse}
-              onSetFolderCollapsed={wfFolders.setCollapsed}
-              onCreateFolder={wfFolders.create}
-              onRenameFolder={wfFolders.rename}
-              onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
-              onMoveWorkflowToFolder={(wfId, folderId, order) => {
-                wfHook.reorder(wfId, folderId, order);
-              }}
-              onMoveWorkflowsToFolder={(wfIds, folderId, startOrder) => {
-                wfIds.forEach((id, i) => {
-                  wfHook.reorder(id, folderId, startOrder + i);
-                });
-              }}
-              onMoveFolder={wfFolders.move}
-            />
-          )}
-          {isHarnessTab(activeTab) && (
-            <Sidebar
-              environments={environments}
-              microservices={microservices}
-              featureGroups={featureGroups}
-              selectedEnvId={selectedEnvId}
-              selectedSvcId={selectedSvcId}
-              onEnvSelect={setSelectedEnvId}
-              onSvcSelect={setSelectedSvcId}
-              sidebarView={sidebarView}
-              onSidebarViewChange={setSidebarView}
-            />
-          )}
-        </div>
-
-        <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
-      </aside>
-      )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && domainOf(activeTab) !== 'demo' && (
-        <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
-      )}
-      <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' || domainOf(activeTab) === 'demo' ? 'collapsed' : ''}`}
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' || domainOf(activeTab) === 'demo' ? { display: 'none' } : undefined}
-      >
-        {sidebarCollapsed ? '▶' : '◀'}
-      </button>
+      <AppSidebarRegion
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        sidebarWidth={sidebarWidth}
+        handleResizeStart={handleResizeStart}
+        catalog={catalog}
+        wb={wb}
+        wfHook={wfHook}
+        wfFolders={wfFolders}
+        environments={environments}
+        microservices={microservices}
+        featureGroups={featureGroups}
+        selectedEnvId={selectedEnvId}
+        selectedSvcId={selectedSvcId}
+        setSelectedEnvId={setSelectedEnvId}
+        setSelectedSvcId={setSelectedSvcId}
+        sidebarView={sidebarView}
+        setSidebarView={setSidebarView}
+        harnessRequestIds={harnessRequestIds}
+        setGalleryInitialDomain={setGalleryInitialDomain}
+        setCatalogReimportId={setCatalogReimportId}
+        setShowCatalogImport={setShowCatalogImport}
+        setCatalogVersionHistoryId={setCatalogVersionHistoryId}
+        setCatalogEditId={setCatalogEditId}
+        setBatchHarnessTarget={setBatchHarnessTarget}
+        handleExportSpec={handleExportSpec}
+        handleWorkflowExport={handleWorkflowExport}
+        handleExportFolder={handleExportFolder}
+        handleWorkflowImport={handleWorkflowImport}
+        handleWbNewCollection={handleWbNewCollection}
+        handleWbEditCollection={handleWbEditCollection}
+        handleWbNewRequest={handleWbNewRequest}
+        handleEditSubCollection={handleEditSubCollection}
+      />
 
         <main className="app-main">
           {/* ── Contextual sub-nav ── */}
@@ -853,45 +762,31 @@ export default function App() {
         </main>
       </div>
 
-      {showWbCollectionModal && (
-        <RequestCollectionModal
-          collection={editingWbCollection}
-          collections={wb.collections}
-          environments={wb.environments}
-          appEnvironments={environments}
-          appMicroservices={microservices}
-          globalAuthProfiles={appGlobalAuthProfiles}
-          defaultMode={newColMode}
-          onSave={handleWbSaveCollection}
-          onAddEnv={wb.addEnv}
-          onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined); }}
-        />
-      )}
-
-      {editingSubCol && subColForEdit && (
-        <SubCollectionModal
-          subCollection={subColForEdit.folder}
-          parentCollection={subColForEdit.col}
-          environments={wb.environments}
-          globalAuthProfiles={appGlobalAuthProfiles}
-          onSave={(patch) => wb.updateSubCollection(editingSubCol.colId, editingSubCol.folderId, patch)}
-          onClose={() => setEditingSubCol(null)}
-        />
-      )}
-
-      {confirmDialogElement}
-
-      <FolderPickerModal
-        open={pendingTemplateImport !== null}
-        folders={wfFolders.folders}
-        title="Save Template To..."
-        onCancel={() => setPendingTemplateImport(null)}
-        onPick={handleTemplatePickFolder}
+      <AppShellOverlays
+        showWbCollectionModal={showWbCollectionModal}
+        setShowWbCollectionModal={setShowWbCollectionModal}
+        editingWbCollection={editingWbCollection}
+        setEditingWbCollection={setEditingWbCollection}
+        newColMode={newColMode}
+        setNewColGroupId={setNewColGroupId}
+        setNewColMode={setNewColMode}
+        wb={wb}
+        environments={environments}
+        microservices={microservices}
+        appGlobalAuthProfiles={appGlobalAuthProfiles}
+        handleWbSaveCollection={handleWbSaveCollection}
+        editingSubCol={editingSubCol}
+        setEditingSubCol={setEditingSubCol}
+        subColForEdit={subColForEdit}
+        confirmDialogElement={confirmDialogElement}
+        pendingTemplateImport={pendingTemplateImport}
+        setPendingTemplateImport={setPendingTemplateImport}
+        wfFolders={wfFolders}
+        handleTemplatePickFolder={handleTemplatePickFolder}
+        RustExecutorTestPanel={RustExecutorTestPanel}
+        demoHub={demoHub}
+        setActiveTab={setActiveTab}
       />
-
-      {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
-
-      <AppLiveDemoOverlay demoHub={demoHub} setActiveTab={setActiveTab} />
 
     </div>
   );

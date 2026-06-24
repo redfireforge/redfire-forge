@@ -68,6 +68,11 @@ export function FieldTree({
     return searchFields(state.searchQuery, rootTypeName, types, 5).slice(0, 30);
   }, [state.searchQuery, rootTypeName, types]);
 
+  const selectedFieldCount = useMemo(
+    () => Object.keys(state.selectedFields).filter((k) => state.selectedFields[k]).length,
+    [state.selectedFields],
+  );
+
   const handleSearchKey = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -166,9 +171,16 @@ export function FieldTree({
       </div>
 
       <div className="gql-qb-tree-type-header">
-        <span className="gql-qb-tree-type-name">{rootTypeName}</span>
-        <span className="gql-qb-tree-type-kind">root type</span>
+        <span className="gql-qb-tree-type-name">{OP_TYPE_LABEL[state.operationType]}</span>
+        {rootTypeName && rootTypeName !== OP_TYPE_LABEL[state.operationType] && (
+          <span className="gql-qb-tree-type-kind">{rootTypeName}</span>
+        )}
         <span className="gql-qb-tree-field-count">{rootType.fields.length} fields</span>
+        {selectedFieldCount > 0 && (
+          <span className="gql-qb-tree-selected-count" aria-live="polite">
+            {selectedFieldCount} selected
+          </span>
+        )}
         <SelectAllButton
           rootType={rootType}
           state={state}

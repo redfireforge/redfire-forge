@@ -428,11 +428,10 @@ describe('storage — parse / catch fallbacks', () => {
 });
 
 describe('storage — onStorageFull notification', () => {
-  it('registers a listener and calls it on quota exceeded error', async () => {
+  it('registers a listener and calls it when retry after cleanup also fails', async () => {
     const listener = vi.fn();
     const unsub = onStorageFull(listener);
 
-    // Simulate QuotaExceededError by stubbing Storage.prototype.setItem
     const origSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = () => {
       throw new DOMException('quota exceeded', 'QuotaExceededError');
@@ -441,13 +440,29 @@ describe('storage — onStorageFull notification', () => {
     try {
       await writeKey('test-key', 'value');
     } catch {
-      // expected — writeKey re-throws
+      // expected — writeKey re-throws after retry
     }
 
     expect(listener).toHaveBeenCalledWith('test-key');
 
-    // cleanup
     unsub();
+    Storage.prototype.setItem = origSetItem;
+  });
+
+  it('writeKey succeeds on retry after cleanup frees space', async () => {
+    const origSetItem = Storage.prototype.setItem;
+    let attempts = 0;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new DOMException('quota exceeded', 'QuotaExceededError');
+      }
+      return origSetItem.call(this, key, value);
+    };
+
+    await writeKey('perf-test-runner-config:_workflow_runner', '{"iterations":1}');
+    expect(localStorage.getItem('perf-test-runner-config:_workflow_runner')).toBe('{"iterations":1}');
+
     Storage.prototype.setItem = origSetItem;
   });
 

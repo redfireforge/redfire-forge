@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
 import { generateVarId } from '../hooks/useGraphqlEnvironments';
 
@@ -207,6 +208,7 @@ export function GraphqlEnvModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(true);
 
   // BUG-R6-2 fix: move focus inside the modal on open so keyboard/screen-reader
   // users are not stranded outside. Focus the panel itself (tabIndex=-1) which
@@ -506,17 +508,33 @@ export function GraphqlEnvModal({
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="gql-env-modal-overlay" data-testid="gql-env-modal-overlay">
+    <div
+      className={`gql-env-modal-overlay${isDragged ? ' gql-env-modal-overlay--dragged' : ''}`}
+      style={overlayStyle}
+      data-testid="gql-env-modal-overlay"
+    >
       <div
         ref={panelRef}
-        className="gql-env-modal"
+        className={`gql-env-modal${isDragged ? ' gql-env-modal--dragged' : ''}`}
+        style={modalStyle}
         role="dialog"
         aria-label="Environment variables"
         aria-modal="true"
         data-testid="gql-env-modal"
         tabIndex={-1}
       >
-        <div className="gql-env-modal-header">
+        <div
+          className="gql-env-modal-header gql-env-modal-header--draggable"
+          onMouseDown={onDragStart}
+          data-testid="gql-env-modal-header"
+        >
+          <span className="gql-env-modal__drag-grip" aria-hidden="true" title="Drag to move">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+              <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+              <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+            </svg>
+          </span>
           <div className="gql-env-modal-header__text">
             <div className="gql-env-modal-title-row">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

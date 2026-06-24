@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   ensureLatencyHistogramVisible,
   ensureTracingExecuted,
@@ -25,7 +26,7 @@ export const gqlPerformanceTracingLesson: DemoLesson = {
     'Read query complexity estimates, execute against a tracing-enabled server, explore the Apollo Tracing waterfall, and build a latency histogram.',
   estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -81,7 +82,7 @@ After two or more executions, the **histogram strip** appears below the response
       {
         term: 'Latency histogram',
         definition:
-          'Compact bar chart (`gql-histogram-strip`) below the response viewer — shows distribution of recent request latencies with avg and p95. Appears after 2+ executions. Reveals latency spikes vs. consistent slow performance.',
+          'Compact bar chart below the response viewer — shows distribution of recent request latencies with avg and p95. Appears after 2+ executions. Reveals latency spikes vs. consistent slow performance.',
       },
     ],
     diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
@@ -298,7 +299,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-complexity',
       title: 'Query Complexity Badge — Pre-Execution Cost',
       description:
-        `After introspecting \`${GQL_DEMO_HTTP}\`, load \`query { health }\` in the editor. The **complexity badge** (\`gql-complexity-badge\`) next to **Execute** shows a cost estimate like **≈1** before any server request is made.\n\n` +
+        `After introspecting \`${GQL_DEMO_HTTP}\`, load \`query { health }\` in the editor. The **complexity badge** next to **Execute** shows a cost estimate like **≈1** before any server request is made.\n\n` +
         '**Why complexity estimation?** The badge is a static analysis of your query structure against the schema — it counts how many resolvers the server will invoke. ' +
         'A simple `query { health }` scores ≈1. Nested queries like `users { posts { comments { … } } }` score much higher. ' +
         'The goal is to surface expensive queries at authoring time, before they cause slow responses, rate-limit errors, or production incidents. ' +
@@ -342,7 +343,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-execute',
       title: 'Execute — Trigger Apollo Tracing',
       description:
-        'Click **Execute** (`gql-execute-btn`). The Docker test server processes the query and attaches per-resolver timing data in `extensions.tracing` of the response JSON.\n\n' +
+        'Click **Execute**. The Docker test server processes the query and attaches per-resolver timing data in `extensions.tracing` of the response JSON.\n\n' +
         '**Why the server must opt in:** Apollo Tracing is a server-side extension — the server has to be configured to collect and return resolver timings. Not every GraphQL server enables it. ' +
         'The Docker test server on port 4010 always returns Apollo Tracing v1, making this a reliable demo environment. In production, look for the `extensions.tracing` key in your raw response JSON; if it is absent, your server has not enabled the extension.',
       highlight: GQL.EXECUTE_BTN,
@@ -351,7 +352,7 @@ After two or more executions, the **histogram strip** appears below the response
         await ensureTracingExecuted(ctx);
         await ctx.delay(800);
       },
-      verify: GQL.RV_TRACING_BADGE,
+      verify: GQL.RESPONSE_VIEWER,
       pauseAfter: true,
     },
 
@@ -360,7 +361,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-tracing-badge',
       title: 'The Tracing Badge — Trace Data Confirmed',
       description:
-        'A **Tracing** badge (`gql-rv-tracing-badge`) appears in the response header — this is your signal that the server returned `extensions.tracing` data. Click it to open the waterfall.\n\n' +
+        'A **Tracing** badge appears in the response header — this is your signal that the server returned `extensions.tracing` data. Click it to open the waterfall.\n\n' +
         '**Why a badge instead of auto-opening?** Not every execution against every server will return tracing data. The badge is a conditional indicator: if the server returned trace data, it lights up and gives you a click target. If the server does not support tracing, no badge appears — you do not navigate to an empty panel. ' +
         'The badge also serves as a persistent indicator: even after you switch response tabs, the badge reminds you that trace data is available.',
       highlight: GQL.RV_TRACING_BADGE,
@@ -378,7 +379,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-waterfall',
       title: 'Explore the Resolver Waterfall',
       description:
-        'The **Tracing tab** (`gql-rv-tab-tracing`) opens the **waterfall** (`gql-trace-view`) — a Gantt-style chart where each row is one resolver plotted on a shared timeline.\n\n' +
+        'The **Tracing tab** opens the **waterfall** — a Gantt-style chart where each row is one resolver plotted on a shared timeline.\n\n' +
         '**Why a waterfall chart?** It makes the execution structure visible. You can see:\n' +
         '- Which resolvers run in **parallel** (bars at the same horizontal position)\n' +
         '- Which resolvers run **sequentially** (bars staggered in time — a child resolver starts after its parent)\n' +
@@ -398,7 +399,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-hover',
       title: 'Resolver Duration Tooltip',
       description:
-        'Hover a resolver row (`gql-trace-resolver-row`) — the Gantt bar tooltip shows **Start** offset (when the resolver began, relative to query start) and **Duration** for that field. Bars are color-coded: green &lt; 50ms, amber 50–200ms, red &gt; 200ms.\n\n' +
+        'Hover a resolver row — the Gantt bar tooltip shows **Start** offset (when the resolver began, relative to query start) and **Duration** for that field. Bars are color-coded: green &lt; 50ms, amber 50–200ms, red &gt; 200ms.\n\n' +
         '**Why the tooltip matters:** The bar width gives you a visual sense of duration, but the tooltip gives you the exact numbers in milliseconds. ' +
         'The **Start offset** is equally important: a resolver that starts at t=200ms (because it depends on a parent resolver) tells a different story from one that starts at t=0. ' +
         'The color coding follows a traffic-light convention so you can identify slow resolvers without reading every number.',
@@ -417,7 +418,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-sort',
       title: 'Sort by Duration — Find the Bottleneck',
       description:
-        'Click **Slowest first** (`gql-trace-sort-duration`) in the tracing controls. Resolver rows reorder so the longest-running field appears at the top.\n\n' +
+        'Click **Slowest first** in the tracing controls. Resolver rows reorder so the longest-running field appears at the top.\n\n' +
         '**Why sort?** Waterfall charts show execution order by default (the order resolvers started). This is accurate but not always useful for identifying bottlenecks — a slow resolver that starts near the end might be buried at the bottom of a long list. ' +
         'Sorting by duration puts your slowest resolver at the top immediately, regardless of when it ran. ' +
         'This is your first optimization target: fix the slowest resolver before worrying about the fast ones.',
@@ -436,7 +437,7 @@ After two or more executions, the **histogram strip** appears below the response
       id: 'gql10-histogram',
       title: 'Latency Histogram — Distribution Over Time',
       description:
-        'Execute the query **two more times** (three total). The **latency histogram strip** (`gql-histogram-strip`) appears below the response viewer — showing avg, p95, and a bar-chart distribution of recent request latencies.\n\n' +
+        'Execute the query **two more times** (three total). The **latency histogram strip** appears below the response viewer — showing avg, p95, and a bar-chart distribution of recent request latencies.\n\n' +
         '**Why distribution matters more than a single measurement:** One slow execution could be a cold start, a transient network glitch, or just noise. The histogram shows you the pattern across multiple executions:\n' +
         '- A **narrow, symmetric histogram** means consistent performance\n' +
         '- A **right-skewed histogram with a long tail** means occasional spikes (your p95 is much worse than your average)\n' +

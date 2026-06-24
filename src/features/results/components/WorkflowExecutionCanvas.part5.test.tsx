@@ -107,13 +107,13 @@ describe('WorkflowExecutionCanvas', () => {
 
   it('renders React Flow canvas', () => {
     const trace = createMockTrace();
-    const { getByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
+    const { getByTestId, queryByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
 
     expect(getByTestId('react-flow')).toBeInTheDocument();
     expect(getByTestId('background')).toBeInTheDocument();
     // Check for custom controls (wf-pill-controls class)
     expect(container.querySelector('.wf-pill-controls')).toBeInTheDocument();
-    expect(getByTestId('minimap')).toBeInTheDocument();
+    expect(queryByTestId('minimap')).not.toBeInTheDocument();
   });
 
   it('renders all nodes from workflow snapshot', () => {

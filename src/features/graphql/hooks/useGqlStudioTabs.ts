@@ -182,6 +182,11 @@ export function useGqlStudioTabs({
       const session = await loadDemoSession();
       demoSessionRef.current = session;
       setActiveDemoLessonId(session?.lessonId ?? null);
+      // Demo Hub may write demo tabs to storage before React reload applies them.
+      // Skip persist until the in-memory tab list includes the session demo tab.
+      if (session?.demoTabId && !tabsRef.current.some((t) => t.id === session.demoTabId)) {
+        return;
+      }
       const filtered = filterTabsForPersistence(tabsRef.current, session);
       const activeId = pickPersistedActiveTabId(filtered, activeTabIdRef.current);
       await saveTabs(filtered, activeId);

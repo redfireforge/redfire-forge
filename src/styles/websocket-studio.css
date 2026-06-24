@@ -3484,8 +3484,9 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border, #333);
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 8%, var(--bg-elevated, var(--surface)));
   flex-shrink: 0;
 }
 

@@ -18,6 +18,26 @@ import {
   ensureLesson17ResultsOpen,
   createGqlLatencyDemoWorkflow,
 } from './graphql-lesson-helpers';
+import {
+  handleGraphqlQueryNode,
+  handleGraphqlAssertNode,
+} from '../../../workflow/engine/graphRunnerGraphqlNodeHandlers';
+import {
+  makeNode,
+  makeCallbacks,
+  makeHandlerContext,
+  makePassedFlag,
+} from '../../../workflow/engine/graphRunnerNodeHandlers.test-utils';
+
+vi.mock('../../../graphql/utils/graphqlProxyTransports', () => ({
+  getProxyBase: vi.fn(() => 'http://localhost:4000'),
+  createWsProxyTransport: vi.fn(),
+  createSseProxyTransport: vi.fn(),
+}));
+
+vi.mock('../../../graphql/utils/authUtils', () => ({
+  buildAuthHeaders: vi.fn(() => ({})),
+}));
 
 describe('gql-workflow-runner lesson', () => {
   beforeEach(() => {
@@ -475,8 +495,8 @@ describe('gql-workflow-runner lesson', () => {
     expect(queryNode).toBeTruthy();
     expect(queryNode!.data.endpoint).toContain('4010');
     expect(queryNode!.data.query).toContain('health');
-    const bindings = queryNode!.data.outputBindings as Array<{ field: string; variableName: string }>;
-    expect(bindings.some((b) => b.field === 'latencyMs' && b.variableName === 'gqlLatency')).toBe(true);
+    const bindings = queryNode!.data.outputBindings as Array<{ field: string; variableName: string; enabled?: boolean }>;
+    expect(bindings.some((b) => b.field === 'latencyMs' && b.variableName === 'gqlLatency' && b.enabled === true)).toBe(true);
   });
 
   it('createGqlLatencyDemoWorkflow includes graphqlAssert node with < 500 assertion', () => {
@@ -485,9 +505,36 @@ describe('gql-workflow-runner lesson', () => {
     const assertNode = nodes.find((n) => n.type === 'graphqlAssert');
     expect(assertNode).toBeTruthy();
     expect(assertNode!.data.sourceVariable).toBe('gqlLatency');
-    const assertions = assertNode!.data.assertions as Array<{ operator: string; expected: number }>;
+    const assertions = assertNode!.data.assertions as Array<{ operator: string; expectedValue?: string }>;
     expect(assertions[0].operator).toBe('less_than');
-    expect(assertions[0].expected).toBe(500);
+    expect(assertions[0].expectedValue).toBe('500');
+  });
+
+  it('createGqlLatencyDemoWorkflow query + assert nodes pass when executed', async () => {
+    const wf = createGqlLatencyDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
+    const queryRaw = nodes.find((n) => n.type === 'graphqlQuery')!;
+    const assertRaw = nodes.find((n) => n.type === 'graphqlAssert')!;
+    const queryNode = makeNode(queryRaw.id, 'graphqlQuery', queryRaw.data);
+    const assertNode = makeNode(assertRaw.id, 'graphqlAssert', assertRaw.data);
+
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { health: 'ok' } }),
+    })));
+
+    const cbResult = makeCallbacks();
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const queryPassed = makePassedFlag();
+    await handleGraphqlQueryNode(queryRaw.id, queryNode, hCtx, queryPassed);
+    expect(queryPassed.value).toBe(true);
+    expect(hCtx.ctx.get('gqlLatency')).toBeTruthy();
+
+    const assertPassed = makePassedFlag();
+    await handleGraphqlAssertNode(assertRaw.id, assertNode, hCtx, assertPassed);
+    expect(assertPassed.value).toBe(true);
+    expect(cbResult.states[assertRaw.id]?.state).toBe('pass');
   });
 
   it('selectGqlLatencyDemoWorkflow clicks workflow select and picks matching item', async () => {

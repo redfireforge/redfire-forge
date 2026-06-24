@@ -65,6 +65,17 @@ describe('GraphqlTlsPanel', () => {
     expect(screen.getByTestId('gql-tls-indicator').textContent).toBe('Custom CA');
   });
 
+  it('shows Skip Verify badge when skip-cert is on even if CA cert is pasted', () => {
+    render(
+      <GraphqlTlsPanel
+        skipTlsVerify
+        caCert="-----BEGIN CERTIFICATE-----"
+        onTlsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('gql-tls-indicator').textContent).toBe('Skip Verify');
+  });
+
   it('marks configure button active when TLS content is configured', () => {
     render(
       <GraphqlTlsPanel skipTlsVerify={false} onTlsChange={vi.fn()} />,

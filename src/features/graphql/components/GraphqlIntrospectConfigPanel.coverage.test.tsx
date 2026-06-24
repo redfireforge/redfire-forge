@@ -104,7 +104,7 @@ describe('GraphqlIntrospectConfigPanel coverage edges', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
     fireEvent.change(screen.getByTestId('gql-wf-introspect-min-type-count'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Output' }));
     fireEvent.click(screen.getByTestId('mock-output-add'));
@@ -132,7 +132,7 @@ describe('GraphqlIntrospectConfigPanel coverage edges', () => {
     );
 
     fireEvent.change(screen.getByDisplayValue('Intro'), { target: { value: 'Intro v2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
 
     fireEvent.change(screen.getByTestId('gql-wf-introspect-min-type-count'), { target: { value: '5' } });
     fireEvent.change(screen.getByTestId('gql-wf-introspect-required-types'), { target: { value: 'User, Post' } });
@@ -162,7 +162,7 @@ describe('GraphqlIntrospectConfigPanel coverage edges', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
     fireEvent.change(screen.getByTestId('gql-wf-introspect-new-type'), { target: { value: 'Query' } });
     fireEvent.change(screen.getByTestId('gql-wf-introspect-new-field'), { target: { value: 'viewer' } });
     fireEvent.keyDown(screen.getByTestId('gql-wf-introspect-new-field'), { key: 'Enter' });
@@ -189,7 +189,7 @@ describe('GraphqlIntrospectConfigPanel coverage edges', () => {
 
     render(<Harness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
     fireEvent.change(screen.getByTestId('gql-wf-introspect-min-type-count'), { target: { value: '' } });
     fireEvent.change(screen.getByTestId('gql-wf-introspect-required-types'), { target: { value: '   ' } });
     fireEvent.click(screen.getByTestId('gql-wf-introspect-add-field-btn'));

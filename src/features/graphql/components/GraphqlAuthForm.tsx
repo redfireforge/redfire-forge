@@ -82,7 +82,10 @@ export function GraphqlAuthForm({
       if (storedAuth?.type !== 'inherit') {
         onChange({
           type: 'inherit',
-          globalProfileId: defaultAuthProfileId ?? storedAuth?.globalProfileId,
+          globalProfileId:
+            defaultAuthProfileId
+            ?? storedAuth?.globalProfileId
+            ?? globalAuthProfiles[0]?.id,
         });
       }
       return;
@@ -91,6 +94,9 @@ export function GraphqlAuthForm({
       const base = { ...storedAuth, type } as GraphqlAuth;
       if (type === 'apiKey' && !base.headerName) {
         base.headerName = 'X-API-Key';
+      }
+      if (type === 'oauth2' && !base.oauth2) {
+        base.oauth2 = { tokenUrl: '', clientId: '', clientSecret: '' };
       }
       onChange(base);
     }
@@ -277,10 +283,77 @@ export function GraphqlAuthForm({
       )}
 
       {storedAuth?.type === 'oauth2' && (
-        <div className="gql-auth-info-box">
-          OAuth 2.0 token injection is handled by pre-request scripts (Phase 3).
-          Use <strong>Bearer Token</strong> type if you already have an access token.
-        </div>
+        <>
+          <AuthField label="Token URL" labelFor="gql-auth-oauth-token-url">
+            <input
+              id="gql-auth-oauth-token-url"
+              type="url"
+              className="gql-input gql-auth-input"
+              value={storedAuth.oauth2?.tokenUrl ?? ''}
+              onChange={(e) =>
+                onChange({
+                  ...storedAuth,
+                  oauth2: {
+                    tokenUrl: e.target.value,
+                    clientId: storedAuth.oauth2?.clientId ?? '',
+                    clientSecret: storedAuth.oauth2?.clientSecret ?? '',
+                    scope: storedAuth.oauth2?.scope,
+                    audience: storedAuth.oauth2?.audience,
+                  },
+                })
+              }
+              placeholder="https://auth.example.com/oauth/token"
+              data-testid="gql-auth-oauth-token-url"
+            />
+          </AuthField>
+          <AuthField label="Client ID" labelFor="gql-auth-oauth-client-id">
+            <input
+              id="gql-auth-oauth-client-id"
+              type="text"
+              className="gql-input gql-auth-input"
+              value={storedAuth.oauth2?.clientId ?? ''}
+              onChange={(e) =>
+                onChange({
+                  ...storedAuth,
+                  oauth2: {
+                    tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
+                    clientId: e.target.value,
+                    clientSecret: storedAuth.oauth2?.clientSecret ?? '',
+                    scope: storedAuth.oauth2?.scope,
+                    audience: storedAuth.oauth2?.audience,
+                  },
+                })
+              }
+              placeholder="client-id"
+              data-testid="gql-auth-oauth-client-id"
+            />
+          </AuthField>
+          <AuthField label="Client secret" labelFor="gql-auth-oauth-client-secret">
+            <GraphqlAuthPasswordInput
+              value={storedAuth.oauth2?.clientSecret ?? ''}
+              onChange={(v) =>
+                onChange({
+                  ...storedAuth,
+                  oauth2: {
+                    tokenUrl: storedAuth.oauth2?.tokenUrl ?? '',
+                    clientId: storedAuth.oauth2?.clientId ?? '',
+                    clientSecret: v,
+                    scope: storedAuth.oauth2?.scope,
+                    audience: storedAuth.oauth2?.audience,
+                  },
+                })
+              }
+              placeholder="client-secret or {{oauth_secret}}"
+              testId="gql-auth-oauth-client-secret"
+            />
+          </AuthField>
+          <div className="gql-auth-info-box">
+            OAuth 2.0 client-credentials tokens are fetched at execute time via
+            pre-request scripts or Environment Manager OAuth profiles — the preview
+            shows the Bearer header that will be sent once a token is acquired.
+            Use <strong>Bearer Token</strong> if you already have an access token.
+          </div>
+        </>
       )}
 
       {storedAuth?.type === 'custom' && (

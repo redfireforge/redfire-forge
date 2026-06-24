@@ -2,21 +2,33 @@
 import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_TLS_HTTPS_ENDPOINT,
   GQL_TLS_HEALTH_PROBE,
   GQL_TLS_DOCKER_HEALTH_PROBES,
   GQL_PLAIN_HTTP,
   GQL_TLS_BEARER_TEMPLATE,
   configureDemoTabEndpointOverride,
+  ensurePlainHttpEndpoint,
   ensureTlsEndpoint,
   ensureSkipCertEnabled,
   ensureTlsIntrospected,
+  ensureTlsSkipIntrospectOutcome,
+  prepareGqltSkipIntrospectReading,
+  ensureTlsCaIntrospectOutcome,
+  prepareGqltCaIntrospectReading,
+  ensureMtlsIntrospectOutcome,
+  prepareGqltMtlsIntrospectReading,
+  ensurePlainRestoreIntrospectOutcome,
+  prepareGqltRestoreReading,
+  runTlsIntrospectClickOnly,
   ensureTlsAuthExecuted,
+  ensureTlsPhase2Ready,
   ensureTlsCaConfigured,
   ensureTlsCaIntrospected,
   ensureMtlsEndpoint,
+  ensureMtlsPanelReady,
   ensureMtlsConfigured,
-  ensureMtlsIntrospected,
   gqlTlsLessonSetup,
   gqlTlsLessonCleanup,
 } from './graphql-lesson-helpers';
@@ -28,9 +40,9 @@ export const gqlHttpsTlsLesson: DemoLesson = {
   name: 'HTTPS, TLS & Certificates',
   description:
     'Connect to a real HTTPS GraphQL server, bypass self-signed certificate errors with skip-cert validation, and understand how TLS protects the auth credentials you configured in GQL-4.',
-  estimatedMinutes: 8,
+  estimatedMinutes: 9,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -240,8 +252,9 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-intro',
       title: 'Why GraphQL Needs HTTPS',
       description:
-        'Every GraphQL API you call in production is served over **HTTPS**. In GQL-4 you configured Bearer tokens and API Keys — but without encryption those credentials travel in **plain text** across every router and switch between your machine and the server. Anyone on the same network can read them. HTTPS wraps the entire HTTP exchange in a **TLS tunnel**: the request, response, and every header (including `Authorization`) are encrypted before leaving your machine. This lesson connects to a **real local TLS server** on port 4443 so you can see exactly how Studio handles HTTPS.',
-      highlight: GQL.ENDPOINT_INPUT,
+        'Every GraphQL API you call in production is served over **HTTPS**. In GQL-4 you configured Bearer tokens and API Keys — but without encryption those credentials travel in **plain text** across every router and switch between your machine and the server. Anyone on the same network can read them. HTTPS wraps the entire HTTP exchange in a **TLS tunnel**: the request, response, and every header (including `Authorization`) are encrypted before leaving your machine. The demo tab still points at plain `http://localhost:4010/graphql` — the next step switches to a **real local TLS server** on port 4443.',
+      highlight: GQL.CONNECTION_BAR,
+      preAction: ensurePlainHttpEndpoint,
       pauseAfter: true,
     },
 
@@ -251,6 +264,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       description:
         'Clear the endpoint field and type `https://localhost:4443/graphql`. Notice two things happen immediately: the padlock icon in the address bar turns **green** (indicating `https://` is detected), and a new **SSL** badge appears on the connection bar. This badge is hidden for plain `http://` endpoints — it only surfaces when TLS settings are relevant. The SSL badge controls whether certificate verification is active.',
       highlight: GQL.ENDPOINT_INPUT,
+      preAction: ensurePlainHttpEndpoint,
       action: async (ctx) => {
         await configureDemoTabEndpointOverride(ctx, GQL_TLS_HTTPS_ENDPOINT);
         await ctx.waitFor(GQL.TLS_TOGGLE, 3000);
@@ -289,13 +303,26 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-connect-skip',
       title: 'Introspect Over TLS (Phase 1)',
       description:
-        'Click **Introspect**. Despite the self-signed certificate, the schema loads and the green **✓ Schema** badge appears. Look at the **response area** — `health: "ok"` confirms the GraphQL server is reachable over HTTPS. The key insight: the connection IS encrypted (your query and response are ciphertext on the wire), but the *identity* of the server was accepted without cryptographic proof. In a real attack scenario, a man-in-the-middle server could impersonate `localhost:4443` and you would never know — which is why skip-cert is forbidden in production.',
-      highlight: GQL.SCHEMA_BADGE_OK,
-      preAction: ensureSkipCertEnabled,
+        'Click **Introspect** to start the TLS handshake with skip-cert enabled. The request goes through the local proxy with `rejectUnauthorized: false` — watch the button ripple; the outcome appears in the next step.',
+      highlight: GQL.INTROSPECT_BTN,
+      preAction: prepareGqltSkipIntrospectReading,
       action: async (ctx) => {
-        await ctx.click(GQL.INTROSPECT_BTN);
-        await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+        await runTlsIntrospectClickOnly(ctx);
         await ctx.delay(800);
+      },
+      verify: GQL.INTROSPECT_BTN,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-observe-skip',
+      title: 'Schema Loaded Over Encrypted TLS',
+      description:
+        'Despite the self-signed certificate, the schema loads and the green **✓ Schema** badge appears. The connection IS encrypted (your query and response are ciphertext on the wire), but the *identity* of the server was accepted without cryptographic proof. In a real attack scenario, a man-in-the-middle server could impersonate `localhost:4443` and you would never know — which is why skip-cert is forbidden in production.',
+      highlight: GQL.SCHEMA_BADGE_OK,
+      preAction: ensureTlsSkipIntrospectOutcome,
+      action: async (ctx) => {
+        await ctx.delay(1200);
       },
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
@@ -305,7 +332,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-auth-tls',
       title: 'Credentials Encrypted Inside TLS',
       description:
-        'Open the **Auth** badge → select **Bearer Token** → enter `' + GQL_TLS_BEARER_TEMPLATE + '`. Click **Execute**. Then open the **Metadata** tab — you see `Authorization: Bearer {{authToken}}` in Request Headers. What you\'re seeing is the *decoded* header logged by Studio. On the wire, that entire header is encrypted inside the TLS tunnel. **This is the correct mental model:** HTTPS does not protect credentials that are already visible in the app — it protects them *in transit* so they cannot be intercepted between your machine and the server.',
+        'The **Demo** environment stores `authToken = lesson6-demo-jwt` so Bearer auth can use the `{{authToken}}` placeholder. Open the **Auth** badge → select **Bearer Token** → enter `' + GQL_TLS_BEARER_TEMPLATE + '`. Click **Execute**. Then open the **Metadata** tab — you see `Authorization: Bearer lesson6-demo-jwt` in Request Headers (the env variable resolved before send). What you\'re seeing is the *decoded* header logged by Studio. On the wire, that entire header is encrypted inside the TLS tunnel. **This is the correct mental model:** HTTPS does not protect credentials that are already visible in the app — it protects them *in transit* so they cannot be intercepted between your machine and the server.',
       highlight: GQL.RV_REQUEST_HEADERS,
       preAction: ensureTlsIntrospected,
       action: async (ctx) => {
@@ -319,13 +346,13 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-ca-cert',
       title: 'Phase 2 — Paste the CA Certificate',
       description:
-        'Skip-cert is a dev-only shortcut. Click **TLS** → **Configure** to open the certificate modal. **Uncheck** skip certificate validation and paste the **GraphQL Dev Root CA** PEM into the **CA Certificate** field — the same root CA that signed the server cert at `docker/graphql/tls/certs/ca.crt`. Changes apply as you type; click **Close** when done. The proxy now validates the full certificate chain: only servers signed by your CA are accepted. A rogue server presenting a different certificate is **rejected** — the critical difference from skip-cert.',
+        'Skip-cert is a dev-only shortcut. Watch each change in order: click **TLS** → **Configure** to open the certificate modal, then **uncheck** skip certificate validation — the connection bar **SSL** badge returns to verification-on (no longer amber). Paste the **GraphQL Dev Root CA** PEM into the **CA Certificate** field (the same root CA that signed the server cert at `docker/graphql/tls/certs/ca.crt`). The demo pauses so you can read the certificate block. Click **Close** when done — the TLS badge should read **Custom CA** (not Skip Verify). The next step uses **Introspect** — not Execute — to reload the schema with full chain validation.',
       highlight: GQL.TLS_CONFIGURE,
-      preAction: ensureTlsAuthExecuted,
+      preAction: ensureTlsPhase2Ready,
       action: async (ctx) => {
-        await ensureTlsCaConfigured(ctx);
+        await ensureTlsCaConfigured(ctx, { visible: true });
       },
-      verify: GQL.TLS_INDICATOR,
+      verify: GQL.TLS_INDICATOR_CA,
       pauseAfter: true,
     },
 
@@ -333,13 +360,26 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-connect-ca',
       title: 'Introspect With CA Validation (Phase 2)',
       description:
-        'Click **Introspect** again. This time the connection succeeds with **full certificate validation** — hostname, chain-of-trust, and expiry are all checked against the CA you pasted. The green **✓ Schema** badge confirms the server\'s identity was cryptographically verified, not merely accepted. This is how staging environments with internal CAs work in production.',
-      highlight: GQL.SCHEMA_BADGE_OK,
-      preAction: ensureTlsCaConfigured,
+        'Click **Introspect** (not Execute — schema reload needs a fresh TLS handshake with your CA). Watch the ripple on the button; full certificate validation runs on the next beat.',
+      highlight: GQL.INTROSPECT_BTN,
+      preAction: prepareGqltCaIntrospectReading,
       action: async (ctx) => {
-        await ctx.click(GQL.INTROSPECT_BTN);
-        await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+        await runTlsIntrospectClickOnly(ctx);
         await ctx.delay(800);
+      },
+      verify: GQL.INTROSPECT_BTN,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-observe-ca',
+      title: 'Full Chain Validation — Schema Confirmed',
+      description:
+        'The connection succeeds with **full certificate validation** — hostname, chain-of-trust, and expiry are all checked against the CA you pasted. The green **✓ Schema** badge confirms the server\'s identity was cryptographically verified, not merely accepted. This is how staging environments with internal CAs work in production.',
+      highlight: GQL.SCHEMA_BADGE_OK,
+      preAction: ensureTlsCaIntrospectOutcome,
+      action: async (ctx) => {
+        await ctx.delay(1200);
       },
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
@@ -349,7 +389,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-mtls-intro',
       title: 'Phase 3 — Switch to the mTLS Endpoint',
       description:
-        '**Mutual TLS (mTLS)** adds a second layer: the server verifies **your** identity too. Change the endpoint to `https://localhost:4445/graphql` — a separate Docker proxy that **requires** a client certificate. Open **TLS → Configure**, keep skip-cert **off**, and confirm the **CA Certificate** is still set (the mTLS server uses the same private CA).',
+        '**Mutual TLS (mTLS)** adds a second layer: the server verifies **your** identity too. Change the endpoint to `https://localhost:4445/graphql` — a separate Docker proxy that **requires** a client certificate. The schema panel may briefly show an error until client credentials are pasted in the next step — that is expected. Open **TLS → Configure**, keep skip-cert **off**, and confirm the **CA Certificate** is still set (the mTLS server uses the same private CA).',
       highlight: GQL.ENDPOINT_INPUT,
       preAction: ensureTlsCaIntrospected,
       action: async (ctx) => {
@@ -363,13 +403,13 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-mtls-creds',
       title: 'Paste Client Certificate & Key',
       description:
-        'Open **TLS → Configure** and scroll to **Client Identity (mTLS)**. Paste the **client certificate** and **private key** PEM blocks — generated by `generate-client-cert.sh` in the Docker stack. Both fields are required: the cert proves who you are; the key proves you own that cert. Click **Close** when done — the TLS indicator badge should show **mTLS**.',
+        'Open **TLS → Configure** and scroll to **Client Identity (mTLS)**. The demo pauses at each step so you can follow along: it confirms the **CA Certificate** is still set, then pastes the **client certificate** PEM, then the **private key** PEM — both generated by `generate-client-cert.sh` in the Docker stack. The cert proves who you are; the key proves you own that cert. Watch the TLS indicator update to **mTLS**, then click **Close**.',
       highlight: GQL.TLS_CLIENT_CERT,
-      preAction: ensureMtlsEndpoint,
+      preAction: ensureMtlsPanelReady,
       action: async (ctx) => {
-        await ensureMtlsConfigured(ctx);
+        await ensureMtlsConfigured(ctx, { visible: true });
       },
-      verify: GQL.TLS_INDICATOR,
+      verify: GQL.TLS_INDICATOR_MTLS,
       pauseAfter: true,
     },
 
@@ -377,13 +417,26 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-mtls-connect',
       title: 'Introspect Over mTLS (Phase 3)',
       description:
-        'Click **Introspect**. The proxy presents your client certificate to the server at port 4445 — the server verifies it was signed by the same CA, and only then returns the schema. **Three-way trust** is now complete: you verified the server (CA cert), the server verified you (client cert), and all traffic remains AES-256 encrypted. This is how zero-trust service meshes authenticate GraphQL gateways.',
-      highlight: GQL.SCHEMA_BADGE_OK,
-      preAction: ensureMtlsConfigured,
+        'Click **Introspect**. The proxy will present your client certificate to the server at port 4445 — watch the button; the three-way trust outcome appears next.',
+      highlight: GQL.INTROSPECT_BTN,
+      preAction: prepareGqltMtlsIntrospectReading,
       action: async (ctx) => {
-        await ctx.click(GQL.INTROSPECT_BTN);
-        await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+        await runTlsIntrospectClickOnly(ctx);
         await ctx.delay(800);
+      },
+      verify: GQL.INTROSPECT_BTN,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-observe-mtls',
+      title: 'mTLS Handshake Complete',
+      description:
+        'The server verified your client certificate was signed by the same CA, and only then returned the schema. **Three-way trust** is now complete: you verified the server (CA cert), the server verified you (client cert), and all traffic remains AES-256 encrypted. This is how zero-trust service meshes authenticate GraphQL gateways.',
+      highlight: GQL.SCHEMA_BADGE_OK,
+      preAction: ensureMtlsIntrospectOutcome,
+      action: async (ctx) => {
+        await ctx.delay(1200);
       },
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
@@ -393,15 +446,28 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-restore',
       title: 'Restore to Plain HTTP',
       description:
-        'Change the endpoint back to `http://localhost:4010/graphql` and click **Introspect**. The TLS badge disappears — plain HTTP endpoints have no TLS controls. The schema reloads instantly with no certificate to validate. **When is plain HTTP acceptable?** Only on **loopback** (localhost / 127.0.0.1), when no credentials are involved, and only for local dev. The moment your traffic crosses a network boundary, touches real auth tokens, or reaches a public server — switch to HTTPS. The rule of thumb: if you would be embarrassed to see the request content on a packet capture, use HTTPS.',
-      highlight: GQL.SCHEMA_BADGE_OK,
-      preAction: ensureMtlsIntrospected,
+        'Change the endpoint back to `http://localhost:4010/graphql` and click **Introspect**. The TLS badge will disappear — plain HTTP endpoints have no TLS controls.',
+      highlight: GQL.ENDPOINT_INPUT,
+      preAction: prepareGqltRestoreReading,
       action: async (ctx) => {
         await configureDemoTabEndpointOverride(ctx, GQL_PLAIN_HTTP);
         await ctx.delay(500);
-        await ctx.click(GQL.INTROSPECT_BTN);
-        await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
-        await ctx.delay(600);
+        await runTlsIntrospectClickOnly(ctx);
+        await ctx.delay(800);
+      },
+      verify: GQL.ENDPOINT_INPUT,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-observe-restore',
+      title: 'Plain HTTP Schema Reloaded',
+      description:
+        'The schema reloads instantly with no certificate to validate — green **✓ Schema** on a plain `http://` endpoint. **When is plain HTTP acceptable?** Only on **loopback** (localhost / 127.0.0.1), when no credentials are involved, and only for local dev. The moment your traffic crosses a network boundary, touches real auth tokens, or reaches a public server — switch to HTTPS.',
+      highlight: GQL.SCHEMA_BADGE_OK,
+      preAction: ensurePlainRestoreIntrospectOutcome,
+      action: async (ctx) => {
+        await ctx.delay(1200);
       },
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
