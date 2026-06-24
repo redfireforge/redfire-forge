@@ -50,7 +50,7 @@ export const WF = {
   NODE_START:          '.react-flow__node-start',
   NODE_END:            '.react-flow__node-end',
   WF_GQL_ENDPOINT:     '[data-testid="gql-wf-query-panel"] .wf-config-field--row .expr-input-wrapper input',
-  WF_GQL_ASSERT_SOURCE:'[data-testid="gql-wf-assert-panel"] .wf-config-field .expr-input-wrapper input',
+  WF_GQL_ASSERT_SOURCE:'[data-testid="gql-wf-assert-source-var"]',
   WORKFLOW_SELECT:     '[data-testid="workflow-select"]',
   // Console badge and Debug button (Demo Player lessons)
   CONSOLE_BADGE:       '.wf-console-badge',

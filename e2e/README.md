@@ -115,6 +115,12 @@ npm run test:e2e:demo:gql3
 # GQL-1..3 smoke auto-play (4F-7 — requires docker/graphql on 4010; lesson-stage / on demand, not default CI)
 npm run test:e2e:demo:gql-smoke
 
+# §11.0 — demo workspace isolation acceptance (requires docker/graphql on 4010)
+npm run test:e2e:demo:gql110
+
+# GQL-19 — Subscription Node in Workflow (requires docker/graphql on 4010)
+npm run test:e2e:demo:gql19
+
 # Single WS demo spec
 npx playwright test --project=demo-stepthrough e2e/ws-basics-em.spec.ts --reporter=list
 ```

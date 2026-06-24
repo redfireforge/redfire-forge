@@ -968,7 +968,6 @@ describe('gql-multi-tab lesson', () => {
       2,
     );
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_BADGE, 5000);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
   });
 
   it('gqlMultiTabLessonCleanup closes demo tabs', async () => {
@@ -981,7 +980,7 @@ describe('gql-multi-tab lesson', () => {
       </div>
     `;
     await gqlMultiTabLessonCleanup(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
     expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-multi-tab');
   });
 

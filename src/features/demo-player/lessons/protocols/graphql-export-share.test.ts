@@ -40,8 +40,8 @@ describe('gql-export-share lesson', () => {
     expect(gqlExportShareLesson.id).toBe('gql-export-share');
     expect(gqlExportShareLesson.category).toBe('graphql');
     expect(gqlExportShareLesson.name).toBe('Export & Share Queries');
-    expect(gqlExportShareLesson.steps.length).toBe(5);
-    expect(gqlExportShareLesson.estimatedMinutes).toBe(3);
+    expect(gqlExportShareLesson.steps.length).toBe(7);
+    expect(gqlExportShareLesson.estimatedMinutes).toBe(4);
     expect(gqlExportShareLesson.tabBudget).toBe(1);
   });
 
@@ -190,7 +190,7 @@ describe('gql-export-share lesson', () => {
   it('gql9-curl description explains WHY cURL is the universal sharing format', () => {
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
     expect(step.description).toContain('curl -X POST');
-    expect(step.description).toContain('Reproducibility');
+    expect(step.description).toContain('universal sharing format');
   });
 
   it('has docker prerequisite fields', () => {
@@ -204,14 +204,21 @@ describe('gql-export-share lesson', () => {
       'gql9-preview',
       'gql9-copy',
       'gql9-edit',
+      'gql9-exec-export',
+      'gql9-open-history',
       'gql9-curl',
     ]);
   });
 
-  it('all 5 steps have pauseAfter: true', () => {
+  it('all 7 steps have pauseAfter enabled', () => {
     gqlExportShareLesson.steps.forEach((step) => {
-      expect(step.pauseAfter).toBe(true);
+      expect(step.pauseAfter).toBeTruthy();
     });
+  });
+
+  it('gql9-curl has extended pauseAfter so viewers can read the context menu', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
+    expect(step.pauseAfter).toBe(5500);
   });
 
   it('stateful steps have preAction guards', () => {
@@ -296,6 +303,18 @@ describe('gql-export-share lesson', () => {
     expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeTruthy();
   });
 
+  it('gql9-curl preAction opens context menu during reading phase when not yet visible', async () => {
+    const ctx = makeCtx();
+    const entry = document.createElement('div');
+    entry.setAttribute('data-testid', 'gql-history-entry');
+    document.body.appendChild(entry);
+    const dispatchSpy = vi.spyOn(entry, 'dispatchEvent');
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
+    await step.preAction!(ctx);
+    expect(dispatchSpy).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(600);
+  });
+
   it('gql9-preview reads SDL and re-selects fields when incomplete', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
@@ -345,6 +364,60 @@ describe('gql-export-share lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.QB_EDIT);
+  });
+
+  it('gql9-exec-export executes query from editor', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-mode-builder" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <button data-testid="gql-qb-edit"></button>
+      <div data-testid="gql-qb-field-tree">
+        <div class="gql-qb-field-row"><span class="gql-qb-expand-spacer"></span><button class="gql-qb-check gql-qb-check--checked"></button><span class="gql-qb-field-name">health</span></div>
+        <div class="gql-qb-field-row"><button class="gql-qb-expand-btn gql-qb-expand-btn--open"></button><button class="gql-qb-check gql-qb-check--partial"></button><span class="gql-qb-field-name">user</span></div>
+        <div data-testid="gql-qb-arg-user-id"><input class="gql-qb-arg-input" value="usr-1" /></div>
+      </div>
+      <pre data-testid="gql-qb-code">query { health user(id: "usr-1") { id } }</pre>
+    `;
+    stubMonacoEditor('query { health user(id: "usr-1") { id } }');
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-exec-export')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql9-open-history opens history panel for latest entry', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-mode-builder" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <button data-testid="gql-activity-history"></button>
+      <div data-testid="gql-history-panel">
+        <div data-testid="gql-history-entry"></div>
+      </div>
+      <button data-testid="gql-qb-edit"></button>
+      <div data-testid="gql-qb-field-tree">
+        <div class="gql-qb-field-row"><span class="gql-qb-expand-spacer"></span><button class="gql-qb-check gql-qb-check--checked"></button><span class="gql-qb-field-name">health</span></div>
+        <div class="gql-qb-field-row"><button class="gql-qb-expand-btn gql-qb-expand-btn--open"></button><button class="gql-qb-check gql-qb-check--partial"></button><span class="gql-qb-field-name">user</span></div>
+        <div data-testid="gql-qb-arg-user-id"><input class="gql-qb-arg-input" value="usr-1" /></div>
+      </div>
+      <pre data-testid="gql-qb-code">query { health user(id: "usr-1") { id } }</pre>
+    `;
+    stubMonacoEditor('query { health user(id: "usr-1") { id } }');
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-open-history')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(document.querySelector(GQL.HISTORY_ENTRY)).toBeTruthy();
   });
 
   it('ensureBuilderHealthAndUserSelected guard skips when fields already selected', async () => {

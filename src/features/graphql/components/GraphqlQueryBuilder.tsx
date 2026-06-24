@@ -14,6 +14,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
 import {
   useGraphqlQueryBuilder,
+  type BuilderState,
 } from '../hooks/useGraphqlQueryBuilder';
 import { generateQuery } from '../utils/queryBuilderGenerator';
 import {
@@ -29,6 +30,10 @@ export interface GraphqlQueryBuilderProps {
   schemaInfo:     GraphqlSchemaInfo | null;
   onEditInEditor: (sdl: string, variables: string) => void;
   onExecute:      (sdl: string, variables: string) => void;
+  /** Per-tab restored selection model (checkboxes, args, aliases, directives). */
+  initialState?:  BuilderState;
+  /** Persist builder state while Editor mode is active or when switching tabs. */
+  onStateChange?: (state: BuilderState) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -37,8 +42,10 @@ export const GraphqlQueryBuilder = memo(function GraphqlQueryBuilder({
   schemaInfo,
   onEditInEditor,
   onExecute,
+  initialState,
+  onStateChange,
 }: GraphqlQueryBuilderProps) {
-  const builder = useGraphqlQueryBuilder();
+  const builder = useGraphqlQueryBuilder({ initialState, onStateChange });
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

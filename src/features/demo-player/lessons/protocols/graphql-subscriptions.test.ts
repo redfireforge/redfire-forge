@@ -51,8 +51,8 @@ describe('gql-subscriptions lesson', () => {
     expect(gqlSubscriptionsLesson.domainId).toBe('protocols');
     expect(gqlSubscriptionsLesson.category).toBe('graphql');
     expect(gqlSubscriptionsLesson.name).toBe('Subscriptions — Real-Time Data');
-    expect(gqlSubscriptionsLesson.steps.length).toBe(12);
-    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(5);
+    expect(gqlSubscriptionsLesson.steps.length).toBe(14);
+    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(6);
     expect(gqlSubscriptionsLesson.initialTab).toBe('graphql-studio');
     expect(gqlSubscriptionsLesson.tabBudget).toBe(1);
   });
@@ -75,6 +75,8 @@ describe('gql-subscriptions lesson', () => {
       'gql5-connection-bar',
       'gql5-endpoint',
       'gql5-create-order',
+      'gql5-exec-create-order',
+      'gql5-observe-create-order',
       'gql5-write-sub',
       'gql5-transport-select',
       'gql5-subscribe',
@@ -86,27 +88,27 @@ describe('gql-subscriptions lesson', () => {
     ]);
   });
 
-  it('all 12 steps have pauseAfter: true', () => {
+  it('all 14 steps have pauseAfter: true', () => {
     gqlSubscriptionsLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–12 have preAction guards', () => {
+  it('stateful steps 2–14 have preAction guards', () => {
     gqlSubscriptionsLesson.steps.slice(1).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
   });
 
-  it('step gql5-intro has no preAction', () => {
-    expect(gqlSubscriptionsLesson.steps[0].preAction).toBeUndefined();
+  it('step gql5-intro has preAction for demo endpoint', () => {
+    expect(gqlSubscriptionsLesson.steps[0].preAction).toBeTypeOf('function');
   });
 
   // ─── Spotlight / highlight correctness ───────────────────────────────────
 
-  it('gql5-intro highlights tab bar (S badge orientation)', () => {
+  it('gql5-intro highlights connection bar (Subscribe orientation)', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-intro')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBe(GQL.CONNECTION_BAR);
   });
 
   it('gql5-connection-bar highlights connection bar (Subscribe button tour)', () => {
@@ -114,9 +116,9 @@ describe('gql-subscriptions lesson', () => {
     expect(step.highlight).toBe(GQL.CONNECTION_BAR);
   });
 
-  it('gql5-endpoint highlights connection bar for endpoint + introspect', () => {
+  it('gql5-endpoint highlights endpoint input for URL + introspect', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-endpoint')!;
-    expect(step.highlight).toBe(GQL.CONNECTION_BAR);
+    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
   });
 
   it('gql5-transport-select highlights transport select dropdown', () => {
@@ -214,12 +216,13 @@ describe('gql-subscriptions lesson', () => {
 
   // ─── New step actions ────────────────────────────────────────────────────
 
-  it('gql5-connection-bar preAction waits for endpoint input', async () => {
-    stubGqlStudioShell();
+  it('gql5-connection-bar preAction seeds subscription editor for Subscribe UI', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor('query { }');
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-connection-bar')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
   it('gql5-transport-select action calls ensureWsTransport', async () => {
@@ -243,12 +246,12 @@ describe('gql-subscriptions lesson', () => {
     await expect(step.preAction!(ctx)).resolves.toBeUndefined();
   });
 
-  it('gql5-endpoint preAction waits for endpoint input', async () => {
-    stubGqlStudioShell();
+  it('gql5-endpoint preAction ensures demo endpoint is ready', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-endpoint')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
+    expect(ctx.waitFor).toHaveBeenCalled();
   });
 
   it('gql5-endpoint skips introspect when badge already present', async () => {
@@ -259,7 +262,7 @@ describe('gql-subscriptions lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 
-  it('gql5-create-order runs createOrder mutation', async () => {
+  it('gql5-create-order loads createOrder mutation and vars', async () => {
     stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
     const { setQuery, setVars } = stubMonacoEditor('query { }');
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-create-order')!;
@@ -268,6 +271,15 @@ describe('gql-subscriptions lesson', () => {
     await step.action!(ctx);
     expect(setQuery).toHaveBeenCalled();
     expect(setVars).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql5-exec-create-order executes createOrder', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor('mutation CreateOrder { createOrder { id } }');
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-exec-create-order')!;
+    const ctx = makeCtx();
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 

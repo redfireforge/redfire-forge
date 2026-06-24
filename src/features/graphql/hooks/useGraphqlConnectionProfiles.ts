@@ -10,17 +10,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
-import { writeKey } from '../../../shared/utils/storage';
 import {
-  GQL_PROFILES_STORAGE_KEY,
+  GQL_PROFILES_RELOAD_EVENT,
   readConnectionProfiles,
+  writeConnectionProfiles,
   type ConnectionProfile,
 } from '../utils/connectionProfileStorage';
 
 export type { ConnectionProfile } from '../utils/connectionProfileStorage';
 
 function persistProfiles(profiles: ConnectionProfile[]): void {
-  writeKey(GQL_PROFILES_STORAGE_KEY, JSON.stringify(profiles)).catch(() => { /* quota exceeded — silent */ });
+  writeConnectionProfiles(profiles).catch(() => { /* quota exceeded — silent */ });
 }
 
 function generateId(): string {
@@ -45,12 +45,25 @@ export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResu
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
   const [profilesReady, setProfilesReady] = useState(false);
 
-  // Load from storage on mount
+  // Load from storage on mount and when external purge/save dispatches reload.
   useEffect(() => {
-    readConnectionProfiles()
-      .then(setProfiles)
-      .catch(() => { /* storage unavailable */ })
-      .finally(() => setProfilesReady(true));
+    let cancelled = false;
+    const reload = () => {
+      readConnectionProfiles()
+        .then((next) => {
+          if (!cancelled) setProfiles(next);
+        })
+        .catch(() => { /* storage unavailable */ })
+        .finally(() => {
+          if (!cancelled) setProfilesReady(true);
+        });
+    };
+    reload();
+    window.addEventListener(GQL_PROFILES_RELOAD_EVENT, reload);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(GQL_PROFILES_RELOAD_EVENT, reload);
+    };
   }, []);
 
   const saveProfile = useCallback((

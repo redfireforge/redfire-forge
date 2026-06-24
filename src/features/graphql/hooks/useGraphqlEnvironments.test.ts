@@ -351,6 +351,36 @@ describe('useGraphqlEnvironments — importEnvironment', () => {
     expect(result.current.environments[0].variables[0].key).toBe('');
     expect(result.current.environments[0].variables[0].value).toBe('');
   });
+
+  it('upsertEnvironment marks demo variables as masked secrets by default', async () => {
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(vi.mocked(readKey)).toHaveBeenCalled());
+
+    act(() => {
+      result.current.upsertEnvironment('Demo', [
+        { key: 'authToken', value: 'lesson6-demo-jwt' },
+        { key: 'apiKey', value: 'lesson6-api-key-secret' },
+      ]);
+    });
+
+    const demo = result.current.environments.find((e) => e.name === 'Demo');
+    expect(demo?.isActive).toBe(true);
+    expect(demo?.variables).toEqual([
+      { key: 'authToken', value: 'lesson6-demo-jwt', enabled: true, masked: true },
+      { key: 'apiKey', value: 'lesson6-api-key-secret', enabled: true, masked: true },
+    ]);
+  });
+
+  it('upsertEnvironment can opt out of masking with masked: false', async () => {
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(vi.mocked(readKey)).toHaveBeenCalled());
+
+    act(() => {
+      result.current.upsertEnvironment('Dev', [{ key: 'BASE_URL', value: 'http://localhost', masked: false }]);
+    });
+
+    expect(result.current.environments[0].variables[0].masked).toBe(false);
+  });
 });
 
 describe('useGraphqlEnvironments — exportEnvironment', () => {

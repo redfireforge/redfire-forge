@@ -66,6 +66,7 @@ test.describe('GQL-18 — full lesson (Docker)', () => {
     await expect(page.locator('[data-testid="gql-canvas-query-node"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-canvas-assert-node"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="wf-toolbar-select"]')).toContainText(WF_NAME, { timeout: 15_000 });
+    await expect(page.locator('.wf-exec-strip-pass')).toBeVisible({ timeout: 15_000 });
 
     await takeNamedScreenshot(page, 'gql18-workflow-mutation-lesson-complete');
     await exitLesson(page);

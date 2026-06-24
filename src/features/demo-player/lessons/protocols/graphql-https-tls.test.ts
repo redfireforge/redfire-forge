@@ -6,6 +6,32 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql5'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
+}));
+
+vi.mock('../../../graphql/utils/gqlDemoWorkspace', () => ({
+  patchDemoTabConnection: vi.fn(async () => true),
+  loadDemoSession: vi.fn(async () => ({
+    lessonId: 'gql-https-tls',
+    priorActiveTabId: 'user-1',
+    demoTabId: 'demo-tab-gql5',
+  })),
+}));
+
+vi.mock('../../../graphql/utils/tabPersistence', () => ({
+  loadTabs: vi.fn(async () => [
+    {
+      id: 'demo-tab-gql5',
+      endpoint: 'https://127.0.0.1:4443/graphql',
+      query: '',
+      variables: '{}',
+      headers: [],
+      operationType: 'query',
+      modelUri: 'file:///demo',
+      label: 'Demo',
+      unsavedChanges: false,
+    },
+  ]),
 }));
 
 import { gqlHttpsTlsLesson } from './graphql-https-tls';
@@ -34,13 +60,66 @@ import {
 } from './graphql-lesson-helpers';
 import { stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
+function installTlsBridgeMock(): void {
+  (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings = (patch: {
+    skipTlsVerify?: boolean;
+    caCert?: string;
+    clientCert?: string;
+    clientKey?: string;
+  }) => {
+    if (patch.skipTlsVerify === false) {
+      document.querySelector(GQL.TLS_TOGGLE)?.setAttribute('aria-pressed', 'false');
+    }
+    document.querySelector(GQL.TLS_INDICATOR)?.remove();
+    if (patch.clientCert && patch.clientKey) {
+      document.body.insertAdjacentHTML(
+        'beforeend',
+        '<span data-testid="gql-tls-indicator" class="gql-tls-mode-badge gql-tls-mode-badge--mtls">mTLS</span>',
+      );
+    } else if (patch.caCert) {
+      document.body.insertAdjacentHTML(
+        'beforeend',
+        '<span data-testid="gql-tls-indicator" class="gql-tls-mode-badge gql-tls-mode-badge--ca">Custom CA</span>',
+      );
+    }
+  };
+}
+
+function stubFullTlsLessonDom(endpoint = GQL_TLS_HTTPS_ENDPOINT): void {
+  document.body.innerHTML = `
+    <input data-testid="gql-endpoint-input" value="${endpoint}" />
+    <button data-testid="gql-tls-toggle" aria-pressed="false"></button>
+    <button data-testid="gql-tls-configure"></button>
+    <button data-testid="gql-introspect-btn"></button>
+    <span data-testid="gql-schema-badge-ok"></span>
+    <button data-testid="gql-auth-badge-btn"></button>
+    <button data-testid="gql-bottom-tab-variables"></button>
+    <button data-testid="gql-bottom-tab-auth"></button>
+    <div data-testid="gql-auth-panel">
+      <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
+      <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
+    </div>
+    <button data-testid="gql-execute-btn"></button>
+    <div data-testid="gql-response-viewer"></div>
+    <button data-testid="gql-rv-tab-metadata"></button>
+    <div data-testid="gql-rv-request-headers">Authorization Bearer</div>
+    <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+    <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
+    <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+  `;
+  stubMonacoEditor(GQL_HEALTH_QUERY);
+}
+
 describe('gql-https-tls lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetGqlTlsSessionFlags();
+    installTlsBridgeMock();
   });
 
   afterEach(() => {
+    delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
     vi.unstubAllGlobals();
   });
 
@@ -50,8 +129,8 @@ describe('gql-https-tls lesson', () => {
     expect(gqlHttpsTlsLesson.id).toBe('gql-https-tls');
     expect(gqlHttpsTlsLesson.category).toBe('graphql');
     expect(gqlHttpsTlsLesson.name).toBe('HTTPS, TLS & Certificates');
-    expect(gqlHttpsTlsLesson.steps.length).toBe(12);
-    expect(gqlHttpsTlsLesson.estimatedMinutes).toBe(8);
+    expect(gqlHttpsTlsLesson.steps.length).toBe(16);
+    expect(gqlHttpsTlsLesson.estimatedMinutes).toBe(9);
     expect(gqlHttpsTlsLesson.tabBudget).toBe(1);
   });
 
@@ -71,26 +150,29 @@ describe('gql-https-tls lesson', () => {
       'gqlt-tls-panel',
       'gqlt-skip-cert',
       'gqlt-connect-skip',
+      'gqlt-observe-skip',
       'gqlt-auth-tls',
       'gqlt-ca-cert',
       'gqlt-connect-ca',
+      'gqlt-observe-ca',
       'gqlt-mtls-intro',
       'gqlt-mtls-creds',
       'gqlt-mtls-connect',
+      'gqlt-observe-mtls',
       'gqlt-restore',
+      'gqlt-observe-restore',
     ]);
   });
 
-  it('stateful steps 3–12 have preAction guards', () => {
+  it('stateful steps 3–16 have preAction guards', () => {
     gqlHttpsTlsLesson.steps.slice(2).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
   });
 
-  it('first two steps have no preAction (entry steps)', () => {
-    expect(gqlHttpsTlsLesson.steps[0].preAction).toBeUndefined();
-    // gqlt-endpoint has no preAction (studio must be clean)
-    expect(gqlHttpsTlsLesson.steps[1].preAction).toBeUndefined();
+  it('intro and endpoint steps reset to plain HTTP before display', () => {
+    expect(gqlHttpsTlsLesson.steps[0].preAction).toBeDefined();
+    expect(gqlHttpsTlsLesson.steps[1].preAction).toBeDefined();
   });
 
   // ── Concept quality ──────────────────────────────────────────────────────────
@@ -129,7 +211,7 @@ describe('gql-https-tls lesson', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-intro')!;
     expect(step.description).toContain('plain text');
     expect(step.description).toContain('encrypted');
-    expect(step.description).toContain('real local TLS server');
+    expect(step.description).toContain('next step switches');
   });
 
   it('gqlt-skip-cert explains what skip-cert disables', () => {
@@ -139,8 +221,14 @@ describe('gql-https-tls lesson', () => {
     expect(step.description).toContain('loopback');
   });
 
-  it('gqlt-connect-skip explains the security trade-off', () => {
+  it('gqlt-connect-skip describes introspect action beat', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-skip')!;
+    expect(step.description).toContain('Introspect');
+    expect(step.description).toContain('skip-cert');
+  });
+
+  it('gqlt-observe-skip explains the security trade-off', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-observe-skip')!;
     expect(step.description).toContain('encrypted');
     expect(step.description).toContain('man-in-the-middle');
   });
@@ -150,26 +238,35 @@ describe('gql-https-tls lesson', () => {
     expect(step.description).toContain('in transit');
     expect(step.description).toContain('TLS tunnel');
     expect(step.description).toContain(GQL_TLS_BEARER_TEMPLATE);
+    expect(step.description).toContain('authToken');
+    expect(step.description).toContain('lesson6-demo-jwt');
   });
 
   it('gqlt-ca-cert explains CA certificate chain of trust', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-ca-cert')!;
-    expect(step.description).toContain('certificate chain');
+    expect(step.description).toContain('Custom CA');
+    expect(step.description).toContain('Introspect');
     expect(step.description).toContain('docker/graphql/tls');
   });
 
-  it('gqlt-restore explains when plain HTTP is acceptable', () => {
+  it('gqlt-restore describes endpoint restore action', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-restore')!;
-    expect(step.description).toContain('loopback');
-    expect(step.description).toContain('packet capture');
     expect(step.description).toContain(GQL_PLAIN_HTTP);
+    expect(step.description).toContain('Introspect');
+  });
+
+  it('gqlt-observe-restore explains when plain HTTP is acceptable', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-observe-restore')!;
+    expect(step.description).toContain('loopback');
+    expect(step.description).toContain('plain HTTP');
   });
 
   // ── Spotlight ↔ description alignment ────────────────────────────────────────
 
-  it('gqlt-intro highlights the endpoint input', () => {
+  it('gqlt-intro highlights the connection bar (credentials-in-transit context)', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-intro')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.highlight).toBe(GQL.CONNECTION_BAR);
+    expect(step.preAction).toBeDefined();
   });
 
   it('gqlt-endpoint highlights endpoint input and verifies TLS_TOGGLE appears', () => {
@@ -189,8 +286,14 @@ describe('gql-https-tls lesson', () => {
     expect(step.verify).toBe(GQL.TLS_TOGGLE);
   });
 
-  it('gqlt-connect-skip highlights and verifies schema badge OK', () => {
+  it('gqlt-connect-skip highlights Introspect (action only)', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-skip')!;
+    expect(step.highlight).toBe(GQL.INTROSPECT_BTN);
+    expect(step.verify).toBe(GQL.INTROSPECT_BTN);
+  });
+
+  it('gqlt-observe-skip highlights schema badge OK', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-observe-skip')!;
     expect(step.highlight).toBe(GQL.SCHEMA_BADGE_OK);
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
@@ -201,15 +304,38 @@ describe('gql-https-tls lesson', () => {
     expect(step.verify).toBe(GQL.RV_REQUEST_HEADERS);
   });
 
-  it('gqlt-ca-cert highlights TLS configure and has action', () => {
+  it('gqlt-ca-cert highlights TLS configure and verifies Custom CA badge', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-ca-cert')!;
     expect(step.highlight).toBe(GQL.TLS_CONFIGURE);
+    expect(step.verify).toBe(GQL.TLS_INDICATOR_CA);
     expect(step.action).toBeTypeOf('function');
   });
 
-  it('gqlt-restore highlights and verifies schema badge OK', () => {
+  it('gqlt-connect-ca highlights Introspect for Phase 2 schema reload', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-ca')!;
+    expect(step.highlight).toBe(GQL.INTROSPECT_BTN);
+    expect(step.verify).toBe(GQL.INTROSPECT_BTN);
+  });
+
+  it('gqlt-observe-ca verifies schema badge after CA introspect', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-observe-ca')!;
+    expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
+  });
+
+  it('gqlt-mtls-creds verifies mTLS badge after client cert paste', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-creds')!;
+    expect(step.highlight).toBe(GQL.TLS_CLIENT_CERT);
+    expect(step.verify).toBe(GQL.TLS_INDICATOR_MTLS);
+  });
+
+  it('gqlt-restore highlights endpoint input (restore + introspect click)', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-restore')!;
-    expect(step.highlight).toBe(GQL.SCHEMA_BADGE_OK);
+    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.verify).toBe(GQL.ENDPOINT_INPUT);
+  });
+
+  it('gqlt-observe-restore verifies schema badge on plain HTTP', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-observe-restore')!;
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
@@ -271,7 +397,7 @@ describe('gql-https-tls lesson', () => {
     expect(toggle).toBeTruthy();
   });
 
-  it('gqlt-connect-skip action clicks Introspect and waits for schema badge', async () => {
+  it('gqlt-connect-skip action clicks Introspect only', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
@@ -282,10 +408,9 @@ describe('gql-https-tls lesson', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-skip')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
   });
 
-  it('gqlt-restore action fills plain HTTP endpoint and introspects', async () => {
+  it('gqlt-restore action fills plain HTTP endpoint and clicks introspect', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
@@ -356,8 +481,12 @@ describe('gql-https-tls lesson', () => {
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
       <button data-testid="gql-tls-toggle" aria-pressed="true"></button>
       <button data-testid="gql-introspect-btn"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
     `;
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel) => {
+      if (sel === GQL.SCHEMA_BADGE_OK) {
+        document.body.insertAdjacentHTML('beforeend', '<span data-testid="gql-schema-badge-ok"></span>');
+      }
+    });
     await ensureTlsIntrospected(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
@@ -592,27 +721,9 @@ describe('gql-https-tls lesson', () => {
 
   it('gqlt-ca-cert action delegates to ensureTlsCaConfigured', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
-      <button data-testid="gql-tls-toggle" aria-pressed="true"></button>
-      <button data-testid="gql-tls-configure"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
-      <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-panel">
-        <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
-        <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
-      </div>
-      <button data-testid="gql-execute-btn"></button>
-      <div data-testid="gql-response-viewer"></div>
-      <button data-testid="gql-rv-tab-metadata"></button>
-      <div data-testid="gql-rv-request-headers">Authorization Bearer</div>
-      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
-      <span data-testid="gql-tls-indicator">TLS</span>
-    `;
-    stubMonacoEditor('query { health }');
+    stubFullTlsLessonDom();
     vi.mocked(ctx.click).mockImplementation(async (sel) => {
-      if (sel === GQL.TLS_CONFIGURE) {
+      if (sel === GQL.TLS_CONFIGURE && !document.querySelector(GQL.TLS_BODY)) {
         document.body.insertAdjacentHTML(
           'beforeend',
           `<div data-testid="gql-tls-body">
@@ -624,62 +735,39 @@ describe('gql-https-tls lesson', () => {
           </div>`,
         );
       }
+      if (sel === GQL.TLS_TOGGLE) {
+        document.querySelector(GQL.TLS_TOGGLE)?.setAttribute('aria-pressed', 'false');
+      }
+      if (sel === GQL.TLS_CLOSE) {
+        document.querySelector(GQL.TLS_BODY)?.remove();
+      }
     });
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-ca-cert')!;
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CA_CERT, GQL_TLS_CA_CERT);
+    expect(document.querySelector(GQL.TLS_INDICATOR_CA)).toBeTruthy();
+    expect(ctx.click).toHaveBeenCalledWith(GQL.TLS_CONFIGURE);
   });
 
-  it('gqlt-connect-ca action clicks Introspect and waits for schema badge', async () => {
+  it('gqlt-connect-ca action clicks Introspect only', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
+      <span data-testid="gql-tls-indicator" class="gql-tls-mode-badge--ca"></span>
+      <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
     `;
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-ca')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
   });
 
   it('gqlt-connect-ca preAction ensures CA configured', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
-      <button data-testid="gql-tls-toggle" aria-pressed="false"></button>
-      <button data-testid="gql-tls-configure"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
-      <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-panel">
-        <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
-        <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
-      </div>
-      <button data-testid="gql-execute-btn"></button>
-      <div data-testid="gql-response-viewer"></div>
-      <button data-testid="gql-rv-tab-metadata"></button>
-      <div data-testid="gql-rv-request-headers">Authorization</div>
-      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
-    `;
-    stubMonacoEditor('query { health }');
-    vi.mocked(ctx.click).mockImplementation(async (sel) => {
-      if (sel === GQL.TLS_CONFIGURE) {
-        document.body.insertAdjacentHTML(
-          'beforeend',
-          `<div data-testid="gql-tls-body">
-            <div data-testid="gql-tls-skip-cert"><input type="checkbox" checked /></div>
-            <textarea data-testid="gql-tls-ca-cert"></textarea>
-            <textarea data-testid="gql-tls-client-cert"></textarea>
-            <textarea data-testid="gql-tls-client-key"></textarea>
-            <button data-testid="gql-tls-close"></button>
-          </div>`,
-        );
-      }
-    });
+    stubFullTlsLessonDom();
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-connect-ca')!;
     await step.preAction!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CA_CERT, GQL_TLS_CA_CERT);
+    expect(document.querySelector(GQL.TLS_INDICATOR_CA)).toBeTruthy();
   });
 
   it('gqlt-mtls-intro action switches to mTLS endpoint', async () => {
@@ -696,25 +784,35 @@ describe('gql-https-tls lesson', () => {
 
   it('gqlt-mtls-creds action configures client cert and key', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="${GQL_TLS_MTLS_ENDPOINT}" />
-      <button data-testid="gql-tls-configure"></button>
-      <div data-testid="gql-tls-body">
+    stubFullTlsLessonDom(GQL_TLS_MTLS_ENDPOINT);
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `<div data-testid="gql-tls-body">
         <div data-testid="gql-tls-skip-cert"><input type="checkbox" /></div>
-        <textarea data-testid="gql-tls-ca-cert"></textarea>
+        <textarea data-testid="gql-tls-ca-cert">${GQL_TLS_CA_CERT}</textarea>
         <textarea data-testid="gql-tls-client-cert"></textarea>
         <textarea data-testid="gql-tls-client-key"></textarea>
         <button data-testid="gql-tls-close"></button>
-      </div>
-      <span data-testid="gql-tls-indicator">mTLS</span>
-    `;
+      </div>`,
+    );
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-creds')!;
+    vi.mocked(ctx.fill).mockImplementation(async (sel, val) => {
+      if (sel === GQL.TLS_CLIENT_KEY && val === GQL_TLS_CLIENT_KEY) {
+        document.body.insertAdjacentHTML(
+          'beforeend',
+          '<span data-testid="gql-tls-indicator" class="gql-tls-mode-badge gql-tls-mode-badge--mtls">mTLS</span>',
+        );
+      }
+    });
     await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_CERT, '');
     expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_CERT, GQL_TLS_CLIENT_CERT);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, '');
     expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
+    expect(document.querySelector(GQL.TLS_INDICATOR_MTLS)).toBeTruthy();
   });
 
-  it('gqlt-mtls-connect action introspects over mTLS', async () => {
+  it('gqlt-mtls-connect action clicks Introspect only', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_MTLS_ENDPOINT}" />
@@ -724,46 +822,45 @@ describe('gql-https-tls lesson', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-connect')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
   });
 
   it('gqlt-mtls-connect preAction ensures mTLS configured', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="${GQL_TLS_MTLS_ENDPOINT}" />
-      <button data-testid="gql-tls-configure"></button>
-      <div data-testid="gql-tls-body">
+    stubFullTlsLessonDom(GQL_TLS_MTLS_ENDPOINT);
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `<div data-testid="gql-tls-body">
         <div data-testid="gql-tls-skip-cert"><input type="checkbox" /></div>
         <textarea data-testid="gql-tls-ca-cert"></textarea>
         <textarea data-testid="gql-tls-client-cert"></textarea>
         <textarea data-testid="gql-tls-client-key"></textarea>
         <button data-testid="gql-tls-close"></button>
-      </div>
-      <span data-testid="gql-schema-badge-ok"></span>
-    `;
-    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-connect')!;
-    await step.preAction!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
+      </div>`,
+    );
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-creds')!;
+    await step.action!(ctx);
+    const connectStep = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-connect')!;
+    await connectStep.preAction!(ctx);
+    expect(document.querySelector(GQL.TLS_INDICATOR_MTLS)).toBeTruthy();
   });
 
-  it('gqlt-restore preAction ensures mTLS introspected', async () => {
+  it('gqlt-restore preAction prepares mTLS-complete state', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="${GQL_TLS_MTLS_ENDPOINT}" />
-      <button data-testid="gql-tls-configure"></button>
-      <div data-testid="gql-tls-body">
+    stubFullTlsLessonDom(GQL_TLS_MTLS_ENDPOINT);
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `<div data-testid="gql-tls-body">
         <div data-testid="gql-tls-skip-cert"><input type="checkbox" /></div>
         <textarea data-testid="gql-tls-ca-cert"></textarea>
         <textarea data-testid="gql-tls-client-cert"></textarea>
         <textarea data-testid="gql-tls-client-key"></textarea>
         <button data-testid="gql-tls-close"></button>
-      </div>
-      <button data-testid="gql-introspect-btn"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
-    `;
+      </div>`,
+    );
+    const credsStep = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-mtls-creds')!;
+    await credsStep.action!(ctx);
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-restore')!;
-    await step.preAction!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    await expect(step.preAction!(ctx)).resolves.toBeUndefined();
   });
 
   it('gqlt-skip-cert preAction ensures TLS endpoint', async () => {
@@ -774,7 +871,7 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_TLS_HTTPS_ENDPOINT);
   });
 
-  it('gqlt-connect-skip preAction delegates to ensureSkipCertEnabled', async () => {
+  it('gqlt-connect-skip preAction delegates to prepareGqltSkipIntrospectReading', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
@@ -808,5 +905,24 @@ describe('gql-https-tls lesson', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-ca-cert')!;
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+  });
+
+  it('observe steps run reading delay actions', async () => {
+    const ctx = makeCtx();
+    for (const id of ['gqlt-observe-skip', 'gqlt-observe-ca', 'gqlt-observe-mtls', 'gqlt-observe-restore']) {
+      const step = gqlHttpsTlsLesson.steps.find((s) => s.id === id)!;
+      await expect(step.action!(ctx)).resolves.toBeUndefined();
+    }
+    expect(ctx.delay).toHaveBeenCalled();
+  });
+
+  it('gqlt-intro preAction resets endpoint to plain HTTP', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
+    `;
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-intro')!;
+    await step.preAction!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_PLAIN_HTTP);
   });
 });

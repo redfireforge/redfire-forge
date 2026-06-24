@@ -28,6 +28,7 @@ import {
   filterTabsForPersistence,
   isGraphqlStudioLesson,
   loadDemoSession,
+  patchDemoTabConnection,
   pickPersistedActiveTabId,
   prepareDemoWorkspace,
   purgeOrphanDemoTabs,
@@ -98,6 +99,56 @@ describe('gqlDemoWorkspace', () => {
     const savedTabs = JSON.parse(tabsWrite![1] as string) as { demoLessonId?: string }[];
     expect(savedTabs).toHaveLength(2);
     expect(savedTabs.filter((t) => t.demoLessonId === 'gql-first-query')).toHaveLength(1);
+  });
+
+  it('prepareDemoWorkspace seeds gql-https-tls demo tab with plain HTTP endpoint', async () => {
+    const user = makeBlankTab();
+    seedTabs([user], user.id);
+
+    const result = await prepareDemoWorkspace('gql-https-tls', 'Demo: HTTPS, TLS & Certificates');
+    expect(result.ok).toBe(true);
+
+    const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
+    const savedTabs = JSON.parse(tabsWrite![1] as string) as { demoLessonId?: string; endpoint?: string }[];
+    const demo = savedTabs.find((t) => t.demoLessonId === 'gql-https-tls');
+    expect(demo?.endpoint).toBe('http://localhost:4010/graphql');
+  });
+
+  it('patchDemoTabConnection updates demo tab endpoint and dispatches reload', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-https-tls', 'Demo: TLS');
+    demo.endpoint = 'https://localhost:4443/graphql';
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-https-tls',
+          priorActiveTabId: user.id,
+          demoTabId: demo.id,
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      return null;
+    });
+
+    const handler = vi.fn();
+    window.addEventListener(GQL_TABS_RELOAD_EVENT, handler);
+
+    const ok = await patchDemoTabConnection({ endpoint: 'http://localhost:4010/graphql' });
+    expect(ok).toBe(true);
+    expect(handler).toHaveBeenCalled();
+
+    const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
+    const savedTabs = JSON.parse(tabsWrite![1] as string) as { id: string; endpoint?: string }[];
+    expect(savedTabs.find((t) => t.id === demo.id)?.endpoint).toBe('http://localhost:4010/graphql');
+
+    window.removeEventListener(GQL_TABS_RELOAD_EVENT, handler);
+  });
+
+  it('patchDemoTabConnection returns false when no demo session', async () => {
+    mockReadKey.mockResolvedValue(null);
+    await expect(patchDemoTabConnection({ endpoint: 'http://localhost:4010/graphql' })).resolves.toBe(false);
   });
 
   it('prepareDemoWorkspace rejects when user tab cap exceeded for tabBudget', async () => {

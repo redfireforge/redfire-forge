@@ -233,8 +233,8 @@ export async function ensureLesson11AssertRuleConfigured(
   }
 }
 
-/** Run Quick Test and wait for execution summary. */
-export async function ensureLesson11WorkflowPassRun(ctx: DemoActionContext): Promise<void> {
+/** Run Quick Test only — observe pass state on the next step. */
+export async function runLesson11WorkflowPassExecOnly(ctx: DemoActionContext): Promise<void> {
   await ensureLesson11AssertRuleConfigured(ctx, '500');
   if (_lesson11PassRun && document.querySelector(`${GQL.WF_CANVAS_QUERY_NODE}.wf-node-pass`)) return;
 
@@ -246,16 +246,26 @@ export async function ensureLesson11WorkflowPassRun(ctx: DemoActionContext): Pro
   await ctx.delay(300);
   await ctx.click(WF.QUICK_TEST_BTN);
   await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
-  await ctx.delay(800);
+  await ctx.delay(400);
   _lesson11PassRun = true;
 }
 
-/** Tighten assertion to fail, re-run Quick Test. */
-export async function ensureLesson11WorkflowFailRun(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11WorkflowPassRun(ctx);
+/** Run Quick Test and wait for execution summary. */
+export async function ensureLesson11WorkflowPassRun(ctx: DemoActionContext): Promise<void> {
+  await runLesson11WorkflowPassExecOnly(ctx);
+  await ctx.delay(400);
+}
+
+/** Reading pause before observing green pass nodes (Quick Test must have run). */
+export async function prepareGql11ObservePassReading(ctx: DemoActionContext): Promise<void> {
+  await runLesson11WorkflowPassExecOnly(ctx);
+}
+
+/** Run Quick Test with tightened threshold (assert rule must already be set to fail). */
+export async function ensureLesson11WorkflowFailRunOnly(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11AssertRuleConfigured(ctx, '1');
   if (_lesson11FailRun && document.querySelector(`${GQL.WF_CANVAS_ASSERT_NODE}.wf-node-fail`)) return;
 
-  await ensureLesson11AssertRuleConfigured(ctx, '1');
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await clickWfFitView(ctx);
@@ -263,6 +273,22 @@ export async function ensureLesson11WorkflowFailRun(ctx: DemoActionContext): Pro
   await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
   await ctx.delay(800);
   _lesson11FailRun = true;
+}
+
+/** Tighten assertion to fail, re-run Quick Test. */
+export async function ensureLesson11WorkflowFailRun(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11WorkflowPassRun(ctx);
+  await ensureLesson11WorkflowFailRunOnly(ctx);
+}
+
+/** Reading pause before tightening the assert threshold (pass run must exist). */
+export async function prepareGql11TightenThresholdReading(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11WorkflowPassRun(ctx);
+}
+
+/** Reading pause before observing the failed assert node (threshold already tightened). */
+export async function prepareGql11ObserveFailureReading(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11AssertRuleConfigured(ctx, '1');
 }
 
 /** Open the Workflow Console panel before running Quick Test. */

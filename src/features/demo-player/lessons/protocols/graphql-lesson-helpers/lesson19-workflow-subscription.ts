@@ -38,7 +38,8 @@ export const LESSON19_SUBSCRIPTION_QUERY =
   '  }\n' +
   '}';
 
-export const LESSON19_SUBSCRIPTION_VARS = '{\n  "orderId": "{{orderId}}"\n}';
+/** No quotes around {{orderId}} — extraction stores JSON-serialized scalars. */
+export const LESSON19_SUBSCRIPTION_VARS = '{\n  "orderId": {{orderId}}\n}';
 
 /** Wall-clock safety cap (seconds) on the Stop tab — analogous to Kafka maxWaitMs. */
 export const LESSON19_STOP_AFTER_SECS = '5';
@@ -68,9 +69,58 @@ export function resetGqlLesson19SessionFlags(): void {
   _lesson19QuickTestRun = false;
 }
 
+// ── Workflow readiness ────────────────────────────────────────────────────────
+
+type Lesson19NodeSnapshot = { id: string; type: string; data: Record<string, unknown> };
+
+function readLesson19WorkflowNodes(): Lesson19NodeSnapshot[] | null {
+  const get = (window as unknown as Record<string, unknown>).__wfGetWorkflowByName as
+    | ((name: string) => { nodes?: Lesson19NodeSnapshot[] } | null)
+    | undefined;
+  return get?.(LESSON19_WF_NAME)?.nodes ?? null;
+}
+
+function lesson19NodeData(nodeId: string): Record<string, unknown> | null {
+  const node = readLesson19WorkflowNodes()?.find((n) => n.id === nodeId);
+  return node?.data ?? null;
+}
+
+export function isLesson19CreateNodeReady(): boolean {
+  const data = lesson19NodeData(LESSON19_NODE_CREATE);
+  const endpoint = String(data?.endpoint ?? '').trim();
+  const query = String(data?.query ?? '').trim();
+  const rules = data?.extractionRules as Array<{ variableName?: string }> | undefined;
+  return !!(endpoint && query.includes('createOrder') && rules?.some((r) => r.variableName === LESSON19_ORDER_ID_VAR));
+}
+
+export function isLesson19SubNodeReady(): boolean {
+  const data = lesson19NodeData(LESSON19_NODE_SUB);
+  const endpoint = String(data?.endpoint ?? '').trim();
+  const subQuery = String(data?.subscriptionQuery ?? '').trim();
+  const bindings = data?.outputBindings as Array<{ field?: string; variableName?: string; enabled?: boolean }> | undefined;
+  return !!(
+    endpoint
+    && subQuery.includes('orderStatus')
+    && data?.stopAfterMessages === Number(LESSON19_STOP_AFTER_MESSAGES)
+    && data?.stopAfterMs === Number(LESSON19_STOP_AFTER_SECS) * 1000
+    && bindings?.some((b) => b.field === 'lastMessage' && b.variableName === LESSON19_FINAL_STATUS_VAR && b.enabled !== false)
+  );
+}
+
+export function isLesson19AssertNodeReady(): boolean {
+  const data = lesson19NodeData(LESSON19_NODE_ASSERT);
+  const source = String(data?.sourceVariable ?? '').trim();
+  const assertions = data?.assertions as Array<{ jsonPath?: string; expectedValue?: string }> | undefined;
+  return !!(source === LESSON19_FINAL_STATUS_VAR && assertions?.some((a) => a.jsonPath === '$.orderStatus.status' && a.expectedValue === 'COMPLETE'));
+}
+
+function isLesson19QuickTestPassVisible(): boolean {
+  return !!document.querySelector('.wf-exec-strip-pass');
+}
+
 // ── Workflow factory ──────────────────────────────────────────────────────────
 
-/** Pre-wired: Start → createOrder → orderStatus subscription → assert → End. */
+/** Pre-wired: Start → createOrder → orderStatus subscription → assert → End (lesson-ready defaults). */
 export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
@@ -98,12 +148,14 @@ export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
         position: { x: 280, y: 150 },
         data: {
           label: 'Create Order',
-          endpoint: '',
-          query: 'mutation {\n  \n}',
-          variables: '{}',
+          endpoint: GQL_DEMO_HTTP,
+          query: LESSON19_CREATE_ORDER_MUTATION,
+          variables: LESSON19_CREATE_ORDER_VARS,
           headers: [],
           timeoutMs: 30000,
-          extractionRules: [],
+          extractionRules: [
+            { variableName: LESSON19_ORDER_ID_VAR, jsonPath: LESSON19_ORDER_ID_JSONPATH },
+          ],
           outputBindings: [],
         },
       },
@@ -113,14 +165,17 @@ export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
         position: { x: 480, y: 150 },
         data: {
           label: 'Watch Order Status',
-          endpoint: '',
-          subscriptionQuery: 'subscription {\n  \n}',
-          variables: '{}',
+          endpoint: GQL_DEMO_HTTP,
+          subscriptionQuery: LESSON19_SUBSCRIPTION_QUERY,
+          variables: LESSON19_SUBSCRIPTION_VARS,
           headers: [],
           subscriptionTransport: 'auto',
-          stopAfterMessages: 0,
+          stopAfterMs: Number(LESSON19_STOP_AFTER_SECS) * 1000,
+          stopAfterMessages: Number(LESSON19_STOP_AFTER_MESSAGES),
           extractionRules: [],
-          outputBindings: [],
+          outputBindings: [
+            { field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true },
+          ],
         },
       },
       {
@@ -129,8 +184,14 @@ export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
         position: { x: 680, y: 150 },
         data: {
           label: 'Assert Complete',
-          sourceVariable: '',
-          assertions: [],
+          sourceVariable: LESSON19_FINAL_STATUS_VAR,
+          assertions: [{
+            id: 'gql19-status-assert',
+            jsonPath: '$.orderStatus.status',
+            operator: 'equals',
+            expectedValue: 'COMPLETE',
+            description: 'Order reached COMPLETE status',
+          }],
           failBehavior: 'error',
         },
       },
@@ -242,7 +303,7 @@ export async function ensureLesson19WorkflowLoaded(ctx: DemoActionContext): Prom
 
 export async function ensureLesson19MutationConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19WorkflowLoaded(ctx);
-  if (_lesson19MutationConfigured) return;
+  if (_lesson19MutationConfigured && isLesson19CreateNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_CREATE);
   await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
@@ -268,7 +329,9 @@ export async function ensureLesson19MutationConfigured(ctx: DemoActionContext): 
 
 export async function ensureLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19MutationConfigured(ctx);
-  if (_lesson19SubscriptionConfigured) return;
+  const subEndpoint = String(lesson19NodeData(LESSON19_NODE_SUB)?.endpoint ?? '').trim();
+  const subQuery = String(lesson19NodeData(LESSON19_NODE_SUB)?.subscriptionQuery ?? '').trim();
+  if (_lesson19SubscriptionConfigured && subEndpoint && subQuery.includes('orderStatus')) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
   await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
@@ -284,7 +347,8 @@ export async function ensureLesson19SubscriptionConfigured(ctx: DemoActionContex
 
 export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubscriptionConfigured(ctx);
-  if (_lesson19SubscriptionTimeout) return;
+  const stopMs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMs;
+  if (_lesson19SubscriptionTimeout && stopMs === Number(LESSON19_STOP_AFTER_SECS) * 1000) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
   await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
@@ -297,7 +361,8 @@ export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext):
 
 export async function ensureLesson19SubscriptionCorrelation(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubscriptionTimeout(ctx);
-  if (_lesson19SubscriptionCorrelation) return;
+  const stopMsgs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMessages;
+  if (_lesson19SubscriptionCorrelation && stopMsgs === Number(LESSON19_STOP_AFTER_MESSAGES)) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
   await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
@@ -310,7 +375,7 @@ export async function ensureLesson19SubscriptionCorrelation(ctx: DemoActionConte
 
 export async function ensureLesson19SubscriptionOutputBound(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubscriptionCorrelation(ctx);
-  if (_lesson19SubscriptionOutput) return;
+  if (_lesson19SubscriptionOutput && isLesson19SubNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
   await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
@@ -329,7 +394,7 @@ export async function ensureLesson19SubscriptionOutputBound(ctx: DemoActionConte
 
 export async function ensureLesson19AssertConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19SubscriptionOutputBound(ctx);
-  if (_lesson19AssertConfigured) return;
+  if (_lesson19AssertConfigured && isLesson19AssertNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON19_NODE_ASSERT);
   await ctx.waitFor(GQL.WF_ASSERT_PANEL, 5000);
@@ -365,7 +430,14 @@ export async function ensureLesson19ConsoleOpen(ctx: DemoActionContext): Promise
 
 export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promise<void> {
   await ensureLesson19ConsoleOpen(ctx);
-  if (_lesson19QuickTestRun && document.querySelector(WF.EXEC_SUMMARY)) return;
+  if (
+    _lesson19QuickTestRun
+    && isLesson19QuickTestPassVisible()
+    && isLesson19SubNodeReady()
+    && isLesson19AssertNodeReady()
+  ) {
+    return;
+  }
 
   ctx.navigateToTab('workflow');
   await ctx.delay(400);

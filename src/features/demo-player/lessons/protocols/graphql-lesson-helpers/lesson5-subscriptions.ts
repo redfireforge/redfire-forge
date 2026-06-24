@@ -4,6 +4,7 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
+  ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
   fillGqlEditor,
@@ -150,6 +151,50 @@ export async function ensureWsTransport(ctx: DemoActionContext): Promise<void> {
     await ctx.selectOption(GQL.TRANSPORT_SELECT, 'graphql-transport-ws');
     await ctx.delay(400);
   }
+}
+
+/** Step 1 reading — demo endpoint ready; connection bar visible. */
+export async function prepareGql5IntroReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEndpoint(ctx);
+}
+
+/** Step 2 reading — subscription query in editor so Subscribe button appears on connection bar. */
+export async function prepareGql5ConnectionBarReading(ctx: DemoActionContext): Promise<void> {
+  await ensureIntrospected(ctx);
+  await ensureEditorMode(ctx);
+  const current = getGqlEditorQuery();
+  if (!current.includes('subscription')) {
+    await fillGqlEditor(ctx, GQL_ORDER_STATUS_SUBSCRIPTION, { focus: false });
+  }
+}
+
+/** Step 3 reading — endpoint field ready for literal URL. */
+export async function prepareGql5EndpointReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEndpoint(ctx);
+}
+
+async function ensureCreateOrderMutationReady(ctx: DemoActionContext): Promise<void> {
+  await ensureIntrospected(ctx);
+  await ensureEditorMode(ctx);
+  const current = getGqlEditorQuery();
+  if (!current.includes('createOrder')) {
+    await fillGqlEditor(ctx, GQL_CREATE_ORDER_MUTATION, { focus: false });
+  }
+  await fillGqlVariables(ctx, GQL_CREATE_ORDER_VARS, { focus: false, openPanel: true });
+}
+
+/** Step 4 reading — createOrder mutation + vars loaded, not yet executed. */
+export async function prepareGql5ExecCreateOrderReading(ctx: DemoActionContext): Promise<void> {
+  await ensureCreateOrderMutationReady(ctx);
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(200);
+}
+
+/** Step 4b reading — createOrder response with captured order id. */
+export async function prepareGql5ObserveCreateOrderReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoOrderCreated(ctx);
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
 }
 
 /** Ensure createOrder mutation ran and order id is stored. */

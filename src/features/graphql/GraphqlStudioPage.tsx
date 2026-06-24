@@ -7,20 +7,14 @@ import { useMonaco } from '@monaco-editor/react';
 import { GQL_STUDIO_PROXY_BASE } from './graphqlStudioPageConstants';
 import type { GraphqlHistoryItem } from '../../shared/types/graphql';
 import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
-import { GraphqlEditor } from './components/GraphqlEditor';
 import { GqlTabBar } from './components/GqlTabBar';
-import { GqlBottomPanel } from './components/GqlBottomPanel';
-import { GqlRightPane } from './components/GqlRightPane';
-import { GraphqlQueryBuilder } from './components/GraphqlQueryBuilder';
-import { GraphqlSubscriptionAssertionPanel } from './components/GraphqlSubscriptionAssertionPanel';
-import { GraphqlStudioActivityBar } from './components/GraphqlStudioActivityBar';
-import { loadPersistedActivityTab } from './utils/gqlActivityBarUtils';
-import { GraphqlCollectionRunnerPanel } from './components/GraphqlCollectionRunnerPanel';
 import { GraphqlAdvancedSettings } from './components/GraphqlAdvancedSettings';
-import { GqlComplexityWarningBanner } from './components/GqlComplexityWarningBanner';
+import { GraphqlStudioActivityBar } from './components/GraphqlStudioActivityBar';
 import { GraphqlStudioPageDialogs } from './components/GraphqlStudioPageDialogs';
 import { GraphqlStudioPageOverlays } from './components/GraphqlStudioPageOverlays';
 import { GraphqlStudioLeftActivityPanel } from './components/GraphqlStudioLeftActivityPanel';
+import { GraphqlStudioSplitWorkspace } from './components/GraphqlStudioSplitWorkspace';
+import { loadPersistedActivityTab } from './utils/gqlActivityBarUtils';
 import { useGraphqlStudioTabExecution } from './hooks/useGraphqlStudioTabExecution';
 import { useQueryValidation } from './hooks/useQueryValidation';
 import { useGraphqlStudioSchemaLayer } from './hooks/useGraphqlStudioSchemaLayer';
@@ -33,6 +27,7 @@ import { useGraphqlCollections } from './hooks/useGraphqlCollections';
 import { useGraphqlCollectionRunner } from './hooks/useGraphqlCollectionRunner';
 import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettings';
 import { useDemoGqlEnvBridge } from './hooks/useDemoGqlEnvBridge';
+import { useDemoGqlTlsBridge } from './hooks/useDemoGqlTlsBridge';
 import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
 import { useGraphqlStudioShortcutsBridge } from './hooks/useGraphqlStudioShortcutsBridge';
 import { useGraphqlStudioSplitPanes } from './hooks/useGraphqlStudioSplitPanes';
@@ -59,12 +54,11 @@ import { useGqlExecutionCompletedHandler } from './hooks/useGqlExecutionComplete
 import { useGraphqlStudioExecute } from './hooks/useGraphqlStudioExecute';
 import { useGqlVariablesValidation } from './hooks/useGqlVariablesValidation';
 import { buildVarsModelUri } from './utils/monacoGraphqlSetup';
-import { DEFAULT_VARS } from './utils/tabPersistence';
 import '../../styles/graphql-studio.css';
 import '../../styles/graphql-tls-panel.css';
 import '../../styles/graphql-collections.css';
 import { useGraphqlStudioBatchAdvSettings } from './hooks/useGraphqlStudioBatchAdvSettings';
-import type { BottomPanelTab, BottomPanelTabExtended, GraphqlStudioPageProps } from './graphqlStudioPageTypes';
+import type { BottomPanelTabExtended, GraphqlStudioPageProps } from './graphqlStudioPageTypes';
 import { useGraphqlStudioSubscriptionGuard } from './hooks/useGraphqlStudioSubscriptionGuard';
 import { useGraphqlStudioUIState } from './hooks/useGraphqlStudioUIState';
 
@@ -231,6 +225,8 @@ export function GraphqlStudioPage({
     handleAuthChange,
     updateActiveTabAuth,
   });
+
+  useDemoGqlTlsBridge({ applyTlsSettings: handleConnectionTlsChange });
 
   const usesPageDefaultAuth =
     tabs.length === 1 && !hasActiveTabAuthOverride && !hasActiveTabProfileLink;
@@ -739,157 +735,61 @@ export function GraphqlStudioPage({
             />
           )}
 
-          <div
-            className={`gql-studio-workspace${builderMode ? ' gql-studio-workspace--builder' : ''}`}
-            ref={gqlSplitRef}
-            data-testid="gql-studio-workspace"
-          >
-        <div
-          className="gql-left-pane"
-          ref={gqlLeftPaneRef}
-          style={builderMode ? undefined : { width: editorPaneWidth, flexShrink: 0 }}
-        >
-          <div className="gql-editor-mode-bar" data-testid="gql-editor-mode-bar">
-            <div className="gql-mode-toggle" role="group" aria-label="Edit mode">
-              <button type="button" className={`gql-mode-btn${!builderMode ? ' gql-mode-btn--active' : ''}`}
-                onClick={() => setBuilderMode(false)} aria-pressed={!builderMode} data-testid="gql-mode-editor">
-                Editor
-              </button>
-              <button type="button" className={`gql-mode-btn${builderMode ? ' gql-mode-btn--active' : ''}`}
-                onClick={() => setBuilderMode(true)} aria-pressed={builderMode} data-testid="gql-mode-builder"
-                title={schemaInfo ? undefined : 'Introspect a schema to use the builder'}>
-                Builder
-              </button>
-            </div>
-          </div>
-
-          {builderMode ? (
-            <GraphqlQueryBuilder
-              schemaInfo={schemaInfo}
-              onEditInEditor={handleEditInEditor}
-              onExecute={handleBuilderExecute}
-            />
-          ) : (
-            <>
-              <div className="gql-editor-pane" data-testid="gql-editor-pane">
-                <GraphqlEditor
-                  modelPath={activeTab.modelUri}
-                  defaultValue={activeTab.query}
-                  onChange={handleQueryChange}
-                  height="100%"
-                  data-testid="gql-editor"
-                  editorMountRef={editorMountRef}
-                />
-                <button
-                  type="button"
-                  className={`gql-prettify-btn${prettifyError ? ' gql-prettify-btn--error' : ''}`}
-                  onClick={handlePrettify}
-                  aria-label={prettifyError ? 'Fix syntax errors before formatting' : 'Prettify / format query'}
-                  title={prettifyError ? 'Cannot format — fix syntax errors first' : 'Prettify / format query'}
-                  data-testid="gql-prettify-btn"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
-                    <line x1="16" y1="8" x2="2" y2="22" />
-                    <line x1="17.5" y1="15" x2="9" y2="15" />
-                  </svg>
-                  Prettify
-                </button>
-              </div>
-
-              {insertToast && (
-                <div className="gql-insert-toast" role="status" aria-live="polite" data-testid="gql-insert-toast">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-                  {insertToast}
-                </div>
-              )}
-
-              {activeTab?.operationType === 'subscription' && (
-                <GraphqlSubscriptionAssertionPanel
-                  assertions={activeTab.subscriptionAssertions ?? []}
-                  onChange={handleAssertionsChange}
-                />
-              )}
-
-              <GqlComplexityWarningBanner
-                visible={complexityWarningPending}
-                complexityResult={complexityResult}
-                onConfirm={handleExecute}
-                onDismiss={() => setComplexityWarningPending(false)}
-              />
-
-              {bottomTab === 'runner' && runnerCollectionId ? (
-                <>
-                  <div
-                    className="gql-bottom-panel-divider"
-                    data-testid="gql-bottom-panel-divider"
-                    {...bottomPanelDividerProps}
-                  />
-                  <GraphqlCollectionRunnerPanel
-                    runner={runner}
-                    items={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.items ?? []}
-                    collectionName={collections.trees.find((t) => t.collection.id === runnerCollectionId)?.collection.name ?? 'Collection'}
-                    onClose={() => setBottomTab('variables')}
-                  />
-                </>
-              ) : (
-                <>
-                  <div
-                    className="gql-bottom-panel-divider"
-                    data-testid="gql-bottom-panel-divider"
-                    {...bottomPanelDividerProps}
-                  />
-                  <div className="gql-bottom-panel-container" style={{ height: bottomPanelHeight, overflowY: 'auto' }}>
-                    <GqlBottomPanel
-                      activeTab={(bottomTab === 'runner' ? 'variables' : bottomTab) as BottomPanelTab}
-                      onTabChange={(tab) => setBottomTab(tab as BottomPanelTabExtended)}
-                      varsModelPath={varsModelPath}
-                      defaultVarsValue={activeTab.variables ?? DEFAULT_VARS}
-                      onVariablesChange={handleVariablesChange}
-                      varsError={varsError}
-                  headers={activeTab.headers}
-                  onHeadersChange={handleHeadersChange}
-                  activeEnvironment={activeEnvironment}
-                  globalEnvMap={globalEnvMap}
-                  fileEntries={fileEntries}
-                  onFileEntriesChange={setFileEntries}
-                  uploadProgress={activeTabUploadProgress}
-                  storedAuth={storedAuthForPanel}
-                  resolvedAuthPreview={resolvedAuthPreview}
-                  authScope={usesPageDefaultAuth ? 'page' : 'tab'}
-                  hasAuthOverride={hasActiveTabAuthOverride}
-                  onAuthChange={handleConnectionAuthChange}
-                  onResetAuthToInherit={usesPageDefaultAuth ? undefined : clearActiveTabAuth}
-                      linkedProfileName={linkedProfileName}
-                      globalAuthProfiles={globalAuthProfiles}
-                      defaultAuthProfileId={defaultAuthProfileId}
-                    />
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        {!builderMode && (
-          <>
-            <div
-              className="gql-pane-divider"
-              data-testid="gql-pane-divider"
-              {...gqlPaneDividerProps}
-            />
-            <GqlRightPane
-            view={rightView}
-            onViewChange={setRightView}
-            response={response}
-            executing={isActiveTabExecuting}
-            execStatus={execStatus}
+          <GraphqlStudioSplitWorkspace
+            gqlSplitRef={gqlSplitRef}
+            gqlLeftPaneRef={gqlLeftPaneRef}
+            editorPaneWidth={editorPaneWidth}
+            gqlPaneDividerProps={gqlPaneDividerProps}
+            bottomPanelDividerProps={bottomPanelDividerProps}
+            bottomPanelHeight={bottomPanelHeight}
+            builderMode={builderMode}
+            onSetBuilderMode={setBuilderMode}
             schemaInfo={schemaInfo}
+            onEditInEditor={handleEditInEditor}
+            onBuilderExecute={handleBuilderExecute}
+            activeTab={activeTab}
+            onQueryChange={handleQueryChange}
+            editorMountRef={editorMountRef}
+            prettifyError={prettifyError}
+            onPrettify={handlePrettify}
+            insertToast={insertToast}
+            complexityWarningPending={complexityWarningPending}
+            complexityResult={complexityResult}
+            onExecute={handleExecute}
+            onDismissComplexityWarning={() => setComplexityWarningPending(false)}
+            onAssertionsChange={handleAssertionsChange}
+            bottomTab={bottomTab}
+            onSetBottomTab={setBottomTab}
+            runnerCollectionId={runnerCollectionId}
+            runner={runner}
+            collections={collections}
+            varsModelPath={varsModelPath}
+            varsError={varsError}
+            onVariablesChange={handleVariablesChange}
+            onHeadersChange={handleHeadersChange}
+            activeEnvironment={activeEnvironment}
+            globalEnvMap={globalEnvMap}
+            fileEntries={fileEntries}
+            onFileEntriesChange={setFileEntries}
+            activeTabUploadProgress={activeTabUploadProgress}
+            storedAuthForPanel={storedAuthForPanel}
+            resolvedAuthPreview={resolvedAuthPreview}
+            usesPageDefaultAuth={usesPageDefaultAuth}
+            hasActiveTabAuthOverride={hasActiveTabAuthOverride}
+            onAuthChange={handleConnectionAuthChange}
+            onResetAuthToInherit={clearActiveTabAuth}
+            linkedProfileName={linkedProfileName}
+            globalAuthProfiles={globalAuthProfiles}
+            defaultAuthProfileId={defaultAuthProfileId}
+            rightView={rightView}
+            onRightViewChange={setRightView}
+            response={response}
+            isActiveTabExecuting={isActiveTabExecuting}
+            execStatus={execStatus}
             schemaStatus={schemaStatus}
             schemaErrorMessage={schemaErrorMessage}
             onIntrospect={handleIntrospect}
             introspecting={introspecting}
-            activeOperationType={activeTab?.operationType ?? null}
             onInsertField={handleInsertField}
             snapshots={snapshots}
             onSaveSnapshot={handleSaveSnapshot}
@@ -898,26 +798,12 @@ export function GraphqlStudioPage({
             onOpenDiff={handleOpenDiff}
             deprecatedUsages={deprecatedUsages}
             onOpenCollectionItem={handleOpenCollectionItem}
-            subscriptionLog={
-              activeTab?.operationType === 'subscription' && subscription.state !== 'idle'
-                ? {
-                    state: subscription.state, messages: subscription.messages,
-                    stats: subscription.stats, connectedSince: subscription.connectedSince,
-                    isPaused: subscription.isPaused, pausedBufferCount: subscription.pausedBufferCount,
-                    errorMessage: subscription.errorMessage, reconnectAttempt: subscription.reconnectAttempt,
-                    transport: subscription.transport,
-                    operationName: selectedOperation ?? activeTab?.label,
-                    assertions: activeTab?.subscriptionAssertions, assertionResultMap,
-                    onPause: subscription.pause, onResume: subscription.resume,
-                    onClear: subscription.clear, onExport: handleExportSubscription,
-                    onStop: handleStopSubscription,
-                  }
-                : null
-            }
+            subscription={subscription}
+            selectedOperation={selectedOperation}
+            assertionResultMap={assertionResultMap}
+            onExportSubscription={handleExportSubscription}
+            onStopSubscription={handleStopSubscription}
           />
-          </>
-        )}
-        </div>
         </div>
       </div>
 

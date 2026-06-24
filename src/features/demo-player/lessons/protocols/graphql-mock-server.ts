@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   GQL_MOCK_HTTP,
   LESSON13_HEALTH_OVERRIDE,
@@ -40,7 +41,7 @@ export const gqlMockServerLesson: DemoLesson = {
     'Enable the desktop GraphQL mock proxy, override `Query.health`, simulate latency, and restore the live Docker endpoint.',
   estimatedMinutes: 6,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -461,10 +462,11 @@ The proxy binds a real TCP socket on \`localhost:3001\`. Browsers cannot open li
       description:
         'Press **▶ Execute** again. The body still shows `"mock-ok"`, but watch the **latency badge** in the response bar climb to ~650 ms after the request completes.\n\n' +
         '**Why test latency at all?** Loading spinners, skeleton screens, debounce timers, and cancellation logic were probably never tested at realistic speeds. This step proves the mock honors the delay — so you can verify your UI handles slow responses gracefully.',
-      highlight: GQL.EXECUTE_BTN,
+      highlight: GQL.RESPONSE_LATENCY,
       preAction: ensureLesson13LatencySliderOnly,
       action: async (ctx) => {
         await ensureLesson13LatencyExecute(ctx);
+        await ctx.delay(800);
       },
       verify: GQL.RESPONSE_LATENCY,
       pauseAfter: true,
@@ -493,12 +495,12 @@ The proxy binds a real TCP socket on \`localhost:3001\`. Browsers cannot open li
       description:
         `Set the connection bar back to \`${GQL_DEMO_HTTP}\`, click **Introspect**, and execute once more. The spotlight follows the **endpoint field** while the live URL is restored.\n\n` +
         '**Why restore the endpoint explicitly?** Disabling mock stops interception, but the editor still pointed at port 3001. Switching back to Docker reconnects you to the real test server — same workflow you used at the start of the lesson.',
-      highlight: GQL.ENDPOINT_INPUT,
+      highlight: GQL.INTROSPECT_BTN,
       preAction: ensureLesson13MockDisabledOnly,
       action: async (ctx) => {
         await ensureLesson13LiveEndpointOnly(ctx);
       },
-      verify: GQL.SCHEMA_BADGE_OK,
+      verify: GQL.INTROSPECT_BTN,
       pauseAfter: true,
     },
 

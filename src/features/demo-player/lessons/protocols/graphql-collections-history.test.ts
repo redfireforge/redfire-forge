@@ -48,8 +48,8 @@ describe('gql-collections-history lesson', () => {
     expect(gqlCollectionsHistoryLesson.id).toBe('gql-collections-history');
     expect(gqlCollectionsHistoryLesson.category).toBe('graphql');
     expect(gqlCollectionsHistoryLesson.name).toBe('Collections & History');
-    expect(gqlCollectionsHistoryLesson.steps.length).toBe(8);
-    expect(gqlCollectionsHistoryLesson.estimatedMinutes).toBe(4);
+    expect(gqlCollectionsHistoryLesson.steps.length).toBe(9);
+    expect(gqlCollectionsHistoryLesson.estimatedMinutes).toBe(5);
     expect(gqlCollectionsHistoryLesson.tabBudget).toBe(1);
   });
 
@@ -135,8 +135,14 @@ describe('gql-collections-history lesson', () => {
 
   // ── Step spotlights match their panel/element ─────────────────────────────
 
-  it('gql8-execute highlights history entry', () => {
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-execute')!;
+  it('gql8-exec-health highlights execute button', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-exec-health')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
+  });
+
+  it('gql8-observe-history highlights history entry', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-observe-history')!;
     expect(step.highlight).toBe(GQL.HISTORY_ENTRY);
     expect(step.verify).toBe(GQL.HISTORY_ENTRY);
   });
@@ -185,8 +191,8 @@ describe('gql-collections-history lesson', () => {
 
   // ── Step description WHY content ──────────────────────────────────────────
 
-  it('gql8-execute description explains WHY auto-log', () => {
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-execute')!;
+  it('gql8-observe-history description explains WHY auto-log', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-observe-history')!;
     expect(step.description).toContain('IndexedDB');
     expect(step.description).toContain('automatically');
   });
@@ -237,7 +243,8 @@ describe('gql-collections-history lesson', () => {
 
   it('has correct step IDs in order', () => {
     expect(gqlCollectionsHistoryLesson.steps.map((s) => s.id)).toEqual([
-      'gql8-execute',
+      'gql8-exec-health',
+      'gql8-observe-history',
       'gql8-preview',
       'gql8-load',
       'gql8-run',
@@ -248,7 +255,7 @@ describe('gql-collections-history lesson', () => {
     ]);
   });
 
-  it('all 8 steps have pauseAfter: true', () => {
+  it('all 9 steps have pauseAfter: true', () => {
     gqlCollectionsHistoryLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -260,7 +267,24 @@ describe('gql-collections-history lesson', () => {
     });
   });
 
-  it('gql8-execute runs health query and opens history', async () => {
+  it('gql8-exec-health runs health query', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor();
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-exec-health')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql8-observe-history opens history after execute', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
@@ -275,10 +299,9 @@ describe('gql-collections-history lesson', () => {
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
     stubMonacoEditor();
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-execute')!;
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-observe-history')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
   });
 

@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { gqlWorkflowSubscriptionLesson } from './graphql-workflow-subscription';
 import { makeCtx } from './ws-test-utils';
 import { GQL, WF } from '../../../../shared/selectors';
+import { GQL_DEMO_HTTP } from './graphql-lesson-helpers/core';
 import {
   LESSON19_WF_NAME,
   LESSON19_ORDER_ID_VAR,
@@ -17,6 +18,7 @@ import {
   LESSON19_NODE_SUB,
   resetGqlLesson19SessionFlags,
   createGqlOrderFlowDemoWorkflow,
+  isLesson19SubNodeReady,
   gqlWorkflowSubscriptionLessonSetup,
   ensureLesson19WorkflowLoaded,
   ensureLesson19SubscriptionConfigured,
@@ -356,9 +358,30 @@ describe('gql-workflow-subscription lesson', () => {
     expect(wf.name).toBe(LESSON19_WF_NAME);
     expect((wf.nodes as unknown[]).length).toBe(5);
     expect((wf.edges as unknown[]).length).toBe(4);
-    const nodes = wf.nodes as Array<{ id: string; type: string }>;
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
     expect(nodes.find((n) => n.id === LESSON19_NODE_CREATE)?.type).toBe('graphqlMutation');
     expect(nodes.find((n) => n.id === LESSON19_NODE_SUB)?.type).toBe('graphqlSubscription');
+    const sub = nodes.find((n) => n.id === LESSON19_NODE_SUB)!;
+    expect(sub.data.endpoint).toBe(GQL_DEMO_HTTP);
+    expect(sub.data.variables).toBe(LESSON19_SUBSCRIPTION_VARS);
+    expect(isLesson19SubNodeReady()).toBe(false);
+  });
+
+  it('isLesson19SubNodeReady reads live workflow via __wfGetWorkflowByName', () => {
+    const wf = createGqlOrderFlowDemoWorkflow();
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON19_WF_NAME ? wf : null;
+    expect(isLesson19SubNodeReady()).toBe(true);
+  });
+
+  it('LESSON19_SUBSCRIPTION_VARS parses after orderId extraction substitute', () => {
+    const extractedId = JSON.stringify('ord-152');
+    const resolved = LESSON19_SUBSCRIPTION_VARS.replace(
+      `{{${LESSON19_ORDER_ID_VAR}}}`,
+      extractedId,
+    );
+    expect(JSON.parse(resolved)).toEqual({ orderId: 'ord-152' });
+    expect(LESSON19_SUBSCRIPTION_VARS).not.toContain(`"{{${LESSON19_ORDER_ID_VAR}}}"`);
   });
 
   it('ensureLesson19SubscriptionCorrelation sets stop messages count', async () => {

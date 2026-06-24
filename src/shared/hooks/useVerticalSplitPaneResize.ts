@@ -55,10 +55,55 @@ export function useVerticalSplitPaneResize(options: VerticalSplitPaneResizeOptio
   const [maxHeight, setMaxHeight] = useState(defaultHeight);
 
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const heightRef = useRef(defaultHeight);
   const loadedRef = useRef(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load persisted height on mount
+  useEffect(() => {
+    heightRef.current = height;
+  }, [height]);
+
+  const clampHeight = useCallback(
+    (h: number) => {
+      const container = containerRef.current;
+      if (!container || container.clientHeight <= 0) {
+        return Math.max(minHeight, Math.min(h, defaultHeight));
+      }
+      let max = Math.max(minHeight, container.clientHeight - minOppositeHeight);
+      if (maxHeightRatio != null) {
+        max = Math.min(max, Math.floor(container.clientHeight * maxHeightRatio));
+      }
+      return Math.max(minHeight, Math.min(max, h));
+    },
+    [containerRef, minHeight, minOppositeHeight, maxHeightRatio, defaultHeight],
+  );
+
+  const measureContainer = useCallback(() => {
+    const container = containerRef.current;
+    if (container && container.clientHeight > 0) {
+      let max = Math.max(minHeight, container.clientHeight - minOppositeHeight);
+      if (maxHeightRatio != null) {
+        max = Math.min(max, Math.floor(container.clientHeight * maxHeightRatio));
+      }
+      setMaxHeight(max);
+      setHeight((h) => clampHeight(h));
+    }
+  }, [containerRef, clampHeight, minHeight, minOppositeHeight, maxHeightRatio]);
+
+  useEffect(() => {
+    measureContainer();
+    window.addEventListener('resize', measureContainer);
+    const container = containerRef.current;
+    const observer = container && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => { measureContainer(); })
+      : null;
+    if (container && observer) observer.observe(container);
+    return () => {
+      window.removeEventListener('resize', measureContainer);
+      observer?.disconnect();
+    };
+  }, [containerRef, measureContainer]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -66,7 +111,7 @@ export function useVerticalSplitPaneResize(options: VerticalSplitPaneResizeOptio
       if (!cancelled && raw != null) {
         const parsed = Number(raw);
         if (Number.isFinite(parsed) && parsed > 0) {
-          setHeight(Math.max(minHeight, parsed));
+          setHeight(clampHeight(parsed));
         }
       }
       loadedRef.current = true;
@@ -74,10 +119,9 @@ export function useVerticalSplitPaneResize(options: VerticalSplitPaneResizeOptio
     return () => {
       cancelled = true;
     };
-    // Load once per storage key
-  }, [storageKey, minHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
-  // Persist height changes (debounced)
   useEffect(() => {
     if (!loadedRef.current) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -89,38 +133,13 @@ export function useVerticalSplitPaneResize(options: VerticalSplitPaneResizeOptio
     };
   }, [height, storageKey]);
 
-  // Measure max height when container changes
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const updateMaxHeight = () => {
-      const containerHeight = container.clientHeight;
-      const computed = containerHeight - minOppositeHeight;
-      setMaxHeight(Math.max(minHeight, computed));
+    return () => {
+      if (loadedRef.current) {
+        void writeKey(storageKey, String(Math.round(heightRef.current)));
+      }
     };
-
-    updateMaxHeight();
-    
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(updateMaxHeight);
-      observer.observe(container);
-      return () => observer.disconnect();
-    }
-  }, [containerRef, minHeight, minOppositeHeight]);
-
-  const clampHeight = useCallback(
-    (h: number) => {
-      const liveContainerHeight = containerRef.current?.clientHeight;
-      const liveMaxHeight =
-        typeof liveContainerHeight === 'number' && liveContainerHeight > 0
-          ? Math.max(minHeight, liveContainerHeight - minOppositeHeight)
-          : maxHeight;
-      const ratio = maxHeightRatio ? liveMaxHeight * maxHeightRatio : liveMaxHeight;
-      return Math.max(minHeight, Math.min(h, ratio));
-    },
-    [containerRef, minHeight, minOppositeHeight, maxHeight, maxHeightRatio],
-  );
+  }, [storageKey]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

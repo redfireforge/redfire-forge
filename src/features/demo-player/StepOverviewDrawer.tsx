@@ -1,7 +1,7 @@
 /** StepOverviewModal — independent draggable + resizable floating modal showing all lesson steps.
  *  Can be repositioned and resized freely while the demo is running. */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { DemoLesson } from './types';
+import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { DemoLesson, DemoStep } from './types';
 import { renderMarkdown } from './ConceptSlide';
 
 interface Props {
@@ -84,15 +84,91 @@ function useResizable(defaultWidth: number, defaultHeight: number) {
   return { size, onResizeMouseDown };
 }
 
-export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: Props) {
+const OverviewStepItem = memo(function OverviewStepItem({
+  step,
+  idx,
+  currentStepIndex,
+  onGoToStep,
+  activeItemRef,
+}: {
+  step: DemoStep;
+  idx: number;
+  currentStepIndex: number;
+  onGoToStep?: (index: number) => void;
+  activeItemRef?: (el: HTMLElement | null) => void;
+}) {
+  const descriptionHtml = useMemo(() => renderMarkdown(step.description), [step.description]);
+  const isActive = idx === currentStepIndex;
+  const isDone = idx < currentStepIndex;
+
+  const itemContent = (
+    <>
+      <span className="demo-overview-modal-item-num">
+        {isDone
+          ? (
+            <svg
+              className="demo-overview-check"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="2,6 5,9 10,3"/>
+            </svg>
+          )
+          : <span>{idx + 1}</span>
+        }
+      </span>
+      <span className="demo-overview-modal-item-body">
+        <span className="demo-overview-modal-item-title">{step.title}</span>
+        <span
+          className="demo-overview-modal-item-desc"
+          dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+        />
+      </span>
+      {isActive && <span className="demo-overview-modal-current-dot" aria-hidden="true" />}
+    </>
+  );
+
+  if (onGoToStep) {
+    return (
+      <button
+        ref={isActive ? activeItemRef : undefined}
+        className={`demo-overview-modal-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
+        onClick={() => { onGoToStep(idx); }}
+        aria-current={isActive ? 'step' : undefined}
+      >
+        {itemContent}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={isActive ? activeItemRef : undefined}
+      className={`demo-overview-modal-item demo-overview-modal-item--readonly${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
+      aria-current={isActive ? 'step' : undefined}
+    >
+      {itemContent}
+    </div>
+  );
+});
+
+function StepOverviewDrawer({ lesson, currentStepIndex, onGoToStep, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
   const { dragStyle, onDragMouseDown } = useDraggableModal(modalRef);
   const { size, onResizeMouseDown } = useResizable(360, 500);
+  const activeScrollStepRef = useRef(-1);
 
-  // Scroll current step into view on open using a callback ref
-  const activeItemCallbackRef = useCallback((el: HTMLElement | null) => {
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, []);
+  const activeItemRef = useCallback((el: HTMLElement | null) => {
+    if (!el || activeScrollStepRef.current === currentStepIndex) return;
+    activeScrollStepRef.current = currentStepIndex;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [currentStepIndex]);
 
   // Close on Escape — use capture phase with stopImmediatePropagation so the
   // global demo shortcut handler (useDemoShortcuts) doesn't also exit the demo.
@@ -105,26 +181,6 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     };
     window.addEventListener('keydown', onKey, { capture: true });
     return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [onClose]);
-
-  // Close on click-outside the modal (but keep open when interacting with the live demo panel)
-  useEffect(() => {
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target;
-      if (!(target instanceof Node)) return;
-      if (modalRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest('.demo-live-panel')) return;
-      onClose();
-    };
-    // Use pointerdown with a short delay so the toggle-button click that opened
-    // the modal doesn't immediately close it.
-    const timer = setTimeout(() => {
-      window.addEventListener('pointerdown', onPointerDown);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('pointerdown', onPointerDown);
-    };
   }, [onClose]);
 
   const currentStepNumber = currentStepIndex + 1;
@@ -174,66 +230,21 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
 
       {/* ── Step list ── */}
       <div className="demo-overview-modal-list">
-        {lesson.steps.map((step, idx) => {
-          const isActive = idx === currentStepIndex;
-          const isDone   = idx < currentStepIndex;
-          const itemContent = (
-            <>
-              <span className="demo-overview-modal-item-num">
-                {isDone
-                  ? (
-                    <svg
-                      className="demo-overview-check"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="2,6 5,9 10,3"/>
-                    </svg>
-                  )
-                  : <span>{idx + 1}</span>
-                }
-              </span>
-              <span className="demo-overview-modal-item-body">
-                <span className="demo-overview-modal-item-title">{step.title}</span>
-                <span
-                  className="demo-overview-modal-item-desc"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(step.description) }}
-                />
-              </span>
-              {isActive && <span className="demo-overview-modal-current-dot" aria-hidden="true" />}
-            </>
-          );
-
-          return onGoToStep ? (
-            <button
-              key={step.id}
-              ref={isActive ? activeItemCallbackRef : undefined}
-              className={`demo-overview-modal-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
-              onClick={() => { onGoToStep(idx); }}
-              aria-current={isActive ? 'step' : undefined}
-            >
-              {itemContent}
-            </button>
-          ) : (
-            <div
-              key={step.id}
-              ref={isActive ? activeItemCallbackRef : undefined}
-              className={`demo-overview-modal-item demo-overview-modal-item--readonly${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
-              aria-current={isActive ? 'step' : undefined}
-            >
-              {itemContent}
-            </div>
-          );
-        })}
+        {lesson.steps.map((step, idx) => (
+          <OverviewStepItem
+            key={step.id}
+            step={step}
+            idx={idx}
+            currentStepIndex={currentStepIndex}
+            onGoToStep={onGoToStep}
+            activeItemRef={activeItemRef}
+          />
+        ))}
       </div>
 
       {/* ── Footer hint ── */}
       <div className="demo-overview-modal-footer">
-        {onGoToStep ? 'Click to jump · ' : ''}Drag header to reposition · Esc to close
+        {onGoToStep ? 'Click a step to jump · ' : ''}Drag header to reposition · ✕ or Esc to close
       </div>
 
       {/* ── Resize handle (bottom-right corner) ── */}
@@ -246,3 +257,10 @@ export default function StepOverviewDrawer({ lesson, currentStepIndex, onGoToSte
     </div>
   );
 }
+
+export default memo(StepOverviewDrawer, (prev, next) => (
+  prev.lesson === next.lesson
+  && prev.currentStepIndex === next.currentStepIndex
+  && prev.onClose === next.onClose
+  && prev.onGoToStep === next.onGoToStep
+));

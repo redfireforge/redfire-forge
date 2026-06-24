@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 interface GqlEnvBridgeDeps {
-  upsertEnvironment: (name: string, vars: Array<{ key: string; value: string }>) => void;
+  upsertEnvironment: (name: string, vars: Array<{ key: string; value: string; masked?: boolean }>) => void;
   deleteEnvironmentByName: (name: string) => void;
 }
 
@@ -21,7 +21,7 @@ export function useDemoGqlEnvBridge(deps: GqlEnvBridgeDeps): void {
 
     w.__demoUpsertGqlEnv = (
       name: string,
-      vars: Array<{ key: string; value: string }>,
+      vars: Array<{ key: string; value: string; masked?: boolean }>,
     ) => {
       depsRef.current.upsertEnvironment(name, vars);
     };

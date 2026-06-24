@@ -12,14 +12,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import {
+  GQL_ENVS_RELOAD_EVENT,
+  readGqlStudioEnvironments,
+  writeGqlStudioEnvironments,
+} from '../utils/gqlStudioEnvironmentStorage';
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'gql_environments_v1';
-
 function saveEnvironments(envs: GraphqlEnvironment[]): void {
-  writeKey(STORAGE_KEY, JSON.stringify(envs)).catch(() => { /* quota exceeded or private browsing — no-op */ });
+  writeGqlStudioEnvironments(envs).catch(() => { /* quota exceeded or private browsing — no-op */ });
 }
 
 // ─── ID generator ─────────────────────────────────────────────────────────────
@@ -66,7 +68,7 @@ export interface UseGraphqlEnvironmentsReturn {
    * Atomically create-or-update a named environment and set it active.
    * Safe to call from outside React (e.g. demo player window bridge).
    */
-  upsertEnvironment: (name: string, vars: Array<{ key: string; value: string }>) => void;
+  upsertEnvironment: (name: string, vars: Array<{ key: string; value: string; masked?: boolean }>) => void;
   /** Delete all environments with the given name. No-op if none exist. */
   deleteEnvironmentByName: (name: string) => void;
 }
@@ -78,28 +80,30 @@ export function useGraphqlEnvironments(): UseGraphqlEnvironmentsReturn {
   // Load from storage on mount — use functional updater to avoid overwriting
   // any user mutations that happened while the async read was in flight.
   useEffect(() => {
-    readKey(STORAGE_KEY).then((raw) => {
-      if (!raw) {
-        loadedRef.current = true;
-        return;
-      }
+    let cancelled = false;
+    const loadFromStorage = async () => {
       try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (!Array.isArray(parsed)) { loadedRef.current = true; return; }
-        const validated = (parsed as unknown[]).filter(
-          (e): e is GraphqlEnvironment =>
-            e !== null &&
-            typeof e === 'object' &&
-            typeof (e as Record<string, unknown>).id === 'string' &&
-            typeof (e as Record<string, unknown>).name === 'string' &&
-            Array.isArray((e as Record<string, unknown>).variables),
-        );
+        const validated = await readGqlStudioEnvironments();
+        if (cancelled) return;
         setEnvironments((prev) => prev.length > 0 ? prev : validated);
-      } catch { /* corrupt data — ignore */ }
-      loadedRef.current = true;
-    }).catch(() => {
-      loadedRef.current = true;
-    });
+      } finally {
+        if (!cancelled) loadedRef.current = true;
+      }
+    };
+    void loadFromStorage();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Reload when demo cleanup or another tab writes gql_environments_v1.
+  useEffect(() => {
+    const reload = () => {
+      void readGqlStudioEnvironments().then((validated) => {
+        setEnvironments(validated);
+        loadedRef.current = true;
+      });
+    };
+    window.addEventListener(GQL_ENVS_RELOAD_EVENT, reload);
+    return () => window.removeEventListener(GQL_ENVS_RELOAD_EVENT, reload);
   }, []);
 
   // Persist on every change (skip the initial empty state before load is done)
@@ -247,17 +251,18 @@ export function useGraphqlEnvironments(): UseGraphqlEnvironmentsReturn {
    * window bridge callbacks) because everything happens in one updater.
    */
   const upsertEnvironment = useCallback(
-    (name: string, vars: Array<{ key: string; value: string }>): void => {
+    (name: string, vars: Array<{ key: string; value: string; masked?: boolean }>): void => {
       const now = Date.now();
       setEnvironments((prev) => {
         const existing = prev.find((e) => e.name === name);
         const merged: GraphqlEnvironmentVariable[] = existing ? [...existing.variables] : [];
         for (const v of vars) {
+          const masked = v.masked !== false;
           const idx = merged.findIndex((m) => m.key === v.key);
           if (idx >= 0) {
-            merged[idx] = { ...merged[idx], value: v.value, enabled: true };
+            merged[idx] = { ...merged[idx], value: v.value, enabled: true, masked };
           } else {
-            merged.push({ key: v.key, value: v.value, enabled: true, masked: false });
+            merged.push({ key: v.key, value: v.value, enabled: true, masked });
           }
         }
         if (existing) {

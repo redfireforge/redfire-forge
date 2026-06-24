@@ -4,7 +4,7 @@
  * Tests for useGraphqlConnectionSettings hook.
  */
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../shared/utils/storage', () => ({
   readKey: vi.fn(async () => null),
@@ -55,14 +55,27 @@ vi.mock('./useGraphqlEnvironments', () => ({
   }),
 }));
 
+vi.mock('../utils/gqlDemoWorkspace', () => ({
+  GQL_PAGE_AUTH_RELOAD_EVENT: 'gql-page-auth-reload',
+  GQL_PAGE_ENDPOINT_RELOAD_EVENT: 'gql-page-endpoint-reload',
+  loadDemoSession: vi.fn(async () => null),
+}));
+
 import { useGraphqlConnectionSettings } from './useGraphqlConnectionSettings';
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { loadAuth, loadTlsCerts, saveTlsCerts } from '../utils/tabPersistence';
-import { GQL_PAGE_AUTH_RELOAD_EVENT } from '../utils/gqlDemoWorkspace';
+import { GQL_PAGE_AUTH_RELOAD_EVENT, loadDemoSession } from '../utils/gqlDemoWorkspace';
 
 describe('useGraphqlConnectionSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.mocked(writeKey).mockResolvedValue(undefined);
+    vi.mocked(readKey).mockResolvedValue(null);
+    vi.mocked(loadTlsCerts).mockResolvedValue({});
+    vi.mocked(loadDemoSession).mockResolvedValue(null);
   });
 
   it('initializes endpoint from resolvedBaseUrl after storage hydrate', async () => {
@@ -170,14 +183,31 @@ describe('useGraphqlConnectionSettings', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     vi.mocked(writeKey).mockClear();
     act(() => result.current.setEndpoint('https://new-endpoint.com'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.endpoint).toBe('https://new-endpoint.com');
     expect(writeKey).toHaveBeenCalledWith('gql_endpoint_v1', 'https://new-endpoint.com');
+  });
+
+  it('does not persist {{graphqlUrl}} to page storage while a demo session is active', async () => {
+    vi.mocked(loadDemoSession).mockResolvedValue({
+      lessonId: 'gql-variables',
+      priorActiveTabId: 'user-1',
+      demoTabId: 'demo-1',
+    });
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    vi.mocked(writeKey).mockClear();
+    act(() => result.current.setEndpoint('{{graphqlUrl}}'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current.endpoint).toBe('{{graphqlUrl}}');
+    expect(writeKey).not.toHaveBeenCalledWith('gql_endpoint_v1', '{{graphqlUrl}}');
   });
 
   it('setEndpoint syncs historyConnectionId', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => result.current.setEndpoint('https://new-endpoint.com'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.historyConnectionId).toBe('https://new-endpoint.com');
   });
 
@@ -187,6 +217,7 @@ describe('useGraphqlConnectionSettings', () => {
     );
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => result.current.setEndpoint(''));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(result.current.historyConnectionId).toBeNull();
   });
 

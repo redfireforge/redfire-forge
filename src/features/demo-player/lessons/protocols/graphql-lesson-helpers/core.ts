@@ -7,6 +7,7 @@ import {
 } from '../../env-manager-lesson-helpers';
 import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { loadDemoSession } from '../../../../graphql/utils/gqlDemoWorkspace';
 
 /** HTTP GraphQL endpoint for the Docker test server (port 4010). */
 export const GQL_DEMO_HTTP = 'http://localhost:4010/graphql';
@@ -14,6 +15,11 @@ export const GQL_DEMO_HTTP = 'http://localhost:4010/graphql';
 export const GQL_DEMO_VAR = '{{graphqlUrl}}';
 /** Health probe URL for PrerequisiteGate. */
 export const GQL_DEMO_HEALTH = 'http://localhost:4010/health';
+/**
+ * Tabs setup may visit (Environment Manager for demo env seeding).
+ * Include on every GraphQL Studio lesson so useDemoShortcuts does not auto-exit live demo.
+ */
+export const GQL_STUDIO_LESSON_ALLOWED_TABS = ['environments', 'graphql-studio'];
 /** Minimal query used in Lesson 1 — no variables required. */
 export const GQL_HEALTH_QUERY = 'query { health }';
 
@@ -103,7 +109,24 @@ export async function clearActiveTabEndpointOverride(ctx: DemoActionContext): Pr
  * (required when the user already has tabs open — §11.0).
  */
 export async function configureDemoTabInheritPageDefault(ctx: DemoActionContext): Promise<void> {
+  const session = await loadDemoSession();
+  if (session?.demoTabId) {
+    await ctx.waitFor(GQL.tab(session.demoTabId), 10_000);
+    const demoTabSel = GQL.tab(session.demoTabId);
+    const demoTabEl = document.querySelector(demoTabSel);
+    if (demoTabEl?.getAttribute('aria-selected') !== 'true') {
+      await ctx.click(demoTabSel);
+      await ctx.delay(400);
+    }
+  }
   await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  // Wait for the demo tab to appear in the tab bar so endpoint edits stay tab-scoped (§11.0).
+  const tabBarSel = `${GQL.TAB_BAR} [role="tab"]`;
+  for (let i = 0; i < 20; i++) {
+    if (document.querySelectorAll(tabBarSel).length >= 2) break;
+    await ctx.delay(100);
+  }
+  await ctx.delay(400);
   const v = (getEndpointInput()?.value ?? '').trim();
   if (v !== GQL_DEMO_VAR) {
     await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
@@ -148,7 +171,7 @@ export async function closeAuthPanelQuiet(ctx: DemoActionContext): Promise<void>
   await ctx.delay(300);
 }
 
-export type GqlAuthPanelType = 'bearer' | 'apiKey' | 'basic' | 'inherit' | 'none';
+export type GqlAuthPanelType = 'bearer' | 'apiKey' | 'basic' | 'oauth2' | 'inherit' | 'none';
 
 async function waitForAuthTypeFields(
   ctx: DemoActionContext,
@@ -163,6 +186,9 @@ async function waitForAuthTypeFields(
       break;
     case 'basic':
       await ctx.waitFor(GQL.AUTH_BASIC_USER, 5000);
+      break;
+    case 'oauth2':
+      await ctx.waitFor(GQL.AUTH_OAUTH_TOKEN_URL, 5000);
       break;
     case 'inherit':
       await ctx.waitFor(GQL.AUTH_PROFILE_SELECT, 5000);

@@ -323,7 +323,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   padding: 4px 0;
-  z-index: 90;
+  z-index: 1001;
 }
 
 .wf-sidebar-ctx-item-muted {
@@ -800,7 +800,7 @@
 .wf-sidebar-ctx-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 999;
 }
 
 .wf-sidebar-ctx-menu {
@@ -811,7 +811,7 @@
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
   padding: 4px;
-  z-index: 71;
+  z-index: 1000;
 }
 
 .wf-sidebar-ctx-divider {
@@ -8828,4 +8828,645 @@
 }
 .gql-wf-test-inline--pass { color: #4ade80; }
 .gql-wf-test-inline--fail { color: #f87171; }
+
+/* ── GraphQL workflow node config — professional form layout ── */
+.wf-config-modal--gql.modal.ram-modal {
+  width: min(720px, 94vw);
+}
+
+.wf-config-modal--gql .wf-config-modal-tabs {
+  padding: 0 16px;
+  background: var(--bg);
+}
+
+.wf-config-modal--gql .wf-config-modal-tab {
+  flex: 0 1 auto;
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.wf-config-modal--gql .wf-config-modal-scroll {
+  padding: 0 0 12px;
+}
+
+.gql-wf-config {
+  padding: 14px 16px 4px;
+}
+
+.gql-wf-form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gql-wf-form-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  max-height: 74px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.gql-wf-form-row--stack {
+  min-height: auto;
+  max-height: none;
+  align-items: stretch;
+}
+
+.gql-wf-form-row--last,
+.gql-wf-form-row:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-form-row--compact {
+  min-height: auto;
+  max-height: none;
+  border-bottom: none;
+}
+
+.gql-wf-section-body {
+  padding: 12px 14px 14px;
+}
+
+.gql-wf-form-label {
+  flex: 0 0 152px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-form-label--top {
+  align-items: flex-start;
+  padding-top: 12px;
+}
+
+.gql-wf-form-ctrl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 12px;
+  background: var(--surface);
+}
+
+.gql-wf-form-ctrl--stack {
+  padding: 0;
+  justify-content: flex-start;
+}
+
+.gql-wf-form-ctrl input[type="text"],
+.gql-wf-form-ctrl input[type="number"],
+.gql-wf-form-ctrl input[type="password"],
+.gql-wf-form-ctrl select {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.gql-wf-form-ctrl input:focus,
+.gql-wf-form-ctrl select:focus,
+.gql-wf-code-editor:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-wf-form-ctrl .wf-config-field-with-insert {
+  width: 100%;
+  align-items: center;
+}
+
+.gql-wf-form-ctrl .wf-expression-input-wrap input,
+.gql-wf-form-ctrl .wf-expression-input-wrap textarea {
+  width: 100%;
+}
+
+.gql-wf-field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: #f87171;
+  line-height: 1.3;
+}
+
+.gql-wf-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  margin: 0;
+  text-transform: none;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.gql-wf-checkbox-row input {
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.gql-wf-checkbox-label {
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.gql-wf-checkbox-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-wf-checkbox-field .gql-wf-checkbox-row {
+  flex: 0 0 auto;
+}
+
+.gql-wf-checkbox-field--last,
+.gql-wf-checkbox-field:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-checkbox-hint {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gql-wf-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.gql-wf-subtab {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.gql-wf-subtab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.gql-wf-subtab.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg) 40%, transparent);
+}
+
+.gql-wf-subtab-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  color: var(--primary);
+}
+
+.gql-wf-subtab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.gql-wf-config .wf-config-tab-content {
+  min-height: 60px;
+  padding: 12px 0 0;
+}
+
+.gql-wf-code-block {
+  width: 100%;
+  border-top: 1px solid var(--border);
+}
+
+.gql-wf-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.gql-wf-code-toolbar-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.gql-wf-code-editor,
+.gql-wf-config .wf-config-code-editor {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.gql-wf-config .wf-config-hint {
+  margin: 10px 0 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.gql-wf-config .wf-config-hint-inline {
+  font-size: 0.68rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.gql-wf-config .wf-kafka-section-title {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-config .wf-config-empty-hint {
+  padding: 16px;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.gql-wf-config .wf-config-kv-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.gql-wf-config .wf-config-kv-row {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-wf-config .wf-config-kv-row:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-config details.wf-http-var-hints,
+.gql-wf-config .wf-available-vars {
+  margin-top: 12px;
+}
+
+/* GraphQL Assert panel */
+.gql-wf-section-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gql-wf-section-toolbar-text {
+  min-width: 0;
+}
+
+.gql-wf-section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-section-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.gql-wf-section-subtitle--inset {
+  margin-top: 8px;
+}
+
+.gql-wf-section-subtitle code {
+  font-size: 0.68rem;
+  color: var(--text);
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.gql-wf-section-intro {
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.gql-wf-section-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gql-wf-section-add-btn {
+  border: 1px dashed var(--border);
+}
+
+.gql-wf-section-body--flush-top {
+  padding-top: 10px;
+}
+
+.gql-wf-assert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gql-wf-assert-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 10px 12px 12px;
+}
+
+.gql-wf-assert-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-assert-card-index {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gql-wf-assert-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gql-wf-assert-remove-btn:hover {
+  color: #f87171;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+}
+
+.gql-wf-assert-card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-assert-card-grid--no-value {
+  grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.8fr);
+}
+
+.gql-wf-assert-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gql-wf-assert-field--full {
+  margin-top: 0;
+}
+
+.gql-wf-assert-field-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.gql-wf-assert-field input,
+.gql-wf-assert-field select {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.gql-wf-assert-field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.gql-wf-assert-field input:focus,
+.gql-wf-assert-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-wf-behavior-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gql-wf-behavior-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.gql-wf-behavior-option:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+}
+
+.gql-wf-behavior-option:has(input:checked) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+
+.gql-wf-behavior-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.gql-wf-behavior-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gql-wf-behavior-option-body strong {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gql-wf-behavior-option-body span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.gql-wf-section-intro--card {
+  padding: 12px 14px 0;
+  margin-bottom: 0;
+}
+
+.gql-wf-inline-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  line-height: 1.3;
+}
+
+.gql-wf-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.gql-wf-section-divider--inset {
+  margin: 0;
+}
+
+.gql-wf-required-field-compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-required-field-compose input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.gql-wf-required-field-sep {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.gql-wf-required-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gql-wf-required-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.gql-wf-required-field-row code {
+  font-size: 0.76rem;
+  color: var(--text);
+}
+
+.gql-wf-section-body .gql-wf-form-row {
+  margin-bottom: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.gql-wf-section-body .gql-wf-form-label {
+  flex: 0 0 132px;
+}
+
+
+
 

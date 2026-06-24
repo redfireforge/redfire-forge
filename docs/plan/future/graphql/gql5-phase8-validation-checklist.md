@@ -31,9 +31,12 @@ curl --noproxy '*' http://127.0.0.1:4010/health
 
 ## Tauri (desktop)
 
-1. `npm run tauri:dev` — repeat Web checklist on desktop build.
-2. Confirm TLS traffic routes through Node proxy (transport badge / metadata as described in lesson).
-3. mTLS steps 9–11 succeed with same PEM fields as web.
+1. With Vite already on **5173** (Playwright/E2E dev server): `cd src-tauri && cargo run --no-default-features` — or stop Vite first and run `npm run tauri:dev`.
+2. Repeat Web checklist on desktop build.
+3. Confirm TLS traffic routes through Node proxy (transport badge / metadata as described in lesson).
+4. mTLS steps 9–11 succeed with same PEM fields as web.
+
+**Launch note (2026-06-23):** `npm run tauri:dev` fails when port 5173 is occupied; `cargo run` against existing Vite succeeds.
 
 ## Automated E2E (supplement)
 
@@ -43,8 +46,14 @@ NO_PROXY='*' npm run test:e2e:demo:gql5
 
 Full walk skips when any of TLS/mTLS/4010 health checks fail.
 
+**Last run:** 2026-06-23 — **2/2 passed** (~3.7 min) with Docker stacks up.
+
+**§11.0 acceptance:** 2026-06-23 — **4/4 passed** (`npm run test:e2e:demo:gql110`, ~52s).
+
 ## Sign-off
 
-- [ ] Web 1× auto-play — no stuck steps, mTLS introspection OK
-- [ ] Tauri 1× auto-play — same
-- [ ] Screenshot: `gql5-https-tls-lesson-complete` from E2E or manual
+- [x] **Automated E2E** full Docker walk (Chromium auto-play) — 2026-06-23
+- [x] **§11.0 workspace isolation E2E** — 2026-06-23 (`gql110` 4/4)
+- [ ] Web **manual** 1× auto-play — human eyeball (optional if E2E green)
+- [ ] Tauri 1× auto-play — same (~8 min; closes Phase 8 gap)
+- [x] Screenshot: `e2e/screenshots/gql5-https-tls-lesson-complete-*.png` from E2E

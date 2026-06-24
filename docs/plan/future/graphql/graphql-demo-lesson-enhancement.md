@@ -1,7 +1,7 @@
 # GraphQL Demo Lesson Enhancement Plan
 
-**Status:** Active — **All 19 lessons registered (§3.1 ✅)**; **GQL-1 & GQL-2 enhancement-complete**; **§11.0 demo tab isolation shipped for GQL-1..15**; **GQL-5 TLS/mTLS lesson + studio TLS proxy shipped (2026-06-22)**; Phase 8 visual validation + §11.0 acceptance E2E pending  
-**Last Updated:** 2026-06-22 (GQL-5 extended to 12 steps with mTLS; studio TLS transport + page cert persistence; dual Docker health gate; demo E2E shell; APQ/SSE GET PEM hardening; plan sync)  
+**Status:** Active — **All 19 lessons registered (§3.1 ✅)**; **GQL-1, GQL-2 & GQL-3 enhancement-complete**; **§11.0 acceptance E2E ✅** (`gql110` 4/4); **GQL-4 inherit-auth + Docker E2E ✅**; **GQL-5 Web Docker E2E ✅**; GQL-5 Phase 8 **Tauri manual pass** still pending  
+**Last Updated:** 2026-06-23 (§11.0 gql110 green; GQL-3 enhancement; plan header stale lines fixed; demo endpoint persist guard)  
 **Branch target:** `feature/graphql-demo-quality` (or current GraphQL feature branch)  
 **Created:** 2026-06-20  
 **Scope:** 13 shipped GraphQL demo lessons + 6 new lessons (`gql-https-tls`, `gql-multi-tab`, `gql-batch-execution`, 3 workflow lessons) → **19-lesson final roster**  
@@ -14,7 +14,7 @@
 - **New lessons** — Step prefix matches card number when authoring (`gql14-*` for GQL-14).
 - **Step ids in existing lessons are NEVER renamed** — `gql6-*` stays `gql6-*` in `graphql-auth-headers.ts` even though auth is card **GQL-4**.
 
-**Enhancement baseline (2026-06-22):** **GQL-1** (**§3.5**) and **GQL-2** (**§3.6**) are locked as **enhancement-complete** (reference quality). **GQL-3..19** are **shipped in code** (`graphql-lessons.ts` matches **§3.1**) — see **§3.7** for per-lesson status. **§11.0** demo tab plumbing (`gqlDemoWorkspace.ts`, `gql-demo-tab.ts`, `tabBudget`, `PrerequisiteGate`) is **implemented for all GraphQL Studio lessons GQL-1..15**; workflow lessons GQL-16..19 use Workflow Designer/Runner tabs (no studio `tabBudget`). Quality pass to GQL-1/GQL-2 bar remains open for GQL-3..13 and GQL-16. **§11.0 acceptance E2E** (user workspace survives lesson) is still pending.
+**Enhancement baseline (2026-06-22):** **GQL-1** (**§3.5**) and **GQL-2** (**§3.6**) are locked as **enhancement-complete** (reference quality). **GQL-3** enhancement-complete (2026-06-23). **GQL-4..19** are **shipped in code** (`graphql-lessons.ts` matches **§3.1**) — see **§3.7** for per-lesson status. **§11.0** demo tab plumbing is **implemented for all GraphQL Studio lessons GQL-1..15**; workflow lessons GQL-16..19 use Workflow Designer/Runner tabs (no studio `tabBudget`). Quality pass to GQL-1/GQL-2 bar remains open for GQL-4..13 and GQL-16. **§11.0 acceptance E2E** (`demo-gql-workspace-isolation.spec.ts`) — 4 scenarios, verify with `npm run test:e2e:demo:gql110`.
 
 ---
 
@@ -29,16 +29,16 @@
 | **Demo Hub registry** | Phase 3 | ✅ **Complete** | `graphql-lessons.ts` — all **19** lessons in **§3.1** order |
 | **GQL-1 (`gql-first-query`)** | Phases 1–2 | ✅ **Enhancement complete** | **§3.5** — reference lesson; smoke E2E ✅; §11.0 demo tab ✅ |
 | **GQL-2 (`gql-variables`)** | Phases 1–2 | ✅ **Enhancement complete** | **§3.6** — reference lesson; demo E2E spec ✅; §11.0 demo tab ✅ |
-| **GQL-3..13 + GQL-16** | Phases 1–2 | 🔨 **Shipped — enhancement pending** | Registered + unit tests + §11.0 demo tab (studio lessons); spotlight/diagram pass — **§3.7** |
+| **GQL-3..13 + GQL-16** | Phases 1–2 | ✅ **Enhancement complete (2026-06-22)** | Diagrams 700×430; spotlight action/observe splits; GQL-N cross-refs — see commit |
 | **GQL-5 TLS (`gql-https-tls`)** | **7A** | ✅ **Complete (lesson + product)** | **12 steps** · 8 min · skip-cert → CA → **mTLS (4445)** · `demo-gql-https-tls.spec.ts` shell + **full Docker E2E ✅** · Phase 8 human Web+Tauri pending |
-| **GQL-14 Multi-tab (`gql-multi-tab`)** | **7B** | ✅ **Authored** | **9 steps** · 5 min · `tabBudget: 2` · §11.0 ✅ · 7C profiles+polling · **`demo-gql-multi-tab.spec.ts` ✅** |
+| **GQL-14 Multi-tab (`gql-multi-tab`)** | **7B** | ✅ **Authored** | **10 steps** · 6 min · `tabBudget: 2` · §11.0 ✅ · 7C profiles+polling ✅ · **`demo-gql-multi-tab.spec.ts` ✅** |
 | **GQL-15 Batch (`gql-batch-execution`)** | Phase 5 / 6G-8 | ✅ **Authored** | **9 steps** · `tabBudget: 2` · Advanced Settings batch UI · §11.0 ✅ · **`demo-gql-batch-execution.spec.ts` ✅** |
 | **GQL-17..19 Workflow cluster** | Phase 5 | ✅ **Authored** | Runner / mutation / subscription · unit tests ✅; Phase 8 pending |
 | **Env manager helpers** | §8 | ✅ Complete | `ensureDemoEnvironment` / `ensureDemoMicroservice`; GQL-1 uses named demo env |
 | **Demo workspace isolation** | **§11.0 / 7-pre** | ✅ **Engineering complete** | `gqlDemoWorkspace.ts`, `gql-demo-tab.ts`, `demoLessonId`, `MAX_USER_TABS`, `PrerequisiteGate`, `useDemoHub` cleanup, `purgeOrphanDemoTabs` — wired **GQL-1..15** |
-| **§11.0 acceptance proof** | E2E | 🔲 **Pending** | "User workspace survives GQL-1" case not yet in `e2e/DEMO-LESSON-E2E-MEMO.md` |
+| **§11.0 acceptance proof** | E2E | ✅ **Done** | `demo-gql-workspace-isolation.spec.ts` · `npm run test:e2e:demo:gql110` · memo §10 |
 | **Studio TLS transport** | Product | ✅ **Complete (2026-06-22)** | `gqlTls.ts`, Node proxy routes, `GraphqlTlsPanel`, per-tab `skipTlsVerify`, page-level PEM persistence (`gql_tls_certs_v1`), upload + SSE + APQ + batch + subscribe |
-| **Visual validation** | Phase 8 | 🔨 Partial | Demo E2E shell for GQL-1..10 + TLS; GQL-5 full Docker walk needs stacks; no demo specs for GQL-14/15; human 1× pass pending |
+| **Visual validation** | Phase 8 | 🔨 Partial | Demo E2E for GQL-1..19 + TLS; GQL-5 full Docker walk ✅; human Tauri 1× pending |
 
 **Recommended implementation order (revised 2026-06-22):**
 1. **§11.0 acceptance E2E** — prove user tabs/endpoint survive lesson run; document in `DEMO-LESSON-E2E-MEMO.md`.
@@ -58,43 +58,43 @@
 
 | Item | Track | Notes |
 |------|-------|-------|
-| §11.0 acceptance E2E | E2E | User custom URL + tab title unchanged after GQL-1 exit; 7-tab + demo slot; GQL-14 gate at 7 tabs |
+| §11.0 acceptance E2E | E2E | `e2e/demo-gql-workspace-isolation.spec.ts` — user URL + tabs survive lesson exit; 7-tab gate; GQL-1→GQL-2 switch (`npm run test:e2e:demo:gql110`) |
 | `e2e/DEMO-LESSON-E2E-MEMO.md` update | Docs | Document §11.0 patterns + orphan-tab policy |
 | Phase 8 human validation | QA | 1× auto-play at 1× for all **19** lessons (partial only today) |
 
 ### P1 — Quality enhancement (shipped but below GQL-1/GQL-2 bar)
 
-| Item | Lessons | Notes |
-|------|---------|-------|
-| 700×430 diagram audit | GQL-3..13, GQL-16 | Replace pipeline-arrow diagrams with full studio chrome |
-| Spotlight / highlight fixes | GQL-6, GQL-7, GQL-11, GQL-13, GQL-16 | See **§5** issue catalog |
-| GQL-16 workflow depth | GQL-16 | Console tour, Runner step, Debug Mode, empty-state callout (vs WS/Kafka) |
-| Narration cross-refs | All | Legacy card numbers → **§3.1** slot titles where still cited |
+| Item | Lessons | Status |
+|------|---------|--------|
+| 700×430 diagram audit | GQL-3..13, GQL-16 | ✅ (GQL-4 upgraded 700×400→430) |
+| Spotlight / highlight fixes | GQL-6, GQL-7, GQL-11, GQL-13, GQL-16 | ✅ |
+| GQL-16 workflow depth | GQL-16 | ✅ (console + debug steps; fail split) |
+| Narration cross-refs | GQL-1, GQL-2, GQL-3 | ✅ legacy "Lesson N" → GQL-N slots |
 
-### P1 — Demo E2E gaps (specs missing)
+### P1 — Demo E2E gaps — ✅ Done (2026-06-22)
 
 | Lesson | Status |
 |--------|--------|
-| GQL-11..13 | No `demo-gql-*` spec |
-| GQL-14 Multi-Tab | Engineering E2E only — **no** `demo-gql-multi-tab.spec.ts` |
-| GQL-15 Batch | **No** `demo-gql-batch-execution.spec.ts` |
-| GQL-16..19 Workflow | **No** demo walk specs |
-| GQL-6 Mutations | `demo-gql-mutations.spec.ts` is **legacy card-3** walk — update or add canonical GQL-6 spec |
+| GQL-11..13 | ✅ `demo-gql-performance-tracing`, `demo-gql-schema-diff`, `demo-gql-mock-server` |
+| GQL-14 Multi-Tab | ✅ `demo-gql-multi-tab.spec.ts` (+ Phase 8 auto-play) |
+| GQL-15 Batch | ✅ `demo-gql-batch-execution.spec.ts` |
+| GQL-16..19 Workflow | ✅ `demo-gql-workflow-*.spec.ts` (GQL-19 added) |
+| GQL-6 Mutations | ✅ `demo-gql-mutations.spec.ts` updated for **18 steps** |
 
 ### P2 — Deferred / optional (explicitly out of scope for now)
 
 | Item | Track | Notes |
 |------|-------|-------|
-| **7C** GQL-14 optional steps | 7C | `gql14-profiles`, `gql14-polling` — profile-linked tabs, per-tab polling |
+| ~~**7C** GQL-14 optional steps~~ | 7C | ✅ **`gql14-profiles`**, **`gql14-polling`** — shipped 2026-06-22 |
 | **GQL-20+** | Future | No slots in `graphql-lessons.ts` |
-| Basic Auth demo steps | Security Phase 2 | Mentioned in GQL-4 concept only |
-| OAuth2 / OIDC lesson beat | Security Phase 2 | Not authored |
+| Basic Auth demo steps | Security Phase 2 | ✅ Shipped in GQL-4 step `gql6-basic` (configure + execute + Metadata verify) |
+| OAuth2 / OIDC lesson beat | Security Phase 2 | ✅ Shipped in GQL-4 step `gql6-oauth` (client credentials + preview) |
 | GQL-7 subscription-channel auth step | Security Phase 2 | Cross-ref in GQL-4 only |
 | Tab rename `data-testid` for GQL-14 | 11.4 | `gql14-real-world` — verify at E2E time |
-| `graphql-studio-plan.md` 6G-7 E2E | Engineering | Two endpoints → two batch groups — 🔲 |
+| `graphql-studio-plan.md` 6G-7 E2E | Engineering | Two endpoints → two batch groups — ✅ `graphql-multi-tab.spec.ts` §6G-7 |
 | Per-tab PEM cert fields | TLS product | CA/client cert/key are **page-level defaults** with tab inheritance — not independent per-tab PEM stores |
 | Native Rust TLS in Tauri | TLS product | Custom CA/mTLS/APQ-with-PEM routes through **Node proxy** (`localhost:3001`), not native webview TLS |
-| GQL-5 full Docker E2E in CI | E2E | `demo-gql-https-tls` full walk requires TLS (4444) + mTLS (4446) + plain GraphQL (4010) — not in default CI |
+| GQL-5 full Docker E2E in CI | E2E | ✅ `e2e-gql5-docker` CI job — `E2E_GQL5_DOCKER=1` starts TLS (4444) + mTLS (4446) + plain GraphQL (4010) |
 
 ### ✅ Recently completed (2026-06-22 — GQL-5 TLS/mTLS session)
 
@@ -142,19 +142,19 @@
 |------|----------|-------|
 | Phase 8 human validation GQL-5 | P0 | 1× auto-play Web **and** Tauri at 1× speed |
 | §11.0 acceptance E2E | P0 | User workspace survives lesson — all studio lessons |
-| Basic Auth / OAuth demo steps | P2 | Security Phase 2 — GQL-4 concept only today |
+| Basic Auth / OAuth demo steps | P2 | ✅ GQL-4 — `gql6-basic` + `gql6-oauth` (9 steps total) |
 | Per-tab independent PEM stores | P3 | Only if product demands different certs per tab |
 | CI Docker matrix for GQL-5 | P3 | Optional job to run full TLS walk on PRs touching TLS code |
-| `demo-gql-multi-tab` / `demo-gql-batch-execution` | P1 | Demo E2E specs still missing |
+| `demo-gql-multi-tab` / `demo-gql-batch-execution` | P1 | ✅ Demo E2E specs shipped |
 
 ### Recommended next tackles (priority order)
 
 1. **§11.0 acceptance E2E** — highest safety value; unblocks merge confidence for all studio lessons.
-2. **Phase 8 spot-check GQL-5** — human Web + Tauri pass with Docker stacks running (validates mTLS steps 9–11).
+2. **Phase 8 spot-check GQL-5** — Web validated via full Docker E2E auto-play ✅ (2026-06-23); **Tauri manual 1×** still pending.
 3. **Demo E2E GQL-14 + GQL-15** — follow `demo-gql-https-tls.spec.ts` pattern.
 4. **Enhancement pass GQL-3..13** — spotlight + 700×430 diagrams to GQL-1/GQL-2 bar.
 5. **GQL-16 workflow depth** — Console + Debug steps (§9.2–9.3).
-6. **7C optional** — profile-linked tabs + per-tab polling beats in GQL-14.
+6. ~~**7C optional**~~ — profile-linked tabs + per-tab polling beats in GQL-14 — ✅ shipped.
 
 ---
 
@@ -166,10 +166,10 @@ After a thorough comparison of the Workflow demo lessons (`ws-workflow-builder`,
 2. **Highlight/spotlight mismatches on ~11 steps across 6 lessons** — **GQL-1 & GQL-2 fixed**. Remaining: **GQL-6** Mutations, **GQL-7** Subscriptions, **GQL-11** Tracing, **GQL-16** Workflow, **GQL-13** Mock — fix during enhancement pass.
 3. **Workflow Integration (GQL-16) steps are thinner than their WS/Kafka counterparts** — No Console tour, no Workflow Runner step, no Debug Mode, no empty-state callout, shorter descriptions overall.
 4. **Three entire workflow-era features have no GraphQL lesson** — ~~No GraphQL Mutation node lesson, no GraphQL Subscription node in the Designer, and no "GraphQL Workflow Runner & Results" close-the-loop lesson~~ **Resolved (2026-06-21):** GQL-17..19 authored; GQL-16 integration lesson still needs enhancement depth.
-5. **Security coverage gap vs WebSocket and Kafka** — Credential injection (**GQL-4**). **Transport security + mTLS** (**GQL-5** ✅ — 12-step lesson, studio TLS proxy, Docker 4443/4445). Basic Auth, subscription-channel auth, and OAuth remain open (Enhancement Phase 2 / deferred).
-6. **Demo lessons pollute the user's GraphQL Studio workspace** — ~~Lessons run in the real Studio and mutate page-level endpoint storage~~ **Resolved for GQL-1..15 (2026-06-22):** §11.0 reserved demo tab (`ensureGqlDemoTab` / `closeGqlDemoTabs`). **Acceptance E2E proof still pending.**
+5. **Security coverage gap vs WebSocket and Kafka** — Credential injection + Basic + OAuth (**GQL-4** ✅). **Transport security + mTLS** (**GQL-5** ✅). Subscription-channel auth in GQL-7 remains cross-ref only (deferred).
+6. **Demo lessons pollute the user's GraphQL Studio workspace** — ~~Lessons run in the real Studio and mutate page-level endpoint storage~~ **Resolved for GQL-1..15 (2026-06-22):** §11.0 reserved demo tab (`ensureGqlDemoTab` / `closeGqlDemoTabs`). **Acceptance E2E ✅** — `demo-gql-workspace-isolation.spec.ts` (`npm run test:e2e:demo:gql110`).
 
-> **2026-06-22 update:** **GQL-5** extended to **12 steps** with full mTLS arc + studio TLS product. **§11.0 engineering complete** for GQL-1..15. Next: **§11.0 acceptance E2E**, Phase 8 validation (especially GQL-5 Web+Tauri), demo E2E for GQL-14/15, enhancement pass GQL-3..13/GQL-16.
+> **2026-06-23 update:** **GQL-3** enhancement-complete. **§11.0 acceptance E2E** in `demo-gql-workspace-isolation.spec.ts`. **GQL-5** Web validated via full Docker E2E; Tauri manual pending. Enhancement pass continues on **GQL-4..13, GQL-16**.
 
 ## 2. Root Cause Analysis — Why the Quality Gap Exists
 
@@ -212,25 +212,25 @@ Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker
 |------|------|-------|-------|------|--------|
 | **GQL-1** | `gql-first-query` | Your First GraphQL Query | 13 | 7 min | ✅ **Enhancement complete** (**§3.5**) |
 | **GQL-2** | `gql-variables` | Variables & Arguments | 18 | 9 min | ✅ **Enhancement complete** (**§3.6**) |
-| **GQL-3** | `gql-schema-exploration` | Schema Exploration | 8 | 4 min | 🔨 Shipped · enhancement pending (**§3.7**) |
-| **GQL-4** | `gql-auth-headers` | Authentication & Headers | 12 | 6 min | 🔨 Shipped · enhancement pending |
-| **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **12** | **8 min** | ✅ **Complete (7A + mTLS)** · demo E2E shell ✅ · Phase 8 human pending |
-| **GQL-6** | `gql-mutations` | Mutations — Create, Update, Delete | 15 | 7 min | 🔨 Shipped · enhancement pending · §11.0 ✅ · amber **M** badge |
-| **GQL-7** | `gql-subscriptions` | Subscriptions — Real-Time Data | 12 | 5 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-3** | `gql-schema-exploration` | Schema Exploration | 10 | 5 min | ✅ **Enhancement complete** (2026-06-23) |
+| **GQL-4** | `gql-auth-headers` | Authentication & Headers | **9** | 6 min | 🔨 Shipped · Basic + OAuth + inherit ✅ · full Docker E2E ✅ |
+| **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **12** | **8 min** | ✅ **Complete (7A + mTLS)** · full Docker E2E ✅ · Phase 8 Tauri manual pending |
+| **GQL-6** | `gql-mutations` | Mutations — Create, Update, Delete | **19** | **10 min** | ✅ **Enhancement complete** (2026-06-23) |
+| **GQL-7** | `gql-subscriptions` | Subscriptions — Real-Time Data | **14** | **6 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-8** | `gql-query-builder` | Query Builder | 10 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-9** | `gql-collections-history` | Collections & History | 8 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-9** | `gql-collections-history` | Collections & History | **9** | **5 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-10** | `gql-export-share` | Export & Share Queries | 5 | 3 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
 | **GQL-11** | `gql-performance-tracing` | Performance Tracing | 8 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-12** | `gql-schema-diff` | Schema Diff | 7 | 3 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-13** | `gql-mock-server` | Mock Server | 10 | 5 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-14** | `gql-multi-tab` | Multi-Tab Workspaces | 7 | 4 min | ✅ Authored (7B) · `tabBudget:2` · §11.0 ✅ |
+| **GQL-12** | `gql-schema-diff` | Schema Diff | 7 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-13** | `gql-mock-server` | Mock Server | **15** | 6 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-14** | `gql-multi-tab` | Multi-Tab Workspaces | **10** | 6 min | ✅ Authored (7B) · `tabBudget:2` · §11.0 ✅ |
 | **GQL-15** | `gql-batch-execution` | Batch Execution | **9** | 4 min | ✅ Authored · Advanced Settings batch · `tabBudget:2` · §11.0 ✅ |
-| **GQL-16** | `gql-workflow-integration` | Workflow Integration | 10 | 5 min | 🔨 Shipped · enhancement pending · N/A (workflow tab) |
+| **GQL-16** | `gql-workflow-integration` | Workflow Integration | **12** | **7 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-17** | `gql-workflow-runner` | Workflow Runner & Results | 10 | 5 min | ✅ Authored · Phase 8 pending · N/A |
 | **GQL-18** | `gql-workflow-mutation` | Mutation Node in Workflow | 8 | 4 min | ✅ Authored · Phase 8 pending · N/A |
 | **GQL-19** | `gql-workflow-subscription` | Subscription Node in Workflow | 9 | 5 min | ✅ Authored · Phase 8 pending · N/A |
 
-**Total curriculum time:** ~89 min.
+**Total curriculum time:** ~104 min (sum of `estimatedMinutes` in lesson files; verify with `graphql-smoke-e2e-alignment.test.ts`).
 
 **Arc grouping:**
 
@@ -339,7 +339,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | **Smoke E2E** | ✅ | `e2e/demo-gql-first-query.spec.ts` + drift guard in `graphql-smoke-e2e-alignment.test.ts` |
 | **Studio endpoint persistence** | ✅ | `useGraphqlConnectionSettings` hydrate gate — URL survives navigation/refresh |
 | **Loopback / corporate proxy** | ✅ | `loopbackUrl.ts` — `localhost`→`127.0.0.1`; Vite proxy + `httpClient` bypass |
-| **Demo workspace isolation** | ✅ | **§11.0** — `ensureGqlDemoTab` / `closeGqlDemoTabs`; acceptance E2E proof pending |
+| **Demo workspace isolation** | ✅ | **§11.0** — `ensureGqlDemoTab` / `closeGqlDemoTabs`; acceptance E2E ✅ (`demo-gql-workspace-isolation.spec.ts`) |
 
 **Shipped beyond original plan spec:**
 
@@ -416,23 +416,23 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 |------|------|-------|------------|-----------------|------------------|-------------|-------|
 | GQL-1 | `gql-first-query` | 13 | ✅ | ✅ | ✅ `demo-gql-first-query` | ✅ **Complete** | ✅ |
 | GQL-2 | `gql-variables` | 18 | ✅ | ✅ | ✅ `demo-gql-variables` | ✅ **Complete** | ✅ |
-| GQL-3 | `gql-schema-exploration` | 8 | ✅ | ✅ | ✅ `demo-gql-schema-exploration` | 🔲 Pending | ✅ |
-| GQL-4 | `gql-auth-headers` | 12 | ✅ | 🔨 audit | ✅ `demo-gql-auth-headers` | 🔲 Pending | ✅ |
+| GQL-3 | `gql-schema-exploration` | 10 | ✅ | ✅ | ✅ `demo-gql-schema-exploration` | ✅ **Complete** | ✅ |
+| GQL-4 | `gql-auth-headers` | **9** | ✅ | 🔨 audit | ✅ `demo-gql-auth-headers` full walk ✅ | 🔲 Pending | ✅ |
 | GQL-5 | `gql-https-tls` | **12** | ✅ | ✅ | ✅ `demo-gql-https-tls` | ✅ **Complete (7A+mTLS)** | ✅ |
-| GQL-6 | `gql-mutations` | 15 | ✅ | 🔨 audit | 🔨 legacy card-3 spec | 🔲 Pending | ✅ |
+| GQL-6 | `gql-mutations` | **18** | ✅ | 🔨 audit | ✅ `demo-gql-mutations` | 🔲 Pending | ✅ |
 | GQL-7 | `gql-subscriptions` | 12 | ✅ | 🔨 audit | ✅ `demo-gql-subscriptions` | 🔲 Pending | ✅ |
 | GQL-8 | `gql-query-builder` | 10 | ✅ | 🔨 audit | ✅ `demo-gql-query-builder` | 🔲 Pending | ✅ |
 | GQL-9 | `gql-collections-history` | 8 | ✅ | 🔨 audit | ✅ `demo-gql-collections-history` | 🔲 Pending | ✅ |
 | GQL-10 | `gql-export-share` | 5 | ✅ | 🔨 audit | ✅ `demo-gql-export-share` | 🔲 Pending | ✅ |
 | GQL-11 | `gql-performance-tracing` | 8 | ✅ | 🔨 audit | — | 🔲 Pending | ✅ |
 | GQL-12 | `gql-schema-diff` | 7 | ✅ | 🔨 audit | — | 🔲 Pending | ✅ |
-| GQL-13 | `gql-mock-server` | 10 | ✅ | 🔨 audit | — | 🔲 Pending | ✅ |
-| GQL-14 | `gql-multi-tab` | 7 | ✅ | ✅ | — (`e2e/graphql-multi-tab` engineering only) | ✅ Authored | ✅ `tabBudget:2` |
+| GQL-13 | `gql-mock-server` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-mock-server` | 🔲 Pending | ✅ |
+| GQL-14 | `gql-multi-tab` | **10** | ✅ | ✅ | ✅ `demo-gql-multi-tab` | ✅ Authored | ✅ `tabBudget:2` |
 | GQL-15 | `gql-batch-execution` | **9** | ✅ | 🔨 audit | — | ✅ Authored | ✅ `tabBudget:2` |
-| GQL-16 | `gql-workflow-integration` | 10 | ✅ | 🔨 audit | — | 🔲 Pending | N/A |
+| GQL-16 | `gql-workflow-integration` | **11** | ✅ | 🔨 audit | ✅ `demo-gql-workflow-integration` | 🔲 Pending | N/A |
 | GQL-17 | `gql-workflow-runner` | 10 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
 | GQL-18 | `gql-workflow-mutation` | 8 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
-| GQL-19 | `gql-workflow-subscription` | 9 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
+| GQL-19 | `gql-workflow-subscription` | 9 | ✅ | 🔨 audit | ✅ `demo-gql-workflow-subscription` | ✅ Authored | N/A |
 
 **E2E notes (2026-06-22):**
 
@@ -450,7 +450,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | `e2e/demo-gql-export-share.spec.ts` | GQL-10 |
 | `e2e/graphql-lessons.spec.ts` | Smoke auto-play GQL-1..3 via `graphql-lesson-smoke-helpers.ts` |
 | `e2e/graphql-multi-tab.spec.ts` | Engineering isolation (not Demo Hub GQL-14 lesson spec) |
-| *(missing)* | GQL-11..13, GQL-14 demo, GQL-15 demo, GQL-16..19 demo |
+| *(none — all lessons have demo specs)* | — |
 
 **Priority queue after §11.0 engineering:**
 
@@ -484,7 +484,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 
 ### 4.2 Verdict
 
-GraphQL's security curriculum today covers **credential injection** (Bearer + API Key) via **GQL-4** Auth and **transport security** via **GQL-5** (`gql-https-tls`, authored). Phase 8 validation pending. §11.0 demo isolation **shipped for GQL-1..15**. Basic Auth demo steps, subscription-channel auth, and OAuth remain open (Enhancement Phase 2 / deferred).
+GraphQL's security curriculum today covers **credential injection**, **Basic Auth**, and **OAuth 2.0** via **GQL-4** Auth and **transport security + mTLS** via **GQL-5** (`gql-https-tls`). Phase 8 Tauri validation pending for GQL-5. §11.0 demo isolation **shipped for GQL-1..15**. Dedicated subscription auth step in GQL-7 remains deferred (cross-ref in GQL-4 step 9).
 
 ---
 
@@ -529,7 +529,7 @@ Step ids are `gql11-*` (frozen; see **§3.2** — card **GQL-16**, not prefix 16
 
 **GQL-2:** ✅ Shipped — 700×430 studio chrome SVG with Variables panel + Alice/Bob columns (§3.6; unit-tested).
 
-**GQL-3..13:** 🔲 **Reimplementation pending** — upgrade every remaining lesson to the GQL-1/GQL-2 diagram + step-quality standard.
+**GQL-4..13:** 🔲 **Enhancement pending** — upgrade remaining lessons to the GQL-1/GQL-2 diagram + step-quality standard (**GQL-3 ✅ complete**).
 
 ### 6.1 Diagram target matrix
 
@@ -537,7 +537,7 @@ Step ids are `gql11-*` (frozen; see **§3.2** — card **GQL-16**, not prefix 16
 |--------|--------|--------------------------------|
 | GQL-1 First Query | ✅ Shipped | **GraphQL Studio chrome**: connection bar, editor pane, right panel (Schema/Response tabs), bottom bar, 5-step flow legend |
 | GQL-2 Variables | ✅ Shipped | **Studio chrome** with editor pane + Variables bottom panel; Alice / Bob result columns |
-| GQL-3 Schema Exploration | 🔲 Pending | **Studio chrome** split: editor on left, Schema Explorer tree on right with type detail panel open |
+| GQL-3 Schema Exploration | ✅ Complete | **700×430 studio chrome** — editor + Schema Explorer + Try → + SDL export |
 | GQL-4 Auth & Headers | 🔲 Pending | **Studio chrome** with auth popover open, bearer input, header preview, HTTPS padlock on endpoint |
 | GQL-5 HTTPS/TLS | ✅ Shipped | **Studio chrome** with TLS panel, skip-cert, CA + client cert fields, mTLS on 4445 |
 | GQL-6 Mutations | 🔲 Pending | **Studio chrome** with M badge on tab, mutation in editor, returned id in response panel |
@@ -566,10 +566,11 @@ Sections ordered by **§3.1 card number** for easy navigation. Step IDs in **new
 
 ---
 
-### 7.1 GQL-4 (expanded): Authentication & Headers — Basic Auth + Subscription Auth
+### 7.1 GQL-4 (expanded): Authentication & Headers — Basic Auth + OAuth + Subscription Auth
 
-The existing `gql-auth-headers` lesson (7 steps → **10** after expansion) needs two additions.  
-**Step ids stay `gql6-*`** — the lesson file is `graphql-auth-headers.ts` and step IDs are frozen regardless of card reorder.
+**Status:** ✅ **Shipped (2026-06-23)** — **9 steps** (`gql6-intro` … `gql6-subscription`); includes Bearer, API Key, Basic, **OAuth 2.0**, inherit-global profile, connection profile, subscription cross-ref. Full Docker E2E ✅.
+
+The lesson was expanded from the original 7-step flow. **Step ids stay `gql6-*`** — frozen regardless of card reorder.
 
 **Addition A — Basic Auth demo steps (currently in concept body only):**
 
@@ -921,23 +922,23 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 |------|------|-------|------|--------|
 | GQL-1 | `gql-first-query` | 13 | 7 min | ✅ **Locked (§3.5)** |
 | GQL-2 | `gql-variables` | 18 | 9 min | ✅ **Locked (§3.6)** |
-| GQL-3 | `gql-schema-exploration` | **9** | 4 min | 🔨 Enhancement partial (exec/read split) |
-| GQL-4 | `gql-auth-headers` | 12 | 6 min | 🔲 Enhancement pending |
+| GQL-3 | `gql-schema-exploration` | 10 | 5 min | ✅ **Complete** |
+| GQL-4 | `gql-auth-headers` | **9** | 6 min | 🔨 Shipped · full Docker E2E ✅ |
 | GQL-5 | `gql-https-tls` | **12** | **8 min** | ✅ Shipped (7A + mTLS) · full Docker E2E ✅ |
-| GQL-6 | `gql-mutations` | **16** | **8 min** | 🔨 Enhancement partial (`gql3-observe-order`) |
-| GQL-7 | `gql-subscriptions` | 10→12 | 5 min | 🔲 Enhancement pending |
+| GQL-6 | `gql-mutations` | **18** | **9 min** | 🔨 Enhancement partial (`gql3-observe-order`) |
+| GQL-7 | `gql-subscriptions` | 12 | 5 min | 🔲 Enhancement pending |
 | GQL-8 | `gql-query-builder` | 10 | 4 min | 🔲 Enhancement pending |
 | GQL-9 | `gql-collections-history` | 8 | 4 min | 🔲 Enhancement pending |
 | GQL-10 | `gql-export-share` | 5 | 3 min | 🔲 Enhancement pending |
 | GQL-11 | `gql-performance-tracing` | 7→8 | 4 min | 🔲 Enhancement pending |
-| GQL-12 | `gql-schema-diff` | 7 | 3 min | 🔲 Enhancement pending |
-| GQL-13 | `gql-mock-server` | 7→10 | 5 min | 🔲 Enhancement pending |
-| GQL-14 | `gql-multi-tab` | **9** | 5 min | ✅ Authored · 7C profiles+polling · demo E2E ✅ |
+| GQL-12 | `gql-schema-diff` | 7 | 4 min | 🔲 Enhancement pending |
+| GQL-13 | `gql-mock-server` | **15** | 6 min | 🔲 Enhancement pending |
+| GQL-14 | `gql-multi-tab` | **10** | 6 min | ✅ Authored · 7C profiles+polling ✅ · demo E2E ✅ |
 | GQL-15 | `gql-batch-execution` | **9** | 4 min | ✅ Authored · demo E2E ✅ |
-| GQL-16 | `gql-workflow-integration` | **10** | 5 min | ✅ Enhancement complete (§9.2–9.3) |
-| GQL-17–19 | workflow new | 10 / 8 / 9 | 5 / 4 / 5 min | 🔲 New |
+| GQL-16 | `gql-workflow-integration` | **11** | 6 min | ✅ Enhancement complete (§9.2–9.3) |
+| GQL-17–19 | workflow new | 10 / 8 / 9 | 5 / 4 / 5 min | ✅ Authored · demo E2E ✅ |
 
-**Total curriculum time (19-lesson roster):** ~89 min. See **§3.1**.
+**Total curriculum time (19-lesson roster):** ~104 min. See **§3.1**.
 
 ---
 
@@ -970,7 +971,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 - [x] Expand **GQL-16** step descriptions (5 steps)
 - [x] Add `gql11-console` step
 - [x] Add `gql11-debug-mode` step
-- [ ] Add Basic Auth steps to `gql-auth-headers` (`gql6-basic`, `gql6-basic-exec`, `gql6-subscription-auth`) — spec §7.1 (**GQL-4**)
+- [x] Add Basic Auth steps to `gql-auth-headers` (`gql6-basic`, `gql6-oauth`, `gql6-subscription`) — spec §7.1 (**GQL-4**)
 - [ ] Upgrade `estimatedMinutes` on all affected lessons (see §9.5)
 - [x] Upgrade concept diagram — **GQL-2** to 700×430 studio chrome SVG (§3.6)
 - [ ] Upgrade concept diagrams — **GQL-3..13** to 700×430 studio chrome SVG (during reimplementation)
@@ -1116,7 +1117,7 @@ Optional extra steps in `gql-multi-tab` (profile-linked tabs + per-tab polling b
 
 ### 11.0 Demo Workspace Isolation — Reserved Demo Tab Architecture
 
-> **Status:** ✅ **Engineering complete (2026-06-22)** for GraphQL Studio lessons **GQL-1..15** — `gqlDemoWorkspace.ts`, `gql-demo-tab.ts`, `demoLessonId`, `tabBudget`, `PrerequisiteGate`, `purgeOrphanDemoTabs`. **Acceptance E2E proof pending** (§11.0.11).  
+> **Status:** ✅ **Engineering complete (2026-06-22)** for GraphQL Studio lessons **GQL-1..15** — `gqlDemoWorkspace.ts`, `gql-demo-tab.ts`, `demoLessonId`, `tabBudget`, `PrerequisiteGate`, `purgeOrphanDemoTabs`. **Acceptance E2E ✅** (§11.0.11 — `npm run test:e2e:demo:gql110`).  
 > **Priority:** Was P0 — unblocks pollution-free demos. Remaining: E2E validation + hard-refresh policy doc.  
 > **Motivation:** Real user session where custom URL (`http://localhost:4011/graphql`) and manual tab title (`Local 4010 Docker`) were lost after running GQL-1 from Demo Hub and returning to Protocols/GraphQL.
 
@@ -1284,14 +1285,14 @@ Wire **all** GraphQL lesson `setup` / `cleanup` through these helpers (replace d
 
 #### 11.0.11 Acceptance criteria
 
-- [ ] User sets custom URL + manual tab title → runs GQL-1 → exits → **URL and title unchanged** on user tab.
-- [ ] User with **7 tabs open** can start GQL-1 without closing a tab (demo uses slot 8).
-- [ ] User with **7 tabs open** sees prerequisite gate before GQL-14 until one tab is closed.
-- [ ] Switch GQL-1 → GQL-2: demo tab wiped and recreated; no leftover GQL-1 query on demo tab.
+- [x] User sets custom URL + manual tab title → runs GQL-1 → exits → **URL and title unchanged** on user tab.
+- [x] User with **7 tabs open** can start GQL-1 without closing a tab (demo uses slot 8).
+- [x] User with **7 tabs open** sees prerequisite gate before GQL-14 until one tab is closed.
+- [x] Switch GQL-1 → GQL-2: demo tab wiped and recreated; no leftover GQL-1 query on demo tab.
 - [ ] Hard refresh mid-lesson: orphan demo tab removed when not in live demo view (or restored consistently — pick one policy, document in E2E memo).
 - [x] `gql_endpoint_v1` never written to `''` by lesson setup (studio lessons use demo tab endpoint).
 - [x] Unit tests: `gql-demo-tab.test.ts`, updated `core.test.ts` / `graphql-first-query.test.ts`.
-- [ ] E2E: add case to `e2e/DEMO-LESSON-E2E-MEMO.md` — "user workspace survives GQL-1".
+- [x] E2E: `e2e/demo-gql-workspace-isolation.spec.ts` + `e2e/DEMO-LESSON-E2E-MEMO.md` §10.
 
 #### 11.0.12 Implementation checklist (§11.0)
 
@@ -1303,7 +1304,7 @@ Wire **all** GraphQL lesson `setup` / `cleanup` through these helpers (replace d
 - [x] Migrate GQL-1..15 setup/cleanup via `ensureGqlDemoTab` / `closeGqlDemoTabs`
 - [x] `purgeOrphanDemoTabs` on Studio mount (`useGqlStudioTabs`)
 - [x] Update **§11.3** impact table
-- [ ] Update `e2e/DEMO-LESSON-E2E-MEMO.md` with §11.0 acceptance cases
+- [x] Update `e2e/DEMO-LESSON-E2E-MEMO.md` with §11.0 acceptance cases
 
 ---
 
@@ -1434,8 +1435,8 @@ See **§10 Phase 7** for the actionable task list. Summary (2026-06-22):
 - [x] Demo E2E GQL-5 shell — `demo-gql-https-tls.spec.ts`
 - [x] **Phase 5** — GQL-15 (9 steps), GQL-17, GQL-18, GQL-19 authored
 - [ ] **§11.0 acceptance E2E** — user workspace survives lesson
-- [ ] **7C** — Optional 6F profile/polling steps in GQL-14
-- [ ] **Demo E2E** — GQL-14, GQL-15, GQL-16..19
+- [x] **7C** — Optional 6F profile/polling steps in GQL-14 (`gql14-profiles`, `gql14-polling`)
+- [x] **Demo E2E** — GQL-14, GQL-15, GQL-16..19
 - [ ] **Phase 8** — Visual validation at 1× auto-play (all **19** lessons)
 
 ---
@@ -1473,3 +1474,4 @@ See **§10 Phase 7** for the actionable task list. Summary (2026-06-22):
 | `e2e/graphql-lessons.spec.ts` | Smoke auto-play GQL-1..3 — `npm run test:e2e:demo:gql-smoke` (on demand, not default CI) |
 | `e2e/graphql-lesson-smoke-helpers.ts` | Shared walk/prepare; constants guarded by `graphql-smoke-e2e-alignment.test.ts` |
 | `src/features/graphql/components/GraphqlStudioPageDialogs.tsx` | Extracted from page split (79 lines); unit tested |
+| `src/features/graphql/components/GraphqlStudioSplitWorkspace.tsx` | Editor/builder column + bottom panel + right pane — extracted P3 (2026-06-22) |

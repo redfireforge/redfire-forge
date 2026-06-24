@@ -138,6 +138,11 @@ describe('gql-schema-diff lesson', () => {
     expect(gqlSchemaDiffLesson.tabBudget).toBe(1);
   });
 
+  it('declares allowedTabs for environments and graphql-studio so EM setup does not auto-exit demo', () => {
+    expect(gqlSchemaDiffLesson.allowedTabs).toContain('environments');
+    expect(gqlSchemaDiffLesson.allowedTabs).toContain('graphql-studio');
+  });
+
   it('has docker prerequisite fields', () => {
     expect(gqlSchemaDiffLesson.dockerEndpoint).toContain('localhost:4010');
     expect(gqlSchemaDiffLesson.tag).toBe('🐳 Docker');

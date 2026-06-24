@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   LESSON12_BASELINE_LABEL,
   ensureLesson12BaselineReady,
   ensureLesson12ChangelogOpen,
@@ -24,7 +25,7 @@ export const gqlSchemaDiffLesson: DemoLesson = {
     'Save schema snapshots, compare against the live introspected schema, review BREAKING vs SAFE changes, filter by severity, and export the diff as JSON.',
   estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -322,7 +323,8 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       title: 'Diff the Baseline Against Current Schema',
       description:
         `Select the **${LESSON12_BASELINE_LABEL}** row, then click **View diff** in the compare bar below — leave **Compare against** on **Current schema**.\n\n` +
-        'This compares the older baseline SDL to the live introspected schema and opens the diff modal.',
+        '**Why compare against current?** In CI, every deploy introspects the live schema and diffs it against the last approved baseline. ' +
+        'This catches accidental breaking changes before they reach production — renamed fields, removed types, and tightened nullability all surface in the diff modal before you merge.',
       highlight: GQL.CHANGELOG_COMPARE_BAR,
       preAction: ensureLesson12BaselineReady,
       action: async (ctx) => {

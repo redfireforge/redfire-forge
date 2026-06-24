@@ -111,6 +111,12 @@ describe('useGraphqlQueryBuilder', () => {
       expect(result.current.state.selectedFields['user.id']).toBe(true);
       expect(result.current.state.selectedFields['user.name']).toBe(true);
     });
+
+    it('auto-expands ancestor rows so nested selections are visible', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.selectPaths(['user.id', 'user.name', 'user.email']));
+      expect(result.current.state.expandedPaths.has('user')).toBe(true);
+    });
   });
 
   describe('deselectPaths', () => {
@@ -393,6 +399,44 @@ describe('useGraphqlQueryBuilder', () => {
       expect(result.current.state.activeFragmentSpreads).toEqual(['OrderFields']);
       act(() => result.current.removeFragment('OrderFields'));
       expect(result.current.state.activeFragmentSpreads).toEqual([]);
+    });
+  });
+
+  describe('persistence options', () => {
+    it('restores initialState on mount', () => {
+      const { result } = renderHook(() =>
+        useGraphqlQueryBuilder({
+          initialState: {
+            operationType: 'query',
+            operationName: 'SavedQuery',
+            selectedFields: { health: true, 'user.id': true },
+            argValues: { user: { id: 'usr-1' } },
+            expandedPaths: new Set<string>(),
+            searchQuery: '',
+            fieldAliases: { 'user.id': 'userId' },
+            fieldDirectives: { 'user.id': { include: { enabled: true, ifVar: 'true' } } },
+            fragments: {},
+            activeFragmentSpreads: [],
+          },
+        }),
+      );
+      expect(result.current.state.operationName).toBe('SavedQuery');
+      expect(result.current.state.selectedFields).toEqual({ health: true, 'user.id': true });
+      expect(result.current.state.fieldAliases['user.id']).toBe('userId');
+      expect(result.current.state.fieldDirectives['user.id']?.include?.enabled).toBe(true);
+      expect(result.current.selectedCount).toBe(2);
+      expect(result.current.state.expandedPaths.has('user')).toBe(true);
+    });
+
+    it('calls onStateChange when selections change', () => {
+      const changes: Array<Record<string, boolean>> = [];
+      const { result } = renderHook(() =>
+        useGraphqlQueryBuilder({
+          onStateChange: (state) => changes.push({ ...state.selectedFields }),
+        }),
+      );
+      act(() => result.current.toggleField('health'));
+      expect(changes.some((fields) => fields.health === true)).toBe(true);
     });
   });
 });

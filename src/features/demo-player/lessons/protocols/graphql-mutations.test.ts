@@ -42,6 +42,7 @@ const STEP_IDS = [
   'gql3-intro',
   'gql3-endpoint',
   'gql3-introspect',
+  'gql3-observe-introspect',
   'gql3-schema-mutations',
   'gql3-write-create',
   'gql3-set-create-vars',
@@ -54,7 +55,9 @@ const STEP_IDS = [
   'gql3-write-delete',
   'gql3-wire-delete-var',
   'gql3-exec-delete',
-  'gql3-idempotency',
+  'gql3-observe-delete',
+  'gql3-idempotency-exec',
+  'gql3-observe-idempotency',
 ];
 
 describe('gql-mutations lesson', () => {
@@ -76,8 +79,8 @@ describe('gql-mutations lesson', () => {
     expect(gqlMutationsLesson.domainId).toBe('protocols');
     expect(gqlMutationsLesson.category).toBe('graphql');
     expect(gqlMutationsLesson.name).toBe('Mutations — Create, Update, Delete');
-    expect(gqlMutationsLesson.steps.length).toBe(16);
-    expect(gqlMutationsLesson.estimatedMinutes).toBe(8);
+    expect(gqlMutationsLesson.steps.length).toBe(19);
+    expect(gqlMutationsLesson.estimatedMinutes).toBe(10);
     expect(gqlMutationsLesson.initialTab).toBe('graphql-studio');
     expect(gqlMutationsLesson.tabBudget).toBe(1);
   });
@@ -212,9 +215,19 @@ describe('gql-mutations lesson', () => {
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
   });
 
-  it('gql3-idempotency highlights Execute for second delete click', () => {
-    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-idempotency')!;
+  it('gql3-observe-delete highlights response body after first delete', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-delete')!;
+    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
+  });
+
+  it('gql3-idempotency-exec highlights Execute for second delete click', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-idempotency-exec')!;
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+  });
+
+  it('gql3-observe-idempotency highlights response body for success: false', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-idempotency')!;
+    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
   });
 
   // ─── Description content ─────────────────────────────────────────────────
@@ -271,8 +284,8 @@ describe('gql-mutations lesson', () => {
     expect(step.description).toContain('success');
   });
 
-  it('gql3-idempotency description explains success: false semantics', () => {
-    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-idempotency')!;
+  it('gql3-observe-idempotency description explains success: false semantics', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-idempotency')!;
     expect(step.description).toContain('success: false');
     expect(step.description).toContain('idempotent');
   });
@@ -304,8 +317,14 @@ describe('gql-mutations lesson', () => {
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-introspect')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
+  it('gql3-observe-introspect waits for schema badge', async () => {
+    const ctx = makeCtx();
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-introspect')!;
+    await step.action!(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 5000);
   });
 
   it('gql3-introspect skips introspect click when usable schema badge is present', async () => {
@@ -336,8 +355,8 @@ describe('gql-mutations lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 
-  it('gql3-introspect verify targets schema badge', () => {
-    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-introspect')!;
+  it('gql3-observe-introspect verify targets schema badge', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-introspect')!;
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
@@ -513,9 +532,9 @@ describe('gql-mutations lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);
   });
 
-  it('gql3-idempotency clicks execute again and waits for viewer', async () => {
+  it('gql3-idempotency-exec clicks execute again and waits for viewer', async () => {
     const ctx = makeCtx();
-    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-idempotency')!;
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-idempotency-exec')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);

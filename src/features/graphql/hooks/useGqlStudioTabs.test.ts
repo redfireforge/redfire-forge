@@ -1438,6 +1438,31 @@ describe('useGqlStudioTabs', () => {
     expect(mockSaveTabs).toHaveBeenCalled();
   });
 
+  it('defers persist when demo session tab is not yet in React state', async () => {
+    const userTab = makeTab({ id: 'user-tab-1', label: 'My Workspace Tab' });
+    mockLoadTabs.mockResolvedValue([userTab] as never);
+    mockLoadDemoSession.mockResolvedValue({
+      lessonId: 'gql-variables',
+      priorActiveTabId: 'user-tab-1',
+      demoTabId: 'demo-tab-pending',
+      displayName: 'Demo: Variables',
+    });
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    mockSaveTabs.mockClear();
+
+    act(() => {
+      result.current.handleQueryChange('query { ping }');
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    expect(mockSaveTabs).not.toHaveBeenCalled();
+  });
+
   it('handleTabClick does NOT clear confirming state when clicking the same tab', async () => {
     const tab1 = makeTab({ id: 'tab-1', unsavedChanges: true });
     const tab2 = makeTab({ id: 'tab-2' });

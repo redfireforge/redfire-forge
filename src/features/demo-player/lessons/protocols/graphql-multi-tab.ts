@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   activateGqlTabByIndex,
   ensureLesson14SwitchedToTab1,
@@ -33,7 +34,7 @@ export const gqlMultiTabLesson: DemoLesson = {
     'Open multiple independent GraphQL workspaces in one window — each with its own endpoint, schema, auth override, and response cache.',
   estimatedMinutes: 6,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Two demo tab slots — user workspace must stay untouched (§11.0). */
   tabBudget: 2,
 

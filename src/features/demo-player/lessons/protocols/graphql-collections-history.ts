@@ -3,20 +3,21 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   LESSON8_ITEM_NAME,
   LESSON8_ITEM_RENAME,
   ensureCollectionItemRenamed,
   ensureCollectionRestoredViaImport,
   ensureHealthExecutedWithHistory,
-  ensureHealthQuery,
   ensureHistoryLoadedToEditor,
   ensureHistoryPreviewOpen,
   ensureHistoryRunExecuted,
-  ensureIntrospected,
   ensureSavedToCollectionFromHistory,
   gqlCollectionsHistoryLessonCleanup,
   gqlCollectionsHistoryLessonSetup,
   openHistoryPanel,
+  prepareGql8ExecHealthReading,
+  prepareGql8ObserveHistoryReading,
 } from './graphql-lesson-helpers';
 
 export const gqlCollectionsHistoryLesson: DemoLesson = {
@@ -26,9 +27,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   name: 'Collections & History',
   description:
     'Use execution History to preview, load, and re-run queries; save operations to Collections; rename items; export and import collection JSON.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -66,12 +67,12 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       {
         term: 'Preview (read-only)',
         definition:
-          'Single-click a history entry to open the preview panel (`gql-history-preview`). Shows query and response without any server interaction. Choose Load, Run, or Save from here.',
+          'Single-click a history entry to open the **Preview** panel. Shows query and response without any server interaction. Choose Load, Run, or Save from here.',
       },
       {
         term: 'Load vs Run',
         definition:
-          '**Load** (`gql-history-load`) copies the query into Monaco only — no execution. **Run** (`gql-history-run`) copies it AND executes immediately. Choose Load when you want to edit first; Run when you want an exact replay.',
+          '**Load** copies the query into Monaco only — no execution. **Run** copies it AND executes immediately. Choose Load when you want to edit first; Run when you want an exact replay.',
       },
       {
         term: 'Collection',
@@ -318,19 +319,32 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   steps: [
     // ── Step 1: Execute & auto-log ──────────────────────────────────────────
     {
-      id: 'gql8-execute',
-      title: 'Execute & Auto-Log to History',
+      id: 'gql8-exec-health',
+      title: 'Execute the Health Query',
       description:
-        `With \`query { health }\` in the editor, click **Execute**. Open the **History** panel (📋 in the left activity bar) — a new entry appears with status code, latency, and timestamp.\n\n` +
-        '**Why History auto-logs:** You never have to remember to save a useful query. Every execution is captured automatically — including accidental queries that returned an interesting result, failed requests (useful for debugging), and baseline measurements. ' +
-        'The log is stored in IndexedDB and survives page refreshes, so you can close the tab and still see what you ran last session.',
-      highlight: GQL.HISTORY_ENTRY,
-      preAction: ensureIntrospected,
+        'With `query { health }` in the editor, click **Execute**. Under the hood every execution is captured automatically — you never have to remember to save a useful query.\n\n' +
+        'This step triggers the request; the next step opens **History** so you can see the new entry with status code, latency, and timestamp.',
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareGql8ExecHealthReading,
       action: async (ctx) => {
-        await ensureHealthQuery(ctx);
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
         await ctx.delay(500);
+      },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gql8-observe-history',
+      title: 'Auto-Log to History',
+      description:
+        'Open the **History** panel (📋 in the left activity bar) — a new entry appears with status code, latency, and timestamp.\n\n' +
+        '**Why History auto-logs:** Every execution is captured automatically — including accidental queries that returned an interesting result, failed requests (useful for debugging), and baseline measurements. ' +
+        'The log is stored in IndexedDB and survives page refreshes.',
+      highlight: GQL.HISTORY_ENTRY,
+      preAction: prepareGql8ObserveHistoryReading,
+      action: async (ctx) => {
         await openHistoryPanel(ctx);
         await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
         await ctx.delay(800);
@@ -339,12 +353,12 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── Step 2: Preview entry ───────────────────────────────────────────────
+    // ── Step 3: Preview entry ───────────────────────────────────────────────
     {
       id: 'gql8-preview',
       title: 'Preview a History Entry',
       description:
-        '**Single-click** a history row — the **Preview** panel (`gql-history-preview`) opens with the query text and the formatted response JSON side by side. This view is **read-only** until you choose an action.\n\n' +
+        '**Single-click** a history row — the **Preview** panel opens with the query text and the formatted response JSON side by side. This view is **read-only** until you choose an action.\n\n' +
         '**Why preview is read-only:** Seeing the query and response together before deciding what to do prevents accidental re-execution. You might want to compare this response against a newer run, or just confirm the query text before editing it. ' +
         'The preview shows status code, latency, and timestamp — enough context to understand what happened without running anything.',
       highlight: GQL.HISTORY_PREVIEW,
@@ -362,7 +376,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       id: 'gql8-load',
       title: 'Load into Editor (No Execute)',
       description:
-        'Click **Load** (`gql-history-load`) in the preview panel — the query transfers to Monaco **without** executing it. The editor contains the operation and you can modify it before running.\n\n' +
+        'Click **Load** in the preview panel — the query transfers to Monaco **without** executing it. The editor contains the operation and you can modify it before running.\n\n' +
         '**Why Load ≠ Run:** Load is the "inspect before committing" action. Common uses: you want to add a field to the query before re-running, you want to adjust a variable value, or you want to refactor the query into a mutation. ' +
         'It gives you a starting point without hitting the server — useful in production environments where unnecessary queries have cost or side-effect implications.',
       highlight: GQL.HISTORY_LOAD,
@@ -380,7 +394,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       id: 'gql8-run',
       title: 'Run from History (Load + Execute)',
       description:
-        'Re-open the preview and click **Run** (`gql-history-run`) — the query loads into the editor **and executes immediately**. Watch the response panel update with a fresh result.\n\n' +
+        'Re-open the preview and click **Run** — the query loads into the editor **and executes immediately**. Watch the response panel update with a fresh result.\n\n' +
         '**Why Run exists separately:** The most common history use case is re-running a query to see if the server response changed (e.g., checking if a data mutation took effect, or re-testing after a server fix). ' +
         'Run collapses Load + Execute into a single click, saving the extra interaction when you want an exact replay with no changes.',
       highlight: GQL.HISTORY_RUN,
@@ -436,7 +450,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       id: 'gql8-export',
       title: 'Export Collections to JSON',
       description:
-        'Click **Export** (`gql-collections-export`) in the Collections toolbar — a `redfire-graphql-collections*.json` file downloads containing all collections, folders, items, and operation metadata.\n\n' +
+        'Click **Export** in the Collections toolbar — a `redfire-graphql-collections*.json` file downloads containing all collections, folders, items, and operation metadata.\n\n' +
         '**Why export matters:** The JSON file is the portable representation of your entire query library. Common workflows:\n' +
         '- Check it into version control so the whole team shares the same queries\n' +
         '- Email it to a customer to reproduce an issue\n' +
@@ -457,7 +471,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       id: 'gql8-import',
       title: 'Delete & Import with Merge',
       description:
-        '**Right-click** the collection header → **Delete**. Then click **Import** (`gql-collections-import`), choose your exported JSON, and select **Merge** — the saved operation reappears in the tree.\n\n' +
+        '**Right-click** the collection header → **Delete**. Then click **Import**, choose your exported JSON, and select **Merge** — the saved operation reappears in the tree.\n\n' +
         '**Why two import modes?**\n' +
         '- **Merge** — adds imported items alongside existing collections. Safe for team onboarding: a new teammate imports the shared library without losing their own queries.\n' +
         '- **Replace** — overwrites all collections with the imported file. Use for environment resets or seeding a fresh install.\n\n' +

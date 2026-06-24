@@ -71,6 +71,7 @@ let _orderMutationWritten = false;
 let _orderExecuted = false;
 let _deleteMutationWritten = false;
 let _deleteExecuted = false;
+let _secondDeleteExecuted = false;
 
 /** Reset Lesson 3 session flags. */
 export function resetGqlLesson3SessionFlags(): void {
@@ -82,6 +83,7 @@ export function resetGqlLesson3SessionFlags(): void {
   _orderExecuted = false;
   _deleteMutationWritten = false;
   _deleteExecuted = false;
+  _secondDeleteExecuted = false;
 }
 
 /** Parse createUser.id from the response body JSON text. */
@@ -258,6 +260,11 @@ export function storeFirstDeleteExecuted(): void {
   _deleteExecuted = true;
 }
 
+/** Mark the second (idempotent) delete execution as complete. */
+export function storeSecondDeleteExecuted(): void {
+  _secondDeleteExecuted = true;
+}
+
 /** Mark createOrder execution complete (called from gql3-exec-order action). */
 export function storeOrderExecuted(): void {
   _orderExecuted = true;
@@ -265,7 +272,7 @@ export function storeOrderExecuted(): void {
 
 /**
  * Ensure the first delete (success: true) has been executed.
- * Used as the preAction guard for the gql3-idempotency step.
+ * Used as the preAction guard for the gql3-idempotency-exec step.
  */
 export async function ensureDeleteFirstExecuted(ctx: DemoActionContext): Promise<void> {
   // Check flag first — avoids running the entire prerequisite chain again
@@ -345,14 +352,23 @@ export async function prepareGql3IntrospectReading(ctx: DemoActionContext): Prom
   await focusResponsePane(ctx);
 }
 
-/** Step 3 action — introspect only; schema explorer opens on the next step. */
+/** Step 3 action — click Introspect; badge read happens on the observe step. */
 export async function runGql3IntrospectOnlyAction(ctx: DemoActionContext): Promise<void> {
+  if (!hasUsableSchemaBadge()) {
+    await ctx.click(GQL.INTROSPECT_BTN);
+    await ctx.delay(400);
+  }
+}
+
+/** Step 3b reading — schema badge visible after introspect. */
+export async function prepareGql3ObserveIntrospectReading(ctx: DemoActionContext): Promise<void> {
+  await prepareGql3IntrospectReading(ctx);
   if (!hasUsableSchemaBadge()) {
     await ctx.click(GQL.INTROSPECT_BTN);
     await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
     await ctx.delay(800);
   }
-  await ctx.delay(1500);
+  await focusResponsePane(ctx);
 }
 
 /**
@@ -479,10 +495,39 @@ export async function prepareGql3ExecDeleteReading(ctx: DemoActionContext): Prom
 }
 
 /** Step 15 reading — first delete response showing success: true. */
-export async function prepareGql3IdempotencyReading(ctx: DemoActionContext): Promise<void> {
+export async function prepareGql3ObserveDeleteReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDeleteFirstExecuted(ctx);
+  await openResponseBodyTab(ctx);
+  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+}
+
+/** Step 16 reading — wired delete ready for second execute. */
+export async function prepareGql3IdempotencyExecReading(ctx: DemoActionContext): Promise<void> {
   await ensureDeleteFirstExecuted(ctx);
   await focusResponsePane(ctx);
+}
+
+/**
+ * Ensure the idempotent second delete has been executed.
+ * Used as the preAction guard for gql3-observe-idempotency.
+ */
+export async function ensureSecondDeleteExecuted(ctx: DemoActionContext): Promise<void> {
+  if (_secondDeleteExecuted) return;
+  await ensureDeleteFirstExecuted(ctx);
+  await clickExecuteAndWait(ctx);
+  _secondDeleteExecuted = true;
+}
+
+/** Step 17 reading — second delete response showing success: false. */
+export async function prepareGql3ObserveIdempotencyReading(ctx: DemoActionContext): Promise<void> {
+  await ensureSecondDeleteExecuted(ctx);
+  await openResponseBodyTab(ctx);
   await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+}
+
+/** @deprecated Use prepareGql3IdempotencyExecReading — kept for tests importing the old name. */
+export async function prepareGql3IdempotencyReading(ctx: DemoActionContext): Promise<void> {
+  await prepareGql3IdempotencyExecReading(ctx);
 }
 
 /** @deprecated Use runGql3IntrospectOnlyAction — kept for tests importing the old name. */

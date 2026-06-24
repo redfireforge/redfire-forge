@@ -7,11 +7,17 @@ import { WF } from '../../../../../shared/selectors';
 import {
   LESSON19_WF_NAME,
   resetGqlLesson19SessionFlags,
+  createGqlOrderFlowDemoWorkflow,
   gqlWorkflowSubscriptionLessonSetup,
   ensureLesson19ConsoleOpen,
   ensureLesson19QuickTestRun,
   selectGqlOrderFlowDemoWorkflow,
 } from './lesson19-workflow-subscription';
+
+function seedLesson19WorkflowBridge(): void {
+  (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+    name === LESSON19_WF_NAME ? createGqlOrderFlowDemoWorkflow() : null;
+}
 
 describe('lesson19-workflow-subscription helpers (direct)', () => {
   beforeEach(() => {
@@ -23,6 +29,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
   });
 
   it('selectGqlOrderFlowDemoWorkflow skips click when no sidebar match', async () => {
@@ -71,13 +78,15 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     expect(badgeSpy?.mock.calls.length ?? 0).toBe(0);
   });
 
-  it('ensureLesson19QuickTestRun skips when exec summary present and flag set', async () => {
+  it('ensureLesson19QuickTestRun skips when prior quick test passed', async () => {
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <div class="wf-console-panel"></div>
       <div data-testid="exec-summary"></div>
+      <div class="wf-exec-strip-pass"></div>
       <button class="wf-quick-test-btn"></button>
     `;
+    seedLesson19WorkflowBridge();
     const ctx = makeCtx();
     await ensureLesson19QuickTestRun(ctx);
     vi.mocked(ctx.click).mockClear();

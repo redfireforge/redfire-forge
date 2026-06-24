@@ -224,8 +224,9 @@ function buildDirectiveString(
   for (const which of ['include', 'skip'] as const) {
     const dir = directives[which];
     if (!dir?.enabled) continue;
-    const ifVar = dir.ifVar.trim();
-    if (!ifVar) continue;
+    const trimmed = dir.ifVar.trim();
+    // Enabled with no condition → sensible literal so SDL preview and Edit in Editor match.
+    const ifVar = trimmed || (which === 'include' ? 'true' : 'false');
 
     const m = ifVar.match(/^\{\{(.+?)\}\}$/) ?? ifVar.match(/^\$(\w+)$/);
     if (m) {

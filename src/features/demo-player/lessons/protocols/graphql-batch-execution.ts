@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   LESSON15_ERROR_QUERY,
   demonstrateLesson15AddSecondTab,
   demonstrateLesson15EnableBatch,
@@ -29,7 +30,7 @@ export const gqlBatchExecutionLesson: DemoLesson = {
     'Send multiple GraphQL operations in a single HTTP request and receive a combined response array — ideal for integration tests and dashboard pre-fetching.',
   estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Two demo tab slots for batch parity teaching (§11.0). */
   tabBudget: 2,
 

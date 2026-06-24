@@ -191,10 +191,10 @@ describe('gql-performance-tracing lesson', () => {
     expect(step.verify).toBe(GQL.COMPLEXITY_BADGE);
   });
 
-  it('gql10-execute highlights execute button (not tracing badge)', () => {
+  it('gql10-execute highlights execute button and verifies response viewer', () => {
     const step = gqlPerformanceTracingLesson.steps.find((s) => s.id === 'gql10-execute')!;
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
-    expect(step.verify).toBe(GQL.RV_TRACING_BADGE);
+    expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
   });
 
   it('gql10-tracing-badge highlights the tracing badge and verifies trace view', () => {

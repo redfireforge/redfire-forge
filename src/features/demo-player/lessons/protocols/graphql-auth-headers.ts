@@ -1,8 +1,9 @@
-/** Lesson GQL-4: Authentication & Headers (rewritten — 8-step clean flow) */
+/** Lesson GQL-4: Authentication & Headers (14-step config + Metadata observe splits) */
 import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   LESSON6_AUTH_TOKEN_VALUE,
   LESSON6_API_KEY_VALUE,
@@ -11,7 +12,9 @@ import {
   LESSON6_BEARER_TEMPLATE,
   LESSON6_BASIC_USER,
   LESSON6_BASIC_PASS,
-  LESSON6_GLOBAL_AUTH_PROFILE_ID,
+  LESSON6_OAUTH_TOKEN_URL,
+  LESSON6_OAUTH_CLIENT_ID,
+  LESSON6_OAUTH_CLIENT_SECRET,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
   LESSON6_PROFILE_NAME,
   closeAuthPanelIfOpen,
@@ -19,15 +22,25 @@ import {
   markBearerDone,
   markApiKeyDone,
   markBasicDone,
+  markOauthDone,
   markInheritDone,
+  markProfileDone,
   preEnvStep,
-  preBearerStep,
-  preApiKeyStep,
-  preBasicStep,
-  preInheritStep,
+  preOauthStep,
   preProfileStep,
-  preSubscriptionStep,
-  seedLesson6GlobalAuthProfile,
+  preIntroStep,
+  prepareBearerConfigReading,
+  prepareBearerObserveReading,
+  prepareApiKeyConfigReading,
+  prepareApiKeyObserveReading,
+  prepareBasicConfigReading,
+  prepareBasicObserveReading,
+  prepareInheritConfigReading,
+  prepareInheritObserveReading,
+  prepareSubscriptionExecReading,
+  prepareSubscriptionObserveReading,
+  runAuthExecuteWithMetadata,
+  selectInheritGlobalProfileInPanel,
   selectAuthInPanel,
   gqlAuthLessonCleanup,
   gqlAuthLessonSetup,
@@ -39,10 +52,10 @@ export const gqlAuthHeadersLesson: DemoLesson = {
   category: 'graphql',
   name: 'Authentication & Headers',
   description:
-    'Store secrets in environment variables, then configure Bearer, API Key, Basic, and Inherit auth — each type executed once and verified in the Metadata tab. Save a reusable connection profile at the end.',
-  estimatedMinutes: 5,
+    'Store secrets in environment variables, then configure Bearer, API Key, Basic, OAuth 2.0, and Inherit auth — each type shown once and verified in Metadata or the auth preview. Save a reusable connection profile at the end.',
+  estimatedMinutes: 8,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -64,7 +77,7 @@ export const gqlAuthHeadersLesson: DemoLesson = {
 The **Auth badge** (🔒) focuses the **Auth** bottom tab with four modes:
 - **Bearer Token** — \`Authorization: Bearer <token>\`. Use \`{{authToken}}\` as the value.
 - **API Key** — a custom header such as \`X-API-Key: {{apiKey}}\`. The header name is configurable.
-- **Basic Auth** — credentials encoded as \`Authorization: Basic base64(user:pass)\`. Base64 is *encoding*, not encryption — requires HTTPS (Lesson GQL-5) to be safe in transit.
+- **Basic Auth** — credentials encoded as \`Authorization: Basic base64(user:pass)\`. Base64 is *encoding*, not encryption — requires HTTPS (**GQL-5**) to be safe in transit.
 - **Inherit from Auth Profile** — references a shared credential from the **Environment Manager** catalog. Update the profile once and every studio that references it picks up the change automatically.
 
 After **Execute**, open the **Metadata** tab to see the exact headers that were sent. This is your ground truth for debugging auth failures.
@@ -94,6 +107,11 @@ With a **single tab**, auth edits update the **page-level default** — every ne
           'HTTP `Authorization: Basic base64(user:pass)` header. Credentials are base64-encoded (not encrypted). Requires HTTPS (GQL-5) to be safe in transit.',
       },
       {
+        term: 'OAuth 2.0 (Client Credentials)',
+        definition:
+          'Service-to-service flow: configure token URL, client ID, and client secret in the Auth panel. GraphQL Studio fetches a short-lived access token at execute time (via pre-request scripts or Environment Manager OAuth profiles) and sends it as `Authorization: Bearer <token>`.',
+      },
+      {
         term: 'Request headers (Metadata tab)',
         definition:
           'The outgoing HTTP headers actually sent with the operation — visible in the Metadata tab after execute. Confirms that env-variable placeholders were resolved and the correct credential was transmitted.',
@@ -114,9 +132,9 @@ With a **single tab**, auth edits update the **page-level default** — every ne
           'When two or more tabs are open, auth edits on a tab store an explicit override on that tab only. Other tabs keep their own auth (or inherit workspace). Subscriptions and queries on the active tab use that tab\'s resolved auth chain.',
       },
     ],
-    diagram: `<svg viewBox="0 0 700 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
+    diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
   <!-- Window chrome -->
-  <rect x="0" y="0" width="700" height="400" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.5"/>
+  <rect x="0" y="0" width="700" height="430" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.5"/>
   <rect x="0" y="0" width="700" height="30" rx="10" fill="var(--surface)"/>
   <rect x="0" y="20" width="700" height="10" fill="var(--surface)"/>
   <circle cx="18" cy="15" r="5" fill="#ff5f57"/><circle cx="34" cy="15" r="5" fill="#febc2e"/><circle cx="50" cy="15" r="5" fill="#28c840"/>
@@ -240,6 +258,8 @@ With a **single tab**, auth edits update the **page-level default** — every ne
     Each auth type shown exactly once · No repeated screens · Env activated before first execute
   </text>
 
+  <text x="350" y="418" text-anchor="middle" fill="var(--text-muted)" font-size="9" opacity="0.75">Protocols → GraphQL → GQL-4 Authentication &amp; Headers</text>
+
   <defs>
     <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
       <polygon points="0 0,5 2.5,0 5" fill="var(--border)"/>
@@ -256,6 +276,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       description:
         `Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, all auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the **Auth** bottom tab — a docked panel with four modes: **Bearer Token**, **API Key**, **Basic Auth**, and **Inherit from Auth Profile**. Notice the **Env badge** beside it — the lesson configures a **Demo** environment here with two variables (\`authToken\` and \`apiKey\`) so auth fields can use \`{{authToken}}\` placeholders instead of hardcoded secrets. Watch the modal open now so you can see the configured values before the auth steps begin.`,
       highlight: GQL.AUTH_BADGE_BTN,
+      preAction: preIntroStep,
       action: async (ctx) => {
         // Create the Demo env in React state via the window bridge (reliable, no DOM fragility)
         await ensureEnvReady(ctx);
@@ -292,113 +313,165 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       pauseAfter: true,
     },
 
-    // ── Step 3: Bearer Token ──────────────────────────────────────────────────
+    // ── Step 3: Bearer Token — configure ─────────────────────────────────────
     {
-      id: 'gql6-bearer',
-      title: 'Bearer Token — Configure, Execute & Verify',
+      id: 'gql6-bearer-config',
+      title: 'Bearer Token — Configure',
       description:
-        `Now configure Bearer auth and confirm it in Metadata. The **Auth** bottom tab opens with **Bearer Token** selected — \`${LESSON6_BEARER_TEMPLATE}\` is typed in the token field. The preview footer shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` (placeholder already resolved). After clicking **Execute**, the **Metadata** tab opens: \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` confirms the resolved token was actually sent. **This is your ground truth for debugging** — if a server rejects auth, Metadata shows exactly what was transmitted.`,
+        `Open the **Auth** bottom tab with **Bearer Token** selected. Type \`${LESSON6_BEARER_TEMPLATE}\` in the token field — the preview footer resolves it to \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` before you execute. **Why Bearer first?** It is the most common GraphQL auth scheme; env placeholders keep the JWT out of saved configs.`,
       highlight: GQL.AUTH_BEARER_INPUT,
-      preAction: preBearerStep,
+      preAction: prepareBearerConfigReading,
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'bearer');
         await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
         await ctx.delay(700);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(1200);
+      },
+      verify: GQL.AUTH_BEARER_INPUT,
+      pauseAfter: true,
+    },
+
+    // ── Step 4: Bearer Token — execute & verify Metadata ───────────────────
+    {
+      id: 'gql6-bearer-observe',
+      title: 'Bearer Token — Verify in Metadata',
+      description:
+        `Click **Execute**, then open **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` — the literal resolved token, not \`{{authToken}}\`. **This is your ground truth for debugging** — if a server rejects auth, Metadata shows exactly what was transmitted.`,
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareBearerObserveReading,
+      action: async (ctx) => {
+        await runAuthExecuteWithMetadata(ctx);
         markBearerDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
-    // ── Step 4: API Key ───────────────────────────────────────────────────────
+    // ── Step 5: API Key — configure ───────────────────────────────────────────
     {
-      id: 'gql6-apikey',
-      title: 'API Key — Configure, Execute & Verify',
+      id: 'gql6-apikey-config',
+      title: 'API Key — Configure',
       description:
-        `The Metadata tab above shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\`. Now watch the API Key flow: the **Auth** bottom tab switches to **API Key**, header name becomes \`${LESSON6_API_KEY_HEADER}\` with value \`${LESSON6_API_KEY_TEMPLATE}\`, then the query executes — the Metadata tab updates to \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\` (the \`{{apiKey}}\` env variable resolved). **Same env-variable pattern, different header name.** Some services prefer a custom header over the standard \`Authorization\` scheme — especially internal microservices and third-party gateways.`,
-      highlight: GQL.RV_REQUEST_HEADERS,
-      preAction: preApiKeyStep,
+        `Switch the **Auth** bottom tab to **API Key**. Set header name \`${LESSON6_API_KEY_HEADER}\` and value \`${LESSON6_API_KEY_TEMPLATE}\`. **Same env-variable pattern, different header name** — some services prefer a custom header over the standard \`Authorization\` scheme.`,
+      highlight: GQL.AUTH_APIKEY_VAL,
+      preAction: prepareApiKeyConfigReading,
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'apiKey');
         await ctx.fill(GQL.AUTH_APIKEY_NAME, LESSON6_API_KEY_HEADER);
         await ctx.delay(300);
         await ctx.fill(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
         await ctx.delay(700);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(1200);
+      },
+      verify: GQL.AUTH_APIKEY_VAL,
+      pauseAfter: true,
+    },
+
+    // ── Step 6: API Key — execute & verify Metadata ─────────────────────────
+    {
+      id: 'gql6-apikey-observe',
+      title: 'API Key — Verify in Metadata',
+      description:
+        `Execute again and read **Metadata → Request headers**. The row updates to \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\` — the \`{{apiKey}}\` env variable resolved at send time.`,
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareApiKeyObserveReading,
+      action: async (ctx) => {
+        await runAuthExecuteWithMetadata(ctx);
         markApiKeyDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
-    // ── Step 5: Basic Auth ────────────────────────────────────────────────────
+    // ── Step 7: Basic Auth — configure ────────────────────────────────────────
     {
-      id: 'gql6-basic',
-      title: 'Basic Auth — Configure, Execute & Verify',
+      id: 'gql6-basic-config',
+      title: 'Basic Auth — Configure',
       description:
-        `The Metadata tab now shows \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\`. Watch the Basic Auth flow: the **Auth** bottom tab switches to **Basic Auth**, username \`${LESSON6_BASIC_USER}\` and password \`${LESSON6_BASIC_PASS}\` are filled in directly (not via env vars), then the query executes — the Metadata tab updates to \`Authorization: Basic ZGVtbzpkZW1vLXBhc3M=\`. That base64 value encodes \`${LESSON6_BASIC_USER}:${LESSON6_BASIC_PASS}\`. **Note:** credentials are entered directly here because the auth system base64-encodes them before building the header — unlike Bearer and API Key, the placeholder would get encoded rather than resolved. base64 is *encoding*, not *encryption* — requires HTTPS (GQL-5) to be safe.`,
-      highlight: GQL.RV_REQUEST_HEADERS,
-      preAction: preBasicStep,
+        `Switch to **Basic Auth** and fill username \`${LESSON6_BASIC_USER}\` and password \`${LESSON6_BASIC_PASS}\` directly (not via env vars — the auth system base64-encodes them before building the header). base64 is *encoding*, not *encryption* — requires HTTPS (**GQL-5**) to be safe in transit.`,
+      highlight: GQL.AUTH_BASIC_USER,
+      preAction: prepareBasicConfigReading,
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'basic');
         await ctx.fill(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
         await ctx.delay(300);
         await ctx.fill(GQL.AUTH_BASIC_PASS, LESSON6_BASIC_PASS);
         await ctx.delay(700);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(1200);
+      },
+      verify: GQL.AUTH_BASIC_PASS,
+      pauseAfter: true,
+    },
+
+    // ── Step 8: Basic Auth — execute & verify Metadata ────────────────────────
+    {
+      id: 'gql6-basic-observe',
+      title: 'Basic Auth — Verify in Metadata',
+      description:
+        `Execute and open **Metadata**. The header becomes \`Authorization: Basic ZGVtbzpkZW1vLXBhc3M=\` — base64 for \`${LESSON6_BASIC_USER}:${LESSON6_BASIC_PASS}\`. Compare this row to the Bearer and API Key rows you saw earlier.`,
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareBasicObserveReading,
+      action: async (ctx) => {
+        await runAuthExecuteWithMetadata(ctx);
         markBasicDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
-    // ── Step 6: Inherit from Auth Profile ─────────────────────────────────────
+    // ── Step 9: OAuth 2.0 ───────────────────────────────────────────────────
     {
-      id: 'gql6-inherit',
-      title: 'Inherit from Auth Profile',
+      id: 'gql6-oauth',
+      title: 'OAuth 2.0 — Client Credentials',
       description:
-        `The Metadata tab shows \`Authorization: Basic …\`. Now the fourth mode: **Inherit from Auth Profile** — the same option WebSocket and SSE studios use. The **Auth** bottom tab selects **Inherit**, chooses the **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** catalog profile (which stores a Bearer token), then the query executes — the Metadata tab shows \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables. **Why inherit?** Update the catalog profile once in Environment Manager and every studio that references it picks up the new credential automatically — no need to touch each endpoint's auth config.`,
-      highlight: GQL.RV_REQUEST_HEADERS,
-      preAction: preInheritStep,
+        `Switch to **OAuth 2.0 (Client Credentials)**. Fill token URL \`${LESSON6_OAUTH_TOKEN_URL}\`, client ID \`${LESSON6_OAUTH_CLIENT_ID}\`, and client secret \`${LESSON6_OAUTH_CLIENT_SECRET}\` (store the real secret in **Env**, same pattern as Bearer). The preview shows \`Authorization: Bearer <token from ${LESSON6_OAUTH_TOKEN_URL}>\` — GraphQL Studio fetches the access token at execute time. **Why OAuth here?** Service-to-service APIs often issue short-lived tokens instead of static API keys.`,
+      highlight: GQL.AUTH_PREVIEW,
+      preAction: preOauthStep,
       action: async (ctx) => {
-        seedLesson6GlobalAuthProfile();
-        await selectAuthInPanel(ctx, 'inherit');
-        await ctx.delay(400);
-        await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
-        await ctx.delay(700);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+        await selectAuthInPanel(ctx, 'oauth2');
+        await ctx.fill(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
+        await ctx.delay(300);
+        await ctx.fill(GQL.AUTH_OAUTH_CLIENT_ID, LESSON6_OAUTH_CLIENT_ID);
+        await ctx.delay(300);
+        await ctx.fill(GQL.AUTH_OAUTH_CLIENT_SECRET, LESSON6_OAUTH_CLIENT_SECRET);
         await ctx.delay(1200);
+        await closeAuthPanelIfOpen(ctx);
+        markOauthDone();
+      },
+      verify: GQL.AUTH_PREVIEW,
+      pauseAfter: true,
+    },
+
+    // ── Step 10: Inherit — configure ────────────────────────────────────────
+    {
+      id: 'gql6-inherit-config',
+      title: 'Inherit from Auth Profile — Configure',
+      description:
+        `Select **Inherit from Auth Profile** and choose **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** from the catalog — the same option WebSocket and SSE studios use. **Why inherit?** Update the catalog profile once in Environment Manager and every studio that references it picks up the new credential automatically.`,
+      highlight: GQL.AUTH_PROFILE_SELECT,
+      preAction: prepareInheritConfigReading,
+      action: async (ctx) => {
+        await selectInheritGlobalProfileInPanel(ctx);
+        await ctx.delay(700);
+      },
+      verify: GQL.AUTH_PROFILE_SELECT,
+      pauseAfter: true,
+    },
+
+    // ── Step 11: Inherit — execute & verify Metadata ─────────────────────────
+    {
+      id: 'gql6-inherit-observe',
+      title: 'Inherit — Verify in Metadata',
+      description:
+        `Execute and read **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables on this tab.`,
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareInheritObserveReading,
+      action: async (ctx) => {
+        await runAuthExecuteWithMetadata(ctx);
         markInheritDone();
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
 
-    // ── Step 7: Save connection profile ──────────────────────────────────────
+    // ── Step 12: Save connection profile ──────────────────────────────────────
     {
       id: 'gql6-profile',
       title: 'Save a Connection Profile',
@@ -414,40 +487,45 @@ With a **single tab**, auth edits update the **page-level default** — every ne
         await ctx.delay(400);
         await ctx.click(GQL.PROFILE_SAVE_BTN);
         await ctx.delay(800);
+        markProfileDone();
       },
       verify: GQL.PROFILE_MODAL,
       pauseAfter: true,
     },
 
-    // ── Step 8: Auth carries into subscriptions ───────────────────────────────
+    // ── Step 13: Subscription auth — execute ─────────────────────────────────
     {
-      id: 'gql6-subscription',
-      title: 'Auth Carries into Subscriptions',
+      id: 'gql6-subscription-exec',
+      title: 'Auth Carries into Subscriptions — Execute',
       description:
-        'The **🔒 Auth badge** on the connection bar configures credentials for the **active tab**. With one tab open (this lesson), edits set the **page-level default** — the same resolved auth is used for HTTP queries **and** for WebSocket subscription handshakes on that tab (Lesson GQL-7): the initial HTTP upgrade request includes the same auth headers. When you open a second tab (GQL-14), each tab can override auth independently while sharing the same endpoint URL.\n\n' +
-        'You do **not** configure auth separately for subscriptions — the **active tab\'s** resolved auth chain applies automatically. The same principle applies to SSE subscriptions on the active tab. Run **Execute** below to confirm the inherit profile auth still appears in **Metadata → Request headers**.',
-      highlight: GQL.AUTH_BADGE_BTN,
-      preAction: preSubscriptionStep,
+        'The **🔒 Auth badge** configures credentials for the **active tab**. With one tab open, edits set the **page-level default** — the same resolved auth is used for HTTP queries **and** for WebSocket subscription handshakes (**GQL-7**). Saving a connection profile may reset auth mode, so we re-bind **Inherit** before executing.',
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareSubscriptionExecReading,
       action: async (ctx) => {
-        // Saving the connection profile (step 7) may have cleared the auth mode.
-        // Always re-establish inherit auth before executing the final query.
-        seedLesson6GlobalAuthProfile();
-        await selectAuthInPanel(ctx, 'inherit');
-        await ctx.selectOption(GQL.AUTH_PROFILE_SELECT, LESSON6_GLOBAL_AUTH_PROFILE_ID);
-        await ctx.delay(300);
-        await closeAuthPanelIfOpen(ctx);
-        
-        // Execute final query to show auth headers carry through to subscriptions
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        // Switch to Response → Metadata to verify auth headers
+        await ctx.delay(800);
+      },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    // ── Step 14: Subscription auth — Metadata verify ─────────────────────────
+    {
+      id: 'gql6-subscription-observe',
+      title: 'Subscription Auth — Verify Metadata Headers',
+      description:
+        'Open **Response → Metadata → Request headers**. The inherit profile auth still appears — you do **not** configure auth separately for subscriptions. When you open a second tab (**GQL-14**), each tab can override auth independently while sharing the same endpoint URL.',
+      highlight: GQL.RV_REQUEST_HEADERS,
+      preAction: prepareSubscriptionObserveReading,
+      action: async (ctx) => {
         await ctx.click(GQL.RIGHT_TAB_RESPONSE);
         await ctx.delay(300);
         await ctx.click(GQL.RV_TAB_METADATA);
         await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(500);
+        await ctx.delay(800);
       },
+      verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
     },
   ],
