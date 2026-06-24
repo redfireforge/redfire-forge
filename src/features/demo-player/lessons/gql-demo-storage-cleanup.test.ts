@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../../graphql/utils/gqlDemoConnectionProfiles', () => ({
+vi.mock('../adapters', () => ({
   purgeGqlDemoConnectionProfiles: vi.fn(async () => 2),
 }));
 
@@ -12,7 +12,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   cleanupStaleStorageKeys: vi.fn(() => ({ removed: 5, freedKB: 12 })),
 }));
 
-import { purgeGqlDemoConnectionProfiles } from '../../graphql/utils/gqlDemoConnectionProfiles';
+import { purgeGqlDemoConnectionProfiles } from '../adapters';
 import { purgeStaleRunnerConfigKeys, cleanupStaleStorageKeys } from '../../../shared/utils/storage';
 import { purgeGqlDemoEphemeralStorage } from './gql-demo-storage-cleanup';
 

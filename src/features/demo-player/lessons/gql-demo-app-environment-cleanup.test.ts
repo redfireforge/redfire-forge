@@ -8,7 +8,7 @@ import {
   GQL_STUDIO_DEMO_ENV_NAME,
 } from './env-manager-lesson-helpers';
 import { purgeGqlDemoLessonEnvironmentsFromStorage } from './gql-demo-app-environment-cleanup';
-import { GQL_ENVS_STORAGE_KEY } from '../../graphql/utils/gqlStudioEnvironmentStorage';
+import { GQL_ENVS_STORAGE_KEY } from '../adapters';
 
 vi.mock('../../../shared/utils/storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/utils/storage')>();

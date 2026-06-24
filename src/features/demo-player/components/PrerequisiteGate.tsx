@@ -13,9 +13,9 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { checkEndpoint } from '../utils/checkEndpoint';
 import {
   countUserTabsInStorage,
-  userTabsToCloseForLesson,
   MAX_TABS,
-} from '../../graphql/utils/gqlDemoWorkspace';
+  userTabsToCloseForLesson,
+} from '../adapters';
 
 interface PrerequisiteGateProps {
   /** WS or HTTP URL to probe (e.g. ws://localhost:3100/socket.io/?EIO=4). Legacy single-endpoint lessons. */

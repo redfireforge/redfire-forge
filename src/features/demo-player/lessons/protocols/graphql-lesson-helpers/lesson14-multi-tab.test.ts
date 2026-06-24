@@ -6,17 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
 
-vi.mock('../../../../graphql/utils/gqlDemoConnectionProfiles', async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import('../../../../graphql/utils/gqlDemoConnectionProfiles')
-  >();
+vi.mock('../../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters')>();
   return {
     ...actual,
     purgeGqlDemoConnectionProfiles: vi.fn().mockResolvedValue(0),
   };
 });
 
-import { purgeGqlDemoConnectionProfiles } from '../../../../graphql/utils/gqlDemoConnectionProfiles';
+import { purgeGqlDemoConnectionProfiles } from '../../../adapters';
 import {
   resetGqlLesson14SessionFlags,
   ensureLesson14ProfileAuthHintVisible,

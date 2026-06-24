@@ -6,7 +6,7 @@ import {
   dispatchGqlTabsReload,
   loadDemoSession,
   prepareDemoWorkspace,
-} from '../../../../graphql/utils/gqlDemoWorkspace';
+} from '../../../adapters';
 
 export const GQL14_LESSON_ID = 'gql-multi-tab';
 export const GQL15_LESSON_ID = 'gql-batch-execution';

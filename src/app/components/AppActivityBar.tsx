@@ -10,6 +10,7 @@ import {
   isDemoTab,
   getLastProtocolsTab,
 } from '../utils/appTabUtils';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 
 interface AppActivityBarProps {
   activeTab: Tab;
@@ -107,6 +108,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         </span>
         <span className="ab-label">Protocols</span>
       </button>
+      {DEMO_HUB_ENABLED && (
       <button
         className={`ab-btn ${domainOf(activeTab) === 'demo' ? 'active' : ''}`}
         onClick={() => { if (!isDemoTab(activeTab)) setActiveTab('demo-hub'); }}
@@ -122,6 +124,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         </span>
         <span className="ab-label">Demo Hub</span>
       </button>
+      )}
       <div className="ab-spacer" />
       <button
         className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}

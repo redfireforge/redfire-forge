@@ -7,7 +7,7 @@ import {
   GQL_DEMO_SVC_NAME,
   GQL_STUDIO_DEMO_ENV_NAME,
 } from './env-manager-lesson-helpers';
-import { purgeGqlStudioEnvironmentsByName } from '../../graphql/utils/gqlStudioEnvironmentStorage';
+import { purgeGqlStudioEnvironmentsByName } from '../adapters';
 import { purgeGqlDemoEphemeralStorage } from './gql-demo-storage-cleanup';
 import {
   loadEnvironments,

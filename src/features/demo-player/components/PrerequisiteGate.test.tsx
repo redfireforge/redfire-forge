@@ -11,7 +11,7 @@ vi.mock('../utils/checkEndpoint', () => ({
   checkEndpoint: vi.fn(),
 }));
 
-vi.mock('../../graphql/utils/gqlDemoWorkspace', () => ({
+vi.mock('../adapters', () => ({
   MAX_TABS: 8,
   countUserTabsInStorage: vi.fn(async () => 0),
   userTabsToCloseForLesson: (userCount: number, budget = 1) =>
@@ -19,7 +19,7 @@ vi.mock('../../graphql/utils/gqlDemoWorkspace', () => ({
 }));
 
 import { checkEndpoint } from '../utils/checkEndpoint';
-import { countUserTabsInStorage } from '../../graphql/utils/gqlDemoWorkspace';
+import { countUserTabsInStorage } from '../adapters';
 const mockCheck = checkEndpoint as ReturnType<typeof vi.fn>;
 const mockCountUserTabs = vi.mocked(countUserTabsInStorage);
 

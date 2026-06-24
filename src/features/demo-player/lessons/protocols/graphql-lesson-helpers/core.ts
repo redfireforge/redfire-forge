@@ -10,10 +10,10 @@ import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 import {
   dispatchGqlPageEndpointReload,
   loadDemoSession,
+  normalizeGraphqlEndpoint,
   patchDemoTabConnection,
-} from '../../../../graphql/utils/gqlDemoWorkspace';
-import { restorePageEndpointSnapshot } from '../../../../graphql/utils/tabPersistence';
-import { normalizeGraphqlEndpoint } from '../../../../graphql/utils/graphqlEndpointUtils';
+  restorePageEndpointSnapshot,
+} from '../../../adapters';
 
 /** HTTP GraphQL endpoint for the Docker test server (port 4010). */
 export const GQL_DEMO_HTTP = 'http://localhost:4010/graphql';

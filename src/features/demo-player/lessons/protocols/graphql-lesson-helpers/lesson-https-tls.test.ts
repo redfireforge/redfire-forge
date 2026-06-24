@@ -48,34 +48,34 @@ vi.mock('./gql-demo-tab', () => ({
   activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
-vi.mock('../../../../graphql/utils/gqlDemoWorkspace', () => ({
-  patchDemoTabConnection: vi.fn(async () => true),
-  loadDemoSession: vi.fn(async () => ({
-    lessonId: 'gql-https-tls',
-    priorActiveTabId: 'user-1',
-    demoTabId: 'demo-tab-gql5',
-  })),
-}));
-
-vi.mock('../../../../graphql/utils/tabPersistence', () => ({
-  loadTabs: vi.fn(async () => [
-    {
-      id: 'demo-tab-gql5',
-      endpoint: 'https://127.0.0.1:4443/graphql',
-      query: '',
-      variables: '{}',
-      headers: [],
-      operationType: 'query',
-      modelUri: 'file:///demo',
-      label: 'Demo',
-      unsavedChanges: false,
-    },
-  ]),
-}));
+vi.mock('../../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters')>();
+  return {
+    ...actual,
+    patchDemoTabConnection: vi.fn(async () => true),
+    loadDemoSession: vi.fn(async () => ({
+      lessonId: 'gql-https-tls',
+      priorActiveTabId: 'user-1',
+      demoTabId: 'demo-tab-gql5',
+    })),
+    loadTabs: vi.fn(async () => [
+      {
+        id: 'demo-tab-gql5',
+        endpoint: 'https://127.0.0.1:4443/graphql',
+        query: '',
+        variables: '{}',
+        headers: [],
+        operationType: 'query',
+        modelUri: 'file:///demo',
+        label: 'Demo',
+        unsavedChanges: false,
+      },
+    ]),
+  };
+});
 
 import { ensureGqlDemoTab, closeGqlDemoTabs, activateGqlDemoTabQuiet } from './gql-demo-tab';
-import { patchDemoTabConnection, loadDemoSession } from '../../../../graphql/utils/gqlDemoWorkspace';
-import { loadTabs } from '../../../../graphql/utils/tabPersistence';
+import { patchDemoTabConnection, loadDemoSession, loadTabs } from '../../../adapters';
 
 function stubTlsChainDom(opts: {
   endpoint?: string;

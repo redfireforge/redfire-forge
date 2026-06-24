@@ -4,7 +4,12 @@ import type { DemoActionContext } from '../../../types';
 import type { GraphqlAssertNodeData, GraphqlQueryNodeData } from '../../../../workflow/types/workflow';
 import { GQL, WF } from '../../../../../shared/selectors';
 import { GQL_DEMO_HTTP } from './core';
-import { patchDemoWorkflowNodeDataByType } from '../../../../../app/hooks/useDemoWorkflowCanvasBridge';
+import {
+  connectWorkflowNodes,
+  deleteWorkflowByName,
+  getWorkflowByName,
+  patchDemoWorkflowNodeDataByType,
+} from '../../../adapters';
 import {
   clickWfConfigAddRow,
   clickWfConfigTab,
@@ -70,12 +75,8 @@ function connectWfNodes(
   const targetEl = document.querySelector(targetSelector);
   const sourceId = sourceEl?.getAttribute('data-id') ?? sourceEl?.closest('.react-flow__node')?.getAttribute('data-id');
   const targetId = targetEl?.getAttribute('data-id') ?? targetEl?.closest('.react-flow__node')?.getAttribute('data-id');
-  const wfConnect = (window as unknown as Record<string, unknown>).__wfConnect as
-    | ((s: string, t: string, sh: string | null, th: string | null) => void)
-    | undefined;
-  if (sourceId && targetId && wfConnect) {
-    wfConnect(sourceId, targetId, sourceHandle, null);
-    return true;
+  if (sourceId && targetId) {
+    return connectWorkflowNodes(sourceId, targetId, sourceHandle, null);
   }
   return false;
 }
@@ -89,10 +90,10 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
 }
 
 function readLesson11WorkflowNode(type: string): Record<string, unknown> | null {
-  const get = (window as unknown as Record<string, unknown>).__wfGetWorkflowByName as
-    | ((name: string) => { nodes?: Array<{ type: string; data: Record<string, unknown> }> } | null)
-    | undefined;
-  const node = get?.(LESSON11_WF_NAME)?.nodes?.find((n) => n.type === type);
+  const wf = getWorkflowByName<{ nodes?: Array<{ type: string; data: Record<string, unknown> }> }>(
+    LESSON11_WF_NAME,
+  );
+  const node = wf?.nodes?.find((n) => n.type === type);
   return node?.data ?? null;
 }
 
@@ -451,11 +452,7 @@ export async function ensureLesson11DebugRun(ctx: DemoActionContext): Promise<vo
 /** Setup for Lesson 11 — remove stale demo workflow. */
 export async function gqlWorkflowIntegrationLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson11SessionFlags();
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  if (wfDelete) {
-    wfDelete(LESSON11_WF_NAME);
+  if (deleteWorkflowByName(LESSON11_WF_NAME)) {
     await ctx.delay(300);
   }
   await closeWfConfigModalIfOpen(ctx);
@@ -468,10 +465,7 @@ export async function gqlWorkflowIntegrationLessonSetup(ctx: DemoActionContext):
 export async function gqlWorkflowIntegrationLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
   await closeWfConsoleIfOpen(ctx);
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  wfDelete?.(LESSON11_WF_NAME);
+  deleteWorkflowByName(LESSON11_WF_NAME);
   resetGqlLesson11SessionFlags();
   await ctx.delay(100);
 }

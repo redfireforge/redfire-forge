@@ -8,7 +8,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev:prod-slim": "VITE_ENABLE_DEMO_HUB=false vite",
+    "build": "npm run build:prod",
+    "build:prod": "tsc -b && VITE_ENABLE_DEMO_HUB=false vite build --mode production",
+    "build:demo": "tsc -b && VITE_ENABLE_DEMO_HUB=true vite build --mode production.demo",
     "build:cli": "node scripts/build-cli.mjs",
     "build:cli-package": "./scripts/build-cli-package.sh",
     "build:server": "node scripts/build-server.mjs",
@@ -22,9 +25,15 @@
     "tauri:dev": "tauri dev",
     "tauri:dev:mcp": "tauri dev -- --features mcp-bridge",
     "tauri:build": "tauri build",
+    "tauri:build:prod": "tauri build",
+    "tauri:build:demo": "tauri build --config src-tauri/tauri.conf.demo.json",
     "test": "vitest run",
+    "test:product": "vitest run --project product",
+    "test:demo": "vitest run --project demo",
+    "test:product:coverage": "vitest run --project product --coverage && npx tsx scripts/product-coverage-filter.ts",
+    "test:demo:coverage": "vitest run --project demo --coverage",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "npm run test:product:coverage",
     "test:e2e": "playwright test",
     "test:e2e:graphql:clean": "bash ./scripts/run-graphql-e2e-clean.sh",
     "test:e2e:graphql:clean:headed": "bash ./scripts/run-graphql-e2e-clean.sh --headed",
@@ -56,7 +65,7 @@
     "test:e2e:demo:gql-smoke": "playwright test --project=demo-gql-lessons e2e/graphql-lessons.spec.ts --reporter=html --workers=1",
     "test:e2e:all": "E2E_WITH_DOCKER=1 playwright test",
     "prepare": "husky",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",

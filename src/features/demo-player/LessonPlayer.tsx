@@ -5,7 +5,7 @@ import ConceptSlide from './ConceptSlide';
 import PrerequisiteGate from './components/PrerequisiteGate';
 import DesktopOnlyGate from './components/DesktopOnlyGate';
 import { renderMarkdown } from './ConceptSlide';
-import { isGraphqlStudioLesson } from '../graphql/utils/gqlDemoWorkspace';
+import { isGraphqlStudioLesson } from './adapters';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
 
 interface LessonPlayerProps {

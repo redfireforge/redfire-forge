@@ -2,7 +2,7 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import { isTauri } from '../../../../../shared/utils/platform';
-import { loadCachedGraphqlSchemaSdl } from '../../../../graphql/utils/graphqlSchemaCache';
+import { loadCachedGraphqlSchemaSdl } from '../../../adapters';
 import { setControlledCheckbox } from '../../setup-helpers';
 import { GQL_DEMO_HTTP, getEndpointInput, responseBodyText } from './core';
 import {

@@ -317,7 +317,34 @@ and JSON keys.
 
 ---
 
-## 8. Keep Selectors in `src/shared/selectors.ts`
+## 8. Import Product Features Through Adapters
+
+Lessons **and demo-player core UI** (`LessonPlayer`, `PrerequisiteGate`, `useDemoHub`, etc.) **must not** import product internals directly. Use the stable adapter surface:
+
+```typescript
+// ✅ Correct
+import { ensureGqlDemoTab } from './gql-demo-tab'; // lesson-local helper
+import { patchDemoTabConnection, upsertGqlEnvironment } from '../../../adapters';
+import { connectWorkflowNodes } from '../../../adapters';
+import { GQL } from '../../../../../shared/selectors';
+
+// ❌ Wrong — couples lessons to product hooks/utils
+import { useDemoWorkflowCanvasBridge } from '../../../../../app/hooks/useDemoWorkflowCanvasBridge';
+import { prepareDemoWorkspace } from '../../../../graphql/utils/gqlDemoWorkspace';
+```
+
+**Allowed import paths from lesson code:**
+- `src/features/demo-player/adapters/` (or relative `../adapters`)
+- `src/shared/selectors.ts` (`GQL`, `WF`, `WS`, …)
+- Other files under `src/features/demo-player/` (helpers, types)
+
+**New bridge usage:** add a function to the appropriate adapter (`graphqlStudioAdapter`, `workflowDesignerAdapter`, `environmentAdapter`, `appShellAdapter`) — never call `window.__wf*` or `window.__demo*` directly in new lesson code.
+
+Enforced by `src/features/demo-player/adapters/adaptersImportAudit.test.ts`.
+
+---
+
+## 9. Keep Selectors in `src/shared/selectors.ts`
 
 All `data-testid` selector strings used in lesson actions **must** be defined as
 named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts`.
@@ -328,14 +355,14 @@ named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts
 
 ---
 
-## 9. Tests for Lessons (Lightweight)
+## 10. Tests for Lessons (Lightweight)
 
 When restructuring steps, keep **E2E smoke** and **helper tests** in sync — not
 exhaustive wrapper unit tests.
 
 **Required when steps change:**
 - E2E spec walks the new step count (done checklist item 2)
-- Update `estimatedMinutes` if step count changed materially (section 9)
+- Update `estimatedMinutes` if step count changed materially (section 11)
 
 **Required when helpers change:**
 - Unit tests for new/changed logic in `*-lesson-helpers/**`, `gql-demo-tab`, setup/cleanup, session flags
@@ -350,7 +377,7 @@ exhaustive wrapper unit tests.
 
 ---
 
-## 10. `estimatedMinutes` Must Reflect Actual Step Count
+## 11. `estimatedMinutes` Must Reflect Actual Step Count
 
 Re-calculate after any restructure. Rough guide: each step contributes ~25–35 seconds
 at 1× speed (reading pause + action delays). Round up to the nearest minute.
@@ -363,7 +390,7 @@ Update the lesson card in the domain list too — it displays `estimatedMinutes`
 
 ---
 
-## 11. Visual Validation (Done Checklist Item 1)
+## 12. Visual Validation (Done Checklist Item 1)
 
 Section 10 is folded into **done checklist item 1** — see
 [`docs/guides/demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md).

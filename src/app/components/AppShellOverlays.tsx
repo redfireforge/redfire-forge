@@ -1,16 +1,13 @@
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import type { Environment, GlobalAuthProfile, Microservice, RequestCollection } from '../../shared/types';
 import type { Workflow } from '../../features/workflow/types/workflow';
-import type { Tab } from '../utils/appTabUtils';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { WorkflowFoldersHook } from '../../features/workflow/hooks/useWorkflowFolders';
 import type { RequestFolder } from '../../shared/types';
-import type { useDemoHub } from '../../features/demo-player/useDemoHub';
 import RequestCollectionModal from '../../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../../features/requests/components/SubCollectionModal';
 import FolderPickerModal from '../../features/workflow/components/modals/FolderPickerModal';
 import RustTestPanelOverlay from './RustTestPanelOverlay';
-import AppLiveDemoOverlay from './AppLiveDemoOverlay';
 
 export interface AppShellOverlaysProps {
   showWbCollectionModal: boolean;
@@ -34,8 +31,6 @@ export interface AppShellOverlaysProps {
   wfFolders: WorkflowFoldersHook;
   handleTemplatePickFolder: (folderId: string | null) => void;
   RustExecutorTestPanel: ComponentType | null | undefined;
-  demoHub: ReturnType<typeof useDemoHub>;
-  setActiveTab: (tab: Tab) => void;
 }
 
 export default function AppShellOverlays({
@@ -60,8 +55,6 @@ export default function AppShellOverlays({
   wfFolders,
   handleTemplatePickFolder,
   RustExecutorTestPanel,
-  demoHub,
-  setActiveTab,
 }: AppShellOverlaysProps) {
   return (
     <>
@@ -102,8 +95,6 @@ export default function AppShellOverlays({
       />
 
       {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
-
-      <AppLiveDemoOverlay demoHub={demoHub} setActiveTab={setActiveTab} />
     </>
   );
 }
