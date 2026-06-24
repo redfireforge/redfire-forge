@@ -20,7 +20,7 @@ wrappers, concept/diagram assertions, and >90% coverage on thin lesson files.
 
 | Layer | Rule |
 |---|---|
-| **Sections 1–7, 9 below** | Authoring guidelines — how to write a *good* lesson |
+| **Authoring sections below (§1–11)** | How to write a *good* lesson |
 | **Done checklist (5 items)** | Merge gate — when the lesson is *shippable* |
 | **Lesson helpers + demo player core** | Full product test/coverage bar (not relaxed) |
 
@@ -37,10 +37,42 @@ Demo lesson checklist:
 
 ---
 
-## 1. Always Think in Human Reading Time
+## 1. Write for a Human Viewer — Not the Machine
 
-Every visible sub-action inside a step `action()` needs a `ctx.delay()` pause sized
-to the cognitive load it creates for a human viewer watching in real time:
+Demos are watched by **people** reading narration and glancing at the UI. The runner,
+E2E tests, and `preAction` guards only care that selectors exist — **the viewer
+cares that they can see what changed.**
+
+**Default mindset:** If a viewer would say “wait, what just happened?”, the step is
+too fast or highlighting the wrong thing.
+
+### What the viewer needs on every step
+
+1. **Read** — narration + title (automatic reading pause before action)
+2. **Look** — spotlight on the **one** UI element this step is about (`highlight`)
+3. **Watch** — a visible action (`ctx.click` / `ctx.fill`) with ripple, paced so the
+   eye can follow
+4. **Confirm** — pause on the **outcome** (badge, panel, response, badge) before Next
+
+`preAction` is **invisible** — never put the only “important moment” there. If the
+user must *see* it, it belongs in `action()` (with delays) or in its own step.
+
+### Spotlight (`highlight`) must match the lesson beat
+
+- `highlight` = where the viewer should look **while reading** and **while the action runs**
+- If the step clicks **Introspect**, highlight `GQL.INTROSPECT_BTN` — not a unrelated panel
+- If the step shows **Metadata request headers**, highlight that panel — narration and
+  ring must agree
+- **One focal target per step.** Split the step if two things both need attention
+
+Misaligned spotlight (narration says “watch the schema badge” but ring is on the
+endpoint field) is a common reason demos feel broken even when E2E passes.
+
+### Action speed — minimum delays between visible beats
+
+Every **visible** sub-action inside `action()` needs `ctx.delay()` after it. The
+machine finishes in milliseconds; the viewer needs **hundreds of ms to a second**
+to relocate their eyes and recognize the change.
 
 | Event | Minimum delay |
 |---|---|
@@ -49,9 +81,28 @@ to the cognitive load it creates for a human viewer watching in real time:
 | Filled input / select change | `400–500ms` |
 | Auto-generated content (Generate, Auto-detect) | `1500–2000ms` |
 | Save / submit — result card appears | `700ms` |
+| **Outcome the step is teaching** (badge, TLS indicator, history row) | `800–1200ms` |
 
 A step that runs 5 visible sub-actions in under 1 second total is **too fast** for a
-human viewer. When in doubt, add more delay.
+human viewer. When in doubt, **add more delay** — especially after the **payoff**
+(the green schema badge, the mTLS indicator, the cURL menu).
+
+### Pattern: click → waitFor → delay → interact
+
+After a click that opens UI, **never** fill/select immediately:
+
+```typescript
+await ctx.click(GQL.TLS_CONFIGURE);
+await ctx.waitFor(GQL.TLS_BODY);   // React rendered the modal
+await ctx.delay(600);              // viewer sees empty form
+await ctx.fill(GQL.TLS_CA_CERT, pem);
+await ctx.delay(800);              // viewer sees pasted cert / indicator update
+```
+
+### Validate at 1× speed as a human
+
+Before marking done: play the lesson at **1×** (not 2×). If **you** miss a change,
+slow down that step — do not rely on E2E or unit tests to prove watchability.
 
 ---
 
@@ -97,6 +148,9 @@ This covers:
 Use `buildQuietContext` / `ctx` without ripple in `preAction` — these operations
 should be invisible to the viewer.
 
+**Also close stray overlays in `preAction`** when the prior step may have left them
+open (user clicked Next early, or a prior run failed mid-step). See section 5.
+
 ```typescript
 preAction: async (ctx) => {
   if (!document.querySelector(WS.SCHEMA_CARD)) {
@@ -107,7 +161,75 @@ preAction: async (ctx) => {
 
 ---
 
-## 5. The React Async Render Timing Rule
+## 5. Close Modals and Overlays Before the Step Ends
+
+A step that **opens** a modal, drawer, or full-screen panel must **close** it before
+the viewer advances — unless the **next** step explicitly teaches something inside
+that overlay.
+
+**Why this breaks demos:** An open TLS / env / profile / workflow config modal covers
+the canvas the next step spotlights. The viewer sees the wrong UI; the next step's
+`highlight` may point at something hidden behind the overlay; E2E may still pass if
+selectors exist in the DOM.
+
+### Rule: open → configure → pause on outcome → **close** → Next
+
+The last beats of a configuring step should be:
+
+1. Viewer sees the result (indicator badge, saved state, preview) — `delay(800–1200ms)`
+2. **Visible Close** (`ctx.click(GQL.TLS_CLOSE)` or domain equivalent) — ripple so the
+   viewer sees the panel dismiss
+3. `delay(700ms)` — confirm the main studio is visible again
+4. Step ends; `verify` should target something on the **main** surface, not inside the modal
+
+```typescript
+// ✅ End of TLS configure step — viewer sees close
+await ctx.delay(1200);                    // read indicator / pasted cert
+await ctx.click(GQL.TLS_CLOSE);
+await ctx.delay(700);
+
+// ❌ Step ends with GQL.TLS_BODY still in DOM — next step spotlights schema behind modal
+await ctx.fill(GQL.TLS_CA_CERT, pem);
+// forgot close — advance to next step
+```
+
+### When the next step needs the modal closed
+
+| Opened in action | Close with | Quiet close helper (preAction) |
+|---|---|---|
+| TLS Configure | `GQL.TLS_CLOSE` or `GQL.TLS_SAVE` | `closeGqlTlsModal` in lesson-https-tls helpers |
+| Auth panel | switch to Variables tab | `closeAuthPanelQuiet` in core |
+| Env / Profile modal | Cancel or Close | lesson-specific preIntro / cleanup |
+| Workflow node config | Close in modal footer | `closeWfConfigModalQuiet` in workflow lesson helpers |
+| History / Collections drawer | activity tab toggle | setup/cleanup or next step preAction |
+
+Reuse existing `*Quiet` close helpers — do not copy-paste `querySelector?.remove()` in
+each lesson unless tests require DOM stubs.
+
+### Defensive belt: next step `preAction`
+
+Even when the current step closes correctly, **the next step's `preAction`** should
+idempotently close known overlays if still present (user skipped reading and missed
+the close action):
+
+```typescript
+preAction: async (ctx) => {
+  await ensureTlsCaConfigured(ctx);   // state
+  if (document.querySelector(GQL.TLS_BODY)) {
+    await closeGqlTlsModal(ctx, { visible: false }); // quiet — no second ripple tour
+  }
+},
+```
+
+### `verify` must match a visible main UI
+
+If `verify` is `GQL.SCHEMA_BADGE_OK`, the schema badge must be visible **without** a
+modal open. If the step's job was configuring a modal, either close first then verify
+the badge, or set `verify` to the modal outcome **and** add a follow-up step that closes.
+
+---
+
+## 6. The React Async Render Timing Rule
 
 After clicking a button that triggers a **React state change** (opening an editor
 form, expanding a panel, etc.), **never** call `ctx.fill()` or `ctx.selectOption()`
@@ -132,7 +254,7 @@ The pattern is always: **click → waitFor(child) → delay(pause) → interact*
 
 ---
 
-## 6. Descriptions Must Explain WHY, Not Just WHAT
+## 7. Descriptions Must Explain WHY, Not Just WHAT
 
 The `description` field is the narration a real human reads. It must answer:
 - Why does this feature exist?
@@ -155,7 +277,7 @@ and JSON keys.
 
 ---
 
-## 7. Keep Selectors in `src/shared/selectors.ts`
+## 8. Keep Selectors in `src/shared/selectors.ts`
 
 All `data-testid` selector strings used in lesson actions **must** be defined as
 named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts`.
@@ -166,7 +288,7 @@ named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts
 
 ---
 
-## 8. Tests for Lessons (Lightweight)
+## 9. Tests for Lessons (Lightweight)
 
 When restructuring steps, keep **E2E smoke** and **helper tests** in sync — not
 exhaustive wrapper unit tests.
@@ -188,7 +310,7 @@ exhaustive wrapper unit tests.
 
 ---
 
-## 9. `estimatedMinutes` Must Reflect Actual Step Count
+## 10. `estimatedMinutes` Must Reflect Actual Step Count
 
 Re-calculate after any restructure. Rough guide: each step contributes ~25–35 seconds
 at 1× speed (reading pause + action delays). Round up to the nearest minute.
@@ -201,7 +323,7 @@ Update the lesson card in the domain list too — it displays `estimatedMinutes`
 
 ---
 
-## 10. Visual Validation (Done Checklist Item 1)
+## 11. Visual Validation (Done Checklist Item 1)
 
 Section 10 is folded into **done checklist item 1** — see
 [`docs/guides/demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md).
