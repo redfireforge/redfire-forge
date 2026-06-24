@@ -137,7 +137,7 @@ describe('gql-multi-tab lesson', () => {
     expect(gqlMultiTabLesson.category).toBe('graphql');
     expect(gqlMultiTabLesson.name).toBe('Multi-Tab Workspaces');
     expect(gqlMultiTabLesson.steps.length).toBe(10);
-    expect(gqlMultiTabLesson.estimatedMinutes).toBe(6);
+    expect(gqlMultiTabLesson.estimatedMinutes).toBe(7);
     expect(gqlMultiTabLesson.tabBudget).toBe(2);
   });
 
@@ -161,9 +161,9 @@ describe('gql-multi-tab lesson', () => {
     ]);
   });
 
-  it('all 9 steps have pauseAfter: true', () => {
+  it('all 10 steps have pauseAfter enabled', () => {
     gqlMultiTabLesson.steps.forEach((step) => {
-      expect(step.pauseAfter).toBe(true);
+      expect(step.pauseAfter).toBeTruthy();
     });
   });
 
@@ -267,19 +267,22 @@ describe('gql-multi-tab lesson', () => {
     expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
   });
 
-  it('gql14-add-tab2 highlights TAB_ADD_BTN', () => {
+  it('gql14-add-tab2 highlights TAB_ADD_BTN and verifies new Tab 2', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
     expect(step.highlight).toBe(GQL.TAB_ADD_BTN);
+    expect(step.verify).toBe(GQL.LESSON14_TAB2);
   });
 
-  it('gql14-tab2-endpoint highlights ENDPOINT_INPUT', () => {
+  it('gql14-tab2-endpoint highlights ENDPOINT_INPUT and verifies schema badge', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab2-endpoint')!;
     expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
-  it('gql14-switch-responses highlights TAB_BAR', () => {
+  it('gql14-switch-responses highlights Tab 1 and verifies response body', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-switch-responses')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBe(GQL.LESSON14_TAB1);
+    expect(step.verify).toBe(GQL.RESPONSE_BODY);
   });
 
   it('gql14-tab-badge highlights demo Tab 2 endpoint badge', () => {
@@ -288,23 +291,23 @@ describe('gql-multi-tab lesson', () => {
     expect(step.verify).toBe(LESSON14_TAB2_BADGE);
   });
 
-  it('gql14-real-world highlights TAB_BAR', () => {
+  it('gql14-real-world highlights Staging tab after rename', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-real-world')!;
-    expect(step.highlight).toBe(GQL.TAB_BAR);
+    expect(step.highlight).toBe(GQL.LESSON14_TAB1);
   });
 
-  it('gql14-profiles highlights PROFILE_BADGE and verifies AUTH_INHERIT_BANNER', () => {
+  it('gql14-profiles highlights AUTH_INHERIT_BANNER and verifies inherit banner', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles')!;
-    expect(step.highlight).toBe(GQL.PROFILE_BADGE);
+    expect(step.highlight).toBe(GQL.AUTH_INHERIT_BANNER);
     expect(step.verify).toBe(GQL.AUTH_INHERIT_BANNER);
-    expect(step.preAction).toBe(ensureLesson14TabProfileLinks);
+    expect(step.preAction).toBe(ensureLesson14PerTabAuthConfigured);
   });
 
-  it('gql14-per-tab-auth highlights AUTH_BADGE_BTN and verifies request headers', () => {
+  it('gql14-per-tab-auth highlights request headers and verifies metadata panel', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-per-tab-auth')!;
-    expect(step.highlight).toBe(GQL.AUTH_BADGE_BTN);
+    expect(step.highlight).toBe(GQL.RV_REQUEST_HEADERS);
     expect(step.verify).toBe(GQL.RV_REQUEST_HEADERS);
-    expect(step.preAction).toBe(ensureLesson14PerTabAuthConfigured);
+    expect(step.preAction).toBe(ensureLesson14TabsRenamed);
   });
 
   it('gql14-per-tab-auth description mentions per-tab auth', () => {
@@ -312,11 +315,11 @@ describe('gql-multi-tab lesson', () => {
     expect(step.description.toLowerCase()).toContain('per-tab');
   });
 
-  it('gql14-polling highlights POLLING_CONFIG_BTN and verifies POLLING_POPOVER', () => {
+  it('gql14-polling highlights POLLING_POPOVER and verifies polling popover', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-polling')!;
-    expect(step.highlight).toBe(GQL.POLLING_CONFIG_BTN);
+    expect(step.highlight).toBe(GQL.POLLING_POPOVER);
     expect(step.verify).toBe(GQL.POLLING_POPOVER);
-    expect(step.preAction).toBe(ensureLesson14TabPolling);
+    expect(step.preAction).toBe(ensureLesson14TabProfileLinks);
   });
 
   // ── Step verify selectors ──────────────────────────────────────────────────
@@ -326,14 +329,14 @@ describe('gql-multi-tab lesson', () => {
     expect(step.verify).toBe(GQL.RESPONSE_BODY);
   });
 
-  it('gql14-add-tab2 verify is TAB_BAR', () => {
-    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
-    expect(step.verify).toBe(GQL.TAB_BAR);
+  it('gql14-tab2-endpoint verify is SCHEMA_BADGE_OK', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab2-endpoint')!;
+    expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
-  it('gql14-tab2-endpoint verify is SCHEMA_EXPLORER', () => {
-    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab2-endpoint')!;
-    expect(step.verify).toBe(GQL.SCHEMA_EXPLORER);
+  it('gql14-add-tab2 verify is LESSON14_TAB2', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
+    expect(step.verify).toBe(GQL.LESSON14_TAB2);
   });
 
   it('gql14-switch-responses verify is RESPONSE_BODY', () => {
@@ -490,7 +493,7 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('ensureLesson14Tab1Configured activates tab 0, sets env-var, then clears override', async () => {
+  it('ensureLesson14Tab1Configured activates tab 0, sets page default, then clears override', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(1);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
@@ -583,7 +586,8 @@ describe('gql-multi-tab lesson', () => {
     await ensureLesson14SwitchedToTab1(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson14SwitchedToTab1(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-lesson-target="gql14-tab-1"]');
   });
 
   // ── Step actions ───────────────────────────────────────────────────────────
@@ -638,13 +642,14 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
   });
 
-  it('gql14-switch-responses action switches to Tab 0', async () => {
+  it('gql14-switch-responses action pauses on Tab 2 then switches to Tab 1', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(2);
     stubMonacoEditor('query { health }');
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-switch-responses')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-1"]');
     expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
   });
 
@@ -806,7 +811,7 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_PANEL, 5000);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(900);
+    expect(ctx.delay).toHaveBeenCalledWith(1500);
   });
 
   it('ensureLesson14TabProfileLinks guard skips when profiles already linked', async () => {
@@ -869,7 +874,7 @@ describe('gql-multi-tab lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.POLLING_CONFIG_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.POLLING_POPOVER, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(900);
+    expect(ctx.delay).toHaveBeenCalledWith(1500);
   });
 
   it('gql14-polling action falls back to POLLING_CONFIG_BTN_STANDALONE', async () => {

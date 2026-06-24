@@ -198,6 +198,7 @@ alwaysApply: true
 | Unit tests (touched files only) | During development, after each change | `npx vitest run src/path/to/changed.test.ts` |
 | Full unit test suite | **Only before merging** to `develop`, `release/*`, or `master` | `npx vitest run` |
 | Unit test coverage | Before merging to develop/release/master | `npx vitest run --coverage` |
+| Demo lesson (wrapper only) | Before marking lesson done | [`demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md) — 5 items; wrappers excluded from 90% gate |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
 ### Rules
@@ -209,6 +210,7 @@ alwaysApply: true
 - During development, rely on `tsc -b --noEmit` + scoped unit tests for fast feedback.
 - E2E tests require the dev server running on port 5173 (`npm run dev`).
 - Target >90% code coverage on all four metrics (statements, branches, functions, lines).
+- **Demo lesson wrappers** (`protocols/graphql-*.ts`, `ws-*.ts`, `sse-*.ts`, `kafka-*.ts`) are **excluded from the coverage denominator** — use the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md) instead. Lesson **helpers** and demo player core remain at the full bar.
 
 ## Pre-Commit Hooks (Automated)
 

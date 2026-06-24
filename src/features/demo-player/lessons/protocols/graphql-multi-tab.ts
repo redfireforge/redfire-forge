@@ -6,6 +6,10 @@ import {
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   activateGqlTabByIndex,
+  demonstrateLesson14PerTabAuth,
+  demonstrateLesson14ProfileLinks,
+  demonstrateLesson14TabPolling,
+  demonstrateLesson14TabResponseSwitch,
   ensureLesson14SwitchedToTab1,
   ensureLesson14Tab2BadgeHighlight,
   ensureLesson14TabsRenamed,
@@ -13,14 +17,8 @@ import {
   ensureLesson14Tab2Added,
   ensureLesson14Tab2Configured,
   ensureLesson14Tab2Executed,
-  ensureLesson14TabPolling,
   ensureLesson14TabProfileLinks,
   ensureLesson14PerTabAuthConfigured,
-  LESSON14_TAB2_BEARER_TOKEN,
-  closeAuthPanelIfOpen,
-  openAuthPanelQuiet,
-  selectAuthInPanel,
-  selectNoAuthInPanel,
   gqlMultiTabLessonCleanup,
   gqlMultiTabLessonSetup,
 } from './graphql-lesson-helpers';
@@ -32,7 +30,7 @@ export const gqlMultiTabLesson: DemoLesson = {
   name: 'Multi-Tab Workspaces',
   description:
     'Open multiple independent GraphQL workspaces in one window — each with its own endpoint, schema, auth override, and response cache.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 7,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Two demo tab slots — user workspace must stay untouched (§11.0). */
@@ -262,7 +260,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
         await ctx.waitFor(GQL.TAB_BAR, 5000);
       },
       action: async (ctx) => {
-        await ctx.delay(900);
+        await ctx.delay(1500);
       },
       verify: GQL.TAB_BAR,
       pauseAfter: true,
@@ -283,7 +281,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
         await ensureLesson14Tab1Configured(ctx);
       },
       verify: GQL.RESPONSE_BODY,
-      pauseAfter: true,
+      pauseAfter: 5500,
     },
 
     // ── Step 3: Add Second Tab ────────────────────────────────────────────
@@ -297,8 +295,9 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       preAction: ensureLesson14Tab1Configured,
       action: async (ctx) => {
         await ensureLesson14Tab2Added(ctx);
+        await ctx.delay(1200);
       },
-      verify: GQL.TAB_BAR,
+      verify: GQL.LESSON14_TAB2,
       pauseAfter: true,
     },
 
@@ -313,8 +312,9 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       preAction: ensureLesson14Tab2Added,
       action: async (ctx) => {
         await ensureLesson14Tab2Configured(ctx);
+        await ctx.delay(1200);
       },
-      verify: GQL.SCHEMA_EXPLORER,
+      verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
     },
 
@@ -325,10 +325,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Execute `query { health }` on **Tab 2**, then click **Tab 1** in the tab bar. Tab 1\'s response — from its own earlier execution — is restored instantly from cache. Tab 2\'s response stays in memory for when you switch back.\n\n' +
         '**Why cache responses per tab?** Without per-tab caching, switching tabs would blank the response panel — you would have to re-execute the query every time you switch back. With caching, the response panel preserves exactly what you saw before you switched. This makes side-by-side comparison practical: execute on Tab 2 (production), switch to Tab 1 (staging), compare the two results — both responses are visible in their respective tabs without re-running anything.',
-      highlight: GQL.TAB_BAR,
+      highlight: GQL.LESSON14_TAB1,
       preAction: ensureLesson14Tab2Executed,
       action: async (ctx) => {
-        await ensureLesson14SwitchedToTab1(ctx);
+        await demonstrateLesson14TabResponseSwitch(ctx);
       },
       verify: GQL.RESPONSE_BODY,
       pauseAfter: true,
@@ -344,10 +344,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       highlight: GQL.LESSON14_TAB2_BADGE,
       preAction: ensureLesson14Tab2BadgeHighlight,
       action: async (ctx) => {
-        await ctx.delay(900);
+        await ctx.delay(2000);
       },
       verify: GQL.LESSON14_TAB2_BADGE,
-      pauseAfter: true,
+      pauseAfter: 5500,
     },
 
     // ── Step 7: Staging vs Production ────────────────────────────────────
@@ -357,14 +357,14 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Rename **Tab 1** to "Staging" and **Tab 2** to "Production". Now run `query { health }` on each. You can switch between the two responses with a single click — no tool-switching, no context loss, no re-typing URLs.\n\n' +
         '**Why this workflow matters in practice?** A very common engineering task is validating that a new deployment did not break existing API behavior. With multi-tab: open Staging on Tab 1, open Production on Tab 2, run the same query on both, and compare responses side by side. Any difference in schema, response shape, or data is immediately visible. This replaces the error-prone workflow of running a query, copying the result, switching tools, running again, and manually comparing — all without leaving the Studio.',
-      highlight: GQL.TAB_BAR,
+      highlight: GQL.LESSON14_TAB1,
       preAction: ensureLesson14SwitchedToTab1,
       action: async (ctx) => {
         await ensureLesson14TabsRenamed(ctx);
         await activateGqlTabByIndex(ctx, 1);
-        await ctx.delay(600);
+        await ctx.delay(1000);
         await activateGqlTabByIndex(ctx, 0);
-        await ctx.delay(800);
+        await ctx.delay(1200);
       },
       verify: GQL.TAB_BAR,
       pauseAfter: true,
@@ -377,30 +377,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Both **Staging** and **Production** tabs target the same GraphQL server, but auth is **per-tab**. On **Staging** (Tab 1), open **Auth** and choose **No Auth** — an explicit override that sends no credentials. Switch to **Production** (Tab 2), set **Bearer** with a demo token, then **Execute** on each tab and compare **Metadata → Request headers**.\n\n' +
         '**Why per-tab auth matters?** Real teams often hit the same API gateway with different credentials per environment — a read-only public key on staging and a full-access token on production. Without per-tab auth you would constantly reconfigure the connection bar when switching tabs. Tab auth dots in the tab bar show at a glance which tabs carry an override.',
-      highlight: GQL.AUTH_BADGE_BTN,
-      preAction: ensureLesson14PerTabAuthConfigured,
+      highlight: GQL.RV_REQUEST_HEADERS,
+      preAction: ensureLesson14TabsRenamed,
       action: async (ctx) => {
-        await activateGqlTabByIndex(ctx, 0);
-        await selectNoAuthInPanel(ctx);
-        await ctx.delay(500);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(600);
-        await activateGqlTabByIndex(ctx, 1);
-        await selectAuthInPanel(ctx, 'bearer');
-        await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
-        await ctx.delay(500);
-        await closeAuthPanelIfOpen(ctx);
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(400);
-        await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-        await ctx.delay(800);
+        await demonstrateLesson14PerTabAuth(ctx);
       },
       verify: GQL.RV_REQUEST_HEADERS,
       pauseAfter: true,
@@ -413,13 +393,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'Click **Profiles** on the connection bar and **Save** the current connection for each demo tab as **GQL-14 Staging** (Tab 1) and **GQL-14 Production** (Tab 2). Then **Load** each profile back onto its tab — the tab now carries a `connectionId` link to that snapshot.\n\n' +
         'Open **Auth** on the **Production** tab. The panel shows the **inherit banner** — *Inheriting auth from profile GQL-14 Production — no tab override* (Phase 6H). This confirms the tab inherits endpoint + auth from the named connection profile until you edit auth on that tab. **Why profile-linked tabs?** Teams map one profile per environment; linking a tab to a named profile makes the active server obvious in the tab bar and keeps auth/endpoint pairs consistent when you switch tabs.',
-      highlight: GQL.PROFILE_BADGE,
-      preAction: ensureLesson14TabProfileLinks,
+      highlight: GQL.AUTH_INHERIT_BANNER,
+      preAction: ensureLesson14PerTabAuthConfigured,
       action: async (ctx) => {
-        await activateGqlTabByIndex(ctx, 1);
-        await openAuthPanelQuiet(ctx);
-        await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
-        await ctx.delay(900);
+        await demonstrateLesson14ProfileLinks(ctx);
       },
       verify: GQL.AUTH_INHERIT_BANNER,
       pauseAfter: true,
@@ -432,16 +409,10 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       description:
         'On **Staging** (Tab 1), click the **auto-refresh** (polling) control next to the schema badge → enable **Enable polling** and set an interval (e.g. 60s). Switch to **Production** (Tab 2) and confirm polling is **off** — each tab stores its own polling override.\n\n' +
         '**Why per-tab polling?** Staging schemas change frequently during development; production introspection is expensive and should stay manual. Polling follows the **active** tab only — switching tabs swaps both the schema cache and the polling schedule. You are not forced to poll every server just because one tab needs it.',
-      highlight: GQL.POLLING_CONFIG_BTN,
-      preAction: ensureLesson14TabPolling,
+      highlight: GQL.POLLING_POPOVER,
+      preAction: ensureLesson14TabProfileLinks,
       action: async (ctx) => {
-        await activateGqlTabByIndex(ctx, 0);
-        const pollingSel = document.querySelector(GQL.POLLING_CONFIG_BTN)
-          ? GQL.POLLING_CONFIG_BTN
-          : GQL.POLLING_CONFIG_BTN_STANDALONE;
-        await ctx.click(pollingSel);
-        await ctx.waitFor(GQL.POLLING_POPOVER, 5000);
-        await ctx.delay(900);
+        await demonstrateLesson14TabPolling(ctx);
       },
       verify: GQL.POLLING_POPOVER,
       pauseAfter: true,

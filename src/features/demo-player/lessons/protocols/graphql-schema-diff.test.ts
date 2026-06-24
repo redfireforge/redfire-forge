@@ -15,7 +15,7 @@ import { GQL } from '../../../../shared/selectors';
 import {
   LESSON12_BASELINE_LABEL,
   LESSON12_BASELINE_SDL,
-  GQL_DEMO_HTTP,
+  GQL_DEMO_CONNECTION_ID,
   resetGqlLesson12SessionFlags,
   resetGqlLessonSessionFlags,
   ensureLesson12SnapshotSaved,
@@ -93,6 +93,9 @@ function stubSchemaExplorerDom(): void {
         <span class="gql-changelog-row-label">${LESSON12_BASELINE_LABEL}</span>
       </div>
       <div data-testid="gql-changelog-compare-bar">
+        <select data-testid="gql-changelog-compare-select">
+          <option value="">Current schema</option>
+        </select>
         <button data-testid="gql-changelog-diff-btn">View diff</button>
       </div>
     </div>
@@ -496,7 +499,7 @@ describe('gql-schema-diff lesson', () => {
     const loadSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
       .mockResolvedValue([{ id: 'existing-baseline', label: LESSON12_BASELINE_LABEL } as never]);
     await ensureLesson12BaselineSnapshot();
-    expect(loadSpy).toHaveBeenCalledWith(GQL_DEMO_HTTP);
+    expect(loadSpy).toHaveBeenCalledWith(GQL_DEMO_CONNECTION_ID);
     loadSpy.mockRestore();
   });
 
@@ -604,7 +607,7 @@ describe('gql-schema-diff lesson', () => {
     await ensureLesson12BaselineSnapshot();
     expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({
       label: LESSON12_BASELINE_LABEL,
-      connectionId: GQL_DEMO_HTTP,
+      connectionId: GQL_DEMO_CONNECTION_ID,
     }));
     saveSpy.mockRestore();
   });
