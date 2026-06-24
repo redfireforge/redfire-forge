@@ -25,6 +25,11 @@ import { resetGqlLesson9SessionFlags } from './lesson9-export-share';
 import { resetGqlLesson10SessionFlags } from './lesson10-performance-tracing';
 import { resetGqlLesson11SessionFlags } from './lesson11-workflow-integration';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import {
+  deleteSnapshot,
+  loadSnapshots,
+  saveSnapshot,
+} from '../../../adapters';
 
 const LESSON12_BASELINE_LABEL = 'Prior release (demo)';
 
@@ -124,7 +129,6 @@ async function findExistingBaselineSnapshot(): Promise<{
   snapshot: GraphqlSchemaSnapshot;
   connectionId: string;
 } | null> {
-  const { loadSnapshots } = await import('../../../../graphql/utils/schemaSnapshot');
   for (const connectionId of gqlDemoSnapshotConnectionIds()) {
     const found = (await loadSnapshots(connectionId)).find(
       (s) => s.label === LESSON12_BASELINE_LABEL,
@@ -168,9 +172,6 @@ export function markLesson12BaselineRow(): void {
 /** Seed a prior-release snapshot in IDB (silent setup — UI refreshes after step 1 save). */
 export async function ensureLesson12BaselineSnapshot(): Promise<void> {
   if (_lesson12BaselineId) return;
-  const { saveSnapshot, deleteSnapshot } = await import(
-    '../../../../graphql/utils/schemaSnapshot'
-  );
 
   const existing = await findExistingBaselineSnapshot();
   if (existing) {
@@ -315,9 +316,6 @@ export async function ensureLesson12DiffExported(ctx: DemoActionContext): Promis
 
 async function cleanupLesson12Snapshots(): Promise<void> {
   try {
-    const { loadSnapshots, deleteSnapshot } = await import(
-      '../../../../graphql/utils/schemaSnapshot'
-    );
     const seen = new Set<string>();
     for (const connectionId of gqlDemoSnapshotConnectionIds()) {
       const snaps = await loadSnapshots(connectionId);

@@ -73,10 +73,11 @@ Authoring quality (delays, WHY copy, diagrams, step pacing) still follows `.curs
 **Goal:** Fast feedback without full-suite tax on every commit.
 
 - [ ] `npx tsc -b --noEmit` — zero errors
-- [ ] `npx vitest run` on **touched** `*.test.ts` only
+- [ ] **Product changes:** `npm run test:product` on touched files (or full `test:product` before merge)
+- [ ] **Demo helper/adapter changes:** `npm run test:demo` on touched `*.test.ts` (includes `adapters/*.test.ts`)
 - [ ] Full `npx vitest run --coverage` (>90%): **before merge to `develop`**, excluding lesson wrappers (see `vitest.config.ts`)
 
-**Not required per lesson:** full-repo coverage on wrapper files; split files **≥900 lines of logic** (not mostly strings).
+**Not required per lesson:** full-repo coverage on wrapper files; demo E2E on **product-only** PRs; split files **≥900 lines of logic** (not mostly strings).
 
 ---
 

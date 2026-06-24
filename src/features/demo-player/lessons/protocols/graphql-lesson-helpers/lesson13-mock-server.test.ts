@@ -8,12 +8,16 @@ vi.mock('../../../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-vi.mock('../../../../graphql/utils/graphqlSchemaCache', () => ({
-  loadCachedGraphqlSchemaSdl: vi.fn(() => 'type Query { health: String }'),
-}));
+vi.mock('../../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters')>();
+  return {
+    ...actual,
+    loadCachedGraphqlSchemaSdl: vi.fn(() => 'type Query { health: String }'),
+  };
+});
 
 import { isTauri } from '../../../../../shared/utils/platform';
-import { loadCachedGraphqlSchemaSdl } from '../../../../graphql/utils/graphqlSchemaCache';
+import { loadCachedGraphqlSchemaSdl } from '../../../adapters';
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
 import {

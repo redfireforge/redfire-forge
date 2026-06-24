@@ -2,6 +2,7 @@
  * Demo Hub ↔ GraphQL Studio workspace isolation (§11.0).
  * Persists demo tabs separately from user tabs; reloads Studio via custom event.
  */
+import { DEMO_HUB_ENABLED } from '../../../config/features';
 import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
 import {
   type GqlStudioTab,
@@ -88,6 +89,7 @@ export type DemoTabConnectionPatch = Pick<
  * per-tab override must survive even if it matches the page default.
  */
 export async function patchDemoTabConnection(patch: DemoTabConnectionPatch): Promise<boolean> {
+  if (!DEMO_HUB_ENABLED) return false;
   const session = await loadDemoSession();
   if (!session?.demoTabId) return false;
   const tabs = await loadTabs();
@@ -175,30 +177,49 @@ export function pickPersistedActiveTabId(
  */
 export async function purgeOrphanDemoTabs(): Promise<boolean> {
   const session = await loadDemoSession();
-  if (session) return false;
+  // Active demo session is valid only while Demo Hub is enabled.
+  if (session && DEMO_HUB_ENABLED) return false;
 
   const tabs = await loadTabs();
   const userTabs = tabs.filter((t) => !t.demoLessonId);
-  if (userTabs.length === tabs.length) return false;
+  const hadDemoTabs = userTabs.length < tabs.length;
 
-  const backup = await loadDemoPriorPageAuthBackup();
-  if (backup !== undefined) {
-    await restorePageAuthSnapshot(backup);
+  if (!hadDemoTabs && !session) return false;
+
+  const authSnapshot = session?.priorPageAuth !== undefined
+    ? session.priorPageAuth
+    : await loadDemoPriorPageAuthBackup();
+  if (authSnapshot !== undefined) {
+    await restorePageAuthSnapshot(authSnapshot);
     dispatchGqlPageAuthReload();
     await clearDemoPriorPageAuthBackup();
   }
 
-  const endpointBackup = await loadDemoPriorPageEndpointBackup();
-  if (endpointBackup !== undefined) {
-    await restorePageEndpointSnapshot(endpointBackup);
+  const endpointSnapshot = session?.priorPageEndpoint !== undefined
+    ? session.priorPageEndpoint
+    : await loadDemoPriorPageEndpointBackup();
+  if (endpointSnapshot !== undefined) {
+    await restorePageEndpointSnapshot(endpointSnapshot);
     dispatchGqlPageEndpointReload();
     await clearDemoPriorPageEndpointBackup();
   }
 
-  const activeId = await loadActiveTabId();
-  const nextActive = pickRestoreActiveId(userTabs, activeId);
-  await saveTabs(userTabs.length > 0 ? userTabs : tabs.slice(0, 1), nextActive);
-  return true;
+  if (hadDemoTabs) {
+    const activeId = await loadActiveTabId();
+    if (userTabs.length > 0) {
+      const nextActive = pickRestoreActiveId(userTabs, activeId);
+      await saveTabs(userTabs, nextActive);
+    } else {
+      const blank = makeBlankTab();
+      await saveTabs([blank], blank.id);
+    }
+  }
+
+  if (session) {
+    await saveDemoSession(null);
+  }
+
+  return hadDemoTabs || !!session;
 }
 
 /**
@@ -210,6 +231,9 @@ export async function prepareDemoWorkspace(
   label: string,
   tabBudget = 1,
 ): Promise<PrepareDemoWorkspaceResult> {
+  if (!DEMO_HUB_ENABLED) {
+    return { ok: false, reason: 'storage_unavailable' };
+  }
   try {
     const budget = Math.max(1, tabBudget);
     let tabs = await loadTabs();

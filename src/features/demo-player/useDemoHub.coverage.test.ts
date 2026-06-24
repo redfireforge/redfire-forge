@@ -1678,8 +1678,8 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('closeHub expands workflow sidebar for live workflow designer lesson', async () => {
-    const sidebarMod = await import('../../app/hooks/useDemoSidebarBridge');
-    const expandSpy = vi.spyOn(sidebarMod, 'expandDemoAppSidebar').mockImplementation(() => {});
+    const adapterMod = await import('./adapters');
+    const expandSpy = vi.spyOn(adapterMod, 'expandAppSidebar').mockImplementation(() => {});
     const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       id: 'wf-designer',

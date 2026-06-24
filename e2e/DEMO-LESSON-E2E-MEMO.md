@@ -4,6 +4,8 @@
 
 Hard-won from GQL-1..3 (`demo-gql-first-query`, `demo-gql-variables`, `demo-gql-mutations`).
 
+**Product merge gate:** Demo lesson E2E (`e2e/demo-*.spec.ts`, `npm run test:e2e:demo:*`) is **not required** when a PR touches only product code and does not change lesson files, adapters, or demo-player core. Use `npm run test:product` for those PRs.
+
 ---
 
 ## Quick checklist (new lesson spec)

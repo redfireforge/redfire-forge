@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
 
-vi.mock('../../../../graphql/utils/gqlDemoWorkspace', () => ({
+vi.mock('../../../adapters', () => ({
   prepareDemoWorkspace: vi.fn(async () => ({ ok: true, demoTabId: 'demo-tab-99' })),
   closeDemoWorkspace: vi.fn(async () => {}),
   dispatchGqlTabsReload: vi.fn(),
@@ -21,7 +21,7 @@ import {
   closeDemoWorkspace,
   dispatchGqlTabsReload,
   loadDemoSession,
-} from '../../../../graphql/utils/gqlDemoWorkspace';
+} from '../../../adapters';
 import {
   ensureGqlDemoTab,
   closeGqlDemoTabs,

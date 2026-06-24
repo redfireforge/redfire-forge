@@ -38,7 +38,7 @@ import {
   GQL14_PRODUCTION_PROFILE_NAME,
   GQL14_STAGING_PROFILE_NAME,
   purgeGqlDemoConnectionProfiles,
-} from '../../../../graphql/utils/gqlDemoConnectionProfiles';
+} from '../../../adapters';
 
 const GQL14_LESSON_ID = 'gql-multi-tab';
 

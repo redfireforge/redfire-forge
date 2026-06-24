@@ -13,7 +13,7 @@
  *
  * Setup:
  *   - Starts the mock server at ws://localhost:9876
- *   - Seeds "WS Echo Demo" workflow via __wfInsertWorkflow (if bridge available)
+ *   - Seeds "WS Echo Demo" workflow via workflow designer adapter (if bridge available)
  *
  * NOTE: initialTab intentionally NOT set. The auto-exit hook in
  * useDemoShortcuts exits the demo when activeTab !== initialTab.
@@ -22,6 +22,7 @@
  * navigates to workflow-runner instead.
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
+import { seedNamedWorkflow } from '../../adapters';
 
 // ── WS Echo Demo Workflow Factory ─────────────────────────────────
 
@@ -80,13 +81,11 @@ async function harnessRunSetup(ctx: DemoActionContext): Promise<void> {
   // Seed "WS Echo Demo" workflow so the Workflow Runner picker always has something to select.
   // If the user already built it via Lesson 8, delete the old copy and re-seed a fresh one
   // so the wsUrl variable is correctly set for this lesson.
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as ((name: string) => void) | undefined;
-  const wfInsert = (window as unknown as Record<string, unknown>).__wfInsertWorkflow as ((wf: Record<string, unknown>) => void) | undefined;
-  if (wfDelete) wfDelete('WS Echo Demo');
-  if (wfInsert) {
-    await ctx.delay(100); // let React flush the delete
-    wfInsert(createWsEchoDemoWorkflow());
-  }
+  await seedNamedWorkflow(ctx, 'WS Echo Demo', createWsEchoDemoWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 100,
+    insertDelayMs: 0,
+  });
   // Check whether the mock server is already running before starting it.
   // Only start (and later stop) if it was NOT already running — this prevents the
   // demo cleanup from destroying a server the user started independently.

@@ -48,6 +48,18 @@ npm install
 npm run tauri:dev     # launches the native desktop window with hot-reload
 ```
 
+### Desktop Builds — Standard vs Learning Hub
+
+RedfireForge ships two desktop variants (side-by-side install on macOS via different bundle IDs):
+
+| Variant | Command | Bundle ID | Demo Hub |
+|---------|---------|-----------|----------|
+| **Standard** (performance workbench) | `npm run tauri:build:prod` | `com.redfireforge.desktop` | Off |
+| **Learning Hub** (interactive lessons) | `npm run tauri:build:demo` | `com.redfireforge.desktop.demo` | On |
+
+Web-only builds: `npm run build:prod` vs `npm run build:demo`.  
+GitHub Releases: tag `vX.Y.Z` for Standard; `vX.Y.Z-demo` or workflow dispatch for Learning Hub.
+
 ### Desktop Build (Production — Local)
 
 ```bash

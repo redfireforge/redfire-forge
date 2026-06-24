@@ -17,6 +17,7 @@ import {
   pauseWfConfigDemo,
   selectWorkflowFromAppSidebar,
 } from '../wf-demo-helpers';
+import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
 import { WF, KAFKA } from '../../../../shared/selectors';
 
 // ── Seeded workflow factory ────────────────────────────────────────
@@ -121,14 +122,11 @@ function createKafkaConsumeWaitWorkflow(): Record<string, unknown> {
 async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<void> {
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  const wfInsert = win.__wfInsertWorkflow as ((wf: Record<string, unknown>) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Consume & Wait Demo');
-  if (wfInsert) {
-    await ctx.delay(100);
-    wfInsert(createKafkaConsumeWaitWorkflow());
-  }
+  await seedNamedWorkflow(ctx, 'Kafka Consume & Wait Demo', createKafkaConsumeWaitWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 100,
+    insertDelayMs: 0,
+  });
 
   ctx.navigateToTab('workflow');
   await ctx.delay(900);
@@ -143,9 +141,7 @@ async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<vo
 async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConsoleIfOpen(ctx);
 
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Consume & Wait Demo');
+  deleteWorkflowByName('Kafka Consume & Wait Demo');
   await kafkaCleanup(ctx);
 }
 

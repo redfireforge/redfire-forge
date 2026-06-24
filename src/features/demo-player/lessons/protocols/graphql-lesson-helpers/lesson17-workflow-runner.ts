@@ -2,6 +2,7 @@
 
 import type { DemoActionContext } from '../../../types';
 import { GQL_DEMO_HEALTH } from './core';
+import { seedNamedWorkflow } from '../../../adapters';
 
 export { GQL_DEMO_HEALTH };
 
@@ -186,20 +187,10 @@ export async function ensureLesson17ResultsOpen(ctx: DemoActionContext): Promise
 /** Setup for Lesson 17 — seed the workflow and navigate to workflow-runner. */
 export async function gqlWorkflowRunnerLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson17SessionFlags();
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  const wfInsert = (window as unknown as Record<string, unknown>).__wfInsertWorkflow as
-    | ((wf: Record<string, unknown>) => void)
-    | undefined;
-  if (wfDelete) {
-    wfDelete(LESSON17_WF_NAME);
-    await ctx.delay(100);
-  }
-  if (wfInsert) {
-    wfInsert(createGqlLatencyDemoWorkflow());
-    await ctx.delay(300);
-  }
+  await seedNamedWorkflow(ctx, LESSON17_WF_NAME, createGqlLatencyDemoWorkflow(), {
+    deleteDelayMs: 100,
+    insertDelayMs: 300,
+  });
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(600);
 }

@@ -1,9 +1,12 @@
 /** Shared Workflow Designer demo helpers (console panel, config modal, app sidebar, etc.). */
 import type { DemoActionContext } from '../types';
 import {
-  collapseDemoAppSidebar,
-  expandDemoAppSidebar,
-} from '../../../app/hooks/useDemoSidebarBridge';
+  collapseAppSidebar,
+  deselectAllWorkflowNodes,
+  expandAppSidebar,
+  openWorkflowNodeConfig,
+  setWorkflowConsoleFloatLayout,
+} from '../adapters';
 import { WF } from '../../../shared/selectors';
 import { type PanelMode, savePanelMode } from '../../../shared/utils/panelMode';
 
@@ -67,15 +70,10 @@ export async function openWfNodeConfigModal(
     nodeId = el?.getAttribute('data-id') ?? el?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
   }
 
-  const openConfig = (window as unknown as Record<string, unknown>).__wfOpenNodeConfig as
-    | ((id: string) => void)
-    | undefined;
-
-  if (nodeId && openConfig) {
-    openConfig(nodeId);
+  if (nodeId && openWorkflowNodeConfig(nodeId)) {
+    // opened via demo bridge
   } else {
-    const deselectAll = (window as unknown as Record<string, unknown>).__wfDeselectAll as (() => void) | undefined;
-    deselectAll?.();
+    deselectAllWorkflowNodes();
     const node =
       (target.canvasTestId
         ? document.querySelector<HTMLElement>(target.canvasTestId)
@@ -142,13 +140,13 @@ export async function clickWfConfigControl(
 
 /** Hide the app-level Workflows list sidebar so the canvas has maximum space. */
 export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
-  collapseDemoAppSidebar();
+  collapseAppSidebar();
   await ctx.delay(400);
 }
 
 /** Show the Workflows sidebar (+ New, pick workflow) — only for create/select beats. */
 export async function expandWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
-  expandDemoAppSidebar();
+  expandAppSidebar();
   await ctx.delay(400);
 }
 
@@ -192,10 +190,7 @@ export async function closeWfConsoleIfOpen(ctx: DemoActionContext): Promise<void
 
 /** Apply demo floating layout (left of canvas) when the console panel bridge is mounted. */
 export function applyWfDemoConsoleFloatLayout(): void {
-  const bridge = (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout;
-  if (typeof bridge === 'function') {
-    (bridge as () => void)();
-  }
+  setWorkflowConsoleFloatLayout();
 }
 
 /**

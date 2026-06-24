@@ -8,10 +8,13 @@ vi.mock('./gql-demo-tab', () => ({
   closeGqlDemoTabs: vi.fn(async () => {}),
 }));
 
-vi.mock('../../../../graphql/utils/gqlDemoConnectionProfiles', () => ({
-  GQL6_DEMO_PROFILE_NAME: 'Demo GQL-6',
-  purgeGqlDemoConnectionProfiles: vi.fn(async () => 0),
-}));
+vi.mock('../../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters')>();
+  return {
+    ...actual,
+    purgeGqlDemoConnectionProfiles: vi.fn(async () => 0),
+  };
+});
 
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
@@ -69,7 +72,7 @@ import {
   gqlAuthLessonCleanup,
 } from './lesson6-auth-headers';
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './gql-demo-tab';
-import { purgeGqlDemoConnectionProfiles } from '../../../../graphql/utils/gqlDemoConnectionProfiles';
+import { purgeGqlDemoConnectionProfiles } from '../../../adapters';
 import { stubMonacoEditor } from '../__test-utils__/graphql-test-fixtures';
 
 // ── Shared DOM helpers ────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ import {
   gqlSchemaDiffLessonSetup,
   gqlSchemaDiffLessonCleanup,
 } from './graphql-lesson-helpers';
-import { computeSchemaDiff } from '../../../graphql/utils/schemaDiff';
+import { computeSchemaDiff } from '../../adapters';
 
 /** Current Docker test server SDL (subset used for diff validation). */
 const LESSON12_CURRENT_SDL = `
@@ -494,9 +494,9 @@ describe('gql-schema-diff lesson', () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
     document.querySelectorAll(GQL.CHANGELOG_ROW).forEach((r) => r.remove());
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+    vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([]);
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
+    vi.spyOn(await import('../../adapters'), 'saveSnapshot')
       .mockResolvedValue(undefined);
     await ensureLesson12ChangelogOpen(ctx);
     vi.mocked(ctx.click).mockClear();
@@ -505,7 +505,7 @@ describe('gql-schema-diff lesson', () => {
   });
 
   it('ensureLesson12BaselineSnapshot loads existing baseline from storage', async () => {
-    const loadSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+    const loadSpy = vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([{ id: 'existing-baseline', label: LESSON12_BASELINE_LABEL } as never]);
     await ensureLesson12BaselineSnapshot();
     expect(loadSpy).toHaveBeenCalledWith(GQL_DEMO_CONNECTION_ID);
@@ -515,9 +515,9 @@ describe('gql-schema-diff lesson', () => {
   it('gqlSchemaDiffLessonSetup creates demo tab, introspects, and seeds baseline', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+    vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([]);
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
+    vi.spyOn(await import('../../adapters'), 'saveSnapshot')
       .mockResolvedValue(undefined);
     await gqlSchemaDiffLessonSetup(ctx);
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(
@@ -608,9 +608,9 @@ describe('gql-schema-diff lesson', () => {
   });
 
   it('ensureLesson12BaselineSnapshot saves new baseline when not in storage', async () => {
-    const saveSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'saveSnapshot')
+    const saveSpy = vi.spyOn(await import('../../adapters'), 'saveSnapshot')
       .mockResolvedValue(undefined);
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+    vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([]);
     resetGqlLesson12SessionFlags();
     await ensureLesson12BaselineSnapshot();
@@ -623,9 +623,9 @@ describe('gql-schema-diff lesson', () => {
 
   it('gqlSchemaDiffLessonCleanup deletes lesson-captured snapshots', async () => {
     const ctx = makeCtx();
-    const deleteSpy = vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'deleteSnapshot')
+    const deleteSpy = vi.spyOn(await import('../../adapters'), 'deleteSnapshot')
       .mockResolvedValue(undefined);
-    vi.spyOn(await import('../../../graphql/utils/schemaSnapshot'), 'loadSnapshots')
+    vi.spyOn(await import('../../adapters'), 'loadSnapshots')
       .mockResolvedValue([
         { id: 'snap-new', label: 'Current', capturedAt: Date.now() + 1000 } as never,
         { id: 'baseline', label: LESSON12_BASELINE_LABEL, capturedAt: Date.now() - 1000 } as never,

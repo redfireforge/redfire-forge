@@ -10,6 +10,7 @@
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { ensureKafkaConnected, kafkaCleanup } from '../setup-helpers';
 import { closeWfConsoleIfOpen, openWfConsoleIfClosed, collapseWfDemoAppSidebar, selectWorkflowFromAppSidebar, openWfNodeConfigModal } from '../wf-demo-helpers';
+import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
 import { WF, KAFKA } from '../../../../shared/selectors';
 
 // ── Seeded workflow factory ────────────────────────────────────────
@@ -72,15 +73,11 @@ function createKafkaProduceDemoWorkflow(): Record<string, unknown> {
 async function kafkaWorkflowProduceSetup(ctx: DemoActionContext): Promise<void> {
   try { await ensureKafkaConnected(); } catch { /* server may not be running */ }
 
-  // Seed the demo workflow (delete stale copy first)
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  const wfInsert = win.__wfInsertWorkflow as ((wf: Record<string, unknown>) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Produce Demo');
-  if (wfInsert) {
-    await ctx.delay(100);
-    wfInsert(createKafkaProduceDemoWorkflow());
-  }
+  await seedNamedWorkflow(ctx, 'Kafka Produce Demo', createKafkaProduceDemoWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 100,
+    insertDelayMs: 0,
+  });
 
   ctx.navigateToTab('workflow');
   await ctx.delay(900);
@@ -95,9 +92,7 @@ async function kafkaWorkflowProduceSetup(ctx: DemoActionContext): Promise<void> 
 async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConsoleIfOpen(ctx);
 
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Produce Demo');
+  deleteWorkflowByName('Kafka Produce Demo');
   await kafkaCleanup(ctx);
 }
 

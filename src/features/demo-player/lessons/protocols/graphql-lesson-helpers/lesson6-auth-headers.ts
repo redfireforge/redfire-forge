@@ -10,7 +10,6 @@
 //  12 Connection profile
 //  13–14 Subscription auth exec + Metadata verify
 
-import type { GlobalAuthProfile } from '../../../../../shared/types';
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import {
@@ -33,7 +32,11 @@ import { fillControlledInput } from '../../../lessons/setup-helpers';
 import {
   GQL6_DEMO_PROFILE_NAME,
   purgeGqlDemoConnectionProfiles,
-} from '../../../../graphql/utils/gqlDemoConnectionProfiles';
+  upsertGlobalAuthProfile,
+  upsertGqlEnvironment,
+  deleteGqlEnvironmentByName,
+  type GqlDemoEnvVar,
+} from '../../../adapters';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +57,7 @@ export const LESSON6_GLOBAL_AUTH_PROFILE_NAME = 'Lesson 6 Bearer';
 export const LESSON6_PROFILE_NAME             = GQL6_DEMO_PROFILE_NAME;
 export const GQL_DEMO_ENV_NAME                = 'Demo';
 
-export type GqlDemoEnvVar = { key: string; value: string; masked?: boolean };
+export type { GqlDemoEnvVar } from '../../../adapters';
 
 let _envReady    = false;
 let _bearerDone  = false;
@@ -111,10 +114,7 @@ async function closeEnvIfOpen(ctx: DemoActionContext): Promise<void> {
 
 /** Seed the demo global auth profile via the App bridge. */
 export function seedLesson6GlobalAuthProfile(): void {
-  const upsert = (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile as
-    | ((profile: GlobalAuthProfile) => void)
-    | undefined;
-  upsert?.({
+  upsertGlobalAuthProfile({
     id: LESSON6_GLOBAL_AUTH_PROFILE_ID,
     name: LESSON6_GLOBAL_AUTH_PROFILE_NAME,
     auth: { type: 'bearer', token: LESSON6_AUTH_TOKEN_VALUE },
@@ -196,15 +196,7 @@ export async function upsertGqlDemoEnvVars(
   vars: GqlDemoEnvVar[],
   envName = GQL_DEMO_ENV_NAME,
 ): Promise<void> {
-  const bridge = (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv as
-    | ((name: string, envVars: GqlDemoEnvVar[]) => void)
-    | undefined;
-
-  if (bridge) {
-    bridge(
-      envName,
-      vars.map((v) => ({ ...v, masked: v.masked !== false })),
-    );
+  if (upsertGqlEnvironment(envName, vars)) {
     await ctx.delay(300);
     return;
   }
@@ -500,10 +492,7 @@ export async function gqlAuthLessonSetup(ctx: DemoActionContext): Promise<void> 
   resetGqlLesson6SessionFlags();
 
   // Delete any leftover "Demo" env from a previous run so the lesson starts clean
-  const deleteEnv = (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName as
-    | ((name: string) => void)
-    | undefined;
-  deleteEnv?.('Demo');
+  deleteGqlEnvironmentByName('Demo');
 
   await purgeGqlDemoConnectionProfiles([GQL6_DEMO_PROFILE_NAME]);
 
@@ -542,8 +531,5 @@ export async function gqlAuthLessonCleanup(ctx: DemoActionContext): Promise<void
   await purgeGqlDemoConnectionProfiles([GQL6_DEMO_PROFILE_NAME]);
   await closeGqlDemoTabs(ctx, 'gql-auth-headers');
   // Remove the Demo env so it doesn't persist into future lesson runs
-  const deleteEnv = (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName as
-    | ((name: string) => void)
-    | undefined;
-  deleteEnv?.('Demo');
+  deleteGqlEnvironmentByName('Demo');
 }
