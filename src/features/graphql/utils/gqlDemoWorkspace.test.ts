@@ -25,6 +25,7 @@ import {
   countUserTabsInStorage,
   dispatchGqlTabsReload,
   dispatchGqlPageAuthReload,
+  dispatchGqlPageEndpointReload,
   filterTabsForPersistence,
   isGraphqlStudioLesson,
   loadDemoSession,
@@ -36,8 +37,9 @@ import {
   DEMO_SESSION_KEY,
   GQL_TABS_RELOAD_EVENT,
   GQL_PAGE_AUTH_RELOAD_EVENT,
+  GQL_PAGE_ENDPOINT_RELOAD_EVENT,
 } from './gqlDemoWorkspace';
-import { STORAGE_KEY, AUTH_STORAGE_KEY, DEMO_PRIOR_PAGE_AUTH_KEY, makeBlankTab, makeDemoTab } from './tabPersistence';
+import { STORAGE_KEY, AUTH_STORAGE_KEY, DEMO_PRIOR_PAGE_AUTH_KEY, DEMO_PRIOR_PAGE_ENDPOINT_KEY, ENDPOINT_STORAGE_KEY, makeBlankTab, makeDemoTab } from './tabPersistence';
 
 const mockReadKey = vi.mocked(readKey);
 const mockWriteKey = vi.mocked(writeKey);
@@ -72,6 +74,26 @@ describe('gqlDemoWorkspace', () => {
     dispatchGqlPageAuthReload();
     expect(handler).toHaveBeenCalled();
     window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, handler);
+  });
+
+  it('dispatchGqlPageEndpointReload fires a custom event', () => {
+    const handler = vi.fn();
+    window.addEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, handler);
+    dispatchGqlPageEndpointReload();
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, handler);
+  });
+
+  it('dispatch helpers no-op when window is undefined', async () => {
+    const savedWindow = globalThis.window;
+    // @ts-expect-error — simulate non-browser runtime
+    delete globalThis.window;
+    expect(() => {
+      dispatchGqlTabsReload();
+      dispatchGqlPageAuthReload();
+      dispatchGqlPageEndpointReload();
+    }).not.toThrow();
+    globalThis.window = savedWindow;
   });
 
   it('prepareDemoWorkspace appends a demo tab and saves session', async () => {
@@ -144,6 +166,85 @@ describe('gqlDemoWorkspace', () => {
     expect(savedTabs.find((t) => t.id === demo.id)?.endpoint).toBe('http://localhost:4010/graphql');
 
     window.removeEventListener(GQL_TABS_RELOAD_EVENT, handler);
+  });
+
+  it('patchDemoTabConnection clears TLS fields when patch omits them', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-https-tls', 'Demo: TLS');
+    demo.skipTlsVerify = true;
+    demo.tlsCaCert = 'ca-pem';
+    demo.tlsClientCert = 'client-pem';
+    demo.tlsClientKey = 'key-pem';
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-https-tls',
+          priorActiveTabId: user.id,
+          demoTabId: demo.id,
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      return null;
+    });
+
+    const ok = await patchDemoTabConnection({ endpoint: 'https://localhost:4443/graphql' });
+    expect(ok).toBe(true);
+
+    const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
+    const saved = JSON.parse(tabsWrite![1] as string) as Record<string, unknown>[];
+    const patched = saved.find((t) => t.id === demo.id)!;
+    expect(patched.endpoint).toBe('https://localhost:4443/graphql');
+    expect(patched.skipTlsVerify).toBeUndefined();
+    expect(patched.tlsCaCert).toBeUndefined();
+    expect(patched.tlsClientCert).toBeUndefined();
+    expect(patched.tlsClientKey).toBeUndefined();
+  });
+
+  it('patchDemoTabConnection preserves TLS fields when explicitly included in patch', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-https-tls', 'Demo: TLS');
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-https-tls',
+          priorActiveTabId: user.id,
+          demoTabId: demo.id,
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      return null;
+    });
+
+    const ok = await patchDemoTabConnection({
+      endpoint: 'https://localhost:4443/graphql',
+      skipTlsVerify: true,
+      tlsCaCert: 'new-ca',
+    });
+    expect(ok).toBe(true);
+
+    const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
+    const patched = JSON.parse(tabsWrite![1] as string).find((t: { id: string }) => t.id === demo.id);
+    expect(patched.skipTlsVerify).toBe(true);
+    expect(patched.tlsCaCert).toBe('new-ca');
+  });
+
+  it('patchDemoTabConnection returns false when demo tab id missing from storage', async () => {
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-first-query',
+          priorActiveTabId: 'user-1',
+          demoTabId: 'missing-demo-tab',
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([makeBlankTab()]);
+      return null;
+    });
+    await expect(patchDemoTabConnection({ endpoint: 'http://localhost:4010/graphql' })).resolves.toBe(false);
   });
 
   it('patchDemoTabConnection returns false when no demo session', async () => {
@@ -229,6 +330,29 @@ describe('gqlDemoWorkspace', () => {
     expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_AUTH_KEY);
     expect(authHandler).toHaveBeenCalled();
     window.removeEventListener(GQL_PAGE_AUTH_RELOAD_EVENT, authHandler);
+  });
+
+  it('purgeOrphanDemoTabs restores page endpoint from backup when session is missing', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('orphan', 'Demo: Orphan');
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) return null;
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === DEMO_PRIOR_PAGE_ENDPOINT_KEY) return 'https://restored.example.com/graphql';
+      return null;
+    });
+
+    const endpointHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, endpointHandler);
+
+    const purged = await purgeOrphanDemoTabs();
+    expect(purged).toBe(true);
+    expect(mockWriteKey).toHaveBeenCalledWith(ENDPOINT_STORAGE_KEY, 'https://restored.example.com/graphql');
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_ENDPOINT_KEY);
+    expect(endpointHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, endpointHandler);
   });
 
   it('loadDemoSession parses stored session and normalizes priorPageAuth', async () => {
@@ -612,5 +736,29 @@ describe('gqlDemoWorkspace', () => {
     const savedTabs = JSON.parse(tabsWrite![1] as string) as { demoLessonId?: string }[];
     expect(savedTabs).toHaveLength(1);
     expect(savedTabs[0]?.demoLessonId).toBeUndefined();
+  });
+
+  it('closeDemoWorkspace restores page endpoint from backup when session is missing', async () => {
+    const user = makeBlankTab();
+    const demo = makeDemoTab('gql-first-query', 'Demo: First Query');
+    seedTabs([user, demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) return null;
+      if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      if (key === ENDPOINT_STORAGE_KEY) return 'https://lesson-pollution.example.com/graphql';
+      if (key === DEMO_PRIOR_PAGE_ENDPOINT_KEY) return 'https://pre-lesson.example.com/graphql';
+      return null;
+    });
+
+    const endpointHandler = vi.fn();
+    window.addEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, endpointHandler);
+
+    await closeDemoWorkspace('gql-first-query');
+
+    expect(mockWriteKey).toHaveBeenCalledWith(ENDPOINT_STORAGE_KEY, 'https://pre-lesson.example.com/graphql');
+    expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_ENDPOINT_KEY);
+    expect(endpointHandler).toHaveBeenCalled();
+    window.removeEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, endpointHandler);
   });
 });

@@ -529,7 +529,7 @@ function buildMutationPanelDom(withExtraction = false): string {
       <button class="wf-config-tab">Operation</button>
       <button class="wf-config-tab">Variables</button>
       <button class="wf-config-tab">Extraction</button>
-      <div class="wf-config-field--row"><div class="expr-input-wrapper"><input /></div></div>
+      <input data-testid="gql-wf-endpoint-input" />
       <textarea data-testid="gql-wf-query-editor"></textarea>
       <textarea data-testid="gql-wf-variables-editor"></textarea>
       <div data-testid="gql-wf-extraction-table">
@@ -549,7 +549,7 @@ function buildQueryPanelDom(withOutput = false): string {
       <button class="wf-config-tab">Operation</button>
       <button class="wf-config-tab">Variables</button>
       <button class="wf-config-tab">Output</button>
-      <div class="wf-config-field--row"><div class="expr-input-wrapper"><input /></div></div>
+      <input data-testid="gql-wf-endpoint-input" />
       <textarea data-testid="gql-wf-query-editor"></textarea>
       <textarea data-testid="gql-wf-variables-editor"></textarea>
       <div data-testid="gql-wf-output-table">

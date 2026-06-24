@@ -16,14 +16,33 @@ export function isValidIdentifier(name: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 }
 
+/** Replace `{{varName}}` placeholders with JSON `null` for syntax-only validation. */
+export function normalizeVariablesJsonForValidation(str: string): string {
+  return str.replace(/\{\{([a-zA-Z_][a-zA-Z0-9_.]*)\}\}/g, 'null');
+}
+
 export function isValidJson(str: string): boolean {
   try { JSON.parse(str); return true; } catch { return false; }
 }
 
-/** True when variables JSON is non-empty, not `{}`, and fails JSON.parse. */
+/**
+ * True when variables JSON is syntactically valid as a template — allows bare
+ * `{{var}}` values (resolved before JSON.parse at runtime) as well as quoted
+ * `"{{var}}"` strings.
+ */
+export function isValidVariablesJsonTemplate(str: string): boolean {
+  try {
+    JSON.parse(normalizeVariablesJsonForValidation(str));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True when variables JSON is non-empty, not `{}`, and fails template validation. */
 export function hasInvalidVariablesJson(variables: string | undefined): boolean {
   const varStr = (variables ?? '').trim();
-  return varStr !== '' && varStr !== '{}' && !isValidJson(varStr);
+  return varStr !== '' && varStr !== '{}' && !isValidVariablesJsonTemplate(varStr);
 }
 
 export function hasInvalidExtractionRules(rules: GraphqlExtractionRule[] | undefined): boolean {
@@ -58,6 +77,33 @@ export function computeQueryTabErrors(
     extraction: hasInvalidExtractionRules(data.extractionRules),
     output: hasInvalidOutputBindings(data.outputBindings),
   };
+}
+
+/** Count configured fields on the Operation tab (endpoint, query, non-default timeout, TLS skip). */
+export function countOperationTabConfigured(
+  data: Pick<GraphqlQueryNodeData, 'endpoint' | 'query' | 'timeoutMs' | 'skipTlsVerify'>,
+): number {
+  let count = 0;
+  if (data.endpoint?.trim()) count++;
+  if (data.query?.trim()) count++;
+  if (data.timeoutMs != null && data.timeoutMs !== 30000) count++;
+  if (data.skipTlsVerify) count++;
+  return count;
+}
+
+/** Count variable keys in the Variables tab JSON (ignores empty `{}`). */
+export function countVariablesTabConfigured(variables: string | undefined): number {
+  const trimmed = (variables ?? '').trim();
+  if (!trimmed || trimmed === '{}') return 0;
+  try {
+    const parsed = JSON.parse(normalizeVariablesJsonForValidation(trimmed));
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return Object.keys(parsed).length;
+    }
+    return 1;
+  } catch {
+    return 1;
+  }
 }
 
 export function hasQueryConfigErrors(errors: QueryTabErrors): boolean {

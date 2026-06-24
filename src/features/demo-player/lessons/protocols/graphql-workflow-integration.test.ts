@@ -32,6 +32,7 @@ describe('gql-workflow-integration lesson', () => {
     delete (window as unknown as Record<string, unknown>).__wfConnect;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfQuickTest;
   });
 
@@ -275,10 +276,10 @@ describe('gql-workflow-integration lesson', () => {
     expect(step.description).toContain('live runtime');
   });
 
-  it('gql11-assert-rule description explains JSONPath $ and 500ms threshold reasoning', () => {
+  it('gql11-assert-rule description explains JSONPath $ and pass threshold reasoning', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
     expect(step.description).toContain('less_than');
-    expect(step.description).toContain('500');
+    expect(step.description).toContain('2000');
   });
 
   it('gql11-console description explains WHY console must be opened before run', () => {
@@ -294,7 +295,7 @@ describe('gql-workflow-integration lesson', () => {
 
   it('gql11-tighten-threshold description explains threshold change only', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-tighten-threshold')!;
-    expect(step.description).toContain('500');
+    expect(step.description).toContain('2000');
     expect(step.description).toContain('1');
     expect(step.description).toContain('configures');
   });
@@ -357,7 +358,7 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     await ensureLesson11QueryNodeAdded(ctx);
     await ensureLesson11QueryConfigured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_ENDPOINT, expect.stringContaining('4010'));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, expect.stringContaining('4010'));
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, expect.stringContaining('health'));
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_OUTPUT_VARNAME, LESSON11_LATENCY_VAR);
   });
@@ -370,7 +371,7 @@ describe('gql-workflow-integration lesson', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-config-query')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(WF.WF_GQL_ENDPOINT, expect.stringContaining('4010'));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, expect.stringContaining('4010'));
   });
 
   it('gql11-assert-node adds assert block from palette', async () => {
@@ -399,10 +400,10 @@ describe('gql-workflow-integration lesson', () => {
       </div>
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
-          <button class="wf-config-tab">Source</button>
+          <button type="button" class="gql-wf-subtab"><span>Source</span></button>
           <input data-testid="gql-wf-assert-source-var" />
         </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
       </div>
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
@@ -422,7 +423,7 @@ describe('gql-workflow-integration lesson', () => {
       </div>
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
-          <button class="wf-config-tab">Assertions</button>
+          <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
           <button data-testid="gql-wf-assert-add-btn"></button>
           <div data-testid="gql-wf-assert-row">
             <input data-testid="gql-wf-assert-jsonpath" />
@@ -430,7 +431,7 @@ describe('gql-workflow-integration lesson', () => {
             <input data-testid="gql-wf-assert-expected" />
           </div>
         </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
       </div>
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
@@ -438,7 +439,7 @@ describe('gql-workflow-integration lesson', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-assert-rule')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '500');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '2000');
   });
 
   it('gql11-console action opens console panel via badge click', async () => {
@@ -515,7 +516,23 @@ describe('gql-workflow-integration lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '1');
   });
 
-  it('gql11-observe-failure runs quick test with tightened threshold', async () => {
+  it('ensureLesson11ConsoleOpen does not reconfigure assert threshold', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildFullAssertDom()}
+      <div class="wf-console-badge"></div>
+      <div class="wf-console-panel"></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    mockLesson11WorkflowBridge('1');
+    await ensureLesson11AssertRuleConfigured(ctx, '1');
+    vi.mocked(ctx.fill).mockClear();
+    await ensureLesson11ConsoleOpen(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '2000');
+  });
+
+  it('gql11-observe-failure preAction runs quick test; action only pauses', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
@@ -527,19 +544,20 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    mockLesson11WorkflowBridge('1');
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-observe-failure')!;
     await step.preAction!(ctx);
-    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
-  it('gql11-debug-mode action clicks debug button', async () => {
+  it('gql11-debug-mode action starts debug and clicks each Step button', async () => {
     const ctx = makeCtx();
+    let stepClicks = 0;
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
-      <div class="react-flow__node-graphqlAssert wf-node-fail" data-id="a1">
-        <div data-testid="gql-canvas-assert-node"></div>
-      </div>
       <button class="wf-quick-test-btn"></button>
       <button title="Run workflow step-by-step"></button>
       <div data-testid="wf-exec-summary"></div>
@@ -548,11 +566,29 @@ describe('gql-workflow-integration lesson', () => {
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
-    (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    mockLesson11WorkflowBridge('1');
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === WF.DEBUG_STEP_BTN && !document.querySelector(WF.DEBUG_STEP_BTN)) {
+        const stepBtn = document.createElement('button');
+        stepBtn.className = 'wf-debug-step-btn';
+        document.body.appendChild(stepBtn);
+      }
+    });
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el) return;
+      if (sel === WF.DEBUG_STEP_BTN) {
+        stepClicks++;
+        if (stepClicks >= 3) el.remove();
+      }
+      el.click();
+    });
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-debug-mode')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.DEBUG_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(WF.DEBUG_STEP_BTN);
+    expect(stepClicks).toBeGreaterThan(0);
   });
 
   // ── Guard tests ───────────────────────────────────────────────────────────
@@ -610,18 +646,37 @@ describe('gql-workflow-integration lesson', () => {
     expect(document.querySelector(GQL.WF_CANVAS_QUERY_NODE)).toBeTruthy();
   });
 
+  it('ensureLesson11QueryConfigured patches canvas when Save is disabled', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = buildQueryConfigDom().replace(
+      '<button class="btn-primary">Save</button>',
+      '<button class="btn-primary" disabled>Save</button>',
+    );
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    const patchSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = patchSpy;
+    await ensureLesson11QueryConfigured(ctx);
+    expect(patchSpy).toHaveBeenCalledWith('graphqlQuery', expect.objectContaining({
+      endpoint: GQL_DEMO_HTTP,
+      query: 'query { health }',
+    }));
+  });
+
   it('ensureLesson11QueryConfigured guard skips when already configured', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = buildQueryConfigDom();
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = vi.fn(() => true);
+    mockLesson11WorkflowBridge('2000');
     await ensureLesson11QueryConfigured(ctx);
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson11QueryConfigured(ctx);
-    expect(ctx.fill).not.toHaveBeenCalledWith(WF.WF_GQL_ENDPOINT, GQL_DEMO_HTTP);
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
-  it('ensureLesson11AssertRuleConfigured resets pass/fail flags for non-500 threshold', async () => {
+  it('ensureLesson11AssertRuleConfigured resets pass/fail flags for non-pass threshold', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
@@ -630,7 +685,7 @@ describe('gql-workflow-integration lesson', () => {
       </div>
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
-          <button class="wf-config-tab">Assertions</button>
+          <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
           <button data-testid="gql-wf-assert-add-btn"></button>
           <div data-testid="gql-wf-assert-row">
             <input data-testid="gql-wf-assert-jsonpath" />
@@ -639,7 +694,7 @@ describe('gql-workflow-integration lesson', () => {
             <input data-testid="gql-wf-assert-description" />
           </div>
         </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
       </div>
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
@@ -662,21 +717,21 @@ describe('gql-workflow-integration lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('ensureLesson11WorkflowPassRun guard skips when query node already passed', async () => {
+  it('ensureLesson11WorkflowPassRun guard skips when both nodes already passed', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
       <button class="wf-palette-block-graphqlAssert"></button>
       <div class="react-flow__node-graphqlAssert wf-node-pass" data-id="a1">
-        <div data-testid="gql-canvas-assert-node"></div>
+        <div data-testid="gql-canvas-assert-node" class="wf-node-pass"></div>
       </div>
       <div class="react-flow__node-graphqlQuery" data-id="q1">
         <div data-testid="gql-canvas-query-node" class="wf-node-pass"></div>
       </div>
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
-          <button class="wf-config-tab">Source</button>
-          <button class="wf-config-tab">Assertions</button>
+          <button type="button" class="gql-wf-subtab"><span>Source</span></button>
+          <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
           <div data-testid="gql-wf-assert-row">
             <input data-testid="gql-wf-assert-jsonpath" />
             <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
@@ -684,15 +739,16 @@ describe('gql-workflow-integration lesson', () => {
             <input data-testid="gql-wf-assert-description" />
           </div>
         </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
       </div>
       <button title="Fit view"></button>
       <button class="wf-toolbar-save-wrap"><button></button></button>
-      <button data-testid="wf-quick-test-btn"></button>
+      <button class="wf-quick-test-btn"></button>
       <div data-testid="wf-exec-summary"></div>
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+    mockLesson11WorkflowBridge('2000');
     await ensureLesson11WorkflowPassRun(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson11WorkflowPassRun(ctx);
@@ -725,7 +781,7 @@ describe('gql-workflow-integration lesson', () => {
       <div class="wf-config-modal">
         <div data-testid="gql-wf-assert-panel">
           <button class="wf-config-tab">Source</button>
-          <button class="wf-config-tab">Assertions</button>
+          <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
           <div data-testid="gql-wf-assert-row">
             <input data-testid="gql-wf-assert-jsonpath" />
             <select data-testid="gql-wf-assert-operator"><option value="less_than">&lt;</option></select>
@@ -733,15 +789,17 @@ describe('gql-workflow-integration lesson', () => {
             <input data-testid="gql-wf-assert-description" />
           </div>
         </div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
       </div>
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
-    await ensureLesson11AssertRuleConfigured(ctx, '500');
+    (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = vi.fn(() => true);
+    mockLesson11WorkflowBridge('2000');
+    await ensureLesson11AssertRuleConfigured(ctx, '2000');
     vi.mocked(ctx.fill).mockClear();
-    await ensureLesson11AssertRuleConfigured(ctx, '500');
-    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, '500');
+    await ensureLesson11AssertRuleConfigured(ctx, '2000');
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it('ensureLesson11QueryConfigured skips add output when row already exists', async () => {
@@ -756,13 +814,10 @@ describe('gql-workflow-integration lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.WF_OUTPUT_ADD_BTN);
   });
 
-  it('ensureLesson11DebugRun guard skips when already run', async () => {
+  it('ensureLesson11DebugRun guard skips second Debug start but can resume Step clicks', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
-      <div class="react-flow__node-graphqlAssert wf-node-fail" data-id="a1">
-        <div data-testid="gql-canvas-assert-node"></div>
-      </div>
       <button class="wf-quick-test-btn"></button>
       <button title="Run workflow step-by-step"></button>
       <div data-testid="wf-exec-summary"></div>
@@ -771,7 +826,7 @@ describe('gql-workflow-integration lesson', () => {
     `;
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
-    (window as unknown as Record<string, unknown>).__wfQuickTest = vi.fn();
+    mockLesson11WorkflowBridge('1');
     await ensureLesson11DebugRun(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson11DebugRun(ctx);
@@ -780,6 +835,31 @@ describe('gql-workflow-integration lesson', () => {
 });
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
+
+function mockLesson11WorkflowBridge(thresholdMs = '2000'): void {
+  (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) => {
+    if (name !== LESSON11_WF_NAME) return null;
+    return {
+      nodes: [
+        {
+          type: 'graphqlQuery',
+          data: {
+            endpoint: GQL_DEMO_HTTP,
+            query: 'query { health }',
+            outputBindings: [{ field: 'latencyMs', variableName: LESSON11_LATENCY_VAR, enabled: true }],
+          },
+        },
+        {
+          type: 'graphqlAssert',
+          data: {
+            sourceVariable: LESSON11_LATENCY_VAR,
+            assertions: [{ jsonPath: '$', operator: 'less_than', expectedValue: thresholdMs }],
+          },
+        },
+      ],
+    };
+  };
+}
 
 function buildQueryConfigDom(): string {
   return `
@@ -795,9 +875,9 @@ function buildQueryConfigDom(): string {
     <button class="req-confirm-ok"></button>
     <div class="wf-config-modal">
       <div data-testid="gql-wf-query-panel">
-        <button class="wf-config-tab">Operation</button>
-        <button class="wf-config-tab">Output</button>
-        <div class="wf-config-field--row"><div class="expr-input-wrapper"><input /></div></div>
+        <button type="button" class="gql-wf-subtab"><span>Operation</span></button>
+        <button type="button" class="gql-wf-subtab"><span>Output</span></button>
+        <input data-testid="gql-wf-endpoint-input" />
         <textarea data-testid="gql-wf-query-editor"></textarea>
         <div data-testid="gql-wf-output-table">
           <button data-testid="gql-wf-output-add-btn"></button>
@@ -805,7 +885,7 @@ function buildQueryConfigDom(): string {
           <input data-testid="gql-wf-output-varname" />
         </div>
       </div>
-      <div class="wf-config-modal-footer-actions"><button class="btn-primary"></button></div>
+      <div class="wf-config-modal-footer-actions"><button class="btn-ghost">Close</button><button class="btn-primary">Save</button></div>
     </div>
   `;
 }
@@ -818,8 +898,8 @@ function buildFullAssertDom(): string {
     </div>
     <div class="wf-config-modal">
       <div data-testid="gql-wf-assert-panel">
-        <button class="wf-config-tab">Source</button>
-        <button class="wf-config-tab">Assertions</button>
+          <button type="button" class="gql-wf-subtab"><span>Source</span></button>
+          <button type="button" class="gql-wf-subtab"><span>Assertions</span></button>
         <input data-testid="gql-wf-assert-source-var" />
         <button data-testid="gql-wf-assert-add-btn"></button>
         <div data-testid="gql-wf-assert-row">

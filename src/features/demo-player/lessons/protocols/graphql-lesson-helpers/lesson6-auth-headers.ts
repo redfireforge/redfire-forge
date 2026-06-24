@@ -226,6 +226,7 @@ export async function upsertGqlDemoEnvVars(
   }
   await ctx.click(GQL.ENV_SET_ACTIVE_BTN);
   await ctx.delay(500);
+  await closeEnvIfOpen(ctx);
 }
 
 /**
@@ -278,7 +279,7 @@ export async function runAuthExecuteWithMetadata(ctx: DemoActionContext): Promis
   await closeAuthPanelIfOpen(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(400);
+  await ctx.delay(800);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
   await ctx.delay(800);
@@ -358,6 +359,10 @@ export async function ensureProfileDone(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(400);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
   await ctx.delay(800);
+  if (document.querySelector(GQL.PROFILE_MODAL)) {
+    await ctx.click(GQL.PROFILE_CLOSE_BTN);
+    await ctx.delay(700);
+  }
   _profileDone = true;
 }
 

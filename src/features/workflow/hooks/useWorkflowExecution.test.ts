@@ -33,9 +33,13 @@ vi.mock('../utils/workflowEnvReadiness', () => ({
   checkEnvReadiness: vi.fn().mockReturnValue({ ready: true, issues: [] }),
 }));
 
-vi.mock('../utils/workflowRunErrors', () => ({
-  summarizeRequestFailure: vi.fn().mockReturnValue('Mock error summary'),
-}));
+vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/workflowRunErrors')>();
+  return {
+    ...actual,
+    summarizeRequestFailure: vi.fn().mockReturnValue('Mock error summary'),
+  };
+});
 
 import { runGraph } from '../engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
@@ -577,10 +581,10 @@ describe('useWorkflowExecution', () => {
       });
 
       expect(opts.setLastRunStatus).toHaveBeenCalledWith('fail');
-      expect(opts.setLastRunError).toHaveBeenCalledWith('Mock error summary');
+      expect(opts.setLastRunError).toHaveBeenCalledWith('Step failed');
       expect(opts.pushRunHistory).toHaveBeenCalledWith(expect.objectContaining({
         passed: false,
-        error: 'Mock error summary',
+        error: 'Step failed',
       }));
     });
 

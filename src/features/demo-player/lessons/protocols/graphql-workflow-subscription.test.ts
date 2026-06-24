@@ -24,8 +24,8 @@ import {
   ensureLesson19SubscriptionConfigured,
   ensureLesson19SubscriptionCorrelation,
   ensureLesson19SubscriptionOutputBound,
-  ensureLesson19AssertConfigured,
-  ensureLesson19ConsoleOpen,
+  performLesson19QuickTestRun,
+  prepareLesson19SubscriptionSpotlight,
   gqlWorkflowSubscriptionLessonCleanup,
 } from './graphql-lesson-helpers';
 
@@ -150,9 +150,19 @@ describe('gql-workflow-subscription lesson', () => {
     expect(step.verify).toBe(GQL.WF_CANVAS_SUBSCRIPTION_NODE);
   });
 
-  it('gql19-config-sub highlights subscription panel', () => {
+  it('gql19-config-sub highlights subscription query editor', () => {
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-config-sub')!;
-    expect(step.highlight).toBe(GQL.WF_SUBSCRIPTION_PANEL);
+    expect(step.highlight).toBe(GQL.WF_SUBSCRIPTION_QUERY_EDITOR);
+  });
+
+  it('gql19-config-sub preAction opens subscription tab for reading', () => {
+    const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-config-sub')!;
+    expect(step.preAction).toBe(prepareLesson19SubscriptionSpotlight);
+  });
+
+  it('gql19-timeout preAction prepares stop tab spotlight', () => {
+    const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-timeout')!;
+    expect(typeof step.preAction).toBe('function');
   });
 
   it('gql19-timeout highlights stop seconds input', () => {
@@ -165,9 +175,9 @@ describe('gql-workflow-subscription lesson', () => {
     expect(step.highlight).toBe(GQL.WF_STOP_MESSAGES_INPUT);
   });
 
-  it('gql19-sample-payload highlights output table', () => {
+  it('gql19-sample-payload highlights output add button', () => {
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-sample-payload')!;
-    expect(step.highlight).toBe(GQL.WF_OUTPUT_TABLE);
+    expect(step.highlight).toBe(GQL.WF_OUTPUT_ADD_BTN);
   });
 
   it('gql19-quick-test highlights Quick Test and verifies exec summary', () => {
@@ -176,9 +186,9 @@ describe('gql-workflow-subscription lesson', () => {
     expect(step.verify).toBe(WF.EXEC_SUMMARY);
   });
 
-  it('gql19-load-behavior highlights stop messages input', () => {
+  it('gql19-load-behavior preAction does not run quick test', () => {
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-load-behavior')!;
-    expect(step.highlight).toBe(GQL.WF_STOP_MESSAGES_INPUT);
+    expect(step.preAction).not.toBe(performLesson19QuickTestRun);
   });
 
   it('gql19-summary highlights canvas', () => {
@@ -268,15 +278,23 @@ describe('gql-workflow-subscription lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_SUB_VARIABLES_EDITOR, LESSON19_SUBSCRIPTION_VARS);
   });
 
+  it('gql19-config-sub preAction uses prepareLesson19SubscriptionSpotlight', async () => {
+    const ctx = makeCtx();
+    const openSpy = vi.fn();
+    stubNodeConfigBridge(openSpy);
+    document.body.innerHTML = buildSubscriptionPanelDom();
+    const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-config-sub')!;
+    await step.preAction!(ctx);
+    expect(openSpy).toHaveBeenCalledWith(LESSON19_NODE_SUB);
+  });
+
   it('gql19-timeout action sets stop seconds', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
     document.body.innerHTML = buildSubscriptionPanelDom(true);
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-timeout')!;
-    await step.preAction!(ctx);
     await step.action!(ctx);
-    const input = document.querySelector<HTMLInputElement>(GQL.WF_STOP_SECS_INPUT);
-    expect(input?.value).toBe(LESSON19_STOP_AFTER_SECS);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_STOP_SECS_INPUT, LESSON19_STOP_AFTER_SECS);
   });
 
   it('gql19-correlation action sets stop messages count', async () => {
@@ -286,8 +304,7 @@ describe('gql-workflow-subscription lesson', () => {
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-correlation')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    const input = document.querySelector<HTMLInputElement>(GQL.WF_STOP_MESSAGES_INPUT);
-    expect(input?.value).toBe(LESSON19_STOP_AFTER_MESSAGES);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
   });
 
   it('gql19-sample-payload action binds lastMessage output variable', async () => {
@@ -303,7 +320,7 @@ describe('gql-workflow-subscription lesson', () => {
   it('gql19-quick-test action clicks Quick Test', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div>`;
+    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-quick-test-btn"></button>`;
     const step = gqlWorkflowSubscriptionLesson.steps.find((s) => s.id === 'gql19-quick-test')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
@@ -364,11 +381,17 @@ describe('gql-workflow-subscription lesson', () => {
     const sub = nodes.find((n) => n.id === LESSON19_NODE_SUB)!;
     expect(sub.data.endpoint).toBe(GQL_DEMO_HTTP);
     expect(sub.data.variables).toBe(LESSON19_SUBSCRIPTION_VARS);
+    expect(sub.data.subscriptionQuery).toBe('');
     expect(isLesson19SubNodeReady()).toBe(false);
   });
 
   it('isLesson19SubNodeReady reads live workflow via __wfGetWorkflowByName', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
+    const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
+    sub.data.subscriptionQuery = LESSON19_SUBSCRIPTION_QUERY;
+    sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
+    sub.data.stopAfterMessages = Number(LESSON19_STOP_AFTER_MESSAGES);
+    sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
       name === LESSON19_WF_NAME ? wf : null;
     expect(isLesson19SubNodeReady()).toBe(true);
@@ -389,30 +412,7 @@ describe('gql-workflow-subscription lesson', () => {
     stubNodeConfigBridge();
     document.body.innerHTML = `${buildMutationPanelDom(true)}${buildSubscriptionPanelDom(true, true)}`;
     await ensureLesson19SubscriptionCorrelation(ctx);
-    const input = document.querySelector<HTMLInputElement>(GQL.WF_STOP_MESSAGES_INPUT);
-    expect(input?.value).toBe(LESSON19_STOP_AFTER_MESSAGES);
-  });
-
-  it('ensureLesson19AssertConfigured adds COMPLETE assertion on final status', async () => {
-    const ctx = makeCtx();
-    stubNodeConfigBridge();
-    document.body.innerHTML = `${buildMutationPanelDom(true)}${buildSubscriptionPanelDom(true, true)}`;
-    await ensureLesson19AssertConfigured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_JSONPATH, '$.orderStatus.status');
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_EXPECTED, 'COMPLETE');
-  });
-
-  it('ensureLesson19ConsoleOpen clicks console badge when console hidden', async () => {
-    const ctx = makeCtx();
-    stubNodeConfigBridge();
-    document.body.innerHTML = `
-      ${buildMutationPanelDom(true)}${buildSubscriptionPanelDom(true, true)}
-      <button class="wf-console-badge"></button>
-    `;
-    const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE)!;
-    const clickSpy = vi.spyOn(badge, 'click');
-    await ensureLesson19ConsoleOpen(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
   });
 
   it('gqlWorkflowSubscriptionLessonCleanup deletes seeded workflow', async () => {
@@ -444,7 +444,7 @@ function buildMutationPanelDom(withExtraction = false): string {
       <button class="wf-config-tab">Operation</button>
       <button class="wf-config-tab">Variables</button>
       <button class="wf-config-tab">Extraction</button>
-      <div class="wf-config-field--row"><div class="expr-input-wrapper"><input /></div></div>
+      <input data-testid="gql-wf-endpoint-input" />
       <textarea data-testid="gql-wf-query-editor"></textarea>
       <textarea data-testid="gql-wf-variables-editor"></textarea>
       <div data-testid="gql-wf-extraction-table">
@@ -464,7 +464,7 @@ function buildSubscriptionPanelDom(withStop = false, withOutput = false): string
       <button class="wf-config-tab">Subscription</button>
       <button class="wf-config-tab">Stop</button>
       <button class="wf-config-tab">Output</button>
-      <div class="wf-config-field--row"><div class="expr-input-wrapper"><input /></div></div>
+      <input data-testid="gql-wf-endpoint-input" />
       <textarea data-testid="gql-wf-subscription-query-editor"></textarea>
       <textarea data-testid="gql-wf-sub-variables-editor"></textarea>
       <input data-testid="gql-wf-stop-secs-input" type="number" value="${withStop ? LESSON19_STOP_AFTER_SECS : ''}" />

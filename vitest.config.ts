@@ -24,6 +24,7 @@ export default defineConfig({
         '**/__test-utils__/**',
         '**/__mocks__/**',
         '**/test-helpers/**',
+        '**/*.coverage-helpers.ts',
         '**/*.test.{ts,tsx}',
         '**/*.config.{ts,js}',
         'src/shared/types/index.ts',

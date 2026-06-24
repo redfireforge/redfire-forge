@@ -7,6 +7,14 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { WF, WFR } from '../../../../shared/selectors';
+import {
+  collapseWfDemoAppSidebar,
+  expandWfDemoAppSidebar,
+  fillWfConfigField,
+  openWfNodeConfigModal,
+  saveWfConfigModal,
+  waitForWfConfigPanel,
+} from '../wf-demo-helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -22,6 +30,7 @@ async function ensureWsEchoDemoWorkflow(ctx: DemoActionContext): Promise<void> {
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissWorkflowOnboarding(ctx);
+  await expandWfDemoAppSidebar(ctx);
   await ctx.click(WF.SIDEBAR_NEW_BTN);
   await ctx.waitFor('.wf-new-dropdown');
   await ctx.delay(400);
@@ -33,6 +42,7 @@ async function ensureWsEchoDemoWorkflow(ctx: DemoActionContext): Promise<void> {
   await ctx.click(WF.CREATE_OK);
   await ctx.waitFor(WF.CANVAS, 8000);
   await ctx.delay(800);
+  await collapseWfDemoAppSidebar(ctx);
 }
 
 /** Start mock server via REST API (no tab navigation needed). */
@@ -68,37 +78,6 @@ function scrollIntoParent(selector: string): HTMLElement | null {
   return el;
 }
 
-/**
- * Open a node's config modal via the `__wfOpenNodeConfig` bridge exposed by
- * WorkflowDesignerFlowCanvas. This calls openNodeConfig() directly in React —
- * more reliable than dispatching a native dblclick event, which ReactFlow may
- * not consistently forward to its onNodeDoubleClick handler.
- *
- * The bridge also clears node selection before opening the config so the
- * selection ring never appears behind the configuration panel.
- */
-async function openNodeConfig(selector: string, ctx: DemoActionContext): Promise<void> {
-  scrollIntoParent(selector);
-  const nodeId = getNodeId(selector);
-  const openConfig = (window as unknown as Record<string, unknown>).__wfOpenNodeConfig as ((id: string) => void) | undefined;
-  if (nodeId && openConfig) {
-    openConfig(nodeId);
-  } else {
-    // Fallback: deselect then try a native dblclick
-    const deselectAll = (window as unknown as Record<string, unknown>).__wfDeselectAll as (() => void) | undefined;
-    if (deselectAll) deselectAll();
-    const node = document.querySelector(selector) as HTMLElement | null;
-    if (node) node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-  }
-  await ctx.delay(150);
-}
-
-/** Get node ID by React Flow node type class. */
-function getNodeId(typeSelector: string): string | null {
-  const node = document.querySelector(typeSelector);
-  return node?.getAttribute('data-id') ?? null;
-}
-
 /** Click "Fit view" to auto-layout all nodes nicely on the canvas. */
 async function clickFitView(ctx: DemoActionContext): Promise<void> {
   const btn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
@@ -107,8 +86,10 @@ async function clickFitView(ctx: DemoActionContext): Promise<void> {
 
 /** Connect two nodes via the exposed __wfConnect helper. */
 function connectNodes(sourceSelector: string, targetSelector: string, sourceHandle: string | null = null): boolean {
-  const sourceId = getNodeId(sourceSelector);
-  const targetId = getNodeId(targetSelector);
+  const node = document.querySelector(sourceSelector);
+  const sourceId = node?.getAttribute('data-id') ?? node?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
+  const targetEl = document.querySelector(targetSelector);
+  const targetId = targetEl?.getAttribute('data-id') ?? targetEl?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
   const wfConnect = (window as unknown as Record<string, unknown>).__wfConnect as
     ((s: string, t: string, sh: string | null, th: string | null) => void) | undefined;
   if (sourceId && targetId && wfConnect) {
@@ -274,17 +255,13 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       highlight: WF.NODE_CONFIG,
       preAction: async (ctx) => {
         if (!document.querySelector(WF.NODE_WS_CONNECT)) return;
-        await openNodeConfig(WF.NODE_WS_CONNECT, ctx);
-        await ctx.delay(400);
+        scrollIntoParent(WF.NODE_WS_CONNECT);
+        await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_WS_CONNECT });
       },
       action: async (ctx) => {
-        // Config is already open — just fill and save
-        await ctx.waitFor(WF.CFG_WS_URL);
-        await ctx.delay(500);
-        await ctx.fill(WF.CFG_WS_URL, '{{wsUrl}}');
-        await ctx.delay(300);
-        await ctx.click(WF.CFG_SAVE);
-        await ctx.delay(400);
+        await waitForWfConfigPanel(ctx, WF.CFG_WS_URL);
+        await fillWfConfigField(ctx, WF.CFG_WS_URL, '{{wsUrl}}');
+        await saveWfConfigModal(ctx);
       },
       pauseAfter: true,
     },
@@ -351,16 +328,13 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       highlight: WF.NODE_CONFIG,
       preAction: async (ctx) => {
         if (!document.querySelector(WF.NODE_WS_SEND)) return;
-        await openNodeConfig(WF.NODE_WS_SEND, ctx);
-        await ctx.delay(400);
+        scrollIntoParent(WF.NODE_WS_SEND);
+        await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_WS_SEND });
       },
       action: async (ctx) => {
-        await ctx.waitFor(WF.CFG_WS_MSG);
-        await ctx.delay(500);
-        await ctx.fill(WF.CFG_WS_MSG, '{"action": "hello", "from": "workflow"}');
-        await ctx.delay(300);
-        await ctx.click(WF.CFG_SAVE);
-        await ctx.delay(400);
+        await waitForWfConfigPanel(ctx, WF.CFG_WS_MSG);
+        await fillWfConfigField(ctx, WF.CFG_WS_MSG, '{"action": "hello", "from": "workflow"}');
+        await saveWfConfigModal(ctx);
       },
       pauseAfter: true,
     },
@@ -395,16 +369,13 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       highlight: WF.NODE_CONFIG,
       preAction: async (ctx) => {
         if (!document.querySelector(WF.NODE_WS_RECEIVE)) return;
-        await openNodeConfig(WF.NODE_WS_RECEIVE, ctx);
-        await ctx.delay(400);
+        scrollIntoParent(WF.NODE_WS_RECEIVE);
+        await openWfNodeConfigModal(ctx, { nodeSelector: WF.NODE_WS_RECEIVE });
       },
       action: async (ctx) => {
-        await ctx.waitFor(WF.WS_RECEIVE_CFG);
-        await ctx.delay(500);
-        await ctx.fill(WF.WS_RECEIVE_CFG + ' input[type="number"]', '5000');
-        await ctx.delay(300);
-        await ctx.click(WF.CFG_SAVE);
-        await ctx.delay(400);
+        await waitForWfConfigPanel(ctx, WF.WS_RECEIVE_CFG);
+        await fillWfConfigField(ctx, WF.WS_RECEIVE_CFG + ' input[type="number"]', '5000');
+        await saveWfConfigModal(ctx);
       },
       pauseAfter: true,
     },

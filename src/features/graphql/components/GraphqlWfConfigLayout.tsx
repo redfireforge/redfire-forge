@@ -58,6 +58,59 @@ export function GqlWfFormCard({ children }: { children: ReactNode }) {
   return <div className="gql-wf-form-card">{children}</div>;
 }
 
+/** Segmented radio cards — avoids global `input { width: 100% }` breaking layout. */
+export function GqlWfChoiceGroup({
+  legend,
+  children,
+}: {
+  legend?: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="gql-wf-choice-group">
+      {legend ? <legend className="gql-wf-choice-legend">{legend}</legend> : null}
+      <div className="gql-wf-choice-options">{children}</div>
+    </fieldset>
+  );
+}
+
+export function GqlWfChoiceOption({
+  name,
+  value,
+  checked,
+  onChange,
+  title,
+  description,
+  testId,
+}: {
+  name: string;
+  value: string;
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  description: string;
+  testId?: string;
+}) {
+  return (
+    <label className={`gql-wf-choice-option${checked ? ' gql-wf-choice-option--selected' : ''}`}>
+      <input
+        type="radio"
+        className="gql-wf-choice-option__input"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={onChange}
+        data-testid={testId}
+      />
+      <span className="gql-wf-choice-option__indicator" aria-hidden="true" />
+      <span className="gql-wf-choice-option__body">
+        <span className="gql-wf-choice-option__title">{title}</span>
+        <span className="gql-wf-choice-option__desc">{description}</span>
+      </span>
+    </label>
+  );
+}
+
 export function GqlWfSectionToolbar({
   title,
   subtitle,
@@ -78,6 +131,21 @@ export function GqlWfSectionToolbar({
   );
 }
 
+/** Split tab: scrollable form above, pinned variable reference below. */
+export function GqlWfTabStack({
+  main,
+  footer,
+}: {
+  main: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <div className="gql-wf-tab-stack">
+      <div className="gql-wf-tab-main">{main}</div>
+      {footer ? <div className="gql-wf-tab-footer">{footer}</div> : null}
+    </div>
+  );
+}
 
 export function GqlWfFormRow({
   label,

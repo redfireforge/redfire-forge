@@ -331,6 +331,11 @@ describe('useGraphqlConnectionProfiles — deleteProfile', () => {
 });
 
 describe('useGraphqlConnectionProfiles — reload event', () => {
+  it('sets profilesReady after initial load', async () => {
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profilesReady).toBe(true));
+  });
+
   it('reloads profiles when GQL_PROFILES_RELOAD_EVENT fires', async () => {
     mockReadKey.mockResolvedValue(JSON.stringify([makeProfile()]));
 
@@ -347,5 +352,32 @@ describe('useGraphqlConnectionProfiles — reload event', () => {
     });
 
     await waitFor(() => expect(result.current.profiles).toHaveLength(2));
+  });
+
+  it('ignores load result after unmount', async () => {
+    let resolveLoad!: (value: string | null) => void;
+    mockReadConnectionProfiles.mockImplementation(
+      () => new Promise((resolve) => { resolveLoad = resolve; }),
+    );
+
+    const { result, unmount } = renderHook(() => useGraphqlConnectionProfiles());
+    expect(result.current.profilesReady).toBe(false);
+    unmount();
+
+    await act(async () => {
+      resolveLoad(JSON.stringify([makeProfile()]));
+    });
+  });
+
+  it('handles reload rejection without throwing', async () => {
+    mockReadConnectionProfiles.mockResolvedValueOnce([makeProfile()]);
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profilesReady).toBe(true));
+
+    mockReadConnectionProfiles.mockRejectedValueOnce(new Error('storage unavailable'));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(GQL_PROFILES_RELOAD_EVENT));
+    });
+    await waitFor(() => expect(result.current.profilesReady).toBe(true));
   });
 });

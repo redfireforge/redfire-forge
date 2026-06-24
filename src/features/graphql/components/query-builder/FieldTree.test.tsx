@@ -164,6 +164,19 @@ describe('FieldTree', () => {
     expect(screen.queryByTestId('field-row-users')).not.toBeInTheDocument();
   });
 
+  it('shows selected count excluding falsy field entries', () => {
+    render(
+      <FieldTree
+        {...makeProps({
+          state: makeDefaultState({
+            selectedFields: { health: true, ghost: false as unknown as boolean },
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+
   it('shows "No fields match" when search has no results', () => {
     const state = makeDefaultState({ searchQuery: 'zzznomatch' });
     render(<FieldTree {...makeProps({ state })} />);

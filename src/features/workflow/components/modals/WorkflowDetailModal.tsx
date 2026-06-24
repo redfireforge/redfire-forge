@@ -1,7 +1,9 @@
 import { useCallback, useState, useEffect } from 'react';
 import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
 import WorkflowResponseBody from '../panels/WorkflowResponseBody';
+import WorkflowQuickTestFailurePanel from '../panels/WorkflowQuickTestFailurePanel';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
+import type { QuickTestFailureReport } from '../../utils/workflowRunErrors';
 
 interface Props {
   open: boolean;
@@ -9,6 +11,8 @@ interface Props {
   subtitle?: string;
   /** Step result: read-only body */
   body?: string;
+  /** Structured Quick Test failure (replaces plain-text body + search UI). */
+  failureReport?: QuickTestFailureReport;
   /** Variable: editable */
   variableMode?: boolean;
   variableValue?: string;
@@ -22,24 +26,26 @@ export default function WorkflowDetailModal({
   title,
   subtitle,
   body,
+  failureReport,
   variableMode,
   variableValue,
   onVariableChange,
   onApplyVariable,
   onClose,
 }: Props) {
+  const isFailureReport = !!failureReport;
+  const isCompactChrome = isFailureReport || !!variableMode;
+
   const copy = useCallback(async () => {
-    const text = variableMode ? variableValue ?? '' : body ?? '';
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(body ?? '');
     } catch {
       /* ignore */
     }
-  }, [body, variableMode, variableValue]);
+  }, [body]);
 
-  // ── Pretty-print toggle ───────────────────────────────────────────────────
   const [pretty, setPretty] = useState(false);
-   
+
   useEffect(() => { setPretty(false); }, [open]);
 
   const prettyValue = (() => {
@@ -49,11 +55,35 @@ export default function WorkflowDetailModal({
     return isValidJson(raw) ? prettyJson(raw) : null;
   })();
 
-  /** Can the value be parsed as JSON? */
   const isJson = (() => {
     const raw = (variableValue ?? '').trim();
     return raw.length > 0 && isValidJson(raw);
   })();
+
+  const footer = isFailureReport ? (
+    <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
+      Close
+    </button>
+  ) : variableMode ? (
+    <>
+      <button type="button" className="btn btn-sm btn-accent" onClick={onApplyVariable}>
+        Apply
+      </button>
+      <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
+        Close
+      </button>
+    </>
+  ) : (
+    <>
+      <button type="button" className="btn btn-sm" onClick={copy}>
+        Copy
+      </button>
+      <div style={{ flex: 1 }} />
+      <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
+        Close
+      </button>
+    </>
+  );
 
   return (
     <WorkflowEditorModalFrame
@@ -62,27 +92,18 @@ export default function WorkflowDetailModal({
       titleId="wf-detail-title"
       onClose={onClose}
       overlayClassName="wf-detail-modal-overlay"
-      dialogClassName={`wf-detail-modal ${variableMode ? '' : 'wf-detail-modal--wide'}`}
+      dialogClassName={
+        isCompactChrome
+          ? 'wf-detail-modal wf-detail-modal--compact modal-no-chrome'
+          : 'wf-detail-modal wf-detail-modal--wide'
+      }
       bodyClassName="ram-body wf-detail-modal-body"
       bodyScrollable={false}
-      expandMode="fullscreen"
-      footerClassName="ram-footer wf-detail-modal-footer"
-      footer={
-        <>
-          <button type="button" className="btn btn-sm" onClick={copy}>
-            Copy
-          </button>
-          <div style={{ flex: 1 }} />
-          {variableMode && (
-            <button type="button" className="btn btn-sm btn-accent" onClick={onApplyVariable}>
-              Apply
-            </button>
-          )}
-          <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
-            Close
-          </button>
-        </>
-      }
+      expandMode={isCompactChrome ? undefined : 'fullscreen'}
+      hideExpandButton={isCompactChrome}
+      hideCloseButton={isCompactChrome}
+      footerClassName={`ram-footer wf-detail-modal-footer${isCompactChrome ? ' wf-detail-modal-footer--end' : ''}`}
+      footer={footer}
     >
       {variableMode ? (
         <>
@@ -107,10 +128,12 @@ export default function WorkflowDetailModal({
               value={variableValue ?? ''}
               onChange={(e) => onVariableChange?.(e.target.value)}
               spellCheck={false}
-              rows={16}
+              rows={8}
             />
           )}
         </>
+      ) : failureReport ? (
+        <WorkflowQuickTestFailurePanel report={failureReport} />
       ) : (
         <WorkflowResponseBody body={body ?? ''} subtitle={subtitle} />
       )}

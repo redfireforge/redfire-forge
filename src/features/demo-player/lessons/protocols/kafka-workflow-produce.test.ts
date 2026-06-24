@@ -66,7 +66,7 @@ describe('kafka-workflow-produce lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(dblclickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
   });
 
   it('step wp-open-console preAction closes config modal via footer Close button', async () => {
@@ -84,7 +84,7 @@ describe('kafka-workflow-produce lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(800);
   });
 
   it('step wp-open-console action opens console via badge if panel not present', async () => {
@@ -139,10 +139,21 @@ describe('kafka-workflow-produce lesson', () => {
     expect(section.scrollIntoView).toHaveBeenCalled();
   });
 
-  it('step wp-result has no preAction (console already open from wp-open-console)', () => {
+  it('step wp-result action closes console after reading pause', async () => {
     const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-result')!;
     expect(step.preAction).toBeUndefined();
     expect(step.highlight).toBe('.wf-console-body');
+    expect(typeof step.action).toBe('function');
+    const panel = document.createElement('div');
+    panel.className = 'wf-console-panel';
+    document.body.appendChild(panel);
+    const badge = document.createElement('button');
+    badge.className = 'wf-console-badge';
+    badge.addEventListener('click', () => panel.remove());
+    document.body.appendChild(badge);
+    const ctx = makeCtx();
+    await step.action!(ctx);
+    expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
   it('setup calls __wfDeleteByName when set on window', async () => {
@@ -211,7 +222,7 @@ describe('kafka-workflow-produce lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.delay).toHaveBeenCalledWith(400);
   });
 
   it('setup runs without throwing when DOM is empty', async () => {
@@ -276,20 +287,21 @@ describe('kafka-workflow-produce lesson', () => {
     expect(fitClickSpy).toHaveBeenCalled();
   });
 
-  it('last step preAction closes console when panel is present (line 342/344 true branches)', async () => {
-    const lastStep = kafkaWorkflowProduceLesson.steps[kafkaWorkflowProduceLesson.steps.length - 1];
-    if (!lastStep?.preAction) return;
+  it('wp-result action closes console when panel is present', async () => {
+    const step = kafkaWorkflowProduceLesson.steps.find((s) => s.id === 'wp-result')!;
     const consolePanel = document.createElement('div');
     consolePanel.className = 'wf-console-panel';
     document.body.appendChild(consolePanel);
     const badge = document.createElement('button');
     badge.className = 'wf-console-badge';
     const badgeClickSpy = vi.fn();
+    badge.addEventListener('click', () => consolePanel.remove());
     badge.addEventListener('click', badgeClickSpy);
     document.body.appendChild(badge);
     const ctx = makeCtx();
-    await lastStep.preAction(ctx);
+    await step.action!(ctx);
     expect(badgeClickSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
 });

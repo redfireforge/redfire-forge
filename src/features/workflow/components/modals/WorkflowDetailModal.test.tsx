@@ -12,21 +12,28 @@ vi.mock('../panels/WorkflowResponseBody', () => ({
 }));
 
 vi.mock('./WorkflowEditorModalFrame', () => ({
-  default: ({ open, title, children, footer, onClose }: {
+  default: ({ open, title, children, footer, onClose, dialogClassName, hideExpandButton, hideCloseButton }: {
     open: boolean;
     title: React.ReactNode;
     children: React.ReactNode;
     footer: React.ReactNode;
     onClose: () => void;
+    dialogClassName?: string;
+    hideExpandButton?: boolean;
+    hideCloseButton?: boolean;
   }) =>
     open ? (
-      <div data-testid="frame">
+      <div data-testid="frame" data-dialog-class={dialogClassName ?? ''} data-hide-expand={String(!!hideExpandButton)} data-hide-close={String(!!hideCloseButton)}>
         <div data-testid="frame-title">{title}</div>
         <button data-testid="frame-x" onClick={onClose}>x</button>
         <div data-testid="frame-body">{children}</div>
         <div data-testid="frame-footer">{footer}</div>
       </div>
     ) : null,
+}));
+
+vi.mock('../panels/WorkflowQuickTestFailurePanel', () => ({
+  default: () => <div data-testid="failure-panel">failure</div>,
 }));
 
 const baseProps = {
@@ -92,10 +99,23 @@ describe('WorkflowDetailModal', () => {
     expect(screen.queryByText('Pretty Format')).toBeNull();
   });
 
-  it('calls clipboard.writeText on Copy (variable mode)', () => {
-    render(<WorkflowDetailModal {...baseProps} variableMode variableValue="copyme" />);
-    fireEvent.click(screen.getByText('Copy'));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('copyme');
+  it('does not show Copy in variable mode and uses compact chrome', () => {
+    render(
+      <WorkflowDetailModal
+        {...baseProps}
+        variableMode
+        variableValue="https://api.example.com"
+        subtitle="Edit the value"
+        onApplyVariable={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Copy')).toBeNull();
+    expect(screen.getByText('Apply')).toBeTruthy();
+    expect(screen.getByText('Close')).toBeTruthy();
+    const frame = screen.getByTestId('frame');
+    expect(frame.getAttribute('data-dialog-class')).toContain('wf-detail-modal--compact');
+    expect(frame.getAttribute('data-hide-expand')).toBe('true');
+    expect(frame.getAttribute('data-hide-close')).toBe('true');
   });
 
   it('calls clipboard.writeText with body on Copy (step mode)', () => {
@@ -166,5 +186,29 @@ describe('WorkflowDetailModal', () => {
     rerender(<WorkflowDetailModal {...baseProps} open={false} variableMode variableValue='{"a":1}' />);
     rerender(<WorkflowDetailModal {...baseProps} open variableMode variableValue='{"a":1}' />);
     expect(screen.getByText('Pretty Format')).toBeTruthy();
+  });
+
+  it('uses compact chrome without Copy for Quick Test failure report', () => {
+    render(
+      <WorkflowDetailModal
+        {...baseProps}
+        title="Quick Test failed"
+        failureReport={{
+          summary: '$ less_than 1 — got 181 (expected < 1)',
+          failedSteps: [{ nodeId: 'a', label: 'GraphQL Assert', state: 'fail', error: 'fail' }],
+          passedSteps: [{ nodeId: 'q', label: 'GraphQL Query', state: 'pass', responseTimeMs: 181 }],
+          variableSnapshot: { gqlLatency: '181' },
+          durationMs: 7800,
+          hints: ['Open the Console panel'],
+        }}
+      />,
+    );
+    expect(screen.getByTestId('failure-panel')).toBeTruthy();
+    expect(screen.queryByText('Copy')).toBeNull();
+    expect(screen.getByText('Close')).toBeTruthy();
+    const frame = screen.getByTestId('frame');
+    expect(frame.getAttribute('data-dialog-class')).toContain('wf-detail-modal--compact');
+    expect(frame.getAttribute('data-hide-expand')).toBe('true');
+    expect(frame.getAttribute('data-hide-close')).toBe('true');
   });
 });

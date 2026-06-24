@@ -61,41 +61,25 @@ describe('countWorkflowDesignerVariables', () => {
     expect(countWorkflowDesignerVariables({ shared: 'global' }, nodes, initial)).toBe(1);
   });
 
-  it('counts 5 standard slots for graphqlQuery with no extraction rules', () => {
+  it('does not inflate count for graphqlQuery nodes (toolbar matches Variables modal)', () => {
     const nodes = [gqlQueryNode('gql1')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(5);
+    expect(countWorkflowDesignerVariables({ a: '1', b: '2', c: '3' }, nodes, {})).toBe(3);
   });
 
-  it('counts 5 + N slots for graphqlQuery with extraction rules', () => {
-    const rules = [{ variableName: 'x', jsonPath: '$.x' }, { variableName: 'y', jsonPath: '$.y' }];
-    const nodes = [gqlQueryNode('gql1', rules)];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(7);
+  it('does not inflate count for graphqlMutation with extraction rules', () => {
+    const rules = [{ variableName: 'createdUserId', jsonPath: '$.id' }];
+    const nodes = [gqlMutationNode('gql1', rules), gqlQueryNode('gql2')];
+    expect(countWorkflowDesignerVariables({ testName: 'Demo User', createdUserId: '', fetchedUser: '' }, nodes, {})).toBe(3);
   });
 
-  it('counts 5 standard slots for graphqlMutation', () => {
-    const nodes = [gqlMutationNode('gql1')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(5);
+  it('does not inflate count for graphqlSubscription or graphqlIntrospect', () => {
+    const nodes = [otherNode('gql1', 'graphqlSubscription'), otherNode('gql2', 'graphqlIntrospect')];
+    expect(countWorkflowDesignerVariables({ only: 'one' }, nodes, {})).toBe(1);
   });
 
-  it('counts 5 standard slots for graphqlSubscription', () => {
-    const nodes = [otherNode('gql1', 'graphqlSubscription')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(5);
-  });
-
-  it('counts 5 standard slots for graphqlIntrospect', () => {
-    const nodes = [otherNode('gql1', 'graphqlIntrospect')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(5);
-  });
-
-  it('counts 0 slots for graphqlAssert (consumer only)', () => {
+  it('graphqlAssert nodes do not affect the count', () => {
     const nodes = [otherNode('gql1', 'graphqlAssert')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(0);
-  });
-
-  it('deduplicates graphql slot keys across two same-type nodes (different ids)', () => {
-    // Each node gets unique sentinel keys based on its id, so two nodes = 10 slots
-    const nodes = [gqlQueryNode('gql1'), gqlQueryNode('gql2')];
-    expect(countWorkflowDesignerVariables({}, nodes, {})).toBe(10);
+    expect(countWorkflowDesignerVariables({ x: '1' }, nodes, {})).toBe(1);
   });
 });
 

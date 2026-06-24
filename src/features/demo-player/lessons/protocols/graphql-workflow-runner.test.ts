@@ -507,7 +507,7 @@ describe('gql-workflow-runner lesson', () => {
     expect(assertNode!.data.sourceVariable).toBe('gqlLatency');
     const assertions = assertNode!.data.assertions as Array<{ operator: string; expectedValue?: string }>;
     expect(assertions[0].operator).toBe('less_than');
-    expect(assertions[0].expectedValue).toBe('500');
+    expect(assertions[0].expectedValue).toBe('2000');
   });
 
   it('createGqlLatencyDemoWorkflow query + assert nodes pass when executed', async () => {

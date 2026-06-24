@@ -3,6 +3,19 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL, WF } from '../../../../../shared/selectors';
 import { GQL_DEMO_HTTP } from './core';
+import {
+  clickWfConfigAddRow,
+  clickWfConfigTab,
+  closeWfConfigModalIfOpen,
+  collapseWfDemoAppSidebar,
+  fillWfConfigField,
+  openWfNodeConfigModal,
+  pauseWfConfigSection,
+  saveAndCloseWfConfigModal,
+  selectWfConfigOption,
+  selectWorkflowFromAppSidebar,
+  waitForWfConfigPanel,
+} from '../../wf-demo-helpers';
 
 export { GQL_DEMO_HTTP };
 
@@ -228,44 +241,6 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-async function openWfNodeConfigById(ctx: DemoActionContext, nodeId: string): Promise<void> {
-  const openConfig = (window as unknown as Record<string, unknown>).__wfOpenNodeConfig as
-    | ((id: string) => void)
-    | undefined;
-  if (openConfig) {
-    openConfig(nodeId);
-  } else {
-    const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`);
-    node?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-  }
-  await ctx.delay(400);
-}
-
-async function clickWfConfigTab(
-  ctx: DemoActionContext,
-  panelSelector: string,
-  tabLabel: string,
-): Promise<void> {
-  const panel = document.querySelector(panelSelector);
-  const tab = Array.from(panel?.querySelectorAll<HTMLElement>('.wf-config-tab') ?? [])
-    .find((b) => b.textContent?.trim().startsWith(tabLabel));
-  if (tab) tab.click();
-  await ctx.delay(400);
-}
-
-async function saveWfConfigModal(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WF.CFG_SAVE);
-  await ctx.delay(400);
-}
-
-async function closeWfConfigModalQuiet(ctx: DemoActionContext): Promise<void> {
-  const close = document.querySelector<HTMLElement>(WF.CFG_CLOSE);
-  if (close) {
-    close.click();
-    await ctx.delay(200);
-  }
-}
-
 function connectWfNodesById(sourceId: string, targetId: string, sourceHandle: string | null = null): boolean {
   const wfConnect = (window as unknown as Record<string, unknown>).__wfConnect as
     | ((s: string, t: string, sh: string | null, th: string | null) => void)
@@ -279,14 +254,7 @@ function connectWfNodesById(sourceId: string, targetId: string, sourceHandle: st
 
 /** Select the seeded workflow from the sidebar. */
 export async function selectGqlMutationDemoWorkflow(ctx: DemoActionContext): Promise<void> {
-  const items = Array.from(
-    document.querySelectorAll('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item'),
-  );
-  const target = items.find((el) => el.textContent?.includes(LESSON18_WF_NAME)) as HTMLElement | undefined;
-  if (target) {
-    target.click();
-    await ctx.delay(700);
-  }
+  await selectWorkflowFromAppSidebar(ctx, LESSON18_WF_NAME);
   _lesson18Loaded = true;
 }
 
@@ -294,7 +262,10 @@ export async function selectGqlMutationDemoWorkflow(ctx: DemoActionContext): Pro
 
 /** Load the pre-seeded CRUD workflow onto the canvas. */
 export async function ensureLesson18WorkflowLoaded(ctx: DemoActionContext): Promise<void> {
-  if (_lesson18Loaded && document.querySelector(WF.CANVAS)) return;
+  if (_lesson18Loaded && document.querySelector(WF.CANVAS)) {
+    await collapseWfDemoAppSidebar(ctx);
+    return;
+  }
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissWorkflowOnboarding(ctx);
@@ -307,16 +278,15 @@ export async function ensureLesson18MutationConfigured(ctx: DemoActionContext): 
   await ensureLesson18WorkflowLoaded(ctx);
   if (_lesson18MutationConfigured && isLesson18CreateNodeReady()) return;
 
-  await openWfNodeConfigById(ctx, LESSON18_NODE_CREATE);
-  await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
-  await ctx.fill(WF.WF_GQL_MUTATION_ENDPOINT, GQL_DEMO_HTTP);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_QUERY_EDITOR, LESSON18_CREATE_MUTATION);
-  await ctx.delay(300);
+  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_CREATE });
+  await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON18_CREATE_MUTATION);
+  await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
-  await ctx.fill(GQL.WF_VARIABLES_EDITOR, LESSON18_MUTATION_VARS);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await fillWfConfigField(ctx, GQL.WF_VARIABLES_EDITOR, LESSON18_MUTATION_VARS);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson18MutationConfigured = true;
 }
 
@@ -325,18 +295,16 @@ export async function ensureLesson18MutationOutputBound(ctx: DemoActionContext):
   await ensureLesson18MutationConfigured(ctx);
   if (_lesson18OutputBound && isLesson18CreateNodeReady()) return;
 
-  await openWfNodeConfigById(ctx, LESSON18_NODE_CREATE);
-  await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
+  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_CREATE });
+  await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Extraction');
   if (!document.querySelector(GQL.WF_EXTRACTION_JSONPATH)) {
-    await ctx.click(GQL.WF_EXTRACTION_ADD_BTN);
-    await ctx.delay(300);
+    await clickWfConfigAddRow(ctx, GQL.WF_EXTRACTION_ADD_BTN, GQL.WF_EXTRACTION_JSONPATH);
   }
-  await ctx.fill(GQL.WF_EXTRACTION_JSONPATH, LESSON18_EXTRACTION_JSONPATH);
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_EXTRACTION_VARNAME, LESSON18_CREATED_USER_ID_VAR);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await fillWfConfigField(ctx, GQL.WF_EXTRACTION_JSONPATH, LESSON18_EXTRACTION_JSONPATH);
+  await fillWfConfigField(ctx, GQL.WF_EXTRACTION_VARNAME, LESSON18_CREATED_USER_ID_VAR);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson18OutputBound = true;
 }
 
@@ -345,25 +313,22 @@ export async function ensureLesson18QueryConfigured(ctx: DemoActionContext): Pro
   await ensureLesson18MutationOutputBound(ctx);
   if (_lesson18QueryConfigured && isLesson18FetchNodeReady()) return;
 
-  await openWfNodeConfigById(ctx, LESSON18_NODE_FETCH);
-  await ctx.waitFor(GQL.WF_QUERY_PANEL, 5000);
-  await ctx.fill(WF.WF_GQL_ENDPOINT, GQL_DEMO_HTTP);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_QUERY_EDITOR, LESSON18_GET_USER_QUERY);
-  await ctx.delay(300);
+  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_FETCH });
+  await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON18_GET_USER_QUERY);
+  await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Variables');
-  await ctx.fill(GQL.WF_VARIABLES_EDITOR, LESSON18_QUERY_VARS);
-  await ctx.delay(300);
+  await fillWfConfigField(ctx, GQL.WF_VARIABLES_EDITOR, LESSON18_QUERY_VARS);
+  await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Output');
   if (!document.querySelector(GQL.WF_OUTPUT_FIELD_SELECT)) {
-    await ctx.click(GQL.WF_OUTPUT_ADD_BTN);
-    await ctx.delay(300);
+    await clickWfConfigAddRow(ctx, GQL.WF_OUTPUT_ADD_BTN, GQL.WF_OUTPUT_FIELD_SELECT);
   }
-  await ctx.selectOption(GQL.WF_OUTPUT_FIELD_SELECT, 'data');
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_OUTPUT_VARNAME, LESSON18_FETCHED_USER_VAR);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await selectWfConfigOption(ctx, GQL.WF_OUTPUT_FIELD_SELECT, 'data');
+  await fillWfConfigField(ctx, GQL.WF_OUTPUT_VARNAME, LESSON18_FETCHED_USER_VAR);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson18QueryConfigured = true;
 }
 
@@ -372,25 +337,22 @@ export async function ensureLesson18AssertConfigured(ctx: DemoActionContext): Pr
   await ensureLesson18QueryConfigured(ctx);
   if (_lesson18AssertConfigured && isLesson18AssertNodeReady()) return;
 
-  await openWfNodeConfigById(ctx, LESSON18_NODE_ASSERT);
-  await ctx.waitFor(GQL.WF_ASSERT_PANEL, 5000);
+  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_ASSERT });
+  await waitForWfConfigPanel(ctx, GQL.WF_ASSERT_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
-  await ctx.fill(WF.WF_GQL_ASSERT_SOURCE, LESSON18_FETCHED_USER_VAR);
-  await ctx.delay(300);
+  await fillWfConfigField(ctx, WF.WF_GQL_ASSERT_SOURCE, LESSON18_FETCHED_USER_VAR);
+  await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
   if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
-    await ctx.click(GQL.WF_ASSERT_ADD_BTN);
-    await ctx.delay(300);
+    await clickWfConfigAddRow(ctx, GQL.WF_ASSERT_ADD_BTN, GQL.WF_ASSERT_JSONPATH);
   }
-  await ctx.fill(GQL.WF_ASSERT_JSONPATH, '$.user.name');
-  await ctx.delay(200);
-  await ctx.selectOption(GQL.WF_ASSERT_OPERATOR, 'equals');
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_ASSERT_EXPECTED, `{{${LESSON18_TEST_NAME_VAR}}}`);
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_ASSERT_DESCRIPTION, 'Fetched user name matches testName');
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await fillWfConfigField(ctx, GQL.WF_ASSERT_JSONPATH, '$.user.name');
+  await selectWfConfigOption(ctx, GQL.WF_ASSERT_OPERATOR, 'equals');
+  await pauseWfConfigSection(ctx);
+  await fillWfConfigField(ctx, GQL.WF_ASSERT_EXPECTED, `{{${LESSON18_TEST_NAME_VAR}}}`);
+  await fillWfConfigField(ctx, GQL.WF_ASSERT_DESCRIPTION, 'Fetched user name matches testName');
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson18AssertConfigured = true;
 }
 
@@ -440,16 +402,15 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
   connectWfNodesById(LESSON18_NODE_DELETE, LESSON18_NODE_END);
   await ctx.delay(400);
 
-  await openWfNodeConfigById(ctx, LESSON18_NODE_DELETE);
-  await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
-  await ctx.fill(WF.WF_GQL_MUTATION_ENDPOINT, GQL_DEMO_HTTP);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
-  await ctx.delay(300);
+  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_DELETE });
+  await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
+  await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
-  await ctx.fill(GQL.WF_VARIABLES_EDITOR, LESSON18_DELETE_VARS);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await fillWfConfigField(ctx, GQL.WF_VARIABLES_EDITOR, LESSON18_DELETE_VARS);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   await clickWfFitView(ctx);
   _lesson18DeleteAdded = true;
 }
@@ -472,7 +433,7 @@ export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Pr
     wfInsert(createGqlMutationDemoWorkflow());
     await ctx.delay(300);
   }
-  await closeWfConfigModalQuiet(ctx);
+  await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissWorkflowOnboarding(ctx);
@@ -481,7 +442,7 @@ export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Pr
 }
 
 export async function gqlWorkflowMutationLessonCleanup(ctx: DemoActionContext): Promise<void> {
-  await closeWfConfigModalQuiet(ctx);
+  await closeWfConfigModalIfOpen(ctx);
   const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
     | ((name: string) => void)
     | undefined;

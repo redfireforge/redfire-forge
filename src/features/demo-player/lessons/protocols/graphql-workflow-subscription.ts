@@ -9,11 +9,22 @@ import {
   LESSON19_STOP_AFTER_SECS,
   LESSON19_STOP_AFTER_MESSAGES,
   ensureLesson19WorkflowLoaded,
+  isLesson19SubQueryReady,
   ensureLesson19SubscriptionConfigured,
   ensureLesson19SubscriptionTimeout,
   ensureLesson19SubscriptionCorrelation,
   ensureLesson19SubscriptionOutputBound,
-  ensureLesson19QuickTestRun,
+  performLesson19SubscriptionConfigured,
+  performLesson19SubscriptionTimeout,
+  performLesson19SubscriptionCorrelation,
+  performLesson19SubscriptionOutputBound,
+  performLesson19QuickTestRun,
+  prepareLesson19SubscriptionSpotlight,
+  prepareLesson19StopTimeoutSpotlight,
+  prepareLesson19StopMessagesSpotlight,
+  prepareLesson19OutputSpotlight,
+  prepareLesson19QuickTestSpotlight,
+  prepareLesson19SummarySpotlight,
   gqlWorkflowSubscriptionLessonSetup,
   gqlWorkflowSubscriptionLessonCleanup,
 } from './graphql-lesson-helpers';
@@ -207,7 +218,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-canvas-tour',
       title: 'Seeded Canvas — The Order Flow Chain',
       description:
-        `The canvas shows the complete event-driven test chain:\n\n**Start** → **Create Order** (Mutation) → **Watch Order Status** (Subscription) → **Assert Complete** (Assert) → **End**\n\nThe Mutation node writes an order and binds \`${LESSON19_ORDER_ID_VAR}\`. The Subscription node opens a WebSocket, listens for \`orderStatus\` events scoped to that ID, and binds the final event to \`${LESSON19_FINAL_STATUS_VAR}\`. The Assert node verifies the status equals **COMPLETE**.\n\nNotice the teal **S** badge on Watch Order Status — it distinguishes event-stream nodes from the amber **M** (write) and purple **Q** (read) nodes you saw in earlier lessons.`,
+        `The canvas shows the complete event-driven test chain:\n\n**Start** → **Create Order** (Mutation) → **Watch Order Status** (Subscription) → **Assert Complete** (Assert) → **End**\n\n**Create Order** is pre-wired: \`createOrder\` mutation plus an Extraction rule (\`$.createOrder.id\` → \`${LESSON19_ORDER_ID_VAR}\`). You will configure **Watch Order Status** in the next steps.\n\nThe Subscription node will open a WebSocket, listen for \`orderStatus\` events scoped to that ID, and bind the final event to \`${LESSON19_FINAL_STATUS_VAR}\`. **Assert Complete** already checks \`$.orderStatus.status\` equals **COMPLETE**.\n\nNotice the teal **S** badge on Watch Order Status — it distinguishes event-stream nodes from the amber **M** (write) and purple **Q** (read) nodes you saw in earlier lessons.`,
       highlight: WF.CANVAS,
       preAction: ensureLesson19WorkflowLoaded,
       action: async (ctx) => {
@@ -222,11 +233,11 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-config-sub',
       title: 'Configure the Subscription Node',
       description:
-        `Double-click **Watch Order Status** to open its config panel. On the **Subscription** tab:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Subscription query:** \`orderStatus(orderId: $orderId) { status updatedAt }\`\n- **Variables:** \`{ "orderId": {{${LESSON19_ORDER_ID_VAR}}} }\` — **no quotes** around \`{{${LESSON19_ORDER_ID_VAR}}}\`; extraction stores JSON-serialized values.\n\nThe \`{{${LESSON19_ORDER_ID_VAR}}}\` token resolves from the upstream **Create Order** mutation's Extraction rule (\`$.createOrder.id\`). This is the subscription equivalent of Kafka's correlation expression — the node listens only for events belonging to **this workflow run's order**, not every order on the server.\n\nSave when done.`,
-      highlight: GQL.WF_SUBSCRIPTION_PANEL,
-      preAction: ensureLesson19WorkflowLoaded,
+        `The **Watch Order Status** config panel opens on the **Subscription** tab. Set:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Subscription query:** the \`WatchOrder\` subscription with \`orderStatus(orderId: $orderId) { status updatedAt }\`\n- **Variables:** \`{ "orderId": {{${LESSON19_ORDER_ID_VAR}}} }\` — **no quotes** around \`{{${LESSON19_ORDER_ID_VAR}}}\`; extraction stores JSON-serialized values.\n\nThe \`{{${LESSON19_ORDER_ID_VAR}}}\` token resolves from the upstream **Create Order** Extraction rule (\`$.createOrder.id\`). This is the subscription equivalent of Kafka's correlation expression — the node listens only for events belonging to **this workflow run's order**, not every order on the server.\n\nSave when done.`,
+      highlight: GQL.WF_SUBSCRIPTION_QUERY_EDITOR,
+      preAction: prepareLesson19SubscriptionSpotlight,
       action: async (ctx) => {
-        await ensureLesson19SubscriptionConfigured(ctx);
+        await performLesson19SubscriptionConfigured(ctx);
         await ctx.delay(800);
       },
       verify: GQL.WF_CANVAS_SUBSCRIPTION_NODE,
@@ -237,11 +248,17 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-timeout',
       title: 'Subscription Timeout — Wall-Clock Safety Cap',
       description:
-        `Switch to the **Stop** tab. Set **After (seconds)** to **${LESSON19_STOP_AFTER_SECS}**.\n\nThis is the maximum wall-clock time the subscription node waits before exiting — directly analogous to Kafka Wait's \`maxWaitMs\`. If the WebSocket stream delivers no events within 5 seconds, the node completes anyway instead of hanging the workflow indefinitely.\n\nIn production, set this generously above your expected event latency (e.g. 30–60 s for slow pipelines). For the Docker demo server, events arrive within ~1 s, so 5 s is a comfortable safety margin with room to spare.`,
+        `The **Stop** tab is open. Set **After (seconds)** to **${LESSON19_STOP_AFTER_SECS}**.\n\nThis is the maximum wall-clock time the subscription node waits before exiting — directly analogous to Kafka Wait's \`maxWaitMs\`. If the WebSocket stream delivers no events within 5 seconds, the node completes anyway instead of hanging the workflow indefinitely.\n\nIn production, set this generously above your expected event latency (e.g. 30–60 s for slow pipelines). For the Docker demo server, events arrive within ~1 s, so 5 s is a comfortable safety margin with room to spare.`,
       highlight: GQL.WF_STOP_SECS_INPUT,
-      preAction: ensureLesson19SubscriptionConfigured,
+      preAction: async (ctx) => {
+        await ensureLesson19WorkflowLoaded(ctx);
+        if (!isLesson19SubQueryReady()) {
+          await ensureLesson19SubscriptionConfigured(ctx);
+        }
+        await prepareLesson19StopTimeoutSpotlight(ctx);
+      },
       action: async (ctx) => {
-        await ensureLesson19SubscriptionTimeout(ctx);
+        await performLesson19SubscriptionTimeout(ctx);
         await ctx.delay(800);
       },
       verify: GQL.WF_CANVAS_SUBSCRIPTION_NODE,
@@ -254,9 +271,16 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       description:
         `Still on the **Stop** tab, set **After N messages** to **${LESSON19_STOP_AFTER_MESSAGES}**.\n\nThe Docker test server emits exactly three \`orderStatus\` events per order: **PENDING** → **PROCESSING** → **COMPLETE** (300 ms apart). Collecting 3 messages ensures the node captures the full progression and the \`lastMessage\` binding holds the final **COMPLETE** status.\n\nCombined with the Variables JSON \`"orderId": {{${LESSON19_ORDER_ID_VAR}}}\`, this is full **correlation**: each concurrent workflow iteration creates its own order, subscribes to its own ID, and collects its own three events — no cross-contamination between parallel runs.`,
       highlight: GQL.WF_STOP_MESSAGES_INPUT,
-      preAction: ensureLesson19SubscriptionTimeout,
+      preAction: async (ctx) => {
+        await ensureLesson19WorkflowLoaded(ctx);
+        if (!isLesson19SubQueryReady()) {
+          await ensureLesson19SubscriptionConfigured(ctx);
+        }
+        await ensureLesson19SubscriptionTimeout(ctx);
+        await prepareLesson19StopMessagesSpotlight(ctx);
+      },
       action: async (ctx) => {
-        await ensureLesson19SubscriptionCorrelation(ctx);
+        await performLesson19SubscriptionCorrelation(ctx);
         await ctx.delay(800);
       },
       verify: GQL.WF_CANVAS_SUBSCRIPTION_NODE,
@@ -267,11 +291,19 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-sample-payload',
       title: 'Output Binding — Capture the Final Event',
       description:
-        `Switch to the **Output** tab. Click **+ Add** and configure:\n\n- **Field:** \`lastMessage\`\n- **Variable name:** \`${LESSON19_FINAL_STATUS_VAR}\`\n\nSave.\n\nKafka's Wait node has a **Sample Payload** field for Quick Test without a live broker. GraphQL Subscription has no equivalent — instead, this demo relies on **live WebSocket events** from the Docker server: when Create Order runs, the server automatically emits the three status events on the subscription stream.\n\nThe **Stop** rules (3 messages + 5 s cap) are the anti-hang safeguard: they ensure Quick Test always completes even if the WebSocket connection is slow to establish.`,
-      highlight: GQL.WF_OUTPUT_TABLE,
-      preAction: ensureLesson19SubscriptionCorrelation,
+        `The **Output** tab is open. Click **+ Add** and configure:\n\n- **Field:** \`lastMessage\`\n- **Variable name:** \`${LESSON19_FINAL_STATUS_VAR}\`\n\nSave.\n\nKafka's Wait node has a **Sample Payload** field for Quick Test without a live broker. GraphQL Subscription has no equivalent — instead, this demo relies on **live WebSocket events** from the Docker server: when Create Order runs, the server automatically emits the three status events on the subscription stream.\n\nThe **Stop** rules (3 messages + 5 s cap) are the anti-hang safeguard: they ensure Quick Test always completes even if the WebSocket connection is slow to establish.`,
+      highlight: GQL.WF_OUTPUT_ADD_BTN,
+      preAction: async (ctx) => {
+        await ensureLesson19WorkflowLoaded(ctx);
+        if (!isLesson19SubQueryReady()) {
+          await ensureLesson19SubscriptionConfigured(ctx);
+        }
+        await ensureLesson19SubscriptionTimeout(ctx);
+        await ensureLesson19SubscriptionCorrelation(ctx);
+        await prepareLesson19OutputSpotlight(ctx);
+      },
       action: async (ctx) => {
-        await ensureLesson19SubscriptionOutputBound(ctx);
+        await performLesson19SubscriptionOutputBound(ctx);
         await ctx.delay(800);
       },
       verify: GQL.WF_CANVAS_SUBSCRIPTION_NODE,
@@ -282,11 +314,14 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-quick-test',
       title: 'Quick Test — Live Event Chain',
       description:
-        `Open the **Console** (status bar badge), then click **▶ Quick Test**. Watch the canvas execute in sequence:\n\n1. **Create Order** turns green — mutation returns an \`orderId\`, bound via Extraction\n2. **Watch Order Status** turns green — WebSocket receives 3 events (PENDING → PROCESSING → COMPLETE)\n3. **Assert Complete** turns green — \`$.orderStatus.status\` equals **COMPLETE**\n\nThe Console shows the full chain: mutation request, subscription messages with timestamps, extracted \`${LESSON19_ORDER_ID_VAR}\` and \`${LESSON19_FINAL_STATUS_VAR}\` values, and the assertion result. Total wall time is typically under 2 seconds against the local Docker server.`,
+        `With the **Console** floating on the left, click **▶ Quick Test** and watch the canvas execute in sequence:\n\n1. **Create Order** turns green — mutation returns an \`orderId\`, bound via Extraction\n2. **Watch Order Status** turns green — WebSocket receives 3 events (PENDING → PROCESSING → COMPLETE)\n3. **Assert Complete** turns green — \`$.orderStatus.status\` equals **COMPLETE**\n\nThe Console shows the full chain: mutation variables and response data, each subscription message, extracted \`${LESSON19_ORDER_ID_VAR}\` and \`${LESSON19_FINAL_STATUS_VAR}\`, and the pass summary. Total wall time is typically under 2 seconds against the local Docker server.`,
       highlight: WF.QUICK_TEST_BTN,
-      preAction: ensureLesson19SubscriptionOutputBound,
+      preAction: async (ctx) => {
+        await ensureLesson19SubscriptionOutputBound(ctx);
+        await prepareLesson19QuickTestSpotlight(ctx);
+      },
       action: async (ctx) => {
-        await ensureLesson19QuickTestRun(ctx);
+        await performLesson19QuickTestRun(ctx);
         await ctx.delay(800);
       },
       verify: WF.EXEC_SUMMARY,
@@ -297,9 +332,12 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-load-behavior',
       title: 'Load Test Behavior — Per-Iteration Isolation',
       description:
-        `When this workflow runs in the **Workflow Runner** with concurrency > 1, each parallel iteration executes its own Create Order mutation — producing a **unique \`${LESSON19_ORDER_ID_VAR}\`**. The subscription Variables JSON scopes each WebSocket to that ID, so concurrent iterations never receive each other's events.\n\nContrast with Kafka's \`auto-resume\` vs \`wait-for-real\` modes: GraphQL subscriptions always wait for **real WebSocket events**. The per-iteration \`${LESSON19_ORDER_ID_VAR}\` correlation is what makes load testing safe — without it, iteration A's subscription could receive iteration B's COMPLETE event and produce a false pass.\n\n**After N messages = 3** ensures each iteration collects its full status progression before asserting, regardless of concurrency level.`,
+        `Re-open **Watch Order Status** on the **Stop** tab — the rules you just configured.\n\nWhen this workflow runs in the **Workflow Runner** with concurrency > 1, each parallel iteration executes its own Create Order mutation — producing a **unique \`${LESSON19_ORDER_ID_VAR}\`**. The subscription Variables JSON scopes each WebSocket to that ID, so concurrent iterations never receive each other's events.\n\nContrast with Kafka's \`auto-resume\` vs \`wait-for-real\` modes: GraphQL subscriptions always wait for **real WebSocket events**. The per-iteration \`${LESSON19_ORDER_ID_VAR}\` correlation is what makes load testing safe — without it, iteration A's subscription could receive iteration B's COMPLETE event and produce a false pass.\n\n**After N messages = ${LESSON19_STOP_AFTER_MESSAGES}** ensures each iteration collects its full status progression before asserting, regardless of concurrency level.`,
       highlight: GQL.WF_STOP_MESSAGES_INPUT,
-      preAction: ensureLesson19QuickTestRun,
+      preAction: async (ctx) => {
+        await ensureLesson19SubscriptionOutputBound(ctx);
+        await prepareLesson19StopMessagesSpotlight(ctx);
+      },
       pauseAfter: true,
     },
 
@@ -309,7 +347,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       description:
         `You have built the complete **event-driven integration test** pattern in the Workflow Designer:\n\n1. **Mutation** — trigger the action (createOrder), bind the returned ID\n2. **Subscription** — wait for the system's response event (orderStatus), scoped by correlation\n3. **Assert** — verify the final event payload matches expectations\n\nThis pattern generalizes beyond GraphQL: an HTTP webhook trigger + GraphQL subscription wait, or a Kafka produce + GraphQL subscription assert, are all valid cross-protocol workflows in RedfireForge. The Subscription node is the real-time bridge between write operations and event verification.`,
       highlight: WF.CANVAS,
-      preAction: ensureLesson19QuickTestRun,
+      preAction: prepareLesson19SummarySpotlight,
       pauseAfter: true,
     },
   ],

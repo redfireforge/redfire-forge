@@ -11,6 +11,7 @@ vi.mock('../../../shared/utils/storage', () => ({
 }));
 
 import { readKey, writeKey } from '../../../shared/utils/storage';
+import { GQL_ENVS_RELOAD_EVENT } from '../utils/gqlStudioEnvironmentStorage';
 import { useGraphqlEnvironments, generateVarId } from './useGraphqlEnvironments';
 
 beforeEach(() => {
@@ -412,5 +413,99 @@ describe('generateVarId', () => {
     const b = generateVarId();
     expect(typeof a).toBe('string');
     expect(a).not.toBe(b);
+  });
+});
+
+describe('useGraphqlEnvironments — deleteEnvironmentByName', () => {
+  it('removes environments matching the given name', async () => {
+    const stored = [
+      { id: 'env-1', name: 'Demo', variables: [], isActive: true, createdAt: 1, updatedAt: 1 },
+      { id: 'env-2', name: 'Prod', variables: [], isActive: false, createdAt: 1, updatedAt: 1 },
+    ];
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify(stored));
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(result.current.environments).toHaveLength(2));
+    act(() => { result.current.deleteEnvironmentByName('Demo'); });
+    expect(result.current.environments).toHaveLength(1);
+    expect(result.current.environments[0].name).toBe('Prod');
+    expect(result.current.environments[0].isActive).toBe(true);
+  });
+
+  it('is a no-op when name does not exist', async () => {
+    const stored = [{ id: 'env-1', name: 'Dev', variables: [], isActive: true, createdAt: 1, updatedAt: 1 }];
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify(stored));
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(result.current.environments).toHaveLength(1));
+    act(() => { result.current.deleteEnvironmentByName('Missing'); });
+    expect(result.current.environments).toHaveLength(1);
+  });
+});
+
+describe('useGraphqlEnvironments — reload event', () => {
+  it('reloads environments when GQL_ENVS_RELOAD_EVENT fires', async () => {
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify([
+      { id: 'env-1', name: 'Dev', variables: [], isActive: true, createdAt: 1, updatedAt: 1 },
+    ]));
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(result.current.environments).toHaveLength(1));
+
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify([
+      { id: 'env-1', name: 'Dev', variables: [], isActive: false, createdAt: 1, updatedAt: 1 },
+      { id: 'env-2', name: 'Staging', variables: [], isActive: true, createdAt: 1, updatedAt: 1 },
+    ]));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(GQL_ENVS_RELOAD_EVENT));
+    });
+    await waitFor(() => expect(result.current.environments).toHaveLength(2));
+    expect(result.current.activeEnvironment?.name).toBe('Staging');
+  });
+});
+
+describe('useGraphqlEnvironments — upsert merge', () => {
+  it('updates existing environment variables in place', async () => {
+    const stored = [{ id: 'env-1', name: 'Demo', variables: [{ key: 'A', value: '1', enabled: true, masked: false }], isActive: false, createdAt: 1, updatedAt: 1 }];
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify(stored));
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(result.current.environments).toHaveLength(1));
+
+    act(() => {
+      result.current.upsertEnvironment('Demo', [
+        { key: 'A', value: 'updated', masked: false },
+        { key: 'B', value: 'new' },
+      ]);
+    });
+
+    const demo = result.current.environments.find((e) => e.name === 'Demo');
+    expect(demo?.isActive).toBe(true);
+    expect(demo?.variables).toEqual([
+      { key: 'A', value: 'updated', enabled: true, masked: false },
+      { key: 'B', value: 'new', enabled: true, masked: true },
+    ]);
+  });
+});
+
+describe('useGraphqlEnvironments — persist errors', () => {
+  it('handles writeKey failure silently after mutation', async () => {
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    await waitFor(() => expect(vi.mocked(readKey)).toHaveBeenCalled());
+    vi.mocked(writeKey).mockRejectedValue(new Error('quota'));
+    act(() => { result.current.createEnvironment('Offline'); });
+    expect(result.current.environments).toHaveLength(1);
+  });
+});
+
+describe('useGraphqlEnvironments — load race', () => {
+  it('keeps in-memory mutations when async load completes late', async () => {
+    let resolveRead: (value: string | null) => void = () => {};
+    vi.mocked(readKey).mockImplementation(() => new Promise((resolve) => {
+      resolveRead = resolve;
+    }));
+    const { result } = renderHook(() => useGraphqlEnvironments());
+    act(() => { result.current.createEnvironment('Early'); });
+    resolveRead(JSON.stringify([
+      { id: 'env-stale', name: 'Stale', variables: [], isActive: true, createdAt: 1, updatedAt: 1 },
+    ]));
+    await waitFor(() => expect(result.current.environments).toHaveLength(1));
+    expect(result.current.environments[0].name).toBe('Early');
   });
 });

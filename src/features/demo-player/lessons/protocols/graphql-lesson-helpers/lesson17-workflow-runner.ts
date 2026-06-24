@@ -36,7 +36,7 @@ export function resetGqlLesson17SessionFlags(): void {
 
 /**
  * Creates a minimal "GraphQL Latency Demo" workflow:
- * Start → GraphQL Query (health check, latencyMs bound) → GraphQL Assert (< 500ms) → End.
+ * Start → GraphQL Query (health check, latencyMs bound) → GraphQL Assert (< 2000ms) → End.
  * Used by setup to seed the workflow when the user hasn't completed GQL-16 yet.
  */
 export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
@@ -86,8 +86,8 @@ export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
             id: 'gql17-latency-assert',
             jsonPath: '$',
             operator: 'less_than',
-            expectedValue: '500',
-            description: 'Latency under 500ms',
+            expectedValue: '2000',
+            description: 'Latency under 2000ms',
           }],
           failBehavior: 'error',
         },

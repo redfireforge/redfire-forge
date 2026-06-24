@@ -231,4 +231,44 @@ describe('useVerticalSplitPaneResize', () => {
     expect(result.current.maxHeight).toBe(320);
     expect(result.current.height).toBe(320);
   });
+
+  it('clamps using defaults when container ref is null', async () => {
+    const { result } = renderHook(() =>
+      useVerticalSplitPaneResize(baseOptions(null)),
+    );
+    await act(async () => {
+      await tick();
+    });
+    act(() => result.current.dividerProps.onKeyDown(keyEvent('ArrowUp')));
+    expect(result.current.height).toBe(300);
+    act(() => result.current.dividerProps.onKeyDown(keyEvent('ArrowDown')));
+    expect(result.current.height).toBe(284);
+  });
+
+  it('applies maxHeightRatio when resizing', async () => {
+    const container = makeContainer(800);
+    const { result } = renderHook(() =>
+      useVerticalSplitPaneResize(baseOptions(container, { maxHeightRatio: 0.25 })),
+    );
+    await act(async () => {
+      await tick();
+    });
+    expect(result.current.maxHeight).toBe(200);
+  });
+
+  it('flushes height to storage on unmount after load completes', async () => {
+    const container = makeContainer(800);
+    const { result, unmount } = renderHook(() =>
+      useVerticalSplitPaneResize(baseOptions(container)),
+    );
+    await act(async () => {
+      await tick();
+    });
+    act(() => result.current.dividerProps.onKeyDown(keyEvent('ArrowDown')));
+    unmount();
+    await act(async () => {
+      await tick();
+    });
+    expect(localStorage.getItem('test-vsplit')).toBeTruthy();
+  });
 });

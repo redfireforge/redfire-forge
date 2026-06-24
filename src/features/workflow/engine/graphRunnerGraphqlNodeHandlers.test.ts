@@ -304,7 +304,10 @@ describe('handleGraphqlQueryNode — graphqlQuery', () => {
 
   it('applies output bindings for string and non-string values while skipping disabled/blank bindings', async () => {
     mockFetch({ data: { user: { id: '7' } }, errors: ['warn'] });
-    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      log: (line) => cbResult.logLines.push(line),
+    });
     const passed = makePassedFlag();
     const node = queryNode('q12', {
       outputBindings: [
@@ -320,6 +323,8 @@ describe('handleGraphqlQueryNode — graphqlQuery', () => {
     expect(hCtx.ctx.get('opName')).toBe('GQL Query');
     expect(hCtx.ctx.get('payload')).toContain('"user"');
     expect(hCtx.ctx.get('skipDisabled')).toBeUndefined();
+    expect(cbResult.logLines.some((l) => l.text.includes('Data:') && l.text.includes('user'))).toBe(true);
+    expect(cbResult.logLines.some((l) => l.prefix === '#' && l.text.includes('opName'))).toBe(true);
   });
 
   it('enforces timeoutMs — fails when fetch rejects with a timeout DOMException', async () => {
@@ -643,7 +648,10 @@ describe('handleGraphqlSubscriptionNode', () => {
       }),
     });
 
-    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      log: (line) => cbResult.logLines.push(line),
+    });
     const passed = makePassedFlag();
     const node = subscriptionNode('s6', {
       stopAfterMessages: 1,
@@ -654,6 +662,8 @@ describe('handleGraphqlSubscriptionNode', () => {
 
     expect(hCtx.ctx.get('lastItemId')).toBe('"msg-1"');
     expect(passed.value).toBe(true);
+    expect(cbResult.logLines.some((l) => l.text.includes('Message 1') && l.text.includes('msg-1'))).toBe(true);
+    expect(cbResult.logLines.some((l) => l.prefix === '#' && l.text.includes('lastItemId'))).toBe(true);
   });
 
   it('uses legacy graphql-ws protocol when selected', async () => {
@@ -1866,6 +1876,21 @@ describe('handleGraphqlAssertNode — additional branches', () => {
     await handleGraphqlAssertNode('a_desc', node, hCtx, passed);
     expect(passed.value).toBe(false);
     expect(cbResult.states['a_desc']?.error).toContain('Custom failure msg');
+    expect(cbResult.states['a_desc']?.error).toContain('$.count');
+  });
+
+  it('fails with actionable message when source variable is unset', async () => {
+    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const passed = makePassedFlag();
+    const node = assertNode('a_unset', {
+      sourceVariable: 'gqlLatency',
+      failBehavior: 'error',
+      assertions: [{ id: 'x', jsonPath: '$', operator: 'less_than', expectedValue: '500' }],
+    });
+    await handleGraphqlAssertNode('a_unset', node, hCtx, passed);
+    expect(passed.value).toBe(false);
+    expect(cbResult.states['a_unset']?.error).toContain('gqlLatency');
+    expect(cbResult.states['a_unset']?.error).toContain('not set');
   });
 
   it('uses description in warn path and still passes (L703 cond-expr[0])', async () => {
