@@ -7,10 +7,31 @@ import {
 } from '../../env-manager-lesson-helpers';
 import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
-import { loadDemoSession } from '../../../../graphql/utils/gqlDemoWorkspace';
+import {
+  dispatchGqlPageEndpointReload,
+  loadDemoSession,
+  patchDemoTabConnection,
+} from '../../../../graphql/utils/gqlDemoWorkspace';
+import { restorePageEndpointSnapshot } from '../../../../graphql/utils/tabPersistence';
+import { normalizeGraphqlEndpoint } from '../../../../graphql/utils/graphqlEndpointUtils';
 
 /** HTTP GraphQL endpoint for the Docker test server (port 4010). */
 export const GQL_DEMO_HTTP = 'http://localhost:4010/graphql';
+/**
+ * Canonical connection id for GraphQL Studio history, snapshots, and mock config.
+ * Web resolves loopback to 127.0.0.1; Tauri prefers localhost — must match Studio normalization.
+ */
+export const GQL_DEMO_CONNECTION_ID = normalizeGraphqlEndpoint(GQL_DEMO_HTTP);
+
+/** All loopback variants that may hold legacy demo snapshot rows. */
+export function gqlDemoSnapshotConnectionIds(): string[] {
+  return [...new Set([
+    GQL_DEMO_CONNECTION_ID,
+    GQL_DEMO_HTTP,
+    'http://localhost:4010/graphql',
+    'http://127.0.0.1:4010/graphql',
+  ])];
+}
 /** Template variable resolved from Environment Manager GraphQL tab. */
 export const GQL_DEMO_VAR = '{{graphqlUrl}}';
 /** Health probe URL for PrerequisiteGate. */
@@ -105,6 +126,22 @@ export async function clearActiveTabEndpointOverride(ctx: DemoActionContext): Pr
 }
 
 /**
+ * Set the page-level GraphQL endpoint to `{{graphqlUrl}}` so demo tabs inherit the
+ * env-managed template instead of a resolved loopback literal (§11.0).
+ */
+export async function ensureGqlDemoPageDefaultEndpoint(ctx: DemoActionContext): Promise<void> {
+  await restorePageEndpointSnapshot(GQL_DEMO_VAR);
+  dispatchGqlPageEndpointReload();
+  await ctx.delay(500);
+  await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  for (let i = 0; i < 20; i++) {
+    const v = (getEndpointInput()?.value ?? '').trim();
+    if (v === GQL_DEMO_VAR) return;
+    await ctx.delay(100);
+  }
+}
+
+/**
  * Demo tab should use page `{{graphqlUrl}}` without storing a per-tab override
  * (required when the user already has tabs open — §11.0).
  */
@@ -119,6 +156,7 @@ export async function configureDemoTabInheritPageDefault(ctx: DemoActionContext)
       await ctx.delay(400);
     }
   }
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
   await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
   // Wait for the demo tab to appear in the tab bar so endpoint edits stay tab-scoped (§11.0).
   const tabBarSel = `${GQL.TAB_BAR} [role="tab"]`;
@@ -127,11 +165,13 @@ export async function configureDemoTabInheritPageDefault(ctx: DemoActionContext)
     await ctx.delay(100);
   }
   await ctx.delay(400);
+  await clearActiveTabEndpointOverride(ctx);
+  await patchDemoTabConnection({ endpoint: undefined });
   const v = (getEndpointInput()?.value ?? '').trim();
   if (v !== GQL_DEMO_VAR) {
     await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
+    await patchDemoTabConnection({ endpoint: undefined });
   }
-  await clearActiveTabEndpointOverride(ctx);
 }
 
 /** Demo tab explicit per-tab URL override (mutations server, mock, TLS, schema literal URL). */

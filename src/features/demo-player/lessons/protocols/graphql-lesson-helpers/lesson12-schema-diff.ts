@@ -1,12 +1,14 @@
 // ── Lesson 12: Schema Diff ─────────────────────────────────────────────────────
 
 import type { DemoActionContext } from '../../../types';
+import type { GraphqlSchemaSnapshot } from '../../../../../shared/types/graphql';
 import { GQL } from '../../../../../shared/selectors';
 import {
-  GQL_DEMO_HTTP,
+  GQL_DEMO_CONNECTION_ID,
   ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
+  gqlDemoSnapshotConnectionIds,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
@@ -106,6 +108,42 @@ function findBaselineChangelogRow(): HTMLElement | null {
   return rows[0] ?? null;
 }
 
+async function findExistingBaselineSnapshot(): Promise<{
+  snapshot: GraphqlSchemaSnapshot;
+  connectionId: string;
+} | null> {
+  const { loadSnapshots } = await import('../../../../graphql/utils/schemaSnapshot');
+  for (const connectionId of gqlDemoSnapshotConnectionIds()) {
+    const found = (await loadSnapshots(connectionId)).find(
+      (s) => s.label === LESSON12_BASELINE_LABEL,
+    );
+    if (found) return { snapshot: found, connectionId };
+  }
+  return null;
+}
+
+/** Select the prior-release baseline row and ensure compare target is the live schema. */
+async function selectBaselineChangelogRow(ctx: DemoActionContext): Promise<boolean> {
+  markLesson12BaselineRow();
+  let row = document.querySelector<HTMLElement>(GQL.CHANGELOG_BASELINE_ROW);
+  if (!row) {
+    row = findBaselineChangelogRow();
+    row?.setAttribute('data-lesson-baseline', 'true');
+  }
+  if (!row) return false;
+
+  await ctx.click(GQL.CHANGELOG_BASELINE_ROW);
+  await ctx.delay(500);
+
+  const compareSelect = document.querySelector<HTMLSelectElement>(GQL.CHANGELOG_COMPARE_SELECT);
+  if (compareSelect && compareSelect.value !== '') {
+    compareSelect.value = '';
+    compareSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await ctx.delay(300);
+  }
+  return true;
+}
+
 /** Mark the baseline snapshot row so lesson spotlights target the correct diff button. */
 export function markLesson12BaselineRow(): void {
   document.querySelectorAll('[data-lesson-baseline="true"]').forEach((el) => {
@@ -118,19 +156,27 @@ export function markLesson12BaselineRow(): void {
 /** Seed a prior-release snapshot in IDB (silent setup — UI refreshes after step 1 save). */
 export async function ensureLesson12BaselineSnapshot(): Promise<void> {
   if (_lesson12BaselineId) return;
-  const { loadSnapshots, saveSnapshot } = await import(
+  const { saveSnapshot, deleteSnapshot } = await import(
     '../../../../graphql/utils/schemaSnapshot'
   );
-  const existing = await loadSnapshots(GQL_DEMO_HTTP);
-  const found = existing.find((s) => s.label === LESSON12_BASELINE_LABEL);
-  if (found) {
-    _lesson12BaselineId = found.id;
+
+  const existing = await findExistingBaselineSnapshot();
+  if (existing) {
+    const { snapshot, connectionId } = existing;
+    if (connectionId === GQL_DEMO_CONNECTION_ID) {
+      _lesson12BaselineId = snapshot.id;
+      return;
+    }
+    await deleteSnapshot(snapshot.id);
+    await saveSnapshot({ ...snapshot, connectionId: GQL_DEMO_CONNECTION_ID });
+    _lesson12BaselineId = snapshot.id;
     return;
   }
+
   const id = crypto.randomUUID();
   await saveSnapshot({
     id,
-    connectionId: GQL_DEMO_HTTP,
+    connectionId: GQL_DEMO_CONNECTION_ID,
     sdl: LESSON12_BASELINE_SDL,
     typesCount: 10,
     capturedAt: Date.now() - 7 * 86_400_000,
@@ -214,12 +260,15 @@ export async function ensureLesson12DiffOpen(ctx: DemoActionContext): Promise<vo
   await ensureLesson12BaselineReady(ctx);
   if (_lesson12DiffOpen && document.querySelector(GQL.DIFF_MODAL)) return;
 
-  markLesson12BaselineRow();
-  const baselineRow = document.querySelector(GQL.CHANGELOG_BASELINE_ROW);
-  if (baselineRow) {
-    await ctx.click(GQL.CHANGELOG_BASELINE_ROW);
-    await ctx.delay(500);
+  const baselineSelected = await selectBaselineChangelogRow(ctx);
+  if (!baselineSelected) {
+    await ensureLesson12BaselineSnapshot();
+    notifyGqlSnapshotsChanged();
+    await ctx.delay(900);
+    markLesson12BaselineRow();
+    await selectBaselineChangelogRow(ctx);
   }
+
   await ctx.click(GQL.CHANGELOG_DIFF_BTN);
   await ctx.waitFor(GQL.DIFF_MODAL, 5000);
   await ctx.delay(800);
@@ -256,12 +305,17 @@ async function cleanupLesson12Snapshots(): Promise<void> {
     const { loadSnapshots, deleteSnapshot } = await import(
       '../../../../graphql/utils/schemaSnapshot'
     );
-    const snaps = await loadSnapshots(GQL_DEMO_HTTP);
-    for (const s of snaps) {
-      const isBaseline = s.id === _lesson12BaselineId || s.label === LESSON12_BASELINE_LABEL;
-      const isLessonCapture = _lesson12StartTime > 0 && s.capturedAt >= _lesson12StartTime;
-      if (isBaseline || isLessonCapture) {
-        await deleteSnapshot(s.id);
+    const seen = new Set<string>();
+    for (const connectionId of gqlDemoSnapshotConnectionIds()) {
+      const snaps = await loadSnapshots(connectionId);
+      for (const s of snaps) {
+        if (seen.has(s.id)) continue;
+        seen.add(s.id);
+        const isBaseline = s.id === _lesson12BaselineId || s.label === LESSON12_BASELINE_LABEL;
+        const isLessonCapture = _lesson12StartTime > 0 && s.capturedAt >= _lesson12StartTime;
+        if (isBaseline || isLessonCapture) {
+          await deleteSnapshot(s.id);
+        }
       }
     }
   } catch {
@@ -296,6 +350,7 @@ export async function gqlSchemaDiffLessonSetup(ctx: DemoActionContext): Promise<
   await ensureDemoEndpoint(ctx);
   await ensureIntrospected(ctx);
   await ensureLesson12BaselineSnapshot();
+  notifyGqlSnapshotsChanged();
 }
 
 /** Cleanup for Lesson 12 (GQL-12) — remove snapshots, close demo tab. */

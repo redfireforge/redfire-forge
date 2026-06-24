@@ -89,3 +89,8 @@ npm run test:e2e:demo:gql3
 ```
 
 Heavy Docker steps: **300s** action timeout. Project: `workers: 1`, `retries: 0`.
+
+## Demo lesson merge gate
+
+Lesson-only PRs use the **5-item done checklist** — not the full wrapper unit-test bar:
+[`docs/guides/demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md)

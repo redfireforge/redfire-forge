@@ -27,6 +27,11 @@ export default defineConfig({
         '**/*.test.{ts,tsx}',
         '**/*.config.{ts,js}',
         'src/shared/types/index.ts',
+        // Demo lesson wrappers (thin step + copy) — see docs/guides/demo-lesson-done-checklist.md
+        'src/features/demo-player/lessons/protocols/graphql-*.ts',
+        'src/features/demo-player/lessons/protocols/ws-*.ts',
+        'src/features/demo-player/lessons/protocols/sse-*.ts',
+        'src/features/demo-player/lessons/protocols/kafka-*.ts',
         'node_modules',
         'dist',
         'src-tauri',

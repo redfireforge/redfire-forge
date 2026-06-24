@@ -34,6 +34,8 @@ import {
   gqlVariablesLessonSetup,
   clearActiveTabAuthOverride,
   configureDemoTabInheritPageAuth,
+  configureDemoTabInheritPageDefault,
+  ensureGqlDemoPageDefaultEndpoint,
   openAuthPanelQuiet,
   closeAuthPanelQuiet,
   _openAuthPanel,
@@ -254,6 +256,31 @@ describe('graphql-lesson-helpers core', () => {
     const ctx = makeCtx();
     await configureDemoTabInheritPageAuth(ctx);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN, 5000);
+  });
+
+  it('configureDemoTabInheritPageDefault sets page default then clears tab override', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://127.0.0.1:4010/graphql" />
+      <button data-testid="gql-endpoint-reset-btn"></button>
+      <div data-testid="gql-tab-bar"><button role="tab" aria-selected="true">T1</button></div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (sel === GQL.ENDPOINT_RESET_BTN) {
+        document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_VAR;
+      }
+    });
+    await configureDemoTabInheritPageDefault(ctx);
+    expect(document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value).toBe(GQL_DEMO_VAR);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ENDPOINT_RESET_BTN);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+  });
+
+  it('ensureGqlDemoPageDefaultEndpoint writes template var to page storage', async () => {
+    document.body.innerHTML = `<input data-testid="gql-endpoint-input" value="" />`;
+    const ctx = makeCtx();
+    await ensureGqlDemoPageDefaultEndpoint(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 
   it('openAuthPanelQuiet skips when auth tab is already selected', async () => {
