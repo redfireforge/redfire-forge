@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   isValidIdentifier,
   isValidJson,
+  isValidVariablesJsonTemplate,
   hasInvalidVariablesJson,
   hasInvalidExtractionRules,
   hasInvalidOutputBindings,
   computeQueryTabErrors,
+  countOperationTabConfigured,
+  countVariablesTabConfigured,
   hasQueryConfigErrors,
   computeSubscriptionTabErrors,
   hasSubscriptionConfigErrors,
@@ -43,6 +46,12 @@ describe('graphqlPanelHelpers', () => {
     it('accepts valid JSON objects', () => {
       expect(isValidJson('{"id": "1"}')).toBe(true);
       expect(hasInvalidVariablesJson('{"id": "{{userId}}"}')).toBe(false);
+    });
+
+    it('accepts bare {{var}} placeholders (resolved before runtime JSON.parse)', () => {
+      expect(hasInvalidVariablesJson('{\n  "orderId": {{orderId}}\n}')).toBe(false);
+      expect(hasInvalidVariablesJson('{\n  "id": {{createdUserId}}\n}')).toBe(false);
+      expect(isValidVariablesJsonTemplate('{\n  "orderId": {{orderId}}\n}')).toBe(true);
     });
 
     it('flags malformed JSON', () => {
@@ -105,6 +114,34 @@ describe('graphqlPanelHelpers', () => {
         outputBindings: [{ field: 'data', variableName: '1bad', enabled: true }],
       });
       expect(errors.output).toBe(true);
+    });
+  });
+
+  describe('tab configured counts', () => {
+    it('counts operation fields (endpoint, query, custom timeout, TLS skip)', () => {
+      expect(countOperationTabConfigured({
+        endpoint: 'http://localhost:4010/graphql',
+        query: 'mutation { x }',
+        timeoutMs: 30000,
+        skipTlsVerify: false,
+      })).toBe(2);
+      expect(countOperationTabConfigured({
+        endpoint: 'http://localhost:4010/graphql',
+        query: 'mutation { x }',
+        timeoutMs: 60000,
+        skipTlsVerify: true,
+      })).toBe(4);
+      expect(countOperationTabConfigured({
+        endpoint: '',
+        query: '',
+        timeoutMs: 30000,
+      })).toBe(0);
+    });
+
+    it('counts variables JSON keys and ignores empty object', () => {
+      expect(countVariablesTabConfigured('{}')).toBe(0);
+      expect(countVariablesTabConfigured('{"orderId": {{orderId}}}')).toBe(1);
+      expect(countVariablesTabConfigured('{"a": 1, "b": 2}')).toBe(2);
     });
   });
 

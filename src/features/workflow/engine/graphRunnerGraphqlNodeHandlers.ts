@@ -42,6 +42,15 @@ import {
   buildExtractedVariableMap,
   buildGraphqlRunSnapshot,
 } from '../../graphql/utils/graphqlConfigTestHelpers';
+import {
+  collectGraphqlBindingEntries,
+  collectGraphqlNodeVariableNames,
+  logGraphqlResponseData,
+  logGraphqlSubscriptionMessage,
+  logGraphqlVariableBindings,
+  logGraphqlVariables,
+  previewForConsoleLog,
+} from './graphRunnerGraphqlLogHelpers';
 
 // ── Bounded defaults ───────────────────────────────────────────────────────────
 
@@ -83,7 +92,11 @@ function applyQueryOutputBindings(
   for (const b of bindings) {
     if (!b.enabled || !b.variableName) continue;
     const v = outputs[b.field];
-    ctx.set(b.variableName, typeof v === 'string' ? v : JSON.stringify(v ?? ''));
+    const serialized =
+      typeof v === 'string' ? v
+        : typeof v === 'number' ? String(v)
+          : JSON.stringify(v ?? '');
+    ctx.set(b.variableName, serialized);
   }
 }
 
@@ -104,7 +117,11 @@ function applySubscriptionOutputBindings(
   for (const b of bindings) {
     if (!b.enabled || !b.variableName) continue;
     const v = outputs[b.field];
-    ctx.set(b.variableName, typeof v === 'string' ? v : JSON.stringify(v ?? ''));
+    const serialized =
+      typeof v === 'string' ? v
+        : typeof v === 'number' ? String(v)
+          : JSON.stringify(v ?? '');
+    ctx.set(b.variableName, serialized);
   }
 }
 
@@ -225,9 +242,10 @@ export async function handleGraphqlQueryNode(
     : timeoutSignal;
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
-  hCtx.log({ prefix: '→', text: `[${label}] ${isMutation ? 'MUTATION' : 'QUERY'} ${endpoint}` });
-
   const t0 = performance.now();
+  hCtx.log({ prefix: '→', text: `[${label}] ${isMutation ? 'MUTATION' : 'QUERY'} ${endpoint}` });
+  logGraphqlVariables(label, hCtx.log, parsedVariables);
+
   try {
     const resp = await fetch(`${proxyBase}/api/graphql/query`, {
       method: 'POST',
@@ -241,12 +259,12 @@ export async function handleGraphqlQueryNode(
       }),
       signal: fetchSignal,
     });
-    const durationMs = Math.round(performance.now() - t0);
 
     const transportType = isMutation ? 'graphqlMutation' as const : 'graphqlQuery' as const;
 
     // ── Check proxy-level HTTP status first ──
     if (!resp.ok) {
+      const durationMs = Math.round(performance.now() - t0);
       let proxyErrMsg = `Proxy request failed: HTTP ${resp.status}`;
       try {
         const errBody = await resp.json() as { error?: { message?: string }; message?: string };
@@ -261,6 +279,7 @@ export async function handleGraphqlQueryNode(
     }
 
     const body = await resp.json() as { data?: unknown; errors?: unknown[] };
+    const durationMs = Math.round(performance.now() - t0);
     const extracted = buildExtractedVariableMap(data.extractionRules ?? [], body.data);
     const runDetail = buildGraphqlRunSnapshot({
       data: body.data,
@@ -293,11 +312,21 @@ export async function handleGraphqlQueryNode(
 
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
+    const bindingNames = collectGraphqlNodeVariableNames(data.extractionRules, data.outputBindings);
+    const bindingEntries = collectGraphqlBindingEntries(extracted, hCtx.ctx, bindingNames);
+
     if ((body.errors?.length ?? 0) > 0) {
       // GraphQL errors in the response — treat as failure
       const errSummary = JSON.stringify(body.errors);
       passed.value = false;
       hCtx.results.push(buildGraphqlResult(nodeId, label, transportType, endpoint, durationMs, false, resp.status, `GraphQL errors: ${errSummary}`));
+      logGraphqlResponseData(label, hCtx.log, {
+        httpStatus: resp.status,
+        durationMs,
+        data: body.data,
+        errors: body.errors,
+      });
+      logGraphqlVariableBindings(label, hCtx.log, bindingEntries);
       hCtx.log({ prefix: '!', text: `[${label}] GraphQL errors — ${durationMs}ms: ${errSummary}` });
       hCtx.callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
@@ -308,6 +337,12 @@ export async function handleGraphqlQueryNode(
     }
 
     hCtx.results.push(buildGraphqlResult(nodeId, label, transportType, endpoint, durationMs, true, resp.status));
+    logGraphqlResponseData(label, hCtx.log, {
+      httpStatus: resp.status,
+      durationMs,
+      data: body.data,
+    });
+    logGraphqlVariableBindings(label, hCtx.log, bindingEntries);
     hCtx.log({ prefix: '✓', text: `[${label}] ${isMutation ? 'Mutation' : 'Query'} succeeded — ${durationMs}ms` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass', ...runStateBase });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
@@ -389,6 +424,7 @@ export async function handleGraphqlSubscriptionNode(
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
   hCtx.log({ prefix: '→', text: `[${label}] SUBSCRIBE ${endpoint}` });
+  logGraphqlVariables(label, hCtx.log, parsedVariables);
   if (data.stopAfterMessages) hCtx.log({ prefix: '→', text: `[${label}]   stop after ${data.stopAfterMessages} messages` });
   if (data.stopAfterMs) hCtx.log({ prefix: '→', text: `[${label}]   stop after ${data.stopAfterMs}ms` });
 
@@ -425,6 +461,12 @@ export async function handleGraphqlSubscriptionNode(
             // GraphQL message (e.g. `$.field`) — consistent with query/mutation extraction
             // and the interface JSDoc ("JSONPath applied to the response `data` object").
             const msgInnerData = (msgData as { data?: unknown }).data;
+            logGraphqlSubscriptionMessage(
+              label,
+              hCtx.log,
+              messages.length - 1,
+              msgInnerData ?? msgData,
+            );
             for (const rule of data.extractionRules ?? []) {
               if (!rule.variableName?.trim() || !rule.jsonPath?.trim()) continue;
               const extracted = getByPath(msgInnerData, rule.jsonPath);
@@ -480,6 +522,12 @@ export async function handleGraphqlSubscriptionNode(
       responseDetail: runDetail,
     };
 
+    const bindingNames = collectGraphqlNodeVariableNames(data.extractionRules, data.outputBindings);
+    logGraphqlVariableBindings(
+      label,
+      hCtx.log,
+      collectGraphqlBindingEntries(extracted, hCtx.ctx, bindingNames),
+    );
     hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlSubscription', endpoint, durationMs, true, 200));
     hCtx.log({ prefix: '✓', text: `[${label}] Subscription complete — ${messages.length} message(s) — ${durationMs}ms` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass', ...runStateBase });
@@ -532,9 +580,9 @@ export async function handleGraphqlIntrospectNode(
     : timeoutSignal;
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
+  const t0 = performance.now();
   hCtx.log({ prefix: '→', text: `[${label}] INTROSPECT ${endpoint}` });
 
-  const t0 = performance.now();
   try {
     // Use /api/graphql/query with the standard introspection query.
     // There is no dedicated /api/graphql/introspect route — introspection is a
@@ -551,10 +599,9 @@ export async function handleGraphqlIntrospectNode(
       signal: fetchSignal,
     });
 
-    const durationMs = Math.round(performance.now() - t0);
-
     // ── Check proxy-level HTTP status first ──
     if (!resp.ok) {
+      const durationMs = Math.round(performance.now() - t0);
       let proxyErrMsg = `Proxy request failed: HTTP ${resp.status}`;
       try {
         const errBody = await resp.json() as { error?: { message?: string }; message?: string };
@@ -569,6 +616,7 @@ export async function handleGraphqlIntrospectNode(
     }
 
     const introspectionResult = await resp.json() as { data?: unknown; errors?: unknown[] };
+    const durationMs = Math.round(performance.now() - t0);
 
     // Check for GraphQL errors (e.g., introspection disabled)
     if ((introspectionResult.errors?.length ?? 0) > 0 || !introspectionResult.data) {
@@ -679,19 +727,28 @@ export async function handleGraphqlAssertNode(
   hCtx.log({ prefix: '→', text: `[${label}] ASSERT on {{${data.sourceVariable}}}` });
 
   const t0 = performance.now();
-  const rawSourceValue = hCtx.ctx.resolve(`{{${data.sourceVariable}}}`);
-  let sourceValue: unknown;
-  try {
-    sourceValue = rawSourceValue ? JSON.parse(rawSourceValue) : rawSourceValue;
-  } catch {
-    // Not JSON, use as-is (strings, numbers etc.)
-    sourceValue = rawSourceValue;
-  }
+  const sourceVar = data.sourceVariable.trim();
+  const rawSourceValue = hCtx.ctx.resolve(`{{${sourceVar}}}`);
 
   const failures: string[] = [];
+  if (rawSourceValue === `{{${sourceVar}}}`) {
+    failures.push(
+      `Source variable "{{${sourceVar}}}" is not set. ` +
+      `Bind an output from an upstream node (e.g. GraphQL Query → Output → latencyMs → ${sourceVar}), then Save the workflow.`,
+    );
+  }
+
+  let sourceValue: unknown;
+  if (failures.length === 0) {
+    try {
+      sourceValue = rawSourceValue ? JSON.parse(rawSourceValue) : rawSourceValue;
+    } catch {
+      sourceValue = rawSourceValue;
+    }
+  }
+
   for (const assertion of data.assertions ?? []) {
-    // Resolve jsonPath and expectedValue through the template engine so users can
-    // reference workflow variables (e.g. {{expectedUserId}}) in assertions.
+    if (failures.some((f) => f.includes('not set'))) break;
     const resolvedJsonPath = hCtx.ctx.resolve(assertion.jsonPath);
     const resolvedExpected = assertion.expectedValue != null
       ? hCtx.ctx.resolve(assertion.expectedValue)
@@ -699,8 +756,12 @@ export async function handleGraphqlAssertNode(
     const actual = getByPath(sourceValue, resolvedJsonPath);
     const result = evaluateFieldOperator(actual, assertion.operator, undefined, resolvedExpected ?? '');
     if (!result.pass) {
-      const msg = assertion.description
-        ?? `${resolvedJsonPath} ${assertion.operator} ${resolvedExpected ?? ''}: got ${JSON.stringify(actual)}`;
+      const detail =
+        `${resolvedJsonPath} ${assertion.operator} ${resolvedExpected ?? ''} — got ${JSON.stringify(actual)} ` +
+        `(expected ${result.expected})`;
+      const msg = assertion.description?.trim()
+        ? `${assertion.description.trim()}\n${detail}`
+        : detail;
       failures.push(msg);
     }
   }
@@ -723,6 +784,9 @@ export async function handleGraphqlAssertNode(
   }
 
   hCtx.results.push(buildGraphqlResult(nodeId, label, 'graphqlAssert', '', durationMs, true));
+  if (rawSourceValue && rawSourceValue !== `{{${sourceVar}}}`) {
+    hCtx.log({ prefix: '→', text: `[${label}]   Source: ${previewForConsoleLog(sourceValue, 200)}` });
+  }
   hCtx.log({ prefix: '✓', text: `[${label}] Assert passed — ${data.assertions?.length ?? 0} assertion(s) — ${durationMs}ms` });
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
   await hCtx.visitOutgoing(nodeId, hCtx.threadId);

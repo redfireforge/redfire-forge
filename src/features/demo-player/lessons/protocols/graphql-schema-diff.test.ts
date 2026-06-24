@@ -111,6 +111,7 @@ function stubSchemaExplorerDom(): void {
         <div data-testid="gql-diff-row"></div>
       </div>
       <button data-testid="gql-diff-export-json">Export JSON</button>
+      <button data-testid="gql-diff-done">Done</button>
     </div>
     <div data-testid="gql-schema-explorer"></div>
     <div data-testid="gql-se-type-list"></div>
@@ -421,13 +422,21 @@ describe('gql-schema-diff lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.DIFF_FILTER_ALL);
   });
 
-  it('gql12-export clicks export JSON', async () => {
+  it('gql12-export clicks export JSON and closes diff modal', async () => {
     const ctx = makeCtx();
     stubSchemaExplorerDom();
+    const doneBtn = document.querySelector<HTMLButtonElement>(GQL.DIFF_DONE)!;
+    doneBtn.addEventListener('click', () => document.querySelector(GQL.DIFF_MODAL)?.remove());
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-export')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.DIFF_EXPORT_JSON);
+    expect(document.querySelector(GQL.DIFF_MODAL)).toBeNull();
+  });
+
+  it('gql12-export verify targets changelog diff button after modal closes', () => {
+    const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-export')!;
+    expect(step.verify).toBe(GQL.CHANGELOG_DIFF_BTN);
   });
 
   it('gql12-breaking action pauses on breaking count badge', async () => {

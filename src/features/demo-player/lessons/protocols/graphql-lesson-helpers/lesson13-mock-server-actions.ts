@@ -287,7 +287,7 @@ export async function ensureLesson13MockExecuted(ctx: DemoActionContext): Promis
     await ctx.delay(400);
     await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
     await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-    await ctx.delay(200);
+    await ctx.delay(800);
     await ctx.click(GQL.EXECUTE_BTN);
     await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
     await ctx.delay(800);
@@ -325,23 +325,23 @@ export async function ensureLesson13LatencyExecute(ctx: DemoActionContext): Prom
   if (isGql13E2eWebMock()) {
     await gql13E2eSetHealthResolver(650);
     await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-    await ctx.delay(400);
+    await ctx.delay(800);
     await ctx.click(GQL.EXECUTE_BTN);
     await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
     await waitForLesson13LatencyAtLeast(ctx, 500);
-    await ctx.delay(600);
+    await ctx.delay(800);
     L13.latencyExecuted = true;
     return;
   }
 
   await lesson13SyncDesktopMockHealthOverride(650);
-  await ctx.delay(400);
+  await ctx.delay(800);
   await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-  await ctx.delay(400);
+  await ctx.delay(800);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
   await waitForLesson13LatencyAtLeast(ctx, 500);
-  await ctx.delay(600);
+  await ctx.delay(800);
   L13.latencyExecuted = true;
 }
 
@@ -400,15 +400,17 @@ export async function ensureLesson13LiveEndpointOnly(ctx: DemoActionContext): Pr
   }
 
   await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
-  await ctx.delay(500);
+  await ctx.delay(800);
   await ctx.click(GQL.INTROSPECT_BTN);
   await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 15000);
+  await ctx.delay(800);
   await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
   await ensureResponseTabSelected(ctx);
+  await ctx.delay(800);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
   await waitForLiveHealthOk(ctx);
-  await ctx.delay(600);
+  await ctx.delay(800);
   if (liveRestoreComplete()) {
     L13.restored = true;
   }

@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { GraphqlAuth } from '../../../shared/types/graphql';
 
 // monacoGraphqlSetup transitively loads Monaco which requires `window`. Mock it.
 vi.mock('./monacoGraphqlSetup', () => ({
@@ -582,6 +583,55 @@ describe('graphqlAuthEquals / computeTabAuthStoredValue (Phase 6H Slice 2)', () 
     expect(graphqlAuthEquals({ type: 'bearer', token: 'x' }, { type: 'bearer', token: 'y' })).toBe(false);
   });
 
+  it('graphqlAuthEquals compares basic, apiKey, inherit, and oauth2 configs', () => {
+    const bearer = { type: 'bearer' as const, token: 't' };
+    expect(graphqlAuthEquals(bearer, bearer)).toBe(true);
+
+    expect(graphqlAuthEquals(
+      { type: 'basic', username: 'u', password: 'p' },
+      { type: 'basic', username: 'u', password: 'p' },
+    )).toBe(true);
+    expect(graphqlAuthEquals(
+      { type: 'basic', username: 'u', password: 'p' },
+      { type: 'basic', username: 'u', password: 'x' },
+    )).toBe(false);
+
+    expect(graphqlAuthEquals(
+      { type: 'apiKey', headerName: 'X-Key', headerValue: 'v' },
+      { type: 'apiKey', headerName: 'X-Key', headerValue: 'v' },
+    )).toBe(true);
+    expect(graphqlAuthEquals(
+      { type: 'apiKey', headerName: 'X-Key', headerValue: 'v' },
+      { type: 'apiKey', headerName: 'X-Other', headerValue: 'v' },
+    )).toBe(false);
+
+    expect(graphqlAuthEquals(
+      { type: 'inherit', globalProfileId: 'p1' },
+      { type: 'inherit', globalProfileId: 'p1' },
+    )).toBe(true);
+    expect(graphqlAuthEquals(
+      { type: 'inherit', globalProfileId: 'p1' },
+      { type: 'inherit', globalProfileId: 'p2' },
+    )).toBe(false);
+
+    const oauth = {
+      type: 'oauth2' as const,
+      oauth2: { tokenUrl: 'https://auth/token', clientId: 'id', clientSecret: 'sec' },
+    };
+    expect(graphqlAuthEquals(oauth, { ...oauth })).toBe(true);
+    expect(graphqlAuthEquals(oauth, {
+      ...oauth,
+      oauth2: { ...oauth.oauth2, clientSecret: 'other' },
+    })).toBe(false);
+
+    expect(graphqlAuthEquals(null, { type: 'bearer', token: 'x' })).toBe(false);
+    expect(graphqlAuthEquals({ type: 'bearer', token: 'x' }, null)).toBe(false);
+    expect(graphqlAuthEquals(
+      { type: 'bearer', token: 'x' },
+      { type: 'basic', username: 'u', password: 'p' },
+    )).toBe(false);
+  });
+
   it('computeTabAuthStoredValue omits field when auth matches page default', () => {
     const page = { type: 'bearer' as const, token: 'page' };
     expect(computeTabAuthStoredValue(page, page)).toBeUndefined();
@@ -631,6 +681,23 @@ describe('normalizeGraphqlAuth (Phase 6H)', () => {
     expect(normalizeGraphqlAuth({ type: 'bearer', token: 'tok' })).toEqual({
       type: 'bearer',
       token: 'tok',
+    });
+  });
+
+  it('ignores non-string optional auth fields and normalizes oauth2 defaults', () => {
+    expect(normalizeGraphqlAuth({
+      type: 'bearer',
+      token: 123,
+      username: null,
+      headerName: undefined,
+    } as unknown as GraphqlAuth)).toEqual({ type: 'bearer' });
+
+    expect(normalizeGraphqlAuth({
+      type: 'oauth2',
+      oauth2: { tokenUrl: 1, clientId: null, clientSecret: 'sec', scope: 42, audience: true },
+    } as unknown as GraphqlAuth)).toEqual({
+      type: 'oauth2',
+      oauth2: { tokenUrl: '', clientId: '', clientSecret: 'sec' },
     });
   });
 });

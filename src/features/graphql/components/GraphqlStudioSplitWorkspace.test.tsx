@@ -6,12 +6,43 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphqlStudioSplitWorkspace } from './GraphqlStudioSplitWorkspace';
 import type { GqlStudioTab } from '../utils/tabPersistence';
+import type { BuilderState } from '../hooks/useGraphqlQueryBuilder';
+
+function makeBuilderState(overrides: Partial<BuilderState> = {}): BuilderState {
+  return {
+    operationType: 'query',
+    operationName: '',
+    selectedFields: {},
+    argValues: {},
+    expandedPaths: new Set(),
+    searchQuery: '',
+    fieldAliases: {},
+    fieldDirectives: {},
+    fragments: {},
+    activeFragmentSpreads: [],
+    ...overrides,
+  };
+}
 
 vi.mock('./GraphqlEditor', () => ({
   GraphqlEditor: () => <div data-testid="gql-editor-mock">Editor</div>,
 }));
 vi.mock('./GraphqlQueryBuilder', () => ({
-  GraphqlQueryBuilder: () => <div data-testid="gql-builder-mock">Builder</div>,
+  GraphqlQueryBuilder: ({
+    onStateChange,
+    initialState,
+  }: {
+    onStateChange?: (state: unknown) => void;
+    initialState?: unknown;
+  }) => {
+    const g = globalThis as {
+      __gqlBuilderOnStateChange?: typeof onStateChange;
+      __gqlBuilderInitialState?: typeof initialState;
+    };
+    g.__gqlBuilderOnStateChange = onStateChange;
+    g.__gqlBuilderInitialState = initialState;
+    return <div data-testid="gql-builder-mock">Builder</div>;
+  },
 }));
 vi.mock('./GqlBottomPanel', () => ({
   GqlBottomPanel: () => <div data-testid="gql-bottom-panel-mock">Bottom</div>,
@@ -171,5 +202,27 @@ describe('GraphqlStudioSplitWorkspace', () => {
     );
     expect(screen.getByTestId('gql-runner-panel-mock')).toBeInTheDocument();
     expect(screen.queryByTestId('gql-bottom-panel-mock')).toBeNull();
+  });
+
+  it('persists builder state per tab via onStateChange callback', () => {
+    type BuilderStub = BuilderState;
+    const g = globalThis as {
+      __gqlBuilderOnStateChange?: (s: BuilderStub) => void;
+      __gqlBuilderInitialState?: BuilderStub;
+    };
+
+    const tabA: GqlStudioTab = { ...activeTab, id: 'tab-a', label: 'A' };
+    const tabB: GqlStudioTab = { ...activeTab, id: 'tab-b', label: 'B' };
+    const { rerender } = render(
+      <GraphqlStudioSplitWorkspace {...baseProps} builderMode activeTab={tabA} />,
+    );
+    g.__gqlBuilderOnStateChange?.(makeBuilderState({ operationName: 'GetUsers' }));
+
+    rerender(<GraphqlStudioSplitWorkspace {...baseProps} builderMode activeTab={tabB} />);
+    expect(g.__gqlBuilderInitialState).toBeUndefined();
+    g.__gqlBuilderOnStateChange?.(makeBuilderState({ operationName: 'CreateUser' }));
+
+    rerender(<GraphqlStudioSplitWorkspace {...baseProps} builderMode activeTab={tabA} />);
+    expect(g.__gqlBuilderInitialState?.operationName).toBe('GetUsers');
   });
 });

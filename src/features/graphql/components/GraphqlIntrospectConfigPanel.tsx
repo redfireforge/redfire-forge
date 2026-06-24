@@ -119,6 +119,7 @@ export default function GraphqlIntrospectConfigPanel({
                   onChange={(value) => update({ endpoint: value })}
                   placeholder="https://api.example.com/graphql"
                   variableHints={variableHints}
+                  data-testid="gql-wf-endpoint-input"
                 />
               </InsertVarField>
               {tabErrors.endpoint && <GqlWfFieldError>Endpoint is required</GqlWfFieldError>}
@@ -170,7 +171,7 @@ export default function GraphqlIntrospectConfigPanel({
               Optional schema validation — errors halt the workflow node when enabled.
             </p>
 
-            <GqlWfFormRow label="Min type count">
+            <GqlWfFormRow label="Min type count" stack>
               <input
                 type="number"
                 min={0}
@@ -186,7 +187,7 @@ export default function GraphqlIntrospectConfigPanel({
               <span className="gql-wf-inline-hint">Fail if type count is below this</span>
             </GqlWfFormRow>
 
-            <GqlWfFormRow label="Required types">
+            <GqlWfFormRow label="Required types" stack>
               <input
                 value={requiredTypesInput}
                 onChange={(e) => {

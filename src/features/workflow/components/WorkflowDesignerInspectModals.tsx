@@ -52,6 +52,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
         title={detailModalDerived.title}
         subtitle={detailModalDerived.subtitle}
         body={detailModalDerived.body}
+        failureReport={detailModalDerived.failureReport}
         variableMode={detailModal?.type === 'variable'}
         variableValue={variableDetailDraft}
         onVariableChange={setVariableDetailDraft}

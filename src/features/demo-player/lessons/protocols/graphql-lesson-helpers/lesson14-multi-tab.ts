@@ -443,6 +443,7 @@ export async function demonstrateLesson14ProfileLinks(ctx: DemoActionContext): P
   await openAuthPanelQuiet(ctx);
   await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
   await ctx.delay(1500);
+  await closeAuthPanelIfOpen(ctx);
 }
 
 /**
@@ -494,6 +495,7 @@ export async function demonstrateLesson14TabPolling(ctx: DemoActionContext): Pro
     await activateGqlTabByIndex(ctx, 0);
     await openPollingConfig(ctx);
     await ctx.delay(1500);
+    await closePollingPopover(ctx);
     return;
   }
 

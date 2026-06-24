@@ -5,17 +5,18 @@ import {
   GQL_DEMO_HEALTH,
   GQL_DEMO_HTTP,
   LESSON11_LATENCY_VAR,
+  LESSON11_PASS_THRESHOLD_MS,
   LESSON11_WF_NAME,
   ensureLesson11AssertNodeAdded,
   ensureLesson11AssertRuleConfigured,
   ensureLesson11AssertSourceConfigured,
   ensureLesson11ConsoleOpen,
   ensureLesson11DebugRun,
+  closeLesson11Console,
   ensureLesson11QueryConfigured,
   ensureLesson11QueryNodeAdded,
   ensureLesson11WorkflowCreated,
-  ensureLesson11WorkflowFailRun,
-  ensureLesson11WorkflowFailRunOnly,
+  prepareGql11DebugReading,
   prepareGql11ObserveFailureReading,
   prepareGql11ObservePassReading,
   prepareGql11TightenThresholdReading,
@@ -281,11 +282,11 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-assert-rule',
       title: 'Add a Latency Assertion',
       description:
-        'Switch to the **Assertions** tab. Click **+ Add** and fill in: JSONPath **`$`** (root value), operator **`<`** (`less_than`), expected **500**, description **"Latency under 500ms"**. Save.\n\nUsing JSONPath **`$`** on a numeric source variable means "take the value itself" — no path traversal needed. The **`less_than`** operator compares numerically, so `28 < 500` evaluates to true. 500ms is a reasonable first threshold for a local Docker server: lenient enough to pass, strict enough to catch real regressions.',
+        `Switch to the **Assertions** tab. Click **+ Add** and fill in: JSONPath **\`$\`** (root value), operator **\`<\`** (\`less_than\`), expected **${LESSON11_PASS_THRESHOLD_MS}**, description **"Latency under ${LESSON11_PASS_THRESHOLD_MS}ms"**. Save.\n\nUsing JSONPath **\`$\`** on a numeric source variable means "take the value itself" — no path traversal needed. The **\`less_than\`** operator compares numerically. **${LESSON11_PASS_THRESHOLD_MS}ms** is a generous first threshold for local dev: it accounts for the app proxy and Docker overhead while still catching multi-second regressions.`,
       highlight: GQL.WF_ASSERT_ROW,
       preAction: ensureLesson11AssertSourceConfigured,
       action: async (ctx) => {
-        await ensureLesson11AssertRuleConfigured(ctx, '500');
+        await ensureLesson11AssertRuleConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
         await ctx.delay(800);
       },
       verify: GQL.WF_CANVAS_ASSERT_NODE,
@@ -296,7 +297,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-console',
       title: 'Open the Console Before Running',
       description:
-        `Click the **Console** badge in the status bar at the bottom of the Designer. The execution log panel expands.\n\nIt is critical to open the Console **before** clicking Quick Test — the panel captures a live stream of per-node logs as the workflow runs. If you open it *after* execution, the panel is empty: completed log entries are not buffered for late readers. Once open, you'll see each node's request payload, HTTP status, response body, latency, and bound variable values stream in real time.`,
+        `Click the **Console** badge in the status bar at the bottom of the Designer. The execution log panel opens in **Floating** mode on the **left side of the canvas** — the workflow nodes stay visible on the right while logs stream in.\n\nIt is critical to open the Console **before** clicking Quick Test — the panel captures a live stream of per-node logs as the workflow runs. If you open it *after* execution, the panel is empty: completed log entries are not buffered for late readers. Once open, you'll see each node's request payload, HTTP status, response body, latency, and bound variable values stream in real time.`,
       highlight: WF.CONSOLE_BADGE,
       preAction: ensureLesson11AssertRuleConfigured,
       action: async (ctx) => {
@@ -312,12 +313,13 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       title: 'Quick Test — Run the Workflow',
       description:
         `Click **Quick Test** (▶ in the toolbar). The Designer executes each node in sequence and streams per-node logs to the Console you just opened.\n\n` +
-        'Against the local Docker server the query completes in ~20–30ms — well under the 500ms threshold. The next step spotlights the canvas so you can read the green pass badges.',
+        `Against the local Docker server the query typically completes in under a second — well under the ${LESSON11_PASS_THRESHOLD_MS}ms threshold. The next step spotlights the canvas so you can read the green pass badges.`,
       highlight: WF.QUICK_TEST_BTN,
       preAction: ensureLesson11ConsoleOpen,
       action: async (ctx) => {
         await runLesson11WorkflowPassExecOnly(ctx);
         await ctx.delay(800);
+        await closeLesson11Console(ctx);
       },
       verify: WF.EXEC_SUMMARY,
       pauseAfter: true,
@@ -342,8 +344,8 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-tighten-threshold',
       title: 'Tighten the Assertion Threshold',
       description:
-        'Re-open the **GraphQL Assert** node and change the expected value from **500** to **1** ms — an impossibly tight threshold for a local Docker server. Save the rule.\n\n' +
-        'This step only **configures** the assertion. The next step runs **Quick Test** so you can watch the assert node turn red while the query node stays green.',
+        `Re-open the **GraphQL Assert** node and change the expected value from **${LESSON11_PASS_THRESHOLD_MS}** to **1** ms — an impossibly tight threshold for a local Docker server. Save the rule.\n\n` +
+        'This step only **configures** the assertion. The next step re-runs **Quick Test** and spotlights the failed assert node on the canvas.',
       highlight: GQL.WF_ASSERT_ROW,
       preAction: prepareGql11TightenThresholdReading,
       action: async (ctx) => {
@@ -356,15 +358,15 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
 
     {
       id: 'gql11-observe-failure',
-      title: 'Quick Test — Watch the Assert Node Fail',
+      title: 'Assert Node Fails',
       description:
-        `Click **Quick Test** again. The **GraphQL Query** node still turns **green** (the HTTP request succeeded), but **GraphQL Assert** turns **red**: \`28 is not < 1\`. ` +
+        'Watch the canvas after the tight-threshold run: **GraphQL Query** stays **green** (the HTTP request succeeded), but **GraphQL Assert** turns **red** — the measured latency is not < 1ms.\n\n' +
         'Check the **Console** — the failure detail line shows the assertion that failed, the actual value, the expected threshold, and the GraphQL operation that produced it. This is exactly the information a developer needs to triage a regression.',
       highlight: GQL.WF_CANVAS_ASSERT_NODE,
       preAction: prepareGql11ObserveFailureReading,
       action: async (ctx) => {
-        await ensureLesson11WorkflowFailRunOnly(ctx);
         await ctx.delay(800);
+        await closeLesson11Console(ctx);
       },
       verify: GQL.WF_CANVAS_ASSERT_NODE,
       pauseAfter: true,
@@ -374,12 +376,14 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-debug-mode',
       title: 'Step Through with Debug Mode',
       description:
-        `Instead of **Quick Test**, click **Debug** (the outline button next to Quick Test). The workflow starts but **pauses after each node** — you see intermediate variable values on the canvas before the next node executes.\n\nDebug Mode is invaluable for multi-node workflows where Quick Test gives you a red node but the root cause is two steps earlier. Each pause shows the full variable snapshot: which variables exist, what their current values are, and which assertions have already evaluated. Click **Step →** on the paused node to advance. Use this mode whenever Quick Test produces an unexpected failure and you need to understand the data flow node by node.`,
+        `Click **Debug** (the outline button next to Quick Test). The workflow pauses before each node — a **Step** button appears on the paused node. The demo clicks **Step** on each node in sequence so you can watch variables update on the canvas between pauses.\n\n` +
+        'Debug Mode is invaluable when Quick Test shows a red node but the root cause is two steps earlier. After **Start**, stepping through **GraphQL Query** binds `gqlLatency`; stepping **GraphQL Assert** evaluates it against the 1ms threshold and fails. Use this mode whenever you need to understand data flow node by node.',
       highlight: WF.DEBUG_BTN,
-      preAction: ensureLesson11WorkflowFailRun,
+      preAction: prepareGql11DebugReading,
       action: async (ctx) => {
         await ensureLesson11DebugRun(ctx);
         await ctx.delay(800);
+        await closeLesson11Console(ctx);
       },
       verify: WF.CANVAS,
       pauseAfter: true,

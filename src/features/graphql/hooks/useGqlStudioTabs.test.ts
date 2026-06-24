@@ -247,6 +247,27 @@ describe('useGqlStudioTabs', () => {
     expect(result.current.tabs).toHaveLength(1);
   });
 
+  it('reloads tabs when GQL_TABS_RELOAD_EVENT fires', async () => {
+    let loadCount = 0;
+    mockLoadTabs.mockImplementation(async () => {
+      loadCount += 1;
+      if (loadCount === 1) return [makeTab({ id: 'tab-1', label: 'First', query: '{ health }' })] as never;
+      return [makeTab({ id: 'tab-2', label: 'Reloaded', query: '{ ping }' })] as never;
+    });
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+    expect(result.current.tabs[0]?.id).toBe('tab-1');
+
+    await act(async () => {
+      window.dispatchEvent(new Event('gql-tabs-reload'));
+      await Promise.resolve();
+    });
+
+    expect(loadCount).toBeGreaterThanOrEqual(2);
+    expect(result.current.tabs.some((t) => t.id === 'tab-2')).toBe(true);
+  });
+
   it('closeTab triggers confirmation for unsaved changes', async () => {
     const tab1 = makeTab({ id: 'tab-1', unsavedChanges: true });
     const tab2 = makeTab({ id: 'tab-2' });

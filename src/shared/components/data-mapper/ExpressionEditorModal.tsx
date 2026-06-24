@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { evaluateMapperExpression } from './utils/mapperExpressionEvaluator';
 import { debugExpression } from './utils/expressionStepDebugger';
 import type { EvalStep } from './utils/expressionStepDebugger';
-import { prettyDebugValue, truncateDebugValue } from './utils/expressionDebugHelpers';
 import ExpressionDebugDetailModal from './ExpressionDebugDetailModal';
 import { useTemporarySourceOverride } from './hooks/useTemporarySourceOverride';
 import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
@@ -15,15 +14,16 @@ import {
   type ExpressionSnippet,
 } from './utils/expressionSnippets';
 import type { MapperSource, Mapping } from './types';
-import type { OnMount } from '@monaco-editor/react';
-import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
+import type { editor as MonacoEditor, IDisposable } from 'monaco-editor';
 import {
-  buildFunctionSnippet,
   fixedValueToExpression,
   getSourceLeafPaths,
   LAMBDA_INSERT_TEMPLATES,
   toExpressionReference,
 } from './utils/expressionEditorHelpers';
+import { createExpressionEditorMonacoMount } from './expressionEditorMonacoMount';
+import ExpressionEditorDocsPanel from './ExpressionEditorDocsPanel';
+import ExpressionEditorStepDebugger from './ExpressionEditorStepDebugger';
 
 const Editor = lazy(() => import('@monaco-editor/react'));
 
@@ -325,84 +325,26 @@ export default function ExpressionEditorModal({
   }, [mapping.id, expression, onSave, preview.error]);
   handleSaveRef.current = handleSave;
 
-  /* v8 ignore next 73 */
-  const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
-    editorRef.current = editor;
-
-    const currentModel = editor.getModel();
-    if (currentModel && expressionRef.current && currentModel.getValue() !== expressionRef.current) {
-      currentModel.setValue(expressionRef.current);
-    }
-
-    completionDisposableRef.current?.dispose();
-    completionDisposableRef.current = monaco.languages.registerCompletionItemProvider('plaintext', {
-      triggerCharacters: ['$', '.'],
-      provideCompletionItems(model: MonacoEditor.ITextModel, position: Position) {
-        const textUntilPosition = model.getValueInRange({
-          startLineNumber: position.lineNumber,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        });
-
-        const word = model.getWordUntilPosition(position);
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
-
-        if (/\$\.\s*$/.test(textUntilPosition) || /\$\.[a-zA-Z0-9_.[\]]*$/.test(textUntilPosition)) {
-          return {
-            suggestions: sourcePathsRef.current.map((p) => ({
-              label: `$.${p}`,
-              kind: monaco.languages.CompletionItemKind.Field,
-              insertText: p,
-              detail: 'Source field',
-              documentation: `Reference to source path "${p}"`,
-              range,
-            })),
-          };
-        }
-
-        if (/\$[a-zA-Z]*$/.test(textUntilPosition)) {
-          return {
-            suggestions: allFunctionsRef.current.map((fn) => {
-              const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
-              const snippet = buildFunctionSnippet(fnCall, fn);
-              return {
-                label: fnCall,
-                kind: monaco.languages.CompletionItemKind.Function,
-                insertText: snippet,
-                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                detail: `${fn.category} — ${fn.returnType}`,
-                documentation: `${fn.description}\n\n${fn.signature}`,
-                range,
-              };
-            }),
-          };
-        }
-
-        return { suggestions: [] };
-      },
-    });
-
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      handleSaveRef.current();
-    });
-
-    editor.addCommand(monaco.KeyCode.Escape, () => {
-      onCancel();
-    });
-
-    editor.focus();
-  }, [onCancel]);
+  const handleEditorDidMount = useMemo(
+    () => createExpressionEditorMonacoMount({
+      editorRef,
+      completionDisposableRef,
+      expressionRef,
+      sourcePathsRef,
+      allFunctionsRef,
+      handleSaveRef,
+      onCancel,
+    }),
+    [onCancel],
+  );
 
   useEffect(() => {
     return () => {
+      // Dispose latest Monaco completion provider on unmount (ref is intentionally read in cleanup).
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- capture provider active at teardown
+      const disposable = completionDisposableRef.current;
       /* v8 ignore next */
-      completionDisposableRef.current?.dispose();
+      disposable?.dispose();
     };
   }, []);
 
@@ -433,16 +375,6 @@ export default function ExpressionEditorModal({
   const portalTarget = useMemo(() => {
     /* v8 ignore next */
     return document.querySelector('.dm-modal-shell') ?? document.body;
-  }, []);
-
-  /* v8 ignore next 2 */
-  const stepHeaderKeyDown = useCallback((i: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStepExpand(i); }
-  }, [toggleStepExpand]);
-
-  /* v8 ignore next 2 */
-  const stepResultKeyDown = useCallback((step: EvalStep, e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailStep(step); }
   }, []);
 
   return createPortal(
@@ -695,188 +627,31 @@ export default function ExpressionEditorModal({
               )}
             </div>
             {showDebugger && debugSteps && debugSteps.length > 0 && (
-              <div className="dm-expr-step-debugger" role="region" aria-label="Step-through debugger">
-                <div className="dm-expr-step-controls">
-                  <button
-                    className="dm-expr-step-btn"
-                    disabled={activeStep <= 0}
-                    onClick={() => setActiveStep((s) => Math.max(0, s - 1))}
-                    aria-label="Previous step"
-                  >
-                    ◀
-                  </button>
-                  <span className="dm-expr-step-counter">
-                    Step {activeStep + 1} / {debugSteps.length}
-                  </span>
-                  <button
-                    className="dm-expr-step-btn"
-                    disabled={activeStep >= debugSteps.length - 1}
-                    onClick={() => setActiveStep((s) => Math.min(debugSteps.length - 1, s + 1))}
-                    aria-label="Next step"
-                  >
-                    ▶
-                  </button>
-                  <button
-                    className="dm-expr-step-btn dm-expr-step-btn--toggle-all"
-                    onClick={toggleExpandAll}
-                    aria-label={expandedSteps.size === debugSteps.length ? 'Collapse all' : 'Expand all'}
-                  >
-                    {expandedSteps.size === debugSteps.length ? '▴ Collapse All' : '▾ Expand All'}
-                  </button>
-                </div>
-                <div className="dm-expr-step-list">
-                  {debugSteps.map((step, i) => {
-                    const isOpen = expandedSteps.has(i);
-                    return (
-                      <div
-                        key={i}
-                        className={`dm-expr-step ${i === activeStep ? 'dm-expr-step--active' : ''} ${i < activeStep ? 'dm-expr-step--done' : ''} ${step.error ? 'dm-expr-step--error' : ''}`}
-                      >
-                        <span className="dm-expr-step-badge">{i + 1}</span>
-                        <div className="dm-expr-step-content">
-                          <div
-                            className="dm-expr-step-header"
-                            onClick={() => toggleStepExpand(i)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => stepHeaderKeyDown(i, e)}
-                          >
-                            <span className={`dm-expr-step-chevron ${isOpen ? 'dm-expr-step-chevron--open' : ''}`}>▸</span>
-                            <span className="dm-expr-step-label">{step.label}</span>
-                            <code className="dm-expr-step-expression">{truncateDebugValue(step.expression)}</code>
-                          </div>
-                          {isOpen && (
-                            <div
-                              className="dm-expr-step-result"
-                              onClick={() => setDetailStep(step)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyDown={(e) => stepResultKeyDown(step, e)}
-                              title="Click to view full detail"
-                            >
-                              <span className="dm-expr-step-arrow">→</span>
-                              <code className={`dm-expr-step-value ${step.error ? 'dm-expr-step-value--error' : ''}`}>
-                                {prettyDebugValue(step.displayValue)}
-                              </code>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <ExpressionEditorStepDebugger
+                debugSteps={debugSteps}
+                activeStep={activeStep}
+                expandedSteps={expandedSteps}
+                onActiveStepChange={setActiveStep}
+                onToggleStepExpand={toggleStepExpand}
+                onToggleExpandAll={toggleExpandAll}
+                onDetailStep={setDetailStep}
+              />
             )}
           </div>
 
-          <div className="dm-expr-docs">
-            {selectedFn ? (
-              <>
-                <div className="dm-expr-doc-header">
-                  <span className="dm-expr-doc-name">{selectedFn.name}</span>
-                  <span className="dm-expr-doc-category">{selectedFn.category}</span>
-                </div>
-                <div className="dm-expr-doc-sig">{selectedFn.signature}</div>
-                <p className="dm-expr-doc-desc">{selectedFn.description}</p>
-                {selectedFn.args.length > 0 && (
-                  <div className="dm-expr-doc-args">
-                    <div className="dm-expr-doc-args-title">Parameters</div>
-                    {selectedFn.args.map((a) => (
-                      <div key={a.name} className="dm-expr-doc-arg">
-                        <code>{a.name}</code>
-                        <span className="dm-expr-doc-arg-type">{a.type}</span>
-                        {a.required && <span className="dm-expr-doc-arg-req">*</span>}
-                        <span className="dm-expr-doc-arg-desc">{a.description}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {selectedFn.examples.length > 0 && (
-                  <div className="dm-expr-doc-examples">
-                    <div className="dm-expr-doc-examples-title">Examples</div>
-                    {selectedFn.examples.map((ex, i) => (
-                      <div key={i} className="dm-expr-doc-example">
-                        <code>{ex.input}</code> → <code>{ex.output}</code>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="dm-expr-doc-actions">
-                  <button
-                    type="button"
-                    className="dm-expr-inline-btn dm-expr-inline-btn--primary"
-                    onClick={() => handleInsertFunction(selectedFn)}
-                  >
-                    Insert
-                  </button>
-                  <button
-                    type="button"
-                    className="dm-expr-inline-btn"
-                    onClick={() => handleComposeWithFunction(selectedFn)}
-                  >
-                    Compose with current
-                  </button>
-                </div>
-                <div className="dm-expr-doc-returns">Returns: {selectedFn.returnType}</div>
-              </>
-            ) : (
-              <div className="dm-expr-doc-empty">
-                <div className="dm-expr-doc-empty-icon">ƒ</div>
-                <p>Select a function to see documentation.</p>
-              </div>
-            )}
-            <div className="dm-expr-snippets">
-              <div className="dm-expr-doc-examples-title">Reusable Snippets</div>
-              <div className="dm-expr-snippet-save">
-                <input
-                  className="dm-expr-snippet-name"
-                  value={snippetName}
-                  onChange={(e) => setSnippetName(e.target.value)}
-                  placeholder="Snippet name"
-                  aria-label="Snippet name"
-                />
-                <button
-                  type="button"
-                  className="dm-expr-inline-btn"
-                  onClick={() => void handleSaveSnippet()}
-                  disabled={snippetBusy || !snippetName.trim() || !expression.trim()}
-                >
-                  Save
-                </button>
-              </div>
-              <div className="dm-expr-snippet-list">
-                {snippets.length === 0 ? (
-                  <div className="dm-expr-snippet-empty">No saved snippets yet.</div>
-                ) : (
-                  snippets.map((snippet) => (
-                    <div key={snippet.id} className="dm-expr-snippet-item">
-                      <div className="dm-expr-snippet-meta">
-                        <span className="dm-expr-snippet-title">{snippet.name}</span>
-                        <code className="dm-expr-snippet-expression">{snippet.expression}</code>
-                      </div>
-                      <div className="dm-expr-snippet-actions">
-                        <button
-                          type="button"
-                          className="dm-expr-inline-btn"
-                          onClick={() => setExpression(snippet.expression)}
-                        >
-                          Use
-                        </button>
-                        <button
-                          type="button"
-                          className="dm-expr-inline-btn dm-expr-inline-btn--danger"
-                          onClick={() => void handleDeleteSnippet(snippet.id)}
-                          disabled={snippetBusy}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <ExpressionEditorDocsPanel
+            selectedFn={selectedFn}
+            snippets={snippets}
+            snippetName={snippetName}
+            snippetBusy={snippetBusy}
+            expression={expression}
+            onSnippetNameChange={setSnippetName}
+            onSaveSnippet={() => void handleSaveSnippet()}
+            onDeleteSnippet={(id) => void handleDeleteSnippet(id)}
+            onUseSnippet={setExpression}
+            onInsertFunction={handleInsertFunction}
+            onComposeWithFunction={handleComposeWithFunction}
+          />
         </div>
 
         <div className="dm-expr-footer">

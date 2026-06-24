@@ -485,6 +485,12 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON6_PROFILE_NAME);
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_SAVE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+  });
+
+  it('gql6-profile verify targets profile badge after modal closes', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-profile')!;
+    expect(step.verify).toBe(GQL.PROFILE_BADGE);
   });
 
   // ── Step 13–14: gql6-subscription ─────────────────────────────────────────

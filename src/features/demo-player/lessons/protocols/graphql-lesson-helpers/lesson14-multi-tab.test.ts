@@ -30,6 +30,7 @@ import {
   renameDemoTabByIndex,
   ensureTabProfileLink,
   ensureTabPolling,
+  demonstrateLesson14TabPolling,
 } from './lesson14-multi-tab';
 
 const GQL14_DEMO = 'gql-multi-tab';
@@ -247,6 +248,33 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     document.querySelector('[data-testid="gql-tab-1"]')?.remove();
     await ensureLesson14Tab2BadgeHighlight(ctx);
     expect(document.querySelector('[data-lesson-target="gql14-tab2-badge"]')).toBeNull();
+  });
+
+  it('closeProfileModalIfOpen is a no-op when profile modal is closed', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    vi.mocked(ctx.click).mockClear();
+    await purgeLesson14ConnectionProfiles(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+  });
+
+  it('demonstrateLesson14TabPolling uses fast path when polling already configured', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-polling-config-btn"></button>
+      <div data-testid="gql-polling-popover">
+        <button data-testid="gql-polling-popover-close"></button>
+        <button data-testid="gql-polling-toggle" aria-checked="true"></button>
+      </div>`);
+    document.querySelector('.gql-profile-list')!.innerHTML = `
+      <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span><button class="gql-profile-btn--load">Load</button></li>
+      <li class="gql-profile-row"><span class="gql-profile-row__name">Production</span><button class="gql-profile-btn--load">Load</button></li>`;
+    await ensureTabPolling(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await demonstrateLesson14TabPolling(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.POLLING_TOGGLE);
   });
 
   it('ensureTabPolling guard skips duplicate configuration on second call', async () => {

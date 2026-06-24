@@ -228,7 +228,7 @@ export async function ensureLesson15ReadyToExecute(ctx: DemoActionContext): Prom
   if (tab0) {
     tab0.setAttribute('data-lesson-target', 'gql15-batch-tab-0');
     await ctx.click('[data-lesson-target="gql15-batch-tab-0"]');
-    await ctx.delay(500);
+    await ctx.delay(800);
     await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
     await ctx.delay(400);
   }
@@ -237,7 +237,7 @@ export async function ensureLesson15ReadyToExecute(ctx: DemoActionContext): Prom
   if (tab1) {
     tab1.setAttribute('data-lesson-target', 'gql15-batch-tab-1');
     await ctx.click('[data-lesson-target="gql15-batch-tab-1"]');
-    await ctx.delay(500);
+    await ctx.delay(800);
     await fillGqlEditor(ctx, LESSON15_TAB2_QUERY, { focus: false });
     await ctx.delay(400);
   }

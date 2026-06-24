@@ -1579,6 +1579,15 @@ describe('LiveDemo', () => {
     expect(badge).toBeTruthy();
   });
 
+  it('reading badge skips reading when Enter or Space pressed', () => {
+    const onSkipReading = vi.fn();
+    render(<LiveDemo {...liveProps} stepPhase="reading" onSkipReading={onSkipReading} />);
+    const badge = screen.getByTestId('demo-live-phase-badge');
+    fireEvent.keyDown(badge, { key: 'Enter' });
+    fireEvent.keyDown(badge, { key: ' ' });
+    expect(onSkipReading).toHaveBeenCalledTimes(2);
+  });
+
   it('action badge does not call onSkipReading when clicked', () => {
     const onSkipReading = vi.fn();
     render(<LiveDemo {...liveProps} stepPhase="action" onSkipReading={onSkipReading} />);
@@ -1589,14 +1598,21 @@ describe('LiveDemo', () => {
   it('drag handle starts drag on mousedown and moves panel', () => {
     const { container } = render(<LiveDemo {...liveProps} />);
     const header = container.querySelector('.demo-live-panel-header--draggable') as HTMLElement;
+    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
     expect(header).toBeTruthy();
+    expect(panel).toBeTruthy();
+
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      top: 200, left: 300, width: 320, height: 180,
+      right: 620, bottom: 380, x: 300, y: 200, toJSON: () => ({}),
+    });
 
     fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
     fireEvent(window, new MouseEvent('mousemove', { clientX: 150, clientY: 120 }));
     fireEvent(window, new MouseEvent('mouseup'));
 
-    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
-    expect(panel).toBeTruthy();
+    expect(panel.style.top).toBe('220px');
+    expect(panel.style.left).toBe('350px');
   });
 
   it('drag ignores mousedown on buttons inside header', () => {

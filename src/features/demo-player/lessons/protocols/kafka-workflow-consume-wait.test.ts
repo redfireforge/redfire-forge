@@ -45,7 +45,7 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(dblclickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
   });
 
   it('step cw-wait-node preAction double-clicks node to open config modal', async () => {
@@ -60,7 +60,7 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(dblclickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
   });
 
   it('step cw-quicktest action clicks quick test button', async () => {
@@ -127,7 +127,7 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(clickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(500);
+    expect(ctx.delay).toHaveBeenCalledWith(400);
   });
 
   // ── Step preActions and actions ──────────────────────────────────
@@ -233,52 +233,39 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(textarea.scrollIntoView).toHaveBeenCalled();
   });
 
-  it('closeConfigModal closes modal when present and Close button found (line 157 true branch)', async () => {
-    // step cw-wait-node preAction calls closeConfigModal
+  it('closeConfigModal closes modal when present and Close button found', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-wait-node')!;
     if (!step?.preAction) return;
-    // Create a config modal with a Close button
-    const modal = document.createElement('div');
-    modal.className = 'wf-config-modal';
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    const closeClickSpy = vi.fn();
-    closeBtn.addEventListener('click', closeClickSpy);
-    modal.appendChild(closeBtn);
-    document.body.appendChild(modal);
+    document.body.innerHTML = `
+      <div class="wf-config-modal">
+        <div class="wf-config-modal-footer-actions">
+          <button class="btn-ghost">Close</button>
+        </div>
+      </div>
+    `;
+    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+    const closeClickSpy = vi.spyOn(closeBtn, 'click');
     const ctx = makeCtx();
     await step.preAction(ctx);
     expect(closeClickSpy).toHaveBeenCalled();
   });
 
-  it('step cw-console action opens console when panel absent (line 404 true branch)', async () => {
+  it('step cw-console action closes console when panel is open', async () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-console')!;
     if (!step?.action) return;
-    // No console panel — badge should be clicked
+    const panel = document.createElement('div');
+    panel.className = 'wf-console-panel';
+    document.body.appendChild(panel);
     const badge = document.createElement('button');
     badge.className = 'wf-console-badge';
     const badgeClickSpy = vi.fn();
+    badge.addEventListener('click', () => panel.remove());
     badge.addEventListener('click', badgeClickSpy);
     document.body.appendChild(badge);
     const ctx = makeCtx();
     await step.action(ctx);
     expect(badgeClickSpy).toHaveBeenCalled();
-  });
-
-  it('step last preAction closes console when panel present (line 444/446 true branch)', async () => {
-    const lastStep = kafkaWorkflowConsumeWaitLesson.steps[kafkaWorkflowConsumeWaitLesson.steps.length - 1];
-    if (!lastStep?.preAction) return;
-    const consolePanel = document.createElement('div');
-    consolePanel.className = 'wf-console-panel';
-    document.body.appendChild(consolePanel);
-    const badge = document.createElement('button');
-    badge.className = 'wf-console-badge';
-    const badgeClickSpy = vi.fn();
-    badge.addEventListener('click', badgeClickSpy);
-    document.body.appendChild(badge);
-    const ctx = makeCtx();
-    await lastStep.preAction(ctx);
-    expect(badgeClickSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
   it('step cw-load-mode preAction opens wait node and scrolls load mode selector into view', async () => {
@@ -477,7 +464,7 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(dblclickSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
   });
 
   it('cw-consume-binding preAction skips dblclick when config modal already open', async () => {
@@ -506,19 +493,9 @@ describe('kafka-workflow-consume-wait lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('cw-summary preAction toggles console closed when panel is open', async () => {
+  it('cw-summary has no preAction (console closed at end of cw-console)', () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-summary')!;
-    const panel = document.createElement('div');
-    panel.className = 'wf-console-panel';
-    document.body.appendChild(panel);
-    const badge = document.createElement('div');
-    badge.className = 'wf-console-badge';
-    const clickSpy = vi.fn();
-    badge.addEventListener('click', clickSpy);
-    document.body.appendChild(badge);
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(step.preAction).toBeUndefined();
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { summarizeRequestFailure, formatHttpNodeRunDetail } from './workflowRunErrors';
+import { summarizeRequestFailure, formatHttpNodeRunDetail, buildQuickTestFailureReport, filterQuickTestVariableSnapshot } from './workflowRunErrors';
 import { RequestResult } from '../../../shared/types';
 
 function baseResult(over: Partial<RequestResult> = {}): RequestResult {
@@ -76,6 +76,14 @@ describe('summarizeRequestFailure', () => {
   it('returns generic message when nothing else matches', () => {
     expect(summarizeRequestFailure(baseResult({ httpStatus: 200, failureDetails: [] }))).toBe('Step failed');
   });
+
+  it('uses second line for graphqlAssert multiline errors without got in first line', () => {
+    const r = baseResult({
+      transportType: 'graphqlAssert',
+      errorMessage: 'Assertion failed\nExpected field user.name got "Bob" but wanted "Alice"',
+    });
+    expect(summarizeRequestFailure(r)).toContain('Expected field user.name');
+  });
 });
 
 describe('formatHttpNodeRunDetail', () => {
@@ -150,5 +158,86 @@ describe('formatHttpNodeRunDetail', () => {
   it('falls back to result.responseBody when opts is undefined', () => {
     const detail = formatHttpNodeRunDetail(baseResult({ responseBody: '{"b":2}' }));
     expect(detail).toContain('"b": 2');
+  });
+});
+
+describe('filterQuickTestVariableSnapshot', () => {
+  it('drops unreferenced harness baseUrl but keeps runtime bindings', () => {
+    const filtered = filterQuickTestVariableSnapshot(
+      { baseUrl: 'https://sales.apps.example.com', gqlLatency: '793' },
+      new Set<string>(),
+      {},
+    );
+    expect(filtered).toEqual({ gqlLatency: '793' });
+  });
+
+  it('keeps baseUrl when referenced in workflow node config', () => {
+    const filtered = filterQuickTestVariableSnapshot(
+      { baseUrl: 'https://api.example.com', token: 'abc' },
+      new Set(['baseUrl']),
+      {},
+    );
+    expect(filtered?.baseUrl).toBe('https://api.example.com');
+    expect(filtered?.token).toBe('abc');
+  });
+
+  it('drops baseUrl even when present in workflow.variables but not referenced', () => {
+    const filtered = filterQuickTestVariableSnapshot(
+      { baseUrl: 'http://localhost:4010', gqlLatency: '28' },
+      new Set<string>(),
+      { baseUrl: 'http://localhost:4010' },
+    );
+    expect(filtered).toEqual({ gqlLatency: '28' });
+  });
+
+  it('drops empty trimmed values and returns null when nothing remains', () => {
+    expect(filterQuickTestVariableSnapshot({ baseUrl: '  ', token: '' }, new Set(), {})).toBeNull();
+  });
+});
+
+describe('buildQuickTestFailureReport', () => {
+  it('includes failed graphql steps and gqlLatency hint when variable missing', () => {
+    const report = buildQuickTestFailureReport(
+      undefined,
+      [
+        { nodeId: 'q', label: 'GraphQL Query', state: 'pass', responseTimeMs: 24 },
+        {
+          nodeId: 'a',
+          label: 'GraphQL Assert',
+          state: 'fail',
+          error: 'Source variable "{{gqlLatency}}" is not set.',
+        },
+      ],
+      {},
+      120,
+    );
+    expect(report.failedSteps).toHaveLength(1);
+    expect(report.passedSteps).toHaveLength(1);
+    expect(report.hints.some((h) => h.includes('gqlLatency'))).toBe(true);
+  });
+
+  it('includes endpoint and network hints for common graphql workflow failures', () => {
+    const endpointReport = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'q', label: 'GraphQL Query', state: 'fail', error: 'Endpoint is required for this node.' }],
+      {},
+    );
+    expect(endpointReport.hints.some((h) => h.includes('Operation tab'))).toBe(true);
+
+    const networkReport = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'q', label: 'GraphQL Query', state: 'fail', error: 'Network error — Proxy request failed' }],
+      {},
+    );
+    expect(networkReport.hints.some((h) => h.includes('Docker stack'))).toBe(true);
+  });
+
+  it('includes default triage hint when no specific pattern matches', () => {
+    const report = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'x', label: 'HTTP', state: 'fail', error: 'Unexpected 418' }],
+      null,
+    );
+    expect(report.hints.some((h) => h.includes('Console panel'))).toBe(true);
   });
 });

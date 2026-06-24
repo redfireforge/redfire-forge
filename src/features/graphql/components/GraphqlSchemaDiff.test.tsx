@@ -46,6 +46,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn().mockReturnValue('blob:test');
   URL.revokeObjectURL = vi.fn();
   vi.useFakeTimers();
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 afterEach(() => {
@@ -586,5 +587,41 @@ describe('GraphqlSchemaDiff', () => {
     render(<GraphqlSchemaDiff {...defaultProps} oldSdl="" newSdl="" />);
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
     expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
+  });
+
+  it('SDL diff search filters lines and navigates matches with keyboard', () => {
+    const oldSdl = 'type Query {\n  users: [User]\n  posts: [Post]\n}';
+    const newSdl = 'type Query {\n  user(id: ID!): User\n  posts: [Post]\n}';
+    render(<GraphqlSchemaDiff {...defaultProps} oldSdl={oldSdl} newSdl={newSdl} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+
+    const searchInput = screen.getByLabelText('Search SDL diff');
+    fireEvent.change(searchInput, { target: { value: 'posts' } });
+    expect(screen.getByText('1/1')).toBeInTheDocument();
+    expect(document.querySelector('.gql-diff-sdl-line--search-active')).toBeTruthy();
+
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+    fireEvent.keyDown(searchInput, { key: 'Enter', shiftKey: true });
+
+    fireEvent.keyDown(window, { key: 'f', metaKey: true });
+    expect(document.activeElement).toBe(searchInput);
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(searchInput).toHaveValue('');
+  });
+
+  it('SDL diff search scrolls active match into view', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    render(<GraphqlSchemaDiff
+      {...defaultProps}
+      oldSdl={'type Query {\n  alpha: String\n  beta: String\n}'}
+      newSdl={'type Query {\n  alpha: String\n  gamma: String\n}'}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    fireEvent.change(screen.getByLabelText('Search SDL diff'), { target: { value: 'gamma' } });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
   });
 });

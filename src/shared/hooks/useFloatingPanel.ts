@@ -32,6 +32,18 @@ function getSidebarMinLeft(): number {
   return sidebarW + 20; // +16px toggle button +4px resize handle
 }
 
+/** Demo layout: floating console on the left of the canvas (Workflow Designer lessons). */
+export function computeWorkflowConsoleDemoFloatLayout(bounds?: { w: number; h: number }) {
+  const { w, h } = bounds ?? getViewportBounds();
+  const minLeft = getSidebarMinLeft();
+  return {
+    x: minLeft,
+    y: Math.round(h * 0.08),
+    w: Math.max(PANEL_LIMITS.MIN_FLOAT_W, Math.round(w * 0.38)),
+    h: Math.max(PANEL_LIMITS.MIN_FLOAT_H, Math.round(h * 0.75)),
+  };
+}
+
 export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
   const {
     defaultDockedHeight = 200,

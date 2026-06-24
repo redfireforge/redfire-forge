@@ -54,13 +54,13 @@ describe('VariableContextBadge', () => {
     expect(screen.getByText(/No variables match/)).toBeTruthy();
   });
 
-  it('opens variable detail and closes on row click', async () => {
+  it('opens variable detail and keeps context modal open', async () => {
     const user = userEvent.setup();
     render(<VariableContextBadge variables={{ token: 'abc' }} />);
     await user.click(screen.getByRole('button', { name: /workflow context/i }));
     await user.click(screen.getByTitle('View or edit in Initial variables'));
-    expect(openVariableDetail).toHaveBeenCalledWith('token');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(openVariableDetail).toHaveBeenCalledWith('token', 'abc');
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('closes via Close button', async () => {
@@ -71,11 +71,22 @@ describe('VariableContextBadge', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('renders modal in workflow designer mount (not inside canvas)', async () => {
+    const mount = document.createElement('div');
+    mount.className = 'workflow-designer-mount';
+    document.body.appendChild(mount);
+    const user = userEvent.setup();
+    render(<VariableContextBadge variables={{ token: 'abc' }} />);
+    await user.click(screen.getByRole('button', { name: /workflow context/i }));
+    expect(mount.querySelector('.wf-vars-modal-overlay')).toBeTruthy();
+    mount.remove();
+  });
+
   it('closes when clicking the overlay backdrop', async () => {
     const user = userEvent.setup();
-    const { container } = render(<VariableContextBadge variables={{ token: 'abc' }} />);
+    render(<VariableContextBadge variables={{ token: 'abc' }} />);
     await user.click(screen.getByRole('button', { name: /workflow context/i }));
-    const overlay = container.querySelector('.wf-vars-modal-overlay') as HTMLElement;
+    const overlay = document.body.querySelector('.wf-vars-modal-overlay') as HTMLElement;
     await user.click(overlay);
     expect(screen.queryByRole('dialog')).toBeNull();
   });

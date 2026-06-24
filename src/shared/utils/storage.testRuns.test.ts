@@ -365,6 +365,13 @@ describe('storage — parse / catch fallbacks', () => {
     vi.restoreAllMocks();
   });
 
+  it('getMaxRuns falls back when readKey rejects', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockRejectedValueOnce(new Error('tauri read failed'));
+    expect(await getMaxRuns()).toBe(50);
+    isTauriMock.mockReturnValue(false);
+  });
+
   it('loadTestRuns returns empty array when JSON is invalid', async () => {
     localStorage.setItem('perf-test-runs', '{');
     expect(await loadTestRuns()).toEqual([]);

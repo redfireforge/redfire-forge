@@ -272,6 +272,20 @@ describe('GraphqlAuthForm — inherit and reset', () => {
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'p2' });
   });
 
+  it('clears globalProfileId when inherit profile selection is emptied', () => {
+    const onChange = vi.fn();
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderForm(
+      { type: 'inherit', globalProfileId: 'p1' },
+      onChange,
+      { authScope: 'tab', globalAuthProfiles: profiles },
+    );
+    fireEvent.change(screen.getByTestId('gql-auth-profile-select'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: undefined });
+  });
+
   it('shows override banner instead of inherit banner for tab inherit profile', () => {
     renderForm(
       { type: 'inherit', globalProfileId: 'p1' },
@@ -330,5 +344,126 @@ describe('GraphqlAuthForm — password visibility', () => {
     renderForm({ type: 'bearer', token: 'mytoken' });
     fireEvent.click(screen.getByLabelText('Show value'));
     expect((screen.getByTestId('gql-auth-bearer-input') as HTMLInputElement).type).toBe('text');
+  });
+});
+
+describe('GraphqlAuthForm — additional branches', () => {
+  it('does not call onChange when inherit-workspace is already selected', () => {
+    const onChange = vi.fn();
+    renderForm({ type: 'inherit' }, onChange, { authScope: 'tab', hasAuthOverride: false });
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'inherit-workspace' } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not call onChange when inherit profile is already selected', () => {
+    const onChange = vi.fn();
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderForm({ type: 'inherit', globalProfileId: 'p1' }, onChange, { globalAuthProfiles: profiles });
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'inherit' } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('ignores profile change when auth type is not inherit', () => {
+    const onChange = vi.fn();
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+      { id: 'p2', name: 'Prod', auth: { type: 'bearer', token: 'p' } },
+    ];
+    renderForm({ type: 'bearer', token: 'tok' }, onChange, { globalAuthProfiles: profiles });
+    expect(screen.queryByTestId('gql-auth-profile-select')).toBeNull();
+  });
+
+  it('calls onChange with updated apiKey header value', () => {
+    const onChange = vi.fn();
+    renderForm({ type: 'apiKey', headerName: 'X-API-Key', headerValue: 'old' }, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-apikey-val'), { target: { value: 'new-key' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ headerValue: 'new-key' }));
+  });
+
+  it('calls onChange when oauth2 token URL changes', () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: 'oauth2',
+      oauth2: { tokenUrl: 'https://old/token', clientId: 'c', clientSecret: 's' },
+    }, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-oauth-token-url'), {
+      target: { value: 'https://new/token' },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oauth2: expect.objectContaining({ tokenUrl: 'https://new/token' }),
+      }),
+    );
+  });
+
+  it('calls onChange when oauth2 client ID changes', () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: 'oauth2',
+      oauth2: { tokenUrl: 'https://auth/token', clientId: 'old', clientSecret: 's' },
+    }, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-oauth-client-id'), { target: { value: 'new-id' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oauth2: expect.objectContaining({ clientId: 'new-id' }),
+      }),
+    );
+  });
+
+  it('calls onChange when oauth2 client secret changes', () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: 'oauth2',
+      oauth2: { tokenUrl: 'https://auth/token', clientId: 'c', clientSecret: 'old' },
+    }, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-oauth-client-secret'), { target: { value: 'new-secret' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oauth2: expect.objectContaining({ clientSecret: 'new-secret' }),
+      }),
+    );
+  });
+
+  it('calls onChange with basic auth when switching from null', () => {
+    const onChange = vi.fn();
+    renderForm(null, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'basic' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'basic' }));
+  });
+
+  it('calls onChange with custom auth when switching from null', () => {
+    const onChange = vi.fn();
+    renderForm(null, onChange);
+    fireEvent.change(screen.getByTestId('gql-auth-type-select'), { target: { value: 'custom' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'custom' }));
+  });
+
+  it('uses empty-string fallbacks when credential fields are undefined', () => {
+    renderForm({ type: 'bearer' } as GraphqlAuth);
+    expect((screen.getByTestId('gql-auth-bearer-input') as HTMLInputElement).value).toBe('');
+
+    const { unmount: unmountBasic } = renderForm({ type: 'basic' } as GraphqlAuth);
+    expect((screen.getByTestId('gql-auth-basic-user') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('gql-auth-basic-pass') as HTMLInputElement).value).toBe('');
+    unmountBasic();
+
+    renderForm({ type: 'apiKey' } as GraphqlAuth);
+    expect((screen.getByTestId('gql-auth-apikey-name') as HTMLInputElement).value).toBe('X-API-Key');
+    expect((screen.getByTestId('gql-auth-apikey-val') as HTMLInputElement).value).toBe('');
+
+    renderForm({ type: 'oauth2' } as GraphqlAuth);
+    expect((screen.getByTestId('gql-auth-oauth-token-url') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('gql-auth-oauth-client-id') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('gql-auth-oauth-client-secret') as HTMLInputElement).value).toBe('');
+  });
+
+  it('shows inherit profile select with empty value when globalProfileId is unset', () => {
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'p1', name: 'Staging', auth: { type: 'bearer', token: 't' } },
+    ];
+    renderForm({ type: 'inherit' }, vi.fn(), { globalAuthProfiles: profiles, authScope: 'tab' });
+    expect((screen.getByTestId('gql-auth-profile-select') as HTMLSelectElement).value).toBe('');
   });
 });

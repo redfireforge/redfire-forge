@@ -5,9 +5,18 @@
 
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useGraphqlQueryBuilder } from './useGraphqlQueryBuilder';
+import { useGraphqlQueryBuilder, createInitialBuilderState } from './useGraphqlQueryBuilder';
 
 describe('useGraphqlQueryBuilder', () => {
+
+  it('createInitialBuilderState returns a deep clone of defaults', () => {
+    const state = createInitialBuilderState();
+    expect(state.operationType).toBe('query');
+    expect(state.expandedPaths).toBeInstanceOf(Set);
+    state.selectedFields.health = true;
+    const again = createInitialBuilderState();
+    expect(again.selectedFields.health).toBeUndefined();
+  });
 
   describe('initial state', () => {
     it('starts with query operation type', () => {
@@ -402,7 +411,67 @@ describe('useGraphqlQueryBuilder', () => {
     });
   });
 
+  describe('selectPaths / deselectPaths', () => {
+    it('selectPaths expands ancestor paths for nested selections', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.selectPaths(['user.id', 'user.name']));
+      expect(result.current.state.selectedFields['user.id']).toBe(true);
+      expect(result.current.state.expandedPaths.has('user')).toBe(true);
+    });
+
+    it('deselectPaths removes nested selections without collapsing unrelated paths', () => {
+      const { result } = renderHook(() => useGraphqlQueryBuilder());
+      act(() => result.current.selectPaths(['user.id', 'health']));
+      act(() => result.current.deselectPaths(['user.id']));
+      expect(result.current.state.selectedFields['user.id']).toBeUndefined();
+      expect(result.current.state.selectedFields.health).toBe(true);
+    });
+  });
+
   describe('persistence options', () => {
+    it('restores initialState on mount with falsy selected field entries ignored', () => {
+      const { result } = renderHook(() =>
+        useGraphqlQueryBuilder({
+          initialState: {
+            operationType: 'query',
+            operationName: 'MyQuery',
+            selectedFields: { health: true, ghost: false as unknown as boolean },
+            argValues: {},
+            expandedPaths: new Set(['user']),
+            searchQuery: '',
+            fieldAliases: {},
+            fieldDirectives: {},
+            fragments: {},
+            activeFragmentSpreads: [],
+          },
+        }),
+      );
+      expect(result.current.selectedCount).toBe(1);
+      expect(result.current.state.expandedPaths.has('user')).toBe(true);
+    });
+
+    it('selectPaths is a no-op for expanded paths when ancestors already expanded', () => {
+      const { result } = renderHook(() =>
+        useGraphqlQueryBuilder({
+          initialState: {
+            operationType: 'query',
+            operationName: 'MyQuery',
+            selectedFields: { 'user.id': true },
+            argValues: {},
+            expandedPaths: new Set(['user']),
+            searchQuery: '',
+            fieldAliases: {},
+            fieldDirectives: {},
+            fragments: {},
+            activeFragmentSpreads: [],
+          },
+        }),
+      );
+      const before = result.current.state.expandedPaths;
+      act(() => result.current.selectPaths(['user.id']));
+      expect(result.current.state.expandedPaths).toEqual(before);
+    });
+
     it('restores initialState on mount', () => {
       const { result } = renderHook(() =>
         useGraphqlQueryBuilder({

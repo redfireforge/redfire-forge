@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { useFloatingPanel, PANEL_LIMITS } from './useFloatingPanel';
+import { useFloatingPanel, PANEL_LIMITS, computeWorkflowConsoleDemoFloatLayout } from './useFloatingPanel';
 
 function setViewport(width: number, height: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
@@ -33,6 +33,14 @@ describe('useFloatingPanel', () => {
   afterEach(() => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout anchors left of canvas', () => {
+    const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1280, h: 900 });
+    expect(layout.x).toBe(68);
+    expect(layout.y).toBe(72);
+    expect(layout.w).toBe(486);
+    expect(layout.h).toBe(675);
   });
 
   it('initializes docked and floating state from defaults', () => {

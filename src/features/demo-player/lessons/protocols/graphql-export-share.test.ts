@@ -296,11 +296,14 @@ describe('gql-export-share lesson', () => {
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.querySelector(GQL.HISTORY_CONTEXT_MENU)?.remove();
+    });
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
-    expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeTruthy();
+    expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeNull();
   });
 
   it('gql9-curl preAction opens context menu during reading phase when not yet visible', async () => {

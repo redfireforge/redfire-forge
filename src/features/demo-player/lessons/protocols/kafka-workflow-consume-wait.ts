@@ -7,6 +7,16 @@
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { ensureKafkaConnected, kafkaCleanup } from '../setup-helpers';
+import {
+  clickWfConfigControl,
+  closeWfConfigModalIfOpen,
+  closeWfConsoleIfOpen,
+  collapseWfDemoAppSidebar,
+  openWfConsoleIfClosed,
+  openWfNodeConfigModal,
+  pauseWfConfigDemo,
+  selectWorkflowFromAppSidebar,
+} from '../wf-demo-helpers';
 import { WF, KAFKA } from '../../../../shared/selectors';
 
 // ── Seeded workflow factory ────────────────────────────────────────
@@ -123,24 +133,15 @@ async function kafkaWorkflowConsumeWaitSetup(ctx: DemoActionContext): Promise<vo
   ctx.navigateToTab('workflow');
   await ctx.delay(900);
 
-  // Close console if open so it doesn't obstruct the canvas
-  const consolePanel = document.querySelector<HTMLElement>('.wf-console-panel');
-  if (consolePanel) {
-    const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-    if (badge) { badge.click(); await ctx.delay(300); }
-  }
+  await closeWfConsoleIfOpen(ctx);
 
   const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
   if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+  await collapseWfDemoAppSidebar(ctx);
 }
 
 async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<void> {
-  // Close console so it doesn't carry over into the next lesson
-  const consolePanel = document.querySelector<HTMLElement>('.wf-console-panel');
-  if (consolePanel) {
-    const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-    if (badge) { badge.click(); await ctx.delay(300); }
-  }
+  await closeWfConsoleIfOpen(ctx);
 
   const win = window as unknown as Record<string, unknown>;
   const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
@@ -148,26 +149,33 @@ async function kafkaWorkflowConsumeWaitCleanup(ctx: DemoActionContext): Promise<
   await kafkaCleanup(ctx);
 }
 
-/** Close any open workflow config modal by finding the "Close" button by text. */
+/** Close any open workflow config modal (quiet — no ripple). */
 async function closeConfigModal(ctx: DemoActionContext): Promise<void> {
-  const modal = document.querySelector<HTMLElement>('.wf-config-modal');
-  if (!modal) return;
-  const btns = Array.from(modal.querySelectorAll('button'));
-  const closeBtn = btns.find(b => b.textContent?.trim() === 'Close');
-  if (closeBtn) {
-    closeBtn.click();
-    await ctx.delay(400);
-  }
+  await closeWfConfigModalIfOpen(ctx);
+}
+
+/** Open a Kafka node config modal when absent; reuse shared pacing for dblclick path. */
+async function ensureKafkaNodeConfigOpen(
+  ctx: DemoActionContext,
+  nodeSelector: string,
+): Promise<void> {
+  if (document.querySelector('.wf-config-modal')) return;
+  await openWfNodeConfigModal(ctx, { nodeSelector });
+}
+
+/** Scroll a config section into view and pause so the viewer can read it. */
+async function scrollWfConfigSectionIntoView(
+  ctx: DemoActionContext,
+  selector: string,
+): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await pauseWfConfigDemo(ctx, 'afterClick');
 }
 
 /** Select the seeded workflow from the sidebar. */
 async function selectConsumeWaitWorkflow(ctx: DemoActionContext): Promise<void> {
-  const items = Array.from(document.querySelectorAll('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item'));
-  const target = items.find((el) => el.textContent?.includes('Kafka Consume & Wait Demo')) as HTMLElement | undefined;
-  if (target) {
-    target.click();
-    await ctx.delay(500);
-  }
+  await selectWorkflowFromAppSidebar(ctx, 'Kafka Consume & Wait Demo');
 }
 
 export const kafkaWorkflowConsumeWaitLesson: DemoLesson = {
@@ -275,11 +283,7 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       highlight: '.wf-config-modal-scroll',
       preAction: async (ctx) => {
         await closeConfigModal(ctx);
-        const node = document.querySelector<HTMLElement>(KAFKA.NODE_CONSUME);
-        if (node) {
-          node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-          await ctx.delay(600);
-        }
+        await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_CONSUME });
       },
       verify: '.wf-config-modal',
     },
@@ -292,16 +296,8 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
         'Scroll down to find the **Output Binding** which maps `firstMessageBody` → `firstOrder`. This makes the first consumed message\'s body available to all downstream nodes as `{{firstOrder}}`. You could also bind `messageCount`, `allMessages`, or `lastMessageBody`.',
       highlight: '[data-testid="output-bindings-section"]',
       preAction: async (ctx) => {
-        if (!document.querySelector('.wf-config-modal')) {
-          const node = document.querySelector<HTMLElement>(KAFKA.NODE_CONSUME);
-          if (node) {
-            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-            await ctx.delay(600);
-          }
-        }
-        const section = document.querySelector<HTMLElement>('[data-testid="output-bindings-section"]');
-        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(400);
+        await ensureKafkaNodeConfigOpen(ctx, KAFKA.NODE_CONSUME);
+        await scrollWfConfigSectionIntoView(ctx, '[data-testid="output-bindings-section"]');
       },
     },
 
@@ -314,11 +310,7 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       highlight: '.wf-config-modal-scroll',
       preAction: async (ctx) => {
         await closeConfigModal(ctx);
-        const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
-        if (node) {
-          node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-          await ctx.delay(600);
-        }
+        await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_WAIT });
       },
       verify: '.wf-config-modal',
     },
@@ -332,14 +324,9 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       highlight: KAFKA.WAIT_CORRELATION_SECTION,
       preAction: async (ctx) => {
         if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
-          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
-          if (node) {
-            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-            await ctx.delay(600);
-          }
+          await ensureKafkaNodeConfigOpen(ctx, KAFKA.NODE_WAIT);
         }
-        const el = document.querySelector<HTMLElement>(KAFKA.WAIT_CORRELATION_SECTION);
-        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); await ctx.delay(300); }
+        await scrollWfConfigSectionIntoView(ctx, KAFKA.WAIT_CORRELATION_SECTION);
       },
     },
 
@@ -352,14 +339,9 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       highlight: KAFKA.WAIT_SAMPLE_TEXTAREA,
       preAction: async (ctx) => {
         if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
-          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
-          if (node) {
-            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-            await ctx.delay(600);
-          }
+          await ensureKafkaNodeConfigOpen(ctx, KAFKA.NODE_WAIT);
         }
-        const el = document.querySelector<HTMLElement>(KAFKA.WAIT_SAMPLE_TEXTAREA);
-        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); await ctx.delay(300); }
+        await scrollWfConfigSectionIntoView(ctx, KAFKA.WAIT_SAMPLE_TEXTAREA);
       },
     },
 
@@ -372,18 +354,12 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       highlight: KAFKA.WAIT_LOAD_MODE_SELECT,
       preAction: async (ctx) => {
         if (!document.querySelector(KAFKA.WAIT_CONFIG)) {
-          const node = document.querySelector<HTMLElement>(KAFKA.NODE_WAIT);
-          if (node) {
-            node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-            await ctx.delay(600);
-          }
+          await ensureKafkaNodeConfigOpen(ctx, KAFKA.NODE_WAIT);
         }
-        const el = document.querySelector<HTMLElement>(KAFKA.WAIT_LOAD_MODE_SELECT);
-        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); await ctx.delay(300); }
+        await scrollWfConfigSectionIntoView(ctx, KAFKA.WAIT_LOAD_MODE_SELECT);
       },
       action: async (ctx) => {
-        await ctx.click(KAFKA.WAIT_LOAD_MODE_SELECT);
-        await ctx.delay(400);
+        await clickWfConfigControl(ctx, KAFKA.WAIT_LOAD_MODE_SELECT);
       },
     },
 
@@ -392,20 +368,13 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       id: 'cw-open-console',
       title: 'Open the Console',
       description:
-        'The config panel is closed. Before running Quick Test, open the **Console** by clicking the Console badge in the status bar. The Console must be open *before* execution so it captures the full log.',
+        'The config panel is closed. Before running Quick Test, open the **Console** by clicking the Console badge in the status bar. It opens in **Floating** mode on the left of the canvas. The Console must be open *before* execution so it captures the full log.',
       highlight: '.wf-console-badge',
       preAction: async (ctx) => {
         await closeConfigModal(ctx);
       },
       action: async (ctx) => {
-        const panel = document.querySelector<HTMLElement>('.wf-console-panel');
-        if (!panel) {
-          const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-          if (badge) {
-            badge.click();
-            await ctx.delay(500);
-          }
-        }
+        await openWfConsoleIfClosed(ctx);
       },
     },
 
@@ -430,6 +399,10 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       description:
         'The **Console** now shows the complete execution log. Look for the CONSUME entry with `messageCount` and the WAIT entry showing `RESOLVED (sample)` — confirming the sample payload was used. The `confirmedAmount` variable is also visible in the variable table.',
       highlight: '.wf-console-body',
+      action: async (ctx) => {
+        await ctx.delay(800);
+        await closeWfConsoleIfOpen(ctx);
+      },
     },
 
     // Step 10: Summary
@@ -439,13 +412,6 @@ During load tests or Quick Test, a real correlated event may never arrive. Setti
       description:
         'You now have the complete Kafka workflow toolkit: Produce → Consume → Wait. Combine these with HTTP and WebSocket nodes for full end-to-end event-driven test workflows. In the next lesson, you\'ll configure a **Secure Cluster** with SASL/SCRAM authentication.',
       highlight: '.wf-canvas-area',
-      preAction: async (ctx) => {
-        const panel = document.querySelector<HTMLElement>('.wf-console-panel');
-        if (panel) {
-          const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-          if (badge) { badge.click(); await ctx.delay(400); }
-        }
-      },
     },
   ],
 };

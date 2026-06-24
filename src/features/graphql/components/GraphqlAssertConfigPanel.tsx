@@ -29,6 +29,9 @@ import {
   GqlWfFormRow,
   GqlWfFieldError,
   GqlWfSectionToolbar,
+  GqlWfChoiceGroup,
+  GqlWfChoiceOption,
+  GqlWfTabStack,
   type GqlWfSubTab,
 } from './GraphqlWfConfigLayout';
 
@@ -114,32 +117,34 @@ export default function GraphqlAssertConfigPanel({
 
       <div className="wf-config-tab-content">
         {activeTab === 'source' && (
-          <>
-            <GqlWfFormCard>
-              <GqlWfFormRow label="Source variable" stack last>
-                <InsertVarField
-                  onRequestVariableInsert={onRequestVariableInsert}
-                  shortRef
-                  onInsert={(snippet) => update({ sourceVariable: `${data.sourceVariable ?? ''}${snippet}` })}
-                >
-                  <ExpressionInput
-                    value={data.sourceVariable ?? ''}
-                    onChange={(value) => update({ sourceVariable: value })}
-                    placeholder="{{queryResult}} or variableName"
-                    variableHints={variableHints}
-                    aria-label="Source variable name"
-                    data-testid="gql-wf-assert-source-var"
-                  />
-                </InsertVarField>
-                {tabErrors.source && <GqlWfFieldError>Source variable is required</GqlWfFieldError>}
-                <p className="gql-wf-section-subtitle gql-wf-section-subtitle--inset">
-                  Reference the workflow variable containing the GraphQL response to assert on.
-                  Typically the output of a <code>graphqlQuery</code> node bound to its <code>data</code> field.
-                </p>
-              </GqlWfFormRow>
-            </GqlWfFormCard>
-            <AvailableVariables hints={variableHints} />
-          </>
+          <GqlWfTabStack
+            main={(
+              <GqlWfFormCard>
+                <GqlWfFormRow label="Source variable" stack last>
+                  <InsertVarField
+                    onRequestVariableInsert={onRequestVariableInsert}
+                    shortRef
+                    onInsert={(snippet) => update({ sourceVariable: `${data.sourceVariable ?? ''}${snippet}` })}
+                  >
+                    <ExpressionInput
+                      value={data.sourceVariable ?? ''}
+                      onChange={(value) => update({ sourceVariable: value })}
+                      placeholder="{{queryResult}} or variableName"
+                      variableHints={variableHints}
+                      aria-label="Source variable name"
+                      data-testid="gql-wf-assert-source-var"
+                    />
+                  </InsertVarField>
+                  {tabErrors.source && <GqlWfFieldError>Source variable is required</GqlWfFieldError>}
+                  <p className="gql-wf-section-subtitle gql-wf-section-subtitle--inset">
+                    Reference the workflow variable containing the GraphQL response to assert on.
+                    Typically the output of a <code>graphqlQuery</code> node bound to its <code>data</code> field.
+                  </p>
+                </GqlWfFormRow>
+              </GqlWfFormCard>
+            )}
+            footer={<AvailableVariables hints={variableHints} dock />}
+          />
         )}
 
         {activeTab === 'assertions' && (
@@ -223,37 +228,26 @@ export default function GraphqlAssertConfigPanel({
         {activeTab === 'behavior' && (
           <GqlWfFormCard>
             <div className="gql-wf-section-body">
-              <p className="gql-wf-section-intro">What should happen when one or more assertions fail?</p>
-              <div className="gql-wf-behavior-options">
-                <label className="gql-wf-behavior-option">
-                  <input
-                    type="radio"
-                    name="failBehavior"
-                    value="error"
-                    checked={(data.failBehavior ?? 'error') === 'error'}
-                    onChange={() => update({ failBehavior: 'error' })}
-                    data-testid="gql-wf-assert-fail-error"
-                  />
-                  <span className="gql-wf-behavior-option-body">
-                    <strong>Halt workflow</strong>
-                    <span>Assertion failure stops execution as an error</span>
-                  </span>
-                </label>
-                <label className="gql-wf-behavior-option">
-                  <input
-                    type="radio"
-                    name="failBehavior"
-                    value="warn"
-                    checked={data.failBehavior === 'warn'}
-                    onChange={() => update({ failBehavior: 'warn' })}
-                    data-testid="gql-wf-assert-fail-warn"
-                  />
-                  <span className="gql-wf-behavior-option-body">
-                    <strong>Continue with warning</strong>
-                    <span>Workflow proceeds; assertion result shown as a warning badge</span>
-                  </span>
-                </label>
-              </div>
+              <GqlWfChoiceGroup legend="What should happen when one or more assertions fail?">
+                <GqlWfChoiceOption
+                  name="failBehavior"
+                  value="error"
+                  checked={(data.failBehavior ?? 'error') === 'error'}
+                  onChange={() => update({ failBehavior: 'error' })}
+                  title="Halt workflow"
+                  description="Assertion failure stops execution and marks the node as failed."
+                  testId="gql-wf-assert-fail-error"
+                />
+                <GqlWfChoiceOption
+                  name="failBehavior"
+                  value="warn"
+                  checked={data.failBehavior === 'warn'}
+                  onChange={() => update({ failBehavior: 'warn' })}
+                  title="Continue with warning"
+                  description="Workflow keeps running; the node shows a warning badge in run history."
+                  testId="gql-wf-assert-fail-warn"
+                />
+              </GqlWfChoiceGroup>
             </div>
           </GqlWfFormCard>
         )}
