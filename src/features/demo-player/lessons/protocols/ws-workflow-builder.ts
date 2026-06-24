@@ -15,6 +15,7 @@ import {
   saveWfConfigModal,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
+import { connectWorkflowNodes, deleteWorkflowByName } from '../../adapters';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -48,8 +49,7 @@ async function ensureWsEchoDemoWorkflow(ctx: DemoActionContext): Promise<void> {
 /** Start mock server via REST API (no tab navigation needed). */
 async function workflowSetup(ctx: DemoActionContext): Promise<void> {
   // Remove any existing "WS Echo Demo" workflow so each run starts with a clean canvas
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as ((name: string) => void) | undefined;
-  if (wfDelete) { wfDelete('WS Echo Demo'); await ctx.delay(300); }
+  if (deleteWorkflowByName('WS Echo Demo')) await ctx.delay(300);
 
   try {
     await fetch('/api/ws/mock/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: 9876 }) });
@@ -67,8 +67,7 @@ async function workflowCleanup(ctx: DemoActionContext): Promise<void> {
   // Stop mock server via API
   try { await fetch('/api/ws/mock/stop', { method: 'POST' }); } catch { /* ignore */ }
   // Remove the demo workflow so next run starts fresh
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as ((name: string) => void) | undefined;
-  if (wfDelete) wfDelete('WS Echo Demo');
+  deleteWorkflowByName('WS Echo Demo');
 }
 
 /** Scroll an element into its scrollable parent, then return it. */
@@ -84,17 +83,14 @@ async function clickFitView(ctx: DemoActionContext): Promise<void> {
   if (btn) { btn.click(); await ctx.delay(500); }
 }
 
-/** Connect two nodes via the exposed __wfConnect helper. */
+/** Connect two nodes via the workflow designer adapter. */
 function connectNodes(sourceSelector: string, targetSelector: string, sourceHandle: string | null = null): boolean {
   const node = document.querySelector(sourceSelector);
   const sourceId = node?.getAttribute('data-id') ?? node?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
   const targetEl = document.querySelector(targetSelector);
   const targetId = targetEl?.getAttribute('data-id') ?? targetEl?.closest('.react-flow__node')?.getAttribute('data-id') ?? null;
-  const wfConnect = (window as unknown as Record<string, unknown>).__wfConnect as
-    ((s: string, t: string, sh: string | null, th: string | null) => void) | undefined;
-  if (sourceId && targetId && wfConnect) {
-    wfConnect(sourceId, targetId, sourceHandle, null);
-    return true;
+  if (sourceId && targetId) {
+    return connectWorkflowNodes(sourceId, targetId, sourceHandle, null);
   }
   return false;
 }

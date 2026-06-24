@@ -231,8 +231,8 @@ export async function cleanupGqlDemoLessonEnvironment(_ctx: DemoActionContext): 
 
   const { purgeGqlDemoLessonEnvironmentsFromStorage } = await import('./gql-demo-app-environment-cleanup');
   await purgeGqlDemoLessonEnvironmentsFromStorage();
-  const deleteStudioEnv = w.__demoDeleteGqlEnvByName as ((name: string) => void) | undefined;
-  deleteStudioEnv?.(GQL_STUDIO_DEMO_ENV_NAME);
+  const { deleteGqlEnvironmentByName } = await import('../adapters');
+  deleteGqlEnvironmentByName(GQL_STUDIO_DEMO_ENV_NAME);
 }
 
 // ── Demo-dedicated env / microservice creation ─────────────────────────────

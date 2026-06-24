@@ -2,7 +2,7 @@
  * GraphqlStudioPage — GraphQL Studio main page (tabs, execution, schema, collections).
  * Orchestration hooks live under hooks/; layout pieces under components/GraphqlStudioPage*.
  */
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { GQL_STUDIO_PROXY_BASE } from './graphqlStudioPageConstants';
 import type { GraphqlHistoryItem } from '../../shared/types/graphql';
@@ -26,13 +26,16 @@ import { useGraphqlHistory } from './hooks/useGraphqlHistory';
 import { useGraphqlCollections } from './hooks/useGraphqlCollections';
 import { useGraphqlCollectionRunner } from './hooks/useGraphqlCollectionRunner';
 import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettings';
-import { useDemoGqlEnvBridge } from './hooks/useDemoGqlEnvBridge';
-import { useDemoGqlTlsBridge } from './hooks/useDemoGqlTlsBridge';
 import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 import { useGraphqlStudioShortcutsBridge } from './hooks/useGraphqlStudioShortcutsBridge';
 import { useGraphqlStudioSplitPanes } from './hooks/useGraphqlStudioSplitPanes';
 import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
 import { useGraphqlStudioEnvMap } from './hooks/useGraphqlStudioEnvMap';
+
+const LazyDemoGqlStudioBridges = DEMO_HUB_ENABLED
+  ? lazy(() => import('./DemoGqlStudioBridges'))
+  : null;
 import { useGraphqlHistoryMaxItems } from './hooks/useGraphqlHistoryMaxItems';
 import { useMonacoExecutionMarkers } from './hooks/useMonacoExecutionMarkers';
 import { resolveVars } from './utils/envUtils';
@@ -105,8 +108,6 @@ export function GraphqlStudioPage({
     upsertEnvironment, deleteEnvironmentByName,
     envModalOpen, setEnvModalOpen,
   } = useGraphqlConnectionSettings(resolvedBaseUrl);
-
-  useDemoGqlEnvBridge({ upsertEnvironment, deleteEnvironmentByName });
 
   const { globalEnvMap, endpointProtocolStatus } = useGraphqlStudioEnvMap({
     selectedSvc,
@@ -225,8 +226,6 @@ export function GraphqlStudioPage({
     handleAuthChange,
     updateActiveTabAuth,
   });
-
-  useDemoGqlTlsBridge({ applyTlsSettings: handleConnectionTlsChange });
 
   const usesPageDefaultAuth =
     tabs.length === 1 && !hasActiveTabAuthOverride && !hasActiveTabProfileLink;
@@ -566,6 +565,15 @@ export function GraphqlStudioPage({
 
   return (
     <div className="gql-studio" data-testid="gql-studio-page">
+      {LazyDemoGqlStudioBridges && (
+        <Suspense fallback={null}>
+          <LazyDemoGqlStudioBridges
+            upsertEnvironment={upsertEnvironment}
+            deleteEnvironmentByName={deleteEnvironmentByName}
+            applyTlsSettings={handleConnectionTlsChange}
+          />
+        </Suspense>
+      )}
       {executionLayers}
       <GraphqlConnectionBar
         endpoint={resolvedTabEndpoint}

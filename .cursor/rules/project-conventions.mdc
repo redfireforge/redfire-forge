@@ -201,6 +201,21 @@ alwaysApply: true
 | Demo lesson (wrapper only) | Before marking lesson done | [`demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md) — 5 items; wrappers excluded from 90% gate |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
+### Dual-track builds (Standard vs Learning Hub)
+
+| Task | Command |
+|------|---------|
+| Normal dev (demo on) | `npm run dev` |
+| Prod-slim dev (no Demo Hub) | `npm run dev:prod-slim` |
+| Web build — Standard | `npm run build:prod` (`VITE_ENABLE_DEMO_HUB=false`) |
+| Web build — Learning Hub | `npm run build:demo` |
+| Desktop — Standard | `npm run tauri:build:prod` |
+| Desktop — Learning Hub | `npm run tauri:build:demo` |
+| Unit tests — product only | `npm run test:product` |
+| Unit tests — demo lessons | `npm run test:demo` |
+
+Product PRs that do **not** touch `demo-player/` or demo E2E specs are **not** required to run demo E2E or `test:demo`. Demo lesson work uses the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md).
+
 ### Rules
 - **Use shared test factories** — Import `makeScenario`, `makeResult`, `makeConfig` from `src/test-utils/factories.ts` instead of defining local factory functions in each test file. Wrap with thin local aliases if you need different defaults (e.g. `const makeScenario = (id) => _makeScenario({ id })`).
 - **CRITICAL: Always run `npx tsc -b --noEmit` after making code changes.** This is NOT optional. The `-b` flag is required because the root `tsconfig.json` uses project references (`"files": []`); without `-b`, tsc checks nothing. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.

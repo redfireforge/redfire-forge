@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite, cleanupStaleStorageKeys, compactWorkflowStorage } from '../../shared/utils/storage';
-import { purgeGqlDemoEphemeralStorage } from '../demo-player/lessons/gql-demo-storage-cleanup';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 import { isTauri } from '../../shared/utils/platform';
 import { formatBytes } from '../../shared/utils/helpers';
 
@@ -152,7 +152,11 @@ export default function SettingsStorageTab({
         <label className="storage-cleanup-label">Free up space</label>
         <div className="storage-cleanup-buttons">
           <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
-            const demo = await purgeGqlDemoEphemeralStorage();
+            let demo = { profilesRemoved: 0, runnerConfigsRemoved: 0, freedKB: 0 };
+            if (DEMO_HUB_ENABLED) {
+              const { purgeGqlDemoEphemeralStorage } = await import('../demo-player/lessons/gql-demo-storage-cleanup');
+              demo = await purgeGqlDemoEphemeralStorage();
+            }
             const stale = cleanupStaleStorageKeys();
             const compact = await compactWorkflowStorage(5);
             const totalFreed = demo.freedKB + stale.freedKB + (compact.beforeKB - compact.afterKB);

@@ -18,6 +18,11 @@ import {
   selectWfConfigOption,
   selectWorkflowFromAppSidebar,
 } from '../../wf-demo-helpers';
+import {
+  deleteWorkflowByName,
+  getWorkflowByName,
+  seedNamedWorkflow,
+} from '../../../adapters';
 
 export { GQL_DEMO_HTTP };
 
@@ -87,10 +92,7 @@ export function resetGqlLesson19SessionFlags(): void {
 type Lesson19NodeSnapshot = { id: string; type: string; data: Record<string, unknown> };
 
 function readLesson19WorkflowNodes(): Lesson19NodeSnapshot[] | null {
-  const get = (window as unknown as Record<string, unknown>).__wfGetWorkflowByName as
-    | ((name: string) => { nodes?: Lesson19NodeSnapshot[] } | null)
-    | undefined;
-  return get?.(LESSON19_WF_NAME)?.nodes ?? null;
+  return getWorkflowByName<{ nodes?: Lesson19NodeSnapshot[] }>(LESSON19_WF_NAME)?.nodes ?? null;
 }
 
 function lesson19NodeData(nodeId: string): Record<string, unknown> | null {
@@ -396,20 +398,10 @@ export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promis
 
 export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson19SessionFlags();
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  const wfInsert = (window as unknown as Record<string, unknown>).__wfInsertWorkflow as
-    | ((wf: Record<string, unknown>) => void)
-    | undefined;
-  if (wfDelete) {
-    wfDelete(LESSON19_WF_NAME);
-    await ctx.delay(100);
-  }
-  if (wfInsert) {
-    wfInsert(createGqlOrderFlowDemoWorkflow());
-    await ctx.delay(300);
-  }
+  await seedNamedWorkflow(ctx, LESSON19_WF_NAME, createGqlOrderFlowDemoWorkflow(), {
+    deleteDelayMs: 100,
+    insertDelayMs: 300,
+  });
   await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
@@ -421,10 +413,7 @@ export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext)
 export async function gqlWorkflowSubscriptionLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
   await closeWfConsoleIfOpen(ctx);
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  wfDelete?.(LESSON19_WF_NAME);
+  deleteWorkflowByName(LESSON19_WF_NAME);
   resetGqlLesson19SessionFlags();
   await ctx.delay(100);
 }

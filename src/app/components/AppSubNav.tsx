@@ -1,4 +1,5 @@
 import { type Domain, type Tab, domainOf } from '../utils/appTabUtils';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 import MigrationBanner from '../../features/test-runner/components/MigrationBanner';
 import ServerStatusIndicator from '../../features/workflow/components/panels/ServerStatusIndicator';
 
@@ -100,6 +101,11 @@ export default function AppSubNav({ activeTab, setActiveTab }: AppSubNavProps) {
       {domain === 'protocols' && (
         <div className="sub-nav-tabs">
           {renderTabs(DOMAIN_ITEMS.protocols, activeTab, setActiveTab)}
+        </div>
+      )}
+      {DEMO_HUB_ENABLED && domain === 'demo' && (
+        <div className="sub-nav-tabs">
+          {renderTabs(DOMAIN_ITEMS.demo, activeTab, setActiveTab)}
         </div>
       )}
     </div>

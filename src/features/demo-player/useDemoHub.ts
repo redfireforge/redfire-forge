@@ -18,8 +18,11 @@ import { fillControlledInput } from './lessons/setup-helpers';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
 import { cleanupGqlDemoLessonEnvironment } from './lessons/env-manager-lesson-helpers';
 import { isWorkflowDesignerLesson } from './utils/workflowLessonUi';
-import { expandDemoAppSidebar } from '../../app/hooks/useDemoSidebarBridge';
-import { closeDemoWorkflowConfigModal } from '../../app/hooks/useDemoWorkflowConfigModalBridge';
+import {
+  closeWorkflowConfigModal,
+  expandAppSidebar,
+  isGraphqlStudioLesson,
+} from './adapters';
 
 async function runGqlDemoStorageHygiene(): Promise<void> {
   try {
@@ -35,10 +38,6 @@ async function runGqlDemoStorageHygiene(): Promise<void> {
   } catch (e) {
     console.warn('[DemoHub] GQL storage hygiene failed:', e);
   }
-}
-
-function isGraphqlStudioLesson(lesson: { initialTab?: string; category?: string }): boolean {
-  return lesson.initialTab === 'graphql-studio' || lesson.category === 'graphql';
 }
 
 async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<void> {
@@ -315,7 +314,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const runLiveLessonCleanup = useCallback((lesson: DemoLesson | null | undefined) => {
     if (!lesson) return Promise.resolve();
     if (isWorkflowDesignerLesson(lesson)) {
-      expandDemoAppSidebar();
+      expandAppSidebar();
     }
     const ctx = buildQuietContext();
     if (isGraphqlStudioLesson(lesson)) {
@@ -522,7 +521,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     // Navigate to the lesson's initial tab and wait for DOM
     if (lesson.initialTab) navigateToTab(lesson.initialTab);
     if (isWorkflowDesignerLesson(lesson)) {
-      expandDemoAppSidebar();
+      expandAppSidebar();
     }
 
     setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
@@ -553,7 +552,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const goToStep = useCallback(async (index: number) => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
-    closeDemoWorkflowConfigModal();
+    closeWorkflowConfigModal();
     const clamped = Math.max(0, Math.min(index, lesson.steps.length - 1));
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
@@ -611,7 +610,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
           // Navigate back to the lesson's starting tab (same as restartDemo does).
           if (lesson.initialTab) ctx.navigateToTab(lesson.initialTab);
           if (isWorkflowDesignerLesson(lesson)) {
-            expandDemoAppSidebar();
+            expandAppSidebar();
           }
           await new Promise(r => setTimeout(r, 350));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
@@ -672,7 +671,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
       if (!isPlayingRef.current || autoPlayGenRef.current !== gen) return;
       /* v8 ignore stop */
-      closeDemoWorkflowConfigModal();
+      closeWorkflowConfigModal();
       const nextIdx = state.stepIndex + 1;
       setStepPhase('pre');
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
@@ -691,7 +690,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const restartDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
-    closeDemoWorkflowConfigModal();
+    closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     abortRef.current?.abort();
@@ -704,7 +703,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     }
     if (lesson.initialTab) navigateToTab(lesson.initialTab);
     if (isWorkflowDesignerLesson(lesson)) {
-      expandDemoAppSidebar();
+      expandAppSidebar();
     }
     await new Promise(r => setTimeout(r, 350));
     if (isGraphqlStudioLesson(lesson)) {
@@ -725,7 +724,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // Cleanup is intentionally deferred so the concept page renders without delay —
   // the user should never see a blank body while cleanup operations complete.
   const exitLiveDemo = useCallback(async () => {
-    closeDemoWorkflowConfigModal();
+    closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
     abortRef.current?.abort(); // stop any running step pipeline
@@ -741,7 +740,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const lesson = state.selectedLesson;
     if (lesson) {
       if (isWorkflowDesignerLesson(lesson)) {
-        expandDemoAppSidebar();
+        expandAppSidebar();
       }
       const ctx = buildQuietContext();
       if (isGraphqlStudioLesson(lesson)) {

@@ -12,12 +12,15 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- **Dual-track builds:** Standard (`build:prod` / `tauri:build:prod`) vs Learning Hub (`build:demo` / `tauri:build:demo`) with separate Tauri bundle IDs.
+- **Demo adapter layer** (`src/features/demo-player/adapters/`): stable bridge API for GraphQL Studio, workflow designer, environment, and app shell — lessons no longer import product hooks directly.
 - Environment Manager multi-protocol endpoint panels (GraphQL, WebSocket, SSE, Kafka).
 - GraphQL Demo Hub lessons (GQL-1 through GQL-19): queries, mutations, subscriptions, batch execution, TLS, multi-tab, mock server, workflow integration, and related E2E specs.
 - GraphQL Studio batch execution UI, advanced settings, schema layer hooks, and live-demo overlay.
 - Shared selector modules (`gql`, `ws`, etc.) extracted from monolithic `selectors.ts`.
 
 ### Changed
+- GraphQL demo workspace mutators (`prepareDemoWorkspace`, `closeDemoWorkspace`, etc.) no-op when `VITE_ENABLE_DEMO_HUB=false`.
 - GraphQL Studio page and App shell refactored to stay under 900-line monolith limit.
 - Demo Player prerequisite gate supports multi-endpoint Docker checks and GraphQL tab-budget gating.
 - Unit test coverage raised to >90% on every source file (statements, branches, functions, lines).

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('./monacoGraphqlSetup', () => ({
   buildModelUri: (id: string) => `inmemory://graphql/${id}`,
@@ -561,6 +561,24 @@ describe('gqlDemoWorkspace', () => {
     await expect(purgeOrphanDemoTabs()).resolves.toBe(false);
   });
 
+  it('purgeOrphanDemoTabs creates blank tab when storage contained only demo tabs', async () => {
+    const demo = makeDemoTab('gql-first-query', 'Demo');
+    seedTabs([demo], demo.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) return null;
+      if (key === STORAGE_KEY) return JSON.stringify([demo]);
+      if (key === `${STORAGE_KEY}_active`) return demo.id;
+      return null;
+    });
+    const purged = await purgeOrphanDemoTabs();
+    expect(purged).toBe(true);
+    const tabsWrite = mockWriteKey.mock.calls.find(([key]) => key === STORAGE_KEY);
+    expect(tabsWrite).toBeDefined();
+    const saved = JSON.parse(tabsWrite![1] as string) as { demoLessonId?: string }[];
+    expect(saved).toHaveLength(1);
+    expect(saved[0].demoLessonId).toBeUndefined();
+  });
+
   it('filterTabsForPersistence drops demo tabs from other lessons during active session', () => {
     const user = makeBlankTab();
     const activeDemo = makeDemoTab('gql-batch-execution', 'Demo: Batch');
@@ -760,5 +778,100 @@ describe('gqlDemoWorkspace', () => {
     expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_PRIOR_PAGE_ENDPOINT_KEY);
     expect(endpointHandler).toHaveBeenCalled();
     window.removeEventListener(GQL_PAGE_ENDPOINT_RELOAD_EVENT, endpointHandler);
+  });
+
+  describe('when DEMO_HUB_ENABLED is false', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_ENABLE_DEMO_HUB', 'false');
+      vi.resetModules();
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    });
+
+    it('prepareDemoWorkspace returns storage_unavailable without writing', async () => {
+      const { prepareDemoWorkspace } = await import('./gqlDemoWorkspace');
+      const user = makeBlankTab();
+      seedTabs([user], user.id);
+      const result = await prepareDemoWorkspace('gql-first-query', 'Demo: Test');
+      expect(result).toEqual({ ok: false, reason: 'storage_unavailable' });
+      expect(mockWriteKey).not.toHaveBeenCalledWith(DEMO_SESSION_KEY, expect.anything());
+    });
+
+    it('closeDemoWorkspace still cleans up when demo hub is disabled', async () => {
+      const { closeDemoWorkspace } = await import('./gqlDemoWorkspace');
+      const user = makeBlankTab();
+      const demo = makeDemoTab('gql-first-query', 'Demo');
+      seedTabs([user, demo], demo.id);
+      mockReadKey.mockImplementation(async (key: string) => {
+        if (key === DEMO_SESSION_KEY) {
+          return JSON.stringify({
+            lessonId: 'gql-first-query',
+            priorActiveTabId: user.id,
+            demoTabId: demo.id,
+          });
+        }
+        if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+        if (key === `${STORAGE_KEY}_active`) return demo.id;
+        return null;
+      });
+      await closeDemoWorkspace('gql-first-query');
+      expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_SESSION_KEY);
+      const tabsWrite = mockWriteKey.mock.calls.find(([key]) => key === STORAGE_KEY);
+      expect(tabsWrite).toBeDefined();
+      const saved = JSON.parse(tabsWrite![1] as string) as { demoLessonId?: string }[];
+      expect(saved.every((t) => !t.demoLessonId)).toBe(true);
+    });
+
+    it('patchDemoTabConnection returns false', async () => {
+      const { patchDemoTabConnection } = await import('./gqlDemoWorkspace');
+      mockReadKey.mockResolvedValueOnce(
+        JSON.stringify({ lessonId: 'gql-https-tls', priorActiveTabId: 'a', demoTabId: 'b' }),
+      );
+      await expect(patchDemoTabConnection({ endpoint: 'http://localhost:4010/graphql' })).resolves.toBe(false);
+    });
+
+    it('purgeOrphanDemoTabs clears stale session and demo tabs when demo disabled', async () => {
+      const { purgeOrphanDemoTabs } = await import('./gqlDemoWorkspace');
+      const user = makeBlankTab();
+      const demo = makeDemoTab('gql-first-query', 'Demo');
+      seedTabs([user, demo], demo.id);
+      mockReadKey.mockImplementation(async (key: string) => {
+        if (key === DEMO_SESSION_KEY) {
+          return JSON.stringify({
+            lessonId: 'gql-first-query',
+            priorActiveTabId: user.id,
+            demoTabId: demo.id,
+          });
+        }
+        if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+        if (key === `${STORAGE_KEY}_active`) return demo.id;
+        return null;
+      });
+      const purged = await purgeOrphanDemoTabs();
+      expect(purged).toBe(true);
+      expect(mockRemoveKey).toHaveBeenCalledWith(DEMO_SESSION_KEY);
+      const tabsWrite = mockWriteKey.mock.calls.find(([key]) => key === STORAGE_KEY);
+      expect(tabsWrite).toBeDefined();
+      expect(tabsWrite![1] as string).not.toContain('demoLessonId');
+    });
+
+    it('purgeOrphanDemoTabs still removes orphan demo tabs when session missing', async () => {
+      const { purgeOrphanDemoTabs } = await import('./gqlDemoWorkspace');
+      const user = makeBlankTab();
+      const demo = makeDemoTab('gql-first-query', 'Demo');
+      seedTabs([user, demo], user.id);
+      mockReadKey.mockImplementation(async (key: string) => {
+        if (key === DEMO_SESSION_KEY) return null;
+        if (key === STORAGE_KEY) return JSON.stringify([user, demo]);
+        if (key === `${STORAGE_KEY}_active`) return user.id;
+        return null;
+      });
+      const purged = await purgeOrphanDemoTabs();
+      expect(purged).toBe(true);
+      expect(mockWriteKey).toHaveBeenCalledWith(STORAGE_KEY, expect.not.stringContaining('demoLessonId'));
+    });
   });
 });

@@ -16,6 +16,13 @@ import {
   selectWorkflowFromAppSidebar,
   waitForWfConfigPanel,
 } from '../../wf-demo-helpers';
+import {
+  addWorkflowNodeWithPreset,
+  connectWorkflowNodes,
+  deleteWorkflowByName,
+  getWorkflowByName,
+  seedNamedWorkflow,
+} from '../../../adapters';
 
 export { GQL_DEMO_HTTP };
 
@@ -90,10 +97,7 @@ export function resetGqlLesson18SessionFlags(): void {
 type Lesson18NodeSnapshot = { id: string; type: string; data: Record<string, unknown> };
 
 function readLesson18WorkflowNodes(): Lesson18NodeSnapshot[] | null {
-  const get = (window as unknown as Record<string, unknown>).__wfGetWorkflowByName as
-    | ((name: string) => { nodes?: Lesson18NodeSnapshot[] } | null)
-    | undefined;
-  return get?.(LESSON18_WF_NAME)?.nodes ?? null;
+  return getWorkflowByName<{ nodes?: Lesson18NodeSnapshot[] }>(LESSON18_WF_NAME)?.nodes ?? null;
 }
 
 function lesson18NodeData(nodeId: string): Record<string, unknown> | null {
@@ -242,14 +246,7 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
 }
 
 function connectWfNodesById(sourceId: string, targetId: string, sourceHandle: string | null = null): boolean {
-  const wfConnect = (window as unknown as Record<string, unknown>).__wfConnect as
-    | ((s: string, t: string, sh: string | null, th: string | null) => void)
-    | undefined;
-  if (wfConnect) {
-    wfConnect(sourceId, targetId, sourceHandle, null);
-    return true;
-  }
-  return false;
+  return connectWorkflowNodes(sourceId, targetId, sourceHandle, null);
 }
 
 /** Select the seeded workflow from the sidebar. */
@@ -385,11 +382,7 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
   await ensureLesson18QuickTestRun(ctx);
   if (_lesson18DeleteAdded && document.querySelector(`[data-id="${LESSON18_NODE_DELETE}"]`)) return;
 
-  const wfAddNode = (window as unknown as Record<string, unknown>).__wfAddNode as
-    | ((type: string, id: string, label: string, position: { x: number; y: number }) => void)
-    | undefined;
-  if (wfAddNode) {
-    wfAddNode('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 });
+  if (addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 })) {
     await ctx.delay(400);
   } else {
     const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_MUTATION);
@@ -419,20 +412,10 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
 
 export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson18SessionFlags();
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  const wfInsert = (window as unknown as Record<string, unknown>).__wfInsertWorkflow as
-    | ((wf: Record<string, unknown>) => void)
-    | undefined;
-  if (wfDelete) {
-    wfDelete(LESSON18_WF_NAME);
-    await ctx.delay(100);
-  }
-  if (wfInsert) {
-    wfInsert(createGqlMutationDemoWorkflow());
-    await ctx.delay(300);
-  }
+  await seedNamedWorkflow(ctx, LESSON18_WF_NAME, createGqlMutationDemoWorkflow(), {
+    deleteDelayMs: 100,
+    insertDelayMs: 300,
+  });
   await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
@@ -443,10 +426,7 @@ export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Pr
 
 export async function gqlWorkflowMutationLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
-  const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
-    | ((name: string) => void)
-    | undefined;
-  wfDelete?.(LESSON18_WF_NAME);
+  deleteWorkflowByName(LESSON18_WF_NAME);
   resetGqlLesson18SessionFlags();
   await ctx.delay(100);
 }

@@ -19,8 +19,12 @@ import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
 import { resetGqlLesson6SessionFlags, LESSON6_AUTH_TOKEN_VALUE, upsertGqlDemoEnvVars } from './lesson6-auth-headers';
 import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
-import { patchDemoTabConnection, loadDemoSession } from '../../../../graphql/utils/gqlDemoWorkspace';
-import { loadTabs } from '../../../../graphql/utils/tabPersistence';
+import {
+  applyGqlTlsSettings,
+  loadDemoSession,
+  loadTabs,
+  patchDemoTabConnection,
+} from '../../../adapters';
 import { setControlledCheckbox } from '../../setup-helpers';
 import type { GqlTlsSettings } from '../../../../../shared/types/gqlTls';
 
@@ -193,12 +197,7 @@ function isMtlsConfiguredInDom(): boolean {
 }
 
 function applyGqlTlsViaDemoBridge(patch: Partial<GqlTlsSettings>): boolean {
-  const bridge = (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings as
-    | ((p: Partial<GqlTlsSettings>) => void)
-    | undefined;
-  if (!bridge) return false;
-  bridge(patch);
-  return true;
+  return applyGqlTlsSettings(patch);
 }
 
 async function ensureGqlTlsPanelOpen(ctx: DemoActionContext): Promise<void> {

@@ -4,7 +4,7 @@
  * connection profiles, per-env runner configs, and other ephemeral keys.
  */
 import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys } from '../../../shared/utils/storage';
-import { purgeGqlDemoConnectionProfiles } from '../../graphql/utils/gqlDemoConnectionProfiles';
+import { purgeGqlDemoConnectionProfiles } from '../adapters';
 
 export interface GqlDemoEphemeralPurgeResult {
   profilesRemoved: number;

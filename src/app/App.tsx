@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
@@ -12,11 +12,6 @@ import { useCatalogExport } from './hooks/useCatalogExport';
 import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
-import { useDemoShortcuts } from './hooks/useDemoShortcuts';
-import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
-import { useDemoSidebarBridge } from './hooks/useDemoSidebarBridge';
-import { useDemoGlobalAuthBridge } from './hooks/useDemoGlobalAuthBridge';
-import { useDemoAppEnvironmentCleanupBridge } from './hooks/useDemoAppEnvironmentCleanupBridge';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
@@ -64,11 +59,13 @@ import {
 import { onStorageFull, cleanupStaleStorageKeys, readKey, writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
-import '../styles/demo-player.css';
-import '../styles/demo-hub.css';
-import DemoHub from '../features/demo-player/DemoHub';
-import { useDemoHub } from '../features/demo-player/useDemoHub';
+import { DEMO_HUB_ENABLED } from '../config/features';
+import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
+
+const LazyDemoShellHost = DEMO_HUB_ENABLED
+  ? lazy(() => import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })))
+  : null;
 
 export default function App() {
   const {
@@ -121,30 +118,16 @@ export default function App() {
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
-  const demoHub = useDemoHub({ navigateToTab });
 
   // When any sidebar nav item is clicked while a live demo is active, exit the
   // demo overlay first so it doesn't linger on top of the newly selected tab.
   const handleSetActiveTab = useCallback((tab: Tab) => {
-    if (demoHub.state.view === 'live') {
-      void demoHub.exitLiveDemo().then(() => setActiveTab(tab));
+    if (DEMO_HUB_ENABLED && demoHubRuntimeRef.current.state.view === 'live') {
+      void demoHubRuntimeRef.current.exitLiveDemo().then(() => setActiveTab(tab));
     } else {
       setActiveTab(tab);
     }
-  }, [demoHub, setActiveTab]);
-
-  useDemoShortcuts(demoHub, activeTab, setActiveTab);
-  useDemoWorkflowBridge(wfHook.workflows, wfHook.remove, wfHook.insert);
-  useDemoSidebarBridge(setSidebarCollapsed);
-  useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
-  useDemoAppEnvironmentCleanupBridge({
-    selectedEnvId,
-    selectedSvcId,
-    setEnvironments,
-    setMicroservices,
-    setSelectedEnvId,
-    setSelectedSvcId,
-  });
+  }, [setActiveTab]);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -258,10 +241,18 @@ export default function App() {
   // ---- Auto-cleanup stale keys on first load ----
   useEffect(() => {
     cleanupStaleStorageKeys();
-    void import('../features/demo-player/lessons/gql-demo-storage-cleanup')
-      .then((m) => m.purgeGqlDemoEphemeralStorage())
-      .catch(() => { /* best effort */ });
+    if (DEMO_HUB_ENABLED) {
+      void import('../features/demo-player/lessons/gql-demo-storage-cleanup')
+        .then((m) => m.purgeGqlDemoEphemeralStorage())
+        .catch(() => { /* best effort */ });
+    }
   }, []);
+
+  useEffect(() => {
+    if (!DEMO_HUB_ENABLED && activeTab === 'demo-hub') {
+      setActiveTab('requests');
+    }
+  }, [activeTab, setActiveTab]);
 
   // Restore last Protocols sub-tab (GraphQL, Kafka, etc.) from storage.
   useEffect(() => {
@@ -369,6 +360,27 @@ export default function App() {
   }
 
   return (
+    <>
+      {DEMO_HUB_ENABLED && LazyDemoShellHost && (
+        <Suspense fallback={null}>
+          <LazyDemoShellHost
+            navigateToTab={navigateToTab}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            workflows={wfHook.workflows}
+            removeWorkflow={wfHook.remove}
+            insertWorkflow={wfHook.insert}
+            setSidebarCollapsed={setSidebarCollapsed}
+            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+            selectedEnvId={selectedEnvId}
+            selectedSvcId={selectedSvcId}
+            setEnvironments={setEnvironments}
+            setMicroservices={setMicroservices}
+            setSelectedEnvId={setSelectedEnvId}
+            setSelectedSvcId={setSelectedSvcId}
+          />
+        </Suspense>
+      )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <AppHeader
         headerRef={headerRef}
@@ -409,7 +421,7 @@ export default function App() {
 
       <AppSidebarRegion
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         sidebarCollapsed={sidebarCollapsed}
         setSidebarCollapsed={setSidebarCollapsed}
         sidebarWidth={sidebarWidth}
@@ -446,7 +458,7 @@ export default function App() {
 
         <main className="app-main">
           {/* ── Contextual sub-nav ── */}
-          {!showCatalogImport && <AppSubNav activeTab={activeTab} setActiveTab={setActiveTab} />}
+          {!showCatalogImport && <AppSubNav activeTab={activeTab} setActiveTab={handleSetActiveTab} />}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
           <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner
@@ -484,9 +496,9 @@ export default function App() {
               />
             </div>
           )}
-          {activeTab === 'demo-hub' && (
-            <div className="app-tab-pane demo-hub-pane">
-              <DemoHub hub={demoHub} />
+          {DEMO_HUB_ENABLED && activeTab === 'demo-hub' && (
+            <div id={DEMO_HUB_MOUNT_ID} className="app-tab-pane demo-hub-pane">
+              Loading Learning Hub…
             </div>
           )}
           {activeTab === 'training' && (
@@ -784,10 +796,9 @@ export default function App() {
         wfFolders={wfFolders}
         handleTemplatePickFolder={handleTemplatePickFolder}
         RustExecutorTestPanel={RustExecutorTestPanel}
-        demoHub={demoHub}
-        setActiveTab={setActiveTab}
       />
 
     </div>
+    </>
   );
 }

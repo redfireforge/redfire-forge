@@ -14,6 +14,39 @@ on:
       - master
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      demo: ${{ steps.filter.outputs.demo }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            demo:
+              - 'src/features/demo-player/**'
+              - 'src/app/demo/**'
+              - 'src/config/features.ts'
+              - 'src/**/useDemo*.ts'
+              - 'src/features/graphql/DemoGqlStudioBridges.tsx'
+              - 'src/app/components/AppLiveDemoOverlay.tsx'
+              - 'src/app/components/AppLiveDemoOverlay.test.tsx'
+              - '.env.production.demo'
+              - 'src-tauri/tauri.conf.demo.json'
+              - 'e2e/demo-**'
+              - 'e2e/demo-player-helpers.ts'
+              - 'e2e/graphql-lesson-smoke-helpers.ts'
+              - 'e2e/graphql-demo-workspace-helpers.ts'
+              - '.github/workflows/demo-nightly.yml'
+              - 'vitest.projectPatterns.ts'
+              - 'vitest.config.ts'
+              - 'scripts/product-coverage-filter.ts'
+              - 'src/test-utils/vitestProjectSplit.test.ts'
+
   typecheck:
     name: TypeScript Check
     runs-on: ubuntu-latest
@@ -24,7 +57,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx tsc --noEmit
+      - run: npx tsc -b --noEmit
 
   lint:
     name: ESLint
@@ -38,8 +71,8 @@ jobs:
       - run: npm ci
       - run: npx eslint src/ cli/
 
-  unit-tests:
-    name: Unit Tests
+  unit-tests-product:
+    name: Unit Tests (product)
     runs-on: ubuntu-latest
     needs: typecheck
     steps:
@@ -49,10 +82,24 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx vitest run --coverage
+      - run: npm run test:product:coverage
       - name: Check coverage thresholds
         run: |
-          echo "Coverage report generated. Review in PR for >90% target."
+          echo "Product coverage report generated. Review in PR for >90% target."
+
+  unit-tests-demo:
+    name: Unit Tests (demo)
+    runs-on: ubuntu-latest
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.demo == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:demo
 
   build-frontend:
     name: Frontend Build (vite)
@@ -66,7 +113,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: npm run build:prod
       - name: Verify dist output
         run: |
           if [ ! -f dist/index.html ]; then
@@ -76,10 +123,11 @@ jobs:
           echo "✅ Frontend build successful"
           du -sh dist/
 
-  e2e-gql5-docker:
-    name: E2E GQL-5 Docker Matrix
+  e2e-demo-gql5:
+    name: E2E Demo GQL-5 (Docker)
     runs-on: ubuntu-latest
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.demo == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,6 +135,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
       - name: Run GQL-5 demo E2E (TLS + mTLS + plain GraphQL)
         env:
           E2E_GQL5_DOCKER: '1'

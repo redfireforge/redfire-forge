@@ -20,8 +20,8 @@ vi.mock('../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-vi.mock('../graphql/utils/gqlDemoWorkspace', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../graphql/utils/gqlDemoWorkspace')>();
+vi.mock('./adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./adapters')>();
   return {
     ...actual,
     countUserTabsInStorage: vi.fn().mockResolvedValue(0),

@@ -15,6 +15,7 @@
  */
 import type { DemoActionContext, DemoLesson } from '../../types';
 import { ensureKafkaConnected } from '../setup-helpers';
+import { deleteWorkflowByName, seedNamedWorkflow } from '../../adapters';
 
 // ── Kafka Produce Demo Workflow Factory ────────────────────────────
 
@@ -77,24 +78,18 @@ async function kafkaHarnessRunSetup(ctx: DemoActionContext): Promise<void> {
   // Connect to the plaintext broker via API (bypasses UI state issues)
   await ensureKafkaConnected();
 
-  // Seed the demo workflow
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  const wfInsert = win.__wfInsertWorkflow as ((wf: Record<string, unknown>) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Produce Demo');
-  if (wfInsert) {
-    await ctx.delay(100);
-    wfInsert(createKafkaHarnessDemoWorkflow());
-  }
+  await seedNamedWorkflow(ctx, 'Kafka Produce Demo', createKafkaHarnessDemoWorkflow(), {
+    deleteDelayMs: 0,
+    insertPreDelayMs: 100,
+    insertDelayMs: 0,
+  });
 
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(600);
 }
 
 async function kafkaHarnessRunCleanup(ctx: DemoActionContext): Promise<void> {
-  const win = window as unknown as Record<string, unknown>;
-  const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
-  if (wfDelete) wfDelete('Kafka Produce Demo');
+  deleteWorkflowByName('Kafka Produce Demo');
   ctx.navigateToTab('workflow-runner');
   await ctx.delay(300);
 }
