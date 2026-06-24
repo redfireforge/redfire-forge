@@ -9,6 +9,7 @@ import {
   GQL_DELETE_USER_MUTATION,
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   configureDemoTabEndpointOverride,
   prepareGql3IntroReading,
   prepareGql3EndpointReading,
@@ -20,6 +21,7 @@ import {
   prepareGql3SetCreateVarsReading,
   prepareGql3ExecCreateReading,
   prepareGql3ObserveCreateReading,
+  prepareGql3ObserveIntrospectReading,
   prepareGql3WriteOrderReading,
   prepareGql3SetOrderVarsReading,
   prepareGql3ExecOrderReading,
@@ -27,7 +29,10 @@ import {
   prepareGql3WriteDeleteReading,
   prepareGql3WireDeleteVarReading,
   prepareGql3ExecDeleteReading,
-  prepareGql3IdempotencyReading,
+  prepareGql3ObserveDeleteReading,
+  prepareGql3IdempotencyExecReading,
+  prepareGql3ObserveIdempotencyReading,
+  storeSecondDeleteExecuted,
   ensureVariablesPanelOpen,
   fillGqlEditor,
   fillGqlVariables,
@@ -48,9 +53,9 @@ export const gqlMutationsLesson: DemoLesson = {
   name: 'Mutations — Create, Update, Delete',
   description:
     'Write GraphQL mutations to create a user, create an order with an input object type, and delete the user — observing idempotent delete semantics on the test server.',
-  estimatedMinutes: 8,
+  estimatedMinutes: 10,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -318,17 +323,31 @@ export const gqlMutationsLesson: DemoLesson = {
       description:
         'Click **Introspect** to send the GraphQL built-in `__schema` query. ' +
         'The server responds with a full type map — every Query field, every Mutation field, every custom type.\n\n' +
-        'Watch the green **Schema loaded** badge appear with a **non-zero** type count (e.g. `12 types`). ' +
-        'A count of `(0)` means something went wrong — wrong port, server not running, or CORS blocked the request. ' +
-        'Once loaded, the editor gains full autocomplete for mutation names, argument names, and return fields.',
+        'This step triggers the download — the next step spotlights the green **Schema loaded** badge so you can confirm a **non-zero** type count before moving on.',
       highlight: GQL.INTROSPECT_BTN,
       preAction: prepareGql3IntrospectReading,
       action: runGql3IntrospectOnlyAction,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gql3-observe-introspect',
+      title: 'Confirm Schema Loaded',
+      description:
+        'Watch the green **Schema loaded** badge with a **non-zero** type count (e.g. `12 types`). ' +
+        'A count of `(0)` means something went wrong — wrong port, server not running, or CORS blocked the request. ' +
+        'Once loaded, the editor gains full autocomplete for mutation names, argument names, and return fields.',
+      highlight: GQL.SCHEMA_BADGE_OK,
+      preAction: prepareGql3ObserveIntrospectReading,
+      action: async (ctx) => {
+        await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 5000);
+        await ctx.delay(800);
+      },
       verify: GQL.SCHEMA_BADGE_OK,
       pauseAfter: true,
     },
 
-    // ── Step 4: Browse Mutation type in schema explorer ─────────────────────
+    // ── Step 5: Browse Mutation type in schema explorer ─────────────────────
     {
       id: 'gql3-schema-mutations',
       title: 'Explore the Mutation Type',
@@ -395,12 +414,8 @@ export const gqlMutationsLesson: DemoLesson = {
       id: 'gql3-exec-create',
       title: 'Execute the Create Mutation',
       description:
-        'Click **Execute** — the mutation and Carol\'s variables are both loaded. ' +
-        'Under the hood this is a standard HTTP **POST** to `/graphql` with a JSON body containing `{ query, variables }`. ' +
-        'The server validates types, runs the write, and returns the new record fields you requested.\n\n' +
-        'Watch the **Response** panel appear on the right after the request completes. ' +
-        'The amber **M** tab badge confirms this was a write operation. ' +
-        'Notice the server echoes back exactly the fields you asked for — `id`, `name`, and `email` — nothing more, nothing less.',
+        'Click **Execute** — Carol\'s mutation and variables are both loaded. Under the hood this is a standard HTTP **POST** to `/graphql` with `{ query, variables }`.\n\n' +
+        'The amber **M** tab badge confirms this is a write operation. The next step spotlights the **Response** body so you can read Carol\'s new `id` without rushing.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareGql3ExecCreateReading,
       action: async (ctx) => {
@@ -482,11 +497,8 @@ export const gqlMutationsLesson: DemoLesson = {
       id: 'gql3-exec-order',
       title: 'Execute createOrder',
       description:
-        'Click **Execute** — the `createOrder` mutation and the nested `input` variable are loaded. ' +
-        'The server creates the order and returns `{ id, status, customerId }` — the three fields you requested.\n\n' +
-        'Compare the two mutations so far: `createUser` used two separate scalar variables (`$name`, `$email`), ' +
-        'while `createOrder` uses one structured `$input` object. Same amber **M** badge, same POST mechanism — ' +
-        'just a different way to package the arguments. The response body shows the same selection-set pattern: you get exactly what you asked for, nothing extra.',
+        'Click **Execute** — the `createOrder` mutation and nested `input` variable are loaded.\n\n' +
+        'Same amber **M** badge and POST transport as **createUser** — just a different way to package arguments. The next step reads the **Response** body.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareGql3ExecOrderReading,
       action: async (ctx) => {
@@ -569,8 +581,7 @@ export const gqlMutationsLesson: DemoLesson = {
       description:
         'Click **Execute** — the `deleteUser` mutation and Carol\'s `$id` are both loaded. ' +
         'The server finds Carol\'s record, removes it, and returns `{ "deleteUser": { "success": true } }`.\n\n' +
-        'Notice the response is minimal: just `{ success: true }`. This is the `DeleteResult` type in action — the server confirms the deletion without returning any now-gone user data. ' +
-        'Keep the same variables loaded. The next step will click Execute **again** with the same `$id` to observe idempotent delete semantics.',
+        'This step focuses on the **Execute** action — the next step spotlights the **Response** body so you can read `success: true` without rushing.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareGql3ExecDeleteReading,
       action: async (ctx) => {
@@ -585,21 +596,56 @@ export const gqlMutationsLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── Step 15: Idempotent second delete ───────────────────────────────────
+    // ── Step 15: Observe first delete response ──────────────────────────────
     {
-      id: 'gql3-idempotency',
-      title: 'Second Delete — Idempotency in Action',
+      id: 'gql3-observe-delete',
+      title: 'Read success: true in the Response',
       description:
-        'The Response above shows `success: true` from the first delete. Now click **Execute** again with the exact same `$id`.\n\n' +
-        'Carol\'s record is already gone — but the server returns `success: false` instead of a 404 or an exception. ' +
-        'This is **idempotent** delete semantics: the server treats "delete something that no longer exists" as a graceful no-op, not an error.\n\n' +
-        'Why does this matter? In CI teardown pipelines, test fixtures are deleted after every run. If a previous run\'s cleanup already removed the record, a naive implementation would throw — causing a false CI failure. ' +
-        'An idempotent delete lets you safely retry cleanup scripts without adding `if (exists) { delete }` boilerplate. `success: false` tells you the operation was a no-op, not that something broke.',
+        'Look at the **Response** panel — `deleteUser.success` is **true**. The response is minimal: just `{ success: true }` from the `DeleteResult` type — the server confirms deletion without returning any now-gone user data.\n\n' +
+        'Keep the same variables loaded. The next steps click **Execute** again with the same `$id` to observe idempotent delete semantics.',
+      highlight: GQL.RESPONSE_BODY,
+      preAction: prepareGql3ObserveDeleteReading,
+      action: async (ctx) => {
+        await openResponseBodyTab(ctx);
+        await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+        await ctx.delay(800);
+      },
+      verify: GQL.RESPONSE_BODY,
+      pauseAfter: true,
+    },
+
+    // ── Step 16: Second delete execute ──────────────────────────────────────
+    {
+      id: 'gql3-idempotency-exec',
+      title: 'Second Delete — Execute Again',
+      description:
+        'Click **Execute** a second time with the **same** `$id` — no variable changes needed.\n\n' +
+        'Carol\'s record is already gone. This click is deliberate: you are testing how the server responds when delete is called on a missing id.',
       highlight: GQL.EXECUTE_BTN,
-      preAction: prepareGql3IdempotencyReading,
+      preAction: prepareGql3IdempotencyExecReading,
       action: async (ctx) => {
         await ctx.click(GQL.EXECUTE_BTN);
         await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+        storeSecondDeleteExecuted();
+        await ctx.delay(700);
+      },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    // ── Step 17: Observe idempotent second delete ───────────────────────────
+    {
+      id: 'gql3-observe-idempotency',
+      title: 'Read success: false — Idempotency',
+      description:
+        'The **Response** now shows `success: false` — not a 404, not an exception. This is **idempotent** delete semantics: "delete something that no longer exists" is a graceful no-op.\n\n' +
+        'Why does this matter? In CI teardown pipelines, test fixtures are deleted after every run. If a previous run\'s cleanup already removed the record, a naive implementation would throw — causing a false CI failure. ' +
+        'An idempotent delete lets you safely retry cleanup scripts without adding `if (exists) { delete }` boilerplate. `success: false` tells you the operation was a no-op, not that something broke.',
+      highlight: GQL.RESPONSE_BODY,
+      preAction: prepareGql3ObserveIdempotencyReading,
+      action: async (ctx) => {
+        await openResponseBodyTab(ctx);
+        await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
         await ctx.delay(800);
       },
       verify: GQL.RESPONSE_BODY,

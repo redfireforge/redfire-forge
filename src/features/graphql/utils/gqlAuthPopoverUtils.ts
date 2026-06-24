@@ -45,7 +45,7 @@ export function buildAuthTypeOptions(
     { value: 'bearer', label: 'Bearer Token' },
     { value: 'basic', label: 'Basic Auth' },
     { value: 'apiKey', label: 'API Key' },
-    { value: 'oauth2', label: 'OAuth 2.0 (Phase 3 — coming soon)', disabled: true },
+    { value: 'oauth2', label: 'OAuth 2.0 (Client Credentials)' },
     { value: 'custom', label: 'Custom (Headers Panel)' },
   );
   return opts;

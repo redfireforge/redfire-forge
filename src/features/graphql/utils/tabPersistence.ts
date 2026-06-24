@@ -435,6 +435,51 @@ export async function clearDemoPriorPageAuthBackup(): Promise<void> {
   } catch { /* no-op */ }
 }
 
+export const DEMO_PRIOR_PAGE_ENDPOINT_KEY = 'gql_demo_prior_page_endpoint_v1';
+
+/** Capture current `gql_endpoint_v1` for restore when a demo lesson closes (§11.0). */
+export async function capturePageEndpointSnapshot(): Promise<string | null> {
+  try {
+    return await readKey(ENDPOINT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Restore page endpoint from a demo-session snapshot. No-op when snapshot is undefined. */
+export async function restorePageEndpointSnapshot(
+  endpoint: string | null | undefined,
+): Promise<void> {
+  if (endpoint === undefined) return;
+  if (endpoint === null || endpoint.trim() === '') {
+    await removeKey(ENDPOINT_STORAGE_KEY);
+    return;
+  }
+  await writeKey(ENDPOINT_STORAGE_KEY, endpoint.trim());
+}
+
+export async function saveDemoPriorPageEndpointBackup(endpoint: string | null): Promise<void> {
+  try {
+    await writeKey(DEMO_PRIOR_PAGE_ENDPOINT_KEY, endpoint ?? '');
+  } catch { /* no-op */ }
+}
+
+export async function loadDemoPriorPageEndpointBackup(): Promise<string | null | undefined> {
+  try {
+    const raw = await readKey(DEMO_PRIOR_PAGE_ENDPOINT_KEY);
+    if (raw === null) return undefined;
+    return raw === '' ? null : raw;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function clearDemoPriorPageEndpointBackup(): Promise<void> {
+  try {
+    await removeKey(DEMO_PRIOR_PAGE_ENDPOINT_KEY);
+  } catch { /* no-op */ }
+}
+
 /** Remove per-tab auth override from a demo tab before lesson cleanup (Phase 6H Slice 6). */
 export function stripDemoTabAuthOverride(tab: GqlStudioTab): GqlStudioTab {
   if (!tab.demoLessonId || tab.auth === undefined) return tab;

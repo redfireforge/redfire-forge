@@ -44,7 +44,7 @@ export const gqlWorkflowSubscriptionLesson: DemoLesson = {
 A Query node in a loop would hammer the server with repeated \`user(id)\` requests until status changes — wasteful, slow, and brittle. A Subscription node opens a **single WebSocket connection**, receives server-pushed events as they happen, and stops when a configured condition is met. One connection, zero polling overhead.
 
 **Why bind orderId before subscribing?**
-The subscription query \`orderStatus(orderId: $orderId)\` must receive the ID from the upstream createOrder mutation. Binding \`$.createOrder.id\` → \`${LESSON19_ORDER_ID_VAR}\` in the mutation's Extraction tab makes the ID a workflow variable. The subscription's Variables JSON references \`{{${LESSON19_ORDER_ID_VAR}}}\` — so each workflow iteration subscribes only to **its own** order's events, not every order on the server.
+The subscription query \`orderStatus(orderId: $orderId)\` must receive the ID from the upstream createOrder mutation. Binding \`$.createOrder.id\` → \`${LESSON19_ORDER_ID_VAR}\` in the mutation's Extraction tab makes the ID a workflow variable. The subscription's Variables JSON references \`{{${LESSON19_ORDER_ID_VAR}}}\` **without extra quotes** (extraction stores JSON-serialized values) — so each workflow iteration subscribes only to **its own** order's events, not every order on the server.
 
 **Why Stop tab controls (timeout + message count)?**
 The **After (seconds)** field is the wall-clock safety cap — analogous to Kafka's \`maxWaitMs\`. If no event arrives within the limit, the node exits instead of hanging forever. **After N messages** collects exactly N subscription events before proceeding — here, 3 messages capture the full PENDING → PROCESSING → COMPLETE progression so the \`lastMessage\` binding holds the final COMPLETE status.
@@ -60,7 +60,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       {
         term: 'Correlation via Variables',
         definition:
-          'The subscription Variables JSON references {{orderId}} from the upstream mutation — scoping events to the specific order created in this workflow run, not all orders on the server.',
+          'The subscription Variables JSON references {{orderId}} without extra quotes — scoping events to the specific order created in this workflow run, not all orders on the server.',
       },
       {
         term: 'Stop after N messages',
@@ -176,7 +176,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
   <text x="152" y="334" fill="#64748b" font-size="7.5">5s wall-clock cap prevents hung workflows (like Kafka maxWaitMs)</text>
   <!-- Output binding row -->
   <text x="152" y="356" fill="#94a3b8" font-size="8">Output: lastMessage → finalStatus</text>
-  <text x="152" y="368" fill="#64748b" font-size="7.5">Variables: { "orderId": "{{orderId}}" } — correlation scoped to this run</text>
+  <text x="152" y="368" fill="#64748b" font-size="7.5">Variables: { "orderId": {{orderId}} } — correlation scoped to this run</text>
 
   <!-- Console -->
   <rect x="130" y="392" width="570" height="28" fill="#1e293b" stroke="#334155" stroke-width="0.5"/>
@@ -222,7 +222,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-config-sub',
       title: 'Configure the Subscription Node',
       description:
-        `Double-click **Watch Order Status** to open its config panel. On the **Subscription** tab:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Subscription query:** \`orderStatus(orderId: $orderId) { status updatedAt }\`\n- **Variables:** \`{ "orderId": "{{${LESSON19_ORDER_ID_VAR}}}" }\`\n\nThe \`{{${LESSON19_ORDER_ID_VAR}}}\` token resolves from the upstream **Create Order** mutation's Extraction rule (\`$.createOrder.id\`). This is the subscription equivalent of Kafka's correlation expression — the node listens only for events belonging to **this workflow run's order**, not every order on the server.\n\nSave when done.`,
+        `Double-click **Watch Order Status** to open its config panel. On the **Subscription** tab:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Subscription query:** \`orderStatus(orderId: $orderId) { status updatedAt }\`\n- **Variables:** \`{ "orderId": {{${LESSON19_ORDER_ID_VAR}}} }\` — **no quotes** around \`{{${LESSON19_ORDER_ID_VAR}}}\`; extraction stores JSON-serialized values.\n\nThe \`{{${LESSON19_ORDER_ID_VAR}}}\` token resolves from the upstream **Create Order** mutation's Extraction rule (\`$.createOrder.id\`). This is the subscription equivalent of Kafka's correlation expression — the node listens only for events belonging to **this workflow run's order**, not every order on the server.\n\nSave when done.`,
       highlight: GQL.WF_SUBSCRIPTION_PANEL,
       preAction: ensureLesson19WorkflowLoaded,
       action: async (ctx) => {
@@ -252,7 +252,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-correlation',
       title: 'Correlation — Scoped to This Order',
       description:
-        `Still on the **Stop** tab, set **After N messages** to **${LESSON19_STOP_AFTER_MESSAGES}**.\n\nThe Docker test server emits exactly three \`orderStatus\` events per order: **PENDING** → **PROCESSING** → **COMPLETE** (300 ms apart). Collecting 3 messages ensures the node captures the full progression and the \`lastMessage\` binding holds the final **COMPLETE** status.\n\nCombined with the Variables JSON \`"orderId": "{{${LESSON19_ORDER_ID_VAR}}}"\`, this is full **correlation**: each concurrent workflow iteration creates its own order, subscribes to its own ID, and collects its own three events — no cross-contamination between parallel runs.`,
+        `Still on the **Stop** tab, set **After N messages** to **${LESSON19_STOP_AFTER_MESSAGES}**.\n\nThe Docker test server emits exactly three \`orderStatus\` events per order: **PENDING** → **PROCESSING** → **COMPLETE** (300 ms apart). Collecting 3 messages ensures the node captures the full progression and the \`lastMessage\` binding holds the final **COMPLETE** status.\n\nCombined with the Variables JSON \`"orderId": {{${LESSON19_ORDER_ID_VAR}}}\`, this is full **correlation**: each concurrent workflow iteration creates its own order, subscribes to its own ID, and collects its own three events — no cross-contamination between parallel runs.`,
       highlight: GQL.WF_STOP_MESSAGES_INPUT,
       preAction: ensureLesson19SubscriptionTimeout,
       action: async (ctx) => {

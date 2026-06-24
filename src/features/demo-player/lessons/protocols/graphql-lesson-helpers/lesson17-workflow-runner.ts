@@ -72,7 +72,7 @@ export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
           headers: [],
           timeoutMs: 30000,
           extractionRules: [],
-          outputBindings: [{ field: 'latencyMs', variableName: 'gqlLatency' }],
+          outputBindings: [{ field: 'latencyMs', variableName: 'gqlLatency', enabled: true }],
         },
       },
       {
@@ -82,7 +82,13 @@ export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
         data: {
           label: 'GraphQL Assert',
           sourceVariable: 'gqlLatency',
-          assertions: [{ jsonPath: '$', operator: 'less_than', expected: 500, description: 'Latency under 500ms' }],
+          assertions: [{
+            id: 'gql17-latency-assert',
+            jsonPath: '$',
+            operator: 'less_than',
+            expectedValue: '500',
+            description: 'Latency under 500ms',
+          }],
           failBehavior: 'error',
         },
       },

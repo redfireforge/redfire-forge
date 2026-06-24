@@ -1134,7 +1134,7 @@ describe('GraphqlQueryConfigPanel — tab count/error badge branches', () => {
       />,
     );
     // Headers tab should show count badge "1" (only h1 has a key)
-    const tabBadges = container.querySelectorAll('.tab-badge');
+    const tabBadges = container.querySelectorAll('.gql-wf-subtab-badge');
     const headerBadge = Array.from(tabBadges).find(b => b.textContent === '1');
     expect(headerBadge).toBeTruthy();
   });
@@ -1159,7 +1159,7 @@ describe('GraphqlQueryConfigPanel — tab count/error badge branches', () => {
       />,
     );
     // Extraction tab should show count badge "2"
-    const tabBadges = container.querySelectorAll('.tab-badge');
+    const tabBadges = container.querySelectorAll('.gql-wf-subtab-badge');
     const extractionBadge = Array.from(tabBadges).find(b => b.textContent === '2');
     expect(extractionBadge).toBeTruthy();
   });
@@ -1184,7 +1184,7 @@ describe('GraphqlQueryConfigPanel — tab count/error badge branches', () => {
       />,
     );
     // Output tab should show count badge "1" (only the enabled binding)
-    const tabBadges = container.querySelectorAll('.tab-badge');
+    const tabBadges = container.querySelectorAll('.gql-wf-subtab-badge');
     const outputBadge = Array.from(tabBadges).find(b => b.textContent === '1');
     expect(outputBadge).toBeTruthy();
   });

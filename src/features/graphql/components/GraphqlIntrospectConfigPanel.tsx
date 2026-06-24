@@ -20,22 +20,26 @@ import {
   type GqlOutputBinding,
 } from './GraphqlQueryConfigPanel';
 import { computeIntrospectTabErrors } from '../utils/graphqlPanelHelpers';
-
-// ── Output field options ──────────────────────────────────────────────────────
+import {
+  GqlWfConfigBody,
+  GqlWfSubTabs,
+  GqlWfFormCard,
+  GqlWfFormRow,
+  GqlWfFieldError,
+  GqlWfSectionToolbar,
+  GqlWfCheckboxRow,
+  type GqlWfSubTab,
+} from './GraphqlWfConfigLayout';
 
 const OUTPUT_FIELD_OPTIONS: GraphqlIntrospectOutputBinding['field'][] = [
   'sdl', 'typeCount', 'fieldCount', 'schemaHash', 'queryTypeName',
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeHeaderId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
 type IntrospectTab = 'endpoint' | 'validation' | 'output';
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function GraphqlIntrospectConfigPanel({
   data,
@@ -69,47 +73,42 @@ export default function GraphqlIntrospectConfigPanel({
     outputBindings,
   });
 
-  const TABS: { id: IntrospectTab; label: string; errorDot?: boolean; count?: number }[] = [
+  const TABS: GqlWfSubTab[] = [
     { id: 'endpoint', label: 'Endpoint', errorDot: tabErrors.endpoint },
-    { id: 'validation', label: 'Schema Validation' },
+    { id: 'validation', label: 'Schema validation' },
     { id: 'output', label: 'Output', errorDot: tabErrors.output, count: outputBindings.filter((b) => b.enabled).length > 0 ? outputBindings.filter((b) => b.enabled).length : undefined },
   ];
 
-  return (
-    <div className="wf-config-body" data-testid="gql-wf-introspect-panel">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
-      </div>
+  const addRequiredField = () => {
+    if (!newFieldType.trim() || !newFieldName.trim()) return;
+    update({
+      requiredFields: [
+        ...requiredFields,
+        { typeName: newFieldType.trim(), fieldName: newFieldName.trim() },
+      ],
+    });
+    setNewFieldType('');
+    setNewFieldName('');
+  };
 
-      <div className="wf-config-tabs">
-        {TABS.map(({ id, label, errorDot, count }) => (
-          <button
-            key={id}
-            className={`wf-config-tab${activeTab === id ? ' active' : ''}`}
-            onClick={() => setActiveTab(id)}
-            type="button"
-          >
-            {label}
-            {errorDot && (
-              <span
-                className="tab-badge-dot"
-                style={{ background: 'var(--color-danger, #e53)' }}
-                title="Validation error"
-                data-testid="gql-wf-tab-error-dot"
-              />
-            )}
-            {!errorDot && count != null && <span className="tab-badge">{count}</span>}
-          </button>
-        ))}
-      </div>
+  return (
+    <GqlWfConfigBody testId="gql-wf-introspect-panel">
+      <GqlWfFormCard>
+        <GqlWfFormRow label="Label" htmlFor="gql-wf-introspect-label" last>
+          <input
+            id="gql-wf-introspect-label"
+            value={data.label}
+            onChange={(e) => update({ label: e.target.value })}
+          />
+        </GqlWfFormRow>
+      </GqlWfFormCard>
+
+      <GqlWfSubTabs tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as IntrospectTab)} />
 
       <div className="wf-config-tab-content">
-        {/* ── Endpoint tab ──────────────────────────────────── */}
         {activeTab === 'endpoint' && (
-          <div>
-            <div className="wf-config-field--row">
-              <label>Endpoint URL</label>
+          <GqlWfFormCard>
+            <GqlWfFormRow label="Endpoint URL">
               <InsertVarField
                 onRequestVariableInsert={onRequestVariableInsert}
                 shortRef
@@ -122,62 +121,56 @@ export default function GraphqlIntrospectConfigPanel({
                   variableHints={variableHints}
                 />
               </InsertVarField>
-              {tabErrors.endpoint && <span className="wf-config-error">Endpoint is required</span>}
-            </div>
+              {tabErrors.endpoint && <GqlWfFieldError>Endpoint is required</GqlWfFieldError>}
+            </GqlWfFormRow>
 
-            <div className="wf-config-field-pair">
-              <div className="wf-config-field--row">
-                <label>Timeout (ms)</label>
-                <input
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  value={data.timeoutMs ?? 30000}
-                  onChange={(e) => update({ timeoutMs: Number(e.target.value) })}
-                  data-testid="gql-wf-introspect-timeout-input"
-                />
-              </div>
-              <div className="wf-config-field--row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={data.skipTlsVerify ?? false}
-                    onChange={(e) => update({ skipTlsVerify: e.target.checked })}
-                    data-testid="gql-wf-introspect-skip-tls"
-                  />
-                  {' '}Skip TLS verify
-                </label>
-              </div>
-            </div>
+            <GqlWfFormRow label="Timeout (ms)">
+              <input
+                type="number"
+                min={1000}
+                step={1000}
+                value={data.timeoutMs ?? 30000}
+                onChange={(e) => update({ timeoutMs: Number(e.target.value) })}
+                data-testid="gql-wf-introspect-timeout-input"
+              />
+            </GqlWfFormRow>
 
-            <GqlHeadersSection
-              headers={headers}
-              headerCrud={headerCrud}
-              onAdd={() => update({ headers: [...headers, { id: makeHeaderId(), key: '', value: '', enabled: true }] })}
-              variableHints={variableHints}
-              onRequestVariableInsert={onRequestVariableInsert}
+            <GqlWfCheckboxRow
+              checked={data.skipTlsVerify ?? false}
+              onChange={(skipTlsVerify) => update({ skipTlsVerify })}
+              label="Skip TLS verify"
+              hint="Allow self-signed certificates (dev only)"
+              testId="gql-wf-introspect-skip-tls"
             />
 
-            <div style={{ margin: '16px 0 8px', borderTop: '1px solid var(--border-color, #333)' }} />
+            <div className="gql-wf-section-divider gql-wf-section-divider--inset" />
 
-            <GqlAuthSection
-              auth={data.auth}
-              onChange={(auth) => update({ auth })}
-              variableHints={variableHints}
-              onRequestVariableInsert={onRequestVariableInsert}
-            />
-          </div>
+            <div className="gql-wf-section-body gql-wf-section-body--flush-top">
+              <GqlHeadersSection
+                headers={headers}
+                headerCrud={headerCrud}
+                onAdd={() => update({ headers: [...headers, { id: makeHeaderId(), key: '', value: '', enabled: true }] })}
+                variableHints={variableHints}
+                onRequestVariableInsert={onRequestVariableInsert}
+              />
+              <div className="gql-wf-section-divider" />
+              <GqlAuthSection
+                auth={data.auth}
+                onChange={(auth) => update({ auth })}
+                variableHints={variableHints}
+                onRequestVariableInsert={onRequestVariableInsert}
+              />
+            </div>
+          </GqlWfFormCard>
         )}
 
-        {/* ── Schema Validation tab ─────────────────────────── */}
         {activeTab === 'validation' && (
-          <div>
-            <div className="wf-config-hint" style={{ marginBottom: 12 }}>
-              Optional schema validation — errors halt the workflow node if enabled.
-            </div>
+          <GqlWfFormCard>
+            <p className="gql-wf-section-intro gql-wf-section-intro--card">
+              Optional schema validation — errors halt the workflow node when enabled.
+            </p>
 
-            <div className="wf-config-field--row">
-              <label>Min type count</label>
+            <GqlWfFormRow label="Min type count">
               <input
                 type="number"
                 min={0}
@@ -190,11 +183,10 @@ export default function GraphqlIntrospectConfigPanel({
                 placeholder="(none)"
                 data-testid="gql-wf-introspect-min-type-count"
               />
-              <span className="wf-config-hint-inline">Fail if type count is below this</span>
-            </div>
+              <span className="gql-wf-inline-hint">Fail if type count is below this</span>
+            </GqlWfFormRow>
 
-            <div className="wf-config-field">
-              <label>Required type names <span className="wf-config-hint-inline">(comma-separated)</span></label>
+            <GqlWfFormRow label="Required types">
               <input
                 value={requiredTypesInput}
                 onChange={(e) => {
@@ -205,100 +197,86 @@ export default function GraphqlIntrospectConfigPanel({
                 placeholder="User, Post, Comment"
                 data-testid="gql-wf-introspect-required-types"
               />
-            </div>
+              <span className="gql-wf-inline-hint">Comma-separated type names</span>
+            </GqlWfFormRow>
 
-            <div className="wf-kafka-section-title" style={{ marginTop: 16 }}>
-              Required fields
-              <button
-                type="button"
-                className="wf-section-add-btn"
-                onClick={() => {
-                  if (!newFieldType.trim() || !newFieldName.trim()) return;
-                  update({
-                    requiredFields: [
-                      ...requiredFields,
-                      { typeName: newFieldType.trim(), fieldName: newFieldName.trim() },
-                    ],
-                  });
-                  setNewFieldType('');
-                  setNewFieldName('');
-                }}
-                data-testid="gql-wf-introspect-add-field-btn"
-              >
-                + Add
-              </button>
-            </div>
-            <div className="wf-config-hint" style={{ marginBottom: 8 }}>
-              Fail if any of these fields are missing from their type.
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <input
-                value={newFieldType}
-                onChange={(e) => setNewFieldType(e.target.value)}
-                placeholder="TypeName"
-                style={{ flex: 1 }}
-                data-testid="gql-wf-introspect-new-type"
-              />
-              <span style={{ padding: '4px 2px' }}>.</span>
-              <input
-                value={newFieldName}
-                onChange={(e) => setNewFieldName(e.target.value)}
-                placeholder="fieldName"
-                style={{ flex: 1 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newFieldType.trim() && newFieldName.trim()) {
-                    update({
-                      requiredFields: [
-                        ...requiredFields,
-                        { typeName: newFieldType.trim(), fieldName: newFieldName.trim() },
-                      ],
-                    });
-                    setNewFieldType('');
-                    setNewFieldName('');
-                  }
-                }}
-                data-testid="gql-wf-introspect-new-field"
-              />
-            </div>
-            {requiredFields.length === 0 && (
-              <div className="wf-config-empty-hint">No required fields — click + Add</div>
-            )}
-            <div className="wf-config-kv-list">
-              {requiredFields.map((rf, index) => (
-                <div key={index} className="wf-config-kv-row" style={{ alignItems: 'center' }}>
-                  <span style={{ flex: 1 }}>
-                    <code>{rf.typeName}.{rf.fieldName}</code>
-                  </span>
+            <div className="gql-wf-section-body gql-wf-section-body--flush-top">
+              <GqlWfSectionToolbar
+                title="Required fields"
+                subtitle="Fail if any of these fields are missing from their type"
+                actions={(
                   <button
                     type="button"
-                    className="wf-kv-del-btn"
-                    onClick={() =>
-                      update({ requiredFields: requiredFields.filter((_, i) => i !== index) })
-                    }
-                    aria-label={`Remove required field ${rf.typeName}.${rf.fieldName}`}
+                    className="btn btn-xs btn-ghost gql-wf-section-add-btn"
+                    onClick={addRequiredField}
+                    data-testid="gql-wf-introspect-add-field-btn"
                   >
-                    ×
+                    + Add
                   </button>
+                )}
+              />
+
+              <div className="gql-wf-required-field-compose">
+                <input
+                  value={newFieldType}
+                  onChange={(e) => setNewFieldType(e.target.value)}
+                  placeholder="TypeName"
+                  data-testid="gql-wf-introspect-new-type"
+                />
+                <span className="gql-wf-required-field-sep">.</span>
+                <input
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  placeholder="fieldName"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addRequiredField();
+                  }}
+                  data-testid="gql-wf-introspect-new-field"
+                />
+              </div>
+
+              {requiredFields.length === 0 ? (
+                <div className="wf-config-empty-hint">No required fields — click + Add</div>
+              ) : (
+                <div className="gql-wf-required-field-list">
+                  {requiredFields.map((rf, index) => (
+                    <div key={index} className="gql-wf-required-field-row">
+                      <code>{rf.typeName}.{rf.fieldName}</code>
+                      <button
+                        type="button"
+                        className="gql-wf-assert-remove-btn"
+                        onClick={() =>
+                          update({ requiredFields: requiredFields.filter((_, i) => i !== index) })
+                        }
+                        aria-label={`Remove required field ${rf.typeName}.${rf.fieldName}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          </GqlWfFormCard>
         )}
 
-        {/* ── Output tab ────────────────────────────────────── */}
         {activeTab === 'output' && (
-          <GqlOutputSection
-            bindings={outputBindings as GqlOutputBinding[]}
-            fieldOptions={OUTPUT_FIELD_OPTIONS as string[]}
-            crud={outputCrud as ReturnType<typeof useListCrud<GqlOutputBinding>>}
-            onAdd={() =>
-              update({
-                outputBindings: [...outputBindings, { field: 'sdl', variableName: '', enabled: true }],
-              })
-            }
-          />
+          <GqlWfFormCard>
+            <div className="gql-wf-section-body">
+              <GqlOutputSection
+                bindings={outputBindings as GqlOutputBinding[]}
+                fieldOptions={OUTPUT_FIELD_OPTIONS as string[]}
+                crud={outputCrud as ReturnType<typeof useListCrud<GqlOutputBinding>>}
+                onAdd={() =>
+                  update({
+                    outputBindings: [...outputBindings, { field: 'sdl', variableName: '', enabled: true }],
+                  })
+                }
+              />
+            </div>
+          </GqlWfFormCard>
         )}
       </div>
-    </div>
+    </GqlWfConfigBody>
   );
 }

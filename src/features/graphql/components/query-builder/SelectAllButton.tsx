@@ -35,17 +35,15 @@ export const SelectAllButton = memo(function SelectAllButton({
   );
 
   const allSelected  = selectedCount === allLeaves.length && allLeaves.length > 0;
-  const someSelected = selectedCount > 0 && !allSelected;
-
   const label = allSelected ? 'Deselect all' : 'Select all';
 
   const handleClick = useCallback(() => {
-    if (allSelected || someSelected) {
+    if (allSelected) {
       onDeselectAll(allLeaves);
     } else {
       onSelectAll(allLeaves);
     }
-  }, [allSelected, someSelected, allLeaves, onSelectAll, onDeselectAll]);
+  }, [allSelected, allLeaves, onSelectAll, onDeselectAll]);
 
   if (allLeaves.length === 0) return null;
 
@@ -58,7 +56,7 @@ export const SelectAllButton = memo(function SelectAllButton({
       aria-label={label}
       data-testid="gql-qb-select-all"
     >
-      {allSelected ? '✕ all' : someSelected ? '− select all' : '+ all'}
+      {label}
     </button>
   );
 });

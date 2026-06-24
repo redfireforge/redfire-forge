@@ -75,3 +75,20 @@ jobs:
           fi
           echo "✅ Frontend build successful"
           du -sh dist/
+
+  e2e-gql5-docker:
+    name: E2E GQL-5 Docker Matrix
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run GQL-5 demo E2E (TLS + mTLS + plain GraphQL)
+        env:
+          E2E_GQL5_DOCKER: '1'
+          E2E_DOCKER_TEARDOWN: '1'
+        run: npm run test:e2e:demo:gql5:ci

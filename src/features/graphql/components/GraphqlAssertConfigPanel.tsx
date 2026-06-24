@@ -22,6 +22,15 @@ import {
   testGraphqlAssertions,
   type AssertionTestResult,
 } from '../utils/graphqlConfigTestHelpers';
+import {
+  GqlWfConfigBody,
+  GqlWfSubTabs,
+  GqlWfFormCard,
+  GqlWfFormRow,
+  GqlWfFieldError,
+  GqlWfSectionToolbar,
+  type GqlWfSubTab,
+} from './GraphqlWfConfigLayout';
 
 // ── Operators that don't need an expectedValue input ─────────────────────────
 
@@ -34,11 +43,7 @@ function makeAssertionId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// ── Tab type ──────────────────────────────────────────────────────────────────
-
 type AssertTab = 'source' | 'assertions' | 'behavior';
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function GraphqlAssertConfigPanel({
   data,
@@ -51,7 +56,6 @@ export default function GraphqlAssertConfigPanel({
   onChange: (d: GraphqlAssertNodeData) => void;
   onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
   variableHints?: WorkflowVariableHint[];
-  /** Variable snapshot from the last workflow run — powers Run test. */
   runtimeVariables?: Record<string, string>;
 }) {
   const [activeTab, setActiveTab] = useState<AssertTab>('assertions');
@@ -68,7 +72,7 @@ export default function GraphqlAssertConfigPanel({
     assertions,
   });
 
-  const TABS: { id: AssertTab; label: string; errorDot?: boolean; count?: number }[] = [
+  const TABS: GqlWfSubTab[] = [
     { id: 'source', label: 'Source', errorDot: tabErrors.source },
     { id: 'assertions', label: 'Assertions', errorDot: tabErrors.assertions, count: assertions.length > 0 ? assertions.length : undefined },
     { id: 'behavior', label: 'Behavior' },
@@ -95,172 +99,168 @@ export default function GraphqlAssertConfigPanel({
     assertTestResults?.find((r) => r.id === id);
 
   return (
-    <div className="wf-config-body" data-testid="gql-wf-assert-panel">
-      <div className="wf-config-field--row">
-        <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
-      </div>
+    <GqlWfConfigBody testId="gql-wf-assert-panel">
+      <GqlWfFormCard>
+        <GqlWfFormRow label="Label" htmlFor="gql-wf-assert-label" last>
+          <input
+            id="gql-wf-assert-label"
+            value={data.label}
+            onChange={(e) => update({ label: e.target.value })}
+          />
+        </GqlWfFormRow>
+      </GqlWfFormCard>
 
-      <div className="wf-config-tabs">
-        {TABS.map(({ id, label, errorDot, count }) => (
-          <button
-            key={id}
-            className={`wf-config-tab${activeTab === id ? ' active' : ''}`}
-            onClick={() => setActiveTab(id)}
-            type="button"
-          >
-            {label}
-            {errorDot && (
-              <span
-                className="tab-badge-dot"
-                style={{ background: 'var(--color-danger, #e53)' }}
-                title="Validation error"
-                data-testid="gql-wf-tab-error-dot"
-              />
-            )}
-            {!errorDot && count != null && <span className="tab-badge">{count}</span>}
-          </button>
-        ))}
-      </div>
+      <GqlWfSubTabs tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as AssertTab)} />
 
       <div className="wf-config-tab-content">
-        {/* ── Source tab ────────────────────────────────────── */}
         {activeTab === 'source' && (
-          <div>
-            <div className="wf-config-field">
-              <label>Source Variable</label>
-              <InsertVarField
-                onRequestVariableInsert={onRequestVariableInsert}
-                shortRef
-                onInsert={(snippet) => update({ sourceVariable: `${data.sourceVariable ?? ''}${snippet}` })}
-              >
-                <ExpressionInput
-                  value={data.sourceVariable ?? ''}
-                  onChange={(value) => update({ sourceVariable: value })}
-                  placeholder="{{queryResult}} or variableName"
-                  variableHints={variableHints}
-                  aria-label="Source variable name"
-                />
-              </InsertVarField>
-              {tabErrors.source && <span className="wf-config-error">Source variable is required</span>}
-              <div className="wf-config-hint">
-                Reference the workflow variable containing the GraphQL response to assert on.
-                Typically the output of a <code>graphqlQuery</code> node bound to its <code>data</code> field.
+          <>
+            <GqlWfFormCard>
+              <GqlWfFormRow label="Source variable" stack last>
+                <InsertVarField
+                  onRequestVariableInsert={onRequestVariableInsert}
+                  shortRef
+                  onInsert={(snippet) => update({ sourceVariable: `${data.sourceVariable ?? ''}${snippet}` })}
+                >
+                  <ExpressionInput
+                    value={data.sourceVariable ?? ''}
+                    onChange={(value) => update({ sourceVariable: value })}
+                    placeholder="{{queryResult}} or variableName"
+                    variableHints={variableHints}
+                    aria-label="Source variable name"
+                    data-testid="gql-wf-assert-source-var"
+                  />
+                </InsertVarField>
+                {tabErrors.source && <GqlWfFieldError>Source variable is required</GqlWfFieldError>}
+                <p className="gql-wf-section-subtitle gql-wf-section-subtitle--inset">
+                  Reference the workflow variable containing the GraphQL response to assert on.
+                  Typically the output of a <code>graphqlQuery</code> node bound to its <code>data</code> field.
+                </p>
+              </GqlWfFormRow>
+            </GqlWfFormCard>
+            <AvailableVariables hints={variableHints} />
+          </>
+        )}
+
+        {activeTab === 'assertions' && (
+          <GqlWfFormCard>
+            <div className="gql-wf-section-body gql-wf-section-body--flush-top">
+              <GqlWfSectionToolbar
+                title="Assertions"
+                subtitle="Evaluate JSON fields from the source variable"
+                actions={(
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-xs"
+                      onClick={handleRunAssertTest}
+                      data-testid="gql-wf-assert-run-test-btn"
+                      title="Evaluate assertions against the last run output of the source variable"
+                    >
+                      Run test
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-ghost gql-wf-section-add-btn"
+                      onClick={() =>
+                        update({
+                          assertions: [
+                            ...assertions,
+                            {
+                              id: makeAssertionId(),
+                              jsonPath: '$',
+                              operator: 'equals',
+                              expectedValue: '',
+                              description: '',
+                            },
+                          ],
+                        })
+                      }
+                      data-testid="gql-wf-assert-add-btn"
+                    >
+                      + Add
+                    </button>
+                  </>
+                )}
+              />
+
+              {assertTestMessage && (
+                <p className="gql-wf-test-banner gql-wf-test-banner--warn" role="status" data-testid="gql-wf-assert-test-msg">
+                  {assertTestMessage}
+                </p>
+              )}
+              {assertTestResults && assertTestResults.length > 0 && (
+                <p
+                  className={`gql-wf-test-banner ${assertTestResults.every((r) => r.ok) ? 'gql-wf-test-banner--pass' : 'gql-wf-test-banner--fail'}`}
+                  role="status"
+                  data-testid="gql-wf-assert-test-summary"
+                >
+                  {assertTestResults.every((r) => r.ok)
+                    ? `All ${assertTestResults.length} assertion(s) passed.`
+                    : `${assertTestResults.filter((r) => !r.ok).length} of ${assertTestResults.length} assertion(s) failed.`}
+                </p>
+              )}
+
+              {assertions.length === 0 ? (
+                <div className="wf-config-empty-hint">No assertions yet — click + Add</div>
+              ) : (
+                <div className="gql-wf-assert-list">
+                  {assertions.map((assertion, index) => (
+                    <AssertionRow
+                      key={assertion.id}
+                      assertion={assertion}
+                      index={index}
+                      crud={assertCrud}
+                      testResult={assertResultById(assertion.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </GqlWfFormCard>
+        )}
+
+        {activeTab === 'behavior' && (
+          <GqlWfFormCard>
+            <div className="gql-wf-section-body">
+              <p className="gql-wf-section-intro">What should happen when one or more assertions fail?</p>
+              <div className="gql-wf-behavior-options">
+                <label className="gql-wf-behavior-option">
+                  <input
+                    type="radio"
+                    name="failBehavior"
+                    value="error"
+                    checked={(data.failBehavior ?? 'error') === 'error'}
+                    onChange={() => update({ failBehavior: 'error' })}
+                    data-testid="gql-wf-assert-fail-error"
+                  />
+                  <span className="gql-wf-behavior-option-body">
+                    <strong>Halt workflow</strong>
+                    <span>Assertion failure stops execution as an error</span>
+                  </span>
+                </label>
+                <label className="gql-wf-behavior-option">
+                  <input
+                    type="radio"
+                    name="failBehavior"
+                    value="warn"
+                    checked={data.failBehavior === 'warn'}
+                    onChange={() => update({ failBehavior: 'warn' })}
+                    data-testid="gql-wf-assert-fail-warn"
+                  />
+                  <span className="gql-wf-behavior-option-body">
+                    <strong>Continue with warning</strong>
+                    <span>Workflow proceeds; assertion result shown as a warning badge</span>
+                  </span>
+                </label>
               </div>
             </div>
-            <AvailableVariables hints={variableHints} />
-          </div>
-        )}
-
-        {/* ── Assertions tab ────────────────────────────────── */}
-        {activeTab === 'assertions' && (
-          <div>
-            <div className="wf-kafka-section-title">
-              Assertions
-              <button
-                type="button"
-                className="btn btn-xs"
-                onClick={handleRunAssertTest}
-                data-testid="gql-wf-assert-run-test-btn"
-                title="Evaluate assertions against the last run output of the source variable"
-              >
-                Run test
-              </button>
-              <button
-                type="button"
-                className="wf-section-add-btn"
-                onClick={() =>
-                  update({
-                    assertions: [
-                      ...assertions,
-                      {
-                        id: makeAssertionId(),
-                        jsonPath: '$',
-                        operator: 'equals',
-                        expectedValue: '',
-                        description: '',
-                      },
-                    ],
-                  })
-                }
-                data-testid="gql-wf-assert-add-btn"
-              >
-                + Add
-              </button>
-            </div>
-            {assertTestMessage && (
-              <p className="gql-wf-test-banner gql-wf-test-banner--warn" role="status" data-testid="gql-wf-assert-test-msg">
-                {assertTestMessage}
-              </p>
-            )}
-            {assertTestResults && assertTestResults.length > 0 && (
-              <p
-                className={`gql-wf-test-banner ${assertTestResults.every((r) => r.ok) ? 'gql-wf-test-banner--pass' : 'gql-wf-test-banner--fail'}`}
-                role="status"
-                data-testid="gql-wf-assert-test-summary"
-              >
-                {assertTestResults.every((r) => r.ok)
-                  ? `All ${assertTestResults.length} assertion(s) passed.`
-                  : `${assertTestResults.filter((r) => !r.ok).length} of ${assertTestResults.length} assertion(s) failed.`}
-              </p>
-            )}
-            {assertions.length === 0 && (
-              <div className="wf-config-empty-hint">No assertions yet — click + Add</div>
-            )}
-            {assertions.map((assertion, index) => (
-              <AssertionRow
-                key={assertion.id}
-                assertion={assertion}
-                index={index}
-                crud={assertCrud}
-                testResult={assertResultById(assertion.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* ── Behavior tab ──────────────────────────────────── */}
-        {activeTab === 'behavior' && (
-          <div>
-            <div className="wf-config-hint" style={{ marginBottom: 12 }}>
-              What should happen when one or more assertions fail?
-            </div>
-            <div className="wf-config-radio-group">
-              <label className="wf-config-radio-row">
-                <input
-                  type="radio"
-                  name="failBehavior"
-                  value="error"
-                  checked={(data.failBehavior ?? 'error') === 'error'}
-                  onChange={() => update({ failBehavior: 'error' })}
-                  data-testid="gql-wf-assert-fail-error"
-                />
-                <span>
-                  <strong>Halt workflow</strong> — assertion failure stops execution as an error
-                </span>
-              </label>
-              <label className="wf-config-radio-row">
-                <input
-                  type="radio"
-                  name="failBehavior"
-                  value="warn"
-                  checked={data.failBehavior === 'warn'}
-                  onChange={() => update({ failBehavior: 'warn' })}
-                  data-testid="gql-wf-assert-fail-warn"
-                />
-                <span>
-                  <strong>Continue with warning</strong> — workflow proceeds; assertion result shown as warning badge
-                </span>
-              </label>
-            </div>
-          </div>
+          </GqlWfFormCard>
         )}
       </div>
-    </div>
+    </GqlWfConfigBody>
   );
 }
-
-// ── Assertion Row sub-component ───────────────────────────────────────────────
 
 function AssertionRow({
   assertion,
@@ -277,13 +277,22 @@ function AssertionRow({
   const jsonPathErr = !assertion.jsonPath?.trim();
 
   return (
-    <div
-      className="wf-config-assert-row"
-      style={{ border: '1px solid var(--border-color, #333)', borderRadius: 4, padding: 8, marginBottom: 8 }}
-      data-testid="gql-wf-assert-row"
-    >
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
-        <div style={{ flex: 2 }}>
+    <article className="gql-wf-assert-card" data-testid="gql-wf-assert-row">
+      <div className="gql-wf-assert-card-head">
+        <span className="gql-wf-assert-card-index">Rule {index + 1}</span>
+        <button
+          type="button"
+          className="gql-wf-assert-remove-btn"
+          onClick={() => crud.remove(index)}
+          aria-label={`Remove assertion ${index + 1}`}
+        >
+          Remove
+        </button>
+      </div>
+
+      <div className={`gql-wf-assert-card-grid${noValue ? ' gql-wf-assert-card-grid--no-value' : ''}`}>
+        <label className="gql-wf-assert-field">
+          <span className="gql-wf-assert-field-label">JSONPath</span>
           <input
             value={assertion.jsonPath}
             onChange={(e) => crud.update(index, { jsonPath: e.target.value })}
@@ -292,52 +301,48 @@ function AssertionRow({
             className={jsonPathErr ? 'wf-input-error' : undefined}
             data-testid="gql-wf-assert-jsonpath"
           />
-          {jsonPathErr && <span className="wf-config-error">JSONPath is required</span>}
-        </div>
+          {jsonPathErr && <GqlWfFieldError>JSONPath is required</GqlWfFieldError>}
+        </label>
 
-        <select
-          value={assertion.operator}
-          onChange={(e) => crud.update(index, { operator: e.target.value as FieldOperator })}
-          aria-label="Operator"
-          style={{ flex: '0 0 auto' }}
-          data-testid="gql-wf-assert-operator"
-        >
-          {FIELD_OP_OPTIONS.map(({ value, label }) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+        <label className="gql-wf-assert-field gql-wf-assert-field--operator">
+          <span className="gql-wf-assert-field-label">Operator</span>
+          <select
+            value={assertion.operator}
+            onChange={(e) => crud.update(index, { operator: e.target.value as FieldOperator })}
+            aria-label="Operator"
+            data-testid="gql-wf-assert-operator"
+          >
+            {FIELD_OP_OPTIONS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
 
         {!noValue && (
-          <input
-            value={assertion.expectedValue ?? ''}
-            onChange={(e) => crud.update(index, { expectedValue: e.target.value })}
-            placeholder="expected value"
-            aria-label="Expected value"
-            style={{ flex: 2 }}
-            data-testid="gql-wf-assert-expected"
-          />
+          <label className="gql-wf-assert-field">
+            <span className="gql-wf-assert-field-label">Expected value</span>
+            <input
+              value={assertion.expectedValue ?? ''}
+              onChange={(e) => crud.update(index, { expectedValue: e.target.value })}
+              placeholder="expected value"
+              aria-label="Expected value"
+              data-testid="gql-wf-assert-expected"
+            />
+          </label>
         )}
-
-        <button
-          type="button"
-          className="wf-kv-del-btn"
-          onClick={() => crud.remove(index)}
-          aria-label={`Remove assertion ${index + 1}`}
-        >
-          ×
-        </button>
       </div>
 
-      <div>
+      <label className="gql-wf-assert-field gql-wf-assert-field--full">
+        <span className="gql-wf-assert-field-label">Description</span>
         <input
           value={assertion.description ?? ''}
           onChange={(e) => crud.update(index, { description: e.target.value })}
-          placeholder="Description (optional)"
+          placeholder="Optional — shown in run history"
           aria-label="Assertion description"
-          style={{ width: '100%', fontSize: '0.85em' }}
           data-testid="gql-wf-assert-description"
         />
-      </div>
+      </label>
+
       {testResult && (
         <p
           className={testResult.ok ? 'gql-wf-test-inline gql-wf-test-inline--pass' : 'gql-wf-test-inline gql-wf-test-inline--fail'}
@@ -346,6 +351,6 @@ function AssertionRow({
           {testResult.ok ? `✓ passed (actual: ${testResult.actual})` : `✗ ${testResult.message}`}
         </p>
       )}
-    </div>
+    </article>
   );
 }

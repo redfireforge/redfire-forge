@@ -38,7 +38,8 @@ export const LESSON18_GET_USER_QUERY =
   '  }\n' +
   '}';
 
-export const LESSON18_QUERY_VARS = '{\n  "id": "{{createdUserId}}"\n}';
+/** No quotes around {{createdUserId}} — extraction stores JSON-serialized scalars. */
+export const LESSON18_QUERY_VARS = '{\n  "id": {{createdUserId}}\n}';
 
 export const LESSON18_DELETE_MUTATION =
   'mutation DeleteUser($id: ID!) {\n' +
@@ -47,7 +48,7 @@ export const LESSON18_DELETE_MUTATION =
   '  }\n' +
   '}';
 
-export const LESSON18_DELETE_VARS = '{\n  "id": "{{createdUserId}}"\n}';
+export const LESSON18_DELETE_VARS = '{\n  "id": {{createdUserId}}\n}';
 
 export const LESSON18_EXTRACTION_JSONPATH = '$.createUser.id';
 
@@ -73,7 +74,52 @@ export function resetGqlLesson18SessionFlags(): void {
 
 // ── Workflow factory ──────────────────────────────────────────────────────────
 
-/** Pre-wired canvas: Start → Mutation → Query → Assert → End (minimal defaults). */
+type Lesson18NodeSnapshot = { id: string; type: string; data: Record<string, unknown> };
+
+function readLesson18WorkflowNodes(): Lesson18NodeSnapshot[] | null {
+  const get = (window as unknown as Record<string, unknown>).__wfGetWorkflowByName as
+    | ((name: string) => { nodes?: Lesson18NodeSnapshot[] } | null)
+    | undefined;
+  return get?.(LESSON18_WF_NAME)?.nodes ?? null;
+}
+
+function lesson18NodeData(nodeId: string): Record<string, unknown> | null {
+  const node = readLesson18WorkflowNodes()?.find((n) => n.id === nodeId);
+  return node?.data ?? null;
+}
+
+export function isLesson18CreateNodeReady(): boolean {
+  const data = lesson18NodeData(LESSON18_NODE_CREATE);
+  const endpoint = String(data?.endpoint ?? '').trim();
+  const query = String(data?.query ?? '').trim();
+  const rules = data?.extractionRules as Array<{ variableName?: string }> | undefined;
+  return !!(endpoint && query.includes('createUser') && rules?.some((r) => r.variableName === LESSON18_CREATED_USER_ID_VAR));
+}
+
+export function isLesson18FetchNodeReady(): boolean {
+  const data = lesson18NodeData(LESSON18_NODE_FETCH);
+  const endpoint = String(data?.endpoint ?? '').trim();
+  const query = String(data?.query ?? '').trim();
+  const bindings = data?.outputBindings as Array<{ field?: string; variableName?: string; enabled?: boolean }> | undefined;
+  return !!(
+    endpoint
+    && query.includes('user(id:')
+    && bindings?.some((b) => b.field === 'data' && b.variableName === LESSON18_FETCHED_USER_VAR && b.enabled !== false)
+  );
+}
+
+export function isLesson18AssertNodeReady(): boolean {
+  const data = lesson18NodeData(LESSON18_NODE_ASSERT);
+  const source = String(data?.sourceVariable ?? '').trim();
+  const assertions = data?.assertions as Array<{ jsonPath?: string }> | undefined;
+  return !!(source === LESSON18_FETCHED_USER_VAR && assertions?.some((a) => a.jsonPath === '$.user.name'));
+}
+
+function isLesson18QuickTestPassVisible(): boolean {
+  return !!document.querySelector('.wf-exec-strip-pass');
+}
+
+/** Pre-wired canvas: Start → Mutation → Query → Assert → End (lesson-ready defaults). */
 export function createGqlMutationDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
@@ -101,12 +147,14 @@ export function createGqlMutationDemoWorkflow(): Record<string, unknown> {
         position: { x: 280, y: 150 },
         data: {
           label: 'Create User',
-          endpoint: '',
-          query: 'mutation {\n  \n}',
-          variables: '{}',
+          endpoint: GQL_DEMO_HTTP,
+          query: LESSON18_CREATE_MUTATION,
+          variables: LESSON18_MUTATION_VARS,
           headers: [],
           timeoutMs: 30000,
-          extractionRules: [],
+          extractionRules: [
+            { variableName: LESSON18_CREATED_USER_ID_VAR, jsonPath: LESSON18_EXTRACTION_JSONPATH },
+          ],
           outputBindings: [],
         },
       },
@@ -116,13 +164,15 @@ export function createGqlMutationDemoWorkflow(): Record<string, unknown> {
         position: { x: 480, y: 150 },
         data: {
           label: 'Fetch User',
-          endpoint: '',
-          query: 'query {\n  \n}',
-          variables: '{}',
+          endpoint: GQL_DEMO_HTTP,
+          query: LESSON18_GET_USER_QUERY,
+          variables: LESSON18_QUERY_VARS,
           headers: [],
           timeoutMs: 30000,
           extractionRules: [],
-          outputBindings: [],
+          outputBindings: [
+            { field: 'data', variableName: LESSON18_FETCHED_USER_VAR, enabled: true },
+          ],
         },
       },
       {
@@ -131,8 +181,14 @@ export function createGqlMutationDemoWorkflow(): Record<string, unknown> {
         position: { x: 680, y: 150 },
         data: {
           label: 'Verify User',
-          sourceVariable: '',
-          assertions: [],
+          sourceVariable: LESSON18_FETCHED_USER_VAR,
+          assertions: [{
+            id: 'gql18-name-assert',
+            jsonPath: '$.user.name',
+            operator: 'equals',
+            expectedValue: `{{${LESSON18_TEST_NAME_VAR}}}`,
+            description: 'Fetched user name matches testName',
+          }],
           failBehavior: 'error',
         },
       },
@@ -249,7 +305,7 @@ export async function ensureLesson18WorkflowLoaded(ctx: DemoActionContext): Prom
 /** Configure the createUser mutation node. */
 export async function ensureLesson18MutationConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18WorkflowLoaded(ctx);
-  if (_lesson18MutationConfigured) return;
+  if (_lesson18MutationConfigured && isLesson18CreateNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON18_NODE_CREATE);
   await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
@@ -267,7 +323,7 @@ export async function ensureLesson18MutationConfigured(ctx: DemoActionContext): 
 /** Bind createUser.id → createdUserId via the Extraction tab. */
 export async function ensureLesson18MutationOutputBound(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18MutationConfigured(ctx);
-  if (_lesson18OutputBound) return;
+  if (_lesson18OutputBound && isLesson18CreateNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON18_NODE_CREATE);
   await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
@@ -287,7 +343,7 @@ export async function ensureLesson18MutationOutputBound(ctx: DemoActionContext):
 /** Configure the read-back query node. */
 export async function ensureLesson18QueryConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18MutationOutputBound(ctx);
-  if (_lesson18QueryConfigured) return;
+  if (_lesson18QueryConfigured && isLesson18FetchNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON18_NODE_FETCH);
   await ctx.waitFor(GQL.WF_QUERY_PANEL, 5000);
@@ -314,7 +370,7 @@ export async function ensureLesson18QueryConfigured(ctx: DemoActionContext): Pro
 /** Configure assert: $.user.name equals {{testName}}. */
 export async function ensureLesson18AssertConfigured(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18QueryConfigured(ctx);
-  if (_lesson18AssertConfigured) return;
+  if (_lesson18AssertConfigured && isLesson18AssertNodeReady()) return;
 
   await openWfNodeConfigById(ctx, LESSON18_NODE_ASSERT);
   await ctx.waitFor(GQL.WF_ASSERT_PANEL, 5000);
@@ -341,7 +397,14 @@ export async function ensureLesson18AssertConfigured(ctx: DemoActionContext): Pr
 /** Run Quick Test and wait for execution summary. */
 export async function ensureLesson18QuickTestRun(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18AssertConfigured(ctx);
-  if (_lesson18QuickTestRun && document.querySelector(WF.EXEC_SUMMARY)) return;
+  if (
+    _lesson18QuickTestRun
+    && isLesson18QuickTestPassVisible()
+    && isLesson18FetchNodeReady()
+    && isLesson18AssertNodeReady()
+  ) {
+    return;
+  }
 
   ctx.navigateToTab('workflow');
   await ctx.delay(400);

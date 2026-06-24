@@ -7,7 +7,7 @@
  * Full lesson (introspect, mutations, idempotent delete) needs Docker on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 15 disables Next — use finishDemoStep, never runNextStep on the final step.
+ * Last-step rule: step 18 disables Next — use finishDemoStep, never runNextStep on the final step.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -108,18 +108,18 @@ test.describe('GQL-6 — lesson shell', () => {
     await launchGqlLesson(page, LESSON_NAME);
     const { title } = await getStepInfo(page);
     expect(title).toMatch(/Mutation/i);
-    await takeNamedScreenshot(page, 'gql3-lesson-start');
+    await takeNamedScreenshot(page, 'gql6-lesson-start');
   });
 
-  test('lesson has 15 steps', async ({ page }) => {
+  test(`lesson has ${GQL6_LESSON.steps} steps`, async ({ page }) => {
     await launchGqlLesson(page, LESSON_NAME);
     const counter = await page.locator('.demo-live-step-counter').textContent();
-    expect(counter).toMatch(/1\s*[/]\s*15/);
+    expect(counter).toMatch(new RegExp(`1\\s*[/]\\s*${GQL6_LESSON.steps}`));
   });
 });
 
 test.describe('GQL-6 — schema & Mutation type (Docker)', () => {
-  test('step 4 shows Mutation type after introspection — not empty schema', async ({
+  test('step 5 shows Mutation type after introspection — not empty schema', async ({
     page,
     request,
   }) => {
@@ -129,14 +129,14 @@ test.describe('GQL-6 — schema & Mutation type (Docker)', () => {
     test.setTimeout(360_000);
     await prepareGql6DockerLesson(page, request);
 
-    // Steps 1–3: intro → endpoint → introspect
-    await advanceSteps(page, 3, DEMO_ACTION_TIMEOUT);
+    // Steps 1–4: intro → endpoint → introspect → observe schema badge
+    await advanceSteps(page, 4, DEMO_ACTION_TIMEOUT);
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(GQL_HTTP);
 
-    // Step 4: Browse the Mutation Type
+    // Step 5: Browse the Mutation Type
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-right-tab-schema"]')).toHaveAttribute(
@@ -161,8 +161,8 @@ test.describe('GQL-6 — createUser mutation (Docker)', () => {
     test.setTimeout(600_000);
     await prepareGql6DockerLesson(page, request);
 
-    // Through step 8 (Read Create Response) — reading phase on step 9
-    await advanceToStepWithEndpoint(page, 8, MUTATION_TIMEOUT);
+    // Through step 9 (Observe createUser response) — reading phase on step 10
+    await advanceToStepWithEndpoint(page, 9, MUTATION_TIMEOUT);
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
     const activeTab = page.locator('[data-testid="gql-tab-bar"] [role="tab"][aria-selected="true"]');
@@ -178,7 +178,7 @@ test.describe('GQL-6 — createUser mutation (Docker)', () => {
 });
 
 test.describe('GQL-6 — createOrder mutation (Docker)', () => {
-  test('steps 9–11 write createOrder with OrderInput and execute successfully', async ({
+  test('steps 10–12 write createOrder with OrderInput and execute successfully', async ({
     page,
     request,
   }) => {
@@ -188,8 +188,8 @@ test.describe('GQL-6 — createOrder mutation (Docker)', () => {
     test.setTimeout(600_000);
     await prepareGql6DockerLesson(page, request);
 
-    // Through step 11 (Execute createOrder) — reading phase on step 12
-    await advanceToStepWithEndpoint(page, 11, MUTATION_TIMEOUT);
+    // Through step 12 (Execute createOrder) — reading phase on step 13
+    await advanceToStepWithEndpoint(page, 12, MUTATION_TIMEOUT);
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(GQL_HTTP);
@@ -203,7 +203,7 @@ test.describe('GQL-6 — createOrder mutation (Docker)', () => {
 });
 
 test.describe('GQL-6 — deleteUser & idempotency (Docker)', () => {
-  test('steps 12–15 delete Carol, then second delete returns success: false', async ({
+  test('steps 16–19 delete Carol, observe, then second delete returns success: false', async ({
     page,
     request,
   }) => {
@@ -213,15 +213,19 @@ test.describe('GQL-6 — deleteUser & idempotency (Docker)', () => {
     test.setTimeout(600_000);
     await prepareGql6DockerLesson(page, request);
 
-    // Through step 14 (first delete) — reading phase on step 15
-    await advanceToStepWithEndpoint(page, 14, MUTATION_TIMEOUT);
+    // Through step 17 (observe first delete) — reading phase on step 18
+    await advanceToStepWithEndpoint(page, 17, MUTATION_TIMEOUT);
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
     const firstDeleteBody = await responseBodyText(page);
     expect(firstDeleteBody).toMatch(/deleteUser/i);
     expect(firstDeleteBody).toMatch(/"success"\s*:\s*true/i);
 
-    // Step 15: Idempotent second delete (last step — Next stays disabled; use finishDemoStep)
+    // Step 18: idempotent second delete execute
+    await page.locator('[aria-label="Next step"]').click();
+    await completeCurrentStepAction(page, MUTATION_TIMEOUT);
+
+    // Step 19: observe idempotency (last step — Next stays disabled; use finishDemoStep)
     await page.locator('[aria-label="Next step"]').click();
     await finishDemoStep(page, MUTATION_TIMEOUT);
 
@@ -230,15 +234,15 @@ test.describe('GQL-6 — deleteUser & idempotency (Docker)', () => {
     expect(secondDeleteBody).toMatch(/"success"\s*:\s*false/i);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/15\s*[/]\s*15/);
+    expect(counter).toMatch(new RegExp(`${GQL6_LESSON.steps}\\s*[/]\\s*${GQL6_LESSON.steps}`));
     expect(title).toMatch(/Idempotency/i);
 
-    await takeNamedScreenshot(page, 'gql3-idempotent-delete');
+    await takeNamedScreenshot(page, 'gql6-idempotent-delete');
   });
 });
 
 test.describe('GQL-6 — full lesson (Docker)', () => {
-  test('all 15 steps complete with create, order, delete, and idempotent re-delete', async ({
+  test(`all ${GQL6_LESSON.steps} steps complete with create, order, delete, and idempotent re-delete`, async ({
     page,
     request,
   }) => {
@@ -251,7 +255,7 @@ test.describe('GQL-6 — full lesson (Docker)', () => {
     await walkFullGql6Lesson(page);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/15\s*[/]\s*15/);
+    expect(counter).toMatch(new RegExp(`${GQL6_LESSON.steps}\\s*[/]\\s*${GQL6_LESSON.steps}`));
     expect(title).toMatch(/Idempotency/i);
 
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 15_000 });
@@ -259,6 +263,6 @@ test.describe('GQL-6 — full lesson (Docker)', () => {
     const body = await responseBodyText(page);
     expect(body).toMatch(/"success"\s*:\s*false/i);
 
-    await takeNamedScreenshot(page, 'gql3-lesson-complete');
+    await takeNamedScreenshot(page, 'gql6-lesson-complete');
   });
 });

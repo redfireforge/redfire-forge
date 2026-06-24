@@ -48,6 +48,8 @@ export async function ensureSseDemoHeaderContext(ctx: DemoActionContext): Promis
 /** Shared GraphQL demo lesson identifiers and endpoint (GQL-1+ lessons). */
 export const GQL_DEMO_ENV_NAME = 'GraphQL Demo';
 export const GQL_DEMO_SVC_NAME = 'graphql-demo';
+/** Active-environment name in GraphQL Studio's env modal (distinct from EM "GraphQL Demo"). */
+export const GQL_STUDIO_DEMO_ENV_NAME = 'Demo';
 export const GQL_DEMO_BASE_URL = 'http://localhost:4010';
 export const GQL_DEMO_GRAPHQL_PATH = '/graphql';
 
@@ -210,6 +212,27 @@ export async function cleanupDemoEnvironment(
   if (!chip) return;
   await clickDeleteAndConfirm(ctx, `[data-env-name="${name}"] .settings-chip-delete`);
   await ctx.delay(400);
+}
+
+/**
+ * Remove GraphQL demo environments after any GraphQL Studio lesson ends:
+ * - Studio env modal "Demo" (authToken / {{vars}} from GQL-4+)
+ * - Environment Manager "GraphQL Demo" + graphql-demo microservice (GQL-1+)
+ *
+ * Uses storage + App-level bridge so cleanup works when GraphQL Studio / EM are unmounted.
+ */
+export async function cleanupGqlDemoLessonEnvironment(_ctx: DemoActionContext): Promise<void> {
+  const w = window as unknown as Record<string, unknown>;
+  const purgeBridge = w.__demoPurgeGqlLessonEnvironments as (() => Promise<void>) | undefined;
+  if (purgeBridge) {
+    await purgeBridge();
+    return;
+  }
+
+  const { purgeGqlDemoLessonEnvironmentsFromStorage } = await import('./gql-demo-app-environment-cleanup');
+  await purgeGqlDemoLessonEnvironmentsFromStorage();
+  const deleteStudioEnv = w.__demoDeleteGqlEnvByName as ((name: string) => void) | undefined;
+  deleteStudioEnv?.(GQL_STUDIO_DEMO_ENV_NAME);
 }
 
 // ── Demo-dedicated env / microservice creation ─────────────────────────────

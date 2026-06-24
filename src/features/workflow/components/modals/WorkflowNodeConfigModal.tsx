@@ -276,6 +276,7 @@ export default function WorkflowNodeConfigModal({
   });
 
   const nodeTypeLabel = formatNodeTypeLabel(node.type);
+  const isGraphqlNode = isGraphqlWorkflowNodeType(node.type);
   const rawLabel = (draft as HttpNodeData).label?.trim();
   // When the user has explicitly set an empty label, fall back to "Step Config"
   // so the modal title still identifies the node's purpose.
@@ -293,6 +294,7 @@ export default function WorkflowNodeConfigModal({
         expandMode="fullscreen"
         hideExpandButton
         hideCloseButton
+        dialogClassName={isGraphqlNode ? 'wf-config-modal wf-config-modal--gql' : 'wf-config-modal'}
         footer={(
           <div className="wf-config-modal-footer-actions">
             <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>

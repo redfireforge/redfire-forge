@@ -3,8 +3,8 @@
  * WebSocket Studio and GraphQL Studio.
  *
  * Callers normalise their own TLS state to `TlsValues` and pass a single
- * `onChange` callback.  All visual CSS comes from the `ws-tls-*` ruleset
- * in `websocket-studio.css`.
+ * `onChange` callback.  Body CSS comes from the `ws-tls-*` ruleset in
+ * `websocket-studio.css`; footer actions use global `btn` classes.
  */
 
 import type { ReactNode } from 'react';
@@ -98,7 +98,7 @@ export function TlsConfigModal({
         <>
           <button
             type="button"
-            className="ws-connect-btn"
+            className="btn"
             onClick={onCancel}
             data-testid={`${p}-cancel`}
           >
@@ -106,7 +106,7 @@ export function TlsConfigModal({
           </button>
           <button
             type="button"
-            className="ws-connect-btn ws-connect-btn-primary"
+            className="btn btn-primary"
             onClick={onSave}
             disabled={!dirty}
             data-testid={`${p}-save`}
@@ -115,7 +115,7 @@ export function TlsConfigModal({
           </button>
           <button
             type="button"
-            className="ws-connect-btn"
+            className="btn"
             onClick={onClose}
             data-testid={`${p}-close`}
           >

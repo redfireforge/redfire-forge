@@ -195,7 +195,8 @@ Gate on `[data-testid="demo-live-panel"]` attribute `data-step-phase`: `reading`
 | `e2e/demo-player-helpers.ts` | `runNextStep`, `finishDemoStep`, `playThroughLesson`, `launchGqlLesson` |
 | `e2e/graphql-helpers.ts` | Proxy, EM seed, `ensureGql2/3StudioEndpoint`, health check |
 | `e2e/graphql-lesson-smoke-helpers.ts` | Shared `prepareGql*DockerLesson`, `walkFullGql*Lesson` |
-| `e2e/demo-gql-*.spec.ts` | Per-lesson step-through tests |
+| `e2e/graphql-demo-workspace-helpers.ts` | §11.0 seed/read workspace snapshots |
+| `e2e/demo-gql-workspace-isolation.spec.ts` | §11.0 acceptance E2E |
 | `.cursor/rules/e2e-testing.mdc` | Agent rule summary (points here) |
 
 ---
@@ -203,3 +204,46 @@ Gate on `[data-testid="demo-live-panel"]` attribute `data-step-phase`: `reading`
 ## When you hit a new pitfall
 
 Add a row to §checklist or a new numbered section here, and one line to `.cursor/rules/e2e-testing.mdc` so agents pick it up on the next lesson.
+
+---
+
+## 10. §11.0 — Demo workspace isolation (GraphQL Studio)
+
+**Problem:** GraphQL demo lessons run in the real Studio and persist to the same keys as the user's workspace (`gql_tabs_v1`, `gql_endpoint_v1`, …). Without isolation, a lesson could overwrite the user's endpoint or tab labels.
+
+**Engineering fix (shipped):** Reserved **demo tab(s)** via `ensureGqlDemoTab` / `closeGqlDemoTabs` (`gql-demo-tab.ts`, `gqlDemoWorkspace.ts`). User tabs 1–7 + page endpoint must stay untouched.
+
+**Acceptance spec:** `e2e/demo-gql-workspace-isolation.spec.ts` — run via:
+
+```bash
+npm run test:e2e:demo:gql110
+```
+
+| Case | What it proves |
+|------|----------------|
+| User workspace survives GQL-1 | Custom endpoint + tab title unchanged after exit; demo tab removed from storage |
+| 7 user tabs + GQL-1 | Lesson uses slot 8 (7 user + 1 demo); 7 user tabs restored after exit |
+| GQL-14 tab capacity gate | With 7 user tabs, Start blocked until 1 tab closed (`tabBudget: 2`) |
+| GQL-1 → GQL-2 switch | Demo tab wiped and recreated; no `gql-first-query` demo tab after GQL-2 start |
+
+**Helpers:** `e2e/graphql-demo-workspace-helpers.ts`
+
+```typescript
+await seedGqlUserWorkspace(page, { userTabCount: 7 }); // before first goto
+const snap = await readGqlWorkspaceSnapshot(page);
+expectUserWorkspaceIntact(snap, { userTabCount: 7 });
+```
+
+**Seed timing:** Call `seedGqlUserWorkspace` **before** `openDemoHub` — it uses `addInitScript` so localStorage is set on every navigation.
+
+**Start flow:** Use `openGqlLessonConcept` + `waitForPrerequisiteGateUp` + `startLesson` — **not** `launchGqlLesson` (that already clicks Start Demo). Capture `readGqlWorkspaceSnapshot` **before** `startLesson`.
+
+**After exit:** Call `waitForGqlDemoCleanup(page)` — cleanup is async after the concept view appears.
+
+**Demo tab locator:** Use `[data-demo-lesson="gql-first-query"]` — not `/^Demo:/` on `[role="tab"]` (child nodes break `^` anchor).
+
+**Tab capacity model:** `MAX_TABS = 8`, `MAX_USER_TABS = 7`. Lessons with `tabBudget: 2` (GQL-14, GQL-15) show `PrerequisiteGate` tab-capacity UI when `userTabsToCloseForLesson(count, 2) > 0`.
+
+**Orphan demo tabs:** `purgeOrphanDemoTabs()` on Studio mount removes demo tabs when no active `gql_demo_session_v1` — hard refresh mid-lesson is handled separately (not covered by acceptance spec yet).
+
+**Last-step rule still applies** when walking lessons inside §11.0 tests — use `finishDemoStep` on step N/N.

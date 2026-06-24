@@ -773,6 +773,8 @@
   font-size: 14px;
   line-height: 1.7;
   color: rgba(241, 245, 249, 0.82);
+  user-select: text;
+  cursor: text;
 }
 .demo-step-detail-body p { margin: 0 0 12px; }
 .demo-step-detail-body p:last-child { margin-bottom: 0; }
@@ -1163,6 +1165,7 @@
   font-weight: 600;
   margin: 0 0 6px;
   color: var(--text, #f1f5f9);
+  user-select: text;
 }
 
 .demo-live-step-desc {
@@ -1170,6 +1173,8 @@
   line-height: 1.5;
   margin: 0;
   color: var(--text-muted, #a8b8cc);
+  user-select: text;
+  cursor: text;
 }
 
 .demo-live-panel-status {
@@ -1451,6 +1456,7 @@
   padding: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+  user-select: text;
 }
 .demo-overview-modal-list::-webkit-scrollbar { width: 4px; }
 .demo-overview-modal-list::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 2px; }
@@ -1483,14 +1489,21 @@
 }
 .demo-overview-modal-item.done { opacity: 0.65; }
 .demo-overview-modal-item.done:hover { opacity: 1; }
-/* Read-only variant: no pointer/hover affordance */
+/* Read-only variant: no jump affordance on the row shell */
 .demo-overview-modal-item--readonly {
   cursor: default;
-  user-select: none;
 }
 .demo-overview-modal-item--readonly:hover {
   background: transparent;
   border-color: transparent;
+}
+.demo-overview-modal-item--readonly.active {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.38);
+}
+.demo-overview-modal-item--readonly.active:hover {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.38);
 }
 
 .demo-overview-modal-item-num {
@@ -1532,6 +1545,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  user-select: text;
+  cursor: text;
 }
 
 .demo-overview-modal-item-title {
@@ -1539,6 +1554,7 @@
   font-weight: 600;
   color: var(--text, #f1f5f9);
   line-height: 1.35;
+  user-select: text;
 }
 .demo-overview-modal-item.done .demo-overview-modal-item-title {
   color: var(--text-muted, #a8b8cc);
@@ -1548,14 +1564,24 @@
   font-size: 12px;
   line-height: 1.55;
   color: rgba(200, 215, 230, 0.85);
+  user-select: text;
+  cursor: text;
 }
-.demo-overview-modal-item-desc p { margin: 0; }
+.demo-overview-modal-item-desc p { margin: 0; user-select: text; }
 .demo-overview-modal-item-desc code {
   font-size: 11px;
   background: rgba(255, 255, 255, 0.09);
   padding: 1px 5px;
   border-radius: 3px;
   color: #93c5fd;
+  user-select: text;
+}
+
+/* Clickable jump rows: allow selecting description text without treating the row as a drag target */
+.demo-overview-modal-item:not(.demo-overview-modal-item--readonly) .demo-overview-modal-item-body,
+.demo-overview-modal-item:not(.demo-overview-modal-item--readonly) .demo-overview-modal-item-desc {
+  user-select: text;
+  cursor: text;
 }
 
 .demo-overview-modal-current-dot {

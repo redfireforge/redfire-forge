@@ -654,3 +654,32 @@ describe('GraphqlEnvModal — import auto-select', () => {
     expect(screen.getByTestId(`gql-env-item-${env2.id}`)).toHaveClass('gql-env-sidebar-item--selected');
   });
 });
+
+describe('GraphqlEnvModal — draggable header', () => {
+  it('renders draggable header with grip', () => {
+    render(<GraphqlEnvModal {...makeProps()} />);
+    const header = screen.getByTestId('gql-env-modal-header');
+    expect(header).toHaveClass('gql-env-modal-header--draggable');
+    expect(header.querySelector('.gql-env-modal__drag-grip')).toBeTruthy();
+  });
+
+  it('drag on header moves the modal offset', () => {
+    render(<GraphqlEnvModal {...makeProps()} />);
+    const header = screen.getByTestId('gql-env-modal-header');
+    const modal = screen.getByTestId('gql-env-modal');
+    const rect = { left: 100, top: 80, width: 820, height: 480 };
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 90 });
+    fireEvent.mouseMove(window, { clientX: 160, clientY: 120 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBe('140px');
+    expect(modal.style.top).toBe('110px');
+  });
+});

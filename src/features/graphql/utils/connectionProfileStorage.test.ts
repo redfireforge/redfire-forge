@@ -1,14 +1,22 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   parseConnectionProfiles,
   readConnectionProfiles,
+  writeConnectionProfiles,
+  removeConnectionProfilesByNames,
+  dispatchGqlProfilesReload,
   GQL_PROFILES_STORAGE_KEY,
+  GQL_PROFILES_RELOAD_EVENT,
   type ConnectionProfile,
 } from './connectionProfileStorage';
-import { readKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '../../../shared/utils/storage';
 
 vi.mock('../../../shared/utils/storage', () => ({
   readKey: vi.fn(),
+  writeKey: vi.fn(),
 }));
 
 const validProfile: ConnectionProfile = {
@@ -19,9 +27,14 @@ const validProfile: ConnectionProfile = {
   createdAt: 1_700_000_000_000,
 };
 
+const mockReadKey = vi.mocked(readKey);
+const mockWriteKey = vi.mocked(writeKey);
+
 describe('connectionProfileStorage', () => {
   beforeEach(() => {
     vi.mocked(readKey).mockReset();
+    vi.mocked(writeKey).mockReset();
+    mockWriteKey.mockResolvedValue(undefined);
   });
 
   describe('parseConnectionProfiles', () => {
@@ -66,6 +79,66 @@ describe('connectionProfileStorage', () => {
     it('returns empty array when readKey throws', async () => {
       vi.mocked(readKey).mockRejectedValue(new Error('storage unavailable'));
       await expect(readConnectionProfiles()).resolves.toEqual([]);
+    });
+  });
+
+  describe('writeConnectionProfiles', () => {
+    it('persists JSON and dispatches reload event', async () => {
+      const handler = vi.fn();
+      window.addEventListener(GQL_PROFILES_RELOAD_EVENT, handler);
+      await writeConnectionProfiles([validProfile]);
+      expect(writeKey).toHaveBeenCalledWith(
+        GQL_PROFILES_STORAGE_KEY,
+        JSON.stringify([validProfile]),
+      );
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener(GQL_PROFILES_RELOAD_EVENT, handler);
+    });
+  });
+
+  describe('removeConnectionProfilesByNames', () => {
+    it('removes all profiles matching any provided name', async () => {
+      const duplicate1: ConnectionProfile = {
+        ...validProfile,
+        id: 'prof-2',
+        name: 'GQL Auth Demo',
+      };
+      const duplicate2: ConnectionProfile = {
+        ...validProfile,
+        id: 'prof-3',
+        name: 'GQL Auth Demo',
+      };
+      const keep: ConnectionProfile = {
+        ...validProfile,
+        id: 'prof-4',
+        name: 'My Custom Profile',
+      };
+      mockReadKey.mockResolvedValue(JSON.stringify([duplicate1, duplicate2, keep]));
+
+      await expect(
+        removeConnectionProfilesByNames(['GQL Auth Demo']),
+      ).resolves.toBe(2);
+
+      expect(writeKey).toHaveBeenCalledWith(
+        GQL_PROFILES_STORAGE_KEY,
+        JSON.stringify([keep]),
+      );
+    });
+
+    it('returns 0 when no names match', async () => {
+      mockReadKey.mockResolvedValue(JSON.stringify([validProfile]));
+      await expect(removeConnectionProfilesByNames(['missing'])).resolves.toBe(0);
+      expect(writeKey).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('dispatchGqlProfilesReload', () => {
+    it('fires a custom event on window', () => {
+      const handler = vi.fn();
+      window.addEventListener(GQL_PROFILES_RELOAD_EVENT, handler);
+      dispatchGqlProfilesReload();
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener(GQL_PROFILES_RELOAD_EVENT, handler);
     });
   });
 });

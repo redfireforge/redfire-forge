@@ -304,6 +304,28 @@ describe('storage — runner config', () => {
   it('returns null when no config stored', async () => {
     expect(await loadRunnerConfig()).toBeNull();
   });
+
+  it('saveRunnerConfig purges stale keys and retries on quota exceeded', async () => {
+    localStorage.setItem('perf-test-runner-config:stale-env', '{"iterations":1}');
+    const original = Storage.prototype.setItem;
+    let runnerSaveAttempts = 0;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith('perf-test-runner-config')) {
+        runnerSaveAttempts += 1;
+        if (runnerSaveAttempts === 1) {
+          throw new DOMException('quota exceeded', 'QuotaExceededError');
+        }
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await saveRunnerConfig({ concurrency: 2 }, 'env-1:svc-1');
+      expect(await loadRunnerConfig('env-1:svc-1')).toEqual({ concurrency: 2 });
+      expect(localStorage.getItem('perf-test-runner-config:stale-env')).toBeNull();
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+  });
 });
 
 describe('storage — theme', () => {
@@ -374,11 +396,15 @@ describe('storage — diagnostics and cleanup', () => {
     expect(localStorage.getItem('perf-test-wf-undo-wf1')).toBeNull();
   });
 
-  it('cleanupStaleStorageKeys removes deep runner-config keys', () => {
+  it('cleanupStaleStorageKeys removes stale runner-config keys', () => {
     localStorage.setItem('perf-test-runner-config:a:b:c:d', '{"iterations":1}');
+    localStorage.setItem('perf-test-runner-config:90601c56-6402-4abc-def0-1234', '{"iterations":2}');
+    localStorage.setItem('perf-test-runner-config:_workflow_runner', '{"iterations":3}');
     const { removed } = cleanupStaleStorageKeys();
-    expect(removed).toBe(1);
+    expect(removed).toBeGreaterThanOrEqual(2);
     expect(localStorage.getItem('perf-test-runner-config:a:b:c:d')).toBeNull();
+    expect(localStorage.getItem('perf-test-runner-config:90601c56-6402-4abc-def0-1234')).toBeNull();
+    expect(localStorage.getItem('perf-test-runner-config:_workflow_runner')).toBe('{"iterations":3}');
   });
 
   it('cleanupStaleStorageKeys returns zero on Tauri', () => {

@@ -22,14 +22,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphqlResponse } from '../../../shared/types/graphql';
-import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy, serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import { gqlRequiresTlsProxy, serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { gqlFetch, gqlUpload } from '../utils/gqlFetch';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
 import { hasIncrementalDirective } from '../utils/graphqlClient';
 import { parseMultipartMixed } from '../utils/multipartParser';
 import { executeWithAPQ } from '../utils/apqClient';
-import type { APQSendFn } from '../utils/apqClient';
 import {
   buildDedupKey,
   getInFlight,
@@ -42,90 +41,22 @@ import {
   apqInfoFromResponse,
   parseHttpBody,
   stampRequestHeaders,
-  type AuthSentStampInput,
 } from '../utils/graphqlExecutionResponseParsing';
 import { notifyExecutionCompleted } from '../utils/graphqlExecutionNotify';
+import { buildApqSendFn } from '../utils/graphqlExecutionApqSend';
+import type {
+  ApqInfo,
+  ExecuteParams,
+  ExecutionStatus,
+  UseGraphqlExecution,
+} from './useGraphqlExecutionTypes';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type ExecutionStatus = 'idle' | 'loading' | 'success' | 'error';
-
-export interface ExecuteParams {
-  endpoint: string;
-  query: string;
-  /** JSON string from the Variables panel — if malformed, execution still proceeds (server will reject it) */
-  variables: string;
-  /** Active operation name (only needed when document has multiple named operations) */
-  operationName?: string;
-  /** Resolved headers (enabled tab headers merged with any connection-level headers) */
-  headers: Record<string, string>;
-  /** Skip TLS certificate validation — for self-signed/dev endpoints (web mode: proxied via /__proxy) */
-  skipTlsVerify?: boolean;
-  /** Full TLS settings (CA + mTLS). When omitted, derived from skipTlsVerify. */
-  tls?: GqlTlsSettings;
-  /**
-   * When present, sends the request as multipart/form-data via the upload proxy
-   * instead of a standard JSON body. Used by the Files tab (2E-1/2E-2).
-   */
-  formData?: FormData;
-  /**
-   * Sprint 8 (2E-4): optional callback for file upload progress.
-   * Called with `(loaded, total)` bytes as the request is being sent.
-   * Only invoked when `formData` is also provided.
-   */
-  onUploadProgress?: (loaded: number, total: number) => void;
-  // ── Phase 3F additions ──────────────────────────────────────────────────────
-  /** Connection ID — required for request deduplication key isolation */
-  connectionId?: string;
-  /** Enable Automatic Persisted Queries two-step flow (default: false) */
-  apqEnabled?: boolean;
-  /** When APQ is on: use GET for hash-only query requests (default: false) */
-  apqUseGet?: boolean;
-  /** Enable request deduplication (default: false) */
-  dedupEnabled?: boolean;
-  /** Operation type — determines GET eligibility for APQ (default: 'query') */
-  operationType?: 'query' | 'mutation';
-  /** When true, skip the dedup check AND dedup registration (Send anyway — run alongside original) */
-  _skipDedupCheck?: boolean;
-  /** When true, skip only the dedup check but still register (Cancel original — replacement tracks as new dedup entry) */
-  _skipDedupCheckOnly?: boolean;
-  /** Owning studio tab — attributes in-flight state per tab (Phase 6A). */
-  sourceTabId?: string;
-  /** Phase 6H — auth provenance for Metadata "auth sent" row. */
-  authSentStamp?: AuthSentStampInput;
-  /** Invoked when execution actually starts loading (after dedup guard passes). */
-  onExecutionStarted?: (tabId: string) => void;
-  /** Invoked when a dedup waiter receives the shared result (Phase 6A — per-tab cache). */
-  onExecutionCompleted?: (
-    tabId: string,
-    status: ExecutionStatus,
-    response: GraphqlResponse | null,
-    apqInfo?: ApqInfo | null,
-  ) => void;
-}
-
-export interface ApqInfo {
-  hash: string;
-  cacheHit: boolean;
-  unsupported: boolean;
-  /** Endpoint/connection id that produced this APQ result (Phase 6 multi-tab). */
-  connectionId?: string;
-}
-
-export interface UseGraphqlExecution {
-  status: ExecutionStatus;
-  response: GraphqlResponse | null;
-  execute: (params: ExecuteParams) => void;
-  cancel: () => void;
-  /** true when a dedup situation is pending user choice */
-  isDuplicate: boolean;
-  /** Studio tab that triggered the pending dedup prompt (Phase 6A multi-tab). */
-  duplicateSourceTabId: string | null;
-  /** APQ metadata from the last completed APQ request */
-  apqInfo: ApqInfo | null;
-  /** Resolve a pending dedup situation */
-  resolveDedupChoice: (choice: DedupChoice) => void;
-}
+export type {
+  ApqInfo,
+  ExecuteParams,
+  ExecutionStatus,
+  UseGraphqlExecution,
+} from './useGraphqlExecutionTypes';
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -579,108 +510,15 @@ export function useGraphqlExecution(): UseGraphqlExecution {
           let completedApqInfo: ApqInfo | null = null;
 
           if (isApq) {
-            // ── APQ two-step flow ──────────────────────────────────────────
-            // Build a sendFn that handles both GET (hash-only) and POST (full)
-            const apqSendFn: APQSendFn = async (bodyFields, method) => {
-              if (method === 'GET') {
-                const getHeaders: Record<string, string> = { Accept: 'application/json', ...headers };
-                delete getHeaders['Content-Type'];
-
-                if (gqlRequiresTlsProxy(tls)) {
-                  if (tlsApqGetNeedsPostProxy(tls)) {
-                    const postBody: Record<string, unknown> = { ...bodyFields };
-                    if (requestBody.operationName != null) {
-                      postBody.operationName = requestBody.operationName;
-                    }
-                    const result = await fetch(`${getProxyBase()}/api/graphql/query`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...getHeaders },
-                      body: JSON.stringify({
-                        endpoint,
-                        query: postBody.query,
-                        ...(postBody.extensions !== undefined ? { extensions: postBody.extensions } : {}),
-                        ...(postBody.variables !== undefined ? { variables: postBody.variables } : {}),
-                        ...(postBody.operationName !== undefined ? { operationName: postBody.operationName } : {}),
-                        headers,
-                        ...serializeGqlTlsForProxy(tls),
-                      }),
-                      signal: ctrl.signal,
-                    });
-                    const text = await result.text();
-                    const resHeaders: Record<string, string> = {};
-                    result.headers.forEach((v, k) => { resHeaders[k] = v; });
-                    return parseHttpBody(result.status, resHeaders, text, Math.round(performance.now() - startTime));
-                  }
-
-                  // skipTlsVerify-only APQ GET — query-string proxy (no PEM blobs).
-                  const proxyParams = new URLSearchParams();
-                  proxyParams.set('endpoint', endpoint);
-                  for (const [k, v] of Object.entries(bodyFields)) {
-                    proxyParams.set(k, JSON.stringify(v));
-                  }
-                  // Forward operationName for multi-operation documents
-                  if (requestBody.operationName != null) {
-                    proxyParams.set('operationName', String(requestBody.operationName));
-                  }
-                  if (tls.skipTlsVerify) proxyParams.set('skipTlsVerify', 'true');
-                  const result = await gqlFetch(
-                    `${getProxyBase()}/api/graphql/query?${proxyParams.toString()}`,
-                    'GET',
-                    getHeaders,
-                    undefined,
-                    ctrl.signal,
-                    false, // TLS is handled server-side by the proxy
-                  );
-                  return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
-                }
-
-                // No TLS skip: make the APQ GET directly to the upstream endpoint.
-                // This works in all environments (web, Tauri, production) since it's
-                // a standard browser GET request — no proxy needed.
-                let apqUrl: URL;
-                try {
-                  apqUrl = new URL(endpoint);
-                } catch {
-                  // Fallback if endpoint is not a valid absolute URL
-                  apqUrl = new URL(endpoint, window.location.href);
-                }
-                for (const [k, v] of Object.entries(bodyFields)) {
-                  apqUrl.searchParams.set(k, JSON.stringify(v));
-                }
-                // Forward operationName so multi-operation documents work with APQ GET
-                if (requestBody.operationName != null) {
-                  apqUrl.searchParams.set('operationName', String(requestBody.operationName));
-                }
-                const result = await gqlFetch(
-                  apqUrl.toString(),
-                  'GET',
-                  getHeaders,
-                  undefined,
-                  ctrl.signal,
-                  false,
-                );
-                return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
-              } else {
-                // Standard POST — build the body carefully.
-                // When bodyFields has no `query` (hash-only APQ step), we must NOT
-                // inject requestBody.query — sending the full query in the hash-only
-                // step defeats APQ's bandwidth savings and can confuse strict servers.
-                // Only operationName is carried across from requestBody.
-                const isHashOnly = !('query' in bodyFields);
-                const fullBody: Record<string, unknown> = isHashOnly
-                  ? { ...bodyFields, ...(requestBody.operationName !== undefined ? { operationName: requestBody.operationName } : {}) }
-                  : { ...requestBody, ...bodyFields };
-                const result = await gqlFetch(
-                  endpoint,
-                  'POST',
-                  requestHeaders,
-                  JSON.stringify(fullBody),
-                  ctrl.signal,
-                  tls,
-                );
-                return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
-              }
-            };
+            const apqSendFn = buildApqSendFn({
+              endpoint,
+              tls,
+              headers,
+              requestHeaders,
+              requestBody,
+              startTime,
+              signal: ctrl.signal,
+            });
 
             const apqResult = await executeWithAPQ(
               apqSendFn,

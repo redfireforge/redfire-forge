@@ -151,7 +151,7 @@ describe('GraphqlIntrospectConfigPanel', () => {
     const onChange = vi.fn();
     render(<GraphqlIntrospectConfigPanel data={introspectData()} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
 
     fireEvent.change(screen.getByTestId('gql-wf-introspect-new-type'), { target: { value: 'User' } });
     fireEvent.change(screen.getByTestId('gql-wf-introspect-new-field'), { target: { value: 'id' } });
@@ -176,7 +176,7 @@ describe('GraphqlIntrospectConfigPanel', () => {
     };
     render(<GraphqlIntrospectConfigPanel data={data} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
 
     fireEvent.change(screen.getByTestId('gql-wf-introspect-min-type-count'), { target: { value: '12' } });
     fireEvent.change(screen.getByTestId('gql-wf-introspect-required-types'), { target: { value: 'User, Order' } });
@@ -220,7 +220,7 @@ describe('GraphqlIntrospectConfigPanel', () => {
     };
     render(<GraphqlIntrospectConfigPanel data={data} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
     fireEvent.change(screen.getByTestId('gql-wf-introspect-required-types'), { target: { value: ' ,  ' } });
 
     const calls = onChange.mock.calls.map((c) => c[0]);
@@ -231,7 +231,7 @@ describe('GraphqlIntrospectConfigPanel', () => {
     const onChange = vi.fn();
     render(<GraphqlIntrospectConfigPanel data={introspectData()} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schema Validation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schema validation' }));
     fireEvent.click(screen.getByTestId('gql-wf-introspect-add-field-btn'));
 
     expect(onChange).not.toHaveBeenCalled();

@@ -24,27 +24,28 @@ import {
   GQL16_LESSON,
   GQL17_LESSON,
   GQL18_LESSON,
+  GQL19_LESSON,
 } from '../../../../../e2e/graphql-lesson-smoke-helpers';
 
 /** Canonical step counts — keep in sync with lesson files (§3.1 / §9.5). */
 const GQL1_LESSON_SOURCE = { name: 'Your First GraphQL Query', steps: 13 } as const;
 const GQL2_LESSON_SOURCE = { name: 'Variables & Arguments', steps: 18 } as const;
 const GQL3_LESSON_SOURCE = { name: 'Schema Exploration', steps: 10 } as const;
-const GQL4_LESSON_SOURCE = { name: 'Authentication & Headers', steps: 8 } as const;
+const GQL4_LESSON_SOURCE = { name: 'Authentication & Headers', steps: 14 } as const;
 const GQL5_LESSON_SOURCE = {
   name: 'HTTPS, TLS & Certificates',
-  steps: 12,
+  steps: 16,
 } as const;
 
 const GQL6_LESSON_SOURCE = {
   name: 'Mutations — Create, Update, Delete',
-  steps: 16,
+  steps: 19,
 } as const;
 
 /** Step metadata from graphql-subscriptions (avoid barrel import — pulls monaco in node vitest). */
 const GQL7_LESSON_SOURCE = {
   name: 'Subscriptions — Real-Time Data',
-  steps: 12,
+  steps: 14,
 } as const;
 
 /** Step metadata from graphql-query-builder (avoid barrel import — pulls monaco in node vitest). */
@@ -56,13 +57,13 @@ const GQL8_LESSON_SOURCE = {
 /** Step metadata from graphql-collections-history (avoid barrel import — pulls monaco in node vitest). */
 const GQL9_LESSON_SOURCE = {
   name: 'Collections & History',
-  steps: 8,
+  steps: 9,
 } as const;
 
 /** Step metadata from graphql-export-share (avoid barrel import — pulls monaco in node vitest). */
 const GQL10_LESSON_SOURCE = {
   name: 'Export & Share Queries',
-  steps: 5,
+  steps: 7,
 } as const;
 
 /** Step metadata from graphql-performance-tracing (avoid barrel import — pulls monaco in node vitest). */
@@ -95,7 +96,7 @@ const GQL15_LESSON_SOURCE = {
 
 const GQL16_LESSON_SOURCE = {
   name: 'Workflow Integration',
-  steps: 10,
+  steps: 12,
 } as const;
 
 const GQL17_LESSON_SOURCE = {
@@ -106,6 +107,11 @@ const GQL17_LESSON_SOURCE = {
 const GQL18_LESSON_SOURCE = {
   name: 'Mutation Node in Workflow',
   steps: 8,
+} as const;
+
+const GQL19_LESSON_SOURCE = {
+  name: 'Subscription Node in Workflow',
+  steps: 9,
 } as const;
 
 describe('GQL smoke E2E — lesson metadata alignment', () => {
@@ -197,5 +203,10 @@ describe('GQL smoke E2E — lesson metadata alignment', () => {
   it('GQL-18 smoke constants match graphql-workflow-mutation lesson', () => {
     expect(GQL18_LESSON.name).toBe(GQL18_LESSON_SOURCE.name);
     expect(GQL18_LESSON.steps).toBe(GQL18_LESSON_SOURCE.steps);
+  });
+
+  it('GQL-19 smoke constants match graphql-workflow-subscription lesson', () => {
+    expect(GQL19_LESSON.name).toBe(GQL19_LESSON_SOURCE.name);
+    expect(GQL19_LESSON.steps).toBe(GQL19_LESSON_SOURCE.steps);
   });
 });

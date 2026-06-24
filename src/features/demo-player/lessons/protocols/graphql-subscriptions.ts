@@ -6,12 +6,11 @@ import {
   GQL_CREATE_ORDER_VARS,
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_ORDER_STATUS_SUBSCRIPTION,
   configureDemoTabEndpointOverride,
   ensureAssertionAdded,
-  ensureDemoEndpoint,
   ensureDemoOrderCreated,
-  ensureIntrospected,
   ensurePauseResumeDemo,
   ensureSubscriptionQueryWritten,
   ensureSubscriptionVars,
@@ -24,6 +23,11 @@ import {
   gqlSubscriptionsLessonCleanup,
   gqlSubscriptionsLessonSetup,
   parseCreatedOrderIdFromResponse,
+  prepareGql5ConnectionBarReading,
+  prepareGql5EndpointReading,
+  prepareGql5ExecCreateOrderReading,
+  prepareGql5IntroReading,
+  prepareGql5ObserveCreateOrderReading,
   storeCreatedOrderIdFromResponse,
 } from './graphql-lesson-helpers';
 
@@ -34,9 +38,9 @@ export const gqlSubscriptionsLesson: DemoLesson = {
   name: 'Subscriptions — Real-Time Data',
   description:
     'Subscribe to live GraphQL events over WebSocket, choose the transport protocol, watch the message log, pause and filter streams, add real-time assertions, and disconnect cleanly.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 6,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -306,7 +310,8 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
         'Unlike polling (where your client sends a request every N seconds), subscriptions are event-driven: the server only sends data when something actually changes — more efficient, lower latency, and no wasted requests.\n\n' +
         'Watch the Studio tab as you type: the badge switches from **Q** (blue) or **M** (amber) to **S** (purple) the moment the editor parses the `subscription` keyword. ' +
         'The connection bar button transforms from **Execute** to **Subscribe** — the visual system prevents you from running a subscription as a regular HTTP POST, which would fail.',
-      highlight: GQL.TAB_BAR,
+      highlight: GQL.CONNECTION_BAR,
+      preAction: prepareGql5IntroReading,
       pauseAfter: true,
     },
 
@@ -321,9 +326,7 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
         'The **● LIVE** status badge next to the Subscribe button turns green once the WebSocket is connected and the server has acknowledged the subscription. ' +
         'Until the server sends `connection_ack`, you\'re still connecting.',
       highlight: GQL.CONNECTION_BAR,
-      preAction: async (ctx) => {
-        await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
-      },
+      preAction: prepareGql5ConnectionBarReading,
       pauseAfter: true,
     },
 
@@ -336,10 +339,8 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
         'The schema download confirms the server exposes a **Subscription** type with `orderStatus(orderId: ID!)` as a field.\n\n' +
         'WebSocket uses the same host with a protocol swap: `ws://localhost:4010/graphql` instead of `http://`. ' +
         'The Studio handles this automatically — you always enter the HTTP URL and it derives the WS endpoint.',
-      highlight: GQL.CONNECTION_BAR,
-      preAction: async (ctx) => {
-        await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
-      },
+      highlight: GQL.ENDPOINT_INPUT,
+      preAction: prepareGql5EndpointReading,
       action: async (ctx) => {
         await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
         await ctx.delay(500);
@@ -358,25 +359,35 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       id: 'gql5-create-order',
       title: 'Create a Demo Order First',
       description:
-        'The `orderStatus` subscription requires a real `orderId`. Run **createOrder** first:\n\n' +
+        'The `orderStatus` subscription requires a real `orderId`. Load **createOrder** into the editor with its **OrderInput** variable:\n\n' +
         '`mutation CreateOrder($input: OrderInput!) { createOrder(input: $input) { id status } }`\n\n' +
         '**Why is this required?** The subscription filters its event stream by `$orderId` — without a valid id, the server has nothing to watch. ' +
-        'This is a common real-world pattern: create a resource, then subscribe to its state changes. ' +
-        'The lesson captures `data.createOrder.id` from this response and passes it automatically to `$orderId` in the next step.',
+        'This mirrors production: create a resource, then subscribe to its state changes.',
       highlight: GQL.EDITOR,
-      preAction: async (ctx) => {
-        await ensureDemoEndpoint(ctx);
-        await ensureIntrospected(ctx);
-      },
+      preAction: prepareGql5ExecCreateOrderReading,
       action: async (ctx) => {
         await ctx.click(GQL.MODE_EDITOR);
         await ctx.waitFor(`${GQL.EDITOR} .monaco-editor`, 8000);
-        await ctx.delay(600);
+        await ctx.delay(400);
         await fillGqlEditor(ctx, GQL_CREATE_ORDER_MUTATION);
         await ctx.delay(500);
         await ensureVariablesPanelOpen(ctx);
         await fillGqlVariables(ctx, GQL_CREATE_ORDER_VARS);
-        await ctx.delay(400);
+        await ctx.delay(500);
+      },
+      verify: GQL.VARS_PANEL,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gql5-exec-create-order',
+      title: 'Execute createOrder',
+      description:
+        'Click **Execute** — the mutation and nested `input` variable are loaded. The server creates the order and returns `{ id, status }`.\n\n' +
+        'The next step spotlights the **Response** body — the lesson captures `data.createOrder.id` automatically for the subscription variable.',
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareGql5ExecCreateOrderReading,
+      action: async (ctx) => {
         await ctx.click(GQL.RIGHT_TAB_RESPONSE);
         await ctx.delay(200);
         await ctx.click(GQL.EXECUTE_BTN);
@@ -384,11 +395,27 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
         storeCreatedOrderIdFromResponse();
         await ctx.delay(700);
       },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gql5-observe-create-order',
+      title: 'Read the Order id',
+      description:
+        'The **Response** shows `data.createOrder.id` — the stable handle for the subscription in the next steps.\n\n' +
+        'In production, your client stores this id from the mutation response and passes it to `$orderId` in the subscription variables.',
+      highlight: GQL.RESPONSE_BODY,
+      preAction: prepareGql5ObserveCreateOrderReading,
+      action: async (ctx) => {
+        await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+        await ctx.delay(800);
+      },
       verify: GQL.RESPONSE_BODY,
       pauseAfter: true,
     },
 
-    // ── Step 5: Write the subscription ─────────────────────────────────────
+    // ── Step 6: Write the subscription ─────────────────────────────────────
     {
       id: 'gql5-write-sub',
       title: 'Write the Subscription Query',

@@ -37,7 +37,7 @@ export const kafkaTlsLesson: DemoLesson = {
 4. All data (including SASL credentials and message payloads) flows over that encrypted channel
 
 **Self-signed certificates (development):**
-The demo TLS stack uses a self-signed certificate — one not issued by a public CA. By default, certificate verification will fail for self-signed certs. RedfireForge provides a **Skip Certificate Verification** toggle (\`tls-verify-toggle\`) that disables hostname and CA verification, allowing the TLS handshake to succeed with self-signed certs.
+The demo TLS stack uses a self-signed certificate — one not issued by a public CA. By default, certificate verification will fail for self-signed certs. RedfireForge provides a **Skip Certificate Verification** toggle that disables hostname and CA verification, allowing the TLS handshake to succeed with self-signed certs.
 
 > ⚠️ Skip cert verification only for development/local stacks. Production clusters should use certificates from a trusted CA (or your organisation's internal CA).
 

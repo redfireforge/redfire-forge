@@ -95,6 +95,12 @@ export const GQL = {
   TLS_CANCEL:          '[data-testid="gql-tls-cancel"]',
   TLS_CLOSE:           '[data-testid="gql-tls-close"]',
   TLS_INDICATOR:       '[data-testid="gql-tls-indicator"]',
+  /** TLS mode badge — only present when skip-cert is off and CA PEM is set (Phase 2). */
+  TLS_INDICATOR_CA:    '[data-testid="gql-tls-indicator"].gql-tls-mode-badge--ca',
+  /** TLS mode badge — client cert + key configured (Phase 3 mTLS). */
+  TLS_INDICATOR_MTLS:  '[data-testid="gql-tls-indicator"].gql-tls-mode-badge--mtls',
+  /** TLS mode badge — skip-cert active (Phase 1 dev mode). */
+  TLS_INDICATOR_SKIP:  '[data-testid="gql-tls-indicator"].gql-tls-mode-badge--skip',
 
   // ── Auth, Environments & Profiles (Lesson 6) ─────────────────────────────
   AUTH_BADGE_BTN:      '[data-testid="gql-auth-badge-btn"]',
@@ -104,6 +110,9 @@ export const GQL = {
   AUTH_BASIC_PASS:     '[data-testid="gql-auth-basic-pass"]',
   AUTH_APIKEY_NAME:    '[data-testid="gql-auth-apikey-name"]',
   AUTH_APIKEY_VAL:     '[data-testid="gql-auth-apikey-val"]',
+  AUTH_OAUTH_TOKEN_URL: '[data-testid="gql-auth-oauth-token-url"]',
+  AUTH_OAUTH_CLIENT_ID: '[data-testid="gql-auth-oauth-client-id"]',
+  AUTH_OAUTH_CLIENT_SECRET: '[data-testid="gql-auth-oauth-client-secret"]',
   AUTH_PREVIEW:        '[data-testid="gql-auth-preview"]',
   AUTH_PROFILE_SELECT: '[data-testid="gql-auth-profile-select"]',
   AUTH_PROFILE_HINT:   '[data-testid="gql-auth-profile-hint"]',
@@ -197,6 +206,7 @@ export const GQL = {
   QB_PREVIEW:          '[data-testid="gql-qb-preview"]',
   QB_ARG_USER_ID:      '[data-testid="gql-qb-arg-user-id"] .gql-qb-arg-input',
   FO_ALIAS_USER_ID:    '[data-testid="gql-fo-alias-user.id"]',
+  FO_EXPAND_USER_ID:   '[data-testid="gql-fo-expand-user.id"]',
   FO_INCLUDE_USER_ID:  '[data-testid="gql-fo-include-user.id"]',
   // Legacy aliases (stale testids — prefer QB_* above)
   BUILDER_TAB:          '[data-testid="gql-qb-field-tree"]',

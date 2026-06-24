@@ -297,23 +297,61 @@ describe('StepOverviewDrawer', () => {
         onClose={onClose}
       />,
     );
-    expect(screen.getByText(/Click to jump/)).toBeTruthy();
+    expect(screen.getByText(/Click a step to jump/)).toBeTruthy();
   });
 
-  it('scrolls active step into view via callback ref', () => {
+  it('scrolls active step into view once per step index', async () => {
     const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView');
-    render(
+    const { rerender } = render(
       <StepOverviewDrawer
         lesson={makeLesson()}
         currentStepIndex={1}
         onClose={onClose}
       />,
     );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
     expect(scrollSpy).toHaveBeenCalled();
+    const callsAfterMount = scrollSpy.mock.calls.length;
+
+    rerender(
+      <StepOverviewDrawer
+        lesson={makeLesson()}
+        currentStepIndex={1}
+        onClose={onClose}
+      />,
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(scrollSpy.mock.calls.length).toBe(callsAfterMount);
   });
 
-  it('closes when clicking outside the modal after pointerdown delay', async () => {
-    vi.useFakeTimers();
+  it('preserves overview step copy when parent re-renders with the same step index', async () => {
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'Step One', description: 'Copy `Authorization` token here' },
+        { id: 's2', title: 'Step Two', description: 'Second step' },
+      ],
+    });
+    const { container, rerender } = render(
+      <StepOverviewDrawer lesson={lesson} currentStepIndex={0} onClose={onClose} />,
+    );
+    const desc = container.querySelector('.demo-overview-modal-item-desc')!;
+    const range = document.createRange();
+    range.selectNodeContents(desc);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    rerender(<StepOverviewDrawer lesson={lesson} currentStepIndex={0} onClose={onClose} />);
+    expect(sel.rangeCount).toBe(1);
+    expect(sel.anchorNode).toBeTruthy();
+    sel.removeAllRanges();
+  });
+
+  it('stays open when clicking outside the modal', async () => {
     render(
       <StepOverviewDrawer
         lesson={makeLesson()}
@@ -321,14 +359,11 @@ describe('StepOverviewDrawer', () => {
         onClose={onClose}
       />,
     );
-    await act(async () => { vi.advanceTimersByTime(150); });
     fireEvent.pointerDown(document.body);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('does not close when clicking inside the modal', async () => {
-    vi.useFakeTimers();
+  it('does not close when clicking inside the modal', () => {
     const { container } = render(
       <StepOverviewDrawer
         lesson={makeLesson()}
@@ -336,15 +371,12 @@ describe('StepOverviewDrawer', () => {
         onClose={onClose}
       />,
     );
-    await act(async () => { vi.advanceTimersByTime(150); });
     const modal = container.querySelector('.demo-overview-modal')!;
     fireEvent.pointerDown(modal);
     expect(onClose).not.toHaveBeenCalled();
-    vi.useRealTimers();
   });
 
-  it('does not close when clicking the live demo panel', async () => {
-    vi.useFakeTimers();
+  it('does not close when clicking the live demo panel', () => {
     render(
       <>
         <StepOverviewDrawer
@@ -357,10 +389,8 @@ describe('StepOverviewDrawer', () => {
         </div>
       </>,
     );
-    await act(async () => { vi.advanceTimersByTime(150); });
     fireEvent.pointerDown(screen.getByTestId('demo-live-panel'));
     expect(onClose).not.toHaveBeenCalled();
-    vi.useRealTimers();
   });
 
   it('drag clamps position within viewport bounds', () => {

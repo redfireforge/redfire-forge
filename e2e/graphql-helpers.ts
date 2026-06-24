@@ -7,6 +7,7 @@
 
 import { buildSchema, introspectionFromSchema } from 'graphql';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { GQL } from '../src/shared/selectors';
 
 export const GQL_STUDIO_URL = '/?tab=graphql-studio';
 export const GQL_HTTP = 'http://localhost:4010/graphql';
@@ -161,11 +162,14 @@ function isLiveGraphqlUrl(url: string): boolean {
 
 /** Passthrough WebSocket for the live GraphQL test server (subscriptions). */
 export async function setupLiveWebSocket(page: Page) {
-  await page.routeWebSocket('ws://localhost:4010/graphql', (ws) => {
+  const passthrough = (ws: Parameters<Parameters<Page['routeWebSocket']>[1]>[0]) => {
     const server = ws.connectToServer();
     ws.onMessage((message) => server.send(message));
     server.onMessage((message) => ws.send(message));
-  });
+  };
+  // Web app normalizes loopback to 127.0.0.1 — route both hostnames.
+  await page.routeWebSocket('ws://localhost:4010/graphql', passthrough);
+  await page.routeWebSocket('ws://127.0.0.1:4010/graphql', passthrough);
 }
 
 /**
@@ -554,4 +558,22 @@ export async function setupDualEndpointGraphqlProxy(page: Page, opts: DualEndpoi
       body: makeProxyResponse(gqlResponse),
     });
   });
+}
+
+/** Open Advanced Settings → Batch tab (Phase 6G). */
+export async function openGqlAdvancedSettingsBatchTab(page: Page): Promise<void> {
+  await page.locator(GQL.ADV_SETTINGS_BTN).click();
+  await expect(page.locator(GQL.ADV_SETTINGS_TAB_BATCH)).toBeVisible({ timeout: 15_000 });
+  await page.locator(GQL.ADV_SETTINGS_TAB_BATCH).click();
+  await expect(page.locator(GQL.ADV_BATCH_ENABLE_TOGGLE)).toBeVisible({ timeout: 10_000 });
+}
+
+/** Enable batch mode and wait for the batch settings panel (Phase 6G-7). */
+export async function enableGqlBatchInAdvancedSettings(page: Page): Promise<void> {
+  await openGqlAdvancedSettingsBatchTab(page);
+  const checkbox = page.locator(GQL.ADV_BATCH_ENABLE);
+  if (!(await checkbox.isChecked())) {
+    await page.locator(GQL.ADV_BATCH_ENABLE_TOGGLE).click();
+  }
+  await expect(page.locator(GQL.ADV_BATCH_PANEL)).toBeVisible({ timeout: 10_000 });
 }

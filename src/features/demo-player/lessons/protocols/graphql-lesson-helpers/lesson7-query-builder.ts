@@ -59,7 +59,10 @@ async function quietDomClick(ctx: DemoActionContext, el: HTMLElement | null | un
 
 async function expandSummaryFieldOption(ctx: DemoActionContext, path: string): Promise<void> {
   await ctx.waitFor(GQL.QB_FIELD_OPTIONS, 5000);
-  const expandBtn = document.querySelector<HTMLElement>(`.gql-qb-fo-expand[title="${path}"]`);
+  const expandSel = `[data-testid="gql-fo-expand-${path}"]`;
+  const expandBtn =
+    document.querySelector<HTMLElement>(expandSel) ??
+    document.querySelector<HTMLElement>(`.gql-qb-fo-expand[title="${path}"]`);
   const row = expandBtn?.closest('.gql-qb-fo-row');
   if (row && !row.querySelector('.gql-qb-fo-body')) {
     await quietDomClick(ctx, expandBtn);

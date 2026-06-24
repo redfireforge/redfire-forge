@@ -4,7 +4,8 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '../../../../../shared/selectors';
 import {
   GQL_HEALTH_QUERY,
-  ensureExecuted,
+  ensureHealthQuery,
+  ensureIntrospected,
   fillGqlEditor,
   getGqlEditorQuery,
   resetGqlLesson2SessionFlags,
@@ -21,6 +22,7 @@ export const LESSON8_ITEM_NAME = 'Health Check';
 export const LESSON8_ITEM_RENAME = 'Lesson 8 Health';
 export const LESSON8_COLLECTION_NAME = 'Lesson 8 Collection';
 
+let _lesson8HealthExecuted = false;
 let _lesson8HistoryReady = false;
 let _lesson8PreviewOpen = false;
 let _lesson8Loaded = false;
@@ -30,6 +32,7 @@ let _lesson8Renamed = false;
 let _lesson8Restored = false;
 
 export function resetGqlLesson8SessionFlags(): void {
+  _lesson8HealthExecuted = false;
   _lesson8HistoryReady = false;
   _lesson8PreviewOpen = false;
   _lesson8Loaded = false;
@@ -140,10 +143,33 @@ export function buildLesson8ImportPayload(): string {
   }, null, 2);
 }
 
+/** Step 1 reading — health query in editor, ready to execute. */
+export async function prepareGql8ExecHealthReading(ctx: DemoActionContext): Promise<void> {
+  await ensureIntrospected(ctx);
+  await ensureHealthQuery(ctx);
+}
+
+/** Step 1b reading — health query executed; History panel can open. */
+export async function prepareGql8ObserveHistoryReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson8HealthExecuted) {
+    await ensureHealthQuery(ctx);
+    await ctx.click(GQL.EXECUTE_BTN);
+    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+    _lesson8HealthExecuted = true;
+    await ctx.delay(500);
+  }
+}
+
 /** Execute health query and ensure a History entry exists. */
 export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): Promise<void> {
   if (_lesson8HistoryReady && document.querySelector(GQL.HISTORY_ENTRY)) return;
-  await ensureExecuted(ctx);
+  if (!_lesson8HealthExecuted) {
+    await ensureHealthQuery(ctx);
+    await ctx.click(GQL.EXECUTE_BTN);
+    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+    _lesson8HealthExecuted = true;
+    await ctx.delay(500);
+  }
   await openHistoryPanel(ctx);
   if (!document.querySelector(GQL.HISTORY_ENTRY)) {
     await ctx.click(GQL.EXECUTE_BTN);

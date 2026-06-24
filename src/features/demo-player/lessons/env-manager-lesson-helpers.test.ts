@@ -28,6 +28,7 @@ import {
   expandNamedMicroservice,
   cleanupDemoMicroservice,
   cleanupDemoEnvironment,
+  cleanupGqlDemoLessonEnvironment,
 } from './env-manager-lesson-helpers';
 import { makeCtx } from './protocols/ws-test-utils';
 import { EM } from '../../../shared/selectors';
@@ -747,5 +748,22 @@ describe('env-manager-lesson-helpers', () => {
     const ctx = makeCtx();
     await cleanupDemoEnvironment(ctx, 'SSE Demo');
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  // ── cleanupGqlDemoLessonEnvironment ──────────────────────────────
+
+  it('cleanupGqlDemoLessonEnvironment deletes studio Demo env via bridge', async () => {
+    const purgeBridge = vi.fn(async () => {});
+    (window as unknown as Record<string, unknown>).__demoPurgeGqlLessonEnvironments = purgeBridge;
+    const ctx = makeCtx();
+    await cleanupGqlDemoLessonEnvironment(ctx);
+    expect(purgeBridge).toHaveBeenCalled();
+    delete (window as unknown as Record<string, unknown>).__demoPurgeGqlLessonEnvironments;
+  });
+
+  it('cleanupGqlDemoLessonEnvironment falls back to storage purge when bridge absent', async () => {
+    const ctx = makeCtx();
+    await cleanupGqlDemoLessonEnvironment(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 });

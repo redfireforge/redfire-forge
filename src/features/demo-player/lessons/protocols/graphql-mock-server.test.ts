@@ -330,9 +330,9 @@ describe('gql-mock-server lesson', () => {
     expect(step.highlight).toBe(GQL.MOCK_LATENCY_SLIDER);
   });
 
-  it('gql13-observe-latency highlights EXECUTE_BTN', () => {
+  it('gql13-observe-latency highlights RESPONSE_LATENCY after slow execute', () => {
     const step = gqlMockServerLesson.steps.find((s) => s.id === 'gql13-observe-latency')!;
-    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.highlight).toBe(GQL.RESPONSE_LATENCY);
   });
 
   it('gql13-disable-mock highlights MOCK_TOGGLE_CARD', () => {
@@ -340,9 +340,9 @@ describe('gql-mock-server lesson', () => {
     expect(step.highlight).toBe(GQL.MOCK_TOGGLE_CARD);
   });
 
-  it('gql13-restore-endpoint highlights ENDPOINT_INPUT', () => {
+  it('gql13-restore-endpoint highlights INTROSPECT_BTN', () => {
     const step = gqlMockServerLesson.steps.find((s) => s.id === 'gql13-restore-endpoint')!;
-    expect(step.highlight).toBe(GQL.ENDPOINT_INPUT);
+    expect(step.highlight).toBe(GQL.INTROSPECT_BTN);
   });
 
   it('gql13-read-live highlights RESPONSE_BODY', () => {

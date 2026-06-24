@@ -153,14 +153,16 @@ describe('useDemoShortcuts', () => {
     expect(hub.nextStep).not.toHaveBeenCalled();
   });
 
-  it('Space in live mode calls toggleAutoPlay', () => {
+  it('Space in live mode calls toggleAutoPlay when focus is on demo panel', () => {
     const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
     renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
 
-    const event = new KeyboardEvent('keydown', {
-      key: ' ',
-      bubbles: true,
-    });
+    document.body.innerHTML = '<div class="demo-live-panel"><button class="demo-live-play-btn">▶</button></div>';
+    const btn = document.querySelector('.demo-live-play-btn') as HTMLButtonElement;
+    btn.focus();
+
+    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
+    Object.defineProperty(event, 'target', { value: btn });
     window.dispatchEvent(event);
 
     expect(hub.toggleAutoPlay).toHaveBeenCalled();
@@ -201,6 +203,50 @@ describe('useDemoShortcuts', () => {
 
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
     document.body.removeChild(textarea);
+  });
+
+  it('does not fire Space play/pause when typing inside Monaco editor', () => {
+    const hub = makeDemoHub({ state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } } });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    document.body.innerHTML = `
+      <div class="demo-live-panel"></div>
+      <div class="gql-editor-wrapper">
+        <div class="monaco-editor focused">
+          <div class="native-edit-context" tabindex="0"></div>
+        </div>
+      </div>
+    `;
+    const editContext = document.querySelector('.native-edit-context') as HTMLDivElement;
+    editContext.focus();
+
+    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
+    Object.defineProperty(event, 'target', { value: editContext });
+    window.dispatchEvent(event);
+
+    expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
+  });
+
+  it('does not fire ArrowRight next-step when Monaco editor is focused', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'demo-hub' } },
+      stepPhase: 'reading',
+    });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    document.body.innerHTML = `
+      <div class="monaco-editor">
+        <textarea class="inputarea"></textarea>
+      </div>
+    `;
+    const textarea = document.querySelector('textarea.inputarea') as HTMLTextAreaElement;
+    textarea.focus();
+
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+    Object.defineProperty(event, 'target', { value: document.body });
+    window.dispatchEvent(event);
+
+    expect(hub.nextStep).not.toHaveBeenCalled();
   });
 
   it('ignores keyboard events marked as demo-synthetic (__demoAction=true)', () => {

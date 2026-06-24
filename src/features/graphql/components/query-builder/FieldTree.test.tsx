@@ -127,14 +127,14 @@ describe('FieldTree', () => {
     expect(screen.getByTestId('field-row-me')).toBeInTheDocument();
   });
 
-  it('renders root type name in header', () => {
+  it('renders operation label in header', () => {
     render(<FieldTree {...makeProps()} />);
     expect(screen.getByText('Query')).toBeInTheDocument();
   });
 
-  it('renders "root type" label', () => {
+  it('does not duplicate root type pill when it matches operation label', () => {
     render(<FieldTree {...makeProps()} />);
-    expect(screen.getByText('root type')).toBeInTheDocument();
+    expect(screen.queryByText('root type')).not.toBeInTheDocument();
   });
 
   it('renders field count in header', () => {

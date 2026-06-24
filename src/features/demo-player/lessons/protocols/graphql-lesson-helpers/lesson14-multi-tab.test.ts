@@ -5,6 +5,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '../../../../../shared/selectors';
+
+vi.mock('../../../../graphql/utils/gqlDemoConnectionProfiles', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('../../../../graphql/utils/gqlDemoConnectionProfiles')
+  >();
+  return {
+    ...actual,
+    purgeGqlDemoConnectionProfiles: vi.fn().mockResolvedValue(0),
+  };
+});
+
+import { purgeGqlDemoConnectionProfiles } from '../../../../graphql/utils/gqlDemoConnectionProfiles';
 import {
   resetGqlLesson14SessionFlags,
   ensureLesson14ProfileAuthHintVisible,
@@ -250,22 +262,15 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.POLLING_TOGGLE);
   });
 
-  it('purgeLesson14ConnectionProfiles double-clicks delete on matching rows', async () => {
+  it('purgeLesson14ConnectionProfiles purges storage and closes an open modal', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
     stubProfileDom();
-    document.querySelector('.gql-profile-list')!.innerHTML = `
-      <li class="gql-profile-row">
-        <span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span>
-        <button data-testid="gql-profile-delete-staging">Remove</button>
-      </li>
-      <li class="gql-profile-row">
-        <span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span>
-        <button data-testid="gql-profile-delete-production">Remove</button>
-      </li>`;
     await purgeLesson14ConnectionProfiles(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="gql-profile-delete-staging"]');
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="gql-profile-delete-production"]');
+    expect(purgeGqlDemoConnectionProfiles).toHaveBeenCalledWith([
+      LESSON14_STAGING_PROFILE_NAME,
+      LESSON14_PRODUCTION_PROFILE_NAME,
+    ]);
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
   });
 

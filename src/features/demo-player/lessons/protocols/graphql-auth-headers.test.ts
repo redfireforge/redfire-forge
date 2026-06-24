@@ -19,6 +19,9 @@ import {
   LESSON6_BEARER_TEMPLATE,
   LESSON6_BASIC_USER,
   LESSON6_BASIC_PASS,
+  LESSON6_OAUTH_TOKEN_URL,
+  LESSON6_OAUTH_CLIENT_ID,
+  LESSON6_OAUTH_CLIENT_SECRET,
   LESSON6_PROFILE_NAME,
   LESSON6_GLOBAL_AUTH_PROFILE_ID,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
@@ -54,6 +57,7 @@ function buildLessonDom(): void {
         <option value="bearer">Bearer</option>
         <option value="apiKey">API Key</option>
         <option value="basic">Basic</option>
+        <option value="oauth2">OAuth 2.0</option>
         <option value="inherit">Inherit</option>
       </select>
       <input data-testid="gql-auth-bearer-input" />
@@ -61,6 +65,10 @@ function buildLessonDom(): void {
       <input data-testid="gql-auth-apikey-val" />
       <input data-testid="gql-auth-basic-user" />
       <input data-testid="gql-auth-basic-pass" />
+      <input data-testid="gql-auth-oauth-token-url" />
+      <input data-testid="gql-auth-oauth-client-id" />
+      <input data-testid="gql-auth-oauth-client-secret" />
+      <code data-testid="gql-auth-preview">Authorization: Bearer &lt;token&gt;</code>
       <select data-testid="gql-auth-profile-select">
         <option value="lesson6-gql-profile">Lesson 6 Bearer</option>
       </select>
@@ -84,7 +92,7 @@ function buildLessonDom(): void {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('gql-auth-headers lesson (8-step rewrite)', () => {
+describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetGqlLesson6SessionFlags();
@@ -108,12 +116,12 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(gqlAuthHeadersLesson.name).toBe('Authentication & Headers');
   });
 
-  it('has exactly 8 steps', () => {
-    expect(gqlAuthHeadersLesson.steps.length).toBe(8);
+  it('has exactly 14 steps', () => {
+    expect(gqlAuthHeadersLesson.steps.length).toBe(14);
   });
 
   it('has estimated minutes set', () => {
-    expect(gqlAuthHeadersLesson.estimatedMinutes).toBe(5);
+    expect(gqlAuthHeadersLesson.estimatedMinutes).toBe(8);
   });
 
   it('has tabBudget of 1', () => {
@@ -136,12 +144,18 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(gqlAuthHeadersLesson.steps.map((s) => s.id)).toEqual([
       'gql6-intro',
       'gql6-env',
-      'gql6-bearer',
-      'gql6-apikey',
-      'gql6-basic',
-      'gql6-inherit',
+      'gql6-bearer-config',
+      'gql6-bearer-observe',
+      'gql6-apikey-config',
+      'gql6-apikey-observe',
+      'gql6-basic-config',
+      'gql6-basic-observe',
+      'gql6-oauth',
+      'gql6-inherit-config',
+      'gql6-inherit-observe',
       'gql6-profile',
-      'gql6-subscription',
+      'gql6-subscription-exec',
+      'gql6-subscription-observe',
     ]);
   });
 
@@ -153,10 +167,10 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
 
   // ── Step 1: gql6-intro ────────────────────────────────────────────────────
 
-  it('gql6-intro has an action (opens env modal) but no preAction', () => {
+  it('gql6-intro has an action (opens env modal) and preAction guard', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
     expect(typeof step.action).toBe('function');
-    expect(step.preAction).toBeUndefined();
+    expect(step.preAction).toBeTypeOf('function');
   });
 
   it('gql6-intro highlights the auth badge', () => {
@@ -174,6 +188,25 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(step.description).toContain('Auth');
     expect(step.description).toContain('bottom tab');
     expect(step.description).not.toContain('popover');
+  });
+
+  it('gql6-intro action opens env modal when not already visible', async () => {
+    buildLessonDom();
+    document.querySelector(GQL.ENV_MODAL)?.remove();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_BADGE);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENV_MODAL, 5000);
+  });
+
+  it('gql6-intro action skips env badge click when modal already open', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
   });
 
   // ── Step 2: gql6-env ──────────────────────────────────────────────────────
@@ -213,140 +246,197 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(setActiveClicked || true).toBe(true); // ensureEnvReady handles idempotently
   });
 
-  // ── Step 3: gql6-bearer ───────────────────────────────────────────────────
+  it('gql6-env action opens env modal when closed', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-env-badge"></button>
+      <div data-testid="gql-env-modal" style="display:none">
+        <button data-testid="gql-env-set-active-btn"></button>
+        <button data-testid="gql-env-var-add-btn"></button>
+        <div data-testid="gql-env-var-row">
+          <input data-testid="gql-env-var-key" value="" />
+          <input class="gql-env-var-input" value="" />
+        </div>
+      </div>
+    `;
+    document.querySelector(GQL.ENV_MODAL)?.remove();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ENV_BADGE);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENV_MODAL, 5000);
+  });
 
-  it('gql6-bearer highlights the bearer input', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
+  it('gql6-env action skips env badge when modal already open', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-env')!;
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
+  });
+
+  // ── Step 3: gql6-bearer-config ───────────────────────────────────────────
+
+  it('gql6-bearer-config highlights the bearer input', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-config')!;
     expect(step.highlight).toBe(GQL.AUTH_BEARER_INPUT);
   });
 
-  it('gql6-bearer description mentions LESSON6_BEARER_TEMPLATE', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
+  it('gql6-bearer-config description mentions LESSON6_BEARER_TEMPLATE', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-config')!;
     expect(step.description).toContain(LESSON6_BEARER_TEMPLATE);
   });
 
-  it('gql6-bearer description shows resolved value in Metadata', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
+  it('gql6-bearer-config action fills bearer template only', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-config')!;
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+  });
+
+  // ── Step 4: gql6-bearer-observe ──────────────────────────────────────────
+
+  it('gql6-bearer-observe highlights execute and verifies Metadata', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-observe')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RV_REQUEST_HEADERS);
+  });
+
+  it('gql6-bearer-observe description shows resolved value in Metadata', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-observe')!;
     expect(step.description).toContain(LESSON6_AUTH_TOKEN_VALUE);
   });
 
-  it('gql6-bearer has preAction and action', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
-    expect(typeof step.preAction).toBe('function');
-    expect(typeof step.action).toBe('function');
-  });
-
-  it('gql6-bearer action fills bearer template and executes', async () => {
+  it('gql6-bearer-observe action executes and opens Metadata', async () => {
     buildLessonDom();
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-observe')!;
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
-  });
-
-  it('gql6-bearer action verifies Metadata tab', async () => {
-    buildLessonDom();
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
-    await step.action!(ctx);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RV_REQUEST_HEADERS, 5000);
   });
 
-  // ── Step 4: gql6-apikey ───────────────────────────────────────────────────
+  // ── Step 5: gql6-apikey-config ───────────────────────────────────────────
 
-  it('gql6-apikey highlights request headers (before state)', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey')!;
-    expect(step.highlight).toBe(GQL.RV_REQUEST_HEADERS);
+  it('gql6-apikey-config highlights api key value input', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-config')!;
+    expect(step.highlight).toBe(GQL.AUTH_APIKEY_VAL);
   });
 
-  it('gql6-apikey description mentions LESSON6_API_KEY_HEADER', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey')!;
+  it('gql6-apikey-config description mentions LESSON6_API_KEY_HEADER', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-config')!;
     expect(step.description).toContain(LESSON6_API_KEY_HEADER);
   });
 
-  it('gql6-apikey description shows resolved env var value', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey')!;
-    expect(step.description).toContain(LESSON6_API_KEY_VALUE);
-  });
-
-  it('gql6-apikey action fills header name and value, then executes', async () => {
+  it('gql6-apikey-config action fills header name and value', async () => {
     buildLessonDom();
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-config')!;
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_APIKEY_NAME, LESSON6_API_KEY_HEADER);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'apiKey');
+  });
+
+  // ── Step 6: gql6-apikey-observe ──────────────────────────────────────────
+
+  it('gql6-apikey-observe description shows resolved env var value', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-observe')!;
+    expect(step.description).toContain(LESSON6_API_KEY_VALUE);
+  });
+
+  it('gql6-apikey-observe action executes and opens Metadata', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-observe')!;
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
-  it('gql6-apikey action switches to apiKey auth type', async () => {
-    buildLessonDom();
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey')!;
-    await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'apiKey');
+  // ── Step 7: gql6-basic-config ────────────────────────────────────────────
+
+  it('gql6-basic-config highlights basic user input', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-config')!;
+    expect(step.highlight).toBe(GQL.AUTH_BASIC_USER);
   });
 
-  // ── Step 5: gql6-basic ────────────────────────────────────────────────────
-
-  it('gql6-basic highlights request headers', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic')!;
-    expect(step.highlight).toBe(GQL.RV_REQUEST_HEADERS);
-  });
-
-  it('gql6-basic description mentions LESSON6_BASIC_USER and LESSON6_BASIC_PASS', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic')!;
+  it('gql6-basic-config description mentions LESSON6_BASIC_USER and LESSON6_BASIC_PASS', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-config')!;
     expect(step.description).toContain(LESSON6_BASIC_USER);
     expect(step.description).toContain(LESSON6_BASIC_PASS);
   });
 
-  it('gql6-basic description explains why direct credentials (not env vars)', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic')!;
-    expect(step.description.toLowerCase()).toContain('base64');
-  });
-
-  it('gql6-basic action fills credentials directly and executes', async () => {
+  it('gql6-basic-config action fills credentials directly', async () => {
     buildLessonDom();
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-config')!;
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BASIC_PASS, LESSON6_BASIC_PASS);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
-  });
-
-  it('gql6-basic action switches to basic auth type', async () => {
-    buildLessonDom();
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic')!;
-    await step.action!(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'basic');
   });
 
-  // ── Step 6: gql6-inherit ──────────────────────────────────────────────────
+  // ── Step 8: gql6-basic-observe ───────────────────────────────────────────
 
-  it('gql6-inherit highlights request headers', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit')!;
-    expect(step.highlight).toBe(GQL.RV_REQUEST_HEADERS);
+  it('gql6-basic-observe action executes and opens Metadata', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-observe')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('gql6-inherit description mentions LESSON6_GLOBAL_AUTH_PROFILE_NAME', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit')!;
+  // ── Step 6: gql6-oauth ────────────────────────────────────────────────────
+
+  it('gql6-oauth highlights auth preview', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
+    expect(step.highlight).toBe(GQL.AUTH_PREVIEW);
+  });
+
+  it('gql6-oauth description mentions OAuth token URL and client credentials', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
+    expect(step.description).toContain(LESSON6_OAUTH_TOKEN_URL);
+    expect(step.description).toContain(LESSON6_OAUTH_CLIENT_ID);
+    expect(step.description).toContain(LESSON6_OAUTH_CLIENT_SECRET);
+  });
+
+  it('gql6-oauth action switches to oauth2 and fills client credentials', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
+    await step.action!(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'oauth2');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_CLIENT_ID, LESSON6_OAUTH_CLIENT_ID);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_OAUTH_CLIENT_SECRET, LESSON6_OAUTH_CLIENT_SECRET);
+  });
+
+  it('gql6-oauth has preAction', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
+    expect(typeof step.preAction).toBe('function');
+  });
+
+  // ── Step 10–11: gql6-inherit ─────────────────────────────────────────────
+
+  it('gql6-inherit-config highlights profile select', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-config')!;
+    expect(step.highlight).toBe(GQL.AUTH_PROFILE_SELECT);
+  });
+
+  it('gql6-inherit-config description mentions LESSON6_GLOBAL_AUTH_PROFILE_NAME', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-config')!;
     expect(step.description).toContain(LESSON6_GLOBAL_AUTH_PROFILE_NAME);
   });
 
-  it('gql6-inherit description explains shared catalog', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit')!;
-    expect(step.description.toLowerCase()).toContain('catalog');
-  });
-
-  it('gql6-inherit action switches to inherit type and selects profile', async () => {
+  it('gql6-inherit-config action switches to inherit type and selects profile', async () => {
     buildLessonDom();
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-config')!;
     await step.action!(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
     expect(ctx.selectOption).toHaveBeenCalledWith(
@@ -355,19 +445,22 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     );
   });
 
-  it('gql6-inherit action calls seedLesson6GlobalAuthProfile via bridge', async () => {
-    buildLessonDom();
-    const upsert = vi.fn();
-    (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile = upsert;
-    const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit')!;
-    await step.action!(ctx);
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: LESSON6_GLOBAL_AUTH_PROFILE_ID }),
-    );
+  it('gql6-inherit-observe highlights execute and verifies Metadata', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-observe')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RV_REQUEST_HEADERS);
   });
 
-  // ── Step 7: gql6-profile ──────────────────────────────────────────────────
+  it('gql6-inherit-observe action executes and opens Metadata tab', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-observe')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+  });
+
+  // ── Step 8: gql6-profile ──────────────────────────────────────────────────
 
   it('gql6-profile highlights the profile badge', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-profile')!;
@@ -394,45 +487,39 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_SAVE_BTN);
   });
 
-  // ── Step 8: gql6-subscription ─────────────────────────────────────────────
+  // ── Step 13–14: gql6-subscription ─────────────────────────────────────────
 
-  it('gql6-subscription has action (executes final query to show auth headers)', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription')!;
+  it('gql6-subscription-exec has action and highlights execute', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-exec')!;
     expect(typeof step.action).toBe('function');
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
   });
 
-  it('gql6-subscription highlights auth badge', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription')!;
-    expect(step.highlight).toBe(GQL.AUTH_BADGE_BTN);
+  it('gql6-subscription-observe highlights Metadata headers', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
+    expect(step.highlight).toBe(GQL.RV_REQUEST_HEADERS);
   });
 
-  it('gql6-subscription description mentions active tab auth and subscriptions', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription')!;
+  it('gql6-subscription-observe description mentions subscriptions', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
     const lower = step.description.toLowerCase();
-    expect(lower).toContain('active tab');
-    expect(lower).toContain('websocket');
     expect(lower).toContain('subscription');
-    expect(lower).not.toContain('entire endpoint');
   });
 
-  it('gql6-subscription has preAction', () => {
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription')!;
-    expect(typeof step.preAction).toBe('function');
-  });
-
-  it('gql6-subscription action re-establishes inherit auth before execute', async () => {
+  it('gql6-subscription-exec action clicks execute', async () => {
     buildLessonDom();
     const ctx = makeCtx();
     await preSubscriptionStep(ctx);
-    vi.mocked(ctx.selectOption).mockClear();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-exec')!;
     await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'inherit');
-    expect(ctx.selectOption).toHaveBeenCalledWith(
-      GQL.AUTH_PROFILE_SELECT,
-      LESSON6_GLOBAL_AUTH_PROFILE_ID,
-    );
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gql6-subscription-observe action opens Metadata tab', async () => {
+    buildLessonDom();
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
+    await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
@@ -453,11 +540,12 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(gqlAuthHeadersLesson.concept?.title).toBeTruthy();
   });
 
-  it('concept has keyTerms for all 4 auth types', () => {
+  it('concept has keyTerms for all 5 auth types', () => {
     const terms = gqlAuthHeadersLesson.concept?.keyTerms?.map((k) => k.term.toLowerCase()) ?? [];
     expect(terms.some((t) => t.includes('bearer'))).toBe(true);
     expect(terms.some((t) => t.includes('api key') || t.includes('apikey'))).toBe(true);
     expect(terms.some((t) => t.includes('basic'))).toBe(true);
+    expect(terms.some((t) => t.includes('oauth'))).toBe(true);
     expect(terms.some((t) => t.includes('inherit') || t.includes('profile'))).toBe(true);
   });
 
@@ -475,8 +563,9 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     expect(gqlAuthHeadersLesson.concept?.body?.toLowerCase()).toContain('metadata');
   });
 
-  it('concept has SVG diagram', () => {
+  it('concept has 700x430 SVG diagram', () => {
     expect(gqlAuthHeadersLesson.concept?.diagram).toContain('<svg');
+    expect(gqlAuthHeadersLesson.concept?.diagram).toContain('viewBox="0 0 700 430"');
   });
 
   // ── preActions reference new functions ────────────────────────────────────
@@ -487,7 +576,7 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
     await expect(step.preAction!(ctx)).resolves.toBeUndefined();
   });
 
-  it('gql6-bearer preAction runs without error', async () => {
+  it('gql6-bearer-config preAction runs without error', async () => {
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <span data-testid="gql-schema-badge-ok"></span>
@@ -501,7 +590,7 @@ describe('gql-auth-headers lesson (8-step rewrite)', () => {
       </div>
     `;
     const ctx = makeCtx();
-    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer')!;
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-config')!;
     await expect(step.preAction!(ctx)).resolves.toBeUndefined();
   });
 });

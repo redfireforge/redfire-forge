@@ -9,7 +9,8 @@
  * Schema resolution (type traversal, leaf detection) is handled by the generator.
  */
 
-import { useCallback, useReducer } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
+import { getAncestorPaths } from '../utils/queryBuilderGenerator';
 
 // ─── State types ──────────────────────────────────────────────────────────────
 
@@ -133,6 +134,57 @@ const INITIAL_STATE: BuilderState = {
   activeFragmentSpreads: [],
 };
 
+/** Deep-enough clone for per-tab builder persistence (Set + nested maps). */
+export function cloneBuilderState(state: BuilderState): BuilderState {
+  const argValues: BuilderState['argValues'] = {};
+  for (const [path, args] of Object.entries(state.argValues)) {
+    argValues[path] = { ...args };
+  }
+  const fieldDirectives: BuilderState['fieldDirectives'] = {};
+  for (const [path, dirs] of Object.entries(state.fieldDirectives)) {
+    fieldDirectives[path] = {
+      ...(dirs.include ? { include: { ...dirs.include } } : {}),
+      ...(dirs.skip ? { skip: { ...dirs.skip } } : {}),
+    };
+  }
+  return {
+    ...state,
+    selectedFields: { ...state.selectedFields },
+    argValues,
+    expandedPaths: new Set(state.expandedPaths),
+    fieldAliases: { ...state.fieldAliases },
+    fieldDirectives,
+    fragments: { ...state.fragments },
+    activeFragmentSpreads: [...state.activeFragmentSpreads],
+  };
+}
+
+export function createInitialBuilderState(): BuilderState {
+  return cloneBuilderState(INITIAL_STATE);
+}
+
+/** Expand object rows so nested selections (e.g. user.id) are visible in the tree. */
+function ensureExpandedForSelections(state: BuilderState): BuilderState {
+  const nextExpanded = new Set(state.expandedPaths);
+  for (const [path, selected] of Object.entries(state.selectedFields)) {
+    if (!selected) continue;
+    for (const ancestor of getAncestorPaths(path)) {
+      nextExpanded.add(ancestor);
+    }
+  }
+  if (nextExpanded.size === state.expandedPaths.size) {
+    let same = true;
+    for (const p of nextExpanded) {
+      if (!state.expandedPaths.has(p)) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return state;
+  }
+  return { ...state, expandedPaths: nextExpanded };
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state: BuilderState, action: BuilderAction): BuilderState {
@@ -171,7 +223,7 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     case 'SELECT_PATHS': {
       const next = { ...state.selectedFields };
       for (const p of action.paths) next[p] = true;
-      return { ...state, selectedFields: next };
+      return ensureExpandedForSelections({ ...state, selectedFields: next });
     }
 
     case 'DESELECT_PATHS': {
@@ -309,6 +361,13 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+export interface UseGraphqlQueryBuilderOptions {
+  /** Restored builder snapshot (e.g. when re-opening Builder for a tab). */
+  initialState?: BuilderState;
+  /** Called after every state change — use for per-tab persistence. */
+  onStateChange?: (state: BuilderState) => void;
+}
+
 export interface UseGraphqlQueryBuilderResult {
   state:             BuilderState;
   setOperationType:  (opType: 'query' | 'mutation' | 'subscription') => void;
@@ -346,8 +405,19 @@ export interface UseGraphqlQueryBuilderResult {
   fragmentCount:     number;
 }
 
-export function useGraphqlQueryBuilder(): UseGraphqlQueryBuilderResult {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+export function useGraphqlQueryBuilder(
+  options: UseGraphqlQueryBuilderOptions = {},
+): UseGraphqlQueryBuilderResult {
+  const { initialState, onStateChange } = options;
+  const [state, dispatch] = useReducer(
+    reducer,
+    initialState,
+    (init) => ensureExpandedForSelections(cloneBuilderState(init ?? INITIAL_STATE)),
+  );
+
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [state, onStateChange]);
 
   const setOperationType = useCallback(
     (opType: 'query' | 'mutation' | 'subscription') => dispatch({ type: 'SET_OP_TYPE', opType }),

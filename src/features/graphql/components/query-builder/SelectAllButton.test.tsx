@@ -60,7 +60,7 @@ describe('SelectAllButton', () => {
         onDeselectAll={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('+ all');
+    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('Select all');
   });
 
   it('renders Deselect all button when all leaf fields are selected', () => {
@@ -74,10 +74,10 @@ describe('SelectAllButton', () => {
         onDeselectAll={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('✕ all');
+    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('Deselect all');
   });
 
-  it('renders partial selection indicator when some fields are selected', () => {
+  it('renders Select all when only some fields are selected', () => {
     render(
       <SelectAllButton
         rootType={makeRootType([{ name: 'id', type: 'ID' }, { name: 'name', type: 'String' }])}
@@ -88,7 +88,23 @@ describe('SelectAllButton', () => {
         onDeselectAll={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('− select all');
+    expect(screen.getByTestId('gql-qb-select-all')).toHaveTextContent('Select all');
+  });
+
+  it('calls onSelectAll when clicked with partial selection', () => {
+    const onSelectAll = vi.fn();
+    render(
+      <SelectAllButton
+        rootType={makeRootType([{ name: 'id', type: 'ID' }, { name: 'name', type: 'String' }])}
+        state={makeState({ id: true })}
+        types={TYPES}
+        allLeafPaths={vi.fn(() => [])}
+        onSelectAll={onSelectAll}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-qb-select-all'));
+    expect(onSelectAll).toHaveBeenCalledWith(['id', 'name']);
   });
 
   it('calls onSelectAll when clicked with none selected', () => {

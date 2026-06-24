@@ -409,11 +409,11 @@ describe('WorkflowExecutionReplayModal', () => {
     const user = userEvent.setup();
     render(<WorkflowExecutionReplayModal trace={trace} onClose={onCloseMock} />);
 
-    expect(screen.getByTestId('show-minimap')).toHaveTextContent('true');
-    await user.click(screen.getByTestId('canvas-toggle-minimap'));
     expect(screen.getByTestId('show-minimap')).toHaveTextContent('false');
     await user.click(screen.getByTestId('canvas-toggle-minimap'));
     expect(screen.getByTestId('show-minimap')).toHaveTextContent('true');
+    await user.click(screen.getByTestId('canvas-toggle-minimap'));
+    expect(screen.getByTestId('show-minimap')).toHaveTextContent('false');
   });
 
   it('calls onIterationClick from detail panel only in aggregate view', async () => {

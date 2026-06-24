@@ -405,32 +405,30 @@ describe('generateQuery', () => {
     expect(sdl).toContain('@skip(if: $adminOnly)');
   });
 
-  it('does not emit directive when enabled but ifVar is empty', () => {
+  it('emits @include(if: true) when enabled with empty ifVar', () => {
     const state = {
       ...baseState,
       selectedFields: { 'user.id': true },
       fieldAliases:   {},
       fieldDirectives: {
-        user: { include: { enabled: true, ifVar: '' } },
+        'user.id': { include: { enabled: true, ifVar: '' } },
       },
     };
     const { sdl } = generateQuery(state, SCHEMA_INFO);
-    expect(sdl).not.toContain('@include');
-    // No Boolean variable should be added either
-    expect(sdl).not.toContain('Boolean');
+    expect(sdl).toContain('id @include(if: true)');
   });
 
-  it('does not emit directive when enabled but ifVar is whitespace only', () => {
+  it('emits @skip(if: false) when enabled with whitespace-only ifVar', () => {
     const state = {
       ...baseState,
       selectedFields: { 'user.id': true },
       fieldAliases:   {},
       fieldDirectives: {
-        user: { skip: { enabled: true, ifVar: '   ' } },
+        'user.id': { skip: { enabled: true, ifVar: '   ' } },
       },
     };
     const { sdl } = generateQuery(state, SCHEMA_INFO);
-    expect(sdl).not.toContain('@skip');
+    expect(sdl).toContain('@skip(if: false)');
   });
 
   it('does not append disabled directive', () => {

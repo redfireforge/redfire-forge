@@ -44,7 +44,7 @@ export const gqlWorkflowMutationLesson: DemoLesson = {
 Both send HTTP POST requests, but the Mutation node is typed amber **M** on the canvas, validates mutation syntax at config time, and exposes the same **Extraction** and **Output** tabs as the Query node. Downstream nodes can reference \`${LESSON18_CREATED_USER_ID_VAR}\` by name — the binding is explicit and traceable in the Console log, not buried in a raw response body.
 
 **Why bind the returned ID before the read-back query?**
-The createUser mutation returns \`{ id, name }\` but only the \`id\` is needed downstream. Binding \`$.createUser.id\` → \`${LESSON18_CREATED_USER_ID_VAR}\` in the **Extraction** tab (analogous to Kafka produce output binding) makes the ID a first-class workflow variable. The Fetch User query then references \`{{${LESSON18_CREATED_USER_ID_VAR}}}\` in its Variables JSON — no hardcoded IDs, no copy-paste between nodes.
+The createUser mutation returns \`{ id, name }\` but only the \`id\` is needed downstream. Binding \`$.createUser.id\` → \`${LESSON18_CREATED_USER_ID_VAR}\` in the **Extraction** tab (analogous to Kafka produce output binding) makes the ID a first-class workflow variable. The Fetch User query then references \`{{${LESSON18_CREATED_USER_ID_VAR}}}\` **without extra quotes** in its Variables JSON (extraction stores JSON-serialized values) — no hardcoded IDs, no copy-paste between nodes.
 
 **Why read back with a separate Query node?**
 Creating and verifying in the same mutation would only prove the server *returned* the right data — not that it *persisted* it. A separate \`user(id: $id)\` query hits a different resolver path and confirms the record survives beyond the mutation response. This is the same create-then-fetch pattern used in every serious integration test suite.
@@ -248,9 +248,9 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-config-query',
       title: 'Read Back the Created User',
       description:
-        `Double-click **Fetch User** (the Query node). Configure:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Query:** \`user(id: $id) { id name }\`\n- **Variables:** \`{ "id": "{{${LESSON18_CREATED_USER_ID_VAR}}}" }\`\n\nOn the **Output** tab, bind field \`data\` → variable \`${LESSON18_FETCHED_USER_VAR}\`.\n\nWhy a separate read-back query? The mutation response only proves the server *returned* the right data in that HTTP response — not that it *persisted* it to storage. A follow-up \`user(id:)\` query hits a different code path and confirms the record actually exists. This is the difference between a smoke test and a real integration test.`,
+        `Double-click **Fetch User** (the Query node). Configure:\n\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Query:** \`user(id: $id) { id name }\`\n- **Variables:** \`{ "id": {{${LESSON18_CREATED_USER_ID_VAR}}} }\` — note **no quotes** around the \`{{${LESSON18_CREATED_USER_ID_VAR}}}\` token; extraction stores JSON-serialized values, so extra quotes would produce invalid JSON.\n\nOn the **Output** tab, bind field \`data\` → variable \`${LESSON18_FETCHED_USER_VAR}\`.\n\nWhy a separate read-back query? The mutation response only proves the server *returned* the right data in that HTTP response — not that it *persisted* it to storage. A follow-up \`user(id:)\` query hits a different code path and confirms the record actually exists. This is the difference between a smoke test and a real integration test.`,
       highlight: GQL.WF_QUERY_PANEL,
-      preAction: ensureLesson18MutationOutputBound,
+      preAction: ensureLesson18QueryConfigured,
       action: async (ctx) => {
         await ensureLesson18QueryConfigured(ctx);
         await ctx.delay(800);
@@ -293,7 +293,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       id: 'gql18-cleanup',
       title: 'Teardown with deleteUser',
       description:
-        `Integration tests must clean up after themselves. Click **GraphQL Mutation** in the palette again and add a **Delete User** node. Rewire: **Verify User → Delete User → End**.\n\nConfigure the delete mutation:\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Mutation:** \`deleteUser(id: $id) { success }\`\n- **Variables:** \`{ "id": "{{${LESSON18_CREATED_USER_ID_VAR}}}" }\`\n\nThis is the workflow equivalent of an \`afterEach\` teardown hook: every test run creates a user, verifies it, then deletes it — leaving the shared Docker server in the same state it started in. Re-run Quick Test to confirm all four nodes pass in sequence.`,
+        `Integration tests must clean up after themselves. Click **GraphQL Mutation** in the palette again and add a **Delete User** node. Rewire: **Verify User → Delete User → End**.\n\nConfigure the delete mutation:\n- **Endpoint:** \`${GQL_DEMO_HTTP}\`\n- **Mutation:** \`deleteUser(id: $id) { success }\`\n- **Variables:** \`{ "id": {{${LESSON18_CREATED_USER_ID_VAR}}} }\` (same no-extra-quotes rule as the fetch step)\n\nThis is the workflow equivalent of an \`afterEach\` teardown hook: every test run creates a user, verifies it, then deletes it — leaving the shared Docker server in the same state it started in. Re-run Quick Test to confirm all four nodes pass in sequence.`,
       highlight: WF.PAL_GQL_MUTATION,
       preAction: ensureLesson18QuickTestRun,
       action: async (ctx) => {

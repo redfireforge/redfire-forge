@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
@@ -57,6 +58,7 @@ export function GraphqlProfileModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(true);
 
   useEffect(() => {
     if (profiles.length === 0) {
@@ -119,18 +121,36 @@ export function GraphqlProfileModal({
         : `${profiles.length} saved profiles`;
 
   return (
-    <div className="gql-env-modal-overlay" onClick={handleOverlayClick} data-testid="gql-profile-modal-overlay">
+    <div
+      className={`gql-env-modal-overlay${isDragged ? ' gql-env-modal-overlay--dragged' : ''}`}
+      style={overlayStyle}
+      onClick={handleOverlayClick}
+      data-testid="gql-profile-modal-overlay"
+    >
       <div
-        className="gql-profile-modal"
+        className={`gql-profile-modal${isDragged ? ' gql-profile-modal--dragged' : ''}`}
+        style={modalStyle}
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="Connection Profiles"
         data-testid="gql-profile-modal"
         tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header — title only; close lives in footer */}
-        <div className="gql-profile-modal__header">
+        {/* Header — drag handle; close lives in footer */}
+        <div
+          className="gql-profile-modal__header gql-profile-modal__header--draggable"
+          onMouseDown={onDragStart}
+          data-testid="gql-profile-modal-header"
+        >
+          <span className="gql-profile-modal__drag-grip" aria-hidden="true" title="Drag to move">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+              <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+              <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+            </svg>
+          </span>
           <div className="gql-profile-modal__title-block">
             <div className="gql-profile-modal__title">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

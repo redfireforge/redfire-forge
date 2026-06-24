@@ -21,6 +21,11 @@ import {
   saveDemoPriorPageAuthBackup,
   loadDemoPriorPageAuthBackup,
   clearDemoPriorPageAuthBackup,
+  capturePageEndpointSnapshot,
+  restorePageEndpointSnapshot,
+  saveDemoPriorPageEndpointBackup,
+  loadDemoPriorPageEndpointBackup,
+  clearDemoPriorPageEndpointBackup,
   normalizePageAuthSnapshot,
 } from './tabPersistence';
 
@@ -31,6 +36,8 @@ export const DEMO_SESSION_KEY = 'gql_demo_session_v1';
 export const GQL_TABS_RELOAD_EVENT = 'gql-tabs-reload';
 /** Fired after demo cleanup restores page-level auth (Phase 6H Slice 6). */
 export const GQL_PAGE_AUTH_RELOAD_EVENT = 'gql-page-auth-reload';
+/** Fired after demo cleanup restores page-level endpoint (§11.0). */
+export const GQL_PAGE_ENDPOINT_RELOAD_EVENT = 'gql-page-endpoint-reload';
 
 export interface GqlDemoSession {
   lessonId: string;
@@ -42,6 +49,8 @@ export interface GqlDemoSession {
   displayName?: string;
   /** Page auth before the lesson started — restored on close. */
   priorPageAuth?: GqlPageAuthSnapshot;
+  /** Page endpoint (`gql_endpoint_v1`) before the lesson — restored on close (§11.0). */
+  priorPageEndpoint?: string | null;
 }
 
 export interface PrepareDemoWorkspaceResult {
@@ -60,6 +69,41 @@ export function dispatchGqlPageAuthReload(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(GQL_PAGE_AUTH_RELOAD_EVENT));
   }
+}
+
+export function dispatchGqlPageEndpointReload(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(GQL_PAGE_ENDPOINT_RELOAD_EVENT));
+  }
+}
+
+export type DemoTabConnectionPatch = Pick<
+  GqlStudioTab,
+  'endpoint' | 'skipTlsVerify' | 'tlsCaCert' | 'tlsClientCert' | 'tlsClientKey'
+>;
+
+/**
+ * Persist connection fields on the active demo tab (§11.0).
+ * Used when DOM fills are racy (tab reload / wrong active tab) or when an explicit
+ * per-tab override must survive even if it matches the page default.
+ */
+export async function patchDemoTabConnection(patch: DemoTabConnectionPatch): Promise<boolean> {
+  const session = await loadDemoSession();
+  if (!session?.demoTabId) return false;
+  const tabs = await loadTabs();
+  if (!tabs.some((t) => t.id === session.demoTabId)) return false;
+  const nextTabs = tabs.map((t) => {
+    if (t.id !== session.demoTabId) return t;
+    const next: GqlStudioTab = { ...t, ...patch, unsavedChanges: true };
+    if (patch.skipTlsVerify === undefined) delete next.skipTlsVerify;
+    if (patch.tlsCaCert === undefined) delete next.tlsCaCert;
+    if (patch.tlsClientCert === undefined) delete next.tlsClientCert;
+    if (patch.tlsClientKey === undefined) delete next.tlsClientKey;
+    return next;
+  });
+  await saveTabs(nextTabs, session.demoTabId);
+  dispatchGqlTabsReload();
+  return true;
 }
 
 export async function loadDemoSession(): Promise<GqlDemoSession | null> {
@@ -144,6 +188,13 @@ export async function purgeOrphanDemoTabs(): Promise<boolean> {
     await clearDemoPriorPageAuthBackup();
   }
 
+  const endpointBackup = await loadDemoPriorPageEndpointBackup();
+  if (endpointBackup !== undefined) {
+    await restorePageEndpointSnapshot(endpointBackup);
+    dispatchGqlPageEndpointReload();
+    await clearDemoPriorPageEndpointBackup();
+  }
+
   const activeId = await loadActiveTabId();
   const nextActive = pickRestoreActiveId(userTabs, activeId);
   await saveTabs(userTabs.length > 0 ? userTabs : tabs.slice(0, 1), nextActive);
@@ -176,6 +227,10 @@ export async function prepareDemoWorkspace(
     }
 
     const demoTab = makeDemoTab(lessonId, label);
+    if (lessonId === 'gql-https-tls') {
+      // Step 1 must show plain HTTP even when the page default is still HTTPS from a prior run.
+      demoTab.endpoint = 'http://localhost:4010/graphql';
+    }
     const nextTabs = userTabs.length > 0 ? [...userTabs, demoTab] : [makeBlankTab(), demoTab];
     const priorUserActive = userTabs.some((t) => t.id === priorActiveId)
       ? priorActiveId
@@ -193,7 +248,12 @@ export async function prepareDemoWorkspace(
       ? existingSession.priorPageAuth
       : await capturePageAuthSnapshot();
 
+    const priorPageEndpoint = existingSession?.lessonId === lessonId && existingSession.priorPageEndpoint !== undefined
+      ? existingSession.priorPageEndpoint
+      : await capturePageEndpointSnapshot();
+
     await saveDemoPriorPageAuthBackup(priorPageAuth);
+    await saveDemoPriorPageEndpointBackup(priorPageEndpoint);
     await saveDemoSession({
       lessonId,
       priorActiveTabId: priorUserActive,
@@ -201,6 +261,7 @@ export async function prepareDemoWorkspace(
       tabBudget: budget,
       displayName: label,
       priorPageAuth,
+      priorPageEndpoint,
     });
     advanceSeqPastRestoredIds(nextTabs);
     await saveTabs(nextTabs, demoTab.id);
@@ -252,10 +313,18 @@ export async function closeDemoWorkspace(lessonId?: string): Promise<void> {
         await restorePageAuthSnapshot(snapshot);
         dispatchGqlPageAuthReload();
       }
+      const endpointSnapshot = session?.priorPageEndpoint !== undefined
+        ? session.priorPageEndpoint
+        : await loadDemoPriorPageEndpointBackup();
+      if (endpointSnapshot !== undefined) {
+        await restorePageEndpointSnapshot(endpointSnapshot);
+        dispatchGqlPageEndpointReload();
+      }
     }
 
     if (shouldCloseSession || (!session && hadDemoTabsToRemove)) {
       await clearDemoPriorPageAuthBackup();
+      await clearDemoPriorPageEndpointBackup();
     }
 
     if (shouldCloseSession) {

@@ -114,6 +114,10 @@ const DEMO_GQL16_SPEC = '**/demo-gql-workflow-integration.spec.ts';
 const DEMO_GQL17_SPEC = '**/demo-gql-workflow-runner.spec.ts';
 /** GQL-18 only — Mutation Node in Workflow lesson validation. */
 const DEMO_GQL18_SPEC = '**/demo-gql-workflow-mutation.spec.ts';
+/** GQL-19 only — Subscription Node in Workflow lesson validation. */
+const DEMO_GQL19_SPEC = '**/demo-gql-workflow-subscription.spec.ts';
+/** §11.0 — Demo workspace isolation acceptance (GQL-1 / GQL-14 gate / lesson switch). */
+const DEMO_GQL110_SPEC = '**/demo-gql-workspace-isolation.spec.ts';
 /** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
 const DEMO_GQL_LESSONS_SPEC = '**/graphql-lessons.spec.ts';
 
@@ -124,12 +128,13 @@ const DOCKER_DEMO_SPECS = [
 
 const withDocker = process.env.E2E_WITH_DOCKER === '1';
 const withGraphqlServer = process.env.E2E_GRAPHQL_SERVER === '1';
+const withGql5Docker = process.env.E2E_GQL5_DOCKER === '1';
 
 export default defineConfig({
   testDir: './e2e',
   // Starts graphql-test-server (port 4010) when Docker E2E is enabled.
-  globalSetup: withDocker || withGraphqlServer ? './e2e/global-setup.ts' : undefined,
-  globalTeardown: withDocker || withGraphqlServer ? './e2e/global-teardown.ts' : undefined,
+  globalSetup: withDocker || withGraphqlServer || withGql5Docker ? './e2e/global-setup.ts' : undefined,
+  globalTeardown: withDocker || withGraphqlServer || withGql5Docker ? './e2e/global-teardown.ts' : undefined,
   fullyParallel: false,
   retries: 2,
   // Favor deterministic full-suite runs over maximal parallel throughput.
@@ -152,7 +157,7 @@ export default defineConfig({
       name: 'chromium',
       // Exclude the dedicated ws-mock-server spec (has its own project below)
       // and all Docker-dependent specs.
-      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...DEMO_STEPTHROUGH_SPECS, DEMO_GQL1_SPEC, DEMO_GQL2_SPEC, DEMO_GQL3_SPEC, DEMO_GQL4_SPEC, DEMO_GQL5_SPEC, DEMO_GQL6_SPEC, DEMO_GQL7_SPEC, DEMO_GQL8_SPEC, DEMO_GQL9_SPEC, DEMO_GQL10_SPEC, DEMO_GQL11_SPEC, DEMO_GQL12_SPEC, DEMO_GQL13_SPEC, DEMO_GQL14_SPEC, DEMO_GQL15_SPEC, DEMO_GQL16_SPEC, DEMO_GQL17_SPEC, DEMO_GQL_LESSONS_SPEC],
+      testIgnore: ['**/ws-mock-server.spec.ts', ...ALL_DOCKER_SPECS, ...DOCKER_DEMO_SPECS, ...DEMO_STEPTHROUGH_SPECS, DEMO_GQL1_SPEC, DEMO_GQL2_SPEC, DEMO_GQL3_SPEC, DEMO_GQL4_SPEC, DEMO_GQL5_SPEC, DEMO_GQL6_SPEC, DEMO_GQL7_SPEC, DEMO_GQL8_SPEC, DEMO_GQL9_SPEC, DEMO_GQL10_SPEC, DEMO_GQL11_SPEC, DEMO_GQL12_SPEC, DEMO_GQL13_SPEC, DEMO_GQL14_SPEC, DEMO_GQL15_SPEC, DEMO_GQL16_SPEC, DEMO_GQL17_SPEC, DEMO_GQL110_SPEC, DEMO_GQL_LESSONS_SPEC],
       use: { browserName: 'chromium' },
     },
 
@@ -328,6 +333,23 @@ export default defineConfig({
     {
       name: 'demo-gql18',
       testMatch: DEMO_GQL18_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    {
+      name: 'demo-gql19',
+      testMatch: DEMO_GQL19_SPEC,
+      timeout: 900_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── §11.0 — Demo workspace isolation acceptance ─
+    {
+      name: 'demo-gql110',
+      testMatch: DEMO_GQL110_SPEC,
       timeout: 900_000,
       retries: 0,
       use: { browserName: 'chromium' },

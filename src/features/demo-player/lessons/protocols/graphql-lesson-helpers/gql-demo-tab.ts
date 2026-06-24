@@ -25,10 +25,12 @@ export async function ensureGqlDemoTab(
   }
   dispatchGqlTabsReload();
   await ctx.waitFor(GQL.TAB_BAR, 5000);
-  await ctx.delay(400);
   const session = await loadDemoSession();
   if (session?.demoTabId) {
+    await ctx.waitFor(GQL.tab(session.demoTabId), 10_000);
     await ctx.click(GQL.tab(session.demoTabId));
+    await ctx.delay(400);
+  } else {
     await ctx.delay(400);
   }
   return result.demoTabId;
@@ -41,6 +43,21 @@ export async function closeGqlDemoTabs(
   await closeDemoWorkspace(lessonId);
   dispatchGqlTabsReload();
   await ctx.delay(400);
+}
+
+/** Select the demo tab when a demo session is active (quiet — no ripple). */
+export async function activateGqlDemoTabQuiet(ctx: DemoActionContext): Promise<void> {
+  const session = await loadDemoSession();
+  if (!session?.demoTabId) return;
+  await ctx.waitFor(GQL.TAB_BAR, 5000);
+  const tabSel = GQL.tab(session.demoTabId);
+  await ctx.waitFor(tabSel, 10_000);
+  const tabEl = document.querySelector(tabSel);
+  if (tabEl?.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(tabSel);
+    await ctx.delay(500);
+  }
+  await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
 }
 
 /** Cleanup without DOM interaction — for hub navigation hooks. */

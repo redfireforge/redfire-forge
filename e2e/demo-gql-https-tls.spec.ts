@@ -84,7 +84,7 @@ test.describe('GQL-5 — full lesson (Docker)', () => {
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Restore to Plain HTTP/i);
+    expect(title).toMatch(/Plain HTTP Schema Reloaded/i);
 
     await expect(page.getByTestId('gql-schema-badge-ok')).toBeVisible({ timeout: 15_000 });
 
@@ -96,7 +96,7 @@ test.describe('GQL-5 — full lesson (Docker)', () => {
     const headers = page.locator('[data-testid="gql-rv-request-headers"]');
     await expect(headers).toBeVisible({ timeout: 15_000 });
     await expect(headers).toContainText('Authorization');
-    await expect(headers).toContainText('authToken');
+    await expect(headers).toContainText('lesson6-demo-jwt');
 
     await takeNamedScreenshot(page, 'gql5-https-tls-lesson-complete');
     await exitLesson(page);

@@ -22,6 +22,15 @@ vi.mock('../../shared/utils/storage', () => ({
   compactWorkflowStorage: vi.fn().mockResolvedValue({ beforeKB: 0, afterKB: 0 }),
 }));
 
+vi.mock('../demo-player/lessons/gql-demo-storage-cleanup', () => ({
+  purgeGqlDemoEphemeralStorage: vi.fn().mockResolvedValue({
+    profilesRemoved: 0,
+    runnerConfigsRemoved: 0,
+    staleKeysRemoved: 0,
+    freedKB: 0,
+  }),
+}));
+
 import {
   setMaxRuns,
   getStorageUsage,
@@ -31,6 +40,7 @@ import {
   cleanupStaleStorageKeys,
   compactWorkflowStorage,
 } from '../../shared/utils/storage';
+import { purgeGqlDemoEphemeralStorage } from '../demo-player/lessons/gql-demo-storage-cleanup';
 
 const mGetUsage = vi.mocked(getStorageUsage);
 const mLoadRuns = vi.mocked(loadTestRunsLite);
@@ -39,6 +49,7 @@ const mClearAll = vi.mocked(clearAllTestRuns);
 const mSetMaxRuns = vi.mocked(setMaxRuns);
 const mStale = vi.mocked(cleanupStaleStorageKeys);
 const mCompact = vi.mocked(compactWorkflowStorage);
+const mDemoPurge = vi.mocked(purgeGqlDemoEphemeralStorage);
 
 function Harness(overrides: Partial<SettingsStorageTabProps> = {}) {
   const [storageUsage, setStorageUsage] = useState(
@@ -196,17 +207,29 @@ describe('SettingsStorageTab', () => {
 
   it('cleans up stale data with freed bytes message and clears it', async () => {
     vi.useFakeTimers();
+    mDemoPurge.mockResolvedValue({
+      profilesRemoved: 1,
+      runnerConfigsRemoved: 2,
+      staleKeysRemoved: 0,
+      freedKB: 5,
+    });
     mStale.mockReturnValue({ removed: 2, freedKB: 10 });
     mCompact.mockResolvedValue({ beforeKB: 30, afterKB: 20 });
     render(<Harness />);
     fireEvent.click(screen.getByText('Clean Up Stale Data'));
-    await vi.waitFor(() => expect(screen.getByText(/Freed 20 KB \(2 stale keys/)).toBeTruthy());
+    await vi.waitFor(() => expect(screen.getByText(/Freed ~25 KB \(1 demo profiles, 2 runner configs, 2 stale keys\)/)).toBeTruthy());
     await vi.advanceTimersByTimeAsync(5500);
-    await vi.waitFor(() => expect(screen.queryByText(/Freed 20 KB/)).toBeNull());
+    await vi.waitFor(() => expect(screen.queryByText(/Freed ~25 KB/)).toBeNull());
     vi.useRealTimers();
   });
 
   it('shows already-optimized message when nothing freed', async () => {
+    mDemoPurge.mockResolvedValue({
+      profilesRemoved: 0,
+      runnerConfigsRemoved: 0,
+      staleKeysRemoved: 0,
+      freedKB: 0,
+    });
     mStale.mockReturnValue({ removed: 0, freedKB: 0 });
     mCompact.mockResolvedValue({ beforeKB: 10, afterKB: 10 });
     render(<Harness />);

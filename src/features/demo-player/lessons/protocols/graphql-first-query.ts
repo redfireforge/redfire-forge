@@ -4,6 +4,7 @@ import { EM, GQL, APP } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_VAR,
   GQL_HEALTH_QUERY,
   fillActiveTabEndpoint,
@@ -42,7 +43,7 @@ export const gqlFirstQueryLesson: DemoLesson = {
     'Connect to a GraphQL endpoint, introspect the schema, write a query, execute it, read the response body and metadata, and find the result in History.',
   estimatedMinutes: 7,
   initialTab: 'graphql-studio',
-  allowedTabs: ['environments', 'graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -440,7 +441,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
         'Open the **Schema** tab on the right panel. The type tree is built from the introspection data you just downloaded. ' +
         'Expand **Query** to see every top-level field the server supports — including `health`, `user`, and `order`. ' +
         'Click any type to open its detail panel showing field names, argument types, and return types. ' +
-        'For now just browse; **Lesson 4 (Schema Exploration)** goes deep into search, SDL export, and the Changelog tab.',
+        'For now just browse; **GQL-3 (Schema Exploration)** goes deep into search, SDL export, and the Changelog tab.',
       highlight: GQL.RIGHT_TAB_SCHEMA,
       preAction: ensureIntrospected,
       action: async (ctx) => {
@@ -461,7 +462,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
         'Switch back to the **Response** tab on the right, then click **Editor** mode if it is not already active. ' +
         'Type the minimal query `query { health }` — the `query` keyword is the operation type, `{ health }` is the field selection set. ' +
         'Notice autocomplete suggesting `health` after you open the brace: this is powered by the introspected schema. ' +
-        'The **Builder** mode (next to Editor) lets you tick fields visually without typing; try it in **Lesson 7 (Query Builder)**.',
+        'The **Builder** mode (next to Editor) lets you tick fields visually without typing; try it in **GQL-8 (Query Builder)**.',
       highlight: GQL.EDITOR,
       preAction: async (ctx) => {
         await ensureIntrospected(ctx);
@@ -531,7 +532,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
         'Click the **Metadata** tab in the Response panel. It reveals the raw HTTP request that was sent: **HTTP POST** method, `Content-Type: application/json`, and the serialised query body. ' +
         'This is a key insight: despite the schema, type system, and query language, every GraphQL operation travels over ordinary HTTP — no special protocol, no persistent connection (for queries and mutations). ' +
         'If your server requires an `Authorization` header or a custom `X-API-Key`, you add it in the **Headers** panel or the **Auth** bottom tab — exactly as you would for any REST call. ' +
-        '**Lesson 6 (Authentication & Headers)** covers this in detail.',
+        '**GQL-4 (Authentication & Headers)** covers this in detail.',
       highlight: GQL.RV_TAB_METADATA,
       preAction: ensureExecuted,
       action: async (ctx) => {
@@ -552,7 +553,7 @@ This lesson uses the local Docker test server on port **4010**. Start it with th
         'Click the **History** icon in the left activity bar. Your `health` query appears with a timestamp, the endpoint, and the HTTP status. ' +
         'Single-click an entry to open the **preview panel** on the right: it shows the full query text, variables, and response body. ' +
         'From the preview you can **Load** the query back into the editor, **Run** it immediately, or **Save to Collection** to pin it permanently. ' +
-        '**Lesson 8 (Collections & History)** goes deep into search, filters, and the full collection workflow.',
+        '**GQL-9 (Collections & History)** goes deep into search, filters, and the full collection workflow.',
       highlight: GQL.ACTIVITY_HISTORY,
       preAction: ensureExecuted,
       action: async (ctx) => {

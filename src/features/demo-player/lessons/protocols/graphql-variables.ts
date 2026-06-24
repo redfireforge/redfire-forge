@@ -4,6 +4,7 @@ import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HTTP,
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_VAR,
   GQL_USER_QUERY,
   ensureAliceVarsFilled,
@@ -143,7 +144,7 @@ export const gqlVariablesLesson: DemoLesson = {
     'Write a parameterized GraphQL query, supply `$id` via the Variables panel, execute twice with different values, and compare how History stores each run.',
   estimatedMinutes: 9,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -345,8 +346,8 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
       id: 'gql2-endpoint',
       title: 'Set the Endpoint',
       description:
-        `Type \`${GQL_DEMO_VAR}\` into the endpoint field — the same Environment Manager variable from **Lesson 1** that resolves to \`${GQL_DEMO_HTTP}\`. ` +
-        'Continue from **Lesson 1** — the next step verifies the endpoint variable resolves correctly before introspection. ' +
+        `Type \`${GQL_DEMO_VAR}\` into the endpoint field — the same Environment Manager variable from **GQL-1 (Your First GraphQL Query)** that resolves to \`${GQL_DEMO_HTTP}\`. ` +
+        'Continue from **GQL-1** — the next step verifies the endpoint variable resolves correctly before introspection. ' +
         'This server exposes `user(id: ID!)` for queries and `createUser` for mutations — both needed in this lesson.',
       highlight: GQL.ENDPOINT_INPUT,
       preAction: async (ctx) => {
@@ -367,7 +368,7 @@ This lesson creates two users — **Alice** and **Bob** — on the test server v
       title: 'Confirm the Resolved URL',
       description:
         `Watch **↳ Resolved:** appear below the endpoint field — RedfireForge resolves \`${GQL_DEMO_VAR}\` to \`${GQL_DEMO_HTTP}\` with a **✓** checkmark. ` +
-        'This confirms the variable, environment, and service from **Lesson 1** are still wired before you introspect.',
+        'This confirms the variable, environment, and service from **GQL-1** are still wired before you introspect.',
       highlight: GQL.ENDPOINT_PREVIEW,
       preAction: ensureDemoEndpoint,
       action: async (ctx) => {

@@ -33,6 +33,11 @@ import {
   selectNoAuthInPanel,
 } from './core';
 import { fillControlledInput } from '../../setup-helpers';
+import {
+  GQL14_PRODUCTION_PROFILE_NAME,
+  GQL14_STAGING_PROFILE_NAME,
+  purgeGqlDemoConnectionProfiles,
+} from '../../../../graphql/utils/gqlDemoConnectionProfiles';
 
 const GQL14_LESSON_ID = 'gql-multi-tab';
 
@@ -49,8 +54,13 @@ export const LESSON14_TAB2_ENDPOINT = GQL_DEMO_HTTP;
 export const LESSON14_TAB2_BEARER_TOKEN = 'gql14-production-bearer';
 
 /** Connection profile names saved during GQL-14 profile step — lesson-scoped to avoid clobbering user profiles. */
-export const LESSON14_STAGING_PROFILE_NAME = 'GQL-14 Staging';
-export const LESSON14_PRODUCTION_PROFILE_NAME = 'GQL-14 Production';
+export const LESSON14_STAGING_PROFILE_NAME = GQL14_STAGING_PROFILE_NAME;
+export const LESSON14_PRODUCTION_PROFILE_NAME = GQL14_PRODUCTION_PROFILE_NAME;
+
+const GQL14_LESSON_PROFILE_NAMES = [
+  GQL14_STAGING_PROFILE_NAME,
+  GQL14_PRODUCTION_PROFILE_NAME,
+] as const;
 
 let _lesson14Tab1Set = false;
 let _lesson14Tab2Added = false;
@@ -293,31 +303,12 @@ async function closeProfileModalIfOpen(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(300);
 }
 
-/** Two-click delete for a named profile row in the open profile modal. */
-async function removeProfileRowByName(ctx: DemoActionContext, name: string): Promise<void> {
-  const row = findProfileRowByName(name);
-  if (!row) return;
-  const deleteBtn = row.querySelector<HTMLElement>('button[data-testid^="gql-profile-delete-"]');
-  const testId = deleteBtn?.getAttribute('data-testid');
-  if (!testId) return;
-  const sel = `[data-testid="${testId}"]`;
-  await ctx.click(sel);
-  await ctx.delay(400);
-  await ctx.click(sel);
-  await ctx.delay(500);
-}
-
 /**
  * Remove Staging/Production lesson snapshots so a fresh run can save current tab state.
- * Called from setup/cleanup to avoid loading stale auth from a prior lesson run.
+ * Storage purge removes all duplicates; the open modal refreshes via gql-profiles-reload.
  */
 export async function purgeLesson14ConnectionProfiles(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(GQL.PROFILE_BADGE)) return;
-  await ctx.click(GQL.PROFILE_BADGE);
-  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(400);
-  await removeProfileRowByName(ctx, LESSON14_STAGING_PROFILE_NAME);
-  await removeProfileRowByName(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  await purgeGqlDemoConnectionProfiles(GQL14_LESSON_PROFILE_NAMES);
   await closeProfileModalIfOpen(ctx);
 }
 

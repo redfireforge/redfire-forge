@@ -9,6 +9,7 @@ describe('useDemoWorkflowBridge', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
   });
 
   it('exposes __wfDeleteByName on window', () => {
@@ -73,5 +74,19 @@ describe('useDemoWorkflowBridge', () => {
     expect((window as unknown as Record<string, unknown>).__wfInsertWorkflow).toBeDefined();
     unmount();
     expect((window as unknown as Record<string, unknown>).__wfInsertWorkflow).toBeUndefined();
+  });
+
+  it('__wfGetWorkflowByName returns workflow snapshot by name', () => {
+    const wf = {
+      id: 'wf-1',
+      name: 'Demo WF',
+      nodes: [{ id: 'n1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } }],
+      edges: [],
+      variables: {},
+    } as import('../../features/workflow/types/workflow').Workflow;
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn()));
+    const get = (window as unknown as Record<string, (name: string) => typeof wf | null>).__wfGetWorkflowByName;
+    expect(get('Demo WF')).toBe(wf);
+    expect(get('Missing')).toBeNull();
   });
 });

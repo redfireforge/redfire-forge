@@ -19,7 +19,11 @@ import {
   LESSON18_DELETE_VARS,
   LESSON18_EXTRACTION_JSONPATH,
   LESSON18_NODE_CREATE,
+  LESSON18_NODE_FETCH,
+  LESSON18_NODE_ASSERT,
   LESSON18_NODE_DELETE,
+  GQL_DEMO_HTTP,
+  isLesson18FetchNodeReady,
   resetGqlLesson18SessionFlags,
   createGqlMutationDemoWorkflow,
   gqlWorkflowMutationLessonSetup,
@@ -30,6 +34,26 @@ import {
   ensureLesson18AssertConfigured,
   ensureLesson18DeleteNodeAdded,
 } from './graphql-lesson-helpers';
+import {
+  handleGraphqlQueryNode,
+  handleGraphqlAssertNode,
+} from '../../../workflow/engine/graphRunnerGraphqlNodeHandlers';
+import {
+  makeNode,
+  makeCallbacks,
+  makeHandlerContext,
+  makePassedFlag,
+} from '../../../workflow/engine/graphRunnerNodeHandlers.test-utils';
+
+vi.mock('../../../graphql/utils/graphqlProxyTransports', () => ({
+  getProxyBase: vi.fn(() => 'http://localhost:4000'),
+  createWsProxyTransport: vi.fn(),
+  createSseProxyTransport: vi.fn(),
+}));
+
+vi.mock('../../../graphql/utils/authUtils', () => ({
+  buildAuthHeaders: vi.fn(() => ({})),
+}));
 
 describe('gql-workflow-mutation lesson', () => {
   beforeEach(() => {
@@ -40,6 +64,7 @@ describe('gql-workflow-mutation lesson', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     delete (window as unknown as Record<string, unknown>).__wfConnect;
     delete (window as unknown as Record<string, unknown>).__wfAddNode;
@@ -385,10 +410,21 @@ describe('gql-workflow-mutation lesson', () => {
 
   it('createGqlMutationDemoWorkflow includes mutation, query, and assert nodes', () => {
     const wf = createGqlMutationDemoWorkflow();
-    const nodes = wf.nodes as Array<{ id: string; type: string }>;
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
     expect(nodes.find((n) => n.id === LESSON18_NODE_CREATE)?.type).toBe('graphqlMutation');
     expect(nodes.find((n) => n.id === 'gql18-fetch')?.type).toBe('graphqlQuery');
     expect(nodes.find((n) => n.id === 'gql18-assert')?.type).toBe('graphqlAssert');
+    const fetch = nodes.find((n) => n.id === LESSON18_NODE_FETCH)!;
+    expect(fetch.data.endpoint).toBe(GQL_DEMO_HTTP);
+    expect(fetch.data.variables).toBe(LESSON18_QUERY_VARS);
+    expect(isLesson18FetchNodeReady()).toBe(false);
+  });
+
+  it('isLesson18FetchNodeReady reads live workflow via __wfGetWorkflowByName', () => {
+    const wf = createGqlMutationDemoWorkflow();
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? wf : null;
+    expect(isLesson18FetchNodeReady()).toBe(true);
   });
 
   it('LESSON18 constants define create and read-back operations', () => {
@@ -397,6 +433,49 @@ describe('gql-workflow-mutation lesson', () => {
     expect(LESSON18_DELETE_MUTATION).toContain('deleteUser');
     expect(LESSON18_MUTATION_VARS).toContain(`{{${LESSON18_TEST_NAME_VAR}}}`);
     expect(LESSON18_QUERY_VARS).toContain(`{{${LESSON18_CREATED_USER_ID_VAR}}}`);
+    expect(LESSON18_QUERY_VARS).not.toContain(`"{{${LESSON18_CREATED_USER_ID_VAR}}}"`);
+  });
+
+  it('LESSON18_QUERY_VARS parses after createdUserId extraction substitute', () => {
+    const extractedId = JSON.stringify('usr-1');
+    const resolved = LESSON18_QUERY_VARS.replace(
+      `{{${LESSON18_CREATED_USER_ID_VAR}}}`,
+      extractedId,
+    );
+    expect(JSON.parse(resolved)).toEqual({ id: 'usr-1' });
+  });
+
+  it('createGqlMutationDemoWorkflow fetch + assert nodes execute after mutation extraction', async () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
+    const fetchRaw = nodes.find((n) => n.id === LESSON18_NODE_FETCH)!;
+    const assertRaw = nodes.find((n) => n.id === LESSON18_NODE_ASSERT)!;
+    const fetchNode = makeNode(fetchRaw.id, 'graphqlQuery', fetchRaw.data);
+    const assertNode = makeNode(assertRaw.id, 'graphqlAssert', assertRaw.data);
+
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { user: { id: 'usr-1', name: LESSON18_TEST_NAME } },
+      }),
+    })));
+
+    const cbResult = makeCallbacks();
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      initialVariables: { [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME },
+    });
+    hCtx.ctx.set(LESSON18_CREATED_USER_ID_VAR, JSON.stringify('usr-1'));
+
+    const queryPassed = makePassedFlag();
+    await handleGraphqlQueryNode(fetchRaw.id, fetchNode, hCtx, queryPassed);
+    expect(queryPassed.value).toBe(true);
+
+    const assertPassed = makePassedFlag();
+    await handleGraphqlAssertNode(assertRaw.id, assertNode, hCtx, assertPassed);
+    expect(assertPassed.value).toBe(true);
+    expect(cbResult.states[assertRaw.id]?.state).toBe('pass');
   });
 
   it('ensureLesson18QueryConfigured binds fetchedUser output', async () => {

@@ -359,6 +359,54 @@ describe('DemoSpotlight', () => {
     window.cancelAnimationFrame = origCAF;
   });
 
+  it('hides spotlight when target is behind an open app modal', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const target = document.createElement('button');
+    target.setAttribute('data-testid', 'gql-tls-configure');
+    target.style.width = '80px';
+    target.style.height = '30px';
+    document.body.appendChild(target);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.width = '400px';
+    overlay.style.height = '300px';
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('data-testid', 'gql-tls-body');
+    dialog.style.width = '400px';
+    dialog.style.height = '300px';
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 10, left: 10, width: 80, height: 30,
+      right: 90, bottom: 40, x: 10, y: 10, toJSON: () => ({}),
+    });
+
+    let rafCallback: FrameRequestCallback | null = null;
+    const origRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => { rafCallback = cb; return 1; };
+    const origCAF = window.cancelAnimationFrame;
+    window.cancelAnimationFrame = vi.fn();
+
+    const { container } = render(
+      <DemoSpotlight selector="[data-testid='gql-tls-configure']" active={true} />,
+    );
+
+    await vi.advanceTimersByTimeAsync(250);
+    rafCallback?.(0);
+
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+
+    document.body.removeChild(target);
+    document.body.removeChild(overlay);
+    window.requestAnimationFrame = origRAF;
+    window.cancelAnimationFrame = origCAF;
+    vi.useRealTimers();
+  });
+
   it('cleans up animation frame on unmount', () => {
     const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
     const target = document.createElement('div');
@@ -1200,7 +1248,7 @@ describe('LiveDemo', () => {
 
   it('renders pause button when playing', () => {
     render(<LiveDemo {...liveProps} isPlaying={true} />);
-    expect(screen.getByTitle('Pause (Space)')).toBeTruthy();
+    expect(screen.getByTitle('Pause auto-play (Space)')).toBeTruthy();
   });
 
   it('disables next button on last step', () => {
@@ -1375,10 +1423,56 @@ describe('LiveDemo', () => {
     });
 
     // After polling, the element should be found
-    expect(target.scrollIntoView).toHaveBeenCalled();
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
     expect(screen.getByText('🟢 Live')).toBeTruthy();
     expect(container.querySelector('.demo-live-mode-badge.live')).toBeTruthy();
 
+    document.body.removeChild(target);
+    vi.useRealTimers();
+  });
+
+  it('polling pauses while user has text selected in the narration panel', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const target = document.createElement('div');
+    target.className = 'poll-selection-target';
+    target.style.width = '100px';
+    target.style.height = '50px';
+    target.scrollIntoView = vi.fn();
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 10, left: 10, width: 100, height: 50,
+      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+    });
+    document.body.appendChild(target);
+
+    const lessonHL = makeLesson({
+      steps: [
+        { id: 's1', title: 'HL', description: 'D1 copy me', highlight: '.poll-selection-target' },
+        { id: 's2', title: 'S2', description: 'D2' },
+      ],
+    });
+
+    const { container } = render(<LiveDemo {...liveProps} lesson={lessonHL} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    const desc = container.querySelector('.demo-live-step-desc')!;
+    const range = document.createRange();
+    range.selectNodeContents(desc);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    vi.mocked(target.scrollIntoView).mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(target.scrollIntoView).not.toHaveBeenCalled();
+
+    sel.removeAllRanges();
     document.body.removeChild(target);
     vi.useRealTimers();
   });
@@ -1549,6 +1643,16 @@ describe('LiveDemo', () => {
     fireEvent.click(screen.getByLabelText('Toggle steps overview'));
     fireEvent.click(screen.getByLabelText('Close steps overview'));
     expect(document.querySelector('.demo-overview-modal')).toBeNull();
+  });
+
+  it('keeps steps overview open when the demo advances to the next step', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    const { rerender } = render(<LiveDemo {...liveProps} stepIndex={0} />);
+    fireEvent.click(screen.getByLabelText('Toggle steps overview'));
+    expect(document.querySelector('.demo-overview-modal')).toBeTruthy();
+    rerender(<LiveDemo {...liveProps} stepIndex={1} stepPhase="reading" />);
+    expect(document.querySelector('.demo-overview-modal')).toBeTruthy();
+    expect(screen.getByLabelText('Toggle steps overview').classList.contains('active')).toBe(true);
   });
 
   it('hides spotlight during pre phase even when target found', async () => {

@@ -77,6 +77,8 @@ test.describe('WorkflowDesigner Refactored Components', () => {
   });
 
   test('minimap renders on canvas', async ({ page }) => {
+    const minimapBtn = page.locator('.wf-pill-btn[title="Toggle minimap"]');
+    await minimapBtn.click();
     const minimap = page.locator('.react-flow__minimap');
     await expect(minimap).toBeVisible({ timeout: 5000 });
   });

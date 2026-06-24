@@ -84,7 +84,8 @@ describe('SummaryPanel', () => {
   });
 
   it('shows nested depth', () => {
-    render(<SummaryPanel {...defaultProps({ maxDepth: 3 })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, maxDepth: 3 })} />);
+    expect(screen.getByText('Depth')).toBeInTheDocument();
     const items = screen.getAllByText('3');
     expect(items.length).toBeGreaterThan(0);
   });
@@ -199,7 +200,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    expect(screen.getByTitle('Estimated query complexity score')).toHaveClass('gql-qb-summary-value--warn');
+    expect(screen.getByTitle('Estimated query complexity score')).toHaveClass('gql-qb-summary-stat-value--warn');
   });
 
   it('applies danger complexity class when score exceeds 150', async () => {
@@ -222,7 +223,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    expect(screen.getByTitle('Estimated query complexity score')).toHaveClass('gql-qb-summary-value--danger');
+    expect(screen.getByTitle('Estimated query complexity score')).toHaveClass('gql-qb-summary-stat-value--danger');
   });
 
   it('renders the field path search input', () => {
@@ -276,7 +277,7 @@ describe('SummaryPanel', () => {
 
   it('renders keyboard shortcuts section', () => {
     render(<SummaryPanel {...defaultProps()} />);
-    expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
+    expect(screen.getByText('Keyboard shortcuts')).toBeInTheDocument();
     expect(screen.getByText('Toggle field')).toBeInTheDocument();
   });
 
@@ -297,7 +298,7 @@ describe('SummaryPanel', () => {
       />,
     );
     expect(screen.getByTestId('gql-qb-field-options')).toBeInTheDocument();
-    expect(screen.getByText('Field Options')).toBeInTheDocument();
+    expect(screen.getByText('Field options')).toBeInTheDocument();
   });
 
   it('shows one row per selected leaf path', () => {
@@ -329,13 +330,13 @@ describe('SummaryPanel', () => {
   });
 
   it('shows alias count badge when aliasCount > 0', () => {
-    render(<SummaryPanel {...defaultProps({ aliasCount: 3 })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, aliasCount: 3 })} />);
     expect(screen.getByText('Aliases')).toBeInTheDocument();
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
   });
 
   it('shows directive count badge when directiveCount > 0', () => {
-    render(<SummaryPanel {...defaultProps({ directiveCount: 2 })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, directiveCount: 2 })} />);
     expect(screen.getByText('Directives')).toBeInTheDocument();
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
   });
@@ -349,7 +350,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    const expandBtn = screen.getByRole('button', { name: /expand options for id/i });
+    const expandBtn = screen.getByTestId('gql-fo-expand-user.id');
     fireEvent.click(expandBtn);
     expect(screen.getByTestId('gql-fo-alias-user.id')).toBeInTheDocument();
     expect(screen.getByTestId('gql-fo-include-user.id')).toBeInTheDocument();
@@ -367,7 +368,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.change(screen.getByTestId('gql-fo-alias-user.id'), { target: { value: 'userId' } });
     expect(onSetAlias).toHaveBeenCalledWith('user.id', 'userId');
   });
@@ -383,9 +384,9 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.click(screen.getByTestId('gql-fo-include-user.id'));
-    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', true, '');
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', true, 'true');
   });
 
   it('shows @include ifVar input when directive entry exists', () => {
@@ -400,7 +401,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     expect(screen.getByTestId('gql-fo-include-if-user.id')).toHaveValue('{{showUser}}');
   });
 
@@ -416,21 +417,21 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     expect(screen.getByTestId('gql-fo-alias-user.id')).toHaveValue('userId');
   });
 
   // ── Arguments & Variables Display ────────────────────────────────────────
 
   it('shows arguments count in summary', () => {
-    render(<SummaryPanel {...defaultProps({ argsCount: 5 })} />);
-    expect(screen.getByText('Arguments')).toBeInTheDocument();
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, argsCount: 5 })} />);
+    expect(screen.getByText('Args')).toBeInTheDocument();
     const labels = screen.getAllByText('5');
     expect(labels.length).toBeGreaterThan(0);
   });
 
   it('shows variables count in summary', () => {
-    render(<SummaryPanel {...defaultProps({ variablesCount: 3 })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, variablesCount: 3 })} />);
     expect(screen.getByText('Variables')).toBeInTheDocument();
     const labels = screen.getAllByText('3');
     expect(labels.length).toBeGreaterThan(0);
@@ -449,9 +450,9 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.click(screen.getByTestId('gql-fo-skip-user.id'));
-    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', true, '');
+    expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', true, 'false');
   });
 
   it('shows @skip ifVar input when skip directive entry exists', () => {
@@ -466,7 +467,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     expect(screen.getByTestId('gql-fo-skip-if-user.id')).toHaveValue('{{hideUser}}');
   });
 
@@ -484,7 +485,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.change(screen.getByTestId('gql-fo-include-if-user.id'), {
       target: { value: '{{newVar}}' },
     });
@@ -505,7 +506,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.change(screen.getByTestId('gql-fo-skip-if-user.id'), {
       target: { value: '{{newSkipVar}}' },
     });
@@ -526,7 +527,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.click(screen.getByTestId('gql-fo-include-user.id'));
     expect(onSetDirective).toHaveBeenCalledWith('user.id', 'include', false, '{{var}}');
   });
@@ -545,14 +546,14 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /expand options for id/i }));
+    fireEvent.click(screen.getByTestId('gql-fo-expand-user.id'));
     fireEvent.click(screen.getByTestId('gql-fo-skip-user.id'));
     expect(onSetDirective).toHaveBeenCalledWith('user.id', 'skip', false, '{{var}}');
   });
 
   // ── Field Path Display Tests ─────────────────────────────────────────────
 
-  it('shows multi-segment field path with parent context', () => {
+  it('shows multi-segment field path as breadcrumb', () => {
     render(
       <SummaryPanel
         {...defaultProps({
@@ -561,9 +562,10 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    expect(screen.getByText('title')).toBeInTheDocument();
-    // Parent path should be shown in parentheses
-    expect(screen.getByText('(user.posts)')).toBeInTheDocument();
+    const expandBtn = screen.getByTestId('gql-fo-expand-user.posts.title');
+    expect(expandBtn).toHaveTextContent('user');
+    expect(expandBtn).toHaveTextContent('posts');
+    expect(expandBtn).toHaveTextContent('title');
   });
 
   it('expands field row for nested path', () => {
@@ -575,7 +577,7 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    const expandBtn = screen.getByRole('button', { name: /expand options for bio/i });
+    const expandBtn = screen.getByTestId('gql-fo-expand-user.profile.bio');
     fireEvent.click(expandBtn);
     expect(screen.getByTestId('gql-fo-alias-user.profile.bio')).toBeInTheDocument();
   });
@@ -631,7 +633,7 @@ describe('SummaryPanel', () => {
   });
 
   it('shows fragment count badge when fragmentCount > 0', () => {
-    render(<SummaryPanel {...defaultProps({ fragmentCount: 2 })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, fragmentCount: 2 })} />);
     const fragmentLabels = screen.queryAllByText('Fragments');
     // Should have both the label in the summary grid and the section header
     expect(fragmentLabels.length).toBeGreaterThanOrEqual(1);
@@ -677,12 +679,12 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    const expandBtn = screen.getByRole('button', { name: /expand options for user/i });
+    const expandBtn = screen.getByTestId('gql-fo-expand-user');
     fireEvent.click(expandBtn);
     expect(screen.getByTestId('gql-fo-alias-user')).toBeInTheDocument();
   });
 
-  it('does not show parent path when field is root-level', () => {
+  it('does not show path breadcrumb when field is root-level', () => {
     const { container } = render(
       <SummaryPanel
         {...defaultProps({
@@ -691,10 +693,21 @@ describe('SummaryPanel', () => {
         })}
       />,
     );
-    // Parent path wrapper should not exist for root-level fields
-    const parentSpans = container.querySelectorAll('.gql-qb-fo-parent');
-    // Should be 0 since 'user' is not nested
-    expect(parentSpans.length).toBe(0);
+    expect(container.querySelectorAll('.gql-qb-fo-sep').length).toBe(0);
+  });
+
+  it('shows user › id breadcrumb for nested field paths', () => {
+    render(
+      <SummaryPanel
+        {...defaultProps({
+          selectedCount: 1,
+          state: makeState({ selectedFields: { 'user.id': true } }),
+        })}
+      />,
+    );
+    expect(screen.getByTestId('gql-fo-expand-user.id')).toHaveTextContent('user');
+    expect(screen.getByTestId('gql-fo-expand-user.id')).toHaveTextContent('id');
+    expect(screen.getByTestId('gql-fo-expand-user.id')).toHaveTextContent('›');
   });
 
   it('clears field path search when input is empty and result exists', () => {
@@ -847,13 +860,19 @@ describe('SummaryPanel', () => {
   });
 
   it('shows validation error when creating fragment with empty name', () => {
-    render(<SummaryPanel {...defaultProps()} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, state: makeState({ selectedFields: { user: true } }) })} />);
     fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
     expect(screen.getByRole('alert')).toHaveTextContent('Fragment name is required.');
   });
 
-  it('shows validation error for invalid fragment identifier', () => {
+  it('shows validation error when creating fragment with no selected fields', () => {
     render(<SummaryPanel {...defaultProps()} />);
+    fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Select fields first to create a fragment.');
+  });
+
+  it('shows validation error for invalid fragment identifier', () => {
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, state: makeState({ selectedFields: { user: true } }) })} />);
     fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: '1bad' } });
     fireEvent.change(screen.getByTestId('gql-qb-frag-type-input'), { target: { value: 'User' } });
     fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));
@@ -862,11 +881,12 @@ describe('SummaryPanel', () => {
 
   it('shows duplicate fragment name error', () => {
     const state = makeState({
+      selectedFields: { 'user.id': true },
       fragments: {
         UserCore: { name: 'UserCore', onType: 'User', fieldPaths: ['id'] },
       },
     });
-    render(<SummaryPanel {...defaultProps({ state })} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, state })} />);
 
     fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserCore' } });
     fireEvent.change(screen.getByTestId('gql-qb-frag-type-input'), { target: { value: 'User' } });
@@ -875,7 +895,7 @@ describe('SummaryPanel', () => {
   });
 
   it('shows type-required error when name is set but type missing', () => {
-    render(<SummaryPanel {...defaultProps()} />);
+    render(<SummaryPanel {...defaultProps({ selectedCount: 1, state: makeState({ selectedFields: { user: true } }) })} />);
 
     fireEvent.change(screen.getByTestId('gql-qb-frag-name-input'), { target: { value: 'UserFrag' } });
     fireEvent.click(screen.getByTestId('gql-qb-frag-create-btn'));

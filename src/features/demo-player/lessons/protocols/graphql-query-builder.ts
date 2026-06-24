@@ -3,6 +3,7 @@ import type { DemoLesson } from '../../types';
 import { GQL } from '../../../../shared/selectors';
 import {
   GQL_DEMO_HEALTH,
+  GQL_STUDIO_LESSON_ALLOWED_TABS,
   GQL_DEMO_HTTP,
   LESSON7_EDITOR_COMMENT,
   ensureAliasConfigured,
@@ -29,7 +30,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
     'Build GraphQL queries visually: field tree selection, live SDL preview, aliases and directives in the Summary panel, copy/export, and one-way sync to the editor.',
   estimatedMinutes: 4,
   initialTab: 'graphql-studio',
-  allowedTabs: ['graphql-studio'],
+  allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
   tabBudget: 1,
 
@@ -57,7 +58,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       {
         term: 'Builder mode',
         definition:
-          'Visual query construction UI toggled via the Builder button (`gql-mode-builder`). Requires an introspected schema — the field tree is built from the schema types at introspect time.',
+          'Visual query construction UI toggled via the **Builder** button on the editor toolbar. Requires an introspected schema — the field tree is built from the schema types at introspect time.',
       },
       {
         term: 'Field tree',
@@ -67,7 +68,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       {
         term: 'SDL preview',
         definition:
-          'The live center panel (`gql-qb-code`) that shows the query document as it is built by your field selections. Updates instantly on every check/uncheck — no Execute needed to see the output.',
+          'The live center **SDL preview** panel that shows the query document as it is built by your field selections. Updates instantly on every check/uncheck — no Execute needed to see the output.',
       },
       {
         term: 'Summary panel',
@@ -128,8 +129,8 @@ export const gqlQueryBuilderLesson: DemoLesson = {
   <rect x="8" y="98" width="252" height="22" fill="var(--surface)"/>
   <line x1="8" y1="120" x2="260" y2="120" stroke="var(--border)" stroke-width="1"/>
   <text x="18" y="113" font-size="8.5" font-weight="600" fill="var(--text)">Query root</text>
-  <rect x="192" y="101" width="58" height="16" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="0.8"/>
-  <text x="221" y="113" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">+ all  ✕ all</text>
+  <rect x="178" y="101" width="72" height="16" rx="3" fill="var(--bg)" stroke="var(--border)" stroke-width="0.8"/>
+  <text x="214" y="113" text-anchor="middle" font-size="7" fill="var(--text-muted)">Select all</text>
 
   <!-- health row (checked) -->
   <rect x="8" y="121" width="252" height="22" fill="var(--bg)"/>
@@ -223,7 +224,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
 
   <!-- user.id row -->
   <rect x="502" y="138" width="190" height="36" fill="var(--bg)" stroke="var(--border)" stroke-width="0.5"/>
-  <text x="512" y="152" font-size="8" font-weight="600" fill="var(--text)">user → id</text>
+  <text x="512" y="152" font-size="8" font-weight="600" fill="var(--text)">user › id</text>
   <text x="512" y="164" fill="var(--text-muted)" font-size="7.5">Alias:</text>
   <rect x="540" y="158" width="56" height="12" rx="2" fill="var(--bg)" stroke="var(--border)" stroke-width="0.8"/>
   <text x="546" y="168" fill="#f59e0b" font-size="7.5" font-family="monospace">userId</text>
@@ -298,11 +299,11 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-builder',
       title: 'Open Builder Mode',
       description:
-        `Click **Builder** on the editor mode toolbar (\`gql-mode-builder\`) to open the visual workspace. The Monaco editor is replaced by a three-panel layout.\n\n` +
+        'Click **Builder** on the editor mode toolbar to open the visual workspace. The Monaco editor is replaced by a three-panel layout.\n\n' +
         '**Why Builder mode?** When you join a new project or explore an unfamiliar API, reading raw SDL is slow — you\'d need to mentally parse type definitions just to figure out which fields exist. ' +
         `Builder reads the introspected schema from \`${GQL_DEMO_HTTP}\` and renders it as a **clickable tree**, so you can see every available field instantly. ` +
         'The left panel lists **Query** root fields — `health` (a simple health check) and `user(id: ID!)` (an object type requiring an id argument).',
-      highlight: GQL.QB_FIELD_TREE,
+      highlight: GQL.MODE_BUILDER,
       preAction: ensureIntrospected,
       action: async (ctx) => {
         await ensureBuilderMode(ctx);
@@ -317,7 +318,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-expand',
       title: 'Explore Object Types',
       description:
-        'The **Query** type header shows the total field count and **+ all** / **✕ all** shortcuts. ' +
+        'The **Query** type header shows the total field count and **Select all** / **Deselect all** shortcuts. ' +
         'Click the **›** expand button on the `user` row to reveal its scalar subfields — `id`, `name`, and `email`.\n\n' +
         '**Why expand matters:** GraphQL types can nest many levels deep. The expand/collapse tree lets you explore complex schemas (like a Shopify or GitHub schema) without being overwhelmed — you open only the branches you need. ' +
         'Each subfield shows its type (`ID!`, `String`, etc.) so you can assess nullability before selecting.',
@@ -344,10 +345,10 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-health',
       title: 'Select a Field — Live Preview',
       description:
-        'Check **health** in the field tree. Watch the center **SDL preview** (`gql-qb-code`) update instantly — `query { health }` appears without you typing a single character.\n\n' +
+        'Check **health** in the field tree. Watch the center **SDL preview** update instantly — `query { health }` appears without you typing a single character.\n\n' +
         '**Why this matters:** The live preview is your feedback loop. As you check more fields, add arguments, set aliases, or enable directives, the preview reflects the exact query document that will be sent to the server — ' +
         'no guessing whether the syntax is correct. You can also paste this preview directly into API documentation or share it with teammates.',
-      highlight: GQL.QB_CODE,
+      highlight: GQL.QB_FIELD_TREE,
       preAction: ensureBuilderMode,
       action: async (ctx) => {
         await ensureHealthFieldSelected(ctx);
@@ -363,8 +364,8 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-select-all',
       title: 'Select All / Deselect All',
       description:
-        'Click **+ all** (`gql-qb-select-all`) to select every leaf field at the current level — all scalar subfields under the current type appear in the preview immediately. ' +
-        'Click again (**✕ all**) to deselect them all.\n\n' +
+        'Click **Select all** to select every leaf field at the current level — all scalar subfields under the Query type appear in the preview immediately. ' +
+        'Click again (**Deselect all**) to clear them all.\n\n' +
         '**Why "select all" exists:** When you want to explore what a type returns, checking fields one by one is tedious. Select all gives you a starting point — the full response shape — then you deselect the fields you don\'t need. ' +
         'This is faster than building up from zero, especially for types with 10+ scalar fields.',
       highlight: GQL.QB_SELECT_ALL,
@@ -384,7 +385,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-user-arg',
       title: 'Fill Required Arguments',
       description:
-        'Check **user** in the field tree — an inline **id** argument input appears (`gql-qb-arg-user-id`). Fill it with a demo user id.\n\n' +
+        'Check **user** in the field tree — an inline **id** argument input appears beneath the field. Fill it with a demo user id.\n\n' +
         '**Why arguments surface inline:** `user(id: ID!)` has a required argument — without it, the server rejects the query. ' +
         'Builder makes required args immediately visible by showing them as an inline input row underneath the field. ' +
         'You can\'t miss them the way you might when writing SDL manually. ' +
@@ -404,11 +405,11 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-alias',
       title: 'Set a Field Alias',
       description:
-        'In the **Summary** panel → **Field Options**, expand the **user → id** row and set alias **`userId`**. The SDL preview renames the field from `id` to `userId: id`.\n\n' +
+        'In the **Summary** panel → **Field options**, expand the **user › id** row and set alias **`userId`**. The SDL preview renames the field from `id` to `userId: id`.\n\n' +
         '**Why aliases matter:** GraphQL responses use the field name as the JSON key. If you query the same field twice with different arguments, you\'d get a key conflict — aliases resolve this. ' +
         'Aliases also let you match the shape of your UI state — if your frontend expects `userId` not `id`, the alias eliminates the need for a mapping layer. ' +
         'The builder writes the alias into the SDL automatically when you type it.',
-      highlight: GQL.FO_ALIAS_USER_ID,
+      highlight: GQL.FO_EXPAND_USER_ID,
       preAction: ensureUserFieldConfigured,
       action: async (ctx) => {
         await ensureAliasConfigured(ctx);
@@ -423,13 +424,13 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-include',
       title: 'Add the @include Directive',
       description:
-        'Toggle **@include** on the `user.id` row (`gql-fo-include-user.id`). The SDL preview adds `@include(if: true)` next to the field.\n\n' +
+        'Expand the **user › id** row in **Field options**, then toggle **@include**. The SDL preview adds `@include(if: true)` next to the field.\n\n' +
         '**Why @include exists:** A single query document can serve multiple UI states using directives. ' +
         'Replace the literal `true` with a variable `$withId: Boolean!` and pass `{ withId: false }` to skip the field — ' +
         'no need to maintain two separate query strings. ' +
         '**@skip** is the inverse: `@skip(if: $hide)` omits the field when `$hide` is `true`. ' +
         'Directives make your queries more flexible without adding complexity to the server.',
-      highlight: GQL.FO_INCLUDE_USER_ID,
+      highlight: GQL.FO_EXPAND_USER_ID,
       preAction: ensureAliasConfigured,
       action: async (ctx) => {
         await ensureIncludeConfigured(ctx);
@@ -445,7 +446,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-copy',
       title: 'Copy the Generated Query',
       description:
-        'Click **Copy** (`gql-qb-copy`) in the builder toolbar — the full generated query is copied to your clipboard. The button briefly shows **Copied ✓** as confirmation.\n\n' +
+        'Click **Copy** in the builder toolbar — the full generated query is copied to your clipboard. The button briefly shows **Copied ✓** as confirmation.\n\n' +
         '**When to use Copy:** If you want to paste the query into an API playground, a Postman collection, a curl command, or inline into application code — without going through the Editor mode. ' +
         'The copied SDL is production-ready: it includes arguments, aliases, and directives exactly as configured in the builder.',
       highlight: GQL.QB_COPY,
@@ -463,7 +464,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-edit',
       title: 'Transfer to Monaco Editor',
       description:
-        'Click **Edit in Editor** (`gql-qb-edit`) — the generated SDL is copied into Monaco and **Builder mode exits**. Variables from the builder sync to the Variables tab automatically.\n\n' +
+        'Click **Edit in Editor** — the generated SDL is copied into Monaco and **Builder mode exits**. Variables from the builder sync to the Variables tab automatically.\n\n' +
         '**Why "Edit in Editor" exists:** Builder is great for exploration, but it can\'t express every valid GraphQL construct — inline fragments, spread operators, custom directives not in the schema, or complex variable usage. ' +
         'Once you\'ve built the skeleton in Builder, transfer it to Monaco for fine-tuning. ' +
         'You get the best of both worlds: visual construction for the boilerplate, textual editing for the advanced features.',
@@ -482,31 +483,34 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-one-way',
       title: 'One-Way Sync Explained',
       description:
-        `Add a comment in Monaco (\`${LESSON7_EDITOR_COMMENT}\`), then switch back to **Builder** — the SDL preview still shows the builder's last known state, not your manual edit.\n\n` +
+        `Add a comment in Monaco (\`${LESSON7_EDITOR_COMMENT}\`), then switch to **Builder** — watch the **Generated query** panel on the left: it still shows the builder's last export, not your manual edit.\n\n` +
         '**Why sync is one-way:** Builder maintains a *selection model* — a structured record of which fields are checked, which arguments are filled, which aliases and directives are set. ' +
         'That model cannot be reconstructed from arbitrary SDL (comments, inline fragments, custom variable names all break the mapping). ' +
-        'So Builder → Editor is a one-time export, not a live bidirectional sync. ' +
-        'Think of it as: Builder is your **sketch pad**, Editor is your **production draft** — once you move to the draft, you stay there.',
-      highlight: GQL.MODE_EDITOR,
+        'So Builder → Editor is a one-way export, not a live bidirectional sync. ' +
+        'Switching back to **Builder** restores your checkbox selections, aliases, and directives — but not manual edits you made in Monaco. ' +
+        'Think of it as: Builder is your **sketch pad**, Editor is your **production draft**.',
+      highlight: GQL.QB_CODE,
       preAction: ensureEditedToEditor,
       action: async (ctx) => {
         const model = getMonacoGqlModel();
         const current = model?.getValue() ?? '';
         if (!current.includes(LESSON7_EDITOR_COMMENT)) {
-          await fillGqlEditor(ctx, `${current}\n${LESSON7_EDITOR_COMMENT}`, { focus: false });
+          await fillGqlEditor(ctx, `${current}\n${LESSON7_EDITOR_COMMENT}`, { focus: true });
+          await ctx.delay(1500);
         }
-        await ctx.delay(500);
         await ctx.click(GQL.MODE_BUILDER);
         await ctx.waitFor(GQL.QB_CODE, 5000);
         await ctx.delay(800);
+        document.querySelector(GQL.QB_CODE)?.scrollIntoView?.({ block: 'center' });
+        await ctx.delay(600);
         const preview = getBuilderCodeText();
         if (!preview.includes(LESSON7_EDITOR_COMMENT)) {
-          await ctx.delay(400);
+          await ctx.delay(2000);
+        } else {
+          await ctx.delay(800);
         }
-        await ctx.click(GQL.MODE_EDITOR);
-        await ctx.delay(400);
       },
-      verify: GQL.MODE_EDITOR,
+      verify: GQL.QB_CODE,
       pauseAfter: true,
     },
   ],

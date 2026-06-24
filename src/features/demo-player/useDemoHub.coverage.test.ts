@@ -10,43 +10,52 @@
  *   - auto-play effect reaching last step
  *   - toggleAutoPlay at-end restart async path
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useDemoHub } from './useDemoHub';
-import type { DemoLesson } from './types';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act } from '@testing-library/react';
 import { makeVisible } from './lessons/protocols/ws-test-utils';
+import {
+  makeLesson,
+  renderDemoHub,
+  teardownActiveDemoHub,
+} from './useDemoHub.coverage-helpers';
 
-vi.useFakeTimers();
-
-function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
+vi.mock('./lessons/env-manager-lesson-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./lessons/env-manager-lesson-helpers')>();
   return {
-    id: 'lesson-coverage',
-    domainId: 'test-domain',
-    name: 'Coverage Lesson',
-    description: 'Coverage tests',
-    estimatedMinutes: 3,
-    concept: { title: 'Concept', body: 'Body' },
-    steps: [
-      { id: 's1', title: 'Step 1', description: 'Step one' },
-      { id: 's2', title: 'Step 2', description: 'Step two' },
-    ],
-    ...overrides,
+    ...actual,
+    cleanupGqlDemoLessonEnvironment: vi.fn(async () => {}),
   };
-}
+});
+
+vi.mock('./lessons/gql-demo-storage-cleanup', () => ({
+  purgeGqlDemoEphemeralStorage: vi.fn().mockResolvedValue({
+    profilesRemoved: 0,
+    runnerConfigsRemoved: 0,
+    staleKeysRemoved: 0,
+    freedKB: 0,
+  }),
+}));
 
 describe('useDemoHub (branch coverage)', () => {
   const navigateToTab = vi.fn();
 
   beforeEach(() => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     localStorage.clear();
     document.body.innerHTML = '';
   });
 
+  afterEach(async () => {
+    await teardownActiveDemoHub();
+    vi.restoreAllMocks();
+  });
+
   // ─── goBack from live view ─────────────────────────────────────
 
   it('goBack from live view returns to concept view', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson();
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -63,7 +72,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── buildContext null-element branches ───────────────────────
 
   it('buildContext click does nothing when selector finds no element', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'NullClick', description: 'Click missing',
@@ -81,7 +90,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('buildContext fill does nothing when selector finds no element', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'NullFill', description: 'Fill missing',
@@ -98,7 +107,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('buildContext selectOption does nothing when selector finds no element', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'NullSelect', description: 'Select missing',
@@ -119,7 +128,7 @@ describe('useDemoHub (branch coverage)', () => {
     div.className = 'ctx-div';
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'DivFill', description: 'Fill a div',
@@ -139,7 +148,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── buildQuietContext null / textarea branches ───────────────
 
   it('buildQuietContext click does nothing when selector finds no element', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietNullClick', description: 'Quiet click missing',
@@ -161,7 +170,7 @@ describe('useDemoHub (branch coverage)', () => {
     makeVisible(textarea);
     document.body.appendChild(textarea);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietTextarea', description: 'Quiet fill textarea',
@@ -183,7 +192,7 @@ describe('useDemoHub (branch coverage)', () => {
     div.className = 'quiet-div';
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietDivFill', description: 'Quiet fill div',
@@ -200,7 +209,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('buildQuietContext selectOption does nothing when no element found', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietNullSelect', description: 'Quiet select missing',
@@ -228,7 +237,7 @@ describe('useDemoHub (branch coverage)', () => {
     });
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'ZeroSize', description: 'Zero size', highlight: '.zero-size-el' }],
     });
@@ -252,7 +261,7 @@ describe('useDemoHub (branch coverage)', () => {
     });
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'VHidden', description: 'Visibility hidden', highlight: '.visibility-hidden-el' }],
     });
@@ -276,7 +285,7 @@ describe('useDemoHub (branch coverage)', () => {
     });
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'OpacityZero', description: 'Opacity 0', highlight: '.opacity-zero-el' }],
     });
@@ -292,7 +301,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── restartDemo without cleanup/setup/initialTab ─────────────
 
   it('restartDemo works when lesson has no cleanup, no setup, no initialTab', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ cleanup: undefined, setup: undefined, initialTab: undefined });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -311,7 +320,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('restartDemo handles cleanup error gracefully', async () => {
     const cleanup = vi.fn().mockRejectedValue(new Error('cleanup fail'));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ cleanup });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -329,7 +338,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('restartDemo handles setup error gracefully', async () => {
     const setup = vi.fn().mockRejectedValue(new Error('setup fail'));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ setup });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -351,7 +360,7 @@ describe('useDemoHub (branch coverage)', () => {
   // last step, not when it is started at the last step.
 
   it('auto-play effect stops at last step when advancing naturally through steps', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -389,7 +398,7 @@ describe('useDemoHub (branch coverage)', () => {
   // Reached when the breathing pause fires while a prior step is still executing.
 
   it('auto-play polling loop waits for in-progress step before advancing', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         {
@@ -428,7 +437,7 @@ describe('useDemoHub (branch coverage)', () => {
   // Uses fake Date.now() so the while loop runs until fake time > timeout.
 
   it('buildQuietContext waitFor polls while element is absent then times out', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'WaitFor', description: 'WaitFor quiet',
@@ -451,7 +460,7 @@ describe('useDemoHub (branch coverage)', () => {
     div.className = 'quiet-found-el';
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'WaitForFound', description: 'WaitFor found',
@@ -472,7 +481,7 @@ describe('useDemoHub (branch coverage)', () => {
   // buildQuietContext's delay is only exercised via preAction/setup/cleanup ctx.delay()
 
   it('buildQuietContext delay is called when preAction uses ctx.delay', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'DelayPreAction', description: 'Delay in preAction',
@@ -492,7 +501,7 @@ describe('useDemoHub (branch coverage)', () => {
   // nextStep() calls goToStep(stepIndex + 1) when not at end
 
   it('nextStep advances to next step when not at last step', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -518,8 +527,8 @@ describe('useDemoHub (branch coverage)', () => {
 
   // ─── nextStep at last step — marks lesson complete (lines 342-344) ──
 
-  it('nextStep at last step marks lesson complete and stops auto-play', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+  it('nextStep at last step is a no-op (Next is disabled in LiveDemo UI)', async () => {
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -532,22 +541,22 @@ describe('useDemoHub (branch coverage)', () => {
       await vi.advanceTimersByTimeAsync(8000);
       await p;
     });
-    // Jump to last step
     await act(async () => {
       const p = result.current.goToStep(1);
       await vi.advanceTimersByTimeAsync(8000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
-    // nextStep at last step → marks complete, sets isPlaying=false
-    act(() => result.current.nextStep());
-    expect(result.current.state.isPlaying).toBe(false);
+    await act(async () => {
+      await result.current.nextStep();
+    });
+    expect(result.current.state.stepIndex).toBe(1);
   });
 
   // ─── restartDemo with initialTab (line 450) ───────────────────
 
   it('restartDemo navigates to initialTab when lesson has one', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ initialTab: 'websocket' });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -569,7 +578,7 @@ describe('useDemoHub (branch coverage)', () => {
   // autoPlayRef is set when auto-play has a pending timer.
 
   it('restartDemo clears pending auto-play timer (line 441)', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -598,10 +607,12 @@ describe('useDemoHub (branch coverage)', () => {
 
   // ─── restartDemo when no lesson is selected (line 440) ──────
 
-  it('restartDemo returns early when no lesson is selected', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+  it('restartDemo returns early when no lesson is selected', async () => {
+    const { result } = renderDemoHub(navigateToTab);
     // Don't select a lesson
-    act(() => { result.current.restartDemo(); });
+    await act(async () => {
+      await result.current.restartDemo();
+    });
     expect(result.current.state.stepIndex).toBe(0); // still at default
   });
 
@@ -610,7 +621,7 @@ describe('useDemoHub (branch coverage)', () => {
   // already incremented (e.g. by pausing), the callback returns early.
 
   it('auto-play breathing pause callback exits early on gen mismatch (line 420)', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -641,7 +652,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── exitLiveDemo when auto-play is running (line 463) ───────
 
   it('exitLiveDemo clears pending auto-play timer (line 463)', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1' },
@@ -674,7 +685,7 @@ describe('useDemoHub (branch coverage)', () => {
   it('toggleAutoPlay atEnd restart: setTimeout callback runs cleanup setup and step 0', async () => {
     const cleanup = vi.fn().mockResolvedValue(undefined);
     const setup = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       cleanup,
       setup,
@@ -716,7 +727,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── toggleAutoPlay — pausing stops timer ─────────────────────
 
   it('toggleAutoPlay when pausing clears pending timer', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'S1' },
@@ -745,7 +756,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('buildContext waitFor times out when element never appears', async () => {
     let waited = false;
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'Wait', description: 'Wait timeout',
@@ -767,7 +778,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── skipReading skips the reading phase ──────────────────────
 
   it('skipReading shortens reading pause when called during reading phase', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'Long Read', description: 'A'.repeat(500) }],
     });
@@ -795,7 +806,7 @@ describe('useDemoHub (branch coverage)', () => {
       lastDomain: 'protocols',
       lastLesson: 'ws-workspace',
     }));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     expect(result.current.state.view).toBe('concept');
     expect(result.current.state.selectedLesson?.id).toBe('ws-workspace');
     expect(result.current.state.selectedDomain?.id).toBe('protocols');
@@ -809,7 +820,7 @@ describe('useDemoHub (branch coverage)', () => {
       lastView: 'lessons',
       lastDomain: 'protocols',
     }));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     expect(result.current.state.view).toBe('lessons');
     expect(result.current.state.selectedDomain?.id).toBe('protocols');
     expect(result.current.state.speed).toBe(2);
@@ -823,7 +834,7 @@ describe('useDemoHub (branch coverage)', () => {
       lastView: 'lessons',
       lastDomain: 'nonexistent-domain',
     }));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     expect(result.current.state.view).toBe('domains');
   });
 
@@ -835,7 +846,7 @@ describe('useDemoHub (branch coverage)', () => {
     makeVisible(btn);
     document.body.appendChild(btn);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'Ripple', description: 'Ripple test',
@@ -869,7 +880,7 @@ describe('useDemoHub (branch coverage)', () => {
     });
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'DNone', description: 'Display none', highlight: '.display-none-el' }],
     });
@@ -896,7 +907,7 @@ describe('useDemoHub (branch coverage)', () => {
     const clickSpy = vi.spyOn(btn, 'click');
     document.body.appendChild(btn);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'Mixed', description: 'Mixed nodes',
@@ -929,7 +940,7 @@ describe('useDemoHub (branch coverage)', () => {
     select.appendChild(optB);
     document.body.appendChild(select);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'SelectOpt', description: 'Select option',
@@ -950,7 +961,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── auto-play stops at last step (lines 487-488) ─────────────
 
   it('auto-play effect stops playing when reaching last step', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [
         { id: 's1', title: 'S1', description: 'Step 1', pauseAfter: 0 },
@@ -974,7 +985,7 @@ describe('useDemoHub (branch coverage)', () => {
   // ─── confirmLessonComplete ─────────────────────────────────────
 
   it('confirmLessonComplete marks lesson complete when selected', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson();
     act(() => result.current.selectLesson(lesson));
     act(() => result.current.confirmLessonComplete());
@@ -987,7 +998,7 @@ describe('useDemoHub (branch coverage)', () => {
     makeVisible(div);
     document.body.appendChild(div);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'Verify', description: 'Has verify', verify: '.verify-target-el', pauseAfter: 0 }],
     });
@@ -1002,7 +1013,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('executeCurrentStep uses calcReadingTime when pauseAfter is not a number', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'Read', description: 'Short description.', pauseAfter: true }],
     });
@@ -1018,7 +1029,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('executeCurrentStep handles step with no action (highlight only)', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'NoAction', description: 'No action step', pauseAfter: 0 }],
     });
@@ -1033,7 +1044,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('executeCurrentStep logs warning when preAction throws', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'BadPre', description: 'Pre throws', pauseAfter: 0,
@@ -1052,7 +1063,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('executeCurrentStep logs warning when action throws', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'BadAction', description: 'Action throws', pauseAfter: 0,
@@ -1078,7 +1089,7 @@ describe('useDemoHub (branch coverage)', () => {
       lastDomain: 'protocols',
       lastLesson: 'ws-workspace',
     }));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     expect(result.current.state.view).toBe('lessons');
     expect(result.current.state.selectedLesson?.id).toBe('ws-workspace');
   });
@@ -1090,14 +1101,14 @@ describe('useDemoHub (branch coverage)', () => {
       speed: 1,
       lastDomain: 'protocols',
     }));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     expect(result.current.state.view).toBe('lessons');
     expect(result.current.state.selectedLesson).toBeNull();
   });
 
   it('exitLiveDemo handles cleanup rejection gracefully', async () => {
     const cleanup = vi.fn().mockRejectedValue(new Error('cleanup boom'));
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ cleanup });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -1114,7 +1125,7 @@ describe('useDemoHub (branch coverage)', () => {
     makeVisible(textarea);
     document.body.appendChild(textarea);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'FillTA', description: 'Fill textarea', pauseAfter: 0,
@@ -1141,7 +1152,7 @@ describe('useDemoHub (branch coverage)', () => {
     select.appendChild(opt);
     document.body.appendChild(select);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietSel', description: 'Quiet select', pauseAfter: 0,
@@ -1177,7 +1188,7 @@ describe('useDemoHub (branch coverage)', () => {
       return original(proto as object, prop as PropertyKey);
     });
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'QuietSelNoSet', description: 'No setter', pauseAfter: 0,
@@ -1198,7 +1209,7 @@ describe('useDemoHub (branch coverage)', () => {
   it('toggleAutoPlay at last step runs cleanup setup and restarts from step 0', async () => {
     const cleanup = vi.fn().mockResolvedValue(undefined);
     const setup = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ cleanup, setup, initialTab: 'websocket-studio' });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -1226,7 +1237,7 @@ describe('useDemoHub (branch coverage)', () => {
     makeVisible(div);
     div.scrollIntoView = vi.fn();
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{ id: 's1', title: 'WaitRetry', description: 'Retry wait', highlight: '.wait-retry-el', pauseAfter: 0 }],
     });
@@ -1255,7 +1266,7 @@ describe('useDemoHub (branch coverage)', () => {
     const clickSpy = vi.spyOn(visible, 'click');
     document.body.appendChild(visible);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'Multi', description: 'Multi target', pauseAfter: 0,
@@ -1278,7 +1289,7 @@ describe('useDemoHub (branch coverage)', () => {
 
   it('closeHub runs live lesson cleanup when hub closed during live demo', async () => {
     const cleanup = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ cleanup });
     act(() => {
       result.current.openHub();
@@ -1298,7 +1309,7 @@ describe('useDemoHub (branch coverage)', () => {
   it('closeHub closes graphql demo workspace when concept view has graphql lesson', async () => {
     const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
     const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockResolvedValue(undefined);
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       id: 'gql-first-query',
       category: 'graphql',
@@ -1313,13 +1324,13 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('goBack from domains is a no-op on view state', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.goBack());
     expect(result.current.state.view).toBe('domains');
   });
 
   it('goToDomains resets to domain list and clears selected domain', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.selectDomain({
       id: 'protocols',
       name: 'Protocols',
@@ -1338,7 +1349,7 @@ describe('useDemoHub (branch coverage)', () => {
     const lessonPlatform = await import('./utils/lessonPlatform');
     const blockSpy = vi.spyOn(lessonPlatform, 'isLessonDesktopOnlyBlocked').mockReturnValue(true);
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ desktopOnly: true });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
@@ -1351,7 +1362,7 @@ describe('useDemoHub (branch coverage)', () => {
   it('runLiveLessonCleanup uses graphql workspace cleanup when lesson has no cleanup fn', async () => {
     const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
     const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockResolvedValue(undefined);
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       id: 'gql-vars',
       category: 'graphql',
@@ -1365,7 +1376,7 @@ describe('useDemoHub (branch coverage)', () => {
       await p;
     });
     act(() => result.current.goBack());
-    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
     expect(closeSpy).toHaveBeenCalledWith('gql-vars');
     closeSpy.mockRestore();
   });
@@ -1374,7 +1385,7 @@ describe('useDemoHub (branch coverage)', () => {
     const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
     const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockRejectedValue(new Error('gql cleanup fail'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       id: 'gql-sub',
       category: 'graphql',
@@ -1387,14 +1398,14 @@ describe('useDemoHub (branch coverage)', () => {
       await p;
     });
     act(() => result.current.goBack());
-    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
-    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] GQL demo workspace cleanup failed:', expect.any(Error));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] Lesson cleanup failed:', expect.any(Error));
     warnSpy.mockRestore();
     closeSpy.mockRestore();
   });
 
   it('confirmLessonComplete is safe when no lesson selected', () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.confirmLessonComplete());
     expect(result.current.progress.completedLessons).toEqual([]);
   });
@@ -1413,7 +1424,7 @@ describe('useDemoHub (branch coverage)', () => {
       return original(proto as object, prop as PropertyKey);
     });
 
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'SelNoSet', description: 'No setter', pauseAfter: 0,
@@ -1431,7 +1442,7 @@ describe('useDemoHub (branch coverage)', () => {
   });
 
   it('waitForElement returns false when aborted before element appears', async () => {
-    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({
       steps: [{
         id: 's1', title: 'AbortWait', description: 'Abort wait', pauseAfter: 0,
@@ -1440,10 +1451,9 @@ describe('useDemoHub (branch coverage)', () => {
     });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(300);
-      result.current.goToStep(0);
+      const p = result.current.startLiveDemo();
       await vi.advanceTimersByTimeAsync(8000);
+      await p;
     });
     expect(result.current.stepPhase).toBe('done');
   });

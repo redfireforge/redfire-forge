@@ -70,6 +70,17 @@ describe('authConfigToGraphqlAuth', () => {
     expect(authConfigToGraphqlAuth({ type: 'none' })).toBeNull();
     expect(authConfigToGraphqlAuth({ type: 'inherit' })).toBeNull();
   });
+
+  it('returns null for unknown auth config types', () => {
+    expect(authConfigToGraphqlAuth({ type: 'custom' } as never)).toBeNull();
+  });
+
+  it('defaults oauth2 optional fields to empty strings', () => {
+    expect(authConfigToGraphqlAuth({ type: 'oauth2' })).toEqual({
+      type: 'oauth2',
+      oauth2: { tokenUrl: '', clientId: '', clientSecret: '' },
+    });
+  });
 });
 
 describe('resolveEffectiveGqlAuth', () => {
@@ -92,6 +103,11 @@ describe('resolveEffectiveGqlAuth', () => {
     expect(
       resolveEffectiveGqlAuth({ type: 'inherit', globalProfileId: 'missing' }, profiles),
     ).toBeNull();
+  });
+
+  it('returns null for null/undefined auth', () => {
+    expect(resolveEffectiveGqlAuth(null, profiles)).toBeNull();
+    expect(resolveEffectiveGqlAuth(undefined, profiles)).toBeNull();
   });
 
   it('returns null when inherited profile has none/inherit auth', () => {
@@ -188,6 +204,29 @@ describe('describeResolvedGqlAuth', () => {
     expect(describeResolvedGqlAuth({ type: 'basic', username: '', password: 'p' }, profiles))
       .toContain('Username not set');
   });
+
+  it('masks short apiKey values and shows empty value placeholder', () => {
+    expect(
+      describeResolvedGqlAuth({ type: 'apiKey', headerName: 'X-Key', headerValue: 'short' }, profiles),
+    ).toContain('X-Key: ••••');
+    expect(
+      describeResolvedGqlAuth({ type: 'apiKey', headerName: 'X-Key', headerValue: '' }, profiles),
+    ).toContain('(empty value)');
+  });
+
+  it('masks basic credentials via safe btoa fallback for non-Latin1 usernames', () => {
+    const text = describeResolvedGqlAuth(
+      { type: 'basic', username: '用户', password: 'pw' },
+      profiles,
+    );
+    expect(text).toContain('Authorization: Basic ••••');
+  });
+
+  it('falls back to default for unknown GraphqlAuth type', () => {
+    expect(describeResolvedGqlAuth({ type: 'unknown' } as never, profiles)).toBe(
+      'No authentication headers will be added',
+    );
+  });
 });
 
 describe('describeAuthSentMetadata', () => {
@@ -255,6 +294,131 @@ describe('describeAuthSentMetadata', () => {
     const meta = describeAuthSentMetadata({ type: 'custom' }, 'tab', profiles);
     expect(meta.lines).toEqual([]);
   });
+
+  it('formats Basic authorization from request headers', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'basic', username: 'alice', password: 'secret' },
+      'page',
+      profiles,
+      { Authorization: 'Basic dXNlcjpwYXNz' },
+    );
+    expect(meta.lines[0]).toBe('Authorization: Basic ••••');
+  });
+
+  it('masks bare Bearer scheme without a token as generic Authorization', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'x' },
+      'page',
+      profiles,
+      { Authorization: 'Bearer' },
+    );
+    expect(meta.lines[0]).toBe('Authorization: ••••');
+  });
+
+  it('adds apiKey header line from request headers when not duplicated', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'apiKey', headerName: 'X-Api-Key', headerValue: 'secret-key-value' },
+      'profile',
+      profiles,
+      { 'X-Api-Key': 'secret-key-value' },
+    );
+    expect(meta.sourceLabel).toBe('from connection profile');
+    expect(meta.lines[0]).toContain('X-Api-Key:');
+    expect(meta.lines[0]).not.toContain('secret-key-value');
+  });
+
+  it('falls back to masked basic auth from stored credentials', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'basic', username: 'alice', password: 'secret' },
+      'tab',
+      profiles,
+    );
+    expect(meta.lines[0]).toBe('Authorization: Basic ••••');
+  });
+
+  it('falls back to apiKey preview with empty value when header name is set', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'apiKey', headerName: 'X-Key', headerValue: '' },
+      'page',
+      profiles,
+    );
+    expect(meta.lines[0]).toBe('X-Key: (empty value)');
+  });
+
+  it('falls back to masked bearer when stored token is whitespace-only', () => {
+    const meta = describeAuthSentMetadata({ type: 'bearer', token: '   ' }, 'page', profiles);
+    expect(meta.lines).toEqual([]);
+  });
+
+  it('falls back to inherited profile bearer when request headers omit auth', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'inherit', globalProfileId: 'prof1' },
+      'profile',
+      profiles,
+    );
+    expect(meta.lines[0]).toContain('Authorization: Bearer staging');
+    expect(meta.lines[0]).toContain('••••');
+  });
+
+  it('falls back to null for inherit profile with empty basic credentials', () => {
+    const weak: GlobalAuthProfile[] = [
+      { id: 'basic-empty', name: 'Empty Basic', auth: { type: 'basic', username: '  ', password: 'x' } },
+    ];
+    const meta = describeAuthSentMetadata(
+      { type: 'inherit', globalProfileId: 'basic-empty' },
+      'page',
+      weak,
+    );
+    expect(meta.lines).toEqual([]);
+  });
+
+  it('shows empty apiKey value from request headers', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'apiKey', headerName: 'X-Key', headerValue: '' },
+      'tab',
+      profiles,
+      { 'X-Key': '' },
+    );
+    expect(meta.lines[0]).toBe('X-Key: (empty value)');
+  });
+
+  it('skips apiKey header line when request omits the custom header', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'apiKey', headerName: 'X-Key', headerValue: 'secret' },
+      'tab',
+      profiles,
+      { Authorization: 'Bearer other-token-value' },
+    );
+    expect(meta.lines).toHaveLength(1);
+    expect(meta.lines[0]).toContain('Authorization: Bearer other-token');
+  });
+
+  it('returns no lines for oauth2 and empty bearer stored auth fallbacks', () => {
+    expect(
+      describeAuthSentMetadata(
+        { type: 'oauth2', oauth2: { tokenUrl: 'https://auth/token', clientId: 'c', clientSecret: 's' } },
+        'page',
+        profiles,
+      ).lines,
+    ).toEqual([]);
+    expect(describeAuthSentMetadata({ type: 'bearer', token: '' }, 'page', profiles).lines).toEqual([]);
+    expect(
+      describeAuthSentMetadata({ type: 'basic', username: '', password: 'pw' }, 'page', profiles).lines,
+    ).toEqual([]);
+    expect(
+      describeAuthSentMetadata({ type: 'apiKey', headerName: '  ', headerValue: 'v' }, 'page', profiles).lines,
+    ).toEqual([]);
+  });
+
+  it('masks non-bearer Authorization schemes generically', () => {
+    const meta = describeAuthSentMetadata(
+      { type: 'bearer', token: 'x' },
+      'page',
+      profiles,
+      { Authorization: 'Digest realm="api"' },
+    );
+    expect(meta.lines[0]).toMatch(/^Authorization: Digest realm.*••••$/);
+  });
 });
 
 describe('authSentSourceLabel', () => {
@@ -274,5 +438,12 @@ describe('inheritAuthProfileLabel', () => {
 
   it('returns null for non-inherit auth', () => {
     expect(inheritAuthProfileLabel({ type: 'bearer', token: 'x' }, profiles)).toBeNull();
+  });
+
+  it('returns null when inherit profile id is missing or unknown', () => {
+    expect(inheritAuthProfileLabel({ type: 'inherit' }, profiles)).toBeNull();
+    expect(
+      inheritAuthProfileLabel({ type: 'inherit', globalProfileId: 'missing' }, profiles),
+    ).toBeNull();
   });
 });
