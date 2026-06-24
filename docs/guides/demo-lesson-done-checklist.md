@@ -15,7 +15,9 @@ Authoring quality (delays, WHY copy, diagrams, step pacing) still follows `.curs
 **Goal:** The lesson works for a human watching it.
 
 - [ ] Demo Hub → open the lesson → **Restart**
-- [ ] Auto-play at **1×** through **all steps**; each action shows ripple; pauses feel readable
+- [ ] Auto-play at **1×** through **all steps**; each action shows ripple; pauses feel readable — **you can follow every important UI change without rewinding**
+- [ ] Spotlight ring matches what narration asks the viewer to watch on each step
+- [ ] **No modal/drawer left open** when advancing — main UI visible for the next step's spotlight
 - [ ] Final step: **`verify` selector** visible and matches narration
 - [ ] **Rapid Next** through 2–3 stateful steps: no hang, wrong tab, or blank panel
 
