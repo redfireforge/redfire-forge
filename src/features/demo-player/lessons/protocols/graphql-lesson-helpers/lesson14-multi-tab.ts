@@ -9,6 +9,7 @@ import {
   configureDemoTabEndpointOverride,
   configureDemoTabInheritPageDefault,
   ensureEditorMode,
+  ensureGqlDemoPageDefaultEndpoint,
   fillActiveTabEndpoint,
   fillGqlEditor,
   resetGqlLesson2SessionFlags,
@@ -117,7 +118,7 @@ export async function activateGqlTabByIndex(ctx: DemoActionContext, index: numbe
   const attr = `gql14-tab-${index}`;
   tab.setAttribute('data-lesson-target', attr);
   await ctx.click(`[data-lesson-target="${attr}"]`);
-  await ctx.delay(400);
+  await ctx.delay(800);
 }
 
 /**
@@ -130,7 +131,7 @@ export async function ensureGqlTabCount(ctx: DemoActionContext, n: number): Prom
     attempts++;
     await ctx.click(GQL.TAB_ADD_BTN);
     await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
-    await ctx.delay(500);
+    await ctx.delay(800);
     count = getDemoTabCount();
   }
 }
@@ -152,7 +153,7 @@ export async function introspectActiveTabQuiet(ctx: DemoActionContext): Promise<
   if (hasSchemaBadge()) return;
   await ctx.click(GQL.INTROSPECT_BTN);
   await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 15000);
-  await ctx.delay(600);
+  await ctx.delay(1200);
 }
 
 /**
@@ -163,7 +164,7 @@ export async function executeOnActiveTabQuiet(ctx: DemoActionContext, query: str
   await fillGqlEditor(ctx, query, { focus: false });
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(600);
+  await ctx.delay(1000);
 }
 
 // ── Lesson-specific guard helpers ────────────────────────────────────────────
@@ -189,7 +190,9 @@ export async function ensureLesson14Tab2Added(ctx: DemoActionContext): Promise<v
   await ensureGqlTabCount(ctx, 2);
   // Re-assert Tab 1 has no per-tab override once a second tab exists.
   await activateGqlTabByIndex(ctx, 0);
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
   await clearActiveTabEndpointOverride(ctx);
+  getDemoTabByIndex(1)?.setAttribute('data-lesson-target', 'gql14-tab-1');
   _lesson14Tab2Added = true;
 }
 
@@ -216,16 +219,25 @@ export async function ensureLesson14Tab2Executed(ctx: DemoActionContext): Promis
   _lesson14Tab2Executed = true;
 }
 
-/**
- * Guard: Switched back to Tab 1 so the viewer can observe Tab 1's independently
- * cached response.
- */
-export async function ensureLesson14SwitchedToTab1(ctx: DemoActionContext): Promise<void> {
+/** Visible tab-switch beat: pause on Tab 2 response, then switch to Tab 1 cache. */
+export async function demonstrateLesson14TabResponseSwitch(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14Tab2Executed(ctx);
-  if (_lesson14SwitchedToTab1) return;
+  await activateGqlTabByIndex(ctx, 1);
+  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ctx.delay(1500);
   await activateGqlTabByIndex(ctx, 0);
-  await ctx.delay(600);
+  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ctx.delay(1500);
   _lesson14SwitchedToTab1 = true;
+}
+
+/** Guard: switched to Tab 1 with Tab 2 response cached (used by later steps). */
+export async function ensureLesson14SwitchedToTab1(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14SwitchedToTab1) {
+    await activateGqlTabByIndex(ctx, 0);
+    return;
+  }
+  await demonstrateLesson14TabResponseSwitch(ctx);
 }
 
 function demoTabLabelText(index: number): string {
@@ -251,20 +263,20 @@ export async function renameDemoTabByIndex(
   const label = tab.querySelector<HTMLElement>('.gql-tab-label');
   if (label) {
     label.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await ctx.delay(500);
+    await ctx.delay(700);
   }
 
   const tabId = demoTabId(index);
   const renameSel = tabId ? GQL.tabRename(tabId) : GQL.TAB_RENAME_INPUT;
   await ctx.waitFor(renameSel, 5000);
-  await ctx.delay(400);
+  await ctx.delay(600);
 
   const input = document.querySelector<HTMLInputElement>(renameSel);
   if (input) {
     fillControlledInput(input, name);
-    await ctx.delay(400);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await ctx.delay(500);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await ctx.delay(700);
   }
 }
 
@@ -341,6 +353,36 @@ export async function ensureLesson14Tab2Bearer(ctx: DemoActionContext): Promise<
   await setActiveTabBearer(ctx, LESSON14_TAB2_BEARER_TOKEN);
 }
 
+/** Visible per-tab auth beat: No Auth on Staging, Bearer on Production, Metadata compare. */
+export async function demonstrateLesson14PerTabAuth(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14TabsRenamed(ctx);
+
+  await activateGqlTabByIndex(ctx, 0);
+  await selectNoAuthInPanel(ctx);
+  await ctx.delay(800);
+  await closeAuthPanelIfOpen(ctx);
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  await ctx.delay(1200);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+  await ctx.delay(1500);
+
+  await activateGqlTabByIndex(ctx, 1);
+  await selectAuthInPanel(ctx, 'bearer');
+  await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
+  await ctx.delay(800);
+  await closeAuthPanelIfOpen(ctx);
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  await ctx.delay(1200);
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
+  await ctx.delay(1500);
+
+  _lesson14PerTabAuthConfigured = true;
+}
+
 /**
  * Guard: both demo tabs share the same server but carry different per-tab auth
  * (Tab 1 No Auth, Tab 2 Bearer — Phase 6H).
@@ -355,11 +397,11 @@ async function saveCurrentTabAsProfile(ctx: DemoActionContext, name: string): Pr
   if (findProfileRowByName(name)) return;
   await ctx.click(GQL.PROFILE_BADGE);
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(600);
+  await ctx.delay(800);
   await ctx.fill(GQL.PROFILE_NAME_INPUT, name);
-  await ctx.delay(400);
+  await ctx.delay(500);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
-  await ctx.delay(700);
+  await ctx.delay(1200);
   await closeProfileModalIfOpen(ctx);
 }
 
@@ -368,32 +410,47 @@ async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): P
   if (!row) return;
   await ctx.click(GQL.PROFILE_BADGE);
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(400);
+  await ctx.delay(700);
   const loadBtn = row.querySelector<HTMLElement>('.gql-profile-btn--load');
   loadBtn?.click();
-  await ctx.delay(700);
+  await ctx.delay(1200);
   await closeProfileModalIfOpen(ctx);
 }
 
-async function ensureLesson14ProfilesSaved(ctx: DemoActionContext): Promise<void> {
+/**
+ * Visible profile save/load beat for the lesson (step 9 action).
+ * Saves Staging + Production profiles, reloads them, then opens the inherit banner.
+ */
+export async function demonstrateLesson14ProfileLinks(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14PerTabAuthConfigured(ctx);
-  await activateGqlTabByIndex(ctx, 0);
-  await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME);
+
+  if (!_lesson14ProfilesLinked) {
+    await activateGqlTabByIndex(ctx, 0);
+    await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME);
+    await activateGqlTabByIndex(ctx, 1);
+    await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+    await ctx.delay(1000);
+    await activateGqlTabByIndex(ctx, 0);
+    await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
+    await activateGqlTabByIndex(ctx, 1);
+    await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+    await ctx.delay(1000);
+    _lesson14ProfilesLinked = true;
+  }
+
   await activateGqlTabByIndex(ctx, 1);
-  await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  await closeAuthPanelIfOpen(ctx);
+  await openAuthPanelQuiet(ctx);
+  await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
+  await ctx.delay(1500);
 }
 
 /**
  * Link demo Tab 1 → Staging profile, Tab 2 → Production profile (Phase 6F / 7C).
  */
 export async function ensureLesson14TabProfileLinks(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14ProfilesSaved(ctx);
   if (_lesson14ProfilesLinked) return;
-  await activateGqlTabByIndex(ctx, 0);
-  await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
-  await activateGqlTabByIndex(ctx, 1);
-  await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
-  _lesson14ProfilesLinked = true;
+  await demonstrateLesson14ProfileLinks(ctx);
 }
 
 /** Alias for plan §7C helper name. */
@@ -424,23 +481,41 @@ async function setActiveTabPolling(ctx: DemoActionContext, enabled: boolean): Pr
   const isOn = toggle?.getAttribute('aria-checked') === 'true';
   if (isOn !== enabled) {
     await ctx.click(GQL.POLLING_TOGGLE);
-    await ctx.delay(500);
+    await ctx.delay(800);
   }
+}
+
+/**
+ * Visible polling beat: enable on Staging (Tab 1), confirm off on Production (Tab 2).
+ */
+export async function demonstrateLesson14TabPolling(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14TabProfileLinks(ctx);
+  if (_lesson14PollingConfigured) {
+    await activateGqlTabByIndex(ctx, 0);
+    await openPollingConfig(ctx);
+    await ctx.delay(1500);
+    return;
+  }
+
+  await activateGqlTabByIndex(ctx, 0);
+  await setActiveTabPolling(ctx, true);
+  await ctx.delay(1500);
+  await closePollingPopover(ctx);
+
+  await activateGqlTabByIndex(ctx, 1);
+  await openPollingConfig(ctx);
+  await ctx.delay(1200);
+  await closePollingPopover(ctx);
+
+  _lesson14PollingConfigured = true;
 }
 
 /**
  * Enable schema polling on demo Tab 1 only; Tab 2 inherits page default (off).
  */
 export async function ensureLesson14TabPolling(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14TabProfileLinks(ctx);
   if (_lesson14PollingConfigured) return;
-  await activateGqlTabByIndex(ctx, 0);
-  await setActiveTabPolling(ctx, true);
-  await closePollingPopover(ctx);
-  await activateGqlTabByIndex(ctx, 1);
-  await setActiveTabPolling(ctx, false);
-  await closePollingPopover(ctx);
-  _lesson14PollingConfigured = true;
+  await demonstrateLesson14TabPolling(ctx);
 }
 
 /** Alias for plan §7C helper name. */

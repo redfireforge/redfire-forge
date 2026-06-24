@@ -37,6 +37,10 @@ export const GQL = {
   tabProfileBadge:     (tabId: string) => `[data-testid="gql-tab-subtitle-${tabId}"]`,
   /** GQL-14 lesson spotlight: demo Tab 2 endpoint override badge (set in preAction). */
   LESSON14_TAB2_BADGE: '[data-lesson-target="gql14-tab2-badge"]',
+  /** GQL-14 lesson spotlight: demo Tab 1 workspace tab (set by activateGqlTabByIndex). */
+  LESSON14_TAB1: '[data-lesson-target="gql14-tab-0"]',
+  /** GQL-14 lesson spotlight: demo Tab 2 workspace tab (set when Tab 2 is added). */
+  LESSON14_TAB2: '[data-lesson-target="gql14-tab-1"]',
 
   // ── Editor ─────────────────────────────────────────────────────────────────
   EDITOR:              '[data-testid="gql-editor"]',

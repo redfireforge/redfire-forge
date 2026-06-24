@@ -10,6 +10,33 @@ These rules apply whenever creating or modifying lesson files under
 
 ---
 
+## Done checklist (merge gate) — 5 items only
+
+**Before marking a lesson task complete or merging lesson-only work**, complete the
+five-item checklist in [`docs/guides/demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md).
+
+That checklist replaces the old implicit bar (~30 checks): per-step unit tests on
+wrappers, concept/diagram assertions, and >90% coverage on thin lesson files.
+
+| Layer | Rule |
+|---|---|
+| **Sections 1–7, 9 below** | Authoring guidelines — how to write a *good* lesson |
+| **Done checklist (5 items)** | Merge gate — when the lesson is *shippable* |
+| **Lesson helpers + demo player core** | Full product test/coverage bar (not relaxed) |
+
+Copy into PR descriptions:
+
+```text
+Demo lesson checklist:
+[ ] 1 manual 1× run + rapid Next
+[ ] 2 E2E smoke
+[ ] 3 helper unit tests (if helpers changed)
+[ ] 4 selectors + demo tab
+[ ] 5 tsc + scoped vitest
+```
+
+---
+
 ## 1. Always Think in Human Reading Time
 
 Every visible sub-action inside a step `action()` needs a `ctx.delay()` pause sized
@@ -139,23 +166,25 @@ named constants in the `WS` / `SSE` / etc. namespace in `src/shared/selectors.ts
 
 ---
 
-## 8. Update Tests Atomically With the Lesson
+## 8. Tests for Lessons (Lightweight)
 
-When restructuring steps (adding, removing, or reordering), update **all** of the
-following in the test file in the same commit:
+When restructuring steps, keep **E2E smoke** and **helper tests** in sync — not
+exhaustive wrapper unit tests.
 
-- Step count assertion (`steps.length`)
-- Step IDs array assertion
-- `estimatedMinutes` assertion
-- Tests for any new steps
-- Tests for changed step behavior (e.g. new `ctx.click` call count)
+**Required when steps change:**
+- E2E spec walks the new step count (done checklist item 2)
+- Update `estimatedMinutes` if step count changed materially (section 9)
 
-Never leave stale assertions that pass only by coincidence. Each step should have at
-minimum:
-- One test for its `action()` verifying the key interaction (click / fill / select)
-- One test for its `verify` selector (if present)
-- One test for its `preAction` guard (if present), covering both the "guard triggers"
-  and "guard skips" branches
+**Required when helpers change:**
+- Unit tests for new/changed logic in `*-lesson-helpers/**`, `gql-demo-tab`, setup/cleanup, session flags
+- Happy path + guard/skip path for stateful helpers
+
+**Optional (do not block merge):**
+- Unit tests asserting concept body, diagram SVG, key-term counts
+- Per-step `action()` tests with mocked DOM for every step in the wrapper file
+- Step count / step ID assertions in wrapper tests unless they catch real regressions
+
+**If you keep wrapper smoke tests**, prefer one representative step action + setup/cleanup wired — not seven duplicated DOM fixtures.
 
 ---
 
@@ -172,16 +201,15 @@ Update the lesson card in the domain list too — it displays `estimatedMinutes`
 
 ---
 
-## 10. Visual Validation Is Mandatory Before Marking Done
+## 10. Visual Validation (Done Checklist Item 1)
 
-After any lesson change, perform a browser run-through before closing the task:
+Section 10 is folded into **done checklist item 1** — see
+[`docs/guides/demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md).
 
-1. Open Demo Hub → navigate to the lesson → **Restart**
-2. Play through **all modified steps** in auto-play at 1× speed
-3. Confirm each step's narration is visible, each action executes with ripple, and
-   each pause gives sufficient reading time
-4. Confirm the final result (card, badge, modal, etc.) appears as described
-5. Click **Next** rapidly through the same steps to confirm `preAction` guards
-   recover gracefully
+Minimum before marking done:
 
-Do **not** declare done until all 5 checks pass.
+1. Demo Hub → lesson → **Restart** → auto-play **all steps** at 1×
+2. Final `verify` outcome visible
+3. **Rapid Next** through stateful steps — `preAction` guards recover
+
+Do **not** declare a lesson done without that manual pass. E2E smoke (checklist item 2) is the automated counterpart.
