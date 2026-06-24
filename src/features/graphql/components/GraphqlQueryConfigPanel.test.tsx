@@ -1114,6 +1114,50 @@ describe('GraphqlQueryConfigPanel — undefined field ?? fallback branches', () 
 });
 
 describe('GraphqlQueryConfigPanel — tab count/error badge branches', () => {
+  it('shows operation count badge when endpoint and query are configured', () => {
+    const { container } = render(
+      <GraphqlQueryConfigPanel
+        data={{
+          label: 'Q',
+          endpoint: 'http://localhost:4010/graphql',
+          query: 'mutation { createOrder { id } }',
+          variables: '{}',
+          headers: [],
+          timeoutMs: 30000,
+          extractionRules: [],
+          outputBindings: [],
+        }}
+        nodeType="graphqlMutation"
+        onChange={vi.fn()}
+      />,
+    );
+    const operationTab = container.querySelector('.gql-wf-subtab.active')?.textContent ?? '';
+    expect(operationTab).toContain('Operation');
+    const tabBadges = container.querySelectorAll('.gql-wf-subtab-badge');
+    expect(Array.from(tabBadges).some((b) => b.textContent === '2')).toBe(true);
+  });
+
+  it('shows variables count badge when JSON has keys', () => {
+    const { container } = render(
+      <GraphqlQueryConfigPanel
+        data={{
+          label: 'Q',
+          endpoint: 'https://api.example.com/graphql',
+          query: 'query { user { id } }',
+          variables: '{"orderId": {{orderId}}, "qty": 1}',
+          headers: [],
+          timeoutMs: 30000,
+          extractionRules: [],
+          outputBindings: [],
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Variables/ }));
+    const tabBadges = container.querySelectorAll('.gql-wf-subtab-badge');
+    expect(Array.from(tabBadges).some((b) => b.textContent === '2')).toBe(true);
+  });
+
   it('shows headers count badge when headers have keys', () => {
     const { container } = render(
       <GraphqlQueryConfigPanel

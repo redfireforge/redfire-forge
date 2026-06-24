@@ -18,7 +18,8 @@ import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOp
 import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
-import { summarizeRequestFailure } from '../utils/workflowRunErrors';
+import { buildQuickTestFailureReport, filterQuickTestVariableSnapshot, isExecutableWorkflowNodeType } from '../utils/workflowRunErrors';
+import { collectWorkflowReferencedVariables } from '../utils/countWorkflowDesignerVariables';
 import type { RunProgress } from '../components/canvas/WorkflowToolbar';
 import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
 import type { WorkflowRunHistoryEntry } from './useWorkflowRunCache';
@@ -121,7 +122,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const failedStepLabel = useMemo(() => {
     if (lastRunStatus !== 'fail') return null;
     for (const n of nodes) {
-      if (n.type === 'http' && nodeStatuses[n.id]?.state === 'fail') {
+      if (nodeStatuses[n.id]?.state === 'fail') {
         return (n.data as { label?: string }).label || null;
       }
     }
@@ -204,14 +205,9 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         }
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
-        const errorMsg = !passed
-          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
-          : null;
-        setLastRunError(errorMsg);
-        const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
-        setLastQuickTestRequestUrl(urlForDebug ?? null);
+        const failedResult = results.find((r) => !r.passed);
         const stepSummaries = nodesRef.current
-          .filter(n => runNodeStatuses[n.id] && (n.type === 'http' || n.type === 'subWorkflow'))
+          .filter(n => runNodeStatuses[n.id] && isExecutableWorkflowNodeType(n.type))
           .map(n => {
             const rs = runNodeStatuses[n.id];
             const base = {
@@ -234,12 +230,29 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
             }
             return base;
           });
+        const referencedVars = collectWorkflowReferencedVariables(wfNodes);
+        const failureVarSnap = filterQuickTestVariableSnapshot(
+          runVarSnap,
+          referencedVars,
+          liveWorkflowVariables,
+        );
+        const failureReport = !passed
+          ? buildQuickTestFailureReport(failedResult, stepSummaries, failureVarSnap, durationMs)
+          : null;
+        const errorMsg = failureReport?.summary ?? null;
+        setLastRunError(errorMsg);
+        const urlForDebug = failedResult?.url ?? results[results.length - 1]?.url;
+        setLastQuickTestRequestUrl(urlForDebug ?? null);
         pushRunHistory({
           timestamp: Date.now(),
           durationMs,
           passed,
           nodeStatuses: { ...runNodeStatuses },
-          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
+          variableSnapshot: !passed && failureVarSnap
+            ? { ...failureVarSnap }
+            : runVarSnap
+              ? { ...runVarSnap }
+              : null,
           stepsExecuted: results.length,
           stepSummaries,
           error: errorMsg,

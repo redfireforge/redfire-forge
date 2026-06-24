@@ -9,6 +9,7 @@
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { ensureKafkaConnected, kafkaCleanup } from '../setup-helpers';
+import { closeWfConsoleIfOpen, openWfConsoleIfClosed, collapseWfDemoAppSidebar, selectWorkflowFromAppSidebar, openWfNodeConfigModal } from '../wf-demo-helpers';
 import { WF, KAFKA } from '../../../../shared/selectors';
 
 // ── Seeded workflow factory ────────────────────────────────────────
@@ -84,24 +85,15 @@ async function kafkaWorkflowProduceSetup(ctx: DemoActionContext): Promise<void> 
   ctx.navigateToTab('workflow');
   await ctx.delay(900);
 
-  // Close console if open so it doesn't obstruct the canvas
-  const consolePanel = document.querySelector<HTMLElement>('.wf-console-panel');
-  if (consolePanel) {
-    const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-    if (badge) { badge.click(); await ctx.delay(300); }
-  }
+  await closeWfConsoleIfOpen(ctx);
 
   const fitBtn = document.querySelector('button[title="Fit view"]') as HTMLElement | null;
   if (fitBtn) { fitBtn.click(); await ctx.delay(400); }
+  await collapseWfDemoAppSidebar(ctx);
 }
 
 async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void> {
-  // Close console so it doesn't carry over into the next lesson
-  const consolePanel = document.querySelector<HTMLElement>('.wf-console-panel');
-  if (consolePanel) {
-    const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-    if (badge) { badge.click(); await ctx.delay(300); }
-  }
+  await closeWfConsoleIfOpen(ctx);
 
   const win = window as unknown as Record<string, unknown>;
   const wfDelete = win.__wfDeleteByName as ((name: string) => void) | undefined;
@@ -113,22 +105,12 @@ async function kafkaWorkflowProduceCleanup(ctx: DemoActionContext): Promise<void
 
 /** Select the "Kafka Produce Demo" workflow from the sidebar. */
 async function selectKafkaProduceDemoWorkflow(ctx: DemoActionContext): Promise<void> {
-  const items = Array.from(document.querySelectorAll('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item'));
-  const target = items.find((el) => el.textContent?.includes('Kafka Produce Demo')) as HTMLElement | undefined;
-  if (target) {
-    target.click();
-    await ctx.delay(500);
-  }
+  await selectWorkflowFromAppSidebar(ctx, 'Kafka Produce Demo');
 }
 
 /** Double-click the kafkaProduce node on the canvas to open its config modal. */
 async function openProduceNodeConfig(ctx: DemoActionContext): Promise<void> {
-  const node = document.querySelector<HTMLElement>(KAFKA.NODE_PRODUCE);
-  if (node) {
-    // Node config requires a double-click — single click only selects the node.
-    node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-    await ctx.delay(600);
-  }
+  await openWfNodeConfigModal(ctx, { nodeSelector: KAFKA.NODE_PRODUCE });
 }
 
 export const kafkaWorkflowProduceLesson: DemoLesson = {
@@ -285,25 +267,18 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       id: 'wp-open-console',
       title: 'Open the Console',
       description:
-        'The config panel is closed. Before running Quick Test, open the **Console** by clicking the Console badge in the status bar at the bottom. The Console must be open *before* execution so it captures the full log — opening it afterwards shows an empty panel.',
+        'The config panel is closed. Before running Quick Test, open the **Console** by clicking the Console badge in the status bar. It opens in **Floating** mode on the left of the canvas. The Console must be open *before* execution so it captures the full log — opening it afterwards shows an empty panel.',
       highlight: '.wf-console-badge',
       preAction: async (ctx) => {
         const footer = document.querySelector<HTMLElement>('.wf-config-modal-footer-actions');
         const closeBtn = footer?.querySelector<HTMLElement>('.btn-ghost');
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(800);
         }
       },
       action: async (ctx) => {
-        const panel = document.querySelector<HTMLElement>('.wf-console-panel');
-        if (!panel) {
-          const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-          if (badge) {
-            badge.click();
-            await ctx.delay(500);
-          }
-        }
+        await openWfConsoleIfClosed(ctx);
       },
     },
 
@@ -328,6 +303,10 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       description:
         'The **Console** now shows the execution log. For a produce node you\'ll see: cluster, topic, message key, partition, offset, and the `sentPartition` variable value. If the cluster isn\'t connected, the error is also shown here with a clear message.',
       highlight: '.wf-console-body',
+      action: async (ctx) => {
+        await ctx.delay(800);
+        await closeWfConsoleIfOpen(ctx);
+      },
     },
 
     // Step 10: Summary
@@ -337,13 +316,6 @@ These variables flow into subsequent nodes — e.g., a \`kafkaConsume\` node can
       description:
         'You now know how to: add a `kafkaProduce` node, configure it with `{{variable}}` topic and body templates, bind the output partition to a variable, and Quick Test the workflow. In the next lesson, you\'ll add `kafkaConsume` and `kafkaWait` nodes to complete the event-driven round-trip.',
       highlight: '.wf-canvas-area',
-      preAction: async (ctx) => {
-        const panel = document.querySelector<HTMLElement>('.wf-console-panel');
-        if (panel) {
-          const badge = document.querySelector<HTMLElement>('.wf-console-badge');
-          if (badge) { badge.click(); await ctx.delay(400); }
-        }
-      },
     },
   ],
 };

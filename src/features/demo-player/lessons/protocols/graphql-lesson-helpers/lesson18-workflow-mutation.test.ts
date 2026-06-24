@@ -288,7 +288,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
   });
 
-  it('openWfNodeConfigById falls back to dblclick when bridge missing', async () => {
+  it('openWfNodeConfigModal falls back to dblclick on data-id node when bridge missing', async () => {
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <div class="react-flow__node" data-id="${LESSON18_NODE_CREATE}"></div>
@@ -299,7 +299,7 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
         <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
       </div>
     `;
-    const node = document.querySelector<HTMLElement>('.react-flow__node')!;
+    const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${LESSON18_NODE_CREATE}"]`)!;
     const dispatchSpy = vi.spyOn(node, 'dispatchEvent');
     const ctx = makeCtx();
     await ensureLesson18WorkflowLoaded(ctx);

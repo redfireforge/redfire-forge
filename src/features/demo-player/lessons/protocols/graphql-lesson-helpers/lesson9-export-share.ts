@@ -52,6 +52,12 @@ export function resetGqlLesson9SessionFlags(): void {
   _lesson9CurlCopied = false;
 }
 
+async function dismissHistoryContextMenu(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.HISTORY_CONTEXT_MENU)) return;
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await ctx.delay(400);
+}
+
 async function openHistoryEntryContextMenu(ctx: DemoActionContext): Promise<void> {
   const entry = document.querySelector<HTMLElement>(GQL.HISTORY_ENTRY);
   if (entry) {
@@ -88,6 +94,7 @@ export async function ensureBuilderHealthAndUserSelected(ctx: DemoActionContext)
   const expandBtn = userRow?.querySelector<HTMLElement>('.gql-qb-expand-btn');
   if (expandBtn && !expandBtn.classList.contains('gql-qb-expand-btn--open')) {
     await quietDomClick(ctx, expandBtn);
+    await ctx.delay(600);
   }
   const userCheck = userRow?.querySelector<HTMLElement>('.gql-qb-check');
   const userSelected =
@@ -169,6 +176,7 @@ export async function copyHistoryAsCurl(ctx: DemoActionContext): Promise<void> {
   }
   await clickHistoryContextMenuItem(ctx, 'Copy as cURL');
   await ctx.delay(1500);
+  await dismissHistoryContextMenu(ctx);
   _lesson9CurlCopied = true;
 }
 

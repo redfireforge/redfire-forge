@@ -19,7 +19,7 @@ import InsertVarField from '../../workflow/components/expression/InsertVarField'
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
 import AvailableVariables from '../../workflow/components/expression/AvailableVariables';
 import GraphqlImportFromCollectionModal from './GraphqlImportFromCollectionModal';
-import { isValidIdentifier, computeQueryTabErrors } from '../utils/graphqlPanelHelpers';
+import { isValidIdentifier, computeQueryTabErrors, countOperationTabConfigured, countVariablesTabConfigured } from '../utils/graphqlPanelHelpers';
 import {
   getExtractionTestRoot,
   hasGraphqlRunData,
@@ -35,6 +35,7 @@ import {
   GqlWfFieldError,
   GqlWfCodeField,
   GqlWfCheckboxRow,
+  GqlWfTabStack,
   type GqlWfSubTab,
 } from './GraphqlWfConfigLayout';
 
@@ -495,8 +496,18 @@ export default function GraphqlQueryConfigPanel({
   });
 
   const TABS: GqlWfSubTab[] = [
-    { id: 'operation', label: 'Operation', errorDot: tabErrors.operation },
-    { id: 'variables', label: 'Variables', errorDot: tabErrors.variables },
+    {
+      id: 'operation',
+      label: 'Operation',
+      errorDot: tabErrors.operation,
+      count: countOperationTabConfigured(data) || undefined,
+    },
+    {
+      id: 'variables',
+      label: 'Variables',
+      errorDot: tabErrors.variables,
+      count: countVariablesTabConfigured(data.variables) || undefined,
+    },
     { id: 'headers', label: 'Headers', count: headers.filter((h) => h.key.trim()).length || undefined },
     { id: 'auth', label: 'Auth' },
     { id: 'extraction', label: 'Extraction', errorDot: tabErrors.extraction, count: extractionRules.length > 0 ? extractionRules.length : undefined },
@@ -521,92 +532,98 @@ export default function GraphqlQueryConfigPanel({
 
       <div className="wf-config-tab-content">
         {activeTab === 'operation' && (
-          <>
-            <GqlWfFormCard>
-              <GqlWfFormRow label="Endpoint URL">
-                <InsertVarField
-                  onRequestVariableInsert={onRequestVariableInsert}
-                  shortRef
-                  onInsert={(snippet) => update({ endpoint: `${data.endpoint ?? ''}${snippet}` })}
-                >
-                  <ExpressionInput
-                    value={data.endpoint ?? ''}
-                    onChange={(value) => update({ endpoint: value })}
-                    placeholder="https://api.example.com/graphql"
-                    variableHints={variableHints}
-                  />
-                </InsertVarField>
-                {!data.endpoint?.trim() && <GqlWfFieldError>Endpoint is required</GqlWfFieldError>}
-              </GqlWfFormRow>
-
-              <GqlWfCodeField
-                label={queryLabel}
-                value={data.query ?? ''}
-                onChange={(value) => update({ query: value })}
-                placeholder={isMutation ? 'mutation {\n  \n}' : 'query {\n  \n}'}
-                testId="gql-wf-query-editor"
-                toolbarHint="GraphQL operation"
-                toolbarAction={(
-                  <button
-                    type="button"
-                    className="btn btn-xs"
-                    title="Import from a saved GraphQL Studio collection"
-                    data-testid="gql-wf-import-collections-btn"
-                    onClick={() => setShowImportPicker(true)}
+          <GqlWfTabStack
+            main={(
+              <GqlWfFormCard>
+                <GqlWfFormRow label="Endpoint URL">
+                  <InsertVarField
+                    onRequestVariableInsert={onRequestVariableInsert}
+                    shortRef
+                    onInsert={(snippet) => update({ endpoint: `${data.endpoint ?? ''}${snippet}` })}
                   >
-                    Import…
-                  </button>
-                )}
-                error={!data.query?.trim() ? <GqlWfFieldError>{queryLabel} is required</GqlWfFieldError> : undefined}
-              />
+                    <ExpressionInput
+                      value={data.endpoint ?? ''}
+                      onChange={(value) => update({ endpoint: value })}
+                      placeholder="https://api.example.com/graphql"
+                      variableHints={variableHints}
+                      data-testid="gql-wf-endpoint-input"
+                    />
+                  </InsertVarField>
+                  {!data.endpoint?.trim() && <GqlWfFieldError>Endpoint is required</GqlWfFieldError>}
+                </GqlWfFormRow>
 
-              <GqlWfFormRow label="Timeout (ms)">
-                <input
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  value={data.timeoutMs ?? 30000}
-                  onChange={(e) => update({ timeoutMs: Number(e.target.value) })}
-                  data-testid="gql-wf-timeout-input"
+                <GqlWfCodeField
+                  label={queryLabel}
+                  value={data.query ?? ''}
+                  onChange={(value) => update({ query: value })}
+                  placeholder={isMutation ? 'mutation {\n  \n}' : 'query {\n  \n}'}
+                  testId="gql-wf-query-editor"
+                  rows={6}
+                  toolbarHint="GraphQL operation"
+                  toolbarAction={(
+                    <button
+                      type="button"
+                      className="btn btn-xs"
+                      title="Import from a saved GraphQL Studio collection"
+                      data-testid="gql-wf-import-collections-btn"
+                      onClick={() => setShowImportPicker(true)}
+                    >
+                      Import…
+                    </button>
+                  )}
+                  error={!data.query?.trim() ? <GqlWfFieldError>{queryLabel} is required</GqlWfFieldError> : undefined}
                 />
-              </GqlWfFormRow>
 
-              <GqlWfCheckboxRow
-                checked={data.skipTlsVerify ?? false}
-                onChange={(skipTlsVerify) => update({ skipTlsVerify })}
-                label="Skip TLS verify"
-                hint="Allow self-signed certificates (dev only)"
-                testId="gql-wf-skip-tls-checkbox"
-                last
-              />
-            </GqlWfFormCard>
-            <AvailableVariables hints={variableHints} />
-          </>
+                <GqlWfFormRow label="Timeout (ms)">
+                  <input
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={data.timeoutMs ?? 30000}
+                    onChange={(e) => update({ timeoutMs: Number(e.target.value) })}
+                    data-testid="gql-wf-timeout-input"
+                  />
+                </GqlWfFormRow>
+
+                <GqlWfCheckboxRow
+                  checked={data.skipTlsVerify ?? false}
+                  onChange={(skipTlsVerify) => update({ skipTlsVerify })}
+                  label="Skip TLS verify"
+                  hint="Allow self-signed certificates (dev only)"
+                  testId="gql-wf-skip-tls-checkbox"
+                  last
+                />
+              </GqlWfFormCard>
+            )}
+            footer={<AvailableVariables hints={variableHints} dock />}
+          />
         )}
 
         {activeTab === 'variables' && (
-          <>
-            <GqlWfFormCard>
-              <GqlWfFormRow label="Variables" stack last>
-                <div className="gql-wf-code-block">
-                  <div className="gql-wf-code-toolbar">
-                    <span className="gql-wf-code-toolbar-hint">JSON — {'{{var}}'} supported</span>
+          <GqlWfTabStack
+            main={(
+              <GqlWfFormCard>
+                <GqlWfFormRow label="Variables" stack last>
+                  <div className="gql-wf-code-block">
+                    <div className="gql-wf-code-toolbar">
+                      <span className="gql-wf-code-toolbar-hint">JSON — {'{{var}}'} supported</span>
+                    </div>
+                    <textarea
+                      className="gql-wf-code-editor"
+                      value={data.variables ?? '{}'}
+                      onChange={(e) => update({ variables: e.target.value })}
+                      placeholder="{}"
+                      rows={6}
+                      spellCheck={false}
+                      data-testid="gql-wf-variables-editor"
+                    />
                   </div>
-                  <textarea
-                    className="gql-wf-code-editor"
-                    value={data.variables ?? '{}'}
-                    onChange={(e) => update({ variables: e.target.value })}
-                    placeholder="{}"
-                    rows={6}
-                    spellCheck={false}
-                    data-testid="gql-wf-variables-editor"
-                  />
-                </div>
-                {tabErrors.variables && <GqlWfFieldError>Variables must be valid JSON</GqlWfFieldError>}
-              </GqlWfFormRow>
-            </GqlWfFormCard>
-            <AvailableVariables hints={variableHints} />
-          </>
+                  {tabErrors.variables && <GqlWfFieldError>Variables must be valid JSON</GqlWfFieldError>}
+                </GqlWfFormRow>
+              </GqlWfFormCard>
+            )}
+            footer={<AvailableVariables hints={variableHints} dock />}
+          />
         )}
 
         {activeTab === 'headers' && (

@@ -130,6 +130,11 @@ describe('connectionProfileStorage', () => {
       await expect(removeConnectionProfilesByNames(['missing'])).resolves.toBe(0);
       expect(writeKey).not.toHaveBeenCalled();
     });
+
+    it('returns 0 without reading storage when names are empty or whitespace', async () => {
+      await expect(removeConnectionProfilesByNames(['', '   '])).resolves.toBe(0);
+      expect(readKey).not.toHaveBeenCalled();
+    });
   });
 
   describe('dispatchGqlProfilesReload', () => {
@@ -139,6 +144,14 @@ describe('connectionProfileStorage', () => {
       dispatchGqlProfilesReload();
       expect(handler).toHaveBeenCalledTimes(1);
       window.removeEventListener(GQL_PROFILES_RELOAD_EVENT, handler);
+    });
+
+    it('no-ops when window is undefined', () => {
+      const savedWindow = globalThis.window;
+      // @ts-expect-error — simulate non-browser runtime
+      delete globalThis.window;
+      expect(() => dispatchGqlProfilesReload()).not.toThrow();
+      globalThis.window = savedWindow;
     });
   });
 });

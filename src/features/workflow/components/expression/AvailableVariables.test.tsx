@@ -37,6 +37,23 @@ describe('AvailableVariables', () => {
     expect(table).toBeTruthy();
     const rows = table!.querySelectorAll('tbody tr');
     expect(rows.length).toBe(3);
+    expect(container.querySelector('.wf-avail-vars-body')).toBeTruthy();
+  });
+
+  it('starts expanded when defaultOpen is true', () => {
+    const { container } = render(<AvailableVariables hints={sampleHints} defaultOpen />);
+    expect(container.querySelector('.wf-avail-vars-table')).toBeTruthy();
+    expect(container.querySelector('.wf-avail-vars--open')).toBeTruthy();
+    expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('dock layout stays collapsed by default and expands on click', () => {
+    const { container } = render(<AvailableVariables hints={sampleHints} dock />);
+    expect(container.querySelector('.wf-avail-vars--dock')).toBeTruthy();
+    expect(container.querySelector('.wf-avail-vars-table')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /available variables/i }));
+    expect(container.querySelector('.wf-avail-vars-table')).toBeTruthy();
+    expect(screen.getByText(/Scroll inside this panel to see all 3 variables/i)).toBeTruthy();
   });
 
   it('renders variable ref, type, and source columns', () => {

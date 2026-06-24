@@ -3,6 +3,21 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL, WF } from '../../../../../shared/selectors';
 import { GQL_DEMO_HTTP } from './core';
+import {
+  clickWfConfigAddRow,
+  clickWfConfigTab,
+  closeWfConfigModalIfOpen,
+  closeWfConsoleIfOpen,
+  collapseWfDemoAppSidebar,
+  ensureWfNodeConfigModalOpen,
+  fillWfConfigField,
+  isWfConfigTabActive,
+  openWfConsoleIfClosed,
+  pauseWfConfigSection,
+  saveAndCloseWfConfigModal,
+  selectWfConfigOption,
+  selectWorkflowFromAppSidebar,
+} from '../../wf-demo-helpers';
 
 export { GQL_DEMO_HTTP };
 
@@ -47,25 +62,23 @@ export const LESSON19_STOP_AFTER_SECS = '5';
 /** Collect all three status events (PENDING → PROCESSING → COMPLETE). */
 export const LESSON19_STOP_AFTER_MESSAGES = '3';
 
+type SubConfigTab = 'Subscription' | 'Stop' | 'Output';
+
 // ── Session flags ─────────────────────────────────────────────────────────────
 
 let _lesson19Loaded = false;
-let _lesson19MutationConfigured = false;
 let _lesson19SubscriptionConfigured = false;
 let _lesson19SubscriptionTimeout = false;
 let _lesson19SubscriptionCorrelation = false;
 let _lesson19SubscriptionOutput = false;
-let _lesson19AssertConfigured = false;
 let _lesson19QuickTestRun = false;
 
 export function resetGqlLesson19SessionFlags(): void {
   _lesson19Loaded = false;
-  _lesson19MutationConfigured = false;
   _lesson19SubscriptionConfigured = false;
   _lesson19SubscriptionTimeout = false;
   _lesson19SubscriptionCorrelation = false;
   _lesson19SubscriptionOutput = false;
-  _lesson19AssertConfigured = false;
   _lesson19QuickTestRun = false;
 }
 
@@ -93,14 +106,19 @@ export function isLesson19CreateNodeReady(): boolean {
   return !!(endpoint && query.includes('createOrder') && rules?.some((r) => r.variableName === LESSON19_ORDER_ID_VAR));
 }
 
-export function isLesson19SubNodeReady(): boolean {
+export function isLesson19SubQueryReady(): boolean {
   const data = lesson19NodeData(LESSON19_NODE_SUB);
   const endpoint = String(data?.endpoint ?? '').trim();
   const subQuery = String(data?.subscriptionQuery ?? '').trim();
+  const variables = String(data?.variables ?? '').trim();
+  return !!(endpoint && subQuery.includes('orderStatus') && variables.includes(`{{${LESSON19_ORDER_ID_VAR}}}`));
+}
+
+export function isLesson19SubNodeReady(): boolean {
+  const data = lesson19NodeData(LESSON19_NODE_SUB);
   const bindings = data?.outputBindings as Array<{ field?: string; variableName?: string; enabled?: boolean }> | undefined;
   return !!(
-    endpoint
-    && subQuery.includes('orderStatus')
+    isLesson19SubQueryReady()
     && data?.stopAfterMessages === Number(LESSON19_STOP_AFTER_MESSAGES)
     && data?.stopAfterMs === Number(LESSON19_STOP_AFTER_SECS) * 1000
     && bindings?.some((b) => b.field === 'lastMessage' && b.variableName === LESSON19_FINAL_STATUS_VAR && b.enabled !== false)
@@ -120,7 +138,7 @@ function isLesson19QuickTestPassVisible(): boolean {
 
 // ── Workflow factory ──────────────────────────────────────────────────────────
 
-/** Pre-wired: Start → createOrder → orderStatus subscription → assert → End (lesson-ready defaults). */
+/** Pre-wired canvas: mutation + assert ready; subscription stop/output filled during the lesson. */
 export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
   const now = Date.now();
   return {
@@ -166,16 +184,12 @@ export function createGqlOrderFlowDemoWorkflow(): Record<string, unknown> {
         data: {
           label: 'Watch Order Status',
           endpoint: GQL_DEMO_HTTP,
-          subscriptionQuery: LESSON19_SUBSCRIPTION_QUERY,
+          subscriptionQuery: '',
           variables: LESSON19_SUBSCRIPTION_VARS,
           headers: [],
           subscriptionTransport: 'auto',
-          stopAfterMs: Number(LESSON19_STOP_AFTER_SECS) * 1000,
-          stopAfterMessages: Number(LESSON19_STOP_AFTER_MESSAGES),
           extractionRules: [],
-          outputBindings: [
-            { field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true },
-          ],
+          outputBindings: [],
         },
       },
       {
@@ -231,69 +245,63 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
   }
 }
 
-async function openWfNodeConfigById(ctx: DemoActionContext, nodeId: string): Promise<void> {
-  const openConfig = (window as unknown as Record<string, unknown>).__wfOpenNodeConfig as
-    | ((id: string) => void)
-    | undefined;
-  if (openConfig) {
-    openConfig(nodeId);
-  } else {
-    const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nodeId}"]`);
-    node?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+/** Open the subscription node config on the tab the narration describes — without redundant close/reopen. */
+async function ensureLesson19SubConfigTabOpen(ctx: DemoActionContext, tab: SubConfigTab): Promise<void> {
+  await ensureLesson19WorkflowLoaded(ctx);
+  await ensureWfNodeConfigModalOpen(ctx, {
+    nodeId: LESSON19_NODE_SUB,
+    panelSelector: GQL.WF_SUBSCRIPTION_PANEL,
+  });
+  if (!isWfConfigTabActive(GQL.WF_SUBSCRIPTION_PANEL, tab)) {
+    await clickWfConfigTab(ctx, GQL.WF_SUBSCRIPTION_PANEL, tab);
   }
-  await ctx.delay(400);
-}
-
-async function clickWfConfigTab(
-  ctx: DemoActionContext,
-  panelSelector: string,
-  tabLabel: string,
-): Promise<void> {
-  const panel = document.querySelector(panelSelector);
-  const tab = Array.from(panel?.querySelectorAll<HTMLElement>('.wf-config-tab') ?? [])
-    .find((b) => b.textContent?.trim().startsWith(tabLabel));
-  if (tab) tab.click();
-  await ctx.delay(400);
-}
-
-async function saveWfConfigModal(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(WF.CFG_SAVE);
-  await ctx.delay(400);
-}
-
-async function closeWfConfigModalQuiet(ctx: DemoActionContext): Promise<void> {
-  const close = document.querySelector<HTMLElement>(WF.CFG_CLOSE);
-  if (close) {
-    close.click();
-    await ctx.delay(200);
-  }
-}
-
-async function fillNumericInput(selector: string, value: string): Promise<void> {
-  const input = document.querySelector<HTMLInputElement>(selector);
-  if (input) {
-    input.value = value;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  }
+  await ctx.delay(800);
 }
 
 export async function selectGqlOrderFlowDemoWorkflow(ctx: DemoActionContext): Promise<void> {
-  const items = Array.from(
-    document.querySelectorAll('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item'),
-  );
-  const target = items.find((el) => el.textContent?.includes(LESSON19_WF_NAME)) as HTMLElement | undefined;
-  if (target) {
-    target.click();
-    await ctx.delay(700);
-  }
+  await selectWorkflowFromAppSidebar(ctx, LESSON19_WF_NAME);
   _lesson19Loaded = true;
 }
 
-// ── Guard helpers ─────────────────────────────────────────────────────────────
+// ── Reading-phase spotlight prep (opens the panel the narration describes) ─────
+
+export async function prepareLesson19SubscriptionSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
+}
+
+export async function prepareLesson19StopTimeoutSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
+}
+
+export async function prepareLesson19StopMessagesSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
+}
+
+export async function prepareLesson19OutputSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Output');
+}
+
+export async function prepareLesson19QuickTestSpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19WorkflowLoaded(ctx);
+  await closeWfConfigModalIfOpen(ctx);
+  await openWfConsoleIfClosed(ctx);
+  await clickWfFitView(ctx);
+}
+
+export async function prepareLesson19SummarySpotlight(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19WorkflowLoaded(ctx);
+  await closeWfConfigModalIfOpen(ctx);
+  await closeWfConsoleIfOpen(ctx);
+  await clickWfFitView(ctx);
+}
+
+// ── Guard helpers (quiet state recovery) ──────────────────────────────────────
 
 export async function ensureLesson19WorkflowLoaded(ctx: DemoActionContext): Promise<void> {
-  if (_lesson19Loaded && document.querySelector(WF.CANVAS)) return;
+  if (_lesson19Loaded && document.querySelector(WF.CANVAS)) {
+    await collapseWfDemoAppSidebar(ctx);
+    return;
+  }
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissWorkflowOnboarding(ctx);
@@ -301,147 +309,48 @@ export async function ensureLesson19WorkflowLoaded(ctx: DemoActionContext): Prom
   await clickWfFitView(ctx);
 }
 
-export async function ensureLesson19MutationConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19WorkflowLoaded(ctx);
-  if (_lesson19MutationConfigured && isLesson19CreateNodeReady()) return;
+// ── Visible demo actions (always walk through UI — never skip on session flags) ─
 
-  await openWfNodeConfigById(ctx, LESSON19_NODE_CREATE);
-  await ctx.waitFor(GQL.WF_MUTATION_PANEL, 5000);
-  await ctx.fill(WF.WF_GQL_MUTATION_ENDPOINT, GQL_DEMO_HTTP);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_QUERY_EDITOR, LESSON19_CREATE_ORDER_MUTATION);
-  await ctx.delay(300);
-  await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
-  await ctx.fill(GQL.WF_VARIABLES_EDITOR, LESSON19_CREATE_ORDER_VARS);
-  await ctx.delay(300);
-  await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Extraction');
-  if (!document.querySelector(GQL.WF_EXTRACTION_JSONPATH)) {
-    await ctx.click(GQL.WF_EXTRACTION_ADD_BTN);
-    await ctx.delay(300);
-  }
-  await ctx.fill(GQL.WF_EXTRACTION_JSONPATH, LESSON19_ORDER_ID_JSONPATH);
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_EXTRACTION_VARNAME, LESSON19_ORDER_ID_VAR);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
-  _lesson19MutationConfigured = true;
-}
-
-export async function ensureLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19MutationConfigured(ctx);
-  const subEndpoint = String(lesson19NodeData(LESSON19_NODE_SUB)?.endpoint ?? '').trim();
-  const subQuery = String(lesson19NodeData(LESSON19_NODE_SUB)?.subscriptionQuery ?? '').trim();
-  if (_lesson19SubscriptionConfigured && subEndpoint && subQuery.includes('orderStatus')) return;
-
-  await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
-  await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
-  await ctx.fill(WF.WF_GQL_SUBSCRIPTION_ENDPOINT, GQL_DEMO_HTTP);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_SUBSCRIPTION_QUERY_EDITOR, LESSON19_SUBSCRIPTION_QUERY);
-  await ctx.delay(300);
-  await ctx.fill(GQL.WF_SUB_VARIABLES_EDITOR, LESSON19_SUBSCRIPTION_VARS);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+export async function performLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Subscription');
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  await fillWfConfigField(ctx, GQL.WF_SUBSCRIPTION_QUERY_EDITOR, LESSON19_SUBSCRIPTION_QUERY);
+  await fillWfConfigField(ctx, GQL.WF_SUB_VARIABLES_EDITOR, LESSON19_SUBSCRIPTION_VARS);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson19SubscriptionConfigured = true;
 }
 
-export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19SubscriptionConfigured(ctx);
-  const stopMs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMs;
-  if (_lesson19SubscriptionTimeout && stopMs === Number(LESSON19_STOP_AFTER_SECS) * 1000) return;
-
-  await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
-  await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
-  await clickWfConfigTab(ctx, GQL.WF_SUBSCRIPTION_PANEL, 'Stop');
-  await fillNumericInput(GQL.WF_STOP_SECS_INPUT, LESSON19_STOP_AFTER_SECS);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+export async function performLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
+  await fillWfConfigField(ctx, GQL.WF_STOP_SECS_INPUT, LESSON19_STOP_AFTER_SECS);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson19SubscriptionTimeout = true;
 }
 
-export async function ensureLesson19SubscriptionCorrelation(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19SubscriptionTimeout(ctx);
-  const stopMsgs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMessages;
-  if (_lesson19SubscriptionCorrelation && stopMsgs === Number(LESSON19_STOP_AFTER_MESSAGES)) return;
-
-  await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
-  await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
-  await clickWfConfigTab(ctx, GQL.WF_SUBSCRIPTION_PANEL, 'Stop');
-  await fillNumericInput(GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+export async function performLesson19SubscriptionCorrelation(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Stop');
+  await fillWfConfigField(ctx, GQL.WF_STOP_MESSAGES_INPUT, LESSON19_STOP_AFTER_MESSAGES);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson19SubscriptionCorrelation = true;
 }
 
-export async function ensureLesson19SubscriptionOutputBound(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19SubscriptionCorrelation(ctx);
-  if (_lesson19SubscriptionOutput && isLesson19SubNodeReady()) return;
-
-  await openWfNodeConfigById(ctx, LESSON19_NODE_SUB);
-  await ctx.waitFor(GQL.WF_SUBSCRIPTION_PANEL, 5000);
-  await clickWfConfigTab(ctx, GQL.WF_SUBSCRIPTION_PANEL, 'Output');
+export async function performLesson19SubscriptionOutputBound(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubConfigTabOpen(ctx, 'Output');
   if (!document.querySelector(GQL.WF_OUTPUT_FIELD_SELECT)) {
-    await ctx.click(GQL.WF_OUTPUT_ADD_BTN);
-    await ctx.delay(300);
+    await clickWfConfigAddRow(ctx, GQL.WF_OUTPUT_ADD_BTN, GQL.WF_OUTPUT_FIELD_SELECT);
   }
-  await ctx.selectOption(GQL.WF_OUTPUT_FIELD_SELECT, 'lastMessage');
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_OUTPUT_VARNAME, LESSON19_FINAL_STATUS_VAR);
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
+  await selectWfConfigOption(ctx, GQL.WF_OUTPUT_FIELD_SELECT, 'lastMessage');
+  await fillWfConfigField(ctx, GQL.WF_OUTPUT_VARNAME, LESSON19_FINAL_STATUS_VAR);
+  await pauseWfConfigSection(ctx);
+  await saveAndCloseWfConfigModal(ctx);
   _lesson19SubscriptionOutput = true;
 }
 
-export async function ensureLesson19AssertConfigured(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19SubscriptionOutputBound(ctx);
-  if (_lesson19AssertConfigured && isLesson19AssertNodeReady()) return;
-
-  await openWfNodeConfigById(ctx, LESSON19_NODE_ASSERT);
-  await ctx.waitFor(GQL.WF_ASSERT_PANEL, 5000);
-  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Source');
-  await ctx.fill(WF.WF_GQL_ASSERT_SOURCE, LESSON19_FINAL_STATUS_VAR);
-  await ctx.delay(300);
-  await clickWfConfigTab(ctx, GQL.WF_ASSERT_PANEL, 'Assertions');
-  if (!document.querySelector(GQL.WF_ASSERT_ROW)) {
-    await ctx.click(GQL.WF_ASSERT_ADD_BTN);
-    await ctx.delay(300);
-  }
-  await ctx.fill(GQL.WF_ASSERT_JSONPATH, '$.orderStatus.status');
-  await ctx.delay(200);
-  await ctx.selectOption(GQL.WF_ASSERT_OPERATOR, 'equals');
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_ASSERT_EXPECTED, 'COMPLETE');
-  await ctx.delay(200);
-  await ctx.fill(GQL.WF_ASSERT_DESCRIPTION, 'Order reached COMPLETE status');
-  await ctx.delay(300);
-  await saveWfConfigModal(ctx);
-  _lesson19AssertConfigured = true;
-}
-
-export async function ensureLesson19ConsoleOpen(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19AssertConfigured(ctx);
-  if (document.querySelector(WF.CONSOLE)) return;
-  const badge = document.querySelector<HTMLElement>(WF.CONSOLE_BADGE);
-  if (badge) {
-    badge.click();
-    await ctx.delay(500);
-  }
-}
-
-export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson19ConsoleOpen(ctx);
-  if (
-    _lesson19QuickTestRun
-    && isLesson19QuickTestPassVisible()
-    && isLesson19SubNodeReady()
-    && isLesson19AssertNodeReady()
-  ) {
-    return;
-  }
-
-  ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await clickWfFitView(ctx);
+export async function performLesson19QuickTestRun(ctx: DemoActionContext): Promise<void> {
+  await prepareLesson19QuickTestSpotlight(ctx);
   const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
   saveBtn?.click();
   await ctx.delay(300);
@@ -449,6 +358,40 @@ export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promis
   await ctx.waitFor(WF.EXEC_SUMMARY, 45000);
   await ctx.delay(800);
   _lesson19QuickTestRun = true;
+}
+
+// ── Quiet ensure wrappers (preAction recovery when user skips ahead) ──────────
+
+export async function ensureLesson19SubscriptionConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19WorkflowLoaded(ctx);
+  if (_lesson19SubscriptionConfigured && isLesson19SubQueryReady()) return;
+  await performLesson19SubscriptionConfigured(ctx);
+}
+
+export async function ensureLesson19SubscriptionTimeout(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubscriptionConfigured(ctx);
+  const stopMs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMs;
+  if (_lesson19SubscriptionTimeout && stopMs === Number(LESSON19_STOP_AFTER_SECS) * 1000) return;
+  await performLesson19SubscriptionTimeout(ctx);
+}
+
+export async function ensureLesson19SubscriptionCorrelation(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubscriptionTimeout(ctx);
+  const stopMsgs = lesson19NodeData(LESSON19_NODE_SUB)?.stopAfterMessages;
+  if (_lesson19SubscriptionCorrelation && stopMsgs === Number(LESSON19_STOP_AFTER_MESSAGES)) return;
+  await performLesson19SubscriptionCorrelation(ctx);
+}
+
+export async function ensureLesson19SubscriptionOutputBound(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubscriptionCorrelation(ctx);
+  if (_lesson19SubscriptionOutput && isLesson19SubNodeReady()) return;
+  await performLesson19SubscriptionOutputBound(ctx);
+}
+
+export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson19SubscriptionOutputBound(ctx);
+  if (_lesson19QuickTestRun && isLesson19QuickTestPassVisible() && isLesson19SubNodeReady()) return;
+  await performLesson19QuickTestRun(ctx);
 }
 
 export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext): Promise<void> {
@@ -467,7 +410,7 @@ export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext)
     wfInsert(createGqlOrderFlowDemoWorkflow());
     await ctx.delay(300);
   }
-  await closeWfConfigModalQuiet(ctx);
+  await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissWorkflowOnboarding(ctx);
@@ -476,7 +419,8 @@ export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext)
 }
 
 export async function gqlWorkflowSubscriptionLessonCleanup(ctx: DemoActionContext): Promise<void> {
-  await closeWfConfigModalQuiet(ctx);
+  await closeWfConfigModalIfOpen(ctx);
+  await closeWfConsoleIfOpen(ctx);
   const wfDelete = (window as unknown as Record<string, unknown>).__wfDeleteByName as
     | ((name: string) => void)
     | undefined;

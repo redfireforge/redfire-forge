@@ -680,10 +680,10 @@ export async function ensureTlsAuthExecuted(ctx: DemoActionContext): Promise<voi
   await ensureHealthQuery(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
+  await ctx.delay(800);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
-  await ctx.delay(600);
+  await ctx.delay(800);
   _gqltAuthExecuted = true;
 }
 

@@ -176,6 +176,14 @@ describe('useGraphqlConnectionSettings', () => {
     act(() => result.current.handleTlsCertsChange({ caCert: 'ca-pem' }));
     act(() => result.current.handleTlsCertsChange({ caCert: '' }));
     expect(result.current.tlsCaCert).toBeUndefined();
+
+    act(() => result.current.handleTlsCertsChange({
+      clientCert: 'client-pem',
+      clientKey: 'key-pem',
+    }));
+    act(() => result.current.handleTlsCertsChange({ clientCert: '', clientKey: '' }));
+    expect(result.current.tlsClientCert).toBeUndefined();
+    expect(result.current.tlsClientKey).toBeUndefined();
   });
 
   it('setEndpoint updates endpoint and persists', async () => {
@@ -366,6 +374,36 @@ describe('useGraphqlConnectionSettings', () => {
         await new Promise((r) => setTimeout(r, 0));
       });
       expect(result.current.auth).toEqual({ type: 'inherit', globalProfileId: 'prof-1' });
+    });
+
+    it('reloads endpoint from storage on GQL_PAGE_ENDPOINT_RELOAD_EVENT', async () => {
+      const { GQL_PAGE_ENDPOINT_RELOAD_EVENT: endpointEvent } = await import('../utils/gqlDemoWorkspace');
+      vi.mocked(readKey).mockImplementation(async (key) => {
+        if (key === 'gql_endpoint_v1') return 'https://restored.example.com/graphql';
+        return null;
+      });
+      const { result } = renderHook(() => useGraphqlConnectionSettings());
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+      act(() => result.current.setEndpoint('https://lesson-pollution.example.com/graphql'));
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(endpointEvent));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(result.current.endpoint).toBe('https://restored.example.com/graphql');
+    });
+
+    it('ignores endpoint reload when storage returns null', async () => {
+      const { GQL_PAGE_ENDPOINT_RELOAD_EVENT: endpointEvent } = await import('../utils/gqlDemoWorkspace');
+      const { result } = renderHook(() => useGraphqlConnectionSettings('https://initial.example.com/graphql'));
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      vi.mocked(readKey).mockResolvedValue(null);
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(endpointEvent));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(result.current.endpoint).toBe('https://initial.example.com/graphql');
     });
 
     it('restores TLS certs from loadTlsCerts when saved', async () => {

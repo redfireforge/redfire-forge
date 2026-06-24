@@ -26,8 +26,20 @@ import { resetGqlLesson10SessionFlags } from './lesson10-performance-tracing';
 import { resetGqlLesson11SessionFlags } from './lesson11-workflow-integration';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
+const LESSON12_BASELINE_LABEL = 'Prior release (demo)';
+
+async function closeDiffModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.DIFF_MODAL)) return;
+  const doneBtn = document.querySelector<HTMLElement>(GQL.DIFF_DONE);
+  if (doneBtn) {
+    doneBtn.click();
+    await ctx.delay(700);
+    _lesson12DiffOpen = false;
+  }
+}
+
 /** Label on the seeded prior-release snapshot (compare-to-current shows real diffs). */
-export const LESSON12_BASELINE_LABEL = 'Prior release (demo)';
+export { LESSON12_BASELINE_LABEL };
 
 /**
  * Older SDL variant for the Docker test server — extra `Query.users`, no `User.email`.
@@ -297,6 +309,7 @@ export async function ensureLesson12DiffExported(ctx: DemoActionContext): Promis
   await ctx.waitFor(GQL.DIFF_EXPORT_JSON, 5000);
   await ctx.click(GQL.DIFF_EXPORT_JSON);
   await ctx.delay(2000);
+  await closeDiffModalIfOpen(ctx);
   _lesson12Exported = true;
 }
 

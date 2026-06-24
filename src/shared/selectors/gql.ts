@@ -348,6 +348,7 @@ export const GQL = {
   DIFF_FILTER_DEPRECATED: '.gql-diff-filter--deprecated',
   DIFF_EXPORT_JSON:    '[data-testid="gql-diff-export-json"]',
   DIFF_EXPORT_HTML:    '[data-testid="gql-diff-export-html"]',
+  DIFF_DONE:           '[data-testid="gql-diff-done"]',
   DIFF_SDL_VIEW:       '[data-testid="gql-diff-sdl-view"]',
 
   // ── Mock Panel — Phase 3E ───────────────────────────────────────────────
@@ -439,6 +440,7 @@ export const GQL = {
   WF_ASSERT_EXPECTED:    '[data-testid="gql-wf-assert-expected"]',
   WF_ASSERT_ADD_BTN:     '[data-testid="gql-wf-assert-add-btn"]',
   WF_ASSERT_DESCRIPTION: '[data-testid="gql-wf-assert-description"]',
+  WF_ENDPOINT_INPUT:     '[data-testid="gql-wf-endpoint-input"]',
   WF_QUERY_EDITOR:       '[data-testid="gql-wf-query-editor"]',
   WF_VARIABLES_EDITOR:   '[data-testid="gql-wf-variables-editor"]',
   WF_EXTRACTION_ADD_BTN: '[data-testid="gql-wf-extraction-add-btn"]',

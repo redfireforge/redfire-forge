@@ -103,7 +103,7 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
-import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
 import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
 
@@ -461,6 +461,62 @@ describe('storage — feature groups / shared DS branches', () => {
     const fgs = await loadFeatureGroups();
     expect(fgs[0].scenarios![0].tests![0].dataSource).toEqual(ds);
     expect((fgs[0].scenarios![0].tests![0] as unknown as Record<string, unknown>)['dataTable']).toBeDefined();
+  });
+
+  it('loadFeatureGroups normalizes tests missing auth, body, validation, or headers', async () => {
+    localStorage.setItem(
+      'perf-test-v3-feature-groups',
+      JSON.stringify([
+        {
+          id: 'fg-norm',
+          name: 'Norm',
+          scenarios: [
+            {
+              id: 'sc',
+              name: 'S',
+              tests: [{ id: 't1', name: 'Bare', url: 'http://x', method: 'GET' }],
+            },
+          ],
+        },
+      ]),
+    );
+    const fgs = await loadFeatureGroups();
+    const test = fgs[0].scenarios![0].tests![0];
+    expect(test.auth).toBeDefined();
+    expect(test.validation).toBeDefined();
+    expect(test.headers).toBeDefined();
+    expect(test.body).toBeDefined();
+  });
+
+  it('writeKey rethrows non-quota localStorage errors', async () => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function () {
+      throw new Error('blocked');
+    };
+    try {
+      await expect(writeKey('perf-test-theme', 'dark')).rejects.toThrow('blocked');
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+  });
+
+  it('saveRunnerConfig warns and returns when quota persists after cleanup', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith('perf-test-runner-config')) {
+        throw new DOMException('quota exceeded', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await saveRunnerConfig({ concurrency: 1 }, 'quota-stuck');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Runner config save failed'));
+      expect(await loadRunnerConfig('quota-stuck')).toBeNull();
+    } finally {
+      Storage.prototype.setItem = original;
+      warnSpy.mockRestore();
+    }
   });
 
   it('saveSharedDataSources uses JSON when Tauri', async () => {

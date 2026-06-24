@@ -6,7 +6,7 @@ import { renderHook, act, render } from '@testing-library/react';
 import { useGraphqlStudioTabExecution } from './useGraphqlStudioTabExecution';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
-const layerMounts: Array<{ tabId: string; resolvedAuth: unknown }> = [];
+const layerMounts: Array<{ tabId: string; resolvedAuth: unknown; authSentSource: unknown }> = [];
 const handleFns = {
   execute: vi.fn(),
   cancel: vi.fn(),
@@ -17,17 +17,19 @@ vi.mock('../components/GqlTabExecutionLayer', () => ({
   GqlTabExecutionLayer: ({
     tabId,
     resolvedAuth,
+    authSentSource,
     onRegister,
     onUnregister: _onUnregister,
     onStateChange,
   }: {
     tabId: string;
     resolvedAuth?: unknown;
+    authSentSource?: unknown;
     onRegister: (id: string, handle: unknown) => void;
     onUnregister: (id: string) => void;
     onStateChange?: (id: string) => void;
   }) => {
-    layerMounts.push({ tabId, resolvedAuth });
+    layerMounts.push({ tabId, resolvedAuth, authSentSource });
     onRegister(tabId, {
       execute: handleFns.execute,
       cancel: handleFns.cancel,
@@ -132,9 +134,46 @@ describe('useGraphqlStudioTabExecution', () => {
     await act(async () => {});
 
     expect(layerMounts).toEqual([
-      { tabId: 'tab-1', resolvedAuth: { type: 'bearer', token: 'staging' } },
-      { tabId: 'tab-2', resolvedAuth: { type: 'bearer', token: 'prod' } },
+      { tabId: 'tab-1', resolvedAuth: { type: 'bearer', token: 'staging' }, authSentSource: 'profile' },
+      { tabId: 'tab-2', resolvedAuth: { type: 'bearer', token: 'prod' }, authSentSource: 'profile' },
     ]);
+  });
+
+  it('Phase 6F: passes authSentSource tab/profile/page to execution layers', async () => {
+    const profiles = [{
+      id: 'prof-1',
+      name: 'Linked',
+      endpoint: 'https://api.example.com/graphql',
+      auth: { type: 'bearer' as const, token: 'from-profile' },
+      createdAt: 1,
+    }];
+    const tabs = [
+      { ...makeTab('tab-override'), auth: null },
+      { ...makeTab('tab-linked'), connectionId: 'prof-1', endpoint: 'https://api.example.com/graphql' },
+      makeTab('tab-page'),
+    ];
+
+    const { result } = renderHook(() =>
+      useGraphqlStudioTabExecution({
+        tabs,
+        activeTabId: 'tab-override',
+        profiles,
+        pageDefaults: {
+          endpoint: 'https://default.example.com/graphql',
+          auth: { type: 'bearer', token: 'page-default' },
+          skipTlsVerify: false,
+          pollingEnabled: false,
+          pollingIntervalSeconds: 30,
+        },
+      }),
+    );
+
+    render(<>{result.current.executionLayers}</>);
+    await act(async () => {});
+
+    expect(layerMounts.find((m) => m.tabId === 'tab-override')?.authSentSource).toBe('tab');
+    expect(layerMounts.find((m) => m.tabId === 'tab-linked')?.authSentSource).toBe('profile');
+    expect(layerMounts.find((m) => m.tabId === 'tab-page')?.authSentSource).toBe('page');
   });
 
   it('Phase 6H: passes tab explicit null auth to execution layer (not page default)', async () => {
@@ -173,6 +212,39 @@ describe('useGraphqlStudioTabExecution', () => {
       type: 'bearer',
       token: 'prod',
     });
+  });
+
+  it('falls back to pageDefaults when resolved maps lack the tab entry', async () => {
+    const originalHas = Map.prototype.has;
+    const hasSpy = vi.spyOn(Map.prototype, 'has').mockImplementation(function (this: Map<unknown, unknown>, key) {
+      if (key === 'tab-fallback') return false;
+      return originalHas.call(this, key);
+    });
+
+    const tabs = [makeTab('tab-fallback')];
+    const { result } = renderHook(() =>
+      useGraphqlStudioTabExecution({
+        tabs,
+        activeTabId: 'tab-fallback',
+        pageDefaults: {
+          endpoint: 'https://default.example.com/graphql',
+          auth: { type: 'bearer', token: 'page-fallback' },
+          skipTlsVerify: false,
+          pollingEnabled: false,
+          pollingIntervalSeconds: 30,
+        },
+      }),
+    );
+
+    render(<>{result.current.executionLayers}</>);
+    await act(async () => {});
+
+    expect(layerMounts[0]).toEqual({
+      tabId: 'tab-fallback',
+      resolvedAuth: { type: 'bearer', token: 'page-fallback' },
+      authSentSource: 'page',
+    });
+    hasSpy.mockRestore();
   });
 
   it('forwards execute, cancel, cancelTab, and resolveDedupChoice to active handle', async () => {

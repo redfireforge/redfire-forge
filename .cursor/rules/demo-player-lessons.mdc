@@ -83,6 +83,25 @@ to relocate their eyes and recognize the change.
 | Save / submit — result card appears | `700ms` |
 | **Outcome the step is teaching** (badge, TLS indicator, history row) | `800–1200ms` |
 
+### Workflow node config modals — use shared helpers
+
+When a step opens or edits a **Workflow Designer node config modal**, do **not** hand-roll
+`dblclick` + `600ms` delays. Import from `wf-demo-helpers.ts`:
+
+- `openWfNodeConfigModal` — open + `modalOpen` pause (2000ms)
+- `waitForWfConfigPanel` — wait for panel root + `panelReady` (1200ms)
+- `fillWfConfigField` / `selectWfConfigOption` / `clickWfConfigControl` — interact + paced pause
+- `clickWfConfigTab` — tab switch + `tabSwitch` (1500ms)
+- `clickWfConfigAddRow` — + Add + wait for row + `afterSubFormOpen` (1300ms)
+- `pauseWfConfigSection` — between logical groups inside one modal (`sectionBreak` 1600ms)
+- `saveWfConfigModal` / `saveAndCloseWfConfigModal` — save pacing + optional close
+
+Timing constants live in `WF_CONFIG_DEMO_TIMING` — config modals are **slower** than
+canvas/palette actions so viewers can read tabs, labels, and filled values.
+
+When a step configures **multiple tabs or field groups** in one modal, call
+`pauseWfConfigSection(ctx)` between groups (Operation → Variables → Output, etc.).
+
 A step that runs 5 visible sub-actions in under 1 second total is **too fast** for a
 human viewer. When in doubt, **add more delay** — especially after the **payoff**
 (the green schema badge, the mTLS indicator, the cURL menu).
@@ -200,11 +219,32 @@ await ctx.fill(GQL.TLS_CA_CERT, pem);
 | TLS Configure | `GQL.TLS_CLOSE` or `GQL.TLS_SAVE` | `closeGqlTlsModal` in lesson-https-tls helpers |
 | Auth panel | switch to Variables tab | `closeAuthPanelQuiet` in core |
 | Env / Profile modal | Cancel or Close | lesson-specific preIntro / cleanup |
-| Workflow node config | Close in modal footer | `closeWfConfigModalQuiet` in workflow lesson helpers |
+| Workflow console panel | Console badge toggle | `openWfConsoleIfClosed` docks at **bottom** (not floating); `closeWfConsoleIfOpen` — close at step end before canvas-only steps |
+| Workflow node config | Close in modal footer | `closeWfConfigModalIfOpen` / `saveAndCloseWfConfigModal` in `wf-demo-helpers.ts` |
+| App Workflows sidebar | Collapse toggle (◀) | `collapseWfDemoAppSidebar` in `wf-demo-helpers.ts` — hide after create/select; expand only for + New / pick steps |
 | History / Collections drawer | activity tab toggle | setup/cleanup or next step preAction |
 
 Reuse existing `*Quiet` close helpers — do not copy-paste `querySelector?.remove()` in
 each lesson unless tests require DOM stubs.
+
+### Workflow Designer — collapse the app Workflows sidebar
+
+The **app-level Workflows list** (left of the Designer) steals horizontal space from
+the canvas and config modals. During Workflow Designer demos it must be **hidden**
+once the viewer no longer needs **+ New** or sidebar pick.
+
+| When | Action |
+|---|---|
+| Step teaches **+ New** or picking a workflow from the list | `expandWfDemoAppSidebar(ctx)` at step start |
+| After workflow is created or selected | `collapseWfDemoAppSidebar(ctx)` before canvas/palette/config beats |
+| Every later step `preAction` / guard skip path | Idempotent `collapseWfDemoAppSidebar(ctx)` — belt for rapid Next |
+
+Use `selectWorkflowFromAppSidebar(ctx, name)` in `wf-demo-helpers.ts` for seeded
+workflows — it expands, clicks the item, then collapses. The **Blocks palette**
+(inside the Designer) stays visible; only the app sidebar hides.
+
+`useDemoHub` expands the sidebar on lesson start/restart; lesson helpers collapse
+after create/select. `expandDemoAppSidebar()` runs again on demo exit/cleanup.
 
 ### Defensive belt: next step `preAction`
 

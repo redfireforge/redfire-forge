@@ -838,6 +838,38 @@ describe('useDemoHub (branch coverage)', () => {
     expect(result.current.state.view).toBe('domains');
   });
 
+  it('restoreStateFromProgress skips concept restore when lesson domain is unavailable', () => {
+    localStorage.setItem('redfire-demo-progress-v2', JSON.stringify({
+      completedLessons: [],
+      lessonSteps: {},
+      speed: 1,
+      lastView: 'concept',
+      lastLesson: 'definitely-not-a-real-lesson-id',
+    }));
+    const { result } = renderDemoHub(navigateToTab);
+    expect(result.current.state.view).toBe('domains');
+    expect(result.current.state.selectedLesson).toBeNull();
+  });
+
+  it('goToDomains clears pending auto-play timer when navigating home', async () => {
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'S1', description: 'A'.repeat(500) },
+        { id: 's2', title: 'S2', description: 'Next' },
+      ],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      void result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    act(() => result.current.toggleAutoPlay());
+    act(() => result.current.goToDomains());
+    expect(result.current.state.view).toBe('domains');
+    expect(result.current.state.isPlaying).toBe(false);
+  });
+
   // ─── showClickRipple animationend (line 610) ──────────────────
 
   it('showClickRipple removes ring element on animationend', async () => {
@@ -1456,5 +1488,213 @@ describe('useDemoHub (branch coverage)', () => {
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
+  });
+
+  it('logs GQL storage hygiene summary when ephemeral keys are purged on graphql lesson start', async () => {
+    const { purgeGqlDemoEphemeralStorage } = await import('./lessons/gql-demo-storage-cleanup');
+    vi.mocked(purgeGqlDemoEphemeralStorage).mockResolvedValue({
+      profilesRemoved: 2,
+      runnerConfigsRemoved: 1,
+      staleKeysRemoved: 3,
+      freedKB: 12,
+    });
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'gql-hygiene',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[DemoHub] GQL storage hygiene:'));
+    infoSpy.mockRestore();
+  });
+
+  it('warns when GQL storage hygiene fails during graphql lesson restart', async () => {
+    const { purgeGqlDemoEphemeralStorage } = await import('./lessons/gql-demo-storage-cleanup');
+    vi.mocked(purgeGqlDemoEphemeralStorage).mockRejectedValue(new Error('idb unavailable'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'gql-hygiene-fail',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    await act(async () => {
+      await result.current.restartDemo();
+    });
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] GQL storage hygiene failed:', expect.any(Error));
+    warnSpy.mockRestore();
+  });
+
+  it('runLiveLessonCleanup uses custom cleanup for graphql lesson when provided', async () => {
+    const cleanup = vi.fn(async () => {});
+    const gqlTabMod = await import('./lessons/protocols/graphql-lesson-helpers/gql-demo-tab');
+    const closeSpy = vi.spyOn(gqlTabMod, 'closeGqlDemoWorkspaceQuiet').mockResolvedValue(undefined);
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'gql-custom-cleanup',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+      cleanup,
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.goBack());
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(cleanup).toHaveBeenCalled();
+    expect(closeSpy).not.toHaveBeenCalled();
+    closeSpy.mockRestore();
+  });
+
+  it('warns when GQL demo environment cleanup fails on graphql lesson teardown', async () => {
+    const envMod = await import('./lessons/env-manager-lesson-helpers');
+    vi.mocked(envMod.cleanupGqlDemoLessonEnvironment).mockRejectedValueOnce(new Error('em cleanup fail'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'gql-em-fail',
+      category: 'graphql',
+      initialTab: 'graphql-studio',
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.goBack());
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] GQL demo environment cleanup failed:', expect.any(Error));
+    warnSpy.mockRestore();
+  });
+
+  it('nextStep during reading phase finishes current step before advancing', async () => {
+    const { result } = renderDemoHub(navigateToTab);
+    const actionFn = vi.fn();
+    const lesson = makeLesson({
+      steps: [
+        {
+          id: 's1',
+          title: 'S1',
+          description: 'A'.repeat(500),
+          action: actionFn,
+        },
+        { id: 's2', title: 'S2', description: 'Step 2' },
+      ],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      void result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(result.current.stepPhase).toBe('reading');
+    await act(async () => {
+      const p = result.current.nextStep();
+      await vi.advanceTimersByTimeAsync(3000);
+      await p;
+    });
+    expect(actionFn).toHaveBeenCalled();
+    expect(result.current.state.stepIndex).toBe(1);
+  });
+
+  it('pauseAutoPlay clears scheduled auto-advance timer when toggled off', async () => {
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'S1', description: 'Step 1' },
+        { id: 's2', title: 'S2', description: 'Step 2' },
+      ],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    expect(result.current.stepPhase).toBe('done');
+    act(() => result.current.toggleAutoPlay());
+    act(() => result.current.toggleAutoPlay());
+    expect(result.current.state.isPlaying).toBe(false);
+  });
+
+  it('runLiveLessonCleanup logs when non-graphql lesson cleanup rejects', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cleanup = vi.fn().mockRejectedValue(new Error('ws cleanup fail'));
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      domainId: 'protocols',
+      cleanup,
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.goBack());
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(cleanup).toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith('[DemoHub] Lesson cleanup failed:', expect.any(Error));
+    warnSpy.mockRestore();
+  });
+
+  it('pauseAutoPlay clears pending auto-play timer when toggled off during reading', async () => {
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      steps: [
+        { id: 's1', title: 'S1', description: 'A'.repeat(500) },
+        { id: 's2', title: 'S2', description: 'Next' },
+      ],
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      void result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(result.current.stepPhase).toBe('reading');
+
+    act(() => {
+      result.current.toggleAutoPlay();
+      result.current.toggleAutoPlay();
+    });
+
+    expect(result.current.state.isPlaying).toBe(false);
+  });
+
+  it('closeHub expands workflow sidebar for live workflow designer lesson', async () => {
+    const sidebarMod = await import('../../app/hooks/useDemoSidebarBridge');
+    const expandSpy = vi.spyOn(sidebarMod, 'expandDemoAppSidebar').mockImplementation(() => {});
+    const { result } = renderDemoHub(navigateToTab);
+    const lesson = makeLesson({
+      id: 'wf-designer',
+      initialTab: 'workflow',
+      category: 'workflow',
+    });
+    act(() => result.current.selectLesson(lesson));
+    await act(async () => {
+      const p = result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(8000);
+      await p;
+    });
+    act(() => result.current.closeHub());
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(expandSpy).toHaveBeenCalled();
+    expandSpy.mockRestore();
   });
 });

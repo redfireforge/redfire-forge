@@ -1,7 +1,7 @@
 import type { WorkflowRFNode } from './workflowNodeFactory';
-import type { Workflow, GraphqlQueryNodeData } from '../types/workflow';
+import type { Workflow } from '../types/workflow';
 
-/** Count unique workflow + per-http-step initial variable keys. */
+/** Count unique workflow-level defaults plus per-HTTP-step initial variable keys. */
 export function countWorkflowDesignerVariables(
   workflowVariables: Record<string, string>,
   nodes: WorkflowRFNode[],
@@ -12,16 +12,10 @@ export function countWorkflowDesignerVariables(
     if (n.type === 'http') {
       const iv = nodeInitialVars[n.id];
       if (iv) for (const k of Object.keys(iv)) s.add(k);
-    } else if (n.type === 'graphqlQuery' || n.type === 'graphqlMutation') {
-      // 5 standard outputs + one per extraction rule
-      const d = n.data as GraphqlQueryNodeData;
-      const count = 5 + (d.extractionRules?.length ?? 0);
-      for (let i = 0; i < count; i++) s.add(`__gql_${n.id}_${i}`);
-    } else if (n.type === 'graphqlSubscription' || n.type === 'graphqlIntrospect') {
-      // 5 standard outputs each
-      for (let i = 0; i < 5; i++) s.add(`__gql_${n.id}_${i}`);
     }
-    // graphqlAssert: count = 0 (consumes variables, produces none)
+    // GraphQL nodes bind runtime outputs via outputBindings / extractionRules — those
+    // names belong in workflow.variables when users need defaults; do not count internal
+    // hint slots (__gql_*) here or the toolbar badge disagrees with the Variables modal.
   }
   return s.size;
 }
@@ -34,7 +28,7 @@ const TEMPLATE_VAR_RE = /\{\{([a-zA-Z_][a-zA-Z0-9_.]*)\}\}/g;
  * Scan all node data fields for `{{varName}}` references and return unique names,
  * excluding node-scoped (`node:"..."`) and expression (`$...`) syntax.
  */
-function scanNodeReferences(nodes: Workflow['nodes']): Set<string> {
+export function collectWorkflowReferencedVariables(nodes: Workflow['nodes']): Set<string> {
   const found = new Set<string>();
   const scan = (val: unknown) => {
     if (typeof val === 'string') {
@@ -64,7 +58,7 @@ function scanNodeReferences(nodes: Workflow['nodes']): Set<string> {
  * its configured default when one exists, or blank when it hasn't been set yet.
  */
 export function buildInitialRunnerVariables(workflow: Pick<Workflow, 'variables' | 'nodes'>): Record<string, string> {
-  const referenced = scanNodeReferences(workflow.nodes);
+  const referenced = collectWorkflowReferencedVariables(workflow.nodes);
   const result: Record<string, string> = {};
   // Seed referenced vars with empty strings first
   for (const name of referenced) result[name] = '';

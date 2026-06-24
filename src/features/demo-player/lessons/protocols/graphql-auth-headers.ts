@@ -357,7 +357,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'apiKey');
         await ctx.fill(GQL.AUTH_APIKEY_NAME, LESSON6_API_KEY_HEADER);
-        await ctx.delay(300);
+        await ctx.delay(500);
         await ctx.fill(GQL.AUTH_APIKEY_VAL, LESSON6_API_KEY_TEMPLATE);
         await ctx.delay(700);
       },
@@ -392,7 +392,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'basic');
         await ctx.fill(GQL.AUTH_BASIC_USER, LESSON6_BASIC_USER);
-        await ctx.delay(300);
+        await ctx.delay(500);
         await ctx.fill(GQL.AUTH_BASIC_PASS, LESSON6_BASIC_PASS);
         await ctx.delay(700);
       },
@@ -427,9 +427,9 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'oauth2');
         await ctx.fill(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
-        await ctx.delay(300);
+        await ctx.delay(500);
         await ctx.fill(GQL.AUTH_OAUTH_CLIENT_ID, LESSON6_OAUTH_CLIENT_ID);
-        await ctx.delay(300);
+        await ctx.delay(500);
         await ctx.fill(GQL.AUTH_OAUTH_CLIENT_SECRET, LESSON6_OAUTH_CLIENT_SECRET);
         await ctx.delay(1200);
         await closeAuthPanelIfOpen(ctx);
@@ -487,9 +487,13 @@ With a **single tab**, auth edits update the **page-level default** — every ne
         await ctx.delay(400);
         await ctx.click(GQL.PROFILE_SAVE_BTN);
         await ctx.delay(800);
+        if (document.querySelector(GQL.PROFILE_MODAL)) {
+          await ctx.click(GQL.PROFILE_CLOSE_BTN);
+          await ctx.delay(700);
+        }
         markProfileDone();
       },
-      verify: GQL.PROFILE_MODAL,
+      verify: GQL.PROFILE_BADGE,
       pauseAfter: true,
     },
 
@@ -520,7 +524,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       preAction: prepareSubscriptionObserveReading,
       action: async (ctx) => {
         await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-        await ctx.delay(300);
+        await ctx.delay(800);
         await ctx.click(GQL.RV_TAB_METADATA);
         await ctx.waitFor(GQL.RV_REQUEST_HEADERS, 5000);
         await ctx.delay(800);

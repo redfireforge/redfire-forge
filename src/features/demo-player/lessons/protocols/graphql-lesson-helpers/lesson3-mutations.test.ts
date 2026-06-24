@@ -43,6 +43,8 @@ import {
   prepareGql3ObserveDeleteReading,
   prepareGql3IdempotencyExecReading,
   prepareGql3ObserveIdempotencyReading,
+  prepareGql3ObserveIntrospectReading,
+  prepareGql3IdempotencyReading,
   ensureCreateUserExecuted,
   ensureCreateOrderExecuted,
   ensureDeleteUserMutation,
@@ -54,6 +56,7 @@ import {
   parseCreatedUserIdFromResponse,
   getLesson3CreatedUserId,
   markCreateVarsSet,
+  markCreateMutationWritten,
   markOrderMutationWritten,
   markDeleteMutationWritten,
   shouldSkipOrderMutationFill,
@@ -924,6 +927,39 @@ describe('lesson3-mutations helpers', () => {
         '<pre data-testid="gql-response-body">{"data":{"createUser":{"name":"Carol"}}}</pre>';
       finalizeCreateUserExecution();
       expect(getLesson3CreatedUserId()).toBe('');
+    });
+
+    it('markCreateMutationWritten skips re-filling createUser mutation', async () => {
+      resetGqlLesson3SessionFlags();
+      buildGql3StudioDom();
+      stubMonacoEditor(GQL_CREATE_USER_MUTATION);
+      markCreateMutationWritten();
+      const ctx = makeCtx();
+      vi.mocked(ctx.fill).mockClear();
+      await ensureCreateUserMutation(ctx);
+      expect(ctx.fill).not.toHaveBeenCalled();
+    });
+
+    it('prepareGql3ObserveIntrospectReading introspects when schema badge is empty', async () => {
+      const ctx = makeCtx();
+      document.body.innerHTML = `
+        <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+        <button data-testid="gql-introspect-btn"></button>
+        <span data-testid="gql-schema-badge-ok">Schema loaded (0)</span>
+        <button data-testid="gql-right-tab-response"></button>
+        <pre data-testid="gql-response-body">{}</pre>`;
+      await prepareGql3ObserveIntrospectReading(ctx);
+      expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    });
+
+    it('prepareGql3IdempotencyReading delegates to exec reading helper', async () => {
+      const ctx = makeCtx();
+      document.body.innerHTML = `
+        <button data-testid="gql-execute-btn"></button>
+        <button data-testid="gql-right-tab-response"></button>
+        <pre data-testid="gql-response-body">{}</pre>`;
+      await prepareGql3IdempotencyReading(ctx);
+      expect(ctx.click).toHaveBeenCalled();
     });
   });
 });

@@ -4,10 +4,12 @@ import {
   countTypesFromSdl,
   filterSnapshotsByQuery,
   formatSnapshotDayHeader,
+  formatSnapshotDate,
   groupSnapshotsByDay,
   isGenericSnapshotLabel,
   resolveSnapshotTypesCount,
   snapshotDisplayTitle,
+  snapshotDisplaySubtitle,
 } from './changelogPanelUtils';
 import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
 
@@ -18,6 +20,11 @@ const SDL = `
 `;
 
 describe('changelogPanelUtils', () => {
+  it('countTypesFromSdl returns zero for empty SDL', () => {
+    expect(countTypesFromSdl('')).toBe(0);
+    expect(countTypesFromSdl('  \n  ')).toBe(0);
+  });
+
   it('countTypesFromSdl counts type definitions', () => {
     expect(countTypesFromSdl(SDL)).toBe(3);
   });
@@ -68,5 +75,57 @@ describe('changelogPanelUtils', () => {
     const groups = groupSnapshotsByDay(snaps);
     expect(groups.length).toBe(2);
     expect(formatSnapshotDayHeader(groups[0].dayKey)).toBe('Today');
+  });
+
+  it('formatSnapshotDayHeader shows Yesterday for prior day', () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toDateString();
+    expect(formatSnapshotDayHeader(yesterday)).toBe('Yesterday');
+  });
+
+  it('formatSnapshotDayHeader formats older days with weekday', () => {
+    expect(formatSnapshotDayHeader('Mon Jan 01 2024')).toMatch(/2024/);
+  });
+
+  it('snapshotDisplaySubtitle uses types only for generic labels', () => {
+    const snap = {
+      id: '1',
+      label: 'Snapshot',
+      capturedAt: Date.UTC(2026, 5, 22, 16, 31),
+      typesCount: 1,
+      sdl: SDL,
+      connectionId: 'c1',
+    } satisfies GraphqlSchemaSnapshot;
+    expect(snapshotDisplaySubtitle(snap)).toBe('1 type');
+  });
+
+  it('snapshotDisplaySubtitle includes date for custom labels', () => {
+    const snap = {
+      id: '1',
+      label: 'Release 2.0',
+      capturedAt: Date.UTC(2026, 5, 22, 16, 31),
+      typesCount: 2,
+      sdl: SDL,
+      connectionId: 'c1',
+    } satisfies GraphqlSchemaSnapshot;
+    expect(snapshotDisplaySubtitle(snap)).toContain('2 types');
+    expect(snapshotDisplaySubtitle(snap)).toContain(formatSnapshotDate(snap.capturedAt));
+  });
+
+  it('filterSnapshotsByQuery returns all when query is blank', () => {
+    const snaps = [
+      { id: '1', label: 'v1.0', capturedAt: Date.now(), typesCount: 1, sdl: SDL, connectionId: 'c1' },
+    ] satisfies GraphqlSchemaSnapshot[];
+    expect(filterSnapshotsByQuery(snaps, '   ')).toHaveLength(1);
+  });
+
+  it('groupSnapshotsByDay merges same-day snapshots into one bucket', () => {
+    const t = Date.now();
+    const snaps = [
+      { id: '1', capturedAt: t, typesCount: 1, sdl: SDL, connectionId: 'c1' },
+      { id: '2', capturedAt: t + 1000, typesCount: 1, sdl: SDL, connectionId: 'c1' },
+    ] satisfies GraphqlSchemaSnapshot[];
+    const groups = groupSnapshotsByDay(snaps);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items).toHaveLength(2);
   });
 });

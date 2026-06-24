@@ -4,7 +4,10 @@ import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
 import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
 import { type PanelMode, loadPanelMode, savePanelMode } from '../../../../shared/utils/panelMode';
-import { useFloatingPanel } from '../../../../shared/hooks/useFloatingPanel';
+import {
+  computeWorkflowConsoleDemoFloatLayout,
+  useFloatingPanel,
+} from '../../../../shared/hooks/useFloatingPanel';
 import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
 
 type LogLevel = 'all' | 'error' | 'info' | 'request';
@@ -69,6 +72,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   const [mode, setMode] = useState<PanelMode>(() => loadPanelMode(CONSOLE_MODE_KEY));
   const {
     dockedHeight, floatPos, floatSize,
+    setFloatPos, setFloatSize,
     onDockedResizeStart, onFloatDragStart, onFloatResizeStart, onRightEdgeResizeStart,
   } = useFloatingPanel({ defaultDockedHeight: 200, floatHeightRatio: 0.8 });
   const [viewMode, setViewMode] = useState<'log' | 'timeline'>('log');
@@ -116,6 +120,20 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
 
   // ── Mode actions ──
   const setAsDefault = (m: PanelMode) => savePanelMode(CONSOLE_MODE_KEY, m);
+
+  // Demo Player bridge — positions console floating on the left of the canvas.
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout = () => {
+      const layout = computeWorkflowConsoleDemoFloatLayout();
+      setFloatPos({ x: layout.x, y: layout.y });
+      setFloatSize({ w: layout.w, h: layout.h });
+      setMode('floating');
+      setAsDefault('floating');
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout;
+    };
+  }, [setFloatPos, setFloatSize]);
 
   // ── Search ──
   const matchIndices = useMemo(() => {

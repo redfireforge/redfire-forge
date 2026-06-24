@@ -14,13 +14,15 @@ import { useWorkflowResolvers } from './useWorkflowResolvers';
 import { useWorkflowExtractionSample } from './useWorkflowExtractionSample';
 import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
 import { getDetailModalProps, buildConfigModalWorkflowList } from '../utils/workflowDesignerUtils';
-import { countWorkflowDesignerVariables } from '../utils/countWorkflowDesignerVariables';
+import { buildQuickTestFailureReport, filterQuickTestVariableSnapshot } from '../utils/workflowRunErrors';
+import { collectWorkflowReferencedVariables, countWorkflowDesignerVariables } from '../utils/countWorkflowDesignerVariables';
 import { syncHttpNodeLabelsWithServices } from '../utils/syncHttpNodeLabelsWithServices';
 import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
 import type { WorkflowService } from '../types/workflow';
 import { useWorkflowDesignerInspectActions } from './useWorkflowDesignerInspectActions';
 import { useWorkflowPreviewReactFlowInit } from './useWorkflowPreviewReactFlowInit';
 import { useDemoWorkflowConfigModalBridge } from '../../../app/hooks/useDemoWorkflowConfigModalBridge';
+import { useDemoWorkflowCanvasBridge } from '../../../app/hooks/useDemoWorkflowCanvasBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
 /**
@@ -151,6 +153,7 @@ export function useWorkflowDesignerControllerPartB(
 
   const closeConfigModal = useCallback(() => setConfigModalNodeId(null), [setConfigModalNodeId]);
   useDemoWorkflowConfigModalBridge(closeConfigModal);
+  useDemoWorkflowCanvasBridge(nodes, handleUpdateNode);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {
@@ -252,8 +255,31 @@ export function useWorkflowDesignerControllerPartB(
   const handleReactFlowInit = useWorkflowPreviewReactFlowInit(previewWorkflow, selected, setLaidOutId);
 
   const detailModalDerived = useMemo(
-    () => getDetailModalProps(detailModal, stepDetailMeta, selectedNode?.type, lastRunError),
-    [detailModal, stepDetailMeta, selectedNode?.type, lastRunError],
+    () => {
+      const failureReport = lastRunStatus === 'fail' && runHistory[0]
+        ? buildQuickTestFailureReport(
+            undefined,
+            runHistory[0].stepSummaries,
+            filterQuickTestVariableSnapshot(
+              runHistory[0].variableSnapshot,
+              collectWorkflowReferencedVariables(
+                nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data })),
+              ),
+              workflowVariables,
+            ),
+            runHistory[0].durationMs,
+            runHistory[0].error,
+          )
+        : null;
+      return getDetailModalProps(
+        detailModal,
+        stepDetailMeta,
+        selectedNode?.type,
+        lastRunError,
+        failureReport,
+      );
+    },
+    [detailModal, stepDetailMeta, selectedNode?.type, lastRunError, lastRunStatus, runHistory, nodes, workflowVariables],
   );
 
   return {

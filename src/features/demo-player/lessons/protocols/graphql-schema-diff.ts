@@ -403,7 +403,7 @@ Schema diff reports in JSON format can be consumed by CI/CD pipelines — a pre-
       action: async (ctx) => {
         await ensureLesson12DiffExported(ctx);
       },
-      verify: GQL.DIFF_EXPORT_JSON,
+      verify: GQL.CHANGELOG_DIFF_BTN,
       pauseAfter: true,
     },
   ],

@@ -113,6 +113,7 @@ export default function GraphqlSubscriptionConfigPanel({
                     onChange={(value) => update({ endpoint: value })}
                     placeholder="https://api.example.com/graphql"
                     variableHints={variableHints}
+                    data-testid="gql-wf-endpoint-input"
                   />
                 </InsertVarField>
                 {!data.endpoint?.trim() && <GqlWfFieldError>Endpoint is required</GqlWfFieldError>}
@@ -164,7 +165,7 @@ export default function GraphqlSubscriptionConfigPanel({
                 )}
               </GqlWfFormRow>
             </GqlWfFormCard>
-            <AvailableVariables hints={variableHints} />
+            <AvailableVariables hints={variableHints} dock />
           </>
         )}
 
@@ -173,7 +174,7 @@ export default function GraphqlSubscriptionConfigPanel({
             <p className="gql-wf-section-intro gql-wf-section-intro--card">
               Define when this node stops collecting messages. All conditions are checked; the first met wins.
             </p>
-            <GqlWfFormRow label="After N messages">
+            <GqlWfFormRow label="After N messages" stack>
               <input
                 type="number"
                 min={0}
@@ -186,7 +187,7 @@ export default function GraphqlSubscriptionConfigPanel({
               <span className="gql-wf-inline-hint">0 = unlimited</span>
             </GqlWfFormRow>
 
-            <GqlWfFormRow label="After (seconds)">
+            <GqlWfFormRow label="After (seconds)" stack>
               <input
                 type="number"
                 min={0}
@@ -202,7 +203,7 @@ export default function GraphqlSubscriptionConfigPanel({
               <span className="gql-wf-inline-hint">Blank = no limit</span>
             </GqlWfFormRow>
 
-            <GqlWfFormRow label="Stop condition" last>
+            <GqlWfFormRow label="Stop condition" stack last>
               <ExpressionInput
                 value={data.stopCondition ?? ''}
                 onChange={(value) => update({ stopCondition: value || undefined })}
