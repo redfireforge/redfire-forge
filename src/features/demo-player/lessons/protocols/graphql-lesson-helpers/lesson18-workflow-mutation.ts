@@ -22,6 +22,7 @@ import {
   connectWorkflowNodes,
   deleteWorkflowByName,
   getWorkflowByName,
+  removeWorkflowEdge,
   seedNamedWorkflow,
 } from '../../../adapters';
 
@@ -82,6 +83,7 @@ let _lesson18QueryConfigured = false;
 let _lesson18AssertConfigured = false;
 let _lesson18QuickTestRun = false;
 let _lesson18DeleteAdded = false;
+let _lesson18FinalQuickTestRun = false;
 
 export function resetGqlLesson18SessionFlags(): void {
   _lesson18Loaded = false;
@@ -91,6 +93,7 @@ export function resetGqlLesson18SessionFlags(): void {
   _lesson18AssertConfigured = false;
   _lesson18QuickTestRun = false;
   _lesson18DeleteAdded = false;
+  _lesson18FinalQuickTestRun = false;
 }
 
 // ── Workflow factory ──────────────────────────────────────────────────────────
@@ -131,6 +134,41 @@ export function isLesson18AssertNodeReady(): boolean {
   const source = String(data?.sourceVariable ?? '').trim();
   const assertions = data?.assertions as Array<{ jsonPath?: string }> | undefined;
   return !!(source === LESSON18_FETCHED_USER_VAR && assertions?.some((a) => a.jsonPath === '$.user.name'));
+}
+
+export function isLesson18DeleteNodeReady(): boolean {
+  const data = lesson18NodeData(resolveLesson18DeleteNodeId());
+  const endpoint = String(data?.endpoint ?? '').trim();
+  const query = String(data?.query ?? '').trim();
+  const variables = String(data?.variables ?? '').trim();
+  return !!(endpoint && query.includes('deleteUser') && variables.includes(LESSON18_CREATED_USER_ID_VAR));
+}
+
+/** Resolve the teardown mutation node id (preset id or palette-added fallback). */
+export function resolveLesson18DeleteNodeId(
+  nodes: Lesson18NodeSnapshot[] | null = readLesson18WorkflowNodes(),
+): string {
+  if (nodes?.some((n) => n.id === LESSON18_NODE_DELETE)) {
+    return LESSON18_NODE_DELETE;
+  }
+  const extraMutation = [...(nodes ?? [])]
+    .reverse()
+    .find((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE);
+  if (extraMutation) return extraMutation.id;
+
+  const domExtra = [...document.querySelectorAll('.react-flow__node')].filter((el) => {
+    const id = el.getAttribute('data-id');
+    return id && id !== LESSON18_NODE_CREATE && el.querySelector(GQL.WF_CANVAS_MUTATION_NODE);
+  });
+  return domExtra.at(-1)?.getAttribute('data-id') ?? LESSON18_NODE_DELETE;
+}
+
+function isLesson18DeleteOnCanvas(): boolean {
+  const nodes = readLesson18WorkflowNodes();
+  if (nodes) {
+    return nodes.some((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE);
+  }
+  return !!document.querySelector(`[data-id="${LESSON18_NODE_DELETE}"]`);
 }
 
 function isLesson18QuickTestPassVisible(): boolean {
@@ -354,6 +392,26 @@ export async function ensureLesson18AssertConfigured(ctx: DemoActionContext): Pr
   _lesson18AssertConfigured = true;
 }
 
+/** Run Quick Test and wait for execution summary (optionally require pass strip). */
+async function runLesson18QuickTest(
+  ctx: DemoActionContext,
+  opts?: { requirePass?: boolean },
+): Promise<void> {
+  ctx.navigateToTab('workflow');
+  await ctx.delay(400);
+  await clickWfFitView(ctx);
+  const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
+  saveBtn?.click();
+  await ctx.delay(300);
+  await ctx.click(WF.QUICK_TEST_BTN);
+  if (opts?.requirePass) {
+    await ctx.waitFor('.wf-exec-strip-pass', 60000);
+  } else {
+    await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
+  }
+  await ctx.delay(800);
+}
+
 /** Run Quick Test and wait for execution summary. */
 export async function ensureLesson18QuickTestRun(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18AssertConfigured(ctx);
@@ -366,46 +424,58 @@ export async function ensureLesson18QuickTestRun(ctx: DemoActionContext): Promis
     return;
   }
 
-  ctx.navigateToTab('workflow');
-  await ctx.delay(400);
-  await clickWfFitView(ctx);
-  const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
-  saveBtn?.click();
-  await ctx.delay(300);
-  await ctx.click(WF.QUICK_TEST_BTN);
-  await ctx.waitFor(WF.EXEC_SUMMARY, 30000);
-  await ctx.delay(800);
+  await runLesson18QuickTest(ctx);
   _lesson18QuickTestRun = true;
 }
 
 /** Add deleteUser mutation node and rewire Assert → Delete → End. */
 export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Promise<void> {
   await ensureLesson18QuickTestRun(ctx);
-  if (_lesson18DeleteAdded && document.querySelector(`[data-id="${LESSON18_NODE_DELETE}"]`)) return;
 
-  if (addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 })) {
-    await ctx.delay(400);
-  } else {
-    const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_MUTATION);
-    pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-    await ctx.click(WF.PAL_GQL_MUTATION);
-    await ctx.delay(600);
+  if (
+    _lesson18DeleteAdded
+    && isLesson18DeleteOnCanvas()
+    && isLesson18DeleteNodeReady()
+    && _lesson18FinalQuickTestRun
+  ) {
+    return;
   }
 
-  connectWfNodesById(LESSON18_NODE_ASSERT, LESSON18_NODE_DELETE);
-  connectWfNodesById(LESSON18_NODE_DELETE, LESSON18_NODE_END);
+  if (!isLesson18DeleteOnCanvas()) {
+    if (addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 })) {
+      await ctx.delay(400);
+    } else {
+      const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_MUTATION);
+      pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      await ctx.click(WF.PAL_GQL_MUTATION);
+      await ctx.delay(600);
+    }
+  }
+
+  const deleteNodeId = resolveLesson18DeleteNodeId();
+
+  removeWorkflowEdge(LESSON18_NODE_ASSERT, LESSON18_NODE_END);
+  await ctx.delay(300);
+  connectWfNodesById(LESSON18_NODE_ASSERT, deleteNodeId);
+  connectWfNodesById(deleteNodeId, LESSON18_NODE_END);
   await ctx.delay(400);
 
-  await openWfNodeConfigModal(ctx, { nodeId: LESSON18_NODE_DELETE });
-  await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
-  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
-  await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
-  await pauseWfConfigSection(ctx);
-  await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
-  await fillWfConfigField(ctx, GQL.WF_VARIABLES_EDITOR, LESSON18_DELETE_VARS);
-  await pauseWfConfigSection(ctx);
-  await saveAndCloseWfConfigModal(ctx);
-  await clickWfFitView(ctx);
+  if (!isLesson18DeleteNodeReady()) {
+    await openWfNodeConfigModal(ctx, { nodeId: deleteNodeId });
+    await waitForWfConfigPanel(ctx, GQL.WF_MUTATION_PANEL);
+    await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+    await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
+    await pauseWfConfigSection(ctx);
+    await clickWfConfigTab(ctx, GQL.WF_MUTATION_PANEL, 'Variables');
+    await fillWfConfigField(ctx, GQL.WF_VARIABLES_EDITOR, LESSON18_DELETE_VARS);
+    await pauseWfConfigSection(ctx);
+    await saveAndCloseWfConfigModal(ctx);
+    await clickWfFitView(ctx);
+  }
+
+  await dismissWorkflowExecSummary(ctx);
+  await runLesson18QuickTest(ctx, { requirePass: true });
+  _lesson18FinalQuickTestRun = true;
   _lesson18DeleteAdded = true;
 }
 
@@ -414,10 +484,13 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
 export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson18SessionFlags();
   await dismissWorkflowExecSummary(ctx);
-  await seedNamedWorkflow(ctx, LESSON18_WF_NAME, createGqlMutationDemoWorkflow(), {
+  const seeded = await seedNamedWorkflow(ctx, LESSON18_WF_NAME, createGqlMutationDemoWorkflow(), {
     deleteDelayMs: 100,
     insertDelayMs: 300,
   });
+  if (!seeded) {
+    console.warn('[DemoHub] GQL-18 workflow seed incomplete —', LESSON18_WF_NAME);
+  }
   await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);

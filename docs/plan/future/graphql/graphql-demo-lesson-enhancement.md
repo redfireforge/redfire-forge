@@ -417,16 +417,16 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | GQL-1 | `gql-first-query` | 13 | ✅ | ✅ | ✅ `demo-gql-first-query` | ✅ **Complete** | ✅ |
 | GQL-2 | `gql-variables` | 18 | ✅ | ✅ | ✅ `demo-gql-variables` | ✅ **Complete** | ✅ |
 | GQL-3 | `gql-schema-exploration` | 10 | ✅ | ✅ | ✅ `demo-gql-schema-exploration` | ✅ **Complete** | ✅ |
-| GQL-4 | `gql-auth-headers` | **9** | ✅ | 🔨 audit | ✅ `demo-gql-auth-headers` full walk ✅ | 🔲 Pending | ✅ |
-| GQL-5 | `gql-https-tls` | **12** | ✅ | ✅ | ✅ `demo-gql-https-tls` | ✅ **Complete (7A+mTLS)** | ✅ |
-| GQL-6 | `gql-mutations` | **18** | ✅ | 🔨 audit | ✅ `demo-gql-mutations` | 🔲 Pending | ✅ |
-| GQL-7 | `gql-subscriptions` | 12 | ✅ | 🔨 audit | ✅ `demo-gql-subscriptions` | 🔲 Pending | ✅ |
-| GQL-8 | `gql-query-builder` | 10 | ✅ | 🔨 audit | ✅ `demo-gql-query-builder` | 🔲 Pending | ✅ |
-| GQL-9 | `gql-collections-history` | 8 | ✅ | 🔨 audit | ✅ `demo-gql-collections-history` | 🔲 Pending | ✅ |
-| GQL-10 | `gql-export-share` | 5 | ✅ | 🔨 audit | ✅ `demo-gql-export-share` | 🔲 Pending | ✅ |
-| GQL-11 | `gql-performance-tracing` | 8 | ✅ | 🔨 audit | — | 🔲 Pending | ✅ |
-| GQL-12 | `gql-schema-diff` | 7 | ✅ | 🔨 audit | — | 🔲 Pending | ✅ |
-| GQL-13 | `gql-mock-server` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-mock-server` | 🔲 Pending | ✅ |
+| GQL-4 | `gql-auth-headers` | **14** | ✅ | ✅ | ✅ `demo-gql-auth-headers` full walk ✅ | ✅ **Audit** | ✅ |
+| GQL-5 | `gql-https-tls` | **16** | ✅ | ✅ | ✅ `demo-gql-https-tls` | ✅ **Complete (7A+mTLS)** | ✅ |
+| GQL-6 | `gql-mutations` | **19** | ✅ | 🔨 audit | ✅ `demo-gql-mutations` | ✅ **Audit** | ✅ |
+| GQL-7 | `gql-subscriptions` | **14** | ✅ | 🔨 audit | ✅ `demo-gql-subscriptions` | ✅ **Audit** | ✅ |
+| GQL-8 | `gql-query-builder` | **10** | ✅ | 🔨 audit | ✅ `demo-gql-query-builder` | ✅ **Audit** | ✅ |
+| GQL-9 | `gql-collections-history` | **9** | ✅ | 🔨 audit | ✅ `demo-gql-collections-history` | ✅ **Audit** | ✅ |
+| GQL-10 | `gql-export-share` | **7** | ✅ | 🔨 audit | ✅ `demo-gql-export-share` | ✅ **Audit** | ✅ |
+| GQL-11 | `gql-performance-tracing` | **8** | ✅ | 🔨 audit | ✅ `demo-gql-performance-tracing` | ✅ **Audit** | ✅ |
+| GQL-12 | `gql-schema-diff` | **7** | ✅ | 🔨 audit | ✅ `demo-gql-schema-diff` | ✅ **Audit** | ✅ |
+| GQL-13 | `gql-mock-server` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-mock-server` | ✅ **Audit** | ✅ |
 | GQL-14 | `gql-multi-tab` | **10** | ✅ | ✅ | ✅ `demo-gql-multi-tab` | ✅ Authored | ✅ `tabBudget:2` |
 | GQL-15 | `gql-batch-execution` | **9** | ✅ | 🔨 audit | — | ✅ Authored | ✅ `tabBudget:2` |
 | GQL-16 | `gql-workflow-integration` | **11** | ✅ | 🔨 audit | ✅ `demo-gql-workflow-integration` | 🔲 Pending | N/A |

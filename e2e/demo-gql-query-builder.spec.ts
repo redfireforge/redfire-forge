@@ -64,8 +64,11 @@ test.describe('GQL-8 — full lesson (Docker)', () => {
 
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(GQL_HTTP);
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-testid="gql-mode-editor"]')).toHaveClass(/gql-mode-btn--active/);
-    await expect(page.locator('[data-testid="gql-editor"]')).toContainText(EDITOR_COMMENT);
+    // Final step switches to Builder to demonstrate one-way sync — not Editor mode.
+    await expect(page.locator('[data-testid="gql-mode-builder"]')).toHaveClass(/gql-mode-btn--active/);
+    const qbCode = page.locator('[data-testid="gql-qb-code"]');
+    await expect(qbCode).toBeVisible({ timeout: 15_000 });
+    await expect(qbCode).not.toContainText(EDITOR_COMMENT);
 
     await takeNamedScreenshot(page, 'gql8-query-builder-lesson-complete');
     await exitLesson(page);

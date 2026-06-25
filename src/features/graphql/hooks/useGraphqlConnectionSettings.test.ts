@@ -211,6 +211,20 @@ describe('useGraphqlConnectionSettings', () => {
     expect(writeKey).not.toHaveBeenCalledWith('gql_endpoint_v1', '{{graphqlUrl}}');
   });
 
+  it('does not overwrite a restored user endpoint with stale {{graphqlUrl}} after demo teardown', async () => {
+    vi.mocked(loadDemoSession).mockResolvedValue(null);
+    vi.mocked(readKey).mockImplementation(async (key: string) => {
+      if (key === 'gql_endpoint_v1') return 'https://user-custom.example.com/graphql';
+      return null;
+    });
+    const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    vi.mocked(writeKey).mockClear();
+    act(() => result.current.setEndpoint('{{graphqlUrl}}'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(writeKey).not.toHaveBeenCalledWith('gql_endpoint_v1', '{{graphqlUrl}}');
+  });
+
   it('setEndpoint syncs historyConnectionId', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });

@@ -8,6 +8,9 @@ import {
   LESSON18_WF_NAME,
   LESSON18_NODE_CREATE,
   LESSON18_NODE_DELETE,
+  LESSON18_DELETE_MUTATION,
+  LESSON18_DELETE_VARS,
+  GQL_DEMO_HTTP,
   createGqlMutationDemoWorkflow,
   resetGqlLesson18SessionFlags,
   gqlWorkflowMutationLessonSetup,
@@ -18,6 +21,8 @@ import {
   ensureLesson18AssertConfigured,
   ensureLesson18QuickTestRun,
   ensureLesson18DeleteNodeAdded,
+  resolveLesson18DeleteNodeId,
+  isLesson18DeleteNodeReady,
   selectGqlMutationDemoWorkflow,
 } from './lesson18-workflow-mutation';
 
@@ -239,42 +244,77 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
   });
 
-  it('ensureLesson18DeleteNodeAdded skips when delete node already in DOM', async () => {
+  it('resolveLesson18DeleteNodeId prefers preset id then extra mutation node', () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
+    expect(resolveLesson18DeleteNodeId(nodes)).toBe(LESSON18_NODE_DELETE);
+
+    nodes.push({
+      id: LESSON18_NODE_DELETE,
+      type: 'graphqlMutation',
+      data: { label: 'Delete User', query: LESSON18_DELETE_MUTATION },
+    });
+    expect(resolveLesson18DeleteNodeId(nodes)).toBe(LESSON18_NODE_DELETE);
+
+    nodes.push({
+      id: 'palette-delete',
+      type: 'graphqlMutation',
+      data: { label: 'Delete User', query: LESSON18_DELETE_MUTATION },
+    });
+    expect(resolveLesson18DeleteNodeId(nodes)).toBe(LESSON18_NODE_DELETE);
+
+    const withoutPreset = nodes.filter((n) => n.id !== LESSON18_NODE_DELETE);
+    expect(resolveLesson18DeleteNodeId(withoutPreset)).toBe('palette-delete');
+  });
+
+  it('isLesson18DeleteNodeReady reads delete node by resolved id', () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown> }>;
+    nodes.push({
+      id: 'palette-delete',
+      type: 'graphqlMutation',
+      data: {
+        endpoint: GQL_DEMO_HTTP,
+        query: LESSON18_DELETE_MUTATION,
+        variables: LESSON18_DELETE_VARS,
+      },
+    });
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => ({ ...wf, nodes });
+    expect(isLesson18DeleteNodeReady()).toBe(true);
+  });
+
+  it('ensureLesson18DeleteNodeAdded skips when delete node ready and final quick test already ran', async () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown>; position: { x: number; y: number } }>;
+    nodes.push({
+      id: LESSON18_NODE_DELETE,
+      type: 'graphqlMutation',
+      position: { x: 780, y: 280 },
+      data: {
+        label: 'Delete User',
+        endpoint: GQL_DEMO_HTTP,
+        query: LESSON18_DELETE_MUTATION,
+        variables: LESSON18_DELETE_VARS,
+      },
+    });
     document.body.innerHTML = `
       <div class="wf-canvas-area"></div>
       <div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>
-      <div data-testid="exec-summary"></div>
+      <div data-testid="exec-summary" class="wf-exec-strip wf-exec-strip-pass"></div>
       <button class="wf-quick-test-btn"></button>
-      <button class="wf-palette-block-graphqlMutation"></button>
-      <div data-testid="gql-wf-mutation-panel">
-        <button class="wf-config-tab">Variables</button>
-        <textarea data-testid="gql-wf-query-editor"></textarea>
-        <textarea data-testid="gql-wf-variables-editor"></textarea>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
-      </div>
-      <div data-testid="gql-wf-query-panel">
-        <button class="wf-config-tab">Output</button>
-        <select data-testid="gql-wf-output-field-select"></select>
-        <input data-testid="gql-wf-output-varname" />
-        <textarea data-testid="gql-wf-query-editor"></textarea>
-        <textarea data-testid="gql-wf-variables-editor"></textarea>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
-      </div>
-      <div data-testid="gql-wf-assert-panel">
-        <button class="wf-config-tab">Assertions</button>
-        <div data-testid="gql-wf-assert-row"></div>
-        <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
-      </div>
     `;
     const addNode = vi.fn();
     (window as unknown as Record<string, unknown>).__wfAddNode = addNode;
-    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? wf : null;
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson18DeleteNodeAdded(ctx);
     addNode.mockClear();
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson18DeleteNodeAdded(ctx);
     expect(addNode).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
   it('gqlWorkflowMutationLessonSetup runs without workflow bridges', async () => {

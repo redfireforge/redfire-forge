@@ -16,6 +16,16 @@ interface UseWorkflowEdgeOpsOpts {
   nodeStatuses: Record<string, NodeRunStatus>;
 }
 
+function toWorkflowEdges(edges: WorkflowRFEdge[]) {
+  return edges.map(e => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? undefined,
+    label: typeof e.label === 'string' ? e.label : undefined,
+  }));
+}
+
 export function useWorkflowEdgeOps({
   selected,
   nodes,
@@ -25,6 +35,13 @@ export function useWorkflowEdgeOps({
   undoRedo,
   nodeStatuses,
 }: UseWorkflowEdgeOpsOpts) {
+  const persistEdges = useCallback((updated: WorkflowRFEdge[]) => {
+    if (!selected) return;
+    const wfNodes = serializeNodes(nodes);
+    const wfEdges = toWorkflowEdges(updated);
+    queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
+  }, [selected, nodes, serializeNodes, update]);
+
   const onConnect: OnConnect = useCallback((params) => {
     undoRedo.takeSnapshot('Add connection');
     const newEdge: Edge = {
@@ -36,19 +53,22 @@ export function useWorkflowEdgeOps({
     };
     setEdges((eds) => {
       const updated = addEdge(newEdge, eds);
-      if (selected) {
-        const wfNodes = serializeNodes(nodes);
-        const wfEdges = updated.map(e => ({
-          id: e.id, source: e.source, target: e.target,
-          sourceHandle: e.sourceHandle ?? undefined,
-          label: typeof e.label === 'string' ? e.label : undefined,
-        }));
-        queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
-      }
+      persistEdges(updated);
       return updated;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setEdges, selected, nodes, serializeNodes, update]);
+  }, [setEdges, persistEdges]);
+
+  const removeEdgeBetween = useCallback((source: string, target: string) => {
+    undoRedo.takeSnapshot('Remove connection');
+    setEdges((eds) => {
+      const updated = eds.filter((e) => !(e.source === source && e.target === target));
+      if (updated.length !== eds.length) {
+        persistEdges(updated);
+      }
+      return updated;
+    });
+  }, [setEdges, persistEdges, undoRedo]);
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
@@ -61,19 +81,11 @@ export function useWorkflowEdgeOps({
           const label = sh === 'true' ? 'Yes' : sh === 'false' ? 'No' : undefined;
           return { ...e, label };
         });
-        if (selected) {
-          const wfNodes = serializeNodes(nodes);
-          const wfEdges = updated.map(e => ({
-            id: e.id, source: e.source, target: e.target,
-            sourceHandle: e.sourceHandle ?? undefined,
-            label: typeof e.label === 'string' ? e.label : undefined,
-          }));
-          queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
-        }
+        persistEdges(updated);
         return updated;
       });
     },
-    [setEdges, selected, nodes, serializeNodes, update, undoRedo],
+    [setEdges, persistEdges, undoRedo],
   );
 
   // Derive edge execution states from nodeStatuses
@@ -114,15 +126,22 @@ export function useWorkflowEdgeOps({
     }));
   }, [nodeStatuses, setEdges]);
 
-  // Expose a global helper for the demo player to create edges programmatically
+  // Expose global helpers for the demo player to wire edges programmatically
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__wfConnect = (
+    const win = window as unknown as Record<string, unknown>;
+    win.__wfConnect = (
       source: string, target: string,
       sourceHandle: string | null = null,
       targetHandle: string | null = null,
     ) => onConnect({ source, target, sourceHandle, targetHandle });
-    return () => { delete (window as unknown as Record<string, unknown>).__wfConnect; };
-  }, [onConnect]);
+    win.__wfRemoveEdge = (source: string, target: string) => {
+      removeEdgeBetween(source, target);
+    };
+    return () => {
+      delete win.__wfConnect;
+      delete win.__wfRemoveEdge;
+    };
+  }, [onConnect, removeEdgeBetween]);
 
-  return { onConnect, onReconnect } as const;
+  return { onConnect, onReconnect, removeEdgeBetween } as const;
 }

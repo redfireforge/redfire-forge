@@ -105,6 +105,12 @@ export function useGraphqlConnectionSettings(
         const normalized = normalizeGraphqlEndpoint(endpoint);
         const session = await loadDemoSession();
         if (session && normalized === '{{graphqlUrl}}') return;
+        // Demo teardown restores the user's endpoint in storage while React may
+        // still hold `{{graphqlUrl}}` briefly — do not overwrite the restore.
+        if (!session && normalized === '{{graphqlUrl}}') {
+          const saved = await readKey(ENDPOINT_STORAGE_KEY);
+          if (saved && saved !== '{{graphqlUrl}}') return;
+        }
         await writeKey(ENDPOINT_STORAGE_KEY, normalized);
         setHistoryConnectionId(endpoint || null);
       } catch { /* silent — quota / private mode */ }

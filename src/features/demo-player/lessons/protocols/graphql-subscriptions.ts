@@ -38,7 +38,7 @@ export const gqlSubscriptionsLesson: DemoLesson = {
   name: 'Subscriptions — Real-Time Data',
   description:
     'Subscribe to live GraphQL events over WebSocket, choose the transport protocol, watch the message log, pause and filter streams, add real-time assertions, and disconnect cleanly.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 7,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */

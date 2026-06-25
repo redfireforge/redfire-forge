@@ -37,6 +37,18 @@ describe('getAutoLayoutNodes', () => {
     expect(nodes[1].position).toEqual(origB);
   });
 
+  it('ignores orphan edges whose endpoints are missing from nodes', () => {
+    const nodes = [makeNode('a'), makeNode('b')];
+    const edges = [
+      makeEdge('e1', 'a', 'b'),
+      makeEdge('e2', 'a', 'ghost'),
+      makeEdge('e3', 'missing', 'b'),
+    ];
+    expect(() => getAutoLayoutNodes(nodes, edges, 'TB')).not.toThrow();
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+    expect(result).toHaveLength(2);
+  });
+
   it('positions parent above child in TB direction', () => {
     const nodes = [makeNode('parent'), makeNode('child')];
     const edges = [makeEdge('e1', 'parent', 'child')];

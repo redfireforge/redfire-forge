@@ -39,7 +39,7 @@ export const gqlMockServerLesson: DemoLesson = {
   name: 'Mock Server',
   description:
     'Enable the desktop GraphQL mock proxy, override `Query.health`, simulate latency, and restore the live Docker endpoint.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 8,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
