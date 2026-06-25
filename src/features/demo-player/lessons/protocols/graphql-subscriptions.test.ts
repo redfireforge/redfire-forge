@@ -52,7 +52,7 @@ describe('gql-subscriptions lesson', () => {
     expect(gqlSubscriptionsLesson.category).toBe('graphql');
     expect(gqlSubscriptionsLesson.name).toBe('Subscriptions — Real-Time Data');
     expect(gqlSubscriptionsLesson.steps.length).toBe(14);
-    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(6);
+    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(7);
     expect(gqlSubscriptionsLesson.initialTab).toBe('graphql-studio');
     expect(gqlSubscriptionsLesson.tabBudget).toBe(1);
   });

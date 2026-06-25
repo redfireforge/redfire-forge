@@ -155,13 +155,21 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
       await page.waitForTimeout(200);
     }
 
-    const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Per-Tab Schema Polling/i);
+    let { counter, title } = await getStepInfo(page);
+    // Rapid Next skips actions — land on step 9/10 until finishDemoStep runs step 10 preAction.
+    expect(counter).toMatch(/9\s*[/]\s*10/);
 
     // Last step: Next stays disabled — use finishDemoStep, not completeCurrentStepAction.
     await finishDemoStep(page, MUTATION_TIMEOUT);
-    await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeVisible({ timeout: 15_000 });
+    ({ counter, title } = await getStepInfo(page));
+    expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
+    expect(title).toMatch(/Per-Tab Schema Polling/i);
+    // Step action closes the popover — reopen to confirm polling UI is reachable.
+    const pollingBtn = page.locator(
+      '[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]',
+    ).first();
+    await pollingBtn.click({ force: true });
+    await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeVisible({ timeout: MUTATION_TIMEOUT });
     await takeNamedScreenshot(page, 'gql14-rapid-next-step10-recovery');
     await exitLesson(page);
   });

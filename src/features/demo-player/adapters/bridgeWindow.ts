@@ -22,6 +22,7 @@ export type DemoBridgeWindow = Window &
       sourceHandle?: string | null,
       targetHandle?: string | null,
     ) => void;
+    __wfRemoveEdge?: (sourceId: string, targetId: string) => void;
     __wfPatchNodeDataByType?: (nodeType: string, patch: Record<string, unknown>) => boolean;
     __wfAddNode?: {
       (type: string): string | undefined;

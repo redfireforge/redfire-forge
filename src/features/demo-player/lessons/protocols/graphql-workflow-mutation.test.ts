@@ -22,8 +22,11 @@ import {
   LESSON18_NODE_FETCH,
   LESSON18_NODE_ASSERT,
   LESSON18_NODE_DELETE,
+  LESSON18_NODE_END,
   GQL_DEMO_HTTP,
   isLesson18FetchNodeReady,
+  resolveLesson18DeleteNodeId,
+  isLesson18DeleteNodeReady,
   resetGqlLesson18SessionFlags,
   createGqlMutationDemoWorkflow,
   gqlWorkflowMutationLessonSetup,
@@ -352,8 +355,11 @@ describe('gql-workflow-mutation lesson', () => {
     const ctx = makeCtx();
     const deleteSpy = vi.fn();
     const insertSpy = vi.fn();
-    (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
-    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
+    const win = window as unknown as Record<string, unknown>;
+    win.__wfDeleteByName = deleteSpy;
+    win.__wfInsertWorkflow = insertSpy;
+    win.__wfWorkflowsLoaded = true;
+    win.__wfGetWorkflowByName = vi.fn(() => null);
     document.body.innerHTML = buildWorkflowDom();
     await gqlWorkflowMutationLessonSetup(ctx);
     expect(deleteSpy).toHaveBeenCalledWith(LESSON18_WF_NAME);
@@ -383,11 +389,14 @@ describe('gql-workflow-mutation lesson', () => {
   it('ensureLesson18DeleteNodeAdded calls __wfAddNode and configures delete mutation', async () => {
     const ctx = makeCtx();
     const addSpy = vi.fn();
+    const removeEdgeSpy = vi.fn();
     stubNodeConfigBridge();
     (window as unknown as Record<string, unknown>).__wfAddNode = addSpy;
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div>${buildMutationPanelDom()}`;
+    (window as unknown as Record<string, unknown>).__wfRemoveEdge = removeEdgeSpy;
+    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-quick-test-btn"></button>${buildMutationPanelDom()}`;
     await ensureLesson18DeleteNodeAdded(ctx);
+    expect(removeEdgeSpy).toHaveBeenCalledWith(LESSON18_NODE_ASSERT, LESSON18_NODE_END);
     expect(addSpy).toHaveBeenCalledWith(
       'graphqlMutation',
       LESSON18_NODE_DELETE,
@@ -425,6 +434,19 @@ describe('gql-workflow-mutation lesson', () => {
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
       name === LESSON18_WF_NAME ? wf : null;
     expect(isLesson18FetchNodeReady()).toBe(true);
+  });
+
+  it('resolveLesson18DeleteNodeId returns preset delete node when seeded', () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string }>;
+    nodes.push({ id: LESSON18_NODE_DELETE, type: 'graphqlMutation' });
+    expect(resolveLesson18DeleteNodeId(nodes as never)).toBe(LESSON18_NODE_DELETE);
+  });
+
+  it('isLesson18DeleteNodeReady is false until delete mutation is configured', () => {
+    const wf = createGqlMutationDemoWorkflow();
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
+    expect(isLesson18DeleteNodeReady()).toBe(false);
   });
 
   it('LESSON18 constants define create and read-back operations', () => {
@@ -510,6 +532,7 @@ describe('gql-workflow-mutation lesson', () => {
 function stubNodeConfigBridge(openSpy = vi.fn()): void {
   (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
   (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
+  (window as unknown as Record<string, unknown>).__wfRemoveEdge = vi.fn();
 }
 
 function buildWorkflowDom(): string {

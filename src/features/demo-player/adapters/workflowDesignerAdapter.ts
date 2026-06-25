@@ -92,6 +92,13 @@ export function connectWorkflowNodes(
   return true;
 }
 
+export function removeWorkflowEdge(sourceId: string, targetId: string): boolean {
+  const bridge = getDemoBridgeWindow().__wfRemoveEdge;
+  if (!bridge) return false;
+  bridge(sourceId, targetId);
+  return true;
+}
+
 export function patchWorkflowNodeDataByType(
   nodeType: string,
   patch: Record<string, unknown>,

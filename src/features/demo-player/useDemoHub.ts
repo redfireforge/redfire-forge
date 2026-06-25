@@ -20,8 +20,12 @@ import { cleanupGqlDemoLessonEnvironment } from './lessons/env-manager-lesson-he
 import { isWorkflowDesignerLesson } from './utils/workflowLessonUi';
 import {
   closeWorkflowConfigModal,
+  dispatchGqlPageEndpointReload,
   expandAppSidebar,
   isGraphqlStudioLesson,
+  loadDemoPriorPageEndpointBackup,
+  loadDemoSession,
+  restorePageEndpointSnapshot,
 } from './adapters';
 
 async function runGqlDemoStorageHygiene(): Promise<void> {
@@ -52,6 +56,11 @@ async function runGqlStudioLessonTeardown(
   lesson: DemoLesson,
   ctx: DemoActionContext,
 ): Promise<void> {
+  const sessionBefore = await loadDemoSession();
+  const endpointToRestore = sessionBefore?.priorPageEndpoint !== undefined
+    ? sessionBefore.priorPageEndpoint
+    : await loadDemoPriorPageEndpointBackup();
+
   try {
     if (lesson.cleanup) {
       await lesson.cleanup(ctx);
@@ -66,6 +75,16 @@ async function runGqlStudioLessonTeardown(
     await cleanupGqlDemoLessonEnvironment(ctx);
   } catch (e) {
     console.warn('[DemoHub] GQL demo environment cleanup failed:', e);
+  }
+  // Env cleanup can trigger a stale React persist of `{{graphqlUrl}}` after
+  // closeDemoWorkspace restored the user's page endpoint (§11.0 gql110).
+  if (endpointToRestore !== undefined) {
+    try {
+      await restorePageEndpointSnapshot(endpointToRestore);
+      dispatchGqlPageEndpointReload();
+    } catch (e) {
+      console.warn('[DemoHub] GQL page endpoint re-restore failed:', e);
+    }
   }
 }
 
