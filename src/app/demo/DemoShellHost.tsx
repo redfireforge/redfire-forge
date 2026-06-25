@@ -1,14 +1,12 @@
 import { useEffect, useLayoutEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import type { Environment, GlobalAuthProfile, Microservice } from '../../shared/types';
-import type { Workflow } from '../../features/workflow/types/workflow';
 import type { Tab } from '../utils/appTabUtils';
 import type { DemoHubApi } from './demoHubApi';
 import { syncDemoHubRuntimeRef, resetDemoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demoHubRuntimeRef';
 import { useDemoHub } from '../../features/demo-player/useDemoHub';
 import DemoHub from '../../features/demo-player/DemoHub';
 import { useDemoShortcuts } from '../hooks/useDemoShortcuts';
-import { useDemoWorkflowBridge } from '../hooks/useDemoWorkflowBridge';
 import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';
 import { useDemoAppEnvironmentCleanupBridge } from '../hooks/useDemoAppEnvironmentCleanupBridge';
@@ -20,9 +18,6 @@ export interface DemoShellHostProps {
   navigateToTab: (tab: string) => void;
   activeTab: Tab;
   setActiveTab: (tab: Tab) => void;
-  workflows: Workflow[];
-  removeWorkflow: (id: string) => void;
-  insertWorkflow?: (wf: Workflow) => void;
   setSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   setAppGlobalAuthProfiles: Dispatch<SetStateAction<GlobalAuthProfile[]>>;
   selectedEnvId: string;
@@ -38,9 +33,6 @@ export function DemoShellHost({
   navigateToTab,
   activeTab,
   setActiveTab,
-  workflows,
-  removeWorkflow,
-  insertWorkflow,
   setSidebarCollapsed,
   setAppGlobalAuthProfiles,
   selectedEnvId,
@@ -53,8 +45,7 @@ export function DemoShellHost({
   const demoHub = useDemoHub({ navigateToTab });
   const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
 
-  useDemoShortcuts(demoHub, activeTab, setActiveTab);
-  useDemoWorkflowBridge(workflows, removeWorkflow, insertWorkflow);
+  useDemoShortcuts(demoHub, activeTab, setActiveTab, demoHub.suppressLiveTabExitRef);
   useDemoSidebarBridge(setSidebarCollapsed);
   useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
   useDemoAppEnvironmentCleanupBridge({

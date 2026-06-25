@@ -10,6 +10,7 @@ describe('useDemoWorkflowBridge', () => {
     delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
+    delete (window as unknown as Record<string, unknown>).__wfSelectByName;
   });
 
   it('exposes __wfDeleteByName on window', () => {
@@ -88,5 +89,15 @@ describe('useDemoWorkflowBridge', () => {
     const get = (window as unknown as Record<string, (name: string) => typeof wf | null>).__wfGetWorkflowByName;
     expect(get('Demo WF')).toBe(wf);
     expect(get('Missing')).toBeNull();
+  });
+
+  it('__wfSelectByName selects workflow by exact name when select is provided', () => {
+    const wf = { id: 'wf-1', name: 'Demo WF' } as import('../../features/workflow/types/workflow').Workflow;
+    const select = vi.fn();
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), vi.fn(), select));
+    const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfSelectByName;
+    expect(fn('Demo WF')).toBe(true);
+    expect(select).toHaveBeenCalledWith('wf-1');
+    expect(fn('Missing')).toBe(false);
   });
 });

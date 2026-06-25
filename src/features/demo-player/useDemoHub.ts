@@ -153,6 +153,12 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
    * belongs to a previous session exits cleanly instead of overwriting state.
    */
   const autoPlayGenRef = useRef(0);
+  /**
+   * While true, useDemoShortcuts must not auto-exit live mode for tab mismatch.
+   * startLiveDemo sets this before navigateToTab + view:'live' so a one-frame
+   * stale activeTab (still demo-hub) cannot immediately call exitLiveDemo().
+   */
+  const suppressLiveTabExitRef = useRef(false);
   /** Mirrors isPlaying for async auto-play callbacks (state closures can be stale). */
   const isPlayingRef = useRef(false);
   /** Mirrors stepPhase so nextStep can finish a skipped reading phase reliably. */
@@ -518,30 +524,35 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     // Capture the generation counter so we can detect if exit/restart fires during setup.
     const gen = autoPlayGenRef.current;
 
-    // Navigate to the lesson's initial tab and wait for DOM
-    if (lesson.initialTab) navigateToTab(lesson.initialTab);
-    if (isWorkflowDesignerLesson(lesson)) {
-      expandAppSidebar();
+    // Guard tab-exit shortcut for the entire start sequence (navigate + setup).
+    suppressLiveTabExitRef.current = true;
+    try {
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
+      if (isWorkflowDesignerLesson(lesson)) {
+        expandAppSidebar();
+      }
+
+      setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
+
+      // Give React + DOM a tick to render the target tab before setup
+      await new Promise(r => setTimeout(r, 350));
+
+      // Run lesson setup (start servers, reset state, etc.) — quiet, no ripple
+      if (isGraphqlStudioLesson(lesson)) {
+        await runGqlDemoStorageHygiene();
+      }
+      if (lesson.setup) {
+        const ctx = buildQuietContext();
+        try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
+      }
+
+      // Guard: if exitLiveDemo / restartDemo was called during setup, bail out.
+      // exitLiveDemo and restartDemo both increment autoPlayGenRef so this is
+      // a safe "was exit triggered?" check even before executeCurrentStep starts.
+      if (autoPlayGenRef.current !== gen) return;
+    } finally {
+      suppressLiveTabExitRef.current = false;
     }
-
-    setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
-
-    // Give React + DOM a tick to render the target tab before setup
-    await new Promise(r => setTimeout(r, 350));
-
-    // Run lesson setup (start servers, reset state, etc.) — quiet, no ripple
-    if (isGraphqlStudioLesson(lesson)) {
-      await runGqlDemoStorageHygiene();
-    }
-    if (lesson.setup) {
-      const ctx = buildQuietContext();
-      try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
-    }
-
-    // Guard: if exitLiveDemo / restartDemo was called during setup, bail out.
-    // exitLiveDemo and restartDemo both increment autoPlayGenRef so this is
-    // a safe "was exit triggered?" check even before executeCurrentStep starts.
-    if (autoPlayGenRef.current !== gen) return;
 
     if (isMountedRef.current && lesson.steps[0]) {
       await executeCurrentStep(lesson.steps[0], state.speed);
@@ -701,19 +712,24 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     if (lesson.cleanup) {
       try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] cleanup failed:', e); }
     }
-    if (lesson.initialTab) navigateToTab(lesson.initialTab);
-    if (isWorkflowDesignerLesson(lesson)) {
-      expandAppSidebar();
+    suppressLiveTabExitRef.current = true;
+    try {
+      if (lesson.initialTab) navigateToTab(lesson.initialTab);
+      if (isWorkflowDesignerLesson(lesson)) {
+        expandAppSidebar();
+      }
+      await new Promise(r => setTimeout(r, 350));
+      if (isGraphqlStudioLesson(lesson)) {
+        await runGqlDemoStorageHygiene();
+      }
+      if (lesson.setup) {
+        try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
+      }
+      // Guard: if exit/restart was called again during setup, bail out.
+      if (autoPlayGenRef.current !== gen) return;
+    } finally {
+      suppressLiveTabExitRef.current = false;
     }
-    await new Promise(r => setTimeout(r, 350));
-    if (isGraphqlStudioLesson(lesson)) {
-      await runGqlDemoStorageHygiene();
-    }
-    if (lesson.setup) {
-      try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
-    }
-    // Guard: if exit/restart was called again during setup, bail out.
-    if (autoPlayGenRef.current !== gen) return;
     if (isMountedRef.current && lesson.steps[0]) {
       await executeCurrentStep(lesson.steps[0], state.speed);
       progress.setLessonStep(lesson.id, 0);
@@ -776,6 +792,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     resetProgress,
     setLastCategory: progress.setLastCategory,
     skipReading: useCallback(() => { skipReadingRef.current?.(); }, []),
+    suppressLiveTabExitRef,
   };
 }
 

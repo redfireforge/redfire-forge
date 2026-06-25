@@ -19,6 +19,52 @@ export function getWorkflowByName<T = unknown>(name: string): T | null {
   return (wf ?? null) as T | null;
 }
 
+export function selectWorkflowByName(name: string): boolean {
+  return getDemoBridgeWindow().__wfSelectByName?.(name) ?? false;
+}
+
+/** Poll until the demo workflow bridge is mounted on `window` (max ~8s). */
+export async function waitForWorkflowBridge(
+  ctx: DemoSeedDelayContext,
+  timeoutMs = 8000,
+  intervalMs = 100,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getDemoBridgeWindow().__wfInsertWorkflow) return true;
+    await ctx.delay(intervalMs);
+  }
+  return !!getDemoBridgeWindow().__wfInsertWorkflow;
+}
+
+async function waitForWorkflowInStore(
+  ctx: DemoSeedDelayContext,
+  name: string,
+  timeoutMs = 3000,
+  intervalMs = 50,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getWorkflowByName(name)) return true;
+    await ctx.delay(intervalMs);
+  }
+  return !!getWorkflowByName(name);
+}
+
+/** Wait until persisted workflows have finished hydrating from storage. */
+export async function waitForWorkflowsLoaded(
+  ctx: DemoSeedDelayContext,
+  timeoutMs = 10000,
+  intervalMs = 50,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getDemoBridgeWindow().__wfWorkflowsLoaded) return true;
+    await ctx.delay(intervalMs);
+  }
+  return !!getDemoBridgeWindow().__wfWorkflowsLoaded;
+}
+
 export function openWorkflowNodeConfig(nodeId: string): boolean {
   const bridge = getDemoBridgeWindow().__wfOpenNodeConfig;
   if (!bridge) return false;
@@ -80,20 +126,47 @@ export async function seedNamedWorkflow(
   ctx: DemoSeedDelayContext,
   name: string,
   workflow: Record<string, unknown>,
-  opts: { deleteDelayMs?: number; insertPreDelayMs?: number; insertDelayMs?: number } = {},
-): Promise<void> {
-  const { deleteDelayMs = 100, insertPreDelayMs = 0, insertDelayMs = 300 } = opts;
-  const canInsert = !!getDemoBridgeWindow().__wfInsertWorkflow;
+  opts: {
+    deleteDelayMs?: number;
+    insertPreDelayMs?: number;
+    insertDelayMs?: number;
+    bridgeTimeoutMs?: number;
+    storeTimeoutMs?: number;
+  } = {},
+): Promise<boolean> {
+  const {
+    deleteDelayMs = 100,
+    insertPreDelayMs = 0,
+    insertDelayMs = 300,
+    bridgeTimeoutMs = 8000,
+    storeTimeoutMs = 3000,
+  } = opts;
+
+  if (!(await waitForWorkflowBridge(ctx, bridgeTimeoutMs))) {
+    console.warn('[DemoHub] Workflow bridge unavailable — cannot seed', name);
+    return false;
+  }
+  if (!(await waitForWorkflowsLoaded(ctx))) {
+    console.warn('[DemoHub] Workflows not loaded from storage — cannot seed', name);
+    return false;
+  }
 
   if (deleteWorkflowByName(name) && deleteDelayMs > 0) {
     await ctx.delay(deleteDelayMs);
   }
-  if (canInsert && insertPreDelayMs > 0) {
+  if (insertPreDelayMs > 0) {
     await ctx.delay(insertPreDelayMs);
   }
-  if (insertWorkflow(workflow) && insertDelayMs > 0) {
+  if (!insertWorkflow(workflow)) {
+    console.warn('[DemoHub] Workflow insert failed for', name);
+    return false;
+  }
+  if (insertDelayMs > 0) {
     await ctx.delay(insertDelayMs);
   }
+  await waitForWorkflowInStore(ctx, name, storeTimeoutMs);
+  selectWorkflowByName(name);
+  return !!getWorkflowByName(name);
 }
 
 export function triggerWorkflowQuickTest(): void {
