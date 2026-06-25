@@ -48,7 +48,7 @@ describe('gql-query-builder lesson', () => {
     expect(gqlQueryBuilderLesson.category).toBe('graphql');
     expect(gqlQueryBuilderLesson.name).toBe('Query Builder — Visual Operations');
     expect(gqlQueryBuilderLesson.steps.length).toBe(10);
-    expect(gqlQueryBuilderLesson.estimatedMinutes).toBe(4);
+    expect(gqlQueryBuilderLesson.estimatedMinutes).toBe(5);
     expect(gqlQueryBuilderLesson.tabBudget).toBe(1);
   });
 

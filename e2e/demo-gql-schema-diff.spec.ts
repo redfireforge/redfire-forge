@@ -76,6 +76,16 @@ test.describe('GQL-12 — full lesson (Docker)', () => {
     await ensureSchemaTabOpen(page);
     await page.locator('[data-testid="gql-se-tab-changelog"]').click({ force: true });
     await expect(page.locator('[data-testid="gql-changelog-panel"]')).toBeVisible({ timeout: 15_000 });
+    // Export step closes the diff modal — mirror lesson helper: baseline row vs current schema.
+    await page
+      .locator('[data-testid="gql-changelog-row"]')
+      .filter({ hasText: 'Prior release (demo)' })
+      .first()
+      .click({ force: true });
+    await page.locator('[data-testid="gql-changelog-compare-select"]').selectOption({ label: 'Current schema' });
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('[data-testid="gql-changelog-diff-btn"]')?.click();
+    });
     await expect(page.locator('[data-testid="gql-diff-modal"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-diff-export-json"]')).toBeVisible();
     await expect(page.locator('.gql-diff-filter--breaking')).toBeVisible();

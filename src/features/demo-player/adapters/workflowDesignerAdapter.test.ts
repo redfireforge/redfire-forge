@@ -13,6 +13,7 @@ import {
   openWorkflowNodeConfig,
   patchDemoWorkflowNodeDataByType,
   patchWorkflowNodeDataByType,
+  removeWorkflowEdge,
   closeWorkflowConfigModal,
   seedNamedWorkflow,
   setWorkflowConsoleFloatLayout,
@@ -28,6 +29,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfGetWorkflowByName;
     delete w.__wfOpenNodeConfig;
     delete w.__wfConnect;
+    delete w.__wfRemoveEdge;
     delete w.__wfPatchNodeDataByType;
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
@@ -70,6 +72,17 @@ describe('workflowDesignerAdapter', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = spy;
     expect(connectWorkflowNodes('a', 'b', 'out', 'in')).toBe(true);
     expect(spy).toHaveBeenCalledWith('a', 'b', 'out', 'in');
+  });
+
+  it('removeWorkflowEdge returns false when bridge missing', () => {
+    expect(removeWorkflowEdge('a', 'b')).toBe(false);
+  });
+
+  it('removeWorkflowEdge calls bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfRemoveEdge = spy;
+    expect(removeWorkflowEdge('assert', 'end')).toBe(true);
+    expect(spy).toHaveBeenCalledWith('assert', 'end');
   });
 
   it('patchDemoWorkflowNodeDataByType aliases patchWorkflowNodeDataByType', () => {

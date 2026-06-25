@@ -37,6 +37,7 @@ export {
 
 export {
   restorePageEndpointSnapshot,
+  loadDemoPriorPageEndpointBackup,
   loadTabs,
 } from '../../graphql/utils/tabPersistence';
 export { normalizeGraphqlEndpoint } from '../../graphql/utils/graphqlEndpointUtils';

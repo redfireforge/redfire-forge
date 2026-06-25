@@ -28,7 +28,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
   name: 'Query Builder — Visual Operations',
   description:
     'Build GraphQL queries visually: field tree selection, live SDL preview, aliases and directives in the Summary panel, copy/export, and one-way sync to the editor.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */

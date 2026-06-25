@@ -127,7 +127,7 @@ describe('gql-mock-server lesson', () => {
     expect(gqlMockServerLesson.category).toBe('graphql');
     expect(gqlMockServerLesson.name).toBe('Mock Server');
     expect(gqlMockServerLesson.steps.length).toBe(15);
-    expect(gqlMockServerLesson.estimatedMinutes).toBe(6);
+    expect(gqlMockServerLesson.estimatedMinutes).toBe(8);
     expect(gqlMockServerLesson.tabBudget).toBe(1);
   });
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestCollection, Environment, Microservice, GlobalAuthProfile, AuthConfig, KeyValue } from '../../../shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
@@ -165,6 +165,55 @@ export function useWorkflowNodeActions({
     markNodeAsNew(nodeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, update, serializeNodes, serializeEdges, edgesRef, nodesRef, undoRedo, setNodes]);
+
+  const addNodeToCanvasWithPreset = useCallback((
+    type: WorkflowNodeType,
+    nodeId: string,
+    label: string,
+    position: { x: number; y: number },
+    data?: WorkflowNodeData,
+  ): string => {
+    if (!selected) return nodeId;
+    if (nodesRef.current.some((n) => n.id === nodeId)) return nodeId;
+    undoRedo.takeSnapshot('Add node');
+    const baseData = data ?? defaultNodeData(type);
+    const newNode: WorkflowRFNode = {
+      id: nodeId,
+      type,
+      position,
+      data: { ...baseData, label },
+    };
+    setNodes((nds) => {
+      const updated = [...nds, newNode];
+      nodesRef.current = updated;
+      const wfNodes = serializeNodes(updated);
+      const wfEdges = serializeEdges(edgesRef.current);
+      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
+      return updated;
+    });
+    markNodeAsNew(nodeId);
+    return nodeId;
+  }, [selected, update, serializeNodes, serializeEdges, edgesRef, nodesRef, undoRedo, setNodes]);
+
+  // Demo-player bridge: programmatic node add (simple or preset id/label/position).
+  useEffect(() => {
+    const win = window as unknown as Record<string, unknown>;
+    win.__wfAddNode = (
+      type: string,
+      id?: string,
+      label?: string,
+      position?: { x: number; y: number },
+    ): string | undefined => {
+      if (id && label && position) {
+        return addNodeToCanvasWithPreset(type as WorkflowNodeType, id, label, position);
+      }
+      addNodeToCanvas(type as WorkflowNodeType);
+      return nodesRef.current.at(-1)?.id;
+    };
+    return () => {
+      delete win.__wfAddNode;
+    };
+  }, [addNodeToCanvas, addNodeToCanvasWithPreset, nodesRef]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
@@ -377,6 +426,7 @@ export function useWorkflowNodeActions({
   return {
     nextNodeYRef,
     addNodeToCanvas,
+    addNodeToCanvasWithPreset,
     handleAddNode,
     handleAddFromRequest,
     handleAddFromCatalog,

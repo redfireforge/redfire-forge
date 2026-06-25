@@ -11,6 +11,7 @@ describe('useDemoWorkflowBridge', () => {
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfSelectByName;
+    delete (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded;
   });
 
   it('exposes __wfDeleteByName on window', () => {
@@ -99,5 +100,34 @@ describe('useDemoWorkflowBridge', () => {
     expect(fn('Demo WF')).toBe(true);
     expect(select).toHaveBeenCalledWith('wf-1');
     expect(fn('Missing')).toBe(false);
+  });
+
+  it('__wfGetWorkflowByName sees workflows updated on the same mount (ref, not stale closure)', () => {
+    const remove = vi.fn();
+    const { rerender } = renderHook(
+      ({ list }) => useDemoWorkflowBridge(list, remove),
+      { initialProps: { list: [] as import('../../features/workflow/types/workflow').Workflow[] } },
+    );
+    const get = (window as unknown as Record<string, (name: string) => unknown>).__wfGetWorkflowByName;
+    expect(get('GraphQL User CRUD Demo')).toBeNull();
+
+    const wf = {
+      id: 'crud-1',
+      name: 'GraphQL User CRUD Demo',
+      nodes: [],
+      edges: [],
+    } as import('../../features/workflow/types/workflow').Workflow;
+    rerender({ list: [wf] });
+    expect(get('GraphQL User CRUD Demo')).toBe(wf);
+  });
+
+  it('exposes __wfWorkflowsLoaded when loaded flips true', () => {
+    const { rerender } = renderHook(
+      ({ loaded }) => useDemoWorkflowBridge([], vi.fn(), undefined, undefined, loaded),
+      { initialProps: { loaded: false } },
+    );
+    expect((window as unknown as Record<string, unknown>).__wfWorkflowsLoaded).toBe(false);
+    rerender({ loaded: true });
+    expect((window as unknown as Record<string, unknown>).__wfWorkflowsLoaded).toBe(true);
   });
 });

@@ -135,9 +135,11 @@ test.describe('GQL-1 — full lesson (Docker)', () => {
     await expect(page.getByTestId('gql-history-entry').first()).toBeVisible({ timeout: 15_000 });
 
     // Demo panel overlaps response tabs — force clicks reach through the narration overlay.
-    await page.locator('[data-testid="gql-right-tab-response"]').click({ force: true });
-    await page.locator('[data-testid="gql-rv-tab-body"]').click({ force: true });
-    await expect(page.locator('[data-testid="gql-response-body"]')).toContainText('health');
+    // Final step opens History — preview the health query response there.
+    await page.getByTestId('gql-history-entry').first().click({ force: true });
+    await expect(page.getByTestId('gql-history-preview-response')).toContainText('health', {
+      timeout: 15_000,
+    });
 
     await exitLesson(page);
     await takeNamedScreenshot(page, 'gql1-lesson-complete');
