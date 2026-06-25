@@ -1,6 +1,6 @@
 # RedfireForge Roadmap (Living)
 
-> Last Updated: 2026-06-20
+> Last Updated: 2026-06-24
 > Purpose: Product direction and active priorities only.
 
 ## Product Position
@@ -22,11 +22,13 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - API catalog core functionality
 - Kafka integration foundation and modularized service layer
 - Rust executor path and performance-oriented execution modes
+- **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, demo adapter layer, lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
 
 ### In Progress / Deferred
 - Distributed execution (future scale milestone)
 - Remaining selective E2E coverage for environment-dependent scenarios
 - Ongoing UX and maintainability refinements
+- Demo package extraction to standalone npm package (Phase 7 — deferred)
 
 ## Priority Tracks
 

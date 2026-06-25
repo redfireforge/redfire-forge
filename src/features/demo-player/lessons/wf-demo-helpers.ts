@@ -4,7 +4,9 @@ import {
   collapseAppSidebar,
   deselectAllWorkflowNodes,
   expandAppSidebar,
+  getWorkflowByName,
   openWorkflowNodeConfig,
+  selectWorkflowByName,
   setWorkflowConsoleFloatLayout,
 } from '../adapters';
 import { WF } from '../../../shared/selectors';
@@ -138,6 +140,15 @@ export async function clickWfConfigControl(
   await pauseWfConfigDemo(ctx, 'afterClick');
 }
 
+/** Dismiss stale Quick Test summary banner from a prior workflow run. */
+export async function dismissWorkflowExecSummary(ctx: DemoActionContext): Promise<void> {
+  const closeBtn = document.querySelector<HTMLElement>('.wf-exec-strip-close');
+  if (closeBtn) {
+    closeBtn.click();
+    await ctx.delay(300);
+  }
+}
+
 /** Hide the app-level Workflows list sidebar so the canvas has maximum space. */
 export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
   collapseAppSidebar();
@@ -156,16 +167,27 @@ export async function selectWorkflowFromAppSidebar(
   workflowName: string,
 ): Promise<boolean> {
   await expandWfDemoAppSidebar(ctx);
-  const items = Array.from(
-    document.querySelectorAll('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item'),
-  );
-  const target = items.find((el) => el.textContent?.includes(workflowName)) as HTMLElement | undefined;
+  const findExactSidebarItem = () =>
+    Array.from(document.querySelectorAll<HTMLElement>('.wf-sidebar-item-name')).find(
+      (el) => el.textContent?.trim() === workflowName,
+    );
+
+  let nameEl = findExactSidebarItem();
+  for (let attempt = 0; !nameEl && attempt < 8; attempt++) {
+    await ctx.delay(150);
+    nameEl = findExactSidebarItem();
+  }
+
+  const target = nameEl?.closest<HTMLElement>('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item');
   if (target) {
     target.click();
     await ctx.delay(700);
+  } else {
+    selectWorkflowByName(workflowName);
+    await ctx.delay(400);
   }
   await collapseWfDemoAppSidebar(ctx);
-  return !!target;
+  return !!target || !!getWorkflowByName(workflowName);
 }
 
 /** Force console panel mode (docked bottom / floating / maximized). */

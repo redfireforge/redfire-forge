@@ -61,6 +61,8 @@ import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
+import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
+import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 const LazyDemoShellHost = DEMO_HUB_ENABLED
@@ -86,6 +88,13 @@ export default function App() {
   const wb = useRequests();
   const catalog = useCatalog();
   const wfHook = useWorkflows();
+  useDemoWorkflowBridge(
+    wfHook.workflows,
+    wfHook.remove,
+    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
+    DEMO_HUB_ENABLED ? wfHook.select : undefined,
+    DEMO_HUB_ENABLED ? wfHook.loaded : false,
+  );
   const {
     previewWorkflow,
     setPreviewWorkflow,
@@ -119,15 +128,23 @@ export default function App() {
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
 
-  // When any sidebar nav item is clicked while a live demo is active, exit the
-  // demo overlay first so it doesn't linger on top of the newly selected tab.
+  // When sidebar / sub-nav navigates during live mode, exit only if leaving the
+  // lesson's tab scope. Same-tab clicks (e.g. workflow sidebar re-select) must
+  // not tear down the overlay — that was killing GQL-18 setup.
   const handleSetActiveTab = useCallback((tab: Tab) => {
-    if (DEMO_HUB_ENABLED && demoHubRuntimeRef.current.state.view === 'live') {
-      void demoHubRuntimeRef.current.exitLiveDemo().then(() => setActiveTab(tab));
+    const hub = demoHubRuntimeRef.current;
+    const inLive = DEMO_HUB_ENABLED && hub.state.view === 'live';
+    const suppressed = hub.suppressLiveTabExitRef?.current === true;
+    const shouldExit = inLive
+      && !suppressed
+      && shouldExitLiveDemoForTabChange(tab, activeTab, hub.state.selectedLesson);
+
+    if (shouldExit) {
+      void hub.exitLiveDemo().then(() => setActiveTab(tab));
     } else {
       setActiveTab(tab);
     }
-  }, [setActiveTab]);
+  }, [setActiveTab, activeTab]);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -367,9 +384,6 @@ export default function App() {
             navigateToTab={navigateToTab}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            workflows={wfHook.workflows}
-            removeWorkflow={wfHook.remove}
-            insertWorkflow={wfHook.insert}
             setSidebarCollapsed={setSidebarCollapsed}
             setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
             selectedEnvId={selectedEnvId}
@@ -497,9 +511,7 @@ export default function App() {
             </div>
           )}
           {DEMO_HUB_ENABLED && activeTab === 'demo-hub' && (
-            <div id={DEMO_HUB_MOUNT_ID} className="app-tab-pane demo-hub-pane">
-              Loading Learning Hub…
-            </div>
+            <div id={DEMO_HUB_MOUNT_ID} className="app-tab-pane demo-hub-pane" />
           )}
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">

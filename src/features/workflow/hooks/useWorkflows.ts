@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Workflow } from '../types/workflow';
 import {
@@ -12,10 +12,37 @@ import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 import { WORKFLOW_SCHEMA_VERSION } from './useWorkflowPersistence';
 import { moveWorkflow } from '../utils/workflowFolderTree';
 
+function mergeStoredWithPending(stored: Workflow[], pending: Workflow[]): Workflow[] {
+  if (pending.length === 0) return stored;
+  const merged = [...stored];
+  for (const wf of pending) {
+    if (!merged.some((w) => w.id === wf.id)) merged.push(wf);
+  }
+  return merged;
+}
+
+function resolveSelectionAfterLoad(
+  currentSelectedId: string | null,
+  merged: Workflow[],
+  storedSelectedId: string | null,
+): string | null {
+  if (currentSelectedId && merged.some((w) => w.id === currentSelectedId)) {
+    return currentSelectedId;
+  }
+  if (storedSelectedId && merged.some((w) => w.id === storedSelectedId)) {
+    return storedSelectedId;
+  }
+  return null;
+}
+
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const workflowsRef = useRef(workflows);
+  workflowsRef.current = workflows;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     let cancelled = false;
@@ -49,8 +76,20 @@ export function useWorkflows() {
         void saveSelectedWorkflowId(null);
       }
 
-      setWorkflows(next);
-      setSelectedId(initialSelected);
+      const pending = workflowsRef.current;
+      const merged = mergeStoredWithPending(next, pending);
+      if (merged.length !== next.length) {
+        void saveWorkflows(merged);
+      }
+
+      const resolvedSelected = resolveSelectionAfterLoad(
+        selectedIdRef.current,
+        merged,
+        initialSelected,
+      );
+
+      setWorkflows(merged);
+      setSelectedId(resolvedSelected);
       setLoaded(true);
     })();
     return () => {

@@ -26,6 +26,8 @@ export interface DemoHubApi {
   skipReading: () => void;
   restartDemo: () => void;
   confirmLessonComplete: () => void;
+  /** Set while startLiveDemo/restartDemo navigate + run setup. */
+  suppressLiveTabExitRef?: { current: boolean };
 }
 
 export const DEMO_HUB_STUB: DemoHubApi = {

@@ -11,6 +11,8 @@ export function useDemoWorkflowBridge(
   workflows: Workflow[],
   remove: (id: string) => void,
   insert?: (wf: Workflow) => void,
+  select?: (id: string) => void,
+  loaded = false,
 ): void {
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__wfDeleteByName = (name: string) => {
@@ -19,13 +21,24 @@ export function useDemoWorkflowBridge(
     };
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
       workflows.find((w) => w.name === name) ?? null;
+    (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded = loaded;
+    if (select) {
+      (window as unknown as Record<string, unknown>).__wfSelectByName = (name: string) => {
+        const wf = workflows.find((w) => w.name === name);
+        if (!wf) return false;
+        select(wf.id);
+        return true;
+      };
+    }
     if (insert) {
       (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insert;
     }
     return () => {
       delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
       delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
+      delete (window as unknown as Record<string, unknown>).__wfSelectByName;
       delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+      delete (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded;
     };
-  }, [workflows, remove, insert]);
+  }, [workflows, remove, insert, select, loaded]);
 }

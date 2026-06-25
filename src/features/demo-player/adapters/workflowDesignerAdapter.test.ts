@@ -17,6 +17,7 @@ import {
   seedNamedWorkflow,
   setWorkflowConsoleFloatLayout,
   triggerWorkflowQuickTest,
+  waitForWorkflowBridge,
 } from './workflowDesignerAdapter';
 
 describe('workflowDesignerAdapter', () => {
@@ -31,6 +32,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
+    delete w.__wfSelectByName;
   });
 
   it('deleteWorkflowByName returns false when bridge missing', () => {
@@ -103,32 +105,47 @@ describe('workflowDesignerAdapter', () => {
   it('seedNamedWorkflow deletes, pauses, and inserts when bridges exist', async () => {
     const deleteSpy = vi.fn();
     const insertSpy = vi.fn();
+    const selectSpy = vi.fn(() => true);
+    const wf = { name: 'Demo WF' };
     (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
     (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
+    (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded = true;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === 'Demo WF' ? wf : null;
+    (window as unknown as Record<string, unknown>).__wfSelectByName = selectSpy;
     const delays: number[] = [];
     const ctx = { delay: async (ms: number) => { delays.push(ms); } };
-    await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, {
+    const ok = await seedNamedWorkflow(ctx, 'Demo WF', wf, {
       deleteDelayMs: 50,
       insertPreDelayMs: 25,
       insertDelayMs: 75,
+      storeTimeoutMs: 0,
     });
+    expect(ok).toBe(true);
     expect(deleteSpy).toHaveBeenCalledWith('Demo WF');
-    expect(insertSpy).toHaveBeenCalledWith({ name: 'Demo WF' });
+    expect(insertSpy).toHaveBeenCalledWith(wf);
+    expect(selectSpy).toHaveBeenCalledWith('Demo WF');
     expect(delays).toEqual([50, 25, 75]);
   });
 
-  it('seedNamedWorkflow skips insertPreDelay when insert bridge is missing', async () => {
+  it('seedNamedWorkflow returns false when bridge is unavailable', async () => {
     const deleteSpy = vi.fn();
     (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
+    const ctx = { delay: async () => {} };
+    const ok = await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, { bridgeTimeoutMs: 0 });
+    expect(ok).toBe(false);
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('waitForWorkflowBridge resolves when bridge appears', async () => {
     const delays: number[] = [];
     const ctx = { delay: async (ms: number) => { delays.push(ms); } };
-    await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, {
-      deleteDelayMs: 0,
-      insertPreDelayMs: 100,
-      insertDelayMs: 0,
-    });
-    expect(deleteSpy).toHaveBeenCalledWith('Demo WF');
-    expect(delays).toEqual([]);
+    let ready = await waitForWorkflowBridge(ctx, 0);
+    expect(ready).toBe(false);
+
+    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = vi.fn();
+    ready = await waitForWorkflowBridge(ctx, 0);
+    expect(ready).toBe(true);
   });
 
   it('triggerWorkflowQuickTest calls bridge', () => {
