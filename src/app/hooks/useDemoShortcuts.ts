@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type RefObject } from 'react';
 import type { Tab } from '../utils/appTabUtils';
 import type { StepPhase } from '../../features/demo-player/types';
 import { shouldIgnoreDemoShortcuts, shouldAllowDemoPlayPauseShortcut } from '../../features/demo-player/demoShortcutUtils';
@@ -20,19 +20,26 @@ export function useDemoShortcuts(
   },
   activeTab: Tab,
   setActiveTab: (tab: Tab) => void,
+  suppressLiveTabExitRef?: RefObject<boolean>,
 ) {
+  const { view, selectedLesson } = demoHub.state;
+  const { exitLiveDemo } = demoHub;
+
   // Auto-exit live demo when user manually navigates away from the target tab.
   // Lessons that navigate to additional tabs declare them in `allowedTabs` to
   // suppress the auto-exit guard for those destinations.
   useEffect(() => {
-    if (demoHub.state.view === 'live' && demoHub.state.selectedLesson?.initialTab) {
-      const targetTab = demoHub.state.selectedLesson.initialTab;
-      const allowedTabs = demoHub.state.selectedLesson.allowedTabs ?? [];
-      if (activeTab !== targetTab && !allowedTabs.includes(activeTab)) {
-        demoHub.exitLiveDemo();
-      }
-    }
-  }, [activeTab, demoHub]);
+    if (view !== 'live' || !selectedLesson?.initialTab) return;
+    if (suppressLiveTabExitRef?.current) return;
+
+    const targetTab = selectedLesson.initialTab;
+    const allowedTabs = selectedLesson.allowedTabs ?? [];
+    if (activeTab === targetTab || allowedTabs.includes(activeTab)) return;
+    // startLiveDemo navigates away from demo-hub; a brief stale activeTab here is not a user exit.
+    if (activeTab === 'demo-hub' && targetTab !== 'demo-hub') return;
+
+    exitLiveDemo();
+  }, [activeTab, view, selectedLesson, exitLiveDemo, suppressLiveTabExitRef]);
 
   // Cmd+Shift+D navigates to Demo Hub tab; live mode shortcuts
   useEffect(() => {

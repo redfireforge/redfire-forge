@@ -323,4 +323,35 @@ describe('useDemoShortcuts', () => {
 
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
   });
+
+  it('does not auto-exit while startLiveDemo tab transition is suppressed', () => {
+    const suppressRef = { current: true };
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow'] } },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab, suppressRef));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-exit when activeTab is still demo-hub during live start navigation', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow'] } },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+  });
+
+  it('auto-exits when activeTab is outside allowedTabs during live mode', () => {
+    const hub = makeDemoHub({
+      state: {
+        view: 'live',
+        selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow', 'workflow-runner'] },
+      },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
+
+    expect(hub.exitLiveDemo).toHaveBeenCalled();
+  });
 });

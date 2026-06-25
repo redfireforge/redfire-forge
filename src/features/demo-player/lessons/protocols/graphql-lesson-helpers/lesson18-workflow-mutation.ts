@@ -8,6 +8,7 @@ import {
   clickWfConfigTab,
   closeWfConfigModalIfOpen,
   collapseWfDemoAppSidebar,
+  dismissWorkflowExecSummary,
   fillWfConfigField,
   openWfNodeConfigModal,
   pauseWfConfigSection,
@@ -412,6 +413,7 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
 
 export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson18SessionFlags();
+  await dismissWorkflowExecSummary(ctx);
   await seedNamedWorkflow(ctx, LESSON18_WF_NAME, createGqlMutationDemoWorkflow(), {
     deleteDelayMs: 100,
     insertDelayMs: 300,

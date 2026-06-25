@@ -11,6 +11,8 @@ export type DemoBridgeWindow = Window &
     __wfDeleteByName?: (name: string) => void;
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
+    __wfSelectByName?: (name: string) => boolean;
+    __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
     __wfDeselectAll?: () => void;
     __wfSetConsoleFloatLayout?: () => void;

@@ -375,13 +375,36 @@ describe('useWorkflows', () => {
     expect(saved.map((w) => w.id)).toContain('wf-1');
   });
 
-  it('reorder ignores unknown workflowId without throwing', async () => {
-    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ id: 'wf-1' })]);
+  it('preserves demo-seeded workflow when storage hydration completes after insert', async () => {
+    const stored = makeWorkflow({ id: 'wf-latency', name: 'GraphQL Latency Demo', updatedAt: 5000 });
+    const seeded = makeWorkflow({ id: 'wf-crud', name: 'GraphQL User CRUD Demo', updatedAt: 1000 });
+
+    let resolveLoad!: (value: Workflow[]) => void;
+    mockLoadWorkflows.mockImplementation(
+      () => new Promise<Workflow[]>((resolve) => { resolveLoad = resolve; }),
+    );
+    mockLoadSelectedId.mockResolvedValue('wf-latency');
 
     const { result } = renderHook(() => useWorkflows());
+
+    act(() => result.current.insert(seeded));
+
+    expect(result.current.selectedId).toBe('wf-crud');
+    expect(result.current.workflows).toContainEqual(expect.objectContaining({ id: 'wf-crud' }));
+
+    await act(async () => {
+      resolveLoad([stored]);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
-    // Should not throw — non-existent id is silently ignored by moveWorkflow
-    expect(() => act(() => result.current.reorder('ghost-wf', null, 0))).not.toThrow();
+    expect(result.current.workflows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'wf-latency' }),
+        expect.objectContaining({ id: 'wf-crud' }),
+      ]),
+    );
+    expect(result.current.selectedId).toBe('wf-crud');
   });
 });

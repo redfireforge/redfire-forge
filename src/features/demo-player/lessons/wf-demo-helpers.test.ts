@@ -282,9 +282,10 @@ describe('wf-demo-helpers', () => {
     expect(collapse).toHaveBeenCalled();
   });
 
-  it('selectWorkflowFromAppSidebar expands, clicks match, then collapses', async () => {
+  it('selectWorkflowFromAppSidebar expands, clicks exact name match, then collapses', async () => {
     const { collapse, expand } = mockSidebarBridge();
-    document.body.innerHTML = '<div class="wf-sidebar-item">GraphQL User CRUD Demo</div>';
+    document.body.innerHTML =
+      '<div class="wf-sidebar-item"><span class="wf-sidebar-item-name">GraphQL User CRUD Demo</span></div>';
     const item = document.querySelector<HTMLElement>('.wf-sidebar-item')!;
     const clickSpy = vi.spyOn(item, 'click');
     const ctx = makeCtx();
@@ -292,6 +293,20 @@ describe('wf-demo-helpers', () => {
     expect(found).toBe(true);
     expect(expand).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
+    expect(collapse).toHaveBeenCalled();
+  });
+
+  it('selectWorkflowFromAppSidebar skips partial name matches', async () => {
+    const { collapse, expand } = mockSidebarBridge();
+    document.body.innerHTML =
+      '<div class="wf-sidebar-item"><span class="wf-sidebar-item-name">GraphQL Latency Demo</span></div>';
+    const item = document.querySelector<HTMLElement>('.wf-sidebar-item')!;
+    const clickSpy = vi.spyOn(item, 'click');
+    const ctx = makeCtx();
+    const found = await selectWorkflowFromAppSidebar(ctx, 'GraphQL User CRUD Demo');
+    expect(found).toBe(false);
+    expect(expand).toHaveBeenCalled();
+    expect(clickSpy).not.toHaveBeenCalled();
     expect(collapse).toHaveBeenCalled();
   });
 
