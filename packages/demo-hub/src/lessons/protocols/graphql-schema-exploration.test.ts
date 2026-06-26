@@ -28,8 +28,12 @@ import {
   markTryInsertDone,
   selectSchemaType,
   ensureSchemaExplorerOpen,
+  prepareGql4IntrospectReading,
+  syncGql4IntrospectSchemaTabDuringReading,
+  setGqlRightTabSchema,
   searchSchemaTypes,
 } from './graphql-lesson-helpers';
+import { getDemoBridgeWindow } from '../../adapters/bridgeWindow';
 import { stubSchemaExplorerDom, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
 describe('gql-schema-exploration lesson', () => {
@@ -128,24 +132,52 @@ describe('gql-schema-exploration lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 
+  it('step gql4-introspect preAction opens schema tab when badge is already ok', async () => {
+    stubSchemaExplorerDom();
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-introspect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
+  it('step gql4-introspect preAction keeps response tab when schema is not loaded', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
+      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-right-tab-schema"></button>
+    `;
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-introspect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
   it('step gql4-introspect clicks introspect when badge absent', async () => {
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
       <button data-testid="gql-introspect-btn"></button>
+      <button data-testid="gql-right-tab-schema"></button>
+      <div data-testid="gql-schema-explorer">
+        <div data-testid="gql-se-type-list"></div>
+      </div>
     `;
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-introspect')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+    expect(step.verify).toBe(GQL.SCHEMA_TYPE_LIST);
   });
 
-  it('step gql4-introspect skips introspect when badge present', async () => {
+  it('step gql4-introspect opens schema tab when badge already present', async () => {
     stubSchemaExplorerDom();
     const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-introspect')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('step gql4-browse preAction ensures introspected schema', async () => {
@@ -531,6 +563,55 @@ describe('gql schema selector helpers', () => {
     const ctx = makeCtx();
     await gqlSchemaLessonCleanup(ctx);
     expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-schema-exploration');
+  });
+
+  it('gql4-introspect step wires readingSync for async schema cache', () => {
+    const step = gqlSchemaLesson.steps.find((s) => s.id === 'gql4-introspect');
+    expect(step?.readingSync).toBeDefined();
+    expect(step?.preAction).toBe(prepareGql4IntrospectReading);
+  });
+
+  it('prepareGql4IntrospectReading opens Schema via bridge when badge is cached', async () => {
+    stubSchemaExplorerDom(`
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+    `);
+    const setRightView = vi.fn();
+    getDemoBridgeWindow().__demoSetGqlRightView = setRightView;
+    const ctx = makeCtx();
+    await prepareGql4IntrospectReading(ctx);
+    expect(setRightView).toHaveBeenCalledWith('schema');
+    delete getDemoBridgeWindow().__demoSetGqlRightView;
+  });
+
+  it('prepareGql4IntrospectReading keeps Response tab when schema not cached yet', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <button data-testid="gql-right-tab-response" aria-selected="false"></button>
+      <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
+    `;
+    const ctx = makeCtx();
+    await prepareGql4IntrospectReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+  });
+
+  it('syncGql4IntrospectSchemaTabDuringReading opens Schema when badge is cached', async () => {
+    stubSchemaExplorerDom(`
+      <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
+    `);
+    const setRightView = vi.fn();
+    getDemoBridgeWindow().__demoSetGqlRightView = setRightView;
+    const ctx = makeCtx();
+    await syncGql4IntrospectSchemaTabDuringReading(ctx);
+    expect(setRightView).toHaveBeenCalledWith('schema');
+    delete getDemoBridgeWindow().__demoSetGqlRightView;
+  });
+
+  it('setGqlRightTabSchema falls back to DOM click without bridge', async () => {
+    document.body.innerHTML = '<button data-testid="gql-right-tab-schema"></button>';
+    delete getDemoBridgeWindow().__demoSetGqlRightView;
+    const ctx = makeCtx();
+    await setGqlRightTabSchema(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('ensureTryInsertDone clicks try button when health field missing', async () => {

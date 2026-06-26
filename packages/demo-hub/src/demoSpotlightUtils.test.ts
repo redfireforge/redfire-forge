@@ -4,10 +4,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   findFirstVisibleElement,
+  findScrollableParent,
   findVisibleAppModal,
   hasDemoHubTextSelection,
+  installDemoUserScrollListeners,
+  isDemoAutoScrollPaused,
   isDemoElementVisible,
   isSpotlightSuppressedForModal,
+  pauseDemoAutoScroll,
+  scrollDemoTargetIntoView,
 } from './demoSpotlightUtils';
 
 function mockRect(el: Element, width: number, height: number): void {
@@ -181,5 +186,79 @@ describe('demoSpotlightUtils', () => {
     mockRect(target, 20, 20);
     document.body.appendChild(target);
     expect(isSpotlightSuppressedForModal(target)).toBe(false);
+  });
+
+  it('findScrollableParent returns nearest overflow container', () => {
+    const scroll = document.createElement('div');
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 400, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 100, configurable: true });
+    const child = document.createElement('span');
+    scroll.appendChild(child);
+    document.body.appendChild(scroll);
+    expect(findScrollableParent(child)).toBe(scroll);
+  });
+
+  it('scrollDemoTargetIntoView scrolls nested metadata container', () => {
+    const scroll = document.createElement('div');
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 800, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 200, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 100, left: 0, width: 400, height: 200,
+      right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn();
+
+    const row = document.createElement('td');
+    row.getBoundingClientRect = () => ({
+      top: 320, left: 20, width: 300, height: 24,
+      right: 320, bottom: 344, x: 20, y: 320, toJSON: () => ({}),
+    });
+    scroll.appendChild(row);
+    document.body.appendChild(scroll);
+
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).toHaveBeenCalled();
+  });
+
+  it('pauseDemoAutoScroll blocks scrollDemoTargetIntoView', () => {
+    const scroll = document.createElement('div');
+    scroll.className = 'gql-rv-metadata';
+    scroll.style.overflowY = 'auto';
+    Object.defineProperty(scroll, 'scrollHeight', { value: 800, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 200, configurable: true });
+    scroll.getBoundingClientRect = () => ({
+      top: 100, left: 0, width: 400, height: 200,
+      right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}),
+    });
+    scroll.scrollTo = vi.fn();
+
+    const row = document.createElement('td');
+    row.getBoundingClientRect = () => ({
+      top: 320, left: 20, width: 300, height: 24,
+      right: 320, bottom: 344, x: 20, y: 320, toJSON: () => ({}),
+    });
+    scroll.appendChild(row);
+    document.body.appendChild(scroll);
+
+    pauseDemoAutoScroll(5000);
+    expect(isDemoAutoScrollPaused()).toBe(true);
+    scrollDemoTargetIntoView(row, { block: 'center' });
+    expect(scroll.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('installDemoUserScrollListeners pauses auto-scroll on auth panel wheel', () => {
+    vi.useFakeTimers();
+    const cleanup = installDemoUserScrollListeners();
+    const scroll = document.createElement('div');
+    scroll.className = 'gql-auth-panel-scroll';
+    document.body.appendChild(scroll);
+
+    scroll.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+    expect(isDemoAutoScrollPaused()).toBe(true);
+
+    cleanup();
+    vi.useRealTimers();
   });
 });

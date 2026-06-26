@@ -320,11 +320,24 @@ describe('gql-mutations lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
-  it('gql3-observe-introspect waits for schema badge', async () => {
+  it('gql3-observe-introspect waits for schema badge and opens Schema tab', async () => {
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok">Schema loaded (12)</span>
+      <button data-testid="gql-right-tab-schema"></button>
+      <div data-testid="gql-schema-explorer">
+        <div data-testid="gql-se-type-list"></div>
+      </div>
+    `);
     const ctx = makeCtx();
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-introspect')!;
     await step.action!(ctx);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 5000);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+  });
+
+  it('gql3-observe-introspect wires readingSync for async schema cache', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-introspect')!;
+    expect(step.readingSync).toBeDefined();
   });
 
   it('gql3-introspect skips introspect click when usable schema badge is present', async () => {

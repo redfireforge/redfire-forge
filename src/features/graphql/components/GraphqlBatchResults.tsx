@@ -3,24 +3,50 @@
  *
  * Displays batch execution results as N stacked response cards, one per
  * operation, preserved in request-index order.
- *
- * Layout:
- *   - Header: "Batch of N" with summary "N passed / M failed"
- *   - Per-operation cards with success (green) / error (red) header stripe
- *   - Each card expands to show the full data/errors
  */
 
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { GraphqlBatchResult, GraphqlBatchOperationResult } from '../../../shared/types/graphql';
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface GraphqlBatchResultsProps {
   result: GraphqlBatchResult;
   onDismiss: () => void;
 }
 
-// ─── Sub-component: single operation card ────────────────────────────────────
+function StatusIcon({ success }: { success: boolean }) {
+  if (success) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`gql-batch-card-chevron-icon${expanded ? ' gql-batch-card-chevron-icon--expanded' : ''}`}
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 interface BatchOpCardProps {
   item: GraphqlBatchOperationResult;
@@ -35,8 +61,8 @@ function BatchOpCard({ item }: BatchOpCardProps) {
   const cardClass = `gql-batch-card ${isSuccess ? 'gql-batch-card--success' : 'gql-batch-card--error'}`;
 
   const latencyLabel = response.latencyMs > 0 ? `${response.latencyMs} ms` : '';
-  const statusLabel  = response.httpStatus > 0 ? `HTTP ${response.httpStatus}` : '';
-  const displayName  = operationName ?? `Operation ${index + 1}`;
+  const statusLabel = response.httpStatus > 0 ? `HTTP ${response.httpStatus}` : '';
+  const displayName = operationName ?? `Operation ${index + 1}`;
 
   return (
     <div className={cardClass}>
@@ -45,14 +71,22 @@ function BatchOpCard({ item }: BatchOpCardProps) {
         className="gql-batch-card-header"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
+        aria-label={`${displayName}${statusLabel ? `, ${statusLabel}` : ''}${latencyLabel ? `, ${latencyLabel}` : ''}`}
       >
-        <span className="gql-batch-card-indicator">{isSuccess ? '✓' : '✗'}</span>
+        <span className="gql-batch-card-index">#{index + 1}</span>
+        <span className={`gql-batch-card-indicator${isSuccess ? ' gql-batch-card-indicator--success' : ' gql-batch-card-indicator--error'}`}>
+          <StatusIcon success={isSuccess} />
+        </span>
         <span className="gql-batch-card-name">{displayName}</span>
         <span className="gql-batch-card-meta">
-          {statusLabel && <span className="gql-batch-card-status">{statusLabel}</span>}
+          {statusLabel && (
+            <span className={`gql-batch-card-status${isSuccess ? ' gql-batch-card-status--success' : ' gql-batch-card-status--error'}`}>
+              {statusLabel}
+            </span>
+          )}
           {latencyLabel && <span className="gql-batch-card-latency">{latencyLabel}</span>}
         </span>
-        <span className="gql-batch-card-chevron">{expanded ? '▾' : '▸'}</span>
+        <ChevronIcon expanded={expanded} />
       </button>
 
       {expanded && (
@@ -83,50 +117,77 @@ function BatchOpCard({ item }: BatchOpCardProps) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export function GraphqlBatchResults({ result, onDismiss }: GraphqlBatchResultsProps) {
-  const total   = result.results.length;
-  const passed  = result.results.filter(
+  const titleId = useId();
+  const total = result.results.length;
+  const passed = result.results.filter(
     (r) => (r.response.errors?.length ?? 0) === 0 || r.response.data !== null,
   ).length;
-  const failed  = total - passed;
+  const failed = total - passed;
+  const allPassed = failed === 0;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onDismiss();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onDismiss]);
 
   return (
-    <div className="gql-batch-results" data-testid="gql-batch-results">
-      {/* Header row */}
-      <div className="gql-batch-results-header">
-        <span className="gql-batch-results-title">Batch of {total}</span>
-        <span className="gql-batch-results-summary">
-          <span className="gql-batch-summary-passed">{passed} passed</span>
-          {failed > 0 && (
-            <span className="gql-batch-summary-failed">{failed} failed</span>
-          )}
-        </span>
-        {result.batchUnsupported && (
-          <span
-            className="gql-batch-unsupported-badge"
-            title="Server does not support array batching — operations were sent individually"
-          >
-            Sequential fallback
+    <div
+      className="gql-batch-results"
+      data-testid="gql-batch-results"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <header className="gql-batch-results-header">
+        <div className="gql-batch-results-heading">
+          <h2 id={titleId} className="gql-batch-results-title">Batch execution</h2>
+          <p className="gql-batch-results-subtitle">
+            {total} operation{total !== 1 ? 's' : ''} completed
+          </p>
+        </div>
+        <div className="gql-batch-results-badges">
+          <span className={`gql-batch-summary-pill gql-batch-summary-pill--passed${allPassed ? ' gql-batch-summary-pill--solo' : ''}`}>
+            {passed} passed
           </span>
-        )}
-        <button
-          type="button"
-          className="gql-batch-results-dismiss"
-          onClick={onDismiss}
-          aria-label="Dismiss batch results"
-        >
-          ×
-        </button>
-      </div>
+          {failed > 0 && (
+            <span className="gql-batch-summary-pill gql-batch-summary-pill--failed">
+              {failed} failed
+            </span>
+          )}
+          {result.batchUnsupported && (
+            <span
+              className="gql-batch-summary-pill gql-batch-summary-pill--fallback"
+              title="Server does not support array batching — operations were sent individually"
+            >
+              Sequential fallback
+            </span>
+          )}
+        </div>
+      </header>
 
-      {/* Per-operation cards, ordered by request index */}
       <div className="gql-batch-cards">
         {result.results.map((item) => (
           <BatchOpCard key={item.index} item={item} />
         ))}
       </div>
+
+      <footer className="gql-batch-results-footer">
+        <button
+          type="button"
+          className="gql-btn gql-btn--secondary gql-batch-results-close-btn"
+          onClick={onDismiss}
+          aria-label="Close batch results"
+        >
+          Close
+        </button>
+      </footer>
     </div>
   );
 }

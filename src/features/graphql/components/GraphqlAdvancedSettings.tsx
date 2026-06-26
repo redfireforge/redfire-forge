@@ -252,6 +252,7 @@ export function GraphqlAdvancedSettings({
       style={modalStyle}
       role="dialog"
       aria-label="Advanced query settings"
+      data-testid="gql-adv-settings-modal"
     >
       <div
         className="gql-advsettings-header gql-advsettings-header--draggable"

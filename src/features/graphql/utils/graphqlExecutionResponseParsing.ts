@@ -78,16 +78,32 @@ export function buildAuthSentFields(
   );
 }
 
+export interface RequestStampInput {
+  method?: string;
+  body?: Record<string, unknown>;
+}
+
 export function stampRequestHeaders(
   response: GraphqlResponse,
   requestHeaders: Record<string, string>,
   authStamp?: AuthSentStampInput,
+  requestStamp?: RequestStampInput,
 ): GraphqlResponse {
   const authFields = buildAuthSentFields(requestHeaders, authStamp);
   const stamped: GraphqlResponse = {
     ...response,
     requestHeaders: { ...requestHeaders },
   };
+  if (requestStamp?.method) {
+    stamped.requestMethod = requestStamp.method;
+  } else {
+    delete stamped.requestMethod;
+  }
+  if (requestStamp?.body && Object.keys(requestStamp.body).length > 0) {
+    stamped.requestBody = { ...requestStamp.body };
+  } else {
+    delete stamped.requestBody;
+  }
   if (authFields) {
     stamped.authSentSource = authFields.authSentSource;
     stamped.authSentLines = authFields.authSentLines;

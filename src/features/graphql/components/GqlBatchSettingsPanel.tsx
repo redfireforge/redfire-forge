@@ -26,10 +26,20 @@ const OP_LETTER: Record<NonNullable<GqlStudioTab['operationType']>, string> = {
   subscription: 'S',
 };
 
-function queryPreview(query: string, maxLen = 48): string {
-  const line = query.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
-  if (!line) return '(empty query)';
-  return line.length > maxLen ? `${line.slice(0, maxLen - 1)}…` : line;
+function normalizeQueryPreview(query: string): string {
+  return query.replace(/\s+/g, ' ').trim();
+}
+
+function isEmptyGraphqlQuery(normalized: string): boolean {
+  if (!normalized) return true;
+  return /^(query|mutation|subscription)\s*\{\s*\}$/i.test(normalized);
+}
+
+/** Single-line preview — full query when short, ellipsis when long (tooltip holds full text). */
+function queryPreview(query: string, maxLen = 80): string {
+  const normalized = normalizeQueryPreview(query);
+  if (isEmptyGraphqlQuery(normalized)) return '(empty query)';
+  return normalized.length > maxLen ? `${normalized.slice(0, maxLen - 1)}…` : normalized;
 }
 
 export function GqlBatchSettingsPanel({

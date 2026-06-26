@@ -257,14 +257,15 @@ export function stubSubscriptionShell(extra = ''): void {
     <pre data-testid="gql-response-body"></pre>
     <div data-testid="gql-sub-log">
       <div data-testid="gql-sub-message-list">
-        <div data-testid="gql-sub-row">PENDING</div>
-        <div data-testid="gql-sub-row">PROCESSING</div>
-        <div data-testid="gql-sub-row">COMPLETE</div>
+        <div data-testid="gql-sub-row">PENDING <span data-testid="gql-assertion-badge"></span></div>
+        <div data-testid="gql-sub-row">PROCESSING <span data-testid="gql-assertion-badge"></span></div>
+        <div data-testid="gql-sub-row">COMPLETE <span data-testid="gql-assertion-badge"></span></div>
       </div>
     </div>
     <div data-testid="gql-ws-status"></div>
     <button data-testid="gql-sub-filter-btn"></button>
-    <div data-testid="gql-sub-filter-bar"><input data-testid="gql-sub-filter-input" /></div>
+    <div data-testid="gql-sub-filter-bar"><input data-testid="gql-sub-filter-input" /><button data-testid="gql-sub-filter-clear"></button></div>
+    <button data-testid="gql-sub-resubscribe-btn"></button>
     <button data-testid="gql-sub-pause-btn"></button>
     <button data-testid="gql-sub-resume-btn"></button>
     <button data-testid="gql-stop-sub-btn"></button>

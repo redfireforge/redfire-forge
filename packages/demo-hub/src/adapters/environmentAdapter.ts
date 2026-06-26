@@ -1,11 +1,32 @@
 import type { GlobalAuthProfile } from '@shared/types';
 import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import {
+  ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
+  purgeGqlDemoGlobalAuthProfilesFromStorage,
+} from '@graphql/utils/gqlDemoGlobalAuthProfiles';
 import { getDemoBridgeWindow } from './bridgeWindow';
 
 export type GqlDemoEnvVar = { key: string; value: string; masked?: boolean };
 
 export function upsertGlobalAuthProfile(profile: GlobalAuthProfile): void {
   getDemoBridgeWindow().__demoUpsertGlobalAuthProfile?.(profile);
+}
+
+/** Sync in-memory app state after storage purge (safe no-op when bridge is absent). */
+export function purgeGlobalAuthProfilesFromBridge(
+  specs: readonly { id: string; name: string }[] = ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
+): void {
+  getDemoBridgeWindow().__demoPurgeGlobalAuthProfiles?.(
+    specs.map((spec) => spec.name),
+    specs.map((spec) => spec.id),
+  );
+}
+
+/** Remove demo-lesson global auth profiles from storage and live React state. */
+export async function purgeGqlDemoGlobalAuthProfiles(): Promise<number> {
+  const removed = await purgeGqlDemoGlobalAuthProfilesFromStorage();
+  purgeGlobalAuthProfilesFromBridge();
+  return removed;
 }
 
 export function upsertGqlEnvironment(name: string, envVars: GqlDemoEnvVar[]): boolean {

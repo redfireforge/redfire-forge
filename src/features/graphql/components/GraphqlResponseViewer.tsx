@@ -10,7 +10,7 @@
  * There is no separate "toolbar" row between the tab bar and the content.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
@@ -22,6 +22,7 @@ import {
 } from '../utils/graphqlResponseDataExtractors';
 import { authSentSourceLabel } from '../utils/gqlAuthResolve';
 import { serializeGraphqlResponseBody } from '../utils/graphqlResponseBodyPayload';
+import { serializeGraphqlRequestBody } from '../utils/graphqlRequestBodyDisplay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,102 @@ function HeadersTab({ headers }: { headers: Record<string, string> }) {
   );
 }
 
+const REQUEST_BODY_COLLAPSE_CHARS = 480;
+const REQUEST_HEADERS_COLLAPSE_COUNT = 4;
+
+function shouldCollapseRequestBody(body: Record<string, unknown>): boolean {
+  const text = JSON.stringify(body, null, 2);
+  return text.length > REQUEST_BODY_COLLAPSE_CHARS || text.split('\n').length > 12;
+}
+
+interface MetadataCollapsibleSectionProps {
+  title: string;
+  sectionTestId: string;
+  toggleTestId: string;
+  defaultExpanded: boolean;
+  collapsedSummary?: string;
+  headerActions?: ReactNode;
+  children: ReactNode;
+}
+
+function MetadataCollapsibleSection({
+  title,
+  sectionTestId,
+  toggleTestId,
+  defaultExpanded,
+  collapsedSummary,
+  headerActions,
+  children,
+}: MetadataCollapsibleSectionProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  return (
+    <div className="gql-rv-meta-section" data-testid={sectionTestId}>
+      <div className="gql-rv-meta-section-header">
+        <button
+          type="button"
+          className="gql-rv-meta-section-toggle"
+          data-testid={toggleTestId}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span
+            className={`gql-rv-meta-section-chevron${expanded ? ' gql-rv-meta-section-chevron--open' : ''}`}
+            aria-hidden="true"
+          >
+            ▶
+          </span>
+          <span className="gql-rv-meta-section-title">{title}</span>
+          {!expanded && collapsedSummary && (
+            <span className="gql-rv-meta-section-summary">{collapsedSummary}</span>
+          )}
+        </button>
+        {expanded && headerActions && (
+          <div className="gql-rv-meta-section-actions">{headerActions}</div>
+        )}
+      </div>
+      {expanded && (
+        <div className="gql-rv-meta-section-body">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetadataRequestBodySection({ body }: { body: Record<string, unknown> }) {
+  const [graphqlView, setGraphqlView] = useState(false);
+  const displayText = useMemo(
+    () => serializeGraphqlRequestBody(body, { graphqlView }),
+    [body, graphqlView],
+  );
+
+  return (
+    <MetadataCollapsibleSection
+      title="Request body"
+      sectionTestId="gql-rv-request-body"
+      toggleTestId="gql-rv-request-body-toggle"
+      defaultExpanded={!shouldCollapseRequestBody(body)}
+      collapsedSummary="POST payload — click to expand"
+      headerActions={(
+        <button
+          type="button"
+          className={`gql-rv-pretty-badge${graphqlView ? ' gql-rv-pretty-badge--active' : ''}`}
+          onClick={() => setGraphqlView((value) => !value)}
+          title={graphqlView ? 'Show raw POST JSON' : 'Show GraphQL query and variables view'}
+          data-testid="gql-rv-request-body-pretty-btn"
+        >
+          {graphqlView ? 'Raw JSON' : 'GraphQL view'}
+        </button>
+      )}
+    >
+      <pre className="gql-rv-request-body-json" data-testid="gql-rv-request-body-content">
+        {displayText}
+      </pre>
+    </MetadataCollapsibleSection>
+  );
+}
+
 interface MetadataTabProps {
   response: GraphqlResponse;
   bodySize: number;
@@ -221,7 +318,8 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
   const label = isPureGqlError ? 'GraphQL Error' : isPartialSuccess ? 'Partial Success' : statusFullLabel(response.httpStatus);
 
   return (
-    <div className="gql-rv-metadata" data-testid="gql-rv-metadata">
+    <div className="gql-rv-metadata-shell" data-testid="gql-rv-metadata-shell">
+      <div className="gql-rv-metadata" data-testid="gql-rv-metadata">
       <div className="gql-rv-meta-grid">
         <div className="gql-rv-meta-row">
           <span className="gql-rv-meta-label">Status</span>
@@ -294,11 +392,28 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
             </div>
           </div>
         )}
+        {response.requestMethod && (
+          <div className="gql-rv-meta-row">
+            <span className="gql-rv-meta-label">Method</span>
+            <span className="gql-rv-meta-value gql-rv-meta-mono" data-testid="gql-rv-request-method">
+              {response.requestMethod}
+            </span>
+          </div>
+        )}
       </div>
 
       {response.requestHeaders && Object.keys(response.requestHeaders).length > 0 && (
-        <div className="gql-rv-meta-section" data-testid="gql-rv-request-headers">
-          <div className="gql-rv-meta-section-title">Request headers</div>
+        <MetadataCollapsibleSection
+          title="Request headers"
+          sectionTestId="gql-rv-request-headers"
+          toggleTestId="gql-rv-request-headers-toggle"
+          defaultExpanded={
+            Object.keys(response.requestHeaders).length <= REQUEST_HEADERS_COLLAPSE_COUNT
+          }
+          collapsedSummary={`${Object.keys(response.requestHeaders).length} header${
+            Object.keys(response.requestHeaders).length === 1 ? '' : 's'
+          } — click to expand`}
+        >
           <table className="gql-rv-headers-table">
             <thead>
               <tr>
@@ -315,7 +430,11 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
               ))}
             </tbody>
           </table>
-        </div>
+        </MetadataCollapsibleSection>
+      )}
+
+      {response.requestBody && Object.keys(response.requestBody).length > 0 && (
+        <MetadataRequestBodySection body={response.requestBody} />
       )}
 
       {/* GraphQL error detail cards */}
@@ -348,6 +467,7 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -757,12 +877,11 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
             <GraphqlTracingView tracing={tracingData} />
           </div>
         )}
+        {/* Pinned below scrollable tab body — reserves space on Tauri/WKWebView flex layouts */}
+        {latencyHistory.length >= 1 && (
+          <GqlLatencyHistogram latencyHistory={latencyHistory} />
+        )}
       </div>
-
-      {/* Latency histogram strip — shown when ≥2 responses recorded */}
-      {latencyHistory.length >= 2 && (
-        <GqlLatencyHistogram latencyHistory={latencyHistory} />
-      )}
     </div>
   );
 }

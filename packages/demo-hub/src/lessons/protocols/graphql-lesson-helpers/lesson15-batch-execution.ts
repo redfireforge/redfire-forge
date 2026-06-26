@@ -107,10 +107,15 @@ function batchResultsVisible(): boolean {
 
 /** Open Advanced Settings on the Batch tab (modal must be closed first). */
 async function openAdvancedSettingsBatchTab(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(GQL.ADV_SETTINGS_TAB_BATCH)) {
+  if (!document.querySelector(GQL.ADV_SETTINGS_MODAL)) {
     await ctx.click(GQL.ADV_SETTINGS_BTN);
-    await ctx.waitFor(GQL.ADV_SETTINGS_TAB_BATCH, 5000);
+    await ctx.waitFor(GQL.ADV_SETTINGS_MODAL, 5000);
     await ctx.delay(600);
+  }
+
+  if (!document.querySelector(GQL.ADV_SETTINGS_TAB_BATCH)) {
+    await ctx.waitFor(GQL.ADV_SETTINGS_TAB_BATCH, 5000);
+    await ctx.delay(400);
   }
 
   const batchTab = document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_TAB_BATCH);
@@ -285,6 +290,25 @@ async function runPartialErrorBatch(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(800);
 }
 
+// ── Reading-phase prep (quiet — no ripple) ───────────────────────────────────
+
+/** Step gql15-enable-batch reading — Advanced settings open on Batch tab for narration. */
+export async function prepareGql15EnableBatchReading(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(GQL.TAB_BAR, 5000);
+  await openAdvancedSettingsBatchTab(ctx);
+  await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
+  await ctx.delay(400);
+}
+
+/** Step gql15-batch-select reading — batch enabled, two tabs, modal open on operation table. */
+export async function prepareGql15BatchSelectReading(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson15TwoTabsSameEndpoint(ctx);
+  await openAdvancedSettingsBatchTab(ctx);
+  await clickAdvBatchEnableToggle(ctx);
+  await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
+  await ctx.delay(400);
+}
+
 // ── Visible lesson actions (human-paced) ──────────────────────────────────────
 
 /** Step action: enable batch mode via Advanced Settings (visible gear → Batch → Save). */
@@ -294,17 +318,13 @@ export async function demonstrateLesson15EnableBatch(ctx: DemoActionContext): Pr
     return;
   }
 
-  await ctx.click(GQL.ADV_SETTINGS_BTN);
-  await ctx.waitFor(GQL.ADV_SETTINGS_TAB_BATCH, 5000);
-  await ctx.delay(1000);
-
-  await ctx.click(GQL.ADV_SETTINGS_TAB_BATCH);
+  await openAdvancedSettingsBatchTab(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_ENABLE_TOGGLE, 5000);
-  await ctx.delay(1000);
+  await ctx.delay(1500);
 
   await clickAdvBatchEnableToggle(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  await ctx.delay(2000);
+  await ctx.delay(3500);
 
   await saveAdvancedSettings(ctx);
   await ctx.waitFor(GQL.BATCH_SUMMARY_CHIP, 5000);
@@ -339,13 +359,15 @@ export async function demonstrateLesson15SelectBatchTabs(ctx: DemoActionContext)
 
   await openAdvancedSettingsBatchTab(ctx);
   await ctx.waitFor(GQL.ADV_BATCH_PANEL, 5000);
-  await ctx.delay(600);
+  await ctx.delay(1200);
 
   for (const tabId of getDemoTabIds()) {
     await clickAdvBatchTabInclusion(ctx, tabId);
   }
 
+  await ctx.delay(2500);
   await saveAdvancedSettings(ctx);
+  await ctx.delay(800);
   _lesson15BothChecked = true;
 }
 
@@ -441,6 +463,7 @@ export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void>
   await ensureGqlDemoTab(ctx, GQL15_LESSON_ID, 'Batch Execution', 2);
   await ensureDemoEndpoint(ctx);
   await ensureIntrospected(ctx);
+  await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
 }
 
 /** Batch lesson cleanup (GQL-15) — close all demo tabs. */

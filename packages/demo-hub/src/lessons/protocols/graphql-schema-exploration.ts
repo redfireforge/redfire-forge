@@ -6,15 +6,17 @@ import {
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   configureDemoTabEndpointOverride,
-  ensureDemoEndpoint,
   ensureEditorReadyForInsert,
   ensureIntrospected,
+  ensureSchemaExplorerOpen,
   ensureQueryTypeSelected,
   ensureTryInsertDone,
   ensureUserTypeSelected,
   gqlSchemaLessonCleanup,
   gqlSchemaLessonSetup,
   markTryInsertDone,
+  prepareGql4IntrospectReading,
+  syncGql4IntrospectSchemaTabDuringReading,
   searchSchemaTypes,
   selectSchemaType,
 } from './graphql-lesson-helpers';
@@ -384,17 +386,20 @@ The test server schema used in this lesson has five types: **Query** (root entry
         'and description it supports via introspection. ' +
         'RedfireForge caches the response locally, which is why autocomplete, inline validation, and the Schema Explorer all work ' +
         'without a round-trip on every keystroke. ' +
-        'Watch the **✓ Schema** badge turn green in the connection bar — that confirms the entire contract is cached and the Explorer is ready to browse.',
+        'Watch the **✓ Schema** badge turn green in the connection bar — that confirms the entire contract is cached. ' +
+        'The lesson then opens the **Schema** tab on the right so you can browse the loaded type list immediately.',
       highlight: GQL.INTROSPECT_BTN,
-      preAction: ensureDemoEndpoint,
+      preAction: prepareGql4IntrospectReading,
+      readingSync: syncGql4IntrospectSchemaTabDuringReading,
       action: async (ctx) => {
         if (!document.querySelector(GQL.SCHEMA_BADGE_OK)) {
           await ctx.click(GQL.INTROSPECT_BTN);
           await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+          await ctx.delay(1500);
         }
-        await ctx.delay(1500);
+        await ensureSchemaExplorerOpen(ctx);
       },
-      verify: GQL.SCHEMA_BADGE_OK,
+      verify: GQL.SCHEMA_TYPE_LIST,
       pauseAfter: true,
     },
 
@@ -403,7 +408,7 @@ The test server schema used in this lesson has five types: **Query** (root entry
       id: 'gql4-browse',
       title: 'Browse Types',
       description:
-        'Open the **Schema** tab — the type list fills with every type in the schema: **Query**, **Mutation**, **User**, **Order**, **OrderInput**. ' +
+        'The **Schema** tab is open — the type list fills with every type in the schema: **Query**, **Mutation**, **User**, **Order**, **OrderInput**. ' +
         'Click **Query** to open its detail panel. ' +
         '**Query** is the root type — all top-level operations you can call on this API are listed here. ' +
         'The field table has two columns to pay close attention to: ' +

@@ -17,6 +17,7 @@ describe('GraphqlAuthPanel', () => {
   it('renders panel with preview footer', () => {
     render(<GraphqlAuthPanel {...baseProps} />);
     expect(screen.getByTestId('gql-auth-panel')).toBeTruthy();
+    expect(screen.getByTestId('gql-auth-panel-scroll')).toBeTruthy();
     expect(screen.getByTestId('gql-auth-preview')).toHaveTextContent('No auth headers');
   });
 

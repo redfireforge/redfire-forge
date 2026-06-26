@@ -470,29 +470,28 @@ describe('lesson15 demonstrate actions', () => {
   it('demonstrateLesson15EnableBatch opens settings and enables batch', async () => {
     document.body.innerHTML = `
       <button data-testid="gql-adv-settings-btn"></button>
-      <button data-testid="gql-adv-settings-tab-batch"></button>
-      <button data-testid="gql-adv-settings-save-btn"></button>
+      <div data-testid="gql-adv-settings-modal">
+        <button data-testid="gql-adv-settings-tab-batch" class="active"></button>
+        <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
+          <input type="checkbox" aria-label="Enable query batching" />
+        </label>
+        <button data-testid="gql-adv-settings-save-btn"></button>
+      </div>
     `;
     const ctx = makeCtx();
     vi.mocked(ctx.click).mockImplementation(async (sel) => {
-      if (sel === GQL.ADV_SETTINGS_TAB_BATCH) {
-        document.body.insertAdjacentHTML(
-          'beforeend',
-          `<label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
-            <input type="checkbox" aria-label="Enable query batching" />
-          </label>
-          <div data-testid="gql-adv-batch-panel"></div>`,
-        );
-      }
       if (sel === GQL.ADV_BATCH_ENABLE_TOGGLE) {
         document.querySelector<HTMLInputElement>(GQL.ADV_BATCH_ENABLE)!.checked = true;
+        if (!document.querySelector(GQL.ADV_BATCH_PANEL)) {
+          document.body.insertAdjacentHTML('beforeend', '<div data-testid="gql-adv-batch-panel"></div>');
+        }
       }
       if (sel === GQL.ADV_SETTINGS_SAVE_BTN) {
         document.body.insertAdjacentHTML('beforeend', '<span data-testid="gql-batch-summary-chip">Batch</span>');
       }
     });
     await demonstrateLesson15EnableBatch(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_BATCH_ENABLE_TOGGLE);
   });
 

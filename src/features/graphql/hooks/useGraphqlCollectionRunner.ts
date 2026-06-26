@@ -21,6 +21,7 @@ import type {
   RfResponseContext,
 } from '../../../shared/types/graphql';
 import { executeGraphqlOperation } from '../utils/executeGraphqlOperation';
+import { resolveGraphqlRequestOperationName } from '../utils/graphqlQueryParseUtils';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
 import {
   createRfContext,
@@ -282,13 +283,17 @@ export function useGraphqlCollectionRunner(): UseGraphqlCollectionRunnerResult {
 
       // ── Execute HTTP request ───────────────────────────────────────────────
       const httpStart = performance.now();
+      const requestOperationName = resolveGraphqlRequestOperationName(
+        item.operation.query,
+        item.operation.name,
+      );
       let response;
       try {
         response = await executeGraphqlOperation({
           endpoint,
           query: item.operation.query,
           variables: parsedVars,
-          operationName: item.operation.name,
+          operationName: requestOperationName,
           headers: mutableHeaders,
           skipTlsVerify,
           tls,

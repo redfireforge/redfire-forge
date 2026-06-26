@@ -947,9 +947,26 @@ describe('lesson3-mutations helpers', () => {
         <button data-testid="gql-introspect-btn"></button>
         <span data-testid="gql-schema-badge-ok">Schema loaded (0)</span>
         <button data-testid="gql-right-tab-response"></button>
+        <button data-testid="gql-right-tab-schema"></button>
+        <div data-testid="gql-schema-explorer">
+          <div data-testid="gql-se-type-list"></div>
+        </div>
         <pre data-testid="gql-response-body">{}</pre>`;
       await prepareGql3ObserveIntrospectReading(ctx);
       expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    });
+
+    it('prepareGql3ObserveIntrospectReading opens Schema tab when badge is usable', async () => {
+      const ctx = makeCtx();
+      document.body.innerHTML = `
+        <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+        <span data-testid="gql-schema-badge-ok">Schema loaded (12)</span>
+        <button data-testid="gql-right-tab-schema"></button>
+        <div data-testid="gql-schema-explorer">
+          <div data-testid="gql-se-type-list"></div>
+        </div>`;
+      await prepareGql3ObserveIntrospectReading(ctx);
+      expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
     });
 
     it('prepareGql3IdempotencyReading delegates to exec reading helper', async () => {

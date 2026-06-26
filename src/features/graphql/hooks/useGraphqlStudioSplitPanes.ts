@@ -53,8 +53,8 @@ export function useGraphqlStudioSplitPanes(): GraphqlStudioSplitPanes {
   });
 
   const { height: bottomPanelHeight, dividerProps: bottomPanelDividerProps } = useVerticalSplitPaneResize({
-    storageKey: 'redfire-gql-bottom-panel-height-v3',
-    defaultHeight: 320,
+    storageKey: 'redfire-gql-bottom-panel-height-v4',
+    defaultHeight: 368,
     minHeight: 80,
     minOppositeHeight: 120,
     containerRef: gqlLeftPaneRef,

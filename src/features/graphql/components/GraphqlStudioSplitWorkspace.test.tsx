@@ -157,6 +157,7 @@ const baseProps = {
   assertionResultMap: new Map(),
   onExportSubscription: vi.fn(),
   onStopSubscription: vi.fn(),
+  onResubscribeSubscription: vi.fn(),
 };
 
 describe('GraphqlStudioSplitWorkspace', () => {

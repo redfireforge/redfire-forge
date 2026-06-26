@@ -45,6 +45,8 @@ export interface GraphqlSubscriptionLogProps {
   onClear(): void;
   onExport(): void;
   onStop(): void;
+  /** Re-open the subscription when the server has completed (shows Re-subscribe in toolbar). */
+  onResubscribe?(): void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,6 +164,7 @@ export function GraphqlSubscriptionLog({
   onClear,
   onExport,
   onStop,
+  onResubscribe,
 }: GraphqlSubscriptionLogProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
@@ -360,7 +363,22 @@ export function GraphqlSubscriptionLog({
 
       {/* Toolbar */}
       <div className="gql-sub-toolbar" data-testid="gql-sub-toolbar">
-        {isLive && (
+        {state === 'closed' && onResubscribe ? (
+          <button
+            type="button"
+            className="gql-sub-toolbar-btn gql-sub-toolbar-btn--resubscribe"
+            onClick={onResubscribe}
+            data-testid="gql-sub-resubscribe-btn"
+            title="Start a new subscription stream"
+            aria-label="Re-subscribe"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            Re-subscribe
+          </button>
+        ) : isLive ? (
           isPaused ? (
             <button
               type="button"
@@ -394,7 +412,7 @@ export function GraphqlSubscriptionLog({
               Pause
             </button>
           )
-        )}
+        ) : null}
 
         <button
           type="button"
@@ -464,7 +482,9 @@ export function GraphqlSubscriptionLog({
 
         {isTerminal && (
           <span className="gql-sub-toolbar-status">
-            {state === 'error' ? 'Subscription failed' : `${messages.length} events logged`}
+            {state === 'error'
+              ? 'Subscription failed'
+              : `${messages.length} events logged — stream ended`}
           </span>
         )}
       </div>

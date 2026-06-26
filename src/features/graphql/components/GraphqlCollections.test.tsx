@@ -373,6 +373,8 @@ describe('GraphqlCollections', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('gql-import-mode-dialog')).toBeInTheDocument());
+    expect(screen.getByTestId('gql-import-mode-file')).toHaveTextContent('export.json');
+    expect(screen.getByTestId('gql-import-mode-summary')).toHaveTextContent('0 collections · 0 operations');
   });
 
   it('handles merge import', async () => {

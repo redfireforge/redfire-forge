@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import {
+  getGqlModalLockSnapshot,
+  subscribeGqlModalLock,
+} from '../utils/gqlModalLockHost';
 
-export interface GqlModalLockState {
-  envAllowed: boolean;
-  profileAllowed: boolean;
-}
-
-const DEFAULT_LOCK: GqlModalLockState = { envAllowed: true, profileAllowed: true };
+export type { GqlModalLockState } from '@redfireforge/demo-hub/adapters/gqlModalLockBridge';
 
 interface DemoGqlModalLockBridgeDeps {
   envModalOpen: boolean;
@@ -17,22 +16,26 @@ interface DemoGqlModalLockBridgeDeps {
 /**
  * Demo-player bridge for GraphQL Studio Env / Connection Profile modals.
  *
- * During live demos, only the step spotlight target may open its modal.
- * When a modal is locked, any open instance is closed automatically.
+ * Env and Profiles stay available at all times during live demos (see gqlModalLockHost).
  */
-export function useDemoGqlModalLockBridge(deps: DemoGqlModalLockBridgeDeps): GqlModalLockState {
+export function useDemoGqlModalLockBridge(deps: DemoGqlModalLockBridgeDeps) {
   const depsRef = useRef(deps);
   depsRef.current = deps;
-  const [lock, setLock] = useState<GqlModalLockState>(DEFAULT_LOCK);
+
+  const lock = useSyncExternalStore(
+    subscribeGqlModalLock,
+    getGqlModalLockSnapshot,
+    getGqlModalLockSnapshot,
+  );
 
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
-    w.__demoSetGqlModalLock = (next: GqlModalLockState) => {
-      setLock(next);
+    w.__demoOpenGqlProfileModal = () => {
+      depsRef.current.setProfileModalOpen(true);
+      return true;
     };
     return () => {
-      delete w.__demoSetGqlModalLock;
-      setLock(DEFAULT_LOCK);
+      delete w.__demoOpenGqlProfileModal;
     };
   }, []);
 
@@ -47,3 +50,5 @@ export function useDemoGqlModalLockBridge(deps: DemoGqlModalLockBridgeDeps): Gql
 
   return lock;
 }
+
+export { resetGqlModalLockHostForTests } from '../utils/gqlModalLockHost';

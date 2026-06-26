@@ -8,10 +8,14 @@ export type DemoBridgeWindow = Window &
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
+    __demoPurgeGlobalAuthProfiles?: (names: string[], ids: string[]) => void;
     __demoUpsertGqlEnv?: (name: string, envVars: Array<{ key: string; value: string; masked?: boolean }>) => void;
     __demoApplyGqlTlsSettings?: (patch: Partial<GqlTlsSettings>) => void;
     __demoSetGqlQuery?: (query: string) => void;
+    __demoSetGqlRightView?: (view: 'response' | 'schema') => void;
+    __demoGqlModalLockState?: { envAllowed: boolean; profileAllowed: boolean };
     __demoSetGqlModalLock?: (lock: { envAllowed: boolean; profileAllowed: boolean }) => void;
+    __demoOpenGqlProfileModal?: () => boolean;
     __demoDeleteGqlEnvByName?: (name: string) => void;
     __wfDeleteByName?: (name: string) => void;
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;

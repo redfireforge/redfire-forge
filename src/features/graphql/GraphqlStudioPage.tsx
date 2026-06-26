@@ -46,6 +46,7 @@ import { useGqlActiveTabConnection } from './hooks/useGqlActiveTabConnection';
 import {
   buildActiveTabHeaderMap,
   buildGraphqlSchemaHeaders,
+  describeEnvResolvedAuthPreview,
 } from './utils/graphqlStudioEnvUtils';
 import { useGraphqlStudioQueryComplexity } from './hooks/useGraphqlStudioQueryComplexity';
 import { buildAssertionResultMap } from './utils/subscriptionAssertions';
@@ -53,7 +54,6 @@ import { useGraphqlAdvancedSettings } from './hooks/useGraphqlAdvancedSettings';
 import { useGraphqlBatchExecution } from './hooks/useGraphqlBatchExecution';
 import { useGqlTabResponseCache, resolveActiveTabUploadProgress } from './hooks/useGqlTabResponseCache';
 import { useGqlTabConnectionHandlers } from './hooks/useGqlTabConnectionHandlers';
-import { describeResolvedGqlAuth } from './utils/gqlAuthResolve';
 import { resolveGqlAuthBadgePresentation } from './utils/authUtils';
 import { useGqlExecutionCompletedHandler } from './hooks/useGqlExecutionCompletedHandler';
 import { useGraphqlStudioExecute } from './hooks/useGraphqlStudioExecute';
@@ -64,6 +64,7 @@ import '../../styles/graphql-tls-panel.css';
 import '../../styles/graphql-collections.css';
 import { useGraphqlStudioBatchAdvSettings } from './hooks/useGraphqlStudioBatchAdvSettings';
 import type { BottomPanelTabExtended, GraphqlStudioPageProps } from './graphqlStudioPageTypes';
+import './utils/gqlModalLockHost';
 import { useGraphqlStudioSubscriptionGuard } from './hooks/useGraphqlStudioSubscriptionGuard';
 import { useGraphqlStudioUIState } from './hooks/useGraphqlStudioUIState';
 
@@ -256,8 +257,8 @@ export function GraphqlStudioPage({
   );
 
   const resolvedAuthPreview = useMemo(
-    () => describeResolvedGqlAuth(resolvedTabAuth, globalAuthProfiles),
-    [resolvedTabAuth, globalAuthProfiles],
+    () => describeEnvResolvedAuthPreview(resolvedTabAuth, activeEnvironment, globalEnvMap, globalAuthProfiles),
+    [resolvedTabAuth, activeEnvironment, globalEnvMap, globalAuthProfiles],
   );
 
   const {
@@ -269,7 +270,7 @@ export function GraphqlStudioPage({
     handleQueryChange(query);
   }, [handleQueryChange, editorMountRef]);
 
-  const gqlModalLock = useDemoGqlModalLockBridge({
+  useDemoGqlModalLockBridge({
     envModalOpen,
     profileModalOpen,
     setEnvModalOpen,
@@ -452,6 +453,8 @@ export function GraphqlStudioPage({
     globalAuthProfiles,
     advSettingsRef, setAdvSettings, setBatchUnsupportedToast,
     setRightView, gqlProxyBase: GQL_STUDIO_PROXY_BASE,
+    historyConnectionId: tabSchemaConnectionId,
+    saveHistory: history.saveHistory,
   });
 
   const {
@@ -587,6 +590,7 @@ export function GraphqlStudioPage({
             deleteEnvironmentByName={deleteEnvironmentByName}
             applyTlsSettings={handleConnectionTlsChange}
             setGqlQuery={handleDemoSetGqlQuery}
+            setRightView={setRightView}
           />
         </Suspense>
       )}
@@ -621,15 +625,9 @@ export function GraphqlStudioPage({
         activeEnvironment={activeEnvironment}
         globalEnvMap={globalEnvMap}
         endpointProtocolStatus={endpointProtocolStatus}
-        onEnvBadgeClick={() => {
-          if (gqlModalLock.envAllowed) setEnvModalOpen(true);
-        }}
+        onEnvBadgeClick={() => setEnvModalOpen(true)}
         profiles={profiles}
-        onProfileBadgeClick={() => {
-          if (gqlModalLock.profileAllowed) setProfileModalOpen(true);
-        }}
-        envBadgeDemoLocked={!gqlModalLock.envAllowed}
-        profileBadgeDemoLocked={!gqlModalLock.profileAllowed}
+        onProfileBadgeClick={() => setProfileModalOpen(true)}
         skipTlsVerify={resolvedTabSkipTlsVerify}
         onSkipTlsVerifyChange={handleConnectionSkipTlsChange}
         tlsCaCert={resolvedTabTls.caCert}
@@ -693,6 +691,7 @@ export function GraphqlStudioPage({
           profileModalOpen,
           onProfileModalClose: () => setProfileModalOpen(false),
           profiles,
+          activeConnectionId: activeTab?.connectionId ?? null,
           endpoint: resolvedTabEndpoint,
           auth: resolvedTabAuth,
           globalAuthProfiles,
@@ -834,6 +833,7 @@ export function GraphqlStudioPage({
             assertionResultMap={assertionResultMap}
             onExportSubscription={handleExportSubscription}
             onStopSubscription={handleStopSubscription}
+            onResubscribeSubscription={handleSubscribe}
           />
         </div>
       </div>

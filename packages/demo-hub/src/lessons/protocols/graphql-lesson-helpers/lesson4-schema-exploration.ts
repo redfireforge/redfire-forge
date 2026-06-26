@@ -3,12 +3,16 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
+  ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
   fillGqlEditor,
   getGqlEditorQuery,
+  openSchemaTabWhenCached,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
+  setGqlRightTabSchema,
+  waitForSchemaCached,
 } from './core';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
@@ -39,6 +43,31 @@ export function gqlTryFieldSelector(fieldName: string): string {
   return `[data-testid="gql-try-field-${fieldName}"]`;
 }
 
+/** @deprecated Import from `./core` — kept for lesson tests. */
+export {
+  waitForSchemaCached,
+  setGqlRightTabSchema,
+  openSchemaTabWhenCached,
+  syncSchemaTabWhenCachedDuringReading as syncGql4IntrospectSchemaTabDuringReading,
+} from './core';
+
+/**
+ * Step 3 reading — demo endpoint ready; Schema tab when contract is already cached,
+ * otherwise keep Response visible for the Introspect spotlight.
+ */
+export async function prepareGql4IntrospectReading(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEndpoint(ctx);
+  const cached = await waitForSchemaCached(ctx, 8000);
+  if (cached && (await openSchemaTabWhenCached(ctx))) {
+    return;
+  }
+  const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
+  if (responseTab && responseTab.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+    await ctx.delay(400);
+  }
+}
+
 /** Open the Schema right tab and wait for the explorer. */
 export async function ensureSchemaExplorerOpen(ctx: DemoActionContext): Promise<void> {
   const schemaTabSelected = () =>
@@ -57,7 +86,7 @@ export async function ensureSchemaExplorerOpen(ctx: DemoActionContext): Promise<
 
   // After ensureIntrospected, re-check whether the tab was clicked open internally.
   if (!schemaTabSelected()) {
-    await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+    await setGqlRightTabSchema(ctx);
     await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);
     await ctx.delay(400);
   }
