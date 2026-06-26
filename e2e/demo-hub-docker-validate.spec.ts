@@ -16,19 +16,13 @@
  * Docker endpoint is down (safe to run in any environment).
  */
 import { test, expect, type Page } from '@playwright/test';
+import { openDemoHub } from './demo-player-helpers';
 
-const BASE = 'http://localhost:5173';
 const HUB_TIMEOUT = 12_000;
 const STEP_TIMEOUT = 30_000;   // Kafka setup can take longer
 const EXIT_TIMEOUT = 20_000;   // Kafka cleanup can take time
 
 // ─── navigation helpers ───────────────────────────────────────────
-
-async function openDemoHub(page: Page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.locator('[title="Demo Hub"]').click();
-  await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });
-}
 
 async function selectDomain(page: Page) {
   const card = page.locator('.demo-domain-card')

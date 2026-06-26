@@ -22,7 +22,7 @@ vi.mock('../../shared/utils/storage', () => ({
   compactWorkflowStorage: vi.fn().mockResolvedValue({ beforeKB: 0, afterKB: 0 }),
 }));
 
-vi.mock('../demo-player/lessons/gql-demo-storage-cleanup', () => ({
+vi.mock('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup', () => ({
   purgeGqlDemoEphemeralStorage: vi.fn().mockResolvedValue({
     profilesRemoved: 0,
     runnerConfigsRemoved: 0,
@@ -40,7 +40,7 @@ import {
   cleanupStaleStorageKeys,
   compactWorkflowStorage,
 } from '../../shared/utils/storage';
-import { purgeGqlDemoEphemeralStorage } from '../demo-player/lessons/gql-demo-storage-cleanup';
+import { purgeGqlDemoEphemeralStorage } from '@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup';
 
 const mGetUsage = vi.mocked(getStorageUsage);
 const mLoadRuns = vi.mocked(loadTestRunsLite);

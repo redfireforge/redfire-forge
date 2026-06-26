@@ -4,8 +4,8 @@ import {
   GQL_DEMO_ENV_NAME,
   GQL_DEMO_SVC_NAME,
   GQL_STUDIO_DEMO_ENV_NAME,
-} from '../../features/demo-player/lessons/env-manager-lesson-helpers';
-import { purgeGqlDemoLessonEnvironmentsFromStorage } from '../../features/demo-player/lessons/gql-demo-app-environment-cleanup';
+} from '@redfireforge/demo-hub/lessons/env-manager-lesson-helpers';
+import { purgeGqlDemoLessonEnvironmentsFromStorage } from '@redfireforge/demo-hub/lessons/gql-demo-app-environment-cleanup';
 
 interface DemoAppEnvironmentCleanupBridgeDeps {
   selectedEnvId: string;

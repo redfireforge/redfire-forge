@@ -6,7 +6,17 @@
  */
 
 import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import {
+  idbClearPageAuthRaw,
+  idbLoadPageAuthRaw,
+  idbLoadTabsPersisted,
+  idbMigratePageAuthFromLocalStorage,
+  idbMigrateTabsFromLocalStorage,
+  idbSavePageAuthRaw,
+  idbSaveTabsPersisted,
+} from '../../../shared/utils/idbGraphqlStudio';
 import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
+import { isTauri } from '../../../shared/utils/platform';
 import { makeHeaderId } from './headerUtils';
 import { buildModelUri, buildVarsModelUri } from './monacoGraphqlSetup';
 import { clampPollingIntervalSeconds } from './pollingIntervalUtils';
@@ -315,23 +325,62 @@ export function normalizeTab(raw: unknown): GqlStudioTab | null {
 
 // ─── Load / save tabs ─────────────────────────────────────────────────────────
 
+function removeLegacyTabLocalStorage(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(`${STORAGE_KEY}_active`);
+  } catch { /* ignore */ }
+}
+
+function normalizeLoadedTabs(parsed: unknown[]): GqlStudioTab[] {
+  const normalized = parsed.map(normalizeTab).filter((t): t is GqlStudioTab => t !== null);
+  const capped = normalized.slice(0, MAX_TABS);
+  return capped.length > 0 ? capped : [];
+}
+
+async function loadTabsFromIdb(): Promise<GqlStudioTab[] | null> {
+  try {
+    let blob = await idbLoadTabsPersisted();
+    if (!blob) {
+      const migrated = await idbMigrateTabsFromLocalStorage(STORAGE_KEY, `${STORAGE_KEY}_active`);
+      if (!migrated) return null;
+      blob = await idbLoadTabsPersisted();
+    }
+    if (!blob || !Array.isArray(blob.tabs)) return null;
+    removeLegacyTabLocalStorage();
+    return normalizeLoadedTabs(blob.tabs);
+  } catch {
+    return null;
+  }
+}
+
 export async function loadTabs(): Promise<GqlStudioTab[]> {
+  if (!isTauri()) {
+    const fromIdb = await loadTabsFromIdb();
+    if (fromIdb !== null) return fromIdb;
+  }
   try {
     const raw = await readKey(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown[];
     if (!Array.isArray(parsed) || parsed.length === 0) return [];
-    const normalized = parsed.map(normalizeTab).filter((t): t is GqlStudioTab => t !== null);
-    // Cap to MAX_TABS on load. Older builds, manual edits, or corrupt data could
-    // persist more tabs than the UI allows. Excess tabs are silently dropped.
-    const capped = normalized.slice(0, MAX_TABS);
-    return capped.length > 0 ? capped : [];
+    return normalizeLoadedTabs(parsed);
   } catch {
     return [];
   }
 }
 
 export async function saveTabs(tabs: GqlStudioTab[], activeId: string): Promise<void> {
+  if (!isTauri()) {
+    try {
+      await idbSaveTabsPersisted(tabs, activeId);
+      removeLegacyTabLocalStorage();
+      return;
+    } catch (err) {
+      console.error('[Storage] GraphQL tabs IDB save failed', err);
+      return;
+    }
+  }
   try {
     await writeKey(STORAGE_KEY, JSON.stringify(tabs));
     await writeKey(`${STORAGE_KEY}_active`, activeId);
@@ -341,25 +390,65 @@ export async function saveTabs(tabs: GqlStudioTab[], activeId: string): Promise<
 }
 
 export async function loadActiveTabId(): Promise<string> {
+  if (!isTauri()) {
+    try {
+      const blob = await idbLoadTabsPersisted();
+      if (blob?.activeId) return blob.activeId;
+    } catch { /* fall through */ }
+  }
   return (await readKey(`${STORAGE_KEY}_active`)) ?? '';
 }
 
 // ─── Auth persistence ─────────────────────────────────────────────────────────
 
+function parseAuthRaw(raw: string | null): GraphqlAuth | null {
+  if (!raw) return null;
+  const normalized = normalizeGraphqlAuth(JSON.parse(raw) as unknown);
+  if (normalized === undefined) return null;
+  return normalized;
+}
+
 export async function loadAuth(): Promise<GraphqlAuth | null> {
+  if (!isTauri()) {
+    try {
+      let raw = await idbLoadPageAuthRaw();
+      if (!raw) {
+        await idbMigratePageAuthFromLocalStorage(AUTH_STORAGE_KEY);
+        raw = await idbLoadPageAuthRaw();
+      }
+      if (raw) {
+        try {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+        } catch { /* ignore */ }
+        return parseAuthRaw(raw);
+      }
+    } catch { /* fall through */ }
+  }
   try {
     const raw = await readKey(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    const normalized = normalizeGraphqlAuth(parsed);
-    if (normalized === undefined) return null;
-    return normalized;
+    return parseAuthRaw(raw);
   } catch {
     return null;
   }
 }
 
 export async function saveAuth(auth: GraphqlAuth | null): Promise<void> {
+  if (!isTauri()) {
+    try {
+      if (auth) {
+        await idbSavePageAuthRaw(JSON.stringify(auth));
+      } else {
+        await idbClearPageAuthRaw();
+      }
+      try {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch { /* ignore */ }
+      return;
+    } catch (err) {
+      console.error('[Storage] GraphQL page auth IDB save failed', err);
+      return;
+    }
+  }
   try {
     if (auth) {
       await writeKey(AUTH_STORAGE_KEY, JSON.stringify(auth));

@@ -9,7 +9,7 @@ import AppLiveDemoOverlay from './AppLiveDemoOverlay';
 
 let capturedProps: Record<string, unknown> = {};
 
-vi.mock('../../features/demo-player/LiveDemo', () => ({
+vi.mock('@redfireforge/demo-hub/LiveDemo', () => ({
   default: (props: Record<string, unknown>) => {
     capturedProps = props;
     return (

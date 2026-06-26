@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
@@ -62,12 +62,9 @@ import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
+import { DemoShellHost } from './demo/DemoShellHost';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
-
-const LazyDemoShellHost = DEMO_HUB_ENABLED
-  ? lazy(() => import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })))
-  : null;
 
 export default function App() {
   const {
@@ -140,6 +137,10 @@ export default function App() {
       && shouldExitLiveDemoForTabChange(tab, activeTab, hub.state.selectedLesson);
 
     if (shouldExit) {
+      const leave = window.confirm(
+        'Leave the live demo? Navigating away will end the current demo session.',
+      );
+      if (!leave) return;
       void hub.exitLiveDemo().then(() => setActiveTab(tab));
     } else {
       setActiveTab(tab);
@@ -259,9 +260,12 @@ export default function App() {
   useEffect(() => {
     cleanupStaleStorageKeys();
     if (DEMO_HUB_ENABLED) {
-      void import('../features/demo-player/lessons/gql-demo-storage-cleanup')
-        .then((m) => m.purgeGqlDemoEphemeralStorage())
-        .catch(() => { /* best effort */ });
+      void import('@redfireforge/demo-hub/demoLiveSession').then(({ hasRestorableDemoLiveSession }) => {
+        if (hasRestorableDemoLiveSession()) return;
+        return import('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup')
+          .then((m) => m.purgeGqlDemoEphemeralStorage())
+          .catch(() => { /* best effort */ });
+      }).catch(() => { /* best effort */ });
     }
   }, []);
 
@@ -378,22 +382,20 @@ export default function App() {
 
   return (
     <>
-      {DEMO_HUB_ENABLED && LazyDemoShellHost && (
-        <Suspense fallback={null}>
-          <LazyDemoShellHost
-            navigateToTab={navigateToTab}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            setSidebarCollapsed={setSidebarCollapsed}
-            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-            selectedEnvId={selectedEnvId}
-            selectedSvcId={selectedSvcId}
-            setEnvironments={setEnvironments}
-            setMicroservices={setMicroservices}
-            setSelectedEnvId={setSelectedEnvId}
-            setSelectedSvcId={setSelectedSvcId}
-          />
-        </Suspense>
+      {DEMO_HUB_ENABLED && (
+        <DemoShellHost
+          navigateToTab={navigateToTab}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          setSidebarCollapsed={setSidebarCollapsed}
+          setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+          selectedEnvId={selectedEnvId}
+          selectedSvcId={selectedSvcId}
+          setEnvironments={setEnvironments}
+          setMicroservices={setMicroservices}
+          setSelectedEnvId={setSelectedEnvId}
+          setSelectedSvcId={setSelectedSvcId}
+        />
       )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <AppHeader

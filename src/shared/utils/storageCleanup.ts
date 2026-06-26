@@ -5,6 +5,7 @@ import {
   PROJECTS_KEY,
   REQUESTS_KEY,
   RUNNER_CONFIG_KEY,
+  GLOBAL_AUTH_KEY,
   FLAT_SEL_ENV_KEY,
   FLAT_SEL_SVC_KEY,
   FLAT_ENVS_KEY,
@@ -13,6 +14,25 @@ import {
 } from './storageKeys';
 import { idbMigrateEnvironments, idbMigrateMicroservices } from './idbEnvironmentsMicroservices';
 import { idbMigrateFeatureGroups } from './idbFeatureGroups';
+import { idbMigrateGlobalAuthProfiles } from './idbGlobalAuthProfiles';
+import {
+  idbLoadEnvironments,
+  idbLoadMicroservices,
+} from './idbEnvironmentsMicroservices';
+import { idbLoadFeatureGroups } from './idbFeatureGroups';
+import { idbLoadGlobalAuthProfiles } from './idbGlobalAuthProfiles';
+import {
+  migrateGraphqlStudioFromLocalStorage,
+  purgeGraphqlStudioLocalStorageDuplicates,
+} from './idbGraphqlStudio';
+
+const GQL_STUDIO_LS_KEYS = {
+  tabsKey: 'gql_tabs_v1',
+  tabsActiveKey: 'gql_tabs_v1_active',
+  authKey: 'gql_auth_v1',
+  environmentsKey: 'gql_environments_v1',
+  profilesKey: 'gql_profiles_v1',
+} as const;
 
 /** Suffixes we always retain across runner-config purges. */
 const RUNNER_CONFIG_KEEP_SUFFIXES = ['_workflow_runner'];
@@ -125,6 +145,7 @@ async function migrateRemainingLargeKeysToIdb(): Promise<void> {
     { check: FLAT_ENVS_KEY, fn: () => idbMigrateEnvironments(FLAT_ENVS_KEY) },
     { check: FLAT_SVCS_KEY, fn: () => idbMigrateMicroservices(FLAT_SVCS_KEY) },
     { check: FLAT_FGS_KEY, fn: () => idbMigrateFeatureGroups(FLAT_FGS_KEY) },
+    { check: GLOBAL_AUTH_KEY, fn: () => idbMigrateGlobalAuthProfiles(GLOBAL_AUTH_KEY) },
   ];
   for (const { check, fn } of migrations) {
     if (localStorage.getItem(check)) {
@@ -142,11 +163,85 @@ export async function migrateAppFlatDataFromLocalStorage(): Promise<{
   environments: boolean;
   microservices: boolean;
   featureGroups: boolean;
+  globalAuthProfiles: boolean;
 }> {
-  const [environments, microservices, featureGroups] = await Promise.all([
+  const [environments, microservices, featureGroups, globalAuthProfiles] = await Promise.all([
     idbMigrateEnvironments(FLAT_ENVS_KEY),
     idbMigrateMicroservices(FLAT_SVCS_KEY),
     idbMigrateFeatureGroups(FLAT_FGS_KEY),
+    idbMigrateGlobalAuthProfiles(GLOBAL_AUTH_KEY),
   ]);
-  return { environments, microservices, featureGroups };
+  return { environments, microservices, featureGroups, globalAuthProfiles };
+}
+
+/** Drop localStorage copies of large blobs once IndexedDB holds the data. */
+async function purgeFlatLocalStorageWhenIdbReady(): Promise<number> {
+  if (isTauri()) return 0;
+
+  const checks: Array<{ lsKey: string; idbLoad: () => Promise<unknown[] | null> }> = [
+    { lsKey: FLAT_ENVS_KEY, idbLoad: idbLoadEnvironments },
+    { lsKey: FLAT_SVCS_KEY, idbLoad: idbLoadMicroservices },
+    { lsKey: FLAT_FGS_KEY, idbLoad: idbLoadFeatureGroups },
+    { lsKey: GLOBAL_AUTH_KEY, idbLoad: idbLoadGlobalAuthProfiles },
+  ];
+
+  let removed = 0;
+  for (const { lsKey, idbLoad } of checks) {
+    try {
+      if (!localStorage.getItem(lsKey)) continue;
+      const data = await idbLoad();
+      if (data === null) continue;
+      localStorage.removeItem(lsKey);
+      removed++;
+    } catch { /* ignore */ }
+  }
+  return removed;
+}
+
+/**
+ * One-shot browser bootstrap: migrate large blobs to IndexedDB and reclaim
+ * localStorage quota. Call before loading or saving app data on web.
+ */
+export async function ensureBrowserLargeDataMigrated(): Promise<void> {
+  if (isTauri()) return;
+
+  purgeStaleRunnerConfigKeys();
+  await migrateRemainingLargeKeysToIdb();
+  await migrateAppFlatDataFromLocalStorage();
+  await migrateGraphqlStudioFromLocalStorage(GQL_STUDIO_LS_KEYS);
+  await purgeFlatLocalStorageWhenIdbReady();
+  await purgeGraphqlStudioLocalStorageDuplicates(GQL_STUDIO_LS_KEYS);
+}
+
+/**
+ * Best-effort quota reclaim before retrying a localStorage write.
+ * Returns approximate KB freed from localStorage.
+ */
+export async function reclaimLocalStorageQuotaForWrite(): Promise<number> {
+  if (isTauri()) return 0;
+
+  const before = localStorage.length;
+  let freedBytes = 0;
+
+  const stale = cleanupStaleStorageKeys();
+  freedBytes += stale.freedKB * 1024;
+
+  await migrateAppFlatDataFromLocalStorage();
+  await migrateGraphqlStudioFromLocalStorage(GQL_STUDIO_LS_KEYS);
+  const flatRemoved = await purgeFlatLocalStorageWhenIdbReady();
+  await purgeGraphqlStudioLocalStorageDuplicates(GQL_STUDIO_LS_KEYS);
+
+  if (flatRemoved > 0 || localStorage.length < before) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if ([FLAT_ENVS_KEY, FLAT_SVCS_KEY, FLAT_FGS_KEY, GLOBAL_AUTH_KEY].includes(key)) {
+        const size = (localStorage.getItem(key) ?? '').length * 2;
+        localStorage.removeItem(key);
+        freedBytes += size;
+      }
+    }
+  }
+
+  return Math.round(freedBytes / 1024);
 }

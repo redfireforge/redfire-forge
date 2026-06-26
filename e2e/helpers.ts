@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
 /** Must stay in sync with DB_VERSION in src/shared/utils/idbOpen.ts */
-export const REDFIREFORGE_IDB_VERSION = 6;
+export const REDFIREFORGE_IDB_VERSION = 9;
 
 async function safeReload(page: Page): Promise<void> {
   try {
@@ -268,7 +268,7 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
     return new Promise<string>((resolve) => {
       // Must match DB_VERSION in src/shared/utils/idbOpen.ts exactly.
       // Opening at a lower version than the app's current version causes an IDB error.
-      const DB_VERSION = 6;
+      const DB_VERSION = 9;
       const req = indexedDB.open('redfireforge', DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;

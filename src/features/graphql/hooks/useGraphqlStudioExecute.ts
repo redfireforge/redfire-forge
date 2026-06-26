@@ -14,6 +14,19 @@ import type { useGraphqlExecution } from './useGraphqlExecution';
 
 type ExecuteFn = ReturnType<typeof useGraphqlExecution>['execute'];
 
+/** Prefer the live Monaco model when it matches the active tab — tab state can lag programmatic edits. */
+export function resolveLiveGqlQuery(
+  activeTab: GqlStudioTab,
+  editorMountRef?: React.MutableRefObject<import('monaco-editor').editor.IStandaloneCodeEditor | null>,
+): string {
+  const editor = editorMountRef?.current;
+  const model = editor?.getModel();
+  if (model && model.uri.toString() === activeTab.modelUri) {
+    return model.getValue();
+  }
+  return activeTab.query;
+}
+
 export interface UseGraphqlStudioExecuteParams {
   activeTab: GqlStudioTab | undefined;
   resolvedTabEndpoint: string;
@@ -47,6 +60,7 @@ export interface UseGraphqlStudioExecuteParams {
   setTabUploadProgress: (tabId: string, progress: number | null) => void;
   /** Phase 6F — block execute while a profile-linked endpoint is still resolving. */
   endpointLinkPending?: boolean;
+  editorMountRef?: React.MutableRefObject<import('monaco-editor').editor.IStandaloneCodeEditor | null>;
 }
 
 /** Execute handler for GraphqlStudioPage — validates input then fires useGraphqlExecution. */
@@ -81,13 +95,16 @@ export function useGraphqlStudioExecute({
   setRightView,
   setTabUploadProgress,
   endpointLinkPending = false,
+  editorMountRef,
 }: UseGraphqlStudioExecuteParams): () => void {
   const executionLockRef = useRef(false);
   if (!executing) executionLockRef.current = false;
 
   const handleExecute = useCallback(() => {
     if (endpointLinkPending) return;
-    if (!activeTab || !resolvedTabEndpoint.trim() || !activeTab.query.trim()) return;
+    if (!activeTab || !resolvedTabEndpoint.trim()) return;
+    const query = resolveLiveGqlQuery(activeTab, editorMountRef);
+    if (!query.trim()) return;
     if (findUnresolvedVars(resolvedTabEndpoint, activeEnvironment, globalEnvMap).length > 0) return;
     const trimmedVars = activeTab.variables.trim();
     if (trimmedVars && trimmedVars !== '{}') {
@@ -146,12 +163,12 @@ export function useGraphqlStudioExecute({
           parsedVars = JSON.parse(trimmed) as Record<string, unknown>;
         }
       } catch { /* ignore */ }
-      const formData = buildMultipartFormData(activeTab.query, parsedVars, validFiles);
+      const formData = buildMultipartFormData(query, parsedVars, validFiles);
       const uploadTabId = activeTab.id;
       setTabUploadProgress(uploadTabId, 0);
       execute({
         endpoint: resolvedEndpoint,
-        query: activeTab.query,
+        query,
         variables: resolvedVariables,
         operationName: selectedOperation,
         headers: resolvedHeaders,
@@ -169,7 +186,7 @@ export function useGraphqlStudioExecute({
       setTabUploadProgress(activeTab.id, null);
       execute({
         endpoint: resolvedEndpoint,
-        query: activeTab.query,
+        query,
         variables: resolvedVariables,
         operationName: selectedOperation,
         headers: resolvedHeaders,
@@ -187,7 +204,7 @@ export function useGraphqlStudioExecute({
       globalAuthProfiles, pushRecentEndpoint, activeEnvironment, globalEnvMap, skipTlsVerify, resolvedTabTls,
       fileEntries, complexityResult,
       complexityWarningPending, complexityGatePending, advSettings, isTabExecutingRef, isDuplicate, duplicateSourceTabId,
-      endpointLinkPending, setTabUploadProgress, setRightView]);
+      endpointLinkPending, setTabUploadProgress, setRightView, editorMountRef]);
 
   return handleExecute;
 }

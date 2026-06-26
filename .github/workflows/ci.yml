@@ -28,7 +28,7 @@ jobs:
         with:
           filters: |
             demo:
-              - 'src/features/demo-player/**'
+              - 'packages/demo-hub/**'
               - 'src/app/demo/**'
               - 'src/config/features.ts'
               - 'src/**/useDemo*.ts'

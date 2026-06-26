@@ -13,6 +13,7 @@ import {
   getMaxRuns, getStorageUsage,
   loadTestRunsLite,
   loadTheme,
+  ensureBrowserLargeDataMigrated,
 } from '../../../shared/utils/storage';
 import { purgeExpired } from '../../../shared/utils/trashStorage';
 import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
@@ -69,6 +70,7 @@ export function useProjects(): UseProjectsReturn {
     if (initDone.current) return;
     initDone.current = true;
     (async () => {
+      await ensureBrowserLargeDataMigrated();
       await migrateToFlat();
       // Migrate any per-FG sharedDataSources to top-level (one-time, idempotent)
       await migratePerFgSharedDataSourcesToTopLevel();

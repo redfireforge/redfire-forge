@@ -4,8 +4,8 @@ import type { Environment, GlobalAuthProfile, Microservice } from '../../shared/
 import type { Tab } from '../utils/appTabUtils';
 import type { DemoHubApi } from './demoHubApi';
 import { syncDemoHubRuntimeRef, resetDemoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demoHubRuntimeRef';
-import { useDemoHub } from '../../features/demo-player/useDemoHub';
-import DemoHub from '../../features/demo-player/DemoHub';
+import { useDemoHub } from '@redfireforge/demo-hub/useDemoHub';
+import DemoHub from '@redfireforge/demo-hub/DemoHub';
 import { useDemoShortcuts } from '../hooks/useDemoShortcuts';
 import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';

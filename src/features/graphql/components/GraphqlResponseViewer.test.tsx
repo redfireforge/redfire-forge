@@ -21,7 +21,10 @@ function makeResponse(overrides: Partial<GraphqlResponse> = {}): GraphqlResponse
 }
 
 describe('GraphqlResponseViewer', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
 
   it('renders loading state', () => {
     render(<GraphqlResponseViewer response={null} loading />);
@@ -551,6 +554,55 @@ describe('GraphqlResponseViewer — branch gap coverage', () => {
     await new Promise((r) => setTimeout(r, 10));
     // Should not throw — catch handler swallows the error
     expect(screen.getByTestId('gql-rv-copy-btn')).toBeTruthy();
+  });
+
+  it('renders Data only toggle in status bar', () => {
+    render(<GraphqlResponseViewer response={makeResponse()} />);
+    expect(screen.getByTestId('gql-rv-data-only-toggle')).toBeTruthy();
+    expect(screen.getByText('Data only')).toBeTruthy();
+  });
+
+  it('hides extensions in body when Data only is enabled', () => {
+    localStorage.setItem('gql_rv_data_only_v1', 'true');
+    const tracing = {
+      version: 1,
+      startTime: '2024-01-01T00:00:00.000Z',
+      endTime: '2024-01-01T00:00:00.010Z',
+      duration: 10_000_000,
+      execution: { resolvers: [] },
+    };
+    render(<GraphqlResponseViewer response={makeResponse({
+      extensions: { tracing },
+    })} />);
+    const scroll = screen.getByTestId('gql-rv-json-scroll');
+    expect(scroll.textContent).toContain('"data"');
+    expect(scroll.textContent).not.toContain('"extensions"');
+    expect(screen.getByTestId('gql-rv-tab-tracing')).toBeTruthy();
+  });
+
+  it('copies body without extensions when Data only is enabled', async () => {
+    localStorage.setItem('gql_rv_data_only_v1', 'true');
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<GraphqlResponseViewer response={makeResponse({
+      extensions: { tracing: { version: 1, duration: 1000 } },
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-copy-btn'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(writeText).toHaveBeenCalled();
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain('"data"');
+    expect(copied).not.toContain('"extensions"');
+  });
+
+  it('shows extensions in body when Data only is toggled off', () => {
+    localStorage.setItem('gql_rv_data_only_v1', 'true');
+    render(<GraphqlResponseViewer response={makeResponse({
+      extensions: { meta: { requestId: 'abc' } },
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-data-only-toggle'));
+    const scroll = screen.getByTestId('gql-rv-json-scroll');
+    expect(scroll.textContent).toContain('"extensions"');
   });
 
   // Tracing check: invalid tracing structure (covers L374[0] false branch)

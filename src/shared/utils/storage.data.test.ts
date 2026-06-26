@@ -20,7 +20,7 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
-const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore } = vi.hoisted(() => {
+const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore, appConfigStore } = vi.hoisted(() => {
   const store: Record<string, unknown> = {};
   return {
     idbStore: store,
@@ -38,6 +38,12 @@ const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore } =
     },
     projectsStore: {
       projects: null as unknown[] | null,
+    },
+    appConfigStore: {
+      environments: null as unknown[] | null,
+      microservices: null as unknown[] | null,
+      featureGroups: null as unknown[] | null,
+      globalAuthProfiles: null as unknown[] | null,
     },
   };
 });
@@ -92,6 +98,27 @@ vi.mock('./idbProjects', () => ({
   idbLoadProjects: vi.fn(async () => projectsStore.projects),
   idbSaveProjects: vi.fn(async (projects: unknown[]) => { projectsStore.projects = projects; }),
   idbMigrateProjects: vi.fn(async () => false),
+}));
+
+vi.mock('./idbEnvironmentsMicroservices', () => ({
+  idbLoadEnvironments: vi.fn(async () => appConfigStore.environments),
+  idbSaveEnvironments: vi.fn(async (data: unknown[]) => { appConfigStore.environments = data; }),
+  idbMigrateEnvironments: vi.fn(async () => false),
+  idbLoadMicroservices: vi.fn(async () => appConfigStore.microservices),
+  idbSaveMicroservices: vi.fn(async (data: unknown[]) => { appConfigStore.microservices = data; }),
+  idbMigrateMicroservices: vi.fn(async () => false),
+}));
+
+vi.mock('./idbFeatureGroups', () => ({
+  idbLoadFeatureGroups: vi.fn(async () => appConfigStore.featureGroups),
+  idbSaveFeatureGroups: vi.fn(async (data: unknown[]) => { appConfigStore.featureGroups = data; }),
+  idbMigrateFeatureGroups: vi.fn(async () => false),
+}));
+
+vi.mock('./idbGlobalAuthProfiles', () => ({
+  idbLoadGlobalAuthProfiles: vi.fn(async () => appConfigStore.globalAuthProfiles),
+  idbSaveGlobalAuthProfiles: vi.fn(async (data: unknown[]) => { appConfigStore.globalAuthProfiles = data; }),
+  idbMigrateGlobalAuthProfiles: vi.fn(async () => false),
 }));
 
 vi.mock('./idbTestRuns', () => {
@@ -188,6 +215,10 @@ beforeEach(() => {
   workflowsStore.folders = null;
   requestsStore.data = null;
   projectsStore.projects = null;
+  appConfigStore.environments = null;
+  appConfigStore.microservices = null;
+  appConfigStore.featureGroups = null;
+  appConfigStore.globalAuthProfiles = null;
   _idbInsertOrder = 0;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
@@ -350,7 +381,7 @@ describe('storage — usage', () => {
     await saveEnvironments([{ id: 'e1', name: 't01' }]);
     const { usedBytes, entries } = await getStorageUsage();
     expect(usedBytes).toBeGreaterThan(0);
-    expect(entries['perf-test-v3-environments']).toBeGreaterThan(0);
+    expect(entries['environments (IndexedDB)']).toBeGreaterThan(0);
   });
 
   it('includes sizes for workflows, requests, catalog, and projects IDB stores', async () => {

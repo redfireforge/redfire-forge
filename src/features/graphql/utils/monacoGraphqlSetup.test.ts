@@ -178,6 +178,11 @@ describe('getGraphqlEditorOptions', () => {
     expect(opts.suggest?.showWords).toBe(false);
   });
 
+  it('disables acceptSuggestionOnCommitCharacter so Space after # inserts a comment space', () => {
+    const opts = getGraphqlEditorOptions();
+    expect(opts.acceptSuggestionOnCommitCharacter).toBe(false);
+  });
+
   it('returns a new object on each call (not shared reference)', () => {
     const a = getGraphqlEditorOptions();
     const b = getGraphqlEditorOptions();

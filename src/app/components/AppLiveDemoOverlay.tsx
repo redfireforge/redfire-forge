@@ -1,6 +1,6 @@
 /** Live Demo overlay rendered above the active tab during demo lessons. */
-import LiveDemo from '../../features/demo-player/LiveDemo';
-import type { useDemoHub } from '../../features/demo-player/useDemoHub';
+import LiveDemo from '@redfireforge/demo-hub/LiveDemo';
+import type { useDemoHub } from '@redfireforge/demo-hub/useDemoHub';
 import type { Tab } from '../utils/appTabUtils';
 
 type DemoHub = ReturnType<typeof useDemoHub>;

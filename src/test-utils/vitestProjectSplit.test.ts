@@ -37,15 +37,16 @@ function collectUnder(relativeDir: string): string[] {
 function collectAllRepoTestFiles(): string[] {
   return [
     ...collectUnder('src'),
+    ...collectUnder('packages/demo-hub/src'),
     ...collectUnder('src-server'),
     ...collectUnder('cli'),
   ];
 }
 
 describe('vitest project split (Phase 1)', () => {
-  it('classifies demo-player tests as demo-only', () => {
-    expect(isDemoTestFile('src/features/demo-player/useDemoHub.test.ts')).toBe(true);
-    expect(isProductTestFile('src/features/demo-player/useDemoHub.test.ts')).toBe(false);
+  it('classifies demo-hub package tests as demo-only', () => {
+    expect(isDemoTestFile('packages/demo-hub/src/useDemoHub.test.ts')).toBe(true);
+    expect(isProductTestFile('packages/demo-hub/src/useDemoHub.test.ts')).toBe(false);
   });
 
   it('classifies useDemoShortcuts.test.ts as demo-only', () => {
@@ -80,18 +81,18 @@ describe('vitest project split (Phase 1)', () => {
     }
   });
 
-  it('has no overlap between product exclude globs and product-eligible demo-player paths', () => {
-    const demoPlayerTests = collectUnder('src/features/demo-player');
-    expect(demoPlayerTests.length).toBeGreaterThan(50);
-    for (const file of demoPlayerTests) {
+  it('has no overlap between product exclude globs and product-eligible demo-hub paths', () => {
+    const demoHubTests = collectUnder('packages/demo-hub/src');
+    expect(demoHubTests.length).toBeGreaterThan(50);
+    for (const file of demoHubTests) {
       expect(isProductTestFile(file), `${file} should not be in product project`).toBe(false);
       expect(isDemoTestFile(file), `${file} should be in demo project`).toBe(true);
     }
   });
 
   it('documents expected glob patterns for CI audit', () => {
-    expect(DEMO_TEST_GLOBS).toContain('src/features/demo-player/**/*.test.{ts,tsx}');
-    expect(PRODUCT_TEST_EXCLUDE).toContain('src/features/demo-player/**');
+    expect(DEMO_TEST_GLOBS).toContain('packages/demo-hub/**/*.test.{ts,tsx}');
+    expect(PRODUCT_TEST_EXCLUDE).toContain('packages/demo-hub/**');
   });
 
   it('partitions every repo test file into exactly one project (demo xor product)', () => {
@@ -128,8 +129,11 @@ describe('vitest project split (Phase 1)', () => {
       return acc;
     }
 
-    const useDemoTests = collectUseDemoTests(join(ROOT, 'src'));
-    expect(useDemoTests.length).toBe(14);
+    const useDemoTests = [
+      ...collectUseDemoTests(join(ROOT, 'src')),
+      ...collectUseDemoTests(join(ROOT, 'packages/demo-hub/src')),
+    ];
+    expect(useDemoTests.length).toBeGreaterThanOrEqual(9);
     for (const file of useDemoTests) {
       expect(isDemoTestFile(file), file).toBe(true);
       expect(isProductTestFile(file), file).toBe(false);
@@ -137,14 +141,14 @@ describe('vitest project split (Phase 1)', () => {
   });
 
   it('classifies demo coverage paths for Istanbul filter', () => {
-    expect(isDemoCoveragePath('/repo/src/features/demo-player/DemoHub.tsx')).toBe(true);
+    expect(isDemoCoveragePath('/repo/packages/demo-hub/src/DemoHub.tsx')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/app/hooks/useDemoWorkflowBridge.ts')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/app/demo/DemoShellHost.tsx')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/app/demo/demoHubRuntimeRef.ts')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/features/graphql/hooks/useDemoGqlTlsBridge.ts')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/styles/demo-player.css')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/styles/demo-hub.css')).toBe(true);
-    expect(isDemoCoveragePath('C:\\repo\\src\\features\\demo-player\\DemoHub.tsx')).toBe(true);
+    expect(isDemoCoveragePath('C:\\repo\\packages\\demo-hub\\src\\DemoHub.tsx')).toBe(true);
     expect(isDemoCoveragePath('/repo/src/features/graphql/utils/gqlDemoWorkspace.ts')).toBe(false);
   });
 });

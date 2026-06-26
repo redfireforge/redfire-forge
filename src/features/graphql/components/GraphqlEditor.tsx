@@ -49,13 +49,32 @@ export function GraphqlEditor({
   editorMountRef,
 }: GraphqlEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
+  const keydownDisposableRef = useRef<import('monaco-editor').IDisposable | null>(null);
   const monaco = useMonaco();
 
-  const handleMount: OnMount = useCallback((editor) => {
+  const handleMount: OnMount = useCallback((editor, monacoInstance) => {
     editorRef.current = editor;
     if (editorMountRef) editorMountRef.current = editor;
+
+    keydownDisposableRef.current?.dispose();
+    keydownDisposableRef.current = editor.onKeyDown((e) => {
+      // Belt-and-suspenders: demo hub Space → play/pause must not run while typing here.
+      const isSpace = e.browserEvent?.key === ' '
+        || (monacoInstance && e.keyCode === monacoInstance.KeyCode.Space);
+      if (isSpace) {
+        e.stopPropagation();
+      }
+    });
+
     if (!readOnly) editor.focus();
   }, [readOnly, editorMountRef]);
+
+  useEffect(() => {
+    return () => {
+      keydownDisposableRef.current?.dispose();
+      keydownDisposableRef.current = null;
+    };
+  }, []);
 
   // Auto-focus the editor whenever the active model changes (i.e. the user switches tabs).
   // @monaco-editor/react swaps the model on `path` change but does NOT re-fire onMount,

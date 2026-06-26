@@ -12,7 +12,7 @@
  * Design rules followed:
  *   - Modal overlay: background: transparent (per project modal rules)
  *   - Escape key closes (with stopPropagation to avoid double-fires)
- *   - Click outside panel closes
+ *   - Click outside does NOT close — use footer Close button (demo-safe)
  *   - Footer Close button only (no × in header)
  */
 
@@ -285,17 +285,6 @@ export function GraphqlEnvModal({
   }, [editingName, onClose, selectedEnv?.name]);
 
   useModalEscapeClose(handleEscapeClose, { capture: true });
-
-  // Click outside the panel → close
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [onClose]);
 
   // ── Name editing ────────────────────────────────────────────────────────────
   const startEditingName = useCallback(() => {

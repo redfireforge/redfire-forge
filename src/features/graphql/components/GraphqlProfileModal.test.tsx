@@ -137,6 +137,35 @@ describe('GraphqlProfileModal', () => {
     expect(screen.getByTestId('gql-profile-save-btn')).toBeInTheDocument();
   });
 
+  it('shows inherit global auth profile name in save preview and saved rows', () => {
+    const profiles = [
+      makeProfile({
+        auth: { type: 'inherit', globalProfileId: 'p1' },
+        name: 'GQL Auth Demo',
+      }),
+    ];
+    const globalAuthProfiles = [{ id: 'p1', name: 'Lesson 6 Bearer', auth: { type: 'bearer', token: 'tok' } }];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        currentAuth={{ type: 'inherit', globalProfileId: 'p1' }}
+        globalAuthProfiles={globalAuthProfiles}
+      />,
+    );
+    expect(screen.getAllByText('Inherit (Lesson 6 Bearer)').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows plain Inherit when global auth catalog is unavailable', () => {
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        currentAuth={{ type: 'inherit', globalProfileId: 'p1' }}
+      />,
+    );
+    expect(screen.getByText('Inherit')).toBeInTheDocument();
+  });
+
   it('save button is disabled when name is empty', () => {
     render(<GraphqlProfileModal {...defaultProps} />);
     expect(screen.getByTestId('gql-profile-save-btn')).toBeDisabled();

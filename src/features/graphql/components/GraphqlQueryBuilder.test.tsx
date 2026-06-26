@@ -319,6 +319,33 @@ describe('GraphqlQueryBuilder', () => {
     }).not.toThrow();
   });
 
+  it('keyboard events are ignored when builder pane is hidden in the studio', () => {
+    const pane = document.createElement('div');
+    pane.className = 'gql-mode-pane gql-mode-pane--builder gql-mode-pane--hidden';
+    document.body.appendChild(pane);
+
+    render(<GraphqlQueryBuilder {...defaultProps()} />);
+    const tree = document.createElement('div');
+    tree.className = 'gql-qb-field-tree';
+    const fieldRow = document.createElement('div');
+    fieldRow.className = 'gql-qb-field-row';
+    const inner = document.createElement('button');
+    inner.setAttribute('tabindex', '0');
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'gql-qb-check';
+    const clickSpy = vi.spyOn(checkBtn, 'click');
+    fieldRow.appendChild(inner);
+    fieldRow.appendChild(checkBtn);
+    tree.appendChild(fieldRow);
+    document.body.appendChild(tree);
+    inner.focus();
+    fireEvent.keyDown(window, { key: ' ' });
+    expect(clickSpy).not.toHaveBeenCalled();
+
+    document.body.removeChild(pane);
+    document.body.removeChild(tree);
+  });
+
   it('variablesJson is empty object when no variables', async () => {
     const { generateQuery } = await import('../utils/queryBuilderGenerator');
     vi.mocked(generateQuery).mockReturnValueOnce({
