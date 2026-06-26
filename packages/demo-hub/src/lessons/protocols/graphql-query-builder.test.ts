@@ -28,6 +28,7 @@ import {
   ensureIncludeConfigured,
   ensureEditedToEditor,
   ensureInEditorAfterTransfer,
+  prepareEditInEditorReading,
   prepareEditorCommentReading,
   prepareOneWaySyncReading,
   getBuilderCodeText,
@@ -168,9 +169,10 @@ describe('gql-query-builder lesson', () => {
     expect(step.highlight).toBe(GQL.QB_COPY);
   });
 
-  it('gql7-edit highlights QB_EDIT button', () => {
+  it('gql7-edit uses prepareEditInEditorReading preAction and highlights QB_EDIT', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-edit')!;
     expect(step.highlight).toBe(GQL.QB_EDIT);
+    expect(step.preAction).toBe(prepareEditInEditorReading);
   });
 
   it('gql7-editor-comment highlights EDITOR and uses prepareEditorCommentReading preAction', () => {
@@ -180,9 +182,9 @@ describe('gql-query-builder lesson', () => {
     expect(step.preAction).toBe(prepareEditorCommentReading);
   });
 
-  it('gql7-one-way highlights Builder tab then verifies generated SDL preview', () => {
+  it('gql7-one-way highlights Generated query preview (visible after Play) and verifies QB_CODE', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
-    expect(step.highlight).toBe(GQL.MODE_BUILDER);
+    expect(step.highlight).toBe(GQL.QB_CODE);
     expect(step.verify).toBe(GQL.QB_CODE);
     expect(step.preAction).toBe(prepareOneWaySyncReading);
   });
@@ -226,12 +228,13 @@ describe('gql-query-builder lesson', () => {
     expect(step.description).toContain('#');
   });
 
-  it('gql7-one-way description explains one Builder switch for SDL contrast', () => {
+  it('gql7-one-way description explains Editor-first reading then Builder switch', () => {
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-one-way')!;
     expect(step.description).toContain('one-way');
     expect(step.description).toContain('selection model');
     expect(step.description).toContain('Generated query');
-    expect(step.description).toContain('Builder');
+    expect(step.description).toContain('Editor');
+    expect(step.description).toContain('Play');
   });
 
   // ─── Existing step action tests ───────────────────────────────────────────
@@ -334,6 +337,24 @@ describe('gql-query-builder lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.QB_EDIT);
+  });
+
+  it('prepareEditInEditorReading returns to Builder when Editor is active before transfer', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-mode-builder"></button>
+      ${stubBuilderFieldTree(true)}
+      <div data-testid="gql-qb-field-options"></div>
+      <pre data-testid="gql-qb-code">query { health user(id: "1") { userId: id @include(if: true) name email } }</pre>
+      <div data-testid="gql-qb-arg-user-id"><input class="gql-qb-arg-input" value="usr-1" /></div>
+      <div class="gql-qb-fo-row"><button class="gql-qb-fo-expand" title="${LESSON7_USER_FIELD_PATH}"></button><div class="gql-qb-fo-body"><input data-testid="gql-fo-alias-user.id" value="${LESSON7_USER_ALIAS}" /><button data-testid="gql-fo-include-user.id" aria-checked="true"></button></div></div>
+    `;
+    await prepareEditInEditorReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_BUILDER);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.QB_EDIT);
   });
 
   it('gql7-expand expands user row when collapsed', async () => {
