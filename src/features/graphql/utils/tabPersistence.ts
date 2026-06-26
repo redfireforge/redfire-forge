@@ -378,7 +378,6 @@ export async function saveTabs(tabs: GqlStudioTab[], activeId: string): Promise<
       return;
     } catch (err) {
       console.error('[Storage] GraphQL tabs IDB save failed', err);
-      return;
     }
   }
   try {
@@ -446,7 +445,6 @@ export async function saveAuth(auth: GraphqlAuth | null): Promise<void> {
       return;
     } catch (err) {
       console.error('[Storage] GraphQL page auth IDB save failed', err);
-      return;
     }
   }
   try {

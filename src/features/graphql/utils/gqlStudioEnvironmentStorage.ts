@@ -71,7 +71,6 @@ export async function writeGqlStudioEnvironments(envs: GraphqlEnvironment[]): Pr
       return;
     } catch (err) {
       console.error('[Storage] GraphQL environments IDB save failed', err);
-      return;
     }
   }
   await writeKey(GQL_ENVS_STORAGE_KEY, JSON.stringify(envs));
