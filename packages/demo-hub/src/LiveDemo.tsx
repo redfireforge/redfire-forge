@@ -4,10 +4,15 @@ import type { DemoLesson, StepPhase } from './types';
 import DemoSpotlight from './DemoSpotlight';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
+import { useLiveDemoPanelLayout } from './useLiveDemoPanelLayout';
 import {
   findFirstVisibleElement,
   hasDemoHubTextSelection,
+  isElementVisibleInViewport,
+  isDemoAutoScrollPaused,
   isSpotlightSuppressedForModal,
+  installDemoUserScrollListeners,
+  scrollDemoTargetIntoView,
 } from './demoSpotlightUtils';
 
 interface LiveDemoProps {
@@ -21,51 +26,6 @@ interface LiveDemoProps {
   onRestart: () => void;
   onExit: () => void;
   onComplete: () => void;
-}
-
-/** Returns inline style + drag handlers to make an element freely draggable.
- *  The element must have `position: fixed`. Pass `onMouseDown` to the handle. */
-function useDraggable(panelRef: React.RefObject<HTMLDivElement | null>) {
-  // null = use CSS bottom/right defaults; once dragged, switch to top/left
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const dragging = useRef(false);
-  const origin = useRef({ mx: 0, my: 0, px: 0, py: 0 });
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    // Ignore clicks on buttons inside the header
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
-    const panel = panelRef.current;
-    if (!panel) return;
-
-    const rect = panel.getBoundingClientRect();
-    dragging.current = true;
-    origin.current = { mx: e.clientX, my: e.clientY, px: rect.left, py: rect.top };
-
-    const onMove = (ev: MouseEvent) => {
-      if (!dragging.current) return;
-      const dx = ev.clientX - origin.current.mx;
-      const dy = ev.clientY - origin.current.my;
-      const newLeft = Math.max(0, Math.min(window.innerWidth - rect.width, origin.current.px + dx));
-      const newTop  = Math.max(0, Math.min(window.innerHeight - rect.height, origin.current.py + dy));
-      setPos({ top: newTop, left: newLeft });
-    };
-
-    const onUp = () => {
-      dragging.current = false;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [panelRef]);
-
-  const style: React.CSSProperties = pos
-    ? { top: pos.top, left: pos.left, bottom: 'auto', right: 'auto' }
-    : {};
-
-  return { style, onMouseDown };
 }
 
 /** Isolated narration body — avoids re-rendering step copy when spotlight poll updates. */
@@ -110,10 +70,11 @@ export default function LiveDemo({
   const [overviewOpen, setOverviewOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const targetFoundRef = useRef(false);
-  const scrolledHighlightRef = useRef(false);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const { style: dragStyle, onMouseDown: onDragMouseDown } = useDraggable(panelRef);
+  const autoScrolledRef = useRef(false);
+  const { panelRef, panelStyle, onDragMouseDown, onResizeMouseDown } = useLiveDemoPanelLayout();
   const closeOverview = useCallback(() => setOverviewOpen(false), []);
+
+  useEffect(() => installDemoUserScrollListeners(), []);
 
   // Continuous spotlight poll: runs for the full lifetime of each step so the ring
   // can appear even when the action navigates to a different page mid-step.
@@ -127,7 +88,7 @@ export default function LiveDemo({
       return;
     }
 
-    scrolledHighlightRef.current = false;
+    autoScrolledRef.current = false;
 
     const poll = () => {
       if (hasDemoHubTextSelection()) return;
@@ -140,9 +101,16 @@ export default function LiveDemo({
         setTargetFound(found);
       }
 
-      if (found && el && !scrolledHighlightRef.current) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        scrolledHighlightRef.current = true;
+      // Auto-scroll once per step so manual scroll-up in Metadata/Auth is not fought.
+      if (
+        found
+        && el
+        && !autoScrolledRef.current
+        && !isDemoAutoScrollPaused()
+        && !isElementVisibleInViewport(el)
+      ) {
+        scrollDemoTargetIntoView(el);
+        autoScrolledRef.current = true;
       }
     };
 
@@ -193,10 +161,28 @@ export default function LiveDemo({
       <div
         className="demo-live-panel"
         ref={panelRef}
-        style={dragStyle}
+        style={panelStyle}
         data-testid="demo-live-panel"
         data-step-phase={stepPhase}
       >
+        <div
+          className="demo-live-resize-handle demo-live-resize-handle--top"
+          onMouseDown={onResizeMouseDown('top')}
+          aria-hidden="true"
+          data-testid="demo-live-resize-top"
+        />
+        <div
+          className="demo-live-resize-handle demo-live-resize-handle--left"
+          onMouseDown={onResizeMouseDown('left')}
+          aria-hidden="true"
+          data-testid="demo-live-resize-left"
+        />
+        <div
+          className="demo-live-resize-handle demo-live-resize-handle--right"
+          onMouseDown={onResizeMouseDown('right')}
+          aria-hidden="true"
+          data-testid="demo-live-resize-right"
+        />
         <div className="demo-live-panel-header demo-live-panel-header--draggable" onMouseDown={onDragMouseDown}>
           <span className="demo-live-drag-handle" aria-hidden="true">⠿</span>
           <span className="demo-live-lesson-name">{lesson.name}</span>

@@ -13,7 +13,9 @@ import {
   runHistoryEntry,
   saveHistoryToCollection,
   renameCollectionItem,
-  restoreCollectionViaImport,
+  deleteLesson8Collection,
+  triggerCollectionsImportFile,
+  confirmImportWithMerge,
   gqlCollectionsHistoryLessonCleanup,
   gqlCollectionsHistoryLessonSetup,
   prepareGql8ExecHealthReading,
@@ -24,7 +26,9 @@ import {
   prepareGql8SaveReading,
   prepareGql8RenameReading,
   prepareGql8ExportReading,
-  prepareGql8ImportReading,
+  prepareGql8DeleteReading,
+  prepareGql8ImportFileReading,
+  prepareGql8ImportMergeReading,
 } from './graphql-lesson-helpers';
 
 export const gqlCollectionsHistoryLesson: DemoLesson = {
@@ -34,7 +38,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   name: 'Collections & History',
   description:
     'Use execution History to preview, load, and re-run queries; save operations to Collections; rename items; export and import collection JSON.',
-  estimatedMinutes: 6,
+  estimatedMinutes: 7,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -53,10 +57,10 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
 
 **History — automatic capture:** Every time you click Execute (or Subscribe), the operation is automatically appended to the History log — query text, variables, response body, status code, and latency. You never have to manually save anything. This means even accidental one-off queries that produced a useful response are recoverable. The History panel lives in the left activity bar and survives page refreshes (stored in IndexedDB).
 
-**Why History has three actions — Load, Run, and Preview:**
+**Why History has three actions — Preview, Load into editor, and Open & Run:**
 - **Preview** (single-click an entry): Read-only view of the query and its response. Use this to inspect what you sent before deciding to act.
-- **Load** (Load button): Copies the query into Monaco without executing it. Use this when you want to edit the query before running again — e.g., changing a variable or adding a field.
-- **Run** (Run button): Loads the query into Monaco **and** immediately executes it. Use this when you want to re-execute the exact same operation without modification.
+- **Load into editor**: Copies the query into Monaco without executing it. Use this when you want to edit the query before running again — e.g., changing a variable or adding a field.
+- **Open & Run**: Loads the query into Monaco **and** immediately executes it. Use this when you want to re-execute the exact same operation without modification.
 
 **Collections — intentional persistence:** Collections are named groups of saved operations that persist across sessions and survive browser storage clears (when backed by IndexedDB or Tauri FS). Save from History or directly from the editor. Organize in folders, rename via the context menu, and share via export.
 
@@ -74,12 +78,12 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       {
         term: 'Preview (read-only)',
         definition:
-          'Single-click a history entry to open the **Preview** panel. Shows query and response without any server interaction. Choose Load, Run, or Save from here.',
+          'Single-click a history entry to open the **Preview** panel. Shows query and response without any server interaction. Choose **Load into editor**, **Open & Run**, or **Save to Collection** from here.',
       },
       {
-        term: 'Load vs Run',
+        term: 'Load into editor vs Open & Run',
         definition:
-          '**Load** copies the query into Monaco only — no execution. **Run** copies it AND executes immediately. Choose Load when you want to edit first; Run when you want an exact replay.',
+          '**Load into editor** copies the query into Monaco only — no execution. **Open & Run** copies it AND executes immediately. Choose Load into editor when you want to edit first; Open & Run when you want an exact replay.',
       },
       {
         term: 'Collection',
@@ -170,15 +174,15 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   <text x="46" y="207" font-size="7.5" font-weight="600" fill="#f1f5f9">Preview</text>
   <!-- Action buttons -->
   <rect x="36" y="213" width="220" height="22" fill="#1e293b"/>
-  <rect x="44" y="217" width="34" height="14" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.8"/>
-  <text x="61" y="227" text-anchor="middle" font-size="7.5" fill="#a8b8cc">⬇ Load</text>
-  <rect x="84" y="217" width="30" height="14" rx="3" fill="#3b82f6"/>
-  <text x="99" y="227" text-anchor="middle" font-size="7.5" fill="white" font-weight="600">▶ Run</text>
-  <rect x="120" y="217" width="48" height="14" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.8"/>
-  <text x="144" y="227" text-anchor="middle" font-size="7.5" fill="#a8b8cc">💾 Save</text>
+  <rect x="44" y="217" width="52" height="14" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.8"/>
+  <text x="70" y="227" text-anchor="middle" font-size="6.5" fill="#a8b8cc">Load into editor</text>
+  <rect x="100" y="217" width="48" height="14" rx="3" fill="#3b82f6"/>
+  <text x="124" y="227" text-anchor="middle" font-size="6.5" fill="white" font-weight="600">Open &amp; Run</text>
+  <rect x="152" y="217" width="48" height="14" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="0.8"/>
+  <text x="176" y="227" text-anchor="middle" font-size="6.5" fill="#a8b8cc">Save to Col.</text>
   <!-- Load/Run annotation -->
-  <rect x="42" y="235" width="104" height="13" rx="3" fill="#1a2740" stroke="#3b4a60" stroke-width="0.5"/>
-  <text x="94" y="245" text-anchor="middle" fill="#a8b8cc" font-size="6.5">Load = editor only · Run = execute</text>
+  <rect x="42" y="235" width="148" height="13" rx="3" fill="#1a2740" stroke="#3b4a60" stroke-width="0.5"/>
+  <text x="116" y="245" text-anchor="middle" fill="#a8b8cc" font-size="6">Load into editor = no execute · Open &amp; Run = load + execute</text>
 
   <!-- Preview query text -->
   <rect x="36" y="250" width="220" height="80" fill="#0f172a"/>
@@ -302,11 +306,11 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   <text x="145" y="404" text-anchor="middle" font-size="8" font-weight="600" fill="#f1f5f9">History</text>
   <text x="145" y="415" text-anchor="middle" font-size="7" fill="#a8b8cc">preview entry</text>
   <line x1="180" y1="404" x2="202" y2="404" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql9-arr)"/>
-  <text x="222" y="401" text-anchor="middle" font-size="7.5" fill="#f1f5f9">Load</text>
+  <text x="222" y="401" text-anchor="middle" font-size="7" fill="#f1f5f9">Load into editor</text>
   <text x="222" y="411" text-anchor="middle" font-size="7" fill="#a8b8cc">editor only</text>
   <text x="222" y="420" text-anchor="middle" font-size="7" fill="#a8b8cc">(no execute)</text>
   <line x1="246" y1="404" x2="268" y2="404" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql9-arr)"/>
-  <text x="290" y="401" text-anchor="middle" font-size="7.5" fill="#f1f5f9">Run</text>
+  <text x="290" y="401" text-anchor="middle" font-size="7" fill="#f1f5f9">Open &amp; Run</text>
   <text x="290" y="411" text-anchor="middle" font-size="7" fill="#a8b8cc">load + execute</text>
   <line x1="314" y1="404" x2="336" y2="404" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#gql9-arr)"/>
   <text x="365" y="401" text-anchor="middle" font-size="7.5" fill="#f1f5f9">Save to Col.</text>
@@ -378,8 +382,8 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       id: 'gql8-load',
       title: 'Load into Editor (No Execute)',
       description:
-        'Click **Load** in the preview panel — the query transfers to Monaco **without** executing it. The editor contains the operation and you can modify it before running.\n\n' +
-        '**Why Load ≠ Run:** Load is the "inspect before committing" action. Common uses: you want to add a field to the query before re-running, you want to adjust a variable value, or you want to refactor the query into a mutation. ' +
+        'Click **Load into editor** in the preview panel — the query transfers to Monaco **without** executing it. The editor contains the operation and you can modify it before running.\n\n' +
+        '**Why Load into editor ≠ Open & Run:** Load into editor is the "inspect before committing" action. Common uses: you want to add a field to the query before re-running, you want to adjust a variable value, or you want to refactor the query into a mutation. ' +
         'It gives you a starting point without hitting the server — useful in production environments where unnecessary queries have cost or side-effect implications.',
       highlight: GQL.HISTORY_LOAD,
       preAction: prepareGql8LoadReading,
@@ -393,11 +397,11 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
     // ── Step 4: Run from history ────────────────────────────────────────────
     {
       id: 'gql8-run',
-      title: 'Run from History (Load + Execute)',
+      title: 'Open & Run from History',
       description:
-        'Re-open the preview and click **Run** — the query loads into the editor **and executes immediately**. Watch the response panel update with a fresh result.\n\n' +
-        '**Why Run exists separately:** The most common history use case is re-running a query to see if the server response changed (e.g., checking if a data mutation took effect, or re-testing after a server fix). ' +
-        'Run collapses Load + Execute into a single click, saving the extra interaction when you want an exact replay with no changes.',
+        'Re-open the preview and click **Open & Run** — the query loads into the editor **and executes immediately**. Watch the response panel update with a fresh result.\n\n' +
+        '**Why Open & Run exists separately:** The most common history use case is re-running a query to see if the server response changed (e.g., checking if a data mutation took effect, or re-testing after a server fix). ' +
+        'Open & Run collapses Load into editor + Execute into a single click, saving the extra interaction when you want an exact replay with no changes.',
       highlight: GQL.HISTORY_RUN,
       preAction: prepareGql8RunReading,
       action: async (ctx) => {
@@ -464,20 +468,52 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       pauseAfter: true,
     },
 
-    // ── Step 8: Import (Merge) ──────────────────────────────────────────────
+    // ── Step 9: Delete collection ───────────────────────────────────────────
     {
-      id: 'gql8-import',
-      title: 'Delete & Import with Merge',
+      id: 'gql8-delete',
+      title: 'Delete the Collection',
       description:
-        '**Right-click** the collection header → **Delete**. Then click **Import**, choose your exported JSON, and select **Merge** — the saved operation reappears in the tree.\n\n' +
-        '**Why two import modes?**\n' +
-        '- **Merge** — adds imported items alongside existing collections. Safe for team onboarding: a new teammate imports the shared library without losing their own queries.\n' +
-        '- **Replace** — overwrites all collections with the imported file. Use for environment resets or seeding a fresh install.\n\n' +
-        'This step demonstrates that the exported JSON is a complete, self-contained backup — the collection fully restores from the file alone.',
-      highlight: GQL.COLLECTIONS_IMPORT,
-      preAction: prepareGql8ImportReading,
+        'Open **Collections** → **right-click** the collection header → **Delete**. The folder and its saved operation disappear from the tree.\n\n' +
+        '**Why delete first?** This simulates starting fresh — or recovering after accidental loss — before importing a shared query library from a teammate\'s export file.',
+      highlight: GQL.COL_NODE,
+      preAction: prepareGql8DeleteReading,
       action: async (ctx) => {
-        await restoreCollectionViaImport(ctx);
+        await deleteLesson8Collection(ctx);
+      },
+      verify: GQL.COLLECTIONS_PANEL,
+      pauseAfter: true,
+    },
+
+    // ── Step 10: Import JSON file ───────────────────────────────────────────
+    {
+      id: 'gql8-import-file',
+      title: 'Import the Exported JSON',
+      description:
+        'Click **Import** in the Collections toolbar and choose your `redfire-graphql-collections*.json` file. RedfireForge parses the export and opens the **Import mode** dialog.\n\n' +
+        'The demo loads a sample export containing **Lesson 8 Health** — the same operation you exported in the previous step.',
+      highlight: GQL.COLLECTIONS_IMPORT,
+      preAction: prepareGql8ImportFileReading,
+      action: async (ctx) => {
+        await triggerCollectionsImportFile(ctx);
+      },
+      verify: GQL.IMPORT_MODE_DIALOG,
+      pauseAfter: true,
+    },
+
+    // ── Step 11: Choose Merge ─────────────────────────────────────────────────
+    {
+      id: 'gql8-import-merge',
+      title: 'Choose Merge to Restore',
+      description:
+        'Select **Merge** — imported items are added alongside any existing collections without overwriting them. The saved operation reappears in the tree.\n\n' +
+        '**Why two import modes?**\n' +
+        '- **Merge** — safe for team onboarding: a new teammate imports the shared library without losing their own queries.\n' +
+        '- **Replace** — overwrites all collections with the imported file. Use for environment resets or seeding a fresh install.\n\n' +
+        'This confirms the exported JSON is a complete, self-contained backup — the collection fully restores from the file alone.',
+      highlight: GQL.IMPORT_MODE_MERGE,
+      preAction: prepareGql8ImportMergeReading,
+      action: async (ctx) => {
+        await confirmImportWithMerge(ctx);
       },
       verify: GQL.COL_ITEM,
       pauseAfter: true,

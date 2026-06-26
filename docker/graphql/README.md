@@ -21,7 +21,7 @@ curl http://localhost:4010/health
 
 - `Query.user(id)` / `Query.health`
 - `Mutation.createUser` / `Mutation.createOrder` / `Mutation.deleteUser`
-- `Subscription.orderStatus(orderId)` — emits PENDING → PROCESSING → COMPLETE
+- `Subscription.orderStatus(orderId)` — emits PENDING → PROCESSING → COMPLETE (~2s apart; set `ORDER_STATUS_STEP_MS=300` for faster streams)
 
 ## Features
 

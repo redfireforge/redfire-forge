@@ -65,7 +65,7 @@ export function GraphqlCollections({
   const [saveName, setSaveName]         = useState('');
   const [saveTarget, setSaveTarget]     = useState<{ collectionId: string; folderId?: string } | null>(null);
   const [saveVarsError, setSaveVarsError] = useState<string | null>(null);
-  const [importPending, setImportPending] = useState<{ data: CollectionExportData } | null>(null);
+  const [importPending, setImportPending] = useState<{ data: CollectionExportData; fileName: string } | null>(null);
   const [importError, setImportError]     = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -152,7 +152,7 @@ export function GraphqlCollections({
       if (!Array.isArray(raw.collections)) throw new Error('Invalid format: "collections" array is missing');
       const version = (raw._exportMeta as Record<string, unknown> | undefined)?.version;
       if (version && version !== '1.0' && version !== '1.1') console.warn(`[Import] Unknown collection export version: ${String(version)}`);
-      setImportPending({ data: raw as unknown as CollectionExportData });
+      setImportPending({ data: raw as unknown as CollectionExportData, fileName: file.name });
       setImportError(null);
     } catch (err) {
       setImportError(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -309,9 +309,21 @@ export function GraphqlCollections({
       />
 
       {importPending && (
-        <div className="gql-import-mode-overlay" role="dialog" aria-modal="true" aria-label="Import mode" data-testid="gql-import-mode-dialog">
+        <div className="gql-import-mode-overlay" role="dialog" aria-modal="true" aria-label={`Import collections from ${importPending.fileName}`} data-testid="gql-import-mode-dialog">
           <div className="gql-import-mode-panel">
             <h3 className="gql-import-mode-title">Import Collections</h3>
+            <div className="gql-import-mode-file" data-testid="gql-import-mode-file">
+              <span className="gql-import-mode-file-label">File</span>
+              <span className="gql-import-mode-file-name" title={importPending.fileName}>
+                {importPending.fileName}
+              </span>
+            </div>
+            <p className="gql-import-mode-summary" data-testid="gql-import-mode-summary">
+              {importPending.data.collections.length} collection{importPending.data.collections.length === 1 ? '' : 's'}
+              {' · '}
+              {importPending.data.collections.reduce((n, g) => n + g.items.length, 0)} operation
+              {importPending.data.collections.reduce((n, g) => n + g.items.length, 0) === 1 ? '' : 's'}
+            </p>
             <p className="gql-import-mode-desc">How would you like to handle conflicts with existing collections?</p>
             <div className="gql-import-mode-actions">
               <button type="button" className="gql-import-mode-btn" onClick={() => { handleImportConfirm('merge').catch(() => {}); }} data-testid="gql-import-mode-merge">

@@ -16,9 +16,10 @@ import {
   ensureLesson15Executed,
   ensureLesson15PartialErrorExecuted,
   ensureLesson15ReadyToExecute,
-  ensureLesson15TwoTabsSameEndpoint,
   gqlBatchLessonCleanup,
   gqlBatchLessonSetup,
+  prepareGql15BatchSelectReading,
+  prepareGql15EnableBatchReading,
 } from './graphql-lesson-helpers';
 
 export const gqlBatchExecutionLesson: DemoLesson = {
@@ -28,7 +29,7 @@ export const gqlBatchExecutionLesson: DemoLesson = {
   name: 'Batch Execution',
   description:
     'Send multiple GraphQL operations in a single HTTP request and receive a combined response array — ideal for integration tests and dashboard pre-fetching.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Two demo tab slots for batch parity teaching (§11.0). */
@@ -256,12 +257,10 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       id: 'gql15-enable-batch',
       title: 'Enable Batch Mode',
       description:
-        'Click the **⚙ gear** in the connection bar to open **Advanced settings**, switch to the **Batch** tab, and turn on **Enable query batching**. Click **Save** — a batch summary chip appears on the connection bar and the **Send Batch** controls unlock once two operations are selected.\n\n' +
+        'Click the **⚙ gear** in the connection bar to open **Advanced settings**, switch to the **Batch** tab, and turn on **Enable query batching**. Review the operation table and timeout, then click **Save** — a batch summary chip appears on the connection bar and the **Send Batch** controls unlock once two operations are selected.\n\n' +
         '**Why live in Advanced Settings?** Batch configuration (which operations share one HTTP request, timeout, fallback behaviour) is advanced transport tuning — not something you change on every query. Keeping it in the gear menu keeps the connection bar clean while still making batch mode one click away when you need it.',
-      highlight: GQL.ADV_SETTINGS_BTN,
-      preAction: async (ctx) => {
-        await ctx.waitFor(GQL.TAB_BAR, 5000);
-      },
+      highlight: GQL.ADV_BATCH_PANEL,
+      preAction: prepareGql15EnableBatchReading,
       action: demonstrateLesson15EnableBatch,
       verify: GQL.BATCH_SUMMARY_CHIP,
       pauseAfter: true,
@@ -284,10 +283,10 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       id: 'gql15-batch-select',
       title: 'Select Operations for the Batch',
       description:
-        'Re-open **Advanced settings → Batch**. In the operation table, check **both** demo tabs — each row shows the operation letter, tab name, and query preview. Click **Save**. A read-only **B** badge appears on each included tab in the tab bar.\n\n' +
+        'Re-open **Advanced settings → Batch**. In the operation table, check **both** demo tabs — each row shows the operation letter, tab name, and the **full query on one line** (hover for the complete document). Click **Save**. A read-only **B** badge appears on each included tab in the tab bar.\n\n' +
         '**Why a table instead of tab-bar checkboxes?** Grouping by endpoint prevents accidental cross-server batches. The status row shows **0/2 → 2/2** so you always know how many operations will fire before you click **Send Batch**. Use **Select all** when every tab in the group should participate.',
-      highlight: GQL.ADV_SETTINGS_BTN,
-      preAction: ensureLesson15TwoTabsSameEndpoint,
+      highlight: GQL.ADV_BATCH_PANEL,
+      preAction: prepareGql15BatchSelectReading,
       action: demonstrateLesson15SelectBatchTabs,
       verify: GQL.TAB_BAR,
       pauseAfter: true,

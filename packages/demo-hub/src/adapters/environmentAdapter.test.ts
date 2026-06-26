@@ -2,19 +2,28 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+vi.mock('@graphql/utils/gqlDemoGlobalAuthProfiles', () => ({
+  ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS: [{ id: 'lesson6-gql-profile', name: 'Lesson 6 Bearer' }],
+  purgeGqlDemoGlobalAuthProfilesFromStorage: vi.fn(async () => 2),
+}));
+
 import {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
+  purgeGqlDemoGlobalAuthProfiles,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
 } from './environmentAdapter';
+import { purgeGqlDemoGlobalAuthProfilesFromStorage } from '@graphql/utils/gqlDemoGlobalAuthProfiles';
 
 describe('environmentAdapter', () => {
   beforeEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile;
+    delete (window as unknown as Record<string, unknown>).__demoPurgeGlobalAuthProfiles;
     delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
     delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
     delete (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName;
+    vi.clearAllMocks();
   });
 
   it('upsertGlobalAuthProfile calls window bridge', () => {
@@ -59,5 +68,13 @@ describe('environmentAdapter', () => {
     (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName = spy;
     deleteGqlEnvironmentByName('Demo');
     expect(spy).toHaveBeenCalledWith('Demo');
+  });
+
+  it('purgeGqlDemoGlobalAuthProfiles purges storage and syncs bridge state', async () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoPurgeGlobalAuthProfiles = spy;
+    await expect(purgeGqlDemoGlobalAuthProfiles()).resolves.toBe(2);
+    expect(purgeGqlDemoGlobalAuthProfilesFromStorage).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledWith(['Lesson 6 Bearer'], ['lesson6-gql-profile']);
   });
 });

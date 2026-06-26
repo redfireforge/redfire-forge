@@ -20,6 +20,7 @@ const profile = (id: string, name: string): GlobalAuthProfile => ({
 describe('useDemoGlobalAuthBridge', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile;
+    delete (window as unknown as Record<string, unknown>).__demoPurgeGlobalAuthProfiles;
     vi.clearAllMocks();
   });
 
@@ -57,6 +58,38 @@ describe('useDemoGlobalAuthBridge', () => {
 
     expect(state).toEqual([profile('p1', 'Updated')]);
     expect(saveGlobalAuthProfiles).toHaveBeenCalledWith([profile('p1', 'Updated')]);
+  });
+
+  it('removes duplicate name when upserting canonical demo profile', () => {
+    let state: GlobalAuthProfile[] = [profile('duplicate-id', 'Lesson 6 Bearer')];
+    const setProfiles = vi.fn((updater: React.SetStateAction<GlobalAuthProfile[]>) => {
+      state = typeof updater === 'function' ? updater(state) : updater;
+    });
+    renderHook(() => useDemoGlobalAuthBridge(setProfiles));
+
+    const fn = (window as unknown as Record<string, (p: GlobalAuthProfile) => void>)
+      .__demoUpsertGlobalAuthProfile;
+    fn(profile('lesson6-gql-profile', 'Lesson 6 Bearer'));
+
+    expect(state).toEqual([profile('lesson6-gql-profile', 'Lesson 6 Bearer')]);
+  });
+
+  it('purges profiles by name and id via bridge', () => {
+    let state: GlobalAuthProfile[] = [
+      profile('lesson6-gql-profile', 'Lesson 6 Bearer'),
+      profile('duplicate-id', 'Lesson 6 Bearer'),
+      profile('keep', 'Prod OAuth'),
+    ];
+    const setProfiles = vi.fn((updater: React.SetStateAction<GlobalAuthProfile[]>) => {
+      state = typeof updater === 'function' ? updater(state) : updater;
+    });
+    renderHook(() => useDemoGlobalAuthBridge(setProfiles));
+
+    const fn = (window as unknown as Record<string, (names: string[], ids: string[]) => void>)
+      .__demoPurgeGlobalAuthProfiles;
+    fn(['Lesson 6 Bearer'], ['lesson6-gql-profile']);
+
+    expect(state).toEqual([profile('keep', 'Prod OAuth')]);
   });
 
   it('cleans up on unmount', () => {

@@ -18,6 +18,7 @@ import {
   idbClearHistory,
   RESPONSE_CAP_BYTES,
 } from '../../../shared/utils/idbGraphqlHistory';
+import { GQL_HISTORY_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
 import type { GraphqlHistoryItem, GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
 import { filterHistoryItems } from '../utils/historyCompare';
 
@@ -101,6 +102,27 @@ export function useGraphqlHistory(
       .finally(() => {
         if (prevConnectionIdRef.current === loadingFor) setLoading(false);
       });
+  }, [connectionId]);
+
+  useEffect(() => {
+    const reloadForCurrent = () => {
+      if (!connectionId) {
+        setItems([]);
+        return;
+      }
+      const loadingFor = connectionId;
+      idbLoadHistory(loadingFor)
+        .then((loaded) => {
+          if (prevConnectionIdRef.current === loadingFor) {
+            setItems(loaded.slice(0, clampedMaxRef.current));
+          }
+        })
+        .catch(() => {
+          if (prevConnectionIdRef.current === loadingFor) setItems([]);
+        });
+    };
+    window.addEventListener(GQL_HISTORY_RELOAD_EVENT, reloadForCurrent);
+    return () => window.removeEventListener(GQL_HISTORY_RELOAD_EVENT, reloadForCurrent);
   }, [connectionId]);
 
   const saveHistory = useCallback(async ({ connectionId: cid, operation, response }: SaveHistoryParams) => {

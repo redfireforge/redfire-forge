@@ -1652,253 +1652,483 @@
   align-items: center;
   justify-content: center;
   z-index: 3000;
+  padding: 16px;
 }
 
 .gql-script-modal {
-  width: 760px;
-  max-width: 95vw;
-  max-height: 90vh;
+  width: min(820px, 95vw);
+  max-height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 20px 60px color-mix(in srgb, var(--bg) 30%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    0 24px 64px color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent);
   overflow: hidden;
 }
 
 .gql-script-modal-header {
-  padding: 14px 18px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
 }
 
-.gql-script-modal-title-row {
+.gql-script-modal-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gql-script-modal-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gql-script-modal-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
 .gql-script-modal-title {
-  font-size: 0.9rem;
+  margin: 0;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+  line-height: 1.3;
 }
 
-.gql-script-modal-subtitle {
-  font-weight: 400;
+.gql-script-modal-target {
+  margin: 0;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gql-script-modal-order-toggle {
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-muted);
-  font-size: 0.7rem;
-  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 6px 10px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.gql-script-modal-order-toggle:hover { color: var(--text); border-color: var(--primary); }
+.gql-script-modal-order-toggle:hover,
+.gql-script-modal-order-toggle--active {
+  color: var(--text);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.gql-script-modal-order-toggle-chevron {
+  font-size: 0.65rem;
+  opacity: 0.85;
+}
 
 /* Execution order diagram (3B-10) */
 .gql-script-order-diagram {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-  padding: 8px 10px;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .gql-script-order-step {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 500;
   color: var(--text-muted);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 7px;
+  border-radius: 5px;
+  padding: 4px 8px;
   white-space: nowrap;
 }
-.gql-script-order-step--item { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
-.gql-script-order-step--http { color: var(--success, #a6e3a1); border-color: color-mix(in srgb, var(--success, #a6e3a1) 40%, var(--border)); }
-.gql-script-order-arrow { color: var(--text-muted); font-size: 0.75rem; }
+.gql-script-order-step--item {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+}
+.gql-script-order-step--http {
+  color: var(--success, #86efac);
+  border-color: color-mix(in srgb, var(--success, #86efac) 40%, var(--border));
+  background: color-mix(in srgb, var(--success, #86efac) 8%, var(--bg));
+}
+.gql-script-order-arrow {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
 
-/* Phase tabs */
-.gql-script-tabs {
+/* Toolbar: segmented tabs + actions */
+.gql-script-toolbar {
   display: flex;
   align-items: center;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 0;
   background: var(--bg);
   flex-shrink: 0;
-  padding: 0 10px;
+}
+
+.gql-script-tab-group {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  gap: 2px;
 }
 
 .gql-script-tab {
-  padding: 7px 14px;
+  padding: 7px 16px;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.gql-script-tab:hover { color: var(--text); }
-.gql-script-tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+.gql-script-tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.gql-script-tab--active {
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--bg) 40%, transparent);
+}
+.gql-script-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
 
-.gql-script-tabs-spacer { flex: 1; }
+.gql-script-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gql-script-phase-hint {
+  margin: 0;
+  padding: 8px 16px 12px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 
 /* Template dropdown */
 .gql-script-template-wrap { position: relative; }
 
 .gql-script-template-btn {
-  padding: 5px 10px;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.gql-script-template-btn:hover { color: var(--text); border-color: var(--primary); }
+.gql-script-template-btn:hover,
+.gql-script-template-btn--active {
+  color: var(--text);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.gql-script-template-btn-chevron {
+  font-size: 0.62rem;
+  opacity: 0.8;
+}
 
 .gql-script-template-dropdown {
   position: absolute;
   right: 0;
-  top: calc(100% + 4px);
-  width: 340px;
+  top: calc(100% + 6px);
+  width: min(360px, 85vw);
   max-height: 320px;
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--bg) 45%, transparent);
   z-index: 100;
 }
 
 .gql-script-template-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
   text-align: left;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  transition: background 0.12s;
 }
 .gql-script-template-item:last-child { border-bottom: none; }
 .gql-script-template-item:hover { background: var(--surface-hover); }
+.gql-script-template-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
 
 .gql-script-template-label {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text);
 }
+
 .gql-script-template-desc {
   font-size: 0.68rem;
   color: var(--text-muted);
-  line-height: 1.3;
+  line-height: 1.35;
 }
+
 .gql-script-template-empty {
-  padding: 12px;
+  padding: 14px;
   font-size: 0.72rem;
   color: var(--text-muted);
   text-align: center;
 }
 
-/* Monaco editor area */
-.gql-script-editor-wrap {
+/* Editor panel */
+.gql-script-editor-panel {
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
   flex-shrink: 0;
 }
 
-/* Item-only settings row */
+.gql-script-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-script-lang-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.gql-script-editor-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gql-script-editor-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.gql-script-editor-wrap {
+  flex-shrink: 0;
+  min-height: 280px;
+}
+
+/* Footer settings + actions */
 .gql-script-settings {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  min-width: 0;
+}
+
+.gql-script-setting-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 0;
+}
+.gql-script-setting-row--toggle span { user-select: none; }
+.gql-script-setting-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.gql-script-setting-label {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gql-script-setting-suffix {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.gql-script-timeout-input {
+  width: 88px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.76rem;
+  padding: 6px 8px;
+}
+.gql-script-timeout-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-script-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
 }
 
-.gql-script-setting-row {
+.gql-script-footer-spacer { flex: 1; }
+
+.gql-script-footer-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.gql-script-setting-row input[type="checkbox"] { cursor: pointer; }
-
-.gql-script-timeout-input {
-  width: 80px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 0.76rem;
-  padding: 3px 6px;
-}
-.gql-script-timeout-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent); }
-
-/* Modal footer */
-.gql-script-modal-footer {
-  display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
   flex-shrink: 0;
 }
 
 .gql-script-btn {
-  padding: 6px 16px;
-  border-radius: 5px;
+  padding: 8px 16px;
+  border-radius: 6px;
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid var(--border);
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
 }
-.gql-script-btn--secondary { background: var(--surface); color: var(--text-muted); }
-.gql-script-btn--secondary:hover { background: var(--surface-hover); color: var(--text); }
-.gql-script-btn--primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-.gql-script-btn--primary:hover { filter: brightness(1.1); }
-.gql-script-btn--test { background: var(--surface); color: var(--success, #a6e3a1); border-color: color-mix(in srgb, var(--success, #a6e3a1) 40%, var(--border)); }
-.gql-script-btn--test:hover:not(:disabled) { background: color-mix(in srgb, var(--success, #a6e3a1) 10%, var(--surface)); }
-.gql-script-btn--test:disabled { opacity: 0.5; cursor: not-allowed; }
+.gql-script-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.gql-script-btn--secondary {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.gql-script-btn--secondary:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.gql-script-btn--primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.gql-script-btn--primary:hover { filter: brightness(1.08); }
+.gql-script-btn--test {
+  background: var(--surface);
+  color: var(--success, #86efac);
+  border-color: color-mix(in srgb, var(--success, #86efac) 35%, var(--border));
+}
+.gql-script-btn--test:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--success, #86efac) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--success, #86efac) 55%, var(--border));
+}
+.gql-script-btn--test:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 /* Dry-run test output inline console */
 .gql-script-dryrun-console {
   flex-shrink: 0;
   max-height: 140px;
   overflow-y: auto;
-  border-top: 1px solid var(--border);
+  margin: 0 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--bg);
 }
 .gql-script-dryrun-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 500;
   color: var(--text-muted);
   background: var(--surface);
 }
@@ -1908,7 +2138,7 @@
   color: var(--text-muted);
 }
 .gql-script-dryrun-running {
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-size: 0.75rem;
   color: var(--text-muted);
   font-style: italic;
@@ -1958,10 +2188,43 @@
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 .gql-import-mode-title {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+}
+.gql-import-mode-file {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 40px;
+  overflow: hidden;
+}
+.gql-import-mode-file-label {
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.gql-import-mode-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gql-import-mode-summary {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 .gql-import-mode-desc {
   margin: 0 0 16px;

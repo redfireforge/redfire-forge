@@ -15,6 +15,10 @@ import {
   loadHistoryToEditor,
   runHistoryEntry,
   saveHistoryToCollection,
+  confirmImportWithMerge,
+  triggerCollectionsImportFile,
+  prepareGql8ImportMergeReading,
+  prepareGql8ImportFileReading,
   LESSON8_ITEM_NAME,
 } from './lesson8-collections-history';
 
@@ -110,7 +114,7 @@ describe('lesson8-collections-history pacing', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.SAVE_COL_NAME, LESSON8_ITEM_NAME);
   });
 
-  it('saveHistoryToCollection fills item name during visible action', async () => {
+  it('saveHistoryToCollection skips save when lesson item already exists in DOM', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="gql-history-save-to-col"></button>
@@ -134,7 +138,109 @@ describe('lesson8-collections-history pacing', () => {
     `;
     stubMonacoEditor();
     await saveHistoryToCollection(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.SAVE_COL_NAME, LESSON8_ITEM_NAME);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_SAVE_TO_COL);
+  });
+
+  it('saveHistoryToCollection fills item name during visible action when not yet saved', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-history-save-to-col"></button>
+      <div data-testid="gql-history-preview"></div>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>
+      <button data-testid="gql-activity-collections"></button>
+      <div data-testid="gql-collections-panel">
+        <div data-testid="gql-col-node" aria-expanded="true"><div class="gql-col-node-header"></div></div>
+      </div>
+      <div data-testid="gql-save-col-modal">
+        <input data-testid="gql-save-col-name" />
+        <button data-testid="gql-save-col-save"></button>
+      </div>
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor();
+    await saveHistoryToCollection(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.SAVE_COL_NAME, LESSON8_ITEM_NAME);
+  });
+
+  it('prepareGql8ImportFileReading does not click Import during reading', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-collections" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-collections-panel"></div>
+      <button data-testid="gql-collections-import"></button>
+      <input data-testid="gql-collections-import-input" type="file" />
+    `;
+    await prepareGql8ImportFileReading(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.COLLECTIONS_IMPORT);
+  });
+
+  it('prepareGql8ImportMergeReading opens dialog but does not click Merge during reading', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-collections" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-collections-panel"></div>
+      <button data-testid="gql-collections-import"></button>
+      <input data-testid="gql-collections-import-input" type="file" />
+    `;
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === GQL.IMPORT_MODE_DIALOG) {
+        document.body.insertAdjacentHTML(
+          'beforeend',
+          '<div data-testid="gql-import-mode-dialog"><button data-testid="gql-import-mode-merge">Merge</button></div>',
+        );
+      }
+    });
+    ctx.click.mockClear();
+    await prepareGql8ImportMergeReading(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.IMPORT_MODE_MERGE);
+    expect(document.querySelector(GQL.IMPORT_MODE_DIALOG)).toBeTruthy();
+  });
+
+  it('confirmImportWithMerge clicks Merge during visible action', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-collections" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-collections-panel">
+        <div data-testid="gql-col-node" aria-expanded="true"><div class="gql-col-node-header"></div></div>
+      </div>
+      <div data-testid="gql-import-mode-dialog">
+        <button data-testid="gql-import-mode-merge">Merge</button>
+      </div>
+    `;
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === GQL.COL_ITEM) {
+        document.querySelector(GQL.COL_NODE)!.insertAdjacentHTML(
+          'beforeend',
+          '<div data-testid="gql-col-item"><span class="gql-col-item-name">Lesson 8 Health</span></div>',
+        );
+      }
+    });
+    await confirmImportWithMerge(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.IMPORT_MODE_MERGE);
+  });
+
+  it('triggerCollectionsImportFile clicks Import and opens mode dialog', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-collections" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-collections-panel"></div>
+      <button data-testid="gql-collections-import"></button>
+      <input data-testid="gql-collections-import-input" type="file" />
+    `;
+    vi.mocked(ctx.waitFor).mockImplementation(async (sel: string) => {
+      if (sel === GQL.IMPORT_MODE_DIALOG) {
+        document.body.insertAdjacentHTML(
+          'beforeend',
+          '<div data-testid="gql-import-mode-dialog"></div>',
+        );
+      }
+    });
+    await triggerCollectionsImportFile(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.COLLECTIONS_IMPORT);
   });
 
   it('openHistoryPreview clicks history entry during visible action', async () => {

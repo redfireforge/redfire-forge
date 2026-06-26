@@ -57,7 +57,7 @@ const GQL8_LESSON_SOURCE = {
 /** Step metadata from graphql-collections-history (avoid barrel import — pulls monaco in node vitest). */
 const GQL9_LESSON_SOURCE = {
   name: 'Collections & History',
-  steps: 9,
+  steps: 11,
 } as const;
 
 /** Step metadata from graphql-export-share (avoid barrel import — pulls monaco in node vitest). */

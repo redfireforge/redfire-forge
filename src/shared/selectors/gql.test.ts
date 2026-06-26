@@ -31,4 +31,10 @@ describe('GQL selectors', () => {
     expect(GQL.advBatchTabRow('tab-42')).toBe('[data-testid="gql-adv-batch-tab-row-tab-42"]');
     expect(GQL.advBatchTabCb('tab-42')).toBe('[data-testid="gql-adv-batch-tab-cb-tab-42"]');
   });
+
+  it('scopes metadata request-header value selectors to the response viewer', () => {
+    expect(GQL.rvMetadataRequestHeaderVal('Authorization')).toBe(
+      '[data-testid="gql-response-viewer"] [data-testid="gql-rv-request-header-val-Authorization"]',
+    );
+  });
 });

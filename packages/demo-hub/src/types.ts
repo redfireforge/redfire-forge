@@ -99,6 +99,8 @@ export interface DemoStep {
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
   /** Invisible setup before spotlight (navigate to tab, switch mode, etc.) */
   preAction?: (ctx: DemoActionContext) => Promise<void>;
+  /** Poll/sync UI during reading pause (e.g. async IDB schema cache on Tauri). */
+  readingSync?: (ctx: DemoActionContext, signal?: AbortSignal) => Promise<void>;
   /** Visible action after user has read narration (click button, etc.) */
   action?: (ctx: DemoActionContext) => Promise<void>;
   /** Selector to poll after action — step won't advance until this appears */

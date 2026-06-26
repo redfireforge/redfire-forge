@@ -300,6 +300,19 @@ describe('GraphqlSubscriptionLog', () => {
     expect(screen.queryByTestId('gql-sub-resume-btn')).toBeNull();
   });
 
+  it('shows Re-subscribe in toolbar when state is closed and onResubscribe provided', () => {
+    const onResubscribe = vi.fn();
+    render(<GraphqlSubscriptionLog {...defaultProps({ state: 'closed', onResubscribe })} />);
+    expect(screen.getByTestId('gql-sub-resubscribe-btn')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('gql-sub-resubscribe-btn'));
+    expect(onResubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Re-subscribe when state is closed but onResubscribe is omitted', () => {
+    render(<GraphqlSubscriptionLog {...defaultProps({ state: 'closed' })} />);
+    expect(screen.queryByTestId('gql-sub-resubscribe-btn')).toBeNull();
+  });
+
   it('Pause/Resume buttons visible when state is reconnecting', () => {
     render(<GraphqlSubscriptionLog {...defaultProps({ state: 'reconnecting', isPaused: false })} />);
     expect(screen.getByTestId('gql-sub-pause-btn')).toBeTruthy();

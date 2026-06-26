@@ -50,6 +50,7 @@ describe('GraphqlProfileModal', () => {
   it('renders footer Close button (no header ×)', () => {
     render(<GraphqlProfileModal {...defaultProps} />);
     expect(screen.getByTestId('gql-profile-close-btn')).toHaveTextContent('Close');
+    expect(screen.getByTestId('gql-profile-close-btn')).toHaveClass('gql-btn--secondary');
     expect(screen.queryByRole('button', { name: /^×$/i })).not.toBeInTheDocument();
   });
 
@@ -68,6 +69,36 @@ describe('GraphqlProfileModal', () => {
     render(<GraphqlProfileModal {...defaultProps} profiles={profiles} />);
     expect(screen.getByText('My Profile')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /load profile: my profile/i })).toBeInTheDocument();
+  });
+
+  it('shows Loaded badge for the profile linked to the active tab', () => {
+    const profiles = [
+      makeProfile({ id: 'p1', name: 'GQL Auth Demo' }),
+      makeProfile({ id: 'p2', name: 'Test' }),
+    ];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        activeConnectionId="p2"
+      />,
+    );
+    expect(screen.getByTestId('gql-profile-loaded-badge')).toBeInTheDocument();
+    expect(screen.getByText('Test loaded on active tab')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /load profile: gql auth demo/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /load profile: test/i })).not.toBeInTheDocument();
+  });
+
+  it('marks the loaded profile row with aria-current', () => {
+    const profiles = [makeProfile({ id: 'p1', name: 'Test' })];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        activeConnectionId="p1"
+      />,
+    );
+    expect(screen.getByTestId('gql-profile-row-p1')).toHaveAttribute('aria-current', 'true');
   });
 
   // ─── Endpoint truncation ──────────────────────────────────────────────────

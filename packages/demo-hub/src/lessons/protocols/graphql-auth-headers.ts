@@ -16,8 +16,8 @@ import {
   LESSON6_OAUTH_CLIENT_SECRET,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
   LESSON6_PROFILE_NAME,
-  LESSON6_RV_API_KEY_VAL,
-  LESSON6_RV_AUTHORIZATION_VAL,
+  LESSON6_RV_METADATA_API_KEY_VAL,
+  LESSON6_RV_METADATA_AUTHORIZATION_VAL,
   ensureEnvReady,
   markBearerDone,
   markApiKeyDone,
@@ -27,15 +27,15 @@ import {
   markProfileDone,
   demonstrateSaveConnectionProfile,
   preEnvStep,
-  preOauthStep,
-  preProfileStep,
   preIntroStep,
+  preProfileStep,
   prepareBearerConfigReading,
   prepareBearerObserveReading,
   prepareApiKeyConfigReading,
   prepareApiKeyObserveReading,
   prepareBasicConfigReading,
   prepareBasicObserveReading,
+  prepareOauthConfigReading,
   prepareInheritConfigReading,
   prepareInheritObserveReading,
   prepareSubscriptionExecReading,
@@ -77,10 +77,11 @@ export const gqlAuthHeadersLesson: DemoLesson = {
 
 **Why not put credentials in the query?** GraphQL sends operations as JSON in the request body. Credentials belong in HTTP **headers** — they travel outside the payload, can be stripped by proxies at the edge, and follow HTTP security standards that API gateways already understand.
 
-The **Auth badge** (🔒) focuses the **Auth** bottom tab with four modes:
+The **Auth badge** (🔒) focuses the **Auth** bottom tab with five modes:
 - **Bearer Token** — \`Authorization: Bearer <token>\`. Use \`{{authToken}}\` as the value.
 - **API Key** — a custom header such as \`X-API-Key: {{apiKey}}\`. The header name is configurable.
 - **Basic Auth** — credentials encoded as \`Authorization: Basic base64(user:pass)\`. Base64 is *encoding*, not encryption — requires HTTPS (**GQL-5**) to be safe in transit.
+- **OAuth 2.0 (Client Credentials)** — token URL, client ID, and client secret; GraphQL Studio fetches a short-lived access token at execute time.
 - **Inherit from Auth Profile** — references a shared credential from the **Environment Manager** catalog. Update the profile once and every studio that references it picks up the change automatically.
 
 After **Execute**, open the **Metadata** tab to see the exact headers that were sent. This is your ground truth for debugging auth failures.
@@ -220,7 +221,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
   <rect x="8" y="226" width="98" height="50" rx="5" fill="#1e293b" stroke="#3b4a60" stroke-width="1"/>
   <text x="57" y="238" text-anchor="middle" fill="#f1f5f9" font-size="8.5" font-weight="600">① Intro</text>
   <text x="57" y="250" text-anchor="middle" fill="#a8b8cc" font-size="7.5">Auth badge overview</text>
-  <text x="57" y="262" text-anchor="middle" fill="#a8b8cc" font-size="7.5">4 auth modes explained</text>
+  <text x="57" y="262" text-anchor="middle" fill="#a8b8cc" font-size="7.5">5 auth modes explained</text>
 
   <rect x="114" y="226" width="98" height="50" rx="5" fill="color-mix(in srgb, #34d399 8%, #1e293b)" stroke="#34d399" stroke-width="1.2"/>
   <text x="163" y="238" text-anchor="middle" fill="#34d399" font-size="8.5" font-weight="600">② Env Setup</text>
@@ -282,7 +283,7 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-intro',
       title: 'Auth on the Connection Bar',
       description:
-        `Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, all auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the **Auth** bottom tab — a docked panel with four modes: **Bearer Token**, **API Key**, **Basic Auth**, and **Inherit from Auth Profile**. Notice the **Env badge** beside it — the next step opens that modal to configure a **Demo** environment with \`authToken\` and \`apiKey\` variables so auth fields can use \`{{authToken}}\` placeholders instead of hardcoded secrets.`,
+        `Most GraphQL APIs require credentials — but **where** you put them matters. In GraphQL Studio, all auth lives on the **connection bar**, not buried in a settings page. Click the **🔒 Auth badge** to open the **Auth** bottom tab — a docked panel with five modes: **Bearer Token**, **API Key**, **Basic Auth**, **OAuth 2.0 (Client Credentials)**, and **Inherit from Auth Profile**. Notice the **Env badge** beside it — the next step opens that modal to configure a **Demo** environment with \`authToken\` and \`apiKey\` variables so auth fields can use \`{{authToken}}\` placeholders instead of hardcoded secrets.`,
       highlight: GQL.AUTH_BADGE_BTN,
       preAction: preIntroStep,
       action: async (ctx) => {
@@ -339,13 +340,13 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       title: 'Bearer Token — Verify in Metadata',
       description:
         `Click **Execute**, then open **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` — the literal resolved token, not \`{{authToken}}\`. **This is your ground truth for debugging** — if a server rejects auth, Metadata shows exactly what was transmitted.`,
-      highlight: LESSON6_RV_AUTHORIZATION_VAL,
+      highlight: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       preAction: prepareBearerObserveReading,
       action: async (ctx) => {
-        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_AUTHORIZATION_VAL);
+        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_METADATA_AUTHORIZATION_VAL);
         markBearerDone();
       },
-      verify: LESSON6_RV_AUTHORIZATION_VAL,
+      verify: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       pauseAfter: true,
     },
 
@@ -374,13 +375,13 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       title: 'API Key — Verify in Metadata',
       description:
         `Execute again and read **Metadata → Request headers**. The row updates to \`${LESSON6_API_KEY_HEADER}: ${LESSON6_API_KEY_VALUE}\` — the \`{{apiKey}}\` env variable resolved at send time.`,
-      highlight: LESSON6_RV_API_KEY_VAL,
+      highlight: LESSON6_RV_METADATA_API_KEY_VAL,
       preAction: prepareApiKeyObserveReading,
       action: async (ctx) => {
-        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_API_KEY_VAL);
+        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_METADATA_API_KEY_VAL);
         markApiKeyDone();
       },
-      verify: LESSON6_RV_API_KEY_VAL,
+      verify: LESSON6_RV_METADATA_API_KEY_VAL,
       pauseAfter: true,
     },
 
@@ -409,13 +410,13 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       title: 'Basic Auth — Verify in Metadata',
       description:
         `Execute and open **Metadata**. The header becomes \`Authorization: Basic ZGVtbzpkZW1vLXBhc3M=\` — base64 for \`${LESSON6_BASIC_USER}:${LESSON6_BASIC_PASS}\`. Compare this row to the Bearer and API Key rows you saw earlier.`,
-      highlight: LESSON6_RV_AUTHORIZATION_VAL,
+      highlight: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       preAction: prepareBasicObserveReading,
       action: async (ctx) => {
-        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_AUTHORIZATION_VAL);
+        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_METADATA_AUTHORIZATION_VAL);
         markBasicDone();
       },
-      verify: LESSON6_RV_AUTHORIZATION_VAL,
+      verify: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       pauseAfter: true,
     },
 
@@ -424,9 +425,9 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-oauth',
       title: 'OAuth 2.0 — Client Credentials',
       description:
-        `Switch to **OAuth 2.0 (Client Credentials)**. Fill token URL \`${LESSON6_OAUTH_TOKEN_URL}\`, client ID \`${LESSON6_OAUTH_CLIENT_ID}\`, and client secret \`${LESSON6_OAUTH_CLIENT_SECRET}\` (store the real secret in **Env**, same pattern as Bearer). The preview shows \`Authorization: Bearer <token from ${LESSON6_OAUTH_TOKEN_URL}>\` — GraphQL Studio fetches the access token at execute time. **Why OAuth here?** Service-to-service APIs often issue short-lived tokens instead of static API keys.`,
-      highlight: GQL.AUTH_PREVIEW,
-      preAction: preOauthStep,
+        `Switch to **OAuth 2.0 (Client Credentials)** in the **Auth type** dropdown, then fill token URL \`${LESSON6_OAUTH_TOKEN_URL}\`, client ID \`${LESSON6_OAUTH_CLIENT_ID}\`, and client secret \`${LESSON6_OAUTH_CLIENT_SECRET}\` (store the real secret in **Env**, same pattern as Bearer). After the fields are filled, the preview footer shows \`Authorization: Bearer <token from ${LESSON6_OAUTH_TOKEN_URL}>\` — GraphQL Studio fetches the access token at execute time. **Why OAuth here?** Service-to-service APIs often issue short-lived tokens instead of static API keys.`,
+      highlight: GQL.AUTH_OAUTH_TOKEN_URL,
+      preAction: prepareOauthConfigReading,
       action: async (ctx) => {
         await selectAuthInPanel(ctx, 'oauth2');
         await ctx.fill(GQL.AUTH_OAUTH_TOKEN_URL, LESSON6_OAUTH_TOKEN_URL);
@@ -463,14 +464,14 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       title: 'Inherit — Verify in Metadata',
       description:
         `Execute and read **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables on this tab.\n\n` +
-        `**Note:** **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is a **global auth profile** (Auth panel → Inherit from Auth Profile). It will **not** appear in the **Profiles** saved list — that list is for **connection profiles** (endpoint shortcuts) only.`,
-      highlight: LESSON6_RV_AUTHORIZATION_VAL,
+        `**Note:** **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is a **global auth profile** (Auth panel → Inherit from Auth Profile). It will **not** appear in the **Profiles** saved list — that list is for **connection profiles** (endpoint shortcuts) only. The next step saves a **connection profile** via the **Profiles** badge on the connection bar.`,
+      highlight: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       preAction: prepareInheritObserveReading,
       action: async (ctx) => {
-        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_AUTHORIZATION_VAL);
+        await runAuthExecuteWithMetadata(ctx, LESSON6_RV_METADATA_AUTHORIZATION_VAL);
         markInheritDone();
       },
-      verify: LESSON6_RV_AUTHORIZATION_VAL,
+      verify: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       pauseAfter: true,
     },
 
@@ -495,8 +496,8 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-subscription-exec',
       title: 'Auth Carries into Subscriptions — Execute',
       description:
-        'Click **Execute** — the response proves your query ran with the **Inherit** auth already bound in the **Auth** panel below (**' +
-        `${LESSON6_GLOBAL_AUTH_PROFILE_NAME}\`). No separate auth setup exists for subscriptions: the same resolved credential is reused on the WebSocket handshake in **GQL-7**.\n\n` +
+        'Click **Execute** on the health query — the response proves your HTTP request ran with the **Inherit** auth already bound in the **Auth** panel below (**' +
+        `${LESSON6_GLOBAL_AUTH_PROFILE_NAME}\`). Subscriptions reuse this same resolved credential on the WebSocket handshake in **GQL-7** — no separate auth setup is required.\n\n` +
         '**What to watch for:** The spotlight is on **Execute**; after the run, the demo re-opens the **Auth** panel so you can confirm **Inherit from Auth Profile** is still selected.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareSubscriptionExecReading,
@@ -515,18 +516,18 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-subscription-observe',
       title: 'Subscription Auth — Verify Metadata Headers',
       description:
-        'Open **Response → Metadata → Request headers**. The inherit profile auth still appears — you do **not** configure auth separately for subscriptions. When you open a second tab (**GQL-14**), each tab can override auth independently while sharing the same endpoint URL.',
-      highlight: LESSON6_RV_AUTHORIZATION_VAL,
+        'Open **Response → Metadata → Request headers**. The inherit profile auth still appears on this HTTP execute — you do **not** configure auth separately for subscriptions. When you open a second tab (**GQL-14**), each tab can override auth independently while sharing the same endpoint URL.',
+      highlight: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       preAction: prepareSubscriptionObserveReading,
       action: async (ctx) => {
         await ctx.click(GQL.RIGHT_TAB_RESPONSE);
         await ctx.delay(800);
         await ctx.click(GQL.RV_TAB_METADATA);
-        await ctx.waitFor(LESSON6_RV_AUTHORIZATION_VAL, 5000);
+        await ctx.waitFor(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
         await ctx.delay(800);
         await ensureAuthPanelVisible(ctx);
       },
-      verify: LESSON6_RV_AUTHORIZATION_VAL,
+      verify: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       pauseAfter: true,
     },
   ],

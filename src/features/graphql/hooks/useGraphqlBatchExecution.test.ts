@@ -294,6 +294,29 @@ describe('useGraphqlBatchExecution', () => {
       expect(params.setRightView).toHaveBeenCalledWith('response');
     });
 
+    it('persists each batch operation to history when saveHistory is provided', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ data: { a: 1 } }, { data: { b: 2 } }] }),
+      });
+      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
+      const saveHistory = vi.fn().mockResolvedValue(undefined);
+      const params = {
+        ...defaultParams(),
+        tabs,
+        saveHistory,
+        historyConnectionId: 'https://api.example.com/graphql',
+      };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      expect(saveHistory).toHaveBeenCalledTimes(2);
+      expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
+        connectionId: 'https://api.example.com/graphql',
+      }));
+    });
+
     it('handles fetch error and sets error in batchResult', async () => {
       vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
       const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];

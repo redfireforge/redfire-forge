@@ -22,6 +22,7 @@ import {
   ensureResponseCreateOrderVisible,
   clearActiveTabEndpointOverride,
   configureDemoTabEndpointOverride,
+  openSchemaTabWhenCached,
 } from './core';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
@@ -361,7 +362,7 @@ export async function runGql3IntrospectOnlyAction(ctx: DemoActionContext): Promi
   }
 }
 
-/** Step 3b reading — schema badge visible after introspect. */
+/** Step 3b reading — schema badge visible; open Schema tab with type list. */
 export async function prepareGql3ObserveIntrospectReading(ctx: DemoActionContext): Promise<void> {
   await prepareGql3IntrospectReading(ctx);
   if (!hasUsableSchemaBadge()) {
@@ -369,7 +370,7 @@ export async function prepareGql3ObserveIntrospectReading(ctx: DemoActionContext
     await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
     await ctx.delay(800);
   }
-  await focusResponsePane(ctx);
+  await openSchemaTabWhenCached(ctx);
 }
 
 /**

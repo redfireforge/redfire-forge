@@ -272,3 +272,5 @@ Active guards **must include `lessonId`** — prevents spoofed/torn file reads f
 **Orphan demo tabs:** `purgeOrphanDemoTabs()` on Studio mount removes demo tabs when no active `gql_demo_session_v1` — hard refresh mid-lesson is handled separately (not covered by acceptance spec yet).
 
 **Last-step rule still applies** when walking lessons inside §11.0 tests — use `finishDemoStep` on step N/N.
+
+**Step counts (2026-06-24):** GQL-5 = **16** steps; GQL-7 = **15** steps (includes `gql5-subscription-auth`). Keep `e2e/graphql-lesson-smoke-helpers.ts` in sync with lesson files.

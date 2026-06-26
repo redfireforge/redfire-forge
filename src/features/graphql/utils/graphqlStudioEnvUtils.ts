@@ -6,6 +6,7 @@ import {
   type EndpointRowStatus,
 } from '../../environments/utils/protocolEndpointUtils';
 import { buildAuthHeaders } from './authUtils';
+import { describeResolvedGqlAuth } from './gqlAuthResolve';
 import { resolveVars } from './envUtils';
 
 /** Build merged global env map for GraphQL Studio from header selection or legacy props. */
@@ -68,4 +69,26 @@ export function buildGraphqlSchemaHeaders(
     resolved[k] = resolveVars(v, activeEnvironment, globalEnvMap);
   }
   return resolved;
+}
+
+/** Auth preview footer — resolves {{vars}} like execution, then masks secrets. */
+export function describeEnvResolvedAuthPreview(
+  auth: GraphqlAuth | null | undefined,
+  activeEnvironment: GraphqlEnvironment | null,
+  globalEnvMap: Record<string, string>,
+  globalAuthProfiles: GlobalAuthProfile[] = [],
+): string {
+  const headers = buildGraphqlSchemaHeaders(auth, {}, activeEnvironment, globalEnvMap, globalAuthProfiles);
+  if (headers.Authorization) {
+    const token = headers.Authorization.startsWith('Bearer ')
+      ? headers.Authorization.slice(7)
+      : headers.Authorization;
+    return `Authorization: Bearer ${token.slice(0, 24)}${token.length > 24 ? '…' : ''}`;
+  }
+  const first = Object.entries(headers)[0];
+  if (first) {
+    const [name, value] = first;
+    return `${name}: ${value.slice(0, 24)}${value.length > 24 ? '…' : ''}`;
+  }
+  return describeResolvedGqlAuth(auth, globalAuthProfiles);
 }

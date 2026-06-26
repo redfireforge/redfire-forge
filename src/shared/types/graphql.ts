@@ -99,6 +99,10 @@ export interface GraphqlResponse {
   httpHeaders: Record<string, string>;
   /** Outgoing request headers sent with this operation (auth + custom, env-resolved). */
   requestHeaders?: Record<string, string>;
+  /** HTTP method used for the GraphQL operation (typically POST; GET when APQ use-get is on). */
+  requestMethod?: string;
+  /** Parsed JSON body sent to the GraphQL endpoint (`query`, `variables`, `operationName`, …). */
+  requestBody?: Record<string, unknown>;
   /** Phase 6H — where resolved auth credentials originated (page / tab / profile). */
   authSentSource?: 'page' | 'tab' | 'profile';
   /** Phase 6H — masked auth header lines shown in Metadata tab (e.g. Authorization: Bearer …). */

@@ -43,6 +43,22 @@ export function deriveTabLabel(query: string): string {
   return ops.length > 0 ? ops[0].name : 'Untitled';
 }
 
+/**
+ * Resolves the GraphQL operationName to send on the wire.
+ * Returns undefined for anonymous documents or when the stored name does not
+ * appear in the query (e.g. tab labels saved as operation.name by mistake).
+ */
+export function resolveGraphqlRequestOperationName(
+  query: string,
+  storedName?: string | null,
+): string | undefined {
+  const ops = extractOperations(query);
+  if (ops.length === 0) return undefined;
+  if (storedName && ops.some((o) => o.name === storedName)) return storedName;
+  if (ops.length === 1) return ops[0].name;
+  return undefined;
+}
+
 /** Derives the primary operation type from the query text. */
 export function deriveOperationType(
   query: string,

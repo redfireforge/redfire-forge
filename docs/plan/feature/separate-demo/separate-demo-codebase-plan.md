@@ -724,7 +724,7 @@ Ship Phases 1–2 to `develop` first — **zero user-visible change**, maximum C
 - [ ] `develop` merge requires product tests + prod build only
 - [ ] Demo E2E removed from default PR CI
 - [ ] README documents two download tracks
-- [ ] At least one lesson migrated to adapter pattern (Phase 5 pilot) — **GQL-1 via `core.ts` + `gql-demo-tab`; manual visual verify pending**
+- [x] `packages/demo-hub/` adapter pilot (GQL-1 via `core.ts` + `gql-demo-tab`) — **engineering complete**; `audit:prod-demo-bundle` in CI ✅; optional manual Demo Hub visual verify on Standard build
 - [x] `.cursor/rules/project-conventions.mdc` updated
 - [ ] User verified both artifacts on Web + Tauri before merge to `release/*`
 

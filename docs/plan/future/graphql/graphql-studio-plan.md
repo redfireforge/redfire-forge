@@ -124,8 +124,8 @@ Features explicitly **out of scope** or replaced by what shipped:
 |---------|---------|
 | Multi-target Code Gen panel (TypeScript types, `python-gql`, file download) | **Not shipped** — Lesson 10 uses Builder SDL preview + History **Copy as cURL** |
 | Per-tab independent PEM certificate stores | **Deferred** — page-level `gql_tls_certs_v1`; tabs inherit |
-| Native Rust/webview TLS for custom CA/mTLS in Tauri | **Deferred** — routes through Node proxy (`localhost:3001`) |
-| Basic Auth / OAuth2 demo lesson beats | **Deferred** — GQL-4 covers Bearer + API Key only |
+| Native Rust/webview TLS for custom CA/mTLS in Tauri | **Partially shipped** — `gql_http_fetch` + `gql_http_upload` + WS use rustls (2026-06-24); loopback/plain HTTP may still use Node `:3001` |
+| Basic Auth / OAuth2 demo lesson beats | **Shipped** — GQL-4 `gql6-basic`, `gql6-oauth`, subscription cross-ref steps |
 | GQL-20+ lesson slots | **Not started** — no registry entries |
 | File upload / APQ / batch as standalone demo lessons | **Deferred** — power-user; mentioned in docs only |
 | Demo-only history bucket (isolate lesson runs from user history) | **Future** — §11.0 tab isolation shipped; history filter optional |

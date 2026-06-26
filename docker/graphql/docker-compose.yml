@@ -17,7 +17,7 @@
 #   Mutation.createUser         — create user (faker-backed defaults)
 #   Mutation.createOrder        — create order
 #   Mutation.deleteUser         — delete user
-#   Subscription.orderStatus    — PENDING → PROCESSING → COMPLETE progression
+#   Subscription.orderStatus    — PENDING → PROCESSING → COMPLETE (~2s apart, ~6s total)
 #
 # Features: Apollo Tracing v1, APQ, CORS, graphql-ws subscriptions
 services:

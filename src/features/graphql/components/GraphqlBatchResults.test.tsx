@@ -48,13 +48,14 @@ beforeEach(() => {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('GraphqlBatchResults — header rendering', () => {
-  it('renders "Batch of N" header with correct count', () => {
+  it('renders batch header with operation count', () => {
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeSuccessResult(0), makeSuccessResult(1)],
     };
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
-    expect(screen.getByText('Batch of 2')).toBeTruthy();
+    expect(screen.getByText('Batch execution')).toBeTruthy();
+    expect(screen.getByText('2 operations completed')).toBeTruthy();
   });
 
   it('shows correct passed/failed counts for all success', () => {
@@ -95,14 +96,25 @@ describe('GraphqlBatchResults — header rendering', () => {
     expect(screen.queryByText('Sequential fallback')).toBeNull();
   });
 
-  it('calls onDismiss when dismiss button is clicked', () => {
+  it('calls onDismiss when Close button is clicked', () => {
     const onDismiss = vi.fn();
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeSuccessResult(0)],
     };
     render(<GraphqlBatchResults result={result} onDismiss={onDismiss} />);
-    fireEvent.click(screen.getByLabelText('Dismiss batch results'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close batch results' }));
+    expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it('calls onDismiss when Escape is pressed', () => {
+    const onDismiss = vi.fn();
+    const result: GraphqlBatchResult = {
+      batchUnsupported: false,
+      results: [makeSuccessResult(0)],
+    };
+    render(<GraphqlBatchResults result={result} onDismiss={onDismiss} />);
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 });
@@ -127,22 +139,22 @@ describe('GraphqlBatchResults — operation card rendering', () => {
     expect(screen.getByText('Operation 1')).toBeTruthy();
   });
 
-  it('shows success indicator (✓) for successful operations', () => {
+  it('shows success indicator for successful operations', () => {
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeSuccessResult(0, 'GetUser')],
     };
-    render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
-    expect(screen.getByText('✓')).toBeTruthy();
+    const { container } = render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
+    expect(container.querySelector('.gql-batch-card-indicator--success')).toBeTruthy();
   });
 
-  it('shows error indicator (✗) for failed operations', () => {
+  it('shows error indicator for failed operations', () => {
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeErrorResult(0, 'Not found')],
     };
-    render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
-    expect(screen.getByText('✗')).toBeTruthy();
+    const { container } = render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
+    expect(container.querySelector('.gql-batch-card-indicator--error')).toBeTruthy();
   });
 
   it('shows HTTP status and latency labels when available', () => {
@@ -216,24 +228,24 @@ describe('GraphqlBatchResults — card expand/collapse', () => {
     expect(screen.getByText(/"field"/)).toBeTruthy();
   });
 
-  it('shows chevron pointing down (▾) when expanded', () => {
+  it('shows expanded chevron when card is open', () => {
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeSuccessResult(0, 'GetUser')],
     };
-    render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
-    expect(screen.getByText('▾')).toBeTruthy();
+    const { container } = render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
+    expect(container.querySelector('.gql-batch-card-chevron-icon--expanded')).toBeTruthy();
   });
 
-  it('shows chevron pointing right (▸) when collapsed', () => {
+  it('shows collapsed chevron when card is closed', () => {
     const result: GraphqlBatchResult = {
       batchUnsupported: false,
       results: [makeSuccessResult(0, 'GetUser')],
     };
-    render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
+    const { container } = render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
     const headerBtn = screen.getByRole('button', { name: /GetUser/ });
     fireEvent.click(headerBtn);
-    expect(screen.getByText('▸')).toBeTruthy();
+    expect(container.querySelector('.gql-batch-card-chevron-icon--expanded')).toBeNull();
   });
 });
 
@@ -315,8 +327,7 @@ describe('GraphqlBatchResults — error display', () => {
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
     expect(screen.getByText('1 passed')).toBeTruthy();
     expect(screen.queryByText(/failed/)).toBeNull();
-    // Should show success indicator (✓) for partial success
-    expect(screen.getByText('✓')).toBeTruthy();
+    expect(document.querySelector('.gql-batch-card-indicator--success')).toBeTruthy();
   });
 });
 

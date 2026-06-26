@@ -25,6 +25,8 @@ import { inheritAuthProfileLabel } from '../utils/gqlAuthResolve';
 
 interface GraphqlProfileModalProps {
   profiles: ConnectionProfile[];
+  /** Profile id linked to the active tab (from tab.connectionId). */
+  activeConnectionId?: string | null;
   currentEndpoint: string;
   currentAuth: GraphqlAuth | null | undefined;
   globalAuthProfiles?: GlobalAuthProfile[];
@@ -47,6 +49,7 @@ function truncateEndpoint(url: string, maxLen = 42): string {
 
 export function GraphqlProfileModal({
   profiles,
+  activeConnectionId = null,
   currentEndpoint,
   currentAuth,
   globalAuthProfiles = [],
@@ -121,12 +124,18 @@ export function GraphqlProfileModal({
     currentAuth?.type === 'inherit'
       ? inheritAuthProfileLabel(currentAuth, globalAuthProfiles)
       : null;
+  const loadedProfile = activeConnectionId
+    ? profiles.find((p) => p.id === activeConnectionId) ?? null
+    : null;
+
   const profileCountLabel =
     profiles.length === 0
       ? 'No saved profiles'
-      : profiles.length === 1
-        ? '1 saved profile'
-        : `${profiles.length} saved profiles`;
+      : loadedProfile
+        ? `${loadedProfile.name} loaded on active tab`
+        : profiles.length === 1
+          ? '1 saved profile'
+          : `${profiles.length} saved profiles`;
 
   return (
     <div
@@ -208,12 +217,27 @@ export function GraphqlProfileModal({
                   const authConfigured = isAuthConfigured(profile.auth, globalAuthProfiles);
                   const authLabel = authBadgeLabel(profile.auth, globalAuthProfiles);
                   const isConfirmingDelete = confirmDeleteId === profile.id;
+                  const isLoaded = activeConnectionId != null && profile.id === activeConnectionId;
 
                   return (
-                    <li key={profile.id} className="gql-profile-row" data-testid={`gql-profile-row-${profile.id}`}>
+                    <li
+                      key={profile.id}
+                      className={`gql-profile-row${isLoaded ? ' gql-profile-row--loaded' : ''}`}
+                      data-testid={`gql-profile-row-${profile.id}`}
+                      aria-current={isLoaded ? 'true' : undefined}
+                    >
                       <div className="gql-profile-row__info">
-                        <span className="gql-profile-row__name" title={profile.name}>
-                          {profile.name}
+                        <span className="gql-profile-row__name-line">
+                          {isLoaded && (
+                            <span
+                              className="gql-profile-loaded-dot"
+                              aria-hidden="true"
+                              title="Loaded on active tab"
+                            />
+                          )}
+                          <span className="gql-profile-row__name" title={profile.name}>
+                            {profile.name}
+                          </span>
                         </span>
                         <span className="gql-profile-row__endpoint" title={profile.endpoint}>
                           {truncateEndpoint(profile.endpoint)}
@@ -226,15 +250,28 @@ export function GraphqlProfileModal({
                         >
                           {authLabel}
                         </span>
-                        <button
-                          type="button"
-                          className="gql-profile-btn gql-profile-btn--load"
-                          onClick={() => onLoad(profile)}
-                          aria-label={`Load profile: ${profile.name}`}
-                          title="Load this profile into the connection bar"
-                        >
-                          Load
-                        </button>
+                        {isLoaded ? (
+                          <span
+                            className="gql-profile-loaded-badge"
+                            data-testid="gql-profile-loaded-badge"
+                            title={`${profile.name} is loaded on the active tab`}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Loaded
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="gql-profile-btn gql-profile-btn--load"
+                            onClick={() => onLoad(profile)}
+                            aria-label={`Load profile: ${profile.name}`}
+                            title="Load this profile into the connection bar"
+                          >
+                            Load
+                          </button>
+                        )}
                         <button
                           type="button"
                           className={`gql-profile-btn gql-profile-btn--delete${isConfirmingDelete ? ' gql-profile-btn--confirming' : ''}`}
@@ -314,7 +351,7 @@ export function GraphqlProfileModal({
         <div className="gql-profile-modal__footer">
           <button
             type="button"
-            className="gql-btn gql-profile-modal__close-btn"
+            className="gql-btn gql-btn--secondary gql-profile-modal__close-btn"
             onClick={handleClose}
             aria-label="Close Connection Profiles"
             data-testid="gql-profile-close-btn"

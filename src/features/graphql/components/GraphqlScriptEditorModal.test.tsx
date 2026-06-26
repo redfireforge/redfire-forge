@@ -101,7 +101,7 @@ describe('GraphqlScriptEditorModal — rendering', () => {
 
   it('shows the item name in the subtitle', () => {
     render(<GraphqlScriptEditorModal {...makeProps({ name: 'CreateOrder' })} />);
-    expect(screen.getByText('— CreateOrder')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-script-modal-target')).toHaveTextContent('CreateOrder');
   });
 
   it('shows Pre-Request and Post-Response tabs', () => {

@@ -174,6 +174,99 @@ describe('GraphqlResponseViewer', () => {
     expect(screen.getByTestId('gql-rv-request-header-val-Authorization').textContent).toBe('Bearer lesson6-demo-jwt');
   });
 
+  it('shows POST request body with query and variables in metadata tab', () => {
+    const response = makeResponse({
+      requestMethod: 'POST',
+      requestBody: {
+        query: 'query GetUser($id: ID!) { user(id: $id) { id name } }',
+        variables: { id: 'usr-565' },
+        operationName: 'GetUser',
+      },
+      requestHeaders: { 'Content-Type': 'application/json' },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-request-method').textContent).toBe('POST');
+    const body = screen.getByTestId('gql-rv-request-body');
+    expect(body.textContent).toContain('"query"');
+    expect(body.textContent).toContain('GetUser');
+    expect(body.textContent).toContain('"variables"');
+    expect(body.textContent).toContain('usr-565');
+    expect(screen.getByTestId('gql-rv-request-body-pretty-btn')).toBeTruthy();
+  });
+
+  it('graphql view expands GraphQL query in request body metadata', () => {
+    const response = makeResponse({
+      requestBody: {
+        query: 'query GetUser($id: ID!) {\\n  user(id: $id) {\\n    id\\n    name\\n  }\\n}',
+        variables: { id: 'usr-3' },
+        operationName: 'GetUser',
+      },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    const content = screen.getByTestId('gql-rv-request-body-content');
+    expect(content.textContent).toContain('\\n');
+    fireEvent.click(screen.getByTestId('gql-rv-request-body-pretty-btn'));
+    expect(content.textContent).toContain('query GetUser($id: ID!)');
+    expect(content.textContent).toContain('user(id: $id)');
+    expect(content.textContent).toContain('// Variables');
+    expect(content.textContent).not.toContain('\\n');
+    expect(screen.getByTestId('gql-rv-request-body-pretty-btn').textContent).toBe('Raw JSON');
+  });
+
+  it('graphql view keeps query keyword for health query', () => {
+    const response = makeResponse({
+      requestBody: { query: 'query { health }', variables: {} },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    fireEvent.click(screen.getByTestId('gql-rv-request-body-pretty-btn'));
+    const content = screen.getByTestId('gql-rv-request-body-content');
+    expect(content.textContent).toMatch(/query\s*\{/);
+    expect(content.textContent).toContain('health');
+    expect(content.textContent).toContain('// Variables');
+    expect(content.textContent).toContain('{}');
+  });
+
+  it('lists request headers before request body in metadata tab', () => {
+    const response = makeResponse({
+      requestBody: { query: '{ health }', variables: {} },
+      requestHeaders: {
+        Authorization: 'Bearer token',
+        'Content-Type': 'application/json',
+      },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    const headers = screen.getByTestId('gql-rv-request-headers');
+    const body = screen.getByTestId('gql-rv-request-body');
+    expect(headers.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('collapses long request body by default and expands on toggle', () => {
+    const longQuery = `query Q { ${'field '.repeat(120)} }`;
+    const response = makeResponse({
+      requestBody: { query: longQuery, variables: { id: 'x'.repeat(80) } },
+      requestHeaders: { 'Content-Type': 'application/json' },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-request-body').textContent).not.toContain(longQuery.slice(0, 40));
+    fireEvent.click(screen.getByTestId('gql-rv-request-body-toggle'));
+    expect(screen.getByTestId('gql-rv-request-body').textContent).toContain(longQuery.slice(0, 40));
+  });
+
+  it('shows summary grid rows including content-type in metadata tab', () => {
+    const response = makeResponse({
+      httpHeaders: { 'content-type': 'application/json; charset=utf-8' },
+    });
+    render(<GraphqlResponseViewer response={response} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-metadata').textContent).toContain('Content-Type');
+    expect(screen.getByTestId('gql-rv-metadata').textContent).toContain('application/json; charset=utf-8');
+  });
+
   it('renders auth-sent row in metadata tab when stamped on response', () => {
     const response = makeResponse({
       authSentSource: 'page',
@@ -219,6 +312,44 @@ describe('GraphqlResponseViewer', () => {
     render(<GraphqlResponseViewer response={response} />);
     fireEvent.click(screen.getByTestId('gql-response-error-count'));
     expect(screen.getByTestId('gql-rv-metadata')).toBeTruthy();
+  });
+
+  it('shows latency histogram below tabs when at least one response is recorded', () => {
+    render(
+      <GraphqlResponseViewer
+        response={makeResponse({ latencyMs: 29 })}
+        latencyHistory={[29]}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    const panel = screen.getByTestId('gql-rv-metadata').closest('.gql-rv-content');
+    const strip = screen.getByTestId('gql-histogram-strip');
+    expect(panel).toBeTruthy();
+    expect(panel?.contains(strip)).toBe(true);
+    expect(strip.textContent).toContain('Latency distribution');
+    expect(screen.getByText(/1 request/)).toBeTruthy();
+  });
+
+  it('shows latency histogram with multiple responses', () => {
+    render(
+      <GraphqlResponseViewer
+        response={makeResponse({ latencyMs: 29 })}
+        latencyHistory={[28, 29]}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-histogram-strip')).toBeTruthy();
+    expect(screen.getByText(/2 requests/)).toBeTruthy();
+  });
+
+  it('hides latency histogram until the first response is recorded', () => {
+    render(
+      <GraphqlResponseViewer
+        response={makeResponse({ latencyMs: 29 })}
+        latencyHistory={[]}
+      />,
+    );
+    expect(screen.queryByTestId('gql-histogram-strip')).toBeNull();
   });
 
   it('renders copy button', () => {

@@ -1403,8 +1403,8 @@ describe('LiveDemo', () => {
     target.style.height = '50px';
     target.scrollIntoView = vi.fn();
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 10, left: 10, width: 100, height: 50,
-      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+      top: 2000, left: 10, width: 100, height: 50,
+      right: 110, bottom: 2050, x: 10, y: 2000, toJSON: () => ({}),
     });
     document.body.appendChild(target);
 
@@ -1440,8 +1440,8 @@ describe('LiveDemo', () => {
     target.style.height = '50px';
     target.scrollIntoView = vi.fn();
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 10, left: 10, width: 100, height: 50,
-      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+      top: 2000, left: 10, width: 100, height: 50,
+      right: 110, bottom: 2050, x: 10, y: 2000, toJSON: () => ({}),
     });
     document.body.appendChild(target);
 
@@ -1602,9 +1602,12 @@ describe('LiveDemo', () => {
     expect(header).toBeTruthy();
     expect(panel).toBeTruthy();
 
+    const startTop = panel.style.top;
+    const startLeft = panel.style.left;
+
     vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
-      top: 200, left: 300, width: 320, height: 180,
-      right: 620, bottom: 380, x: 300, y: 200, toJSON: () => ({}),
+      top: 200, left: 300, width: 400, height: 440,
+      right: 700, bottom: 640, x: 300, y: 200, toJSON: () => ({}),
     });
 
     fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
@@ -1613,14 +1616,26 @@ describe('LiveDemo', () => {
 
     expect(panel.style.top).toBe('220px');
     expect(panel.style.left).toBe('350px');
+    expect(panel.style.top).not.toBe(startTop);
+    expect(panel.style.left).not.toBe(startLeft);
   });
 
   it('drag ignores mousedown on buttons inside header', () => {
     const { container } = render(<LiveDemo {...liveProps} />);
+    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
+    const startTop = panel.style.top;
+    const startLeft = panel.style.left;
     const exitBtn = screen.getByText('✕');
     fireEvent.mouseDown(exitBtn, { clientX: 100, clientY: 100 });
-    const panel = container.querySelector('.demo-live-panel') as HTMLElement;
-    expect(panel.style.top).toBe('');
+    expect(panel.style.top).toBe(startTop);
+    expect(panel.style.left).toBe(startLeft);
+  });
+
+  it('renders resize handles for top, left, and right edges', () => {
+    render(<LiveDemo {...liveProps} />);
+    expect(screen.getByTestId('demo-live-resize-top')).toBeTruthy();
+    expect(screen.getByTestId('demo-live-resize-left')).toBeTruthy();
+    expect(screen.getByTestId('demo-live-resize-right')).toBeTruthy();
   });
 
   it('renders step description with markdown', () => {

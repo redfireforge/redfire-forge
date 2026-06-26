@@ -25,8 +25,8 @@ import {
   LESSON6_PROFILE_NAME,
   LESSON6_GLOBAL_AUTH_PROFILE_ID,
   LESSON6_GLOBAL_AUTH_PROFILE_NAME,
-  LESSON6_RV_API_KEY_VAL,
-  LESSON6_RV_AUTHORIZATION_VAL,
+  LESSON6_RV_METADATA_API_KEY_VAL,
+  LESSON6_RV_METADATA_AUTHORIZATION_VAL,
   resetGqlLesson6SessionFlags,
   preSubscriptionStep,
 } from './graphql-lesson-helpers';
@@ -76,12 +76,13 @@ function buildLessonDom(): void {
       </select>
     </div>
     <button data-testid="gql-execute-btn"></button>
-    <div data-testid="gql-response-viewer"></div>
+    <div data-testid="gql-response-viewer">
+      ${metadataRequestHeadersHtml([
+        { name: 'Authorization', value: `Bearer ${LESSON6_AUTH_TOKEN_VALUE}` },
+        { name: LESSON6_API_KEY_HEADER, value: LESSON6_API_KEY_VALUE },
+      ])}
+    </div>
     <button data-testid="gql-rv-tab-metadata"></button>
-    ${metadataRequestHeadersHtml([
-      { name: 'Authorization', value: `Bearer ${LESSON6_AUTH_TOKEN_VALUE}` },
-      { name: LESSON6_API_KEY_HEADER, value: LESSON6_API_KEY_VALUE },
-    ])}
     <button data-testid="gql-profile-badge"></button>
     <div data-testid="gql-profile-modal">
       <input data-testid="gql-profile-name-input" />
@@ -188,8 +189,10 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.verify).toBe(GQL.AUTH_PANEL);
   });
 
-  it('gql6-intro description mentions Auth bottom tab', () => {
+  it('gql6-intro description lists five auth modes including OAuth', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-intro')!;
+    expect(step.description).toContain('five modes');
+    expect(step.description).toContain('OAuth 2.0');
     expect(step.description).toContain('Auth');
     expect(step.description).toContain('bottom tab');
     expect(step.description).not.toContain('popover');
@@ -305,8 +308,8 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   it('gql6-bearer-observe highlights Authorization header value row', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-bearer-observe')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
-    expect(step.verify).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
+    expect(step.verify).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
 
   it('gql6-bearer-observe description shows resolved value in Metadata', () => {
@@ -322,7 +325,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
-    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_AUTHORIZATION_VAL, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
   });
 
   // ── Step 5: gql6-apikey-config ───────────────────────────────────────────
@@ -352,7 +355,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
   it('gql6-apikey-observe description shows resolved env var value', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-apikey-observe')!;
     expect(step.description).toContain(LESSON6_API_KEY_VALUE);
-    expect(step.highlight).toBe(LESSON6_RV_API_KEY_VAL);
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_API_KEY_VAL);
   });
 
   it('gql6-apikey-observe action executes and opens Metadata', async () => {
@@ -391,7 +394,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   it('gql6-basic-observe highlights Authorization Basic value row', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-basic-observe')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
 
   it('gql6-basic-observe action executes and opens Metadata', async () => {
@@ -404,9 +407,9 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   // ── Step 6: gql6-oauth ────────────────────────────────────────────────────
 
-  it('gql6-oauth highlights auth preview', () => {
+  it('gql6-oauth highlights oauth token URL input', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-oauth')!;
-    expect(step.highlight).toBe(GQL.AUTH_PREVIEW);
+    expect(step.highlight).toBe(GQL.AUTH_OAUTH_TOKEN_URL);
   });
 
   it('gql6-oauth description mentions OAuth token URL and client credentials', () => {
@@ -459,8 +462,8 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   it('gql6-inherit-observe highlights Authorization bearer value row', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-observe')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
-    expect(step.verify).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
+    expect(step.verify).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
 
   it('gql6-inherit-observe description distinguishes global auth profile from connection profiles', () => {
@@ -468,6 +471,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.description).toContain(LESSON6_GLOBAL_AUTH_PROFILE_NAME);
     expect(step.description).toContain('global auth profile');
     expect(step.description).toContain('connection profiles');
+    expect(step.description).not.toContain('locked');
   });
 
   it('gql6-inherit-observe action executes and opens Metadata tab', async () => {
@@ -499,8 +503,19 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.description).toContain(`Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})`);
   });
 
+  it('gql6-profile preAction keeps auth tab visible', async () => {
+    buildLessonDom();
+    document.querySelector(GQL.BOTTOM_TAB_AUTH)?.setAttribute('aria-selected', 'true');
+    const ctx = makeCtx();
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-profile')!;
+    await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+  });
+
   it('gql6-profile action fills profile name and saves with human-paced delays', async () => {
     buildLessonDom();
+    document.querySelector(GQL.PROFILE_MODAL)?.remove();
+    (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal = vi.fn(() => false);
     const ctx = makeCtx();
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-profile')!;
     await step.action!(ctx);
@@ -508,6 +523,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON6_PROFILE_NAME);
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_SAVE_BTN);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
+    expect(ctx.delay).toHaveBeenCalledWith(50);
     expect(ctx.delay).toHaveBeenCalledWith(800);
     expect(ctx.delay).toHaveBeenCalledWith(600);
     expect(ctx.delay).toHaveBeenCalledWith(1500);
@@ -535,7 +551,7 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
 
   it('gql6-subscription-observe highlights inherit Authorization value row', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-observe')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
 
   it('gql6-subscription-observe description mentions subscriptions', () => {

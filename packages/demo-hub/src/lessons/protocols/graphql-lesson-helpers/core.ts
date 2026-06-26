@@ -708,6 +708,55 @@ export async function ensureDemoEndpoint(ctx: DemoActionContext): Promise<void> 
   _endpointSet = true;
 }
 
+/** Poll until the schema badge appears (Tauri IDB cache can lag behind preAction). */
+export async function waitForSchemaCached(
+  ctx: DemoActionContext,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (signal?.aborted) return false;
+    if (document.querySelector(GQL.SCHEMA_BADGE_OK)) return true;
+    await ctx.delay(100);
+  }
+  return !!document.querySelector(GQL.SCHEMA_BADGE_OK);
+}
+
+/** Switch the right pane to Schema via React bridge (preferred) or DOM click. */
+export async function setGqlRightTabSchema(ctx: DemoActionContext): Promise<void> {
+  const bridge = getDemoBridgeWindow().__demoSetGqlRightView;
+  if (bridge) {
+    bridge('schema');
+    await ctx.delay(300);
+    return;
+  }
+  await ctx.click(GQL.RIGHT_TAB_SCHEMA);
+  await ctx.delay(400);
+}
+
+/** Open Schema tab once the contract badge is green (cached or live introspect). */
+export async function openSchemaTabWhenCached(ctx: DemoActionContext): Promise<boolean> {
+  if (!document.querySelector(GQL.SCHEMA_BADGE_OK)) return false;
+  if (document.querySelector(GQL.RIGHT_TAB_SCHEMA)?.getAttribute('aria-selected') !== 'true') {
+    await setGqlRightTabSchema(ctx);
+  }
+  await ctx.waitFor(GQL.SCHEMA_EXPLORER, 5000);
+  await ctx.waitFor(GQL.SCHEMA_TYPE_LIST, 5000);
+  await ctx.delay(200);
+  return true;
+}
+
+/** Poll during reading pause and open Schema when IDB/async cache finishes loading. */
+export async function syncSchemaTabWhenCachedDuringReading(
+  ctx: DemoActionContext,
+  signal?: AbortSignal,
+): Promise<void> {
+  const cached = await waitForSchemaCached(ctx, 15000, signal);
+  if (!cached || signal?.aborted) return;
+  await openSchemaTabWhenCached(ctx);
+}
+
 /** Open the Schema tab and wait until the Query type is listed. */
 export async function openSchemaExplorer(ctx: DemoActionContext): Promise<void> {
   await ctx.click(GQL.RIGHT_TAB_SCHEMA);

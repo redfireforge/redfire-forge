@@ -9,7 +9,7 @@
  *     && docker compose up -d && docker compose -f docker-compose.mtls.yml up -d
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 12 disables Next — use walkFullGql5Lesson (GQL-1 style), not runNextStep on the final step.
+ * Last-step rule: step 16 disables Next — use walkFullGql5Lesson (GQL-1 style), not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';

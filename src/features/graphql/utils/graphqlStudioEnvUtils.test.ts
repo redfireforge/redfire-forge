@@ -4,6 +4,7 @@ import {
   buildActiveTabHeaderMap,
   buildGraphqlGlobalEnvMap,
   buildGraphqlSchemaHeaders,
+  describeEnvResolvedAuthPreview,
   resolveGraphqlEndpointProtocolStatus,
 } from './graphqlStudioEnvUtils';
 
@@ -64,5 +65,30 @@ describe('buildGraphqlSchemaHeaders', () => {
     );
     expect(headers.Authorization).toContain('secret');
     expect(headers['X-Custom']).toBe('staging');
+  });
+});
+
+describe('describeEnvResolvedAuthPreview', () => {
+  it('resolves bearer {{authToken}} from active GraphQL environment', () => {
+    const preview = describeEnvResolvedAuthPreview(
+      { type: 'bearer', token: '{{authToken}}' },
+      {
+        id: 'env-1',
+        name: 'Demo',
+        isActive: true,
+        variables: [{ key: 'authToken', value: 'lesson6-demo-jwt', enabled: true }],
+      },
+      {},
+    );
+    expect(preview).toBe('Authorization: Bearer lesson6-demo-jwt');
+  });
+
+  it('falls back to template preview when env vars are missing', () => {
+    const preview = describeEnvResolvedAuthPreview(
+      { type: 'bearer', token: '{{authToken}}' },
+      null,
+      {},
+    );
+    expect(preview).toContain('{{authToken}}');
   });
 });

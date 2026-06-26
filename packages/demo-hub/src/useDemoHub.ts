@@ -29,7 +29,9 @@ import {
 } from './adapters';
 import {
   GQL_MODAL_LOCK_OPEN,
-  resolveGqlModalLockForStepHighlight,
+  getEnvIntroStepIndex,
+  getProfileIntroStepIndex,
+  resolveGqlModalLockForLessonStep,
   syncGqlModalLock,
 } from './adapters/gqlModalLockBridge';
 import {
@@ -39,6 +41,26 @@ import {
   readDemoLiveSession,
 } from './demoLiveSession';
 import { startDemoLiveGuardHeartbeat, syncDemoLiveGuard } from './demoLiveGuard';
+import { scrollDemoTargetIntoView } from './demoSpotlightUtils';
+
+/** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
+const DEMO_PRE_SETTLE_MS = 60;
+const DEMO_SPOTLIGHT_SETTLE_MS = 250;
+const DEMO_POST_ACTION_SETTLE_MS = 350;
+const DEMO_VERIFY_ABSORB_MS = 500;
+const DEMO_VISIBLE_RIPPLE_MS = 280;
+const DEMO_VISIBLE_FILL_PAUSE_MS = 200;
+/** preAction is invisible — scale lesson delay() so Preparing does not linger. */
+const DEMO_QUIET_DELAY_FACTOR = 0.25;
+const DEMO_QUIET_DELAY_MIN_MS = 40;
+const DEMO_QUIET_DELAY_MAX_MS = 280;
+
+function scaleQuietDelay(ms: number): number {
+  return Math.min(
+    DEMO_QUIET_DELAY_MAX_MS,
+    Math.max(DEMO_QUIET_DELAY_MIN_MS, Math.round(ms * DEMO_QUIET_DELAY_FACTOR)),
+  );
+}
 
 async function runGqlDemoStorageHygiene(): Promise<void> {
   try {
@@ -222,6 +244,16 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
    * stale activeTab (still demo-hub) cannot immediately call exitLiveDemo().
    */
   const suppressLiveTabExitRef = useRef(false);
+  /**
+   * Once the viewer reaches the profile-save step in a live GraphQL lesson,
+   * keep Profiles unlocked for the rest of the session (even if they rewind).
+   */
+  const profilesIntroducedInSessionRef = useRef(false);
+  /**
+   * Once the viewer reaches the env-setup step in a live GraphQL lesson,
+   * keep Env unlocked for the rest of the session (even if they rewind).
+   */
+  const envIntroducedInSessionRef = useRef(false);
   /** Mirrors isPlaying for async auto-play callbacks (state closures can be stale). */
   const isPlayingRef = useRef(false);
   /** Mirrors stepPhase so nextStep can finish a skipped reading phase reliably. */
@@ -296,6 +328,15 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     return startDemoLiveGuardHeartbeat(state.selectedLesson.id);
   }, [state.view, state.selectedLesson]);
 
+  /** Free GraphQL Studio modals whenever live demo is not active. */
+  useEffect(() => {
+    if (state.view !== 'live') {
+      profilesIntroducedInSessionRef.current = false;
+      envIntroducedInSessionRef.current = false;
+      syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
+    }
+  }, [state.view]);
+
   // Derived: hub overlay visible when not in live mode
   const hubVisible = hubOpen && state.view !== 'live';
 
@@ -335,7 +376,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (el) {
         // Visual ripple so user sees what was clicked
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, 400)); // let ripple show
+        await new Promise(r => setTimeout(r, DEMO_VISIBLE_RIPPLE_MS));
         el.click();
       }
     },
@@ -343,7 +384,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const el = firstVisible(selector);
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
         fillControlledInput(el, value);
       }
     },
@@ -351,7 +392,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const el = firstVisible(selector) as HTMLSelectElement | null;
       if (el) {
         showClickRipple(el);
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
         const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
         nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -395,7 +436,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         await new Promise(r => setTimeout(r, 100));
       }
     },
-    delay: (ms: number) => new Promise(r => setTimeout(r, ms)),
+    delay: (ms: number) => new Promise(r => setTimeout(r, scaleQuietDelay(ms))),
   }), [navigateToTab]);
 
   const buildQuietContextRef = useRef(buildQuietContext);
@@ -515,6 +556,38 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   }, []);
 
   // ─── Live Demo Execution ───────────────────────────────────────
+  const syncGqlModalLockForLessonStep = useCallback((
+    lesson: DemoLesson,
+    stepIndex: number,
+    step: DemoStep,
+  ) => {
+    const profileIntroIndex = getProfileIntroStepIndex(lesson.id, lesson.steps);
+    if (profileIntroIndex >= 0 && stepIndex >= profileIntroIndex) {
+      profilesIntroducedInSessionRef.current = true;
+    }
+    const envIntroIndex = getEnvIntroStepIndex(lesson.id, lesson.steps);
+    if (envIntroIndex >= 0 && stepIndex >= envIntroIndex) {
+      envIntroducedInSessionRef.current = true;
+    }
+    syncGqlModalLock(resolveGqlModalLockForLessonStep({
+      step: { id: step.id, highlight: step.highlight, verify: step.verify },
+      lessonId: lesson.id,
+      stepIndex,
+      steps: lesson.steps,
+      profilesIntroducedInSession: profilesIntroducedInSessionRef.current,
+      envIntroducedInSession: envIntroducedInSessionRef.current,
+    }));
+  }, []);
+
+  /** Keep Env lock in sync when live step changes (including session restore before executeCurrentStep). */
+  useEffect(() => {
+    if (state.view !== 'live' || !state.selectedLesson) return;
+    if (!isGraphqlStudioLesson(state.selectedLesson)) return;
+    const step = state.selectedLesson.steps[state.stepIndex];
+    if (!step) return;
+    syncGqlModalLockForLessonStep(state.selectedLesson, state.stepIndex, step);
+  }, [state.view, state.selectedLesson, state.stepIndex, syncGqlModalLockForLessonStep]);
+
   /**
    * Step execution pipeline (human-paced):
    *   1. preAction — invisible nav/setup (instant, quiet)
@@ -527,7 +600,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const executeCurrentStep = useCallback(async (
     step: DemoStep,
     speed: SpeedMultiplier,
-    options?: { skipReading?: boolean },
+    options?: { skipReading?: boolean; stepIndex?: number },
   ) => {
     // Cancel any prior running pipeline
     abortRef.current?.abort();
@@ -542,15 +615,16 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     try {
       const lesson = state.selectedLesson;
+      const stepIndex = options?.stepIndex ?? state.stepIndex;
       if (lesson && isGraphqlStudioLesson(lesson)) {
-        syncGqlModalLock(resolveGqlModalLockForStepHighlight(step.highlight));
+        syncGqlModalLockForLessonStep(lesson, stepIndex, step);
       }
 
       // Phase 1: preAction (invisible navigation)
       setStepPhase('pre');
       if (step.preAction) {
         try { await step.preAction(quietCtx); } catch (e) { console.warn('[DemoHub] preAction failed:', e); }
-        await abortableSleep(200, signal); // DOM settle
+        await abortableSleep(DEMO_PRE_SETTLE_MS, signal); // DOM settle
         if (signal.aborted) return;
       }
 
@@ -573,11 +647,22 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         if (signal.aborted) return;
         const allHighlight = document.querySelectorAll(step.highlight);
         const el = Array.from(allHighlight).find(e => isElementVisible(e)) ?? null;
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await abortableSleep(400, signal);
+        if (el instanceof HTMLElement) {
+          scrollDemoTargetIntoView(el, { block: 'center' });
+        }
+        await abortableSleep(DEMO_SPOTLIGHT_SETTLE_MS, signal);
       })();
 
-      await Promise.all([readingPause, spotlightWork]);
+      const readingSyncWork = (async () => {
+        if (!step.readingSync) return;
+        try {
+          await step.readingSync(quietCtx, signal);
+        } catch (e) {
+          console.warn('[DemoHub] readingSync failed:', e);
+        }
+      })();
+
+      await Promise.all([readingPause, spotlightWork, readingSyncWork]);
       skipReadingRef.current = null;
       if (signal.aborted) return;
 
@@ -586,7 +671,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('action');
         try { await step.action(visibleCtx); } catch (e) { console.warn('[DemoHub] action failed:', e); }
         // Post-action settle — lets user see the result of the click/fill
-        await abortableSleep(scaleMs(800), signal);
+        await abortableSleep(scaleMs(DEMO_POST_ACTION_SETTLE_MS), signal);
         if (signal.aborted) return;
       }
 
@@ -595,7 +680,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('verify');
         await waitForElement(step.verify, 3000, signal);
         if (signal.aborted) return;
-        await abortableSleep(scaleMs(1200), signal); // absorb result
+        await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal); // absorb result
         if (signal.aborted) return;
       }
 
@@ -606,7 +691,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('done');
       }
     }
-  }, [buildContext, buildQuietContext, waitForElement, abortableSleep, state.selectedLesson]);
+  }, [buildContext, buildQuietContext, waitForElement, abortableSleep, state.selectedLesson, state.stepIndex, syncGqlModalLockForLessonStep]);
 
   /** Run action + verify when the user skips the reading pause via Next / ArrowRight. */
   const finishCurrentStepFromReading = useCallback(async (step: DemoStep, speed: SpeedMultiplier) => {
@@ -626,7 +711,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (step.action) {
         setStepPhase('action');
         try { await step.action(visibleCtx); } catch (e) { console.warn('[DemoHub] action failed:', e); }
-        await abortableSleep(scaleMs(800), signal);
+        await abortableSleep(scaleMs(DEMO_POST_ACTION_SETTLE_MS), signal);
         if (signal.aborted) return;
       }
 
@@ -634,7 +719,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('verify');
         await waitForElement(step.verify, 25000, signal);
         if (signal.aborted) return;
-        await abortableSleep(scaleMs(1200), signal);
+        await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal);
         if (signal.aborted) return;
       }
 
@@ -683,7 +768,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     const step = lesson.steps[stepIndex];
     if (step) {
-      await executeCurrentStep(step, state.speed, { skipReading: true });
+      await executeCurrentStep(step, state.speed, { skipReading: true, stepIndex });
       if (!isMountedRef.current || autoPlayGenRef.current !== gen) return;
       progress.setLessonStep(lesson.id, stepIndex);
     }
@@ -708,13 +793,16 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
     const gen = autoPlayGenRef.current;
 
+    profilesIntroducedInSessionRef.current = false;
+    envIntroducedInSessionRef.current = false;
+    syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
     setState(prev => ({ ...prev, view: 'live', stepIndex: 0, isPlaying: false }));
 
     const ok = await runLiveDemoSetup(lesson, gen);
     if (!ok) return;
 
     if (isMountedRef.current && lesson.steps[0]) {
-      await executeCurrentStep(lesson.steps[0], state.speed);
+      await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
       progress.setLessonStep(lesson.id, 0);
     }
   }, [state.selectedLesson, state.speed, runLiveDemoSetup, executeCurrentStep, progress]);
@@ -730,14 +818,18 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     abortRef.current?.abort();
     // Reset phase BEFORE updating stepIndex to prevent spotlight flash
     setStepPhase('pre');
+    const targetStep = lesson.steps[clamped];
+    if (isGraphqlStudioLesson(lesson)) {
+      syncGqlModalLockForLessonStep(lesson, clamped, targetStep);
+    }
     setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
-    await executeCurrentStep(lesson.steps[clamped], state.speed);
+    await executeCurrentStep(targetStep, state.speed, { stepIndex: clamped });
     progress.setLessonStep(lesson.id, clamped);
     // At the last step: stop auto-play so the user can read before choosing to Complete.
     if (clamped >= lesson.steps.length - 1) {
       setState(prev => ({ ...prev, isPlaying: false }));
     }
-  }, [state.selectedLesson, state.speed, executeCurrentStep, progress]);
+  }, [state.selectedLesson, state.speed, executeCurrentStep, progress, syncGqlModalLockForLessonStep]);
 
   const nextStep = useCallback(async () => {
     const lesson = state.selectedLesson;
@@ -793,7 +885,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
           if (isMountedRef.current && lesson.steps[0] && autoPlayGenRef.current === atEndGen) {
             // Re-enable auto-play now that setup is done, then execute step 0.
             setState(prev => ({ ...prev, isPlaying: true }));
-            await executeCurrentStep(lesson.steps[0], currentSpeed);
+            await executeCurrentStep(lesson.steps[0], currentSpeed, { stepIndex: 0 });
             progress.setLessonStep(lesson.id, 0);
           }
         }, 50);
@@ -845,7 +937,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const nextIdx = state.stepIndex + 1;
       setStepPhase('pre');
       setState(prev => ({ ...prev, stepIndex: nextIdx }));
-      await executeCurrentStep(lesson.steps[nextIdx], state.speed);
+      await executeCurrentStep(lesson.steps[nextIdx], state.speed, { stepIndex: nextIdx });
       progressSetStep(lesson.id, nextIdx);
     }, breathingPause);
 
@@ -860,6 +952,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const restartDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
+    profilesIntroducedInSessionRef.current = false;
+    envIntroducedInSessionRef.current = false;
     closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     autoPlayGenRef.current++; // invalidate any already-running auto-play callback
@@ -890,7 +984,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       suppressLiveTabExitRef.current = false;
     }
     if (isMountedRef.current && lesson.steps[0]) {
-      await executeCurrentStep(lesson.steps[0], state.speed);
+      await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
       progress.setLessonStep(lesson.id, 0);
     }
   }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, executeCurrentStep, progress]);
@@ -900,6 +994,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // the user should never see a blank body while cleanup operations complete.
   const exitLiveDemo = useCallback(async () => {
     await syncDemoLiveGuard(false);
+    profilesIntroducedInSessionRef.current = false;
+    envIntroducedInSessionRef.current = false;
     syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
     clearDemoLiveSession();
     closeWorkflowConfigModal();
