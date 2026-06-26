@@ -80,7 +80,24 @@ const LESSON12_CURRENT_SDL = `
   }
 `;
 
-function stubSchemaExplorerDom(): void {
+const DIFF_MODAL_HTML = `
+    <div data-testid="gql-diff-modal">
+      <span class="gql-diff-count gql-diff-count--breaking">1 Breaking</span>
+      <div class="gql-diff-filters">
+        <button class="gql-diff-filter gql-diff-filter--all">All</button>
+        <button class="gql-diff-filter gql-diff-filter--breaking">Breaking</button>
+        <button class="gql-diff-filter gql-diff-filter--safe">Safe</button>
+        <button class="gql-diff-filter gql-diff-filter--deprecated">Deprecated</button>
+      </div>
+      <div class="gql-diff-content">
+        <div data-testid="gql-diff-row"></div>
+      </div>
+      <button data-testid="gql-diff-export-json">Export JSON</button>
+      <button data-testid="gql-diff-done">Done</button>
+    </div>`;
+
+function stubSchemaExplorerDom(options?: { withDiffModal?: boolean }): void {
+  const withDiffModal = options?.withDiffModal ?? false;
   document.body.innerHTML = `
     <button data-testid="gql-se-tab-types" class="gql-se-main-tab--active"></button>
     <button data-testid="gql-se-save-snapshot"></button>
@@ -99,20 +116,7 @@ function stubSchemaExplorerDom(): void {
         <button data-testid="gql-changelog-diff-btn">View diff</button>
       </div>
     </div>
-    <div data-testid="gql-diff-modal">
-      <span class="gql-diff-count gql-diff-count--breaking">1 Breaking</span>
-      <div class="gql-diff-filters">
-        <button class="gql-diff-filter gql-diff-filter--all">All</button>
-        <button class="gql-diff-filter gql-diff-filter--breaking">Breaking</button>
-        <button class="gql-diff-filter gql-diff-filter--safe">Safe</button>
-        <button class="gql-diff-filter gql-diff-filter--deprecated">Deprecated</button>
-      </div>
-      <div class="gql-diff-content">
-        <div data-testid="gql-diff-row"></div>
-      </div>
-      <button data-testid="gql-diff-export-json">Export JSON</button>
-      <button data-testid="gql-diff-done">Done</button>
-    </div>
+    ${withDiffModal ? DIFF_MODAL_HTML : ''}
     <div data-testid="gql-schema-explorer"></div>
     <div data-testid="gql-se-type-list"></div>
     <span data-testid="gql-schema-badge-ok"></span>
@@ -424,7 +428,7 @@ describe('gql-schema-diff lesson', () => {
 
   it('gql12-export clicks export JSON and closes diff modal', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     const doneBtn = document.querySelector<HTMLButtonElement>(GQL.DIFF_DONE)!;
     doneBtn.addEventListener('click', () => document.querySelector(GQL.DIFF_MODAL)?.remove());
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-export')!;
@@ -441,18 +445,24 @@ describe('gql-schema-diff lesson', () => {
 
   it('gql12-breaking action pauses on breaking count badge', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-breaking')!;
+    vi.mocked(ctx.click).mockClear();
     await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.SE_TAB_TYPES);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_TAB);
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalledWith(1500);
   });
 
   it('gql12-diff-modal pauses on change list content', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     const step = gqlSchemaDiffLesson.steps.find((s) => s.id === 'gql12-diff-modal')!;
+    vi.mocked(ctx.click).mockClear();
     await step.preAction!(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.SE_TAB_TYPES);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_TAB);
     await step.action!(ctx);
     expect(ctx.delay).toHaveBeenCalledWith(1500);
     expect(document.querySelector(GQL.DIFF_CONTENT)).toBeTruthy();
@@ -555,7 +565,7 @@ describe('gql-schema-diff lesson', () => {
 
   it('ensureLesson12DiffOpen guard skips diff button on repeat', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     await ensureLesson12DiffOpen(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson12DiffOpen(ctx);
@@ -563,9 +573,22 @@ describe('gql-schema-diff lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_DIFF_BTN);
   });
 
+  it('ensureLesson12DiffOpen skips Types and Changelog clicks when modal is already open', async () => {
+    const ctx = makeCtx();
+    stubSchemaExplorerDom({ withDiffModal: true });
+    const typesTab = document.querySelector<HTMLElement>(GQL.SE_TAB_TYPES)!;
+    const changelogTab = document.querySelector<HTMLElement>(GQL.CHANGELOG_TAB)!;
+    typesTab.classList.remove('gql-se-main-tab--active');
+    changelogTab.classList.add('gql-se-main-tab--active');
+    resetGqlLesson12SessionFlags();
+    await ensureLesson12DiffOpen(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.SE_TAB_TYPES);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.CHANGELOG_TAB);
+  });
+
   it('ensureLesson12DiffFilters guard skips filter clicks on repeat', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     await ensureLesson12DiffFilters(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson12DiffFilters(ctx);
@@ -577,7 +600,7 @@ describe('gql-schema-diff lesson', () => {
 
   it('ensureLesson12DiffExported guard skips export on repeat', async () => {
     const ctx = makeCtx();
-    stubSchemaExplorerDom();
+    stubSchemaExplorerDom({ withDiffModal: true });
     await ensureLesson12DiffExported(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson12DiffExported(ctx);

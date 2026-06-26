@@ -60,20 +60,15 @@ async function dismissHistoryContextMenu(ctx: DemoActionContext): Promise<void> 
 
 async function openHistoryEntryContextMenu(ctx: DemoActionContext): Promise<void> {
   const entry = document.querySelector<HTMLElement>(GQL.HISTORY_ENTRY);
-  if (entry) {
-    entry.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }));
-    await ctx.delay(600);
-  }
-}
-
-async function clickHistoryContextMenuItem(ctx: DemoActionContext, label: string): Promise<void> {
+  if (!entry) return;
+  entry.scrollIntoView?.({ block: 'nearest' });
+  await ctx.delay(300);
+  const rect = entry.getBoundingClientRect();
+  const x = Math.round(rect.left + Math.min(rect.width * 0.55, rect.width - 12));
+  const y = Math.round(rect.top + rect.height / 2);
+  entry.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
   await ctx.waitFor(GQL.HISTORY_CONTEXT_MENU, 5000);
-  const btn = Array.from(document.querySelectorAll<HTMLElement>(`${GQL.HISTORY_CONTEXT_MENU} button`))
-    .find((b) => b.textContent?.includes(label));
-  if (btn) {
-    btn.click();
-    await ctx.delay(600);
-  }
+  await ctx.delay(600);
 }
 
 /** Select `health` and `user` fields in Builder (with required `id` arg). */
@@ -162,19 +157,21 @@ export async function ensureHistoryEntryVisible(ctx: DemoActionContext): Promise
 export async function prepareGql9CurlReading(ctx: DemoActionContext): Promise<void> {
   await ensureHistoryEntryVisible(ctx);
   if (_lesson9CurlCopied) return;
-  if (document.querySelector(GQL.HISTORY_CONTEXT_MENU)) return;
-  await openHistoryEntryContextMenu(ctx);
+  if (!document.querySelector(GQL.HISTORY_CTX_COPY_CURL)) {
+    await openHistoryEntryContextMenu(ctx);
+  }
 }
 
 /** Copy as cURL from History context menu. */
 export async function copyHistoryAsCurl(ctx: DemoActionContext): Promise<void> {
   await ensureHistoryEntryVisible(ctx);
   if (_lesson9CurlCopied) return;
-  if (!document.querySelector(GQL.HISTORY_CONTEXT_MENU)) {
+  if (!document.querySelector(GQL.HISTORY_CTX_COPY_CURL)) {
     await openHistoryEntryContextMenu(ctx);
-    await ctx.delay(2000);
+    await ctx.delay(1200);
   }
-  await clickHistoryContextMenuItem(ctx, 'Copy as cURL');
+  await ctx.waitFor(GQL.HISTORY_CTX_COPY_CURL, 5000);
+  await ctx.click(GQL.HISTORY_CTX_COPY_CURL);
   await ctx.delay(1500);
   await dismissHistoryContextMenu(ctx);
   _lesson9CurlCopied = true;

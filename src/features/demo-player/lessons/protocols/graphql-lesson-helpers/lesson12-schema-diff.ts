@@ -107,6 +107,18 @@ let _lesson12DiffOpen = false;
 let _lesson12FiltersDemoed = false;
 let _lesson12Exported = false;
 
+/** True when the Schema Diff modal is visible — background tab clicks must not run. */
+function isLesson12DiffModalOpen(): boolean {
+  return !!document.querySelector(GQL.DIFF_MODAL);
+}
+
+/** Skip schema-explorer navigation when the diff modal is open (preAction on later steps). */
+function skipWhenDiffModalOpen(): boolean {
+  if (!isLesson12DiffModalOpen()) return false;
+  _lesson12DiffOpen = true;
+  return true;
+}
+
 export function resetGqlLesson12SessionFlags(): void {
   _lesson12StartTime = 0;
   _lesson12BaselineId = '';
@@ -200,6 +212,7 @@ export async function ensureLesson12BaselineSnapshot(): Promise<void> {
 
 /** Open Schema Explorer on the Types tab (Save snapshot lives here). */
 export async function ensureLesson12TypesTab(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
   await ensureSchemaExplorerOpen(ctx);
   const typesTab = document.querySelector<HTMLElement>(GQL.SE_TAB_TYPES);
   if (typesTab && !typesTab.classList.contains('gql-se-main-tab--active')) {
@@ -210,6 +223,7 @@ export async function ensureLesson12TypesTab(ctx: DemoActionContext): Promise<vo
 
 /** Click Save snapshot — persists current introspected SDL. */
 export async function ensureLesson12SnapshotSaved(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
   await ensureLesson12TypesTab(ctx);
   if (_lesson12SnapshotSaved && document.querySelectorAll(GQL.CHANGELOG_ROW).length >= 1) {
     return;
@@ -222,6 +236,7 @@ export async function ensureLesson12SnapshotSaved(ctx: DemoActionContext): Promi
 
 /** Open the Changelog tab with at least one snapshot row visible. */
 export async function ensureLesson12ChangelogOpen(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
   await ensureLesson12SnapshotSaved(ctx);
   if (_lesson12ChangelogOpen && document.querySelector(GQL.CHANGELOG_PANEL)) return;
   await ctx.click(GQL.CHANGELOG_TAB);
@@ -239,6 +254,7 @@ export function notifyGqlSnapshotsChanged(): void {
 
 /** Ensure baseline row is visible in changelog (re-seed, expand list, mark for spotlight). */
 export async function ensureLesson12BaselineReady(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
   await ensureLesson12ChangelogOpen(ctx);
 
   const hasBaselineInDom = () =>
@@ -270,8 +286,9 @@ export async function ensureLesson12BaselineReady(ctx: DemoActionContext): Promi
 
 /** Open diff modal — baseline snapshot vs current schema. */
 export async function ensureLesson12DiffOpen(ctx: DemoActionContext): Promise<void> {
+  if (skipWhenDiffModalOpen()) return;
   await ensureLesson12BaselineReady(ctx);
-  if (_lesson12DiffOpen && document.querySelector(GQL.DIFF_MODAL)) return;
+  if (_lesson12DiffOpen && isLesson12DiffModalOpen()) return;
 
   const baselineSelected = await selectBaselineChangelogRow(ctx);
   if (!baselineSelected) {
